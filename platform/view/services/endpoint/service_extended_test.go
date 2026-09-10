@@ -41,7 +41,7 @@ func TestBind(t *testing.T) {
 		err = service.Bind(context.Background(), longTerm, ephemeral)
 		require.NoError(t, err)
 
-		assert.Equal(t, 1, bindingStore.PutBindingsCallCount())
+		require.Equal(t, 1, bindingStore.PutBindingsCallCount())
 		ctx, lt, ephs := bindingStore.PutBindingsArgsForCall(0)
 		assert.NotNil(t, ctx)
 		assert.Equal(t, longTerm, lt)
@@ -64,7 +64,7 @@ func TestBind(t *testing.T) {
 		err = service.Bind(context.Background(), longTerm, ephemeral1, ephemeral2, ephemeral3)
 		require.NoError(t, err)
 
-		assert.Equal(t, 1, bindingStore.PutBindingsCallCount())
+		require.Equal(t, 1, bindingStore.PutBindingsCallCount())
 		_, _, ephs := bindingStore.PutBindingsArgsForCall(0)
 		assert.Equal(t, []view.Identity{ephemeral1, ephemeral2, ephemeral3}, ephs)
 	})
@@ -85,7 +85,7 @@ func TestBind(t *testing.T) {
 		err = service.Bind(context.Background(), longTerm, ephemeral1, ephemeral2, ephemeral3)
 		require.NoError(t, err)
 
-		assert.Equal(t, 1, bindingStore.PutBindingsCallCount())
+		require.Equal(t, 1, bindingStore.PutBindingsCallCount())
 		_, _, ephs := bindingStore.PutBindingsArgsForCall(0)
 		// ephemeral2 should be filtered out
 		assert.Equal(t, []view.Identity{ephemeral1, ephemeral3}, ephs)
@@ -158,7 +158,7 @@ func TestIsBoundTo(t *testing.T) {
 		result := service.IsBoundTo(context.Background(), id1, id2)
 		assert.True(t, result)
 
-		assert.Equal(t, 1, bindingStore.HaveSameBindingCallCount())
+		require.Equal(t, 1, bindingStore.HaveSameBindingCallCount())
 		ctx, a, b := bindingStore.HaveSameBindingArgsForCall(0)
 		assert.NotNil(t, ctx)
 		assert.Equal(t, id1, a)

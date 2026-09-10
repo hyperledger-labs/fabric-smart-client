@@ -46,25 +46,25 @@ func TestTimeoutSimple(t *testing.T) {
 	}
 
 	mu.RLock()
-	assert.Empty(t, allEvicted)
-	assert.Equal(t, 5, c.Len())
+	require.Empty(t, allEvicted)
+	require.Equal(t, 5, c.Len())
 	for k, expected := range input {
 		actual, _ := c.Get(k)
-		assert.Equal(t, expected, actual)
+		require.Equal(t, expected, actual)
 	}
 	mu.RUnlock()
 
-	assert.EventuallyWithT(t, func(a *assert.CollectT) {
+	require.EventuallyWithT(t, func(a *assert.CollectT) {
 		// eventually our cache is empty again due to eviction
 		assert.Equal(a, 0, c.Len())
 	}, timeout, tick)
 
 	mu.RLock()
-	assert.Equal(t, input, allEvicted)
+	require.Equal(t, input, allEvicted)
 	mu.RUnlock()
 
 	_, ok := c.Get(1)
-	assert.False(t, ok)
+	require.False(t, ok)
 }
 
 func TestTimeoutParallel(t *testing.T) {
@@ -89,18 +89,18 @@ func TestTimeoutParallel(t *testing.T) {
 	initialLen := c.Len()
 	initialEvicted := int(evictedCount.Load())
 
-	assert.GreaterOrEqual(t, initialLen, 0)
-	assert.LessOrEqual(t, initialLen, numItem)
-	assert.GreaterOrEqual(t, initialEvicted, 0)
-	assert.LessOrEqual(t, initialEvicted, numItem)
+	require.GreaterOrEqual(t, initialLen, 0)
+	require.LessOrEqual(t, initialLen, numItem)
+	require.GreaterOrEqual(t, initialEvicted, 0)
+	require.LessOrEqual(t, initialEvicted, numItem)
 
-	assert.EventuallyWithT(t, func(a *assert.CollectT) {
+	require.EventuallyWithT(t, func(a *assert.CollectT) {
 		// eventually our cache is empty again due to eviction
 		assert.Equal(a, 0, c.Len())
 	}, timeout, tick)
 
 	// once empty evictedCount should match the number of items we cached before
-	assert.Equal(t, numItem, int(evictedCount.Load()))
+	require.Equal(t, numItem, int(evictedCount.Load()))
 }
 
 // TestTimeoutCache_CleanupGoroutineStopsOnCancel asserts the background eviction

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -27,13 +28,13 @@ func TestSqlite(t *testing.T) {
 	}
 	common.TestCases(t, func(_ string) (driver.KeyValueStore, error) {
 		p, err := NewKeyValueStore(utils.MustGet(open(o)), common.GetTableNames(o.TablePrefix, o.TableNameParams...))
-		assert.NoError(t, err)
-		assert.NoError(t, p.CreateSchema())
+		require.NoError(t, err)
+		require.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(_ string) (driver.UnversionedNotifier, error) {
 		p, err := NewKeyValueStoreNotifier(utils.MustGet(open(o)), "test")
-		assert.NoError(t, err)
-		assert.NoError(t, p.Persistence.(*KeyValueStore).CreateSchema())
+		require.NoError(t, err)
+		require.NoError(t, p.Persistence.(*KeyValueStore).CreateSchema())
 		return p, nil
 	}, func(p driver.KeyValueStore) *common.KeyValueStore {
 		return p.(*KeyValueStore).KeyValueStore

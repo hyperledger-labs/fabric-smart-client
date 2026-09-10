@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTopology_SetLogging(t *testing.T) {
@@ -79,7 +80,7 @@ func TestNewTopology_DefaultsToWebSocket(t *testing.T) {
 	t.Parallel()
 	// websocket is the primary comm implementation, so a topology that does not
 	// state a transport must get websocket rather than the optional libp2p host.
-	assert.Equal(t, WebSocket, NewTopology().P2PCommunicationType)
+	require.Equal(t, WebSocket, NewTopology().P2PCommunicationType)
 }
 
 func TestPlatform_P2PCommunicationType(t *testing.T) {
@@ -97,7 +98,7 @@ func TestPlatform_P2PCommunicationType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			p := &Platform{Topology: tt.topology}
-			assert.Equal(t, tt.want, p.P2PCommunicationType())
+			require.Equal(t, tt.want, p.P2PCommunicationType())
 		})
 	}
 }

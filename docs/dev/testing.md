@@ -1,5 +1,46 @@
 # Testing Guide
 
+This document outlines how to write and run tests in FSC.
+
+## Unit tests
+
+### Choosing `assert` over `require`
+
+`require` stops the test immediately on failure (`t.FailNow()`, via `runtime.Goexit()`);
+`assert` records the failure and lets the test keep running. At each call site, ask
+whether continuing past this failure would produce a misleading result or a crash, or
+whether it's an independent check.
+
+**Use `require` when:**
+
+- A later line dereferences, indexes, or type-asserts the value just checked, e.g.
+  `require.NoError(t, err)` before `client.Do()`, or `require.NotNil(t, x)` before
+  `x.Field`. Without it, a nil value or an error here panics instead of failing the
+  test cleanly, and the panic message says far less than the assertion would have.
+- The checks form a sequence where each step depends on the last one succeeding (a
+  Put → Get → Delete → Get flow, setup before the real test body). One failure here
+  makes every assertion after it noise.
+- It's a manual `if err != nil { t.Fatalf(...) }` — that's `require.NoError` spelled
+  out by hand, so convert it.
+
+**Use `assert` when:**
+
+- The checks are independent, such as a table-driven test verifying several unrelated
+  fields, where you want to see every failure in one run rather than stopping at the
+  first.
+- The call runs off the test's main goroutine: inside a spawned `go func()`, `wg.Go()`,
+  or an `httptest` handler closure. `Goexit()` is unsafe to call from any goroutine but
+  the test's own, so `require` there can hang the test or corrupt the result instead of
+  failing it cleanly.
+- The call sits inside an `EventuallyWithT` callback. Both `assert.EventuallyWithT` and
+  `require.EventuallyWithT` take the same callback signature,
+  `func(collect *assert.CollectT)` — testify's `require` package defines no `CollectT`
+  of its own — so calls inside that callback are `assert.X` regardless of which outer
+  function you used.
+
+Default to `require`, and drop to `assert` only for one of the three reasons above.
+This is a per-call-site judgment, not a mechanical swap.
+
 ## Fuzzing
 
 Go's native fuzzing mutates test inputs to find panics and other unrecovered crashes; see

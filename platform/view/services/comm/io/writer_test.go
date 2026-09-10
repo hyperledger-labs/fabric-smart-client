@@ -77,7 +77,7 @@ func TestVarintWriter_WriteData(t *testing.T) {
 		w := newVarintWriter(&errorWriter{failOn: 0})
 		err := w.WriteData([]byte("test"))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "could not write message length")
+		require.Contains(t, err.Error(), "could not write message length")
 	})
 
 	t.Run("write error on data", func(t *testing.T) {

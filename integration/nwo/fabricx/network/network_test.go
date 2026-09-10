@@ -9,7 +9,7 @@ package network
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseNamespaceList(t *testing.T) {
@@ -84,7 +84,7 @@ func TestParseNamespaceList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			result := parseNamespaceList(tt.output)
-			assert.Equal(t, tt.expected, result)
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }

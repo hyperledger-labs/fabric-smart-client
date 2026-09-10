@@ -33,9 +33,9 @@ func TestLoad(t *testing.T) {
 
 	b, err := x509.ToBCCSPOpts(network.MSPs[0].Opts[x509.BCCSPOptField])
 	require.NoError(t, err)
-	assert.NotNil(t, b.SW)
+	require.NotNil(t, b.SW)
 	assert.Equal(t, "SHA2", b.SW.Hash)
-	assert.NotNil(t, b.PKCS11)
+	require.NotNil(t, b.PKCS11)
 	assert.Equal(t, 256, b.PKCS11.Security)
 	assert.Equal(t, "ForFSC", b.PKCS11.Label)
 	assert.Equal(t, "98765432", b.PKCS11.Pin)

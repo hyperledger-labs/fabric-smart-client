@@ -9,7 +9,7 @@ package events_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
@@ -34,10 +34,10 @@ func TestSubscribers(t *testing.T) {
 	s.Set("1", b, a)
 
 	b1, ok := s.Get("0", a)
-	assert.True(t, ok)
-	assert.Equal(t, b, b1)
+	require.True(t, ok)
+	require.Equal(t, b, b1)
 
 	b1, ok = s.Get("0", b)
-	assert.False(t, ok)
-	assert.Nil(t, b1)
+	require.False(t, ok)
+	require.Nil(t, b1)
 }

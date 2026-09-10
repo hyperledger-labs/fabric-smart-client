@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -68,7 +67,7 @@ func TestMTLSStrictness(t *testing.T) {
 		if resp != nil {
 			_ = resp.Body.Close()
 		}
-		assert.Error(t, err, "Websocket dial should have failed without client certificate")
+		require.Error(t, err, "Websocket dial should have failed without client certificate")
 	})
 
 	t.Run("Untrusted Client Certificate - Connection Rejected", func(t *testing.T) {
@@ -81,7 +80,7 @@ func TestMTLSStrictness(t *testing.T) {
 		if resp != nil {
 			_ = resp.Body.Close()
 		}
-		assert.Error(t, err, "Websocket dial should have failed with untrusted client certificate")
+		require.Error(t, err, "Websocket dial should have failed with untrusted client certificate")
 	})
 
 	t.Run("Expired Certificate - Connection Rejected", func(t *testing.T) {

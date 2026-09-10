@@ -11,6 +11,9 @@ exempts, is in [Contribution Workflow → Tests](../dev/workflow.md#tests).
 That is the project convention. Some existing unit suites still use Ginkgo/Gomega and
 will be migrated — follow the convention, not the neighbouring file.
 
+See [`docs/dev/testing.md`](../dev/testing.md) for testing best practices, including
+when to reach for `assert` instead of `require`.
+
 ## Running tests
 
 Scope every run to what you changed:
