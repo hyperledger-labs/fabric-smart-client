@@ -171,6 +171,8 @@ func FuzzTransactionSetFromEnvelopeBytes(f *testing.F) {
 	f.Add(validEnvBytes)
 	f.Add(emptyArgsEnvBytes)
 	f.Add([]byte("not a protobuf message"))
+	f.Add([]byte(nil))
+	f.Add([]byte(""))
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
 		tx, err := factory.NewTransaction(t.Context(), "channel", nil, nil, "", nil)

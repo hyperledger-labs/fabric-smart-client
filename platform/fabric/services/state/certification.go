@@ -78,7 +78,7 @@ func GetCertification(tx TxTransientStore, id string) ([]byte, error) {
 	}
 	t := tx.GetTransient(k)
 	if len(t) == 0 {
-		return nil, errors.Wrap(err, "no certification found")
+		return nil, errors.New("no certification found")
 	}
 
 	return t, nil
