@@ -61,13 +61,21 @@ func NewFabricFinality(
 	return d, nil
 }
 
-func (d *FabricFinality) IsFinal(txID, address string) error {
+// IsFinal probes a peer configured for finality for the given transaction,
+// returning an error if no peer is configured for that role.
+func (d *FabricFinality) IsFinal(txID string) error {
 	d.Logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
-	client, err := d.Services.NewPeerClient(*d.ConfigService.PickPeer(driver.PeerForFinality))
+	peerConnConf := d.ConfigService.PickPeer(driver.PeerForFinality)
+	if peerConnConf == nil {
+		return errors.New("no peer configured for finality")
+	}
+	address := peerConnConf.Address
+
+	client, err := d.Services.NewPeerClient(*peerConnConf)
 	if err != nil {
 		return errors.WithMessagef(err, "failed creating peer client for address [%s]", address)
 	}

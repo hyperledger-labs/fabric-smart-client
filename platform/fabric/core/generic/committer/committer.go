@@ -56,7 +56,7 @@ type (
 )
 
 type FabricFinality interface {
-	IsFinal(txID, address string) error
+	IsFinal(txID string) error
 }
 
 type CommitTx struct {
@@ -395,15 +395,14 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 			}
-			peerForFinality := c.ConfigService.PickPeer(driver.PeerForFinality).Address
-			err := c.FabricFinality.IsFinal(txID, peerForFinality)
+			err := c.FabricFinality.IsFinal(txID)
 			if err == nil {
-				c.logger.Debugf("Tx [%s] is final, remote check on [%s]", txID, peerForFinality)
+				c.logger.Debugf("Tx [%s] is final, remote check succeeded", txID)
 				return nil
 			}
 
 			if vd, _, err2 := c.Status(ctx, txID); err2 == nil && vd == driver.Unknown {
-				c.logger.Debugf("Tx [%s] is not final for remote [%s], return [%s], [%d][%s]", txID, peerForFinality, err, vd, err2)
+				c.logger.Debugf("Tx [%s] is not final remotely, return [%s], [%d][%s]", txID, err, vd, err2)
 				return err
 			}
 		default:

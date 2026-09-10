@@ -215,7 +215,11 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 			pCli.Close()
 		}
 	}()
-	pc, err := d.chaincode.Services.NewPeerClient(*d.chaincode.ConfigService.PickPeer(driver.PeerForDiscovery))
+	peerConnConf := d.chaincode.ConfigService.PickPeer(driver.PeerForDiscovery)
+	if peerConnConf == nil {
+		return nil, errors.New("no peer configured for discovery")
+	}
+	pc, err := d.chaincode.Services.NewPeerClient(*peerConnConf)
 	if err != nil {
 		return nil, err
 	}
