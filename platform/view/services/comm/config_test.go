@@ -88,7 +88,11 @@ func TestNewConfig(t *testing.T) {
 		require.Equal(t, DefaultMaxMessageSize, cfg.maxSendMsgSize)
 	})
 
-	t.Run("zero maxRecvMsgSize and maxSendMsgSize are allowed", func(t *testing.T) {
+	// Zero must fall back to the default rather than pass through, matching the
+	// buffer sizes clamped in the same function. A zero maxRecvMsgSize reaches
+	// the varint reader as "no limit", letting a peer claim an arbitrary message
+	// length; there is no documented unlimited mode.
+	t.Run("zero maxRecvMsgSize and maxSendMsgSize fall back to the default", func(t *testing.T) {
 		t.Parallel()
 		cs := &mockConfigServiceForTesting{
 			ints: map[string]int{
@@ -101,7 +105,7 @@ func TestNewConfig(t *testing.T) {
 			},
 		}
 		cfg := NewConfig(cs)
-		require.Equal(t, 0, cfg.maxRecvMsgSize)
-		require.Equal(t, 0, cfg.maxSendMsgSize)
+		require.Equal(t, DefaultMaxMessageSize, cfg.maxRecvMsgSize)
+		require.Equal(t, DefaultMaxMessageSize, cfg.maxSendMsgSize)
 	})
 }
