@@ -17,9 +17,9 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	viewgrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	viewgrpc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 type Committer struct {

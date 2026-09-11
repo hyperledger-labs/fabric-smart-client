@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
 )
 
 type ServiceConfigProvider struct {
@@ -189,4 +188,4 @@ func (fake *ServiceConfigProvider) recordInvocation(key string, args []interface
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ grpc.ServiceConfigProvider = new(ServiceConfigProvider)
+var _ config.ServiceConfigProvider = new(ServiceConfigProvider)

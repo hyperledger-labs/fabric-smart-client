@@ -195,7 +195,7 @@ Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, up
 
 These counters are implemented by FSC's custom gRPC server stats handler. The handler itself is tested, but the default runtime currently wires the gRPC server through OpenTelemetry's server handler. See [Current Caveats](#current-caveats).
 
-Primary implementation: `platform/view/services/grpc/metrics.go`, with the custom stats handler in `platform/view/services/grpc/serverstatshandler.go`.
+Primary implementation: `platform/common/services/grpc/metrics.go`, with the custom stats handler in `platform/common/services/grpc/serverstatshandler.go`.
 
 ### Fabric Ordering
 

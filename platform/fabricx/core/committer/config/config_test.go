@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config/mock"
 )
@@ -25,7 +26,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "notificationService" {
 				if cfg, ok := rawVal.(**config.Config); ok {
-					(*cfg).Endpoints = []config.Endpoint{{Address: "test-address"}}
+					(*cfg).Endpoints = []grpc.ConnectionConfig{{Address: "test-address"}}
 					(*cfg).RequestTimeout = 10 * time.Second
 				}
 			}
@@ -189,7 +190,7 @@ func TestNewQueryServiceConfig(t *testing.T) {
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "queryService" {
 				if cfg, ok := rawVal.(**config.Config); ok {
-					(*cfg).Endpoints = []config.Endpoint{{Address: "test-address"}}
+					(*cfg).Endpoints = []grpc.ConnectionConfig{{Address: "test-address"}}
 					(*cfg).RequestTimeout = 10 * time.Second
 				}
 			}
@@ -225,4 +226,26 @@ func TestNewQueryServiceConfig(t *testing.T) {
 		require.Contains(t, err.Error(), "unmarshal-error")
 		require.NotNil(t, cfg)
 	})
+}
+
+func TestQueryServiceConfigCarriesMessageSize(t *testing.T) {
+	t.Parallel()
+
+	fakeConfigService := &mock.ServiceBackend{}
+	fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		if key == "queryService" {
+			if cfg, ok := rawVal.(**config.Config); ok {
+				(*cfg).Endpoints = []grpc.ConnectionConfig{{
+					Address:        "test-address",
+					MaxRecvMsgSize: 200 * 1024 * 1024,
+				}}
+			}
+		}
+		return nil
+	}
+
+	cfg, err := config.NewQueryServiceConfig(fakeConfigService)
+	require.NoError(t, err)
+	require.Len(t, cfg.Endpoints, 1)
+	require.Equal(t, 200*1024*1024, cfg.Endpoints[0].MaxRecvMsgSize)
 }

@@ -1,6 +1,6 @@
 # GRPC benchmarks
 
-This package exercises the grpc server implementation in `platform/view/services/grpc`.
+This package exercises the grpc server implementation in `platform/common/services/grpc`.
 
 It contains a gRPC client/server benchmark designed to measure throughput (TPS) and tail latency (p99).
 The benchmark supports multiple workloads ranging from echo calls to CPU-intensive cryptographic operations (e.g., ECDSA signing), and enables systematic comparison, and deployment modes (local vs remote). 

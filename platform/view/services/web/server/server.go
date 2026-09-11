@@ -15,9 +15,9 @@ import (
 	"time"
 
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 )
 
@@ -26,7 +26,7 @@ var logger = logging.MustGetLogger()
 type Options struct {
 	ListenAddress string
 	// TLS is the resolved server-side TLS for this listener. Resolution, validation and
-	// file loading all happen in platform/view/services/tlsconfig before it gets here.
+	// file loading all happen in platform/common/services/tlsconfig before it gets here.
 	TLS grpc.SecureOptions
 }
 

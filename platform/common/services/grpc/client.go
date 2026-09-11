@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -81,22 +82,20 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 		client.dialOpts = append(client.dialOpts, grpc.WithReturnConnectionError()) //nolint:all
 	}
 	client.timeout = config.Timeout
-	// set send/recv message size to package defaults
-	client.maxRecvMsgSize = MaxRecvMsgSize
-	client.maxSendMsgSize = MaxSendMsgSize
+	// set send/recv message size, falling back to the package defaults
+	client.maxRecvMsgSize = cmp.Or(config.MaxRecvMsgSize, MaxRecvMsgSize)
+	client.maxSendMsgSize = cmp.Or(config.MaxSendMsgSize, MaxSendMsgSize)
 
 	return client, nil
 }
 
 // CreateGRPCClient returns a client for the given endpoint, using its already-resolved TLS.
 func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
-	timeout := config.ConnectionTimeout
-	if timeout <= 0 {
-		timeout = DefaultConnectionTimeout
-	}
 	return NewGRPCClient(ClientConfig{
-		Timeout: timeout,
-		SecOpts: config.TLS,
+		Timeout:        cmp.Or(config.ConnectionTimeout, DefaultConnectionTimeout),
+		SecOpts:        config.TLS,
+		MaxRecvMsgSize: config.MaxRecvMsgSize,
+		MaxSendMsgSize: config.MaxSendMsgSize,
 	})
 }
 

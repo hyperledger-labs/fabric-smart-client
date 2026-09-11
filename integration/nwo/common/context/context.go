@@ -8,8 +8,8 @@ package context
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
