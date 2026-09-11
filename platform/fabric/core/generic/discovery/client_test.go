@@ -34,8 +34,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	comm "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	mspx509 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	comm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 var (

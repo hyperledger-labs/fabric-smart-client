@@ -27,7 +27,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 )
 
 var workloadProcessors = map[string]workload.ServerFunc{

@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config/mock"
 )
@@ -28,7 +29,7 @@ func TestConfigProvider_NotificationServiceConfig(t *testing.T) {
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "notificationService" {
 				if cfg, ok := rawVal.(**config.Config); ok {
-					(*cfg).Endpoints = []config.Endpoint{{Address: "localhost:1234"}}
+					(*cfg).Endpoints = []grpc.ConnectionConfig{{Address: "localhost:1234"}}
 					(*cfg).RequestTimeout = 10 * time.Second
 				}
 			}
@@ -82,7 +83,7 @@ func TestConfigProvider_QueryServiceConfig(t *testing.T) {
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "queryService" {
 				if cfg, ok := rawVal.(**config.Config); ok {
-					(*cfg).Endpoints = []config.Endpoint{{Address: "localhost:5678"}}
+					(*cfg).Endpoints = []grpc.ConnectionConfig{{Address: "localhost:5678"}}
 					(*cfg).RequestTimeout = 15 * time.Second
 				}
 			}

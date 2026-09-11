@@ -136,3 +136,36 @@ func TestTLSConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestTLSConfigVersionRange(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unset keeps the 1.2-1.3 default", func(t *testing.T) {
+		t.Parallel()
+		cfg, err := SecureOptions{UseTLS: true}.TLSConfig()
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
+		require.Equal(t, uint16(tls.VersionTLS13), cfg.MaxVersion)
+	})
+
+	t.Run("TLS 1.3 can be required", func(t *testing.T) {
+		t.Parallel()
+		cfg, err := SecureOptions{
+			UseTLS:     true,
+			MinVersion: tls.VersionTLS13,
+		}.TLSConfig()
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS13), cfg.MinVersion)
+		require.Equal(t, uint16(tls.VersionTLS13), cfg.MaxVersion)
+	})
+
+	t.Run("a ceiling below the floor is rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := SecureOptions{
+			UseTLS:     true,
+			MinVersion: tls.VersionTLS13,
+			MaxVersion: tls.VersionTLS12,
+		}.TLSConfig()
+		require.ErrorContains(t, err, "minVersion")
+	})
+}

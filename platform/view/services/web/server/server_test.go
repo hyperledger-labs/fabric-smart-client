@@ -23,9 +23,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/mock"

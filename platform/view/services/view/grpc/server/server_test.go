@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpcutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	grpcutil "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package tlsconfig
 
 import (
+	"crypto/tls"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,6 +93,60 @@ func TestResolveServerInheritsFromParent(t *testing.T) {
 	require.NotEmpty(t, got.Key)
 	require.True(t, got.RequireClientCert)
 	require.Len(t, got.ClientRootCAs, 1)
+}
+
+// TestResolveServerVersionRange is the ServerTLS half of
+// TestResolveEndpointClientVersionRange: the version range flows through mergeServer and
+// buildServer, which are separate functions from the client-side merge/build with their own
+// field lists, so the client-side test does not exercise this path.
+func TestResolveServerVersionRange(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	cert, key, _ := writeKeyPair(t, dir)
+
+	src := fakeSource{dir: dir, subtrees: map[string]map[string]any{
+		"fsc.tls": {
+			"enabled":    true,
+			"cert":       map[string]any{"file": cert},
+			"key":        map[string]any{"file": key},
+			"minversion": 772,
+		},
+	}}
+
+	t.Run("inherited from the parent block", func(t *testing.T) {
+		t.Parallel()
+		got, err := ResolveServer(src, "fsc.tls", "fsc.grpc.tls")
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS13), got.MinVersion)
+		require.Zero(t, got.MaxVersion, "an unset ceiling stays unset")
+	})
+
+	t.Run("overridden by the child block", func(t *testing.T) {
+		t.Parallel()
+		override := fakeSource{dir: dir, subtrees: map[string]map[string]any{
+			"fsc.tls":      src.subtrees["fsc.tls"],
+			"fsc.grpc.tls": {"minversion": 771},
+		}}
+		got, err := ResolveServer(override, "fsc.tls", "fsc.grpc.tls")
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS12), got.MinVersion, "child's minVersion wins over the parent's")
+	})
+
+	t.Run("maxVersion resolves too, not just minVersion", func(t *testing.T) {
+		t.Parallel()
+		ceiling := fakeSource{dir: dir, subtrees: map[string]map[string]any{
+			"fsc.tls": {
+				"enabled":    true,
+				"cert":       map[string]any{"file": cert},
+				"key":        map[string]any{"file": key},
+				"minversion": 772,
+				"maxversion": 772,
+			},
+		}}
+		got, err := ResolveServer(ceiling, "fsc.tls", "fsc.grpc.tls")
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS13), got.MaxVersion, "an explicit ceiling is not dropped")
+	})
 }
 
 func TestResolveServerAbsentChildIsFine(t *testing.T) {

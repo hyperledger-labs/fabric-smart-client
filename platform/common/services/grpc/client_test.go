@@ -25,11 +25,11 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 )
 
 const testTimeout = 1 * time.Second // conservative
@@ -610,6 +610,98 @@ func TestSetMessageSize(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestClientConfigMessageSize is TestSetMessageSize's declarative twin: the limits arrive in
+// the ClientConfig instead of through SetMaxRecvMsgSize after the fact, because that is the
+// only form a yaml-configured endpoint can express.
+func TestClientConfigMessageSize(t *testing.T) {
+	t.Parallel()
+
+	lis := createListener(t)
+	address := lis.Addr().String()
+	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
+	require.NoError(t, err)
+	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
+	go utils.IgnoreErrorFunc(srv.Start)
+	t.Cleanup(srv.Stop)
+	waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	tests := []struct {
+		name    string
+		config  grpc3.ClientConfig
+		wantErr string
+	}{
+		{
+			name:   "unset falls back to the package default",
+			config: grpc3.ClientConfig{Timeout: testTimeout},
+		},
+		{
+			name:    "explicit recv limit is honored",
+			config:  grpc3.ClientConfig{Timeout: testTimeout, MaxRecvMsgSize: 1},
+			wantErr: "received message larger than max",
+		},
+		{
+			name:    "explicit send limit is honored",
+			config:  grpc3.ClientConfig{Timeout: testTimeout, MaxSendMsgSize: 1},
+			wantErr: "trying to send message larger than max",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			client, err := grpc3.NewGRPCClient(test.config)
+			require.NoError(t, err)
+			conn, err := client.NewConnection(address)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = conn.Close() })
+
+			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+			t.Cleanup(cancel)
+			echo := &testpb.Echo{Payload: []byte{0, 0, 0, 0, 0}}
+			resp, err := testpb.NewEchoServiceClient(conn).EchoCall(ctx, echo)
+
+			if test.wantErr == "" {
+				require.NoError(t, err)
+				require.True(t, proto.Equal(echo, resp))
+				return
+			}
+			require.ErrorContains(t, err, test.wantErr)
+		})
+	}
+}
+
+// TestCreateGRPCClientCarriesMessageSize proves the ConnectionConfig -> ClientConfig hop keeps
+// the limits, which is the path every yaml-configured endpoint (Fabric peers and orderers,
+// Fabric-x services) takes.
+func TestCreateGRPCClientCarriesMessageSize(t *testing.T) {
+	t.Parallel()
+
+	lis := createListener(t)
+	address := lis.Addr().String()
+	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
+	require.NoError(t, err)
+	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
+	go utils.IgnoreErrorFunc(srv.Start)
+	t.Cleanup(srv.Stop)
+	waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	client, err := grpc3.CreateGRPCClient(&grpc3.ConnectionConfig{
+		Address:           address,
+		ConnectionTimeout: testTimeout,
+		MaxRecvMsgSize:    1,
+	})
+	require.NoError(t, err)
+	conn, err := client.NewConnection(address)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	t.Cleanup(cancel)
+	_, err = testpb.NewEchoServiceClient(conn).EchoCall(ctx, &testpb.Echo{Payload: []byte{0, 0, 0, 0, 0}})
+	require.ErrorContains(t, err, "received message larger than max")
 }
 
 type testCerts struct {

@@ -22,11 +22,11 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	fscGrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode/mock"
 	discoveryApi "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	fscGrpc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

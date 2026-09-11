@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"

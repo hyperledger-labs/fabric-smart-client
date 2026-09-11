@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
+	"cmp"
 	"crypto/tls"
 	"crypto/x509"
 	"time"
@@ -35,8 +36,8 @@ func (so SecureOptions) TLSConfig() (*tls.Config, error) {
 	}
 	cfg := &tls.Config{
 		CipherSuites:          suites,
-		MinVersion:            tls.VersionTLS12,
-		MaxVersion:            tls.VersionTLS13,
+		MinVersion:            cmp.Or(so.MinVersion, uint16(tls.VersionTLS12)),
+		MaxVersion:            cmp.Or(so.MaxVersion, uint16(tls.VersionTLS13)),
 		ServerName:            so.ServerNameOverride,
 		VerifyPeerCertificate: so.VerifyCertificate,
 		// A resumed session does not re-verify the peer's chain, so a custom
@@ -45,6 +46,11 @@ func (so SecureOptions) TLSConfig() (*tls.Config, error) {
 		// grpc/server.go and the gRPC client have always done.
 		SessionTicketsDisabled: true,
 	}
+
+	if err := validateVersionRange(cfg.MinVersion, cfg.MaxVersion); err != nil {
+		return nil, err
+	}
+
 	if so.TimeShift > 0 {
 		// Verify peer certificates against a clock shifted into the past, for deployments
 		// whose certificates are not yet valid by this host's clock.
@@ -83,6 +89,23 @@ func (so SecureOptions) TLSConfig() (*tls.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// validateVersionRange rejects a floor below the lowest supported TLS version, and a ceiling
+// below the floor.
+//
+// A ceiling below the floor makes every handshake fail at connect time with an opaque error;
+// naming it here fails at startup instead. Nothing below 1.2 is offered: the cipher suite
+// list has no forward-secrecy-free suites left for 1.0/1.1 anyway.
+func validateVersionRange(minVersion, maxVersion uint16) error {
+	if minVersion < tls.VersionTLS12 {
+		return errors.Errorf("minVersion [%d] is below the lowest supported TLS version [%d]",
+			minVersion, tls.VersionTLS12)
+	}
+	if maxVersion < minVersion {
+		return errors.Errorf("maxVersion [%d] is below minVersion [%d]", maxVersion, minVersion)
+	}
+	return nil
 }
 
 func certPool(pems [][]byte) (*x509.CertPool, error) {

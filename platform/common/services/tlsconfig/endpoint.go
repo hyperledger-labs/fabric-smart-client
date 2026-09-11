@@ -8,7 +8,7 @@ package tlsconfig
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 )
 
 // ResolveEndpointClient resolves one endpoint's client-side TLS, inheriting per field from the
