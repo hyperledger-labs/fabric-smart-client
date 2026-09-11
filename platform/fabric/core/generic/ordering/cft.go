@@ -45,57 +45,55 @@ func NewCFTBroadcaster(configService driver.ConfigService, clientFactory Service
 func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) error {
 	logger.DebugfContext(ctx, "Start CFT Broadcast")
 	defer logger.DebugfContext(ctx, "End CFT Broadcast")
-	// send the envelope for ordering
-	var status *ab.BroadcastResponse
-	var connection *Connection
+
 	retries := o.ConfigService.BroadcastNumRetries()
 	retryInterval := o.ConfigService.BroadcastRetryInterval()
-	forceConnect := true
-	var err error
+	// Every failure path assigns lastErr; the initial value only survives when
+	// retries is zero, in which case no attempt is made at all and Broadcast
+	// must still report a failure.
+	lastErr := errors.Errorf("no attempt made to send transaction to orderer (retries=%d)", retries)
 	for i := range retries {
-		if connection != nil {
-			// throw away this connection
-			logger.DebugfContext(ctx, "Discard connection")
-			o.discardConnection(connection)
-		}
 		if i > 0 {
 			logger.Debugf("broadcast, retry [%d]...", i)
 			// wait a bit
 			time.Sleep(retryInterval)
 		}
-		if i > 0 || forceConnect {
-			forceConnect = false
-			connection, err = o.getConnection(ctx)
-			if err != nil {
-				logger.WarnfContext(ctx, "failed to get connection to orderer [%s]", err)
-				continue
-			}
+
+		connection, err := o.getConnection(ctx)
+		if err != nil {
+			logger.WarnfContext(ctx, "failed to get connection to orderer [%s]", err)
+			lastErr = err
+			continue
 		}
 
-		err = connection.Send(env)
+		status, err := sendAndRecv(connection, env)
 		if err != nil {
+			// the connection is broken, throw it away and retry with a fresh one
+			logger.DebugfContext(ctx, "Discard connection")
+			o.discardConnection(connection)
+			lastErr = err
 			continue
 		}
-		status, err = connection.Recv()
-		if err != nil {
-			continue
-		}
+
+		logger.DebugfContext(ctx, "Release connection")
+		o.releaseConnection(connection)
 		if status.GetStatus() != common2.Status_SUCCESS {
-			logger.DebugfContext(ctx, "Release connection")
-			o.releaseConnection(connection)
+			// the orderer rejected the envelope, retrying will not help
 			return errors.Errorf("failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
 		}
-
-		labels := []string{
-			"network", o.NetworkID,
-		}
-		o.metrics.OrderedTransactions.With(labels...).Add(1)
-		o.releaseConnection(connection)
+		o.metrics.OrderedTransactions.With("network", o.NetworkID).Add(1)
 
 		return nil
 	}
-	o.discardConnection(connection)
-	return errors.Wrap(err, "failed to send transaction to orderer")
+	return errors.Wrap(lastErr, "failed to send transaction to orderer")
+}
+
+// sendAndRecv sends env on connection and waits for the orderer's acknowledgement.
+func sendAndRecv(connection *Connection, env *common2.Envelope) (*ab.BroadcastResponse, error) {
+	if err := connection.Send(env); err != nil {
+		return nil, err
+	}
+	return connection.Recv()
 }
 
 func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error) {
@@ -120,19 +118,25 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			cancel()
 			logger.DebugfContext(ctx, "Got a semaphore")
 
-			// create connection
+			// create connection. The semaphore slot acquired above is only meant to be held
+			// for the lifetime of a Connection, so every failure path from here on must
+			// release it back before returning, or the pool permanently loses a slot.
 			to := o.ConfigService.PickOrderer()
 			if to == nil {
+				o.connSem.Release(1)
 				return nil, errors.New("no orderer configured")
 			}
 
 			client, err := o.ClientFactory.NewOrdererClient(*to)
 			if err != nil {
+				o.connSem.Release(1)
 				return nil, errors.Wrapf(err, "failed creating orderer client for %s", to.Address)
 			}
 
 			oClient, err := client.OrdererClient()
 			if err != nil {
+				o.connSem.Release(1)
+				client.Close()
 				rpcStatus, _ := status.FromError(err)
 				return nil, errors.Wrapf(err, "failed to new a broadcast for %s, rpcStatus=%+v", to.Address, rpcStatus)
 			}
@@ -141,6 +145,7 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			// Notice that this stream is shared, therefore its context must be something different from the context of the current broadcast request
 			stream, err := oClient.Broadcast(context.Background()) //nolint:contextcheck // documented above: this stream is shared across broadcasts, so it deliberately does not use the current request's context
 			if err != nil {
+				o.connSem.Release(1)
 				client.Close()
 				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
 			}

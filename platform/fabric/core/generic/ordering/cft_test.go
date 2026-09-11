@@ -34,10 +34,12 @@ func newTestMetrics() *metrics.Metrics {
 
 // fakeCFTServices provides orderer clients for testing
 type fakeCFTServices struct {
-	shouldFailClient bool
-	shouldFailStream bool
-	clientError      error
-	streamError      error
+	shouldFailClient    bool
+	shouldFailStream    bool
+	shouldFailBroadcast bool
+	clientError         error
+	streamError         error
+	broadcastError      error
 }
 
 func (f *fakeCFTServices) NewOrdererClient(grpc.ConnectionConfig) (Client, error) {
@@ -48,16 +50,20 @@ func (f *fakeCFTServices) NewOrdererClient(grpc.ConnectionConfig) (Client, error
 		return nil, errors.New("client creation failed")
 	}
 	return &fakeCFTClient{
-		shouldFailStream: f.shouldFailStream,
-		streamError:      f.streamError,
+		shouldFailStream:    f.shouldFailStream,
+		shouldFailBroadcast: f.shouldFailBroadcast,
+		streamError:         f.streamError,
+		broadcastError:      f.broadcastError,
 	}, nil
 }
 
 type fakeCFTClient struct {
 	Client
-	shouldFailStream bool
-	streamError      error
-	closed           bool
+	shouldFailStream    bool
+	shouldFailBroadcast bool
+	streamError         error
+	broadcastError      error
+	closed              bool
 }
 
 func (f *fakeCFTClient) OrdererClient() (ab.AtomicBroadcastClient, error) {
@@ -67,16 +73,28 @@ func (f *fakeCFTClient) OrdererClient() (ab.AtomicBroadcastClient, error) {
 		}
 		return nil, errors.New("stream creation failed")
 	}
-	return &fakeCFTAB{}, nil
+	return &fakeCFTAB{
+		shouldFailBroadcast: f.shouldFailBroadcast,
+		broadcastError:      f.broadcastError,
+	}, nil
 }
 
 func (f *fakeCFTClient) Close() {
 	f.closed = true
 }
 
-type fakeCFTAB struct{}
+type fakeCFTAB struct {
+	shouldFailBroadcast bool
+	broadcastError      error
+}
 
-func (fakeCFTAB) Broadcast(context.Context, ...ggrpc.CallOption) (ggrpc.BidiStreamingClient[common.Envelope, ab.BroadcastResponse], error) {
+func (f fakeCFTAB) Broadcast(context.Context, ...ggrpc.CallOption) (ggrpc.BidiStreamingClient[common.Envelope, ab.BroadcastResponse], error) {
+	if f.shouldFailBroadcast {
+		if f.broadcastError != nil {
+			return nil, f.broadcastError
+		}
+		return nil, errors.New("broadcast stream creation failed")
+	}
 	return &fakeCFTStream{status: common.Status_SUCCESS}, nil
 }
 
@@ -314,6 +332,27 @@ func TestCFTBroadcaster_Broadcast_Retries(t *testing.T) {
 	})
 }
 
+// TestCFTBroadcaster_Broadcast_ZeroRetries is a regression test: when
+// BroadcastNumRetries returns 0, the retry loop body never runs, so nothing
+// ever assigns lastErr. errors.Wrap(err, ...) with a nil err returns nil (per
+// github.com/pkg/errors semantics), which used to make Broadcast silently
+// report success without ever attempting to send.
+func TestCFTBroadcaster_Broadcast_ZeroRetries(t *testing.T) {
+	t.Parallel()
+
+	cfg := &fake.ConfigService{
+		PoolSizeValue:    4,
+		RetriesValue:     0,
+		NetworkNameValue: "test-network",
+		OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
+	}
+	b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, nil)
+
+	err := b.Broadcast(t.Context(), &common.Envelope{})
+	require.Error(t, err, "zero configured retries must not be reported as success")
+	require.Contains(t, err.Error(), "no attempt made to send transaction to orderer")
+}
+
 // TestCFTBroadcaster_Broadcast_OrdererRejection is a regression test: when the
 // orderer responds with a non-SUCCESS status but Send/Recv return no
 // transport error, Broadcast used to call errors.Wrapf(err, ...) with a nil
@@ -449,6 +488,77 @@ func TestCFTBroadcaster_GetConnection(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to new a broadcast")
 	})
+}
+
+// TestCFTBroadcaster_GetConnection_SemaphoreNotLeakedOnFailure is a regression
+// test: every error return in getConnection after a successful
+// connSem.Acquire ("no orderer configured", client creation, broadcast-client
+// creation, stream creation) used to skip releasing the acquired slot. Enough
+// consecutive failures of a given kind permanently shrank the pool by that
+// many slots, and exhausting the whole pool this way would deadlock every
+// future call waiting on the semaphore.
+func TestCFTBroadcaster_GetConnection_SemaphoreNotLeakedOnFailure(t *testing.T) {
+	t.Parallel()
+
+	const poolSize = 3
+
+	newBroadcaster := func(services Services, hasOrderer bool) *CFTBroadcaster {
+		cfg := &fake.ConfigService{
+			PoolSizeValue:    poolSize,
+			NetworkNameValue: "test-network",
+		}
+		if hasOrderer {
+			cfg.OrderersValue = []*grpc.ConnectionConfig{{Address: "orderer-1"}}
+		}
+		return NewCFTBroadcaster(cfg, services, nil)
+	}
+
+	tests := []struct {
+		name       string
+		services   Services
+		hasOrderer bool
+	}{
+		{
+			name:       "no orderer configured",
+			services:   &fakeCFTServices{},
+			hasOrderer: false,
+		},
+		{
+			name:       "client creation fails",
+			services:   &fakeCFTServices{shouldFailClient: true, clientError: errors.New("connection refused")},
+			hasOrderer: true,
+		},
+		{
+			name:       "broadcast client creation fails",
+			services:   &fakeCFTServices{shouldFailStream: true, streamError: errors.New("stream error")},
+			hasOrderer: true,
+		},
+		{
+			name:       "broadcast stream creation fails",
+			services:   &fakeCFTServices{shouldFailBroadcast: true, broadcastError: errors.New("broadcast error")},
+			hasOrderer: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			b := newBroadcaster(tt.services, tt.hasOrderer)
+
+			for range poolSize {
+				_, err := b.getConnection(t.Context())
+				require.Error(t, err)
+			}
+
+			// Every failed attempt above acquired a semaphore slot. If any
+			// leaked, fewer than poolSize slots remain and this Acquire times out.
+			ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+			defer cancel()
+			err := b.connSem.Acquire(ctx, poolSize)
+			require.NoError(t, err, "connection-creation failure must release its semaphore slot")
+			b.connSem.Release(poolSize)
+		})
+	}
 }
 
 // TestCFTBroadcaster_DiscardConnection tests connection cleanup
