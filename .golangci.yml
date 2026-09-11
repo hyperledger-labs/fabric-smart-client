@@ -32,6 +32,7 @@ linters:
     - spancheck
     - rowserrcheck
     - recvcheck
+    - sqlclosecheck
     - staticcheck
     - testifylint
     - thelper

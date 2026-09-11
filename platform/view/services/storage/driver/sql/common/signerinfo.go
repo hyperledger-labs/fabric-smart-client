@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -56,7 +55,7 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 	if err != nil {
 		return nil, errors.Wrapf(err, "error querying db")
 	}
-	defer utils.IgnoreErrorFunc(rows.Close)
+	defer func() { _ = rows.Close() }()
 
 	existingSigners := make([]view.Identity, 0)
 	for rows.Next() {
