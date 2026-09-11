@@ -63,10 +63,12 @@ func NewFabricFinality(
 
 // IsFinal probes a peer configured for finality for the given transaction,
 // returning an error if no peer is configured for that role.
-func (d *FabricFinality) IsFinal(txID string) error {
+//
+// ctx bounds the whole probe: WaitForEventTimeout applies as a ceiling on top of
+// it, so an earlier caller deadline wins.
+func (d *FabricFinality) IsFinal(ctx context.Context, txID string) error {
 	d.Logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
 	var eventCh chan delivery.TxEvent
-	var ctx context.Context
 	var cancelFunc context.CancelFunc
 
 	peerConnConf := d.ConfigService.PickPeer(driver.PeerForFinality)
@@ -86,7 +88,7 @@ func (d *FabricFinality) IsFinal(txID string) error {
 		return errors.WithMessagef(err, "failed creating deliver client for address [%s]", address)
 	}
 
-	ctx, cancelFunc = context.WithTimeout(context.Background(), d.WaitForEventTimeout)
+	ctx, cancelFunc = context.WithTimeout(ctx, d.WaitForEventTimeout)
 	defer cancelFunc()
 	var deliverStream delivery.DeliverFiltered
 	if d.useFiltered {

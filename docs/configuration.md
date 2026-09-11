@@ -583,6 +583,10 @@ fabric:
         numRetries: 3 # number of retries on a chaincode operation failure
         retrySleep: 1s # waiting time before retry again a failed chaincode operation
         # section about the finality service
+        # The remote peer probe and the local event wait run in sequence, so
+        # finality.waitForEventTimeout and committer.waitForEventTimeout add up
+        # rather than being alternatives: size a caller's context for the sum.
+        # Both are ceilings under the caller's context, which wins when shorter.
         finality:
           waitForEventTimeout: 20s
           forPartiesWaitTimeout: 1m

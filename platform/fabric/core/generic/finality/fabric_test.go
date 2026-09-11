@@ -247,7 +247,7 @@ func TestFabricFinality_IsFinal(t *testing.T) {
 				}
 			}
 
-			err = f.IsFinal("tx1")
+			err = f.IsFinal(t.Context(), "tx1")
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.expectedError != "" {
@@ -282,7 +282,57 @@ func TestFabricFinality_IsFinal_noPeerConfigured(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotPanics(t, func() {
-		err := f.IsFinal("tx1")
+		err := f.IsFinal(t.Context(), "tx1")
 		require.ErrorContains(t, err, "no peer configured for finality")
 	})
+}
+
+// The caller's context bounds the probe. WaitForEventTimeout is generous here
+// and the peer never delivers, so a call that honours a 100ms context returns
+// promptly while one bounded only by WaitForEventTimeout does not.
+func TestFabricFinality_IsFinal_honoursCallerContext(t *testing.T) {
+	t.Parallel()
+
+	mockConfig := &fake.ConfigService{}
+	mockConfig.On("PickPeer", mock.Anything).Return(&viewgrpc.ConnectionConfig{Address: "peer1"})
+
+	mockPeerClient := &fake.PeerClient{}
+	mockPeerClient.On("Close").Return()
+	mockPeerClient.On("Certificate").Return(tls.Certificate{})
+	mockPeerClient.On("Address").Return("peer1")
+
+	mockDeliverClient := &fake.DeliverClient{}
+	mockPeerClient.On("DeliverClient").Return(mockDeliverClient, nil)
+
+	mockStream := &fake.DeliverFilteredStream{}
+	mockDeliverClient.On("DeliverFiltered", mock.Anything, mock.Anything).Return(mockStream, nil)
+	mockStream.On("CloseSend").Return(nil)
+	mockStream.On("Send", mock.Anything).Return(nil)
+	// The peer accepts the seek and then goes quiet: only a context ends the wait.
+	mockStream.On("Recv").Return(nil, context.DeadlineExceeded).After(30 * time.Second)
+
+	mockIdentity := &fake.SigningIdentity{}
+	mockIdentity.On("Serialize").Return([]byte("creator"), nil)
+	mockIdentity.On("Sign", mock.Anything).Return([]byte("signature"), nil)
+
+	mockServices := &fake.Services{}
+	mockServices.On("NewPeerClient", mock.Anything).Return(mockPeerClient, nil)
+
+	f, err := NewFabricFinality(
+		logging.MustGetLogger("test"), "testchannel",
+		mockConfig, mockServices, mockIdentity,
+		30*time.Second, true,
+	)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err = f.IsFinal(ctx, "tx1")
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.Less(t, elapsed, 5*time.Second,
+		"took %s: the caller's 100ms context must bound the probe, not WaitForEventTimeout", elapsed)
 }
