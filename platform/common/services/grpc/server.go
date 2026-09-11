@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
+	"cmp"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
@@ -96,11 +97,23 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 			return &cert, nil
 		}
 
+		// The listener's default is 1.2 for BOTH bounds -- what serverCreds has always
+		// pinned -- so an unconfigured listener negotiates exactly what it does today.
+		// MaxVersion falls back through MinVersion before the package default: an explicit
+		// floor with no configured ceiling must still produce a valid (non-inverted) range.
+		minVersion := cmp.Or(secureConfig.MinVersion, uint16(tls.VersionTLS12))
+		maxVersion := cmp.Or(secureConfig.MaxVersion, secureConfig.MinVersion, uint16(tls.VersionTLS12))
+		if err := validateVersionRange(minVersion, maxVersion); err != nil {
+			return nil, err
+		}
+
 		grpcServer.tls = NewTLSConfig(&tls.Config{
 			VerifyPeerCertificate:  secureConfig.VerifyCertificate,
 			GetCertificate:         getCert,
 			SessionTicketsDisabled: true,
 			CipherSuites:           secureConfig.CipherSuites,
+			MinVersion:             minVersion,
+			MaxVersion:             maxVersion,
 		})
 
 		if serverConfig.SecOpts.TimeShift > 0 {
@@ -133,8 +146,8 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
 	// set max send and recv msg sizes
-	serverOpts = append(serverOpts, grpc.MaxSendMsgSize(MaxSendMsgSize))
-	serverOpts = append(serverOpts, grpc.MaxRecvMsgSize(MaxRecvMsgSize))
+	serverOpts = append(serverOpts, grpc.MaxSendMsgSize(cmp.Or(serverConfig.MaxSendMsgSize, MaxSendMsgSize)))
+	serverOpts = append(serverOpts, grpc.MaxRecvMsgSize(cmp.Or(serverConfig.MaxRecvMsgSize, MaxRecvMsgSize)))
 	// set the keepalive options
 	serverOpts = append(serverOpts, ServerKeepaliveOptions(serverConfig.KeepAliveConfig)...)
 	// set connection timeout

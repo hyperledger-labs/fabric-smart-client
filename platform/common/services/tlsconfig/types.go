@@ -40,12 +40,19 @@ type Files struct {
 //
 // Every field is a pointer: a nil field is absent and inherits from the parent block, while
 // a non-nil field overrides it even when the value is false or empty.
+//
+// MinVersion and MaxVersion are crypto/tls version constants: 771 is TLS 1.2 and 772 is
+// TLS 1.3. Absent means the default range, which each listener's own fallback fills in --
+// fsc.web and fsc.metrics through SecureOptions.TLSConfig, fsc.grpc through the chained
+// fallback in grpc/server.go's NewGRPCServerFromListener.
 type ServerTLS struct {
-	Enabled            *bool  `yaml:"enabled"`
-	Cert               *File  `yaml:"cert"`
-	Key                *File  `yaml:"key"`
-	ClientAuthRequired *bool  `yaml:"clientAuthRequired"`
-	ClientRootCAs      *Files `yaml:"clientRootCAs"`
+	Enabled            *bool   `yaml:"enabled"`
+	Cert               *File   `yaml:"cert"`
+	Key                *File   `yaml:"key"`
+	ClientAuthRequired *bool   `yaml:"clientAuthRequired"`
+	ClientRootCAs      *Files  `yaml:"clientRootCAs"`
+	MinVersion         *uint16 `yaml:"minVersion"`
+	MaxVersion         *uint16 `yaml:"maxVersion"`
 }
 
 // ClientTLS is the configured TLS of a connection being dialled out. Its fields follow the
@@ -57,6 +64,8 @@ type ClientTLS struct {
 	ClientCert         *File   `yaml:"clientCert"`
 	ClientKey          *File   `yaml:"clientKey"`
 	ServerNameOverride *string `yaml:"serverNameOverride"`
+	MinVersion         *uint16 `yaml:"minVersion"`
+	MaxVersion         *uint16 `yaml:"maxVersion"`
 }
 
 // TLS is the configured TLS of a surface that both listens and dials, carrying the union of

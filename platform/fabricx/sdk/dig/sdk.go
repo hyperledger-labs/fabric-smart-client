@@ -17,7 +17,6 @@ import (
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
@@ -50,11 +49,11 @@ func (p *SDK) Install() error {
 		p.Container().Provide(NewDriver, dig.Group("fabric-platform-drivers")),
 		p.Container().Provide(NewChannelProvider, dig.As(new(ChannelProvider))),
 		p.Container().Provide(config.NewProvider, dig.As(
-			new(grpc.ServiceConfigProvider),
+			new(config.ServiceConfigProvider),
 			new(finality.ServiceConfigProvider),
 			new(queryservice.ServiceConfigProvider),
 		)),
-		p.Container().Provide(grpc.NewClientProvider, dig.As(
+		p.Container().Provide(config.NewClientProvider, dig.As(
 			new(ledger.GRPCClientProvider),
 			new(queryservice.GRPCClientProvider),
 			new(finality.GRPCClientProvider),

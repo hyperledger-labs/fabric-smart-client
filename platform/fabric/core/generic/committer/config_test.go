@@ -17,10 +17,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 // configEnvelope builds a channel configuration transaction carrying the given

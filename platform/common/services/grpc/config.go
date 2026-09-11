@@ -71,6 +71,13 @@ type ConnectionConfig struct {
 	ConnectionTimeout time.Duration `yaml:"connectionTimeout,omitempty"`
 	Usage             string        `yaml:"usage,omitempty"`
 
+	// MaxRecvMsgSize is the largest message in bytes to accept from this endpoint. Zero
+	// falls back to the package-level MaxRecvMsgSize.
+	MaxRecvMsgSize int `yaml:"maxRecvMsgSize,omitempty"`
+	// MaxSendMsgSize is the largest message in bytes to send to this endpoint. Zero falls
+	// back to the package-level MaxSendMsgSize.
+	MaxSendMsgSize int `yaml:"maxSendMsgSize,omitempty"`
+
 	// TLS is the resolved client-side TLS for this endpoint: already inherited per field
 	// from the network's tls block, with every configured file read and validated.
 	//
@@ -91,6 +98,12 @@ type ServerConfig struct {
 	SecOpts SecureOptions
 	// KeepAliveConfig defines the keepalive parameters
 	KeepAliveConfig *ServerKeepAliveConfig
+	// MaxRecvMsgSize is the largest message in bytes the server will accept. Zero falls
+	// back to the package-level MaxRecvMsgSize, the same rule ConnectionTimeout follows.
+	MaxRecvMsgSize int
+	// MaxSendMsgSize is the largest message in bytes the server will send. Zero falls back
+	// to the package-level MaxSendMsgSize.
+	MaxSendMsgSize int
 	// StreamInterceptors specifies a list of interceptors to apply to
 	// streaming RPCs.  They are executed in order.
 	StreamInterceptors []grpc.StreamServerInterceptor
@@ -111,6 +124,12 @@ type ClientConfig struct {
 	SecOpts SecureOptions
 	// KeepAliveConfig defines the keepalive parameters
 	KeepAliveConfig *ClientKeepAliveConfig
+	// MaxRecvMsgSize is the largest message in bytes the client will accept. Zero falls
+	// back to the package-level MaxRecvMsgSize.
+	MaxRecvMsgSize int
+	// MaxSendMsgSize is the largest message in bytes the client will send. Zero falls back
+	// to the package-level MaxSendMsgSize.
+	MaxSendMsgSize int
 	// Timeout specifies how long the client will block when attempting to
 	// establish a connection
 	Timeout time.Duration
@@ -151,6 +170,17 @@ type SecureOptions struct {
 	RequireClientCert bool
 	// CipherSuites is a list of supported cipher suites for TLS
 	CipherSuites []uint16
+	// MinVersion is the lowest TLS version to negotiate, as a crypto/tls VersionTLS*
+	// constant. Zero means tls.VersionTLS12 for both a dialled connection (via
+	// [SecureOptions.TLSConfig]) and a listener (via the explicit fallback in
+	// grpc/server.go's NewGRPCServerFromListener).
+	MinVersion uint16
+	// MaxVersion is the highest TLS version to negotiate. Zero means tls.VersionTLS13 for
+	// a dialled connection (via [SecureOptions.TLSConfig]). For a listener,
+	// grpc/server.go's NewGRPCServerFromListener falls back first to MinVersion (so a
+	// listener with only a floor set gets that floor as its ceiling too) and only then to
+	// tls.VersionTLS12.
+	MaxVersion uint16
 	// TimeShift makes TLS handshakes time sampling shift to the past by a given duration
 	TimeShift time.Duration
 	// ServerNameOverride overrides the SNI name and the hostname verified in the server's

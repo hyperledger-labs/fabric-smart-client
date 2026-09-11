@@ -19,8 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 	ggrpc "google.golang.org/grpc"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering/fake"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 // fakeBroadcastStream is a Broadcast-interface stub with per-instance outcomes.

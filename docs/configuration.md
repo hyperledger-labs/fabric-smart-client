@@ -56,6 +56,15 @@ fsc:
       file: /path/to/tls/server.key
     # Whether clients must present a certificate. See fsc.web below for the three states.
     clientAuthRequired: false
+    # The TLS version range to negotiate, as crypto/tls version numbers: 771 = TLS 1.2,
+    # 772 = TLS 1.3. Both are inherited from the parent tls block when absent. fsc.grpc's
+    # listener defaults to 771/771; other listeners (fsc.web, fsc.metrics) and every dialled
+    # connection default to 771/772. The values below are fsc.grpc's own default, shown for
+    # completeness -- copying maxVersion: 771 into a real config also caps fsc.web and
+    # fsc.metrics at TLS 1.2, since both inherit from this block and otherwise default to
+    # 772.
+    minVersion: 771
+    maxVersion: 771
 
   # ------------------- GRPC Server Configuration -------------------------
   grpc:
@@ -65,6 +74,11 @@ fsc:
     # ConnectionTimeout specifies the timeout for connection establishment for all new connections
     # If not specified or set to <=0 then it will default to 5 seconds
     connectionTimeout: 10s
+    # The largest message in bytes this server will accept and send. Omit or set to 0
+    # to use the default of 100 MiB. Unlike fsc.p2p.maxRecvMsgSize below, zero here means
+    # the default, not unlimited.
+    maxRecvMsgSize: 104857600
+    maxSendMsgSize: 104857600
 
     # Only the fields that differ from fsc.tls need to appear here. enabled, cert and key
     # are shown for completeness; in practice they are inherited and omitted.
@@ -457,6 +471,11 @@ fabric:
       # Override the hostname verified in the server's certificate. Needed when dialling an
       # IP address against a certificate issued for a name. Replaces serverhostoverride.
       serverNameOverride: ""
+      # The TLS version range to negotiate, as crypto/tls version numbers: 771 = TLS 1.2,
+      # 772 = TLS 1.3. Both are inherited from the parent tls block when absent. This block
+      # is client-side only; every dialled connection defaults to 771/772, shown here.
+      minVersion: 771
+      maxVersion: 772
 
     # Client keepalive settings for GRPC.
     # This section can be omitted.
@@ -493,6 +512,11 @@ fabric:
       - address: 'orderer0:7050'
         # connection timeout
         connectionTimeout: 10s
+        # The largest message in bytes to send to and accept from this endpoint. Omit or
+        # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero
+        # here is not "unlimited".
+        maxRecvMsgSize: 104857600
+        maxSendMsgSize: 104857600
         # Per-orderer TLS. Every field is inherited from the network's tls block above; set
         # only what differs for this endpoint. Omit the block entirely to inherit all of it.
         #
@@ -516,6 +540,11 @@ fabric:
       - address: 'peer2:7051'
         # connection timeout
         connectionTimeout: 10s
+        # The largest message in bytes to send to and accept from this endpoint. Omit or
+        # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero
+        # here is not "unlimited".
+        maxRecvMsgSize: 104857600
+        maxSendMsgSize: 104857600
         # Per-peer TLS, inherited from the network's tls block exactly as for orderers above.
         tls:
           enabled: false
@@ -539,9 +568,20 @@ fabric:
       requestTimeout: 10s
       endpoints:
         - address: 'sidecar:4001'
+          # Also bounds the initial dial: the first call for this network blocks up to
+          # connectionTimeout (default 5s) and fails if the sidecar isn't listening yet,
+          # rather than succeeding immediately and failing on the first RPC.
           connectionTimeout: 10s
+          # The largest message in bytes to send to and accept from this endpoint. Omit or
+          # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero
+          # here is not "unlimited".
+          maxRecvMsgSize: 104857600
+          maxSendMsgSize: 104857600
           tls:
             enabled: true
+            # minVersion/maxVersion default to 771/772 (TLS 1.2-1.3) here, same as any other
+            # dialled connection. Set minVersion: 772 to restore the TLS-1.3-only floor this
+            # endpoint used to pin unconditionally.
             rootCAs:
               files:
               - /path/to/sidecar/ca.crt

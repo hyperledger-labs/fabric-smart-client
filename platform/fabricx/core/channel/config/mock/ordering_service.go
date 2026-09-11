@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 )
 
 type OrderingService struct {

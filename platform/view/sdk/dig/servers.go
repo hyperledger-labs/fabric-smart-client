@@ -17,12 +17,12 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tlsconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
@@ -182,6 +182,8 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 	}
 	serverConfig := grpc2.ServerConfig{
 		ConnectionTimeout: configProvider.GetDuration("fsc.grpc.connectionTimeout"),
+		MaxRecvMsgSize:    configProvider.GetInt("fsc.grpc.maxRecvMsgSize"),
+		MaxSendMsgSize:    configProvider.GetInt("fsc.grpc.maxSendMsgSize"),
 		SecOpts:           secOpts,
 		Logger:            logging.MustGetLogger().With("server", "PeerServer"),
 		UnaryInterceptors: []grpc.UnaryServerInterceptor{

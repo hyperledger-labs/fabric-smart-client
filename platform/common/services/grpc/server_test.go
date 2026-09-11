@@ -31,10 +31,11 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 )
 
 // Embedded certificates for testing
@@ -687,6 +688,106 @@ func TestNewSecureGRPCServer(t *testing.T) {
 			)
 		})
 	}
+
+	t.Run("CeilingCapsAtTLS12", func(t *testing.T) {
+		t.Parallel()
+
+		// secureConfig above set neither MinVersion nor MaxVersion, so the listener's
+		// default ceiling is TLS 1.2, even though this client would happily negotiate
+		// higher.
+		conn, err := tls.Dial("tcp", testAddress, &tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
+		})
+		require.NoError(t, err)
+		defer utils.IgnoreErrorFunc(conn.Close)
+		require.NoError(t, conn.Handshake())
+		require.Equal(t, uint16(tls.VersionTLS12), conn.ConnectionState().Version)
+	})
+}
+
+// TestNewGRPCServerVersionRange pins the two rules server.go applies before building a
+// listener's TLS config: MaxVersion falls back through MinVersion (not straight to the
+// package default) so an explicit floor alone cannot invert the range, and the combined
+// range is validated at startup rather than left to fail every handshake later.
+func TestNewGRPCServerVersionRange(t *testing.T) {
+	t.Parallel()
+
+	certPool := x509.NewCertPool()
+	require.True(t, certPool.AppendCertsFromPEM([]byte(selfSignedCertPEM)))
+
+	t.Run("minVersion alone does not invert the range", func(t *testing.T) {
+		t.Parallel()
+		lis := createListener(t)
+		testAddress := lis.Addr().String()
+
+		srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+			SecOpts: grpc3.SecureOptions{
+				UseTLS:      true,
+				Certificate: []byte(selfSignedCertPEM),
+				Key:         []byte(selfSignedKeyPEM),
+				MinVersion:  tls.VersionTLS13,
+			},
+		})
+		require.NoError(t, err)
+		go utils.IgnoreErrorFunc(srv.Start)
+		t.Cleanup(srv.Stop)
+
+		conn, err := tls.Dial("tcp", testAddress, &tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS13,
+			MaxVersion: tls.VersionTLS13,
+		})
+		require.NoError(t, err, "a Min-only override should still yield a usable (non-inverted) range")
+		defer utils.IgnoreErrorFunc(conn.Close)
+		require.NoError(t, conn.Handshake())
+		require.Equal(t, uint16(tls.VersionTLS13), conn.ConnectionState().Version)
+	})
+
+	t.Run("a floor below TLS 1.2 is rejected at startup", func(t *testing.T) {
+		t.Parallel()
+		lis := createListener(t)
+
+		_, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+			SecOpts: grpc3.SecureOptions{
+				UseTLS:      true,
+				Certificate: []byte(selfSignedCertPEM),
+				Key:         []byte(selfSignedKeyPEM),
+				MinVersion:  tls.VersionTLS10,
+			},
+		})
+		require.ErrorContains(t, err, "minVersion")
+	})
+
+	t.Run("an explicit maxVersion still wins over minVersion", func(t *testing.T) {
+		t.Parallel()
+		lis := createListener(t)
+		testAddress := lis.Addr().String()
+
+		srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+			SecOpts: grpc3.SecureOptions{
+				UseTLS:      true,
+				Certificate: []byte(selfSignedCertPEM),
+				Key:         []byte(selfSignedKeyPEM),
+				MinVersion:  tls.VersionTLS12,
+				MaxVersion:  tls.VersionTLS13,
+			},
+		})
+		require.NoError(t, err)
+		go utils.IgnoreErrorFunc(srv.Start)
+		t.Cleanup(srv.Stop)
+
+		conn, err := tls.Dial("tcp", testAddress, &tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS13,
+			MaxVersion: tls.VersionTLS13,
+		})
+		require.NoError(t, err)
+		defer utils.IgnoreErrorFunc(conn.Close)
+		require.NoError(t, conn.Handshake())
+		require.Equal(t, uint16(tls.VersionTLS13), conn.ConnectionState().Version)
+	})
 }
 
 func TestVerifyCertificateCallback(t *testing.T) {
@@ -1294,4 +1395,63 @@ func createListener(t *testing.T) net.Listener {
 		_ = lis.Close()
 	})
 	return lis
+}
+
+// TestServerConfigMessageSize pins the two rules for the server's message limits: a zero
+// field falls back to the package default (a 5-byte echo goes through), and a set field is
+// honored (the same echo is refused). Asserted through a real RPC because grpc.MaxRecvMsgSize
+// is an opaque ServerOption -- reading the struct back would prove nothing about server.go.
+func TestServerConfigMessageSize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		config  grpc3.ServerConfig
+		wantErr string
+	}{
+		{
+			name:   "unset falls back to the package default",
+			config: grpc3.ServerConfig{HealthCheckEnabled: true},
+		},
+		{
+			name:    "explicit recv limit is honored",
+			config:  grpc3.ServerConfig{HealthCheckEnabled: true, MaxRecvMsgSize: 1},
+			wantErr: "received message larger than max",
+		},
+		{
+			name:   "generous explicit limits pass",
+			config: grpc3.ServerConfig{HealthCheckEnabled: true, MaxRecvMsgSize: 1024, MaxSendMsgSize: 1024},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			lis := createListener(t)
+			address := lis.Addr().String()
+			srv, err := grpc3.NewGRPCServerFromListener(lis, test.config)
+			require.NoError(t, err)
+			testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
+			go utils.IgnoreErrorFunc(srv.Start)
+			t.Cleanup(srv.Stop)
+			waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+			conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = conn.Close() })
+
+			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+			t.Cleanup(cancel)
+			echo := &testpb.Echo{Payload: []byte{0, 0, 0, 0, 0}}
+			resp, err := testpb.NewEchoServiceClient(conn).EchoCall(ctx, echo)
+
+			if test.wantErr == "" {
+				require.NoError(t, err)
+				require.True(t, proto.Equal(echo, resp))
+				return
+			}
+			require.ErrorContains(t, err, test.wantErr)
+		})
+	}
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 	"go.yaml.in/yaml/v3"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 )

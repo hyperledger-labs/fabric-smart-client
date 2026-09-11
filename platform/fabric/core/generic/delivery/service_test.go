@@ -16,8 +16,8 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 // Regression coverage for a bug where Scan/ScanFromBlock indexed straight

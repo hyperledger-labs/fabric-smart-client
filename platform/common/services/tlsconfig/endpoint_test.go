@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package tlsconfig
 
 import (
+	"crypto/tls"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -86,4 +87,54 @@ func TestResolveEndpointClientsRejectsShortRawArray(t *testing.T) {
 	require.Len(t, got, 2)
 	require.True(t, got[0].UseTLS, "inherited from the network block")
 	require.True(t, got[1].UseTLS)
+}
+
+// TestResolveEndpointClientVersionRange is the configuration half of the TLS 1.3 requirement
+// that Fabric-x's committer clients used to express by forking their own credentials builder.
+func TestResolveEndpointClientVersionRange(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	_, _, ca := writeKeyPair(t, dir)
+
+	network := fakeSource{dir: dir, subtrees: map[string]map[string]any{
+		"fabric.mynet.tls": {
+			"enabled":    true,
+			"rootcas":    map[string]any{"files": []any{ca}},
+			"minversion": 772,
+		},
+	}}
+
+	t.Run("inherited from the network block", func(t *testing.T) {
+		t.Parallel()
+		got, err := ResolveEndpointClient(network, "fabric.mynet.tls", nil)
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS13), got.MinVersion)
+		require.Zero(t, got.MaxVersion, "an unset ceiling stays unset")
+	})
+
+	t.Run("overridden per endpoint", func(t *testing.T) {
+		t.Parallel()
+		got, err := ResolveEndpointClient(network, "fabric.mynet.tls",
+			map[string]any{"minversion": 771})
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS12), got.MinVersion)
+		require.True(t, got.UseTLS, "everything else still inherited")
+	})
+
+	t.Run("absent everywhere leaves the default", func(t *testing.T) {
+		t.Parallel()
+		plain := fakeSource{dir: dir, subtrees: map[string]map[string]any{
+			"fabric.mynet.tls": {"enabled": true, "rootcas": map[string]any{"files": []any{ca}}},
+		}}
+		got, err := ResolveEndpointClient(plain, "fabric.mynet.tls", nil)
+		require.NoError(t, err)
+		require.Zero(t, got.MinVersion)
+		require.Zero(t, got.MaxVersion)
+
+		// Zero is what SecureOptions.TLSConfig turns into the 1.2-1.3 default.
+		cfg, err := got.TLSConfig()
+		require.NoError(t, err)
+		require.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
+		require.Equal(t, uint16(tls.VersionTLS13), cfg.MaxVersion)
+	})
 }
