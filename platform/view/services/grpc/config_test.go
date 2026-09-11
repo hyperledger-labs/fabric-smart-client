@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -72,7 +73,7 @@ func TestClientConfigClone(t *testing.T) {
 	clone := origin.Clone()
 
 	// Same content, different inner fields references.
-	assert.Equal(t, origin, clone)
+	require.Equal(t, origin, clone)
 
 	// We change the contents of the fields and ensure it doesn't
 	// propagate across instances.
@@ -106,6 +107,6 @@ func TestClientConfigClone(t *testing.T) {
 		Timeout: time.Second,
 	}
 
-	assert.Equal(t, expectedOriginState, origin)
-	assert.Equal(t, expectedCloneState, clone)
+	require.Equal(t, expectedOriginState, origin)
+	require.Equal(t, expectedCloneState, clone)
 }

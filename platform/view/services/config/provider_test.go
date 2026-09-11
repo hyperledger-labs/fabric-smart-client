@@ -94,7 +94,7 @@ func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest
 	var c map[string]any
 	err = p.UnmarshalKey("fsc.kvs", &c)
 	require.NoError(t, err)
-	assert.NotNil(t, c["keyexists"])
+	require.NotNil(t, c["keyexists"])
 	assert.True(t, c["keyexists"].(bool))
 
 	assert.Equal(t, "new", p.GetString("non.existent.key"))

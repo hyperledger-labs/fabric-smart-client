@@ -846,9 +846,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 		},
 	})
 	// check for error
-	if err != nil {
-		t.Fatalf("Failed to return new GRPC server: %v", err)
-	}
+	require.NoError(t, err, "Failed to return new GRPC server")
 
 	// register the GRPC test server
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})

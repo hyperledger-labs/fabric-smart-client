@@ -68,6 +68,7 @@ Read these on demand — don't load them up front.
 | Platform layout, SDK composition, `dig` DI, multi-network | [`docs/agents/architecture.md`](docs/agents/architecture.md) |
 | Code organization, errors, logging, storage, identity, security | [`docs/agents/conventions.md`](docs/agents/conventions.md) |
 | Unit + integration test conventions | [`docs/agents/testing.md`](docs/agents/testing.md) |
+| Testing best practices (e.g. `assert` vs `require`) | [`docs/dev/testing.md`](docs/dev/testing.md) |
 | Authoring a new integration test | [`docs/agents/integration-tests.md`](docs/agents/integration-tests.md) |
 | Node configuration (`core.yaml`) | [`docs/configuration.md`](docs/configuration.md) |
 | Architecture overview & concepts | [`docs/core-concepts.md`](docs/core-concepts.md) |

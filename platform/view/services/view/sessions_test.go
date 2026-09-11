@@ -9,7 +9,7 @@ package view
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -30,18 +30,18 @@ func TestSessions(t *testing.T) {
 	sess := &simpleSession{id: "s1"}
 
 	s.Put("v1", party, sess)
-	assert.Equal(t, sess, s.Get("v1", party))
+	require.Equal(t, sess, s.Get("v1", party))
 
 	s.Delete("v1", party)
-	assert.Nil(t, s.Get("v1", party))
+	require.Nil(t, s.Get("v1", party))
 
 	s.PutDefault(party, sess)
-	assert.Equal(t, sess, s.Get("", party))
+	require.Equal(t, sess, s.Get("", party))
 
 	ids := s.GetSessionIDs()
-	assert.Len(t, ids, 1)
-	assert.Equal(t, "s1", ids[0])
+	require.Len(t, ids, 1)
+	require.Equal(t, "s1", ids[0])
 
 	s.Reset()
-	assert.Empty(t, s.GetSessionIDs())
+	require.Empty(t, s.GetSessionIDs())
 }

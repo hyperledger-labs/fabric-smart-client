@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -58,7 +57,7 @@ func TestNodeCmdPackage_ResolvesViaGoModRegardlessOfCheckoutDirName(t *testing.T
 	got := p.NodeCmdPackage(replica)
 
 	want := "github.com/LFDT-Panurus/panurus/integration/token/fungible/dlogx/out/cmd/lib-p2p-bootstrap-node"
-	assert.Equal(t, want, got)
+	require.Equal(t, want, got)
 }
 
 func TestNodeCmdPackage_MatchesCanonicalCheckoutDirName(t *testing.T) { //nolint:paralleltest
@@ -77,7 +76,7 @@ func TestNodeCmdPackage_MatchesCanonicalCheckoutDirName(t *testing.T) { //nolint
 	got := p.NodeCmdPackage(replica)
 
 	want := "github.com/LFDT-Panurus/panurus/integration/token/fungible/dlogx/out/cmd/lib-p2p-bootstrap-node"
-	assert.Equal(t, want, got)
+	require.Equal(t, want, got)
 }
 
 func TestNodeCmdPackage_FallsBackWhenNoGoModResolvable(t *testing.T) { //nolint:paralleltest
@@ -95,7 +94,7 @@ func TestNodeCmdPackage_FallsBackWhenNoGoModResolvable(t *testing.T) { //nolint:
 	got := p.NodeCmdPackage(replica)
 
 	want := "./out/cmd/lib-p2p-bootstrap-node"
-	assert.Equal(t, want, got)
+	require.Equal(t, want, got)
 }
 
 func TestGoModuleInfo(t *testing.T) { //nolint:paralleltest
@@ -104,19 +103,19 @@ func TestGoModuleInfo(t *testing.T) { //nolint:paralleltest
 	modPath, modDir, err := goModuleInfo(nested)
 	require.NoError(t, err)
 
-	assert.Equal(t, "github.com/example/proj", modPath)
+	require.Equal(t, "github.com/example/proj", modPath)
 
 	rootDir := filepath.Dir(filepath.Dir(nested)) // strip "pkg/sub"
 	resolvedRoot, err := filepath.EvalSymlinks(rootDir)
 	require.NoError(t, err)
 	resolvedModDir, err := filepath.EvalSymlinks(modDir)
 	require.NoError(t, err)
-	assert.Equal(t, resolvedRoot, resolvedModDir)
+	require.Equal(t, resolvedRoot, resolvedModDir)
 }
 
 func TestGoModuleInfo_ErrorsOutsideModule(t *testing.T) { //nolint:paralleltest
 	dir := t.TempDir()
 
 	_, _, err := goModuleInfo(dir)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

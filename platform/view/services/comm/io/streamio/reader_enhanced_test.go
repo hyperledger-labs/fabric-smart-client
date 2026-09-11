@@ -10,7 +10,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -154,20 +153,20 @@ func TestReader_MultipleMessages(t *testing.T) {
 		// Read first part of first message
 		n, err := reader.Read(buf)
 		require.NoError(t, err)
-		assert.Equal(t, 5, n)
-		assert.Equal(t, []byte("messa"), buf)
+		require.Equal(t, 5, n)
+		require.Equal(t, []byte("messa"), buf)
 
 		// Read rest of first message
 		n, err = reader.Read(buf)
 		require.NoError(t, err)
-		assert.Equal(t, 3, n)
-		assert.Equal(t, []byte("ge1"), buf[:n])
+		require.Equal(t, 3, n)
+		require.Equal(t, []byte("ge1"), buf[:n])
 
 		// Read first part of second message
 		n, err = reader.Read(buf)
 		require.NoError(t, err)
-		assert.Equal(t, 5, n)
-		assert.Equal(t, []byte("messa"), buf)
+		require.Equal(t, 5, n)
+		require.Equal(t, []byte("messa"), buf)
 	})
 }
 

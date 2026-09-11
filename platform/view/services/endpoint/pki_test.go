@@ -17,7 +17,6 @@ import (
 	"crypto/x509"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
@@ -42,13 +41,13 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 		// Verify it's deterministic
 		pkID2, err := synthesizer.PublicKeyID(&privateKey.PublicKey)
 		require.NoError(t, err)
-		assert.Equal(t, pkID, pkID2)
+		require.Equal(t, pkID, pkID2)
 
 		// Verify it's actually the hash of the marshaled key
 		raw, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 		require.NoError(t, err)
 		expectedHash := sha256.Sum256(raw)
-		assert.Equal(t, expectedHash[:], pkID)
+		require.Equal(t, expectedHash[:], pkID)
 	})
 
 	t.Run("ECDSA public key", func(t *testing.T) {
@@ -66,7 +65,7 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 		// Verify it's deterministic
 		pkID2, err := synthesizer.PublicKeyID(&privateKey.PublicKey)
 		require.NoError(t, err)
-		assert.Equal(t, pkID, pkID2)
+		require.Equal(t, pkID, pkID2)
 	})
 
 	t.Run("different keys produce different IDs", func(t *testing.T) {
@@ -82,7 +81,7 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 		pkID2, err := synthesizer.PublicKeyID(&key2.PublicKey)
 		require.NoError(t, err)
 
-		assert.NotEqual(t, pkID1, pkID2)
+		require.NotEqual(t, pkID1, pkID2)
 	})
 
 	t.Run("unsupported key type", func(t *testing.T) {
@@ -90,7 +89,7 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 		// Test with unsupported key type
 		_, err := synthesizer.PublicKeyID("not a key")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "x509:")
+		require.Contains(t, err.Error(), "x509:")
 	})
 
 	t.Run("nil key", func(t *testing.T) {
@@ -104,6 +103,6 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 		// This should fail as x509.MarshalPKIXPublicKey doesn't support []byte
 		_, err := synthesizer.PublicKeyID([]byte("some bytes"))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unsupported public key type")
+		require.Contains(t, err.Error(), "unsupported public key type")
 	})
 }

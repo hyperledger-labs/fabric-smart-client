@@ -583,9 +583,7 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 		require.NoError(t, err, "%s should be stored (%v)", name, key)
 	}
 	err = db.Commit()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = db.BeginUpdate()
 	require.NoError(t, err)
@@ -594,9 +592,7 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 		require.NoError(t, err, "%s should be updated (%v)", name, key)
 	}
 	err = db.Commit()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	for name, key := range utf8 {
 		v, err := db.GetState(context.Background(), ns, string(key))

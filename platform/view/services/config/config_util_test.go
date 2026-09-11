@@ -68,7 +68,7 @@ test:
 	assert.Equal(t, []string{"a", "b", "c"}, ts.Slice)
 	assert.Equal(t, uint32(10*1024*1024), ts.Size)
 	assert.Equal(t, "hello world", ts.Content)
-	assert.Len(t, ts.Certs, 1)
+	require.Len(t, ts.Certs, 1)
 	assert.Contains(t, ts.Certs[0], "BEGIN CERTIFICATE")
 	assert.Equal(t, 10*time.Second, ts.Duration)
 

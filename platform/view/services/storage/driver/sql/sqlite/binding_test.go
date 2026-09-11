@@ -11,7 +11,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -27,7 +27,7 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 	dbs := utils.MustGet(open(o))
 	tables := common.GetTableNames(o.TablePrefix, o.TableNameParams...)
 	db := buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding)
-	assert.NoError(tb, db.CreateSchema())
+	require.NoError(tb, db.CreateSchema())
 	return db
 }
 
