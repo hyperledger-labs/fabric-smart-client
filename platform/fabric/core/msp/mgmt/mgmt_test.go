@@ -162,11 +162,7 @@ func TestLoadLocalMSP_IdemixType(t *testing.T) { //nolint:paralleltest
 	defer func() { localMsp = savedMsp }()
 	localMsp = nil
 
-	// Set idemix type via os.Setenv
-	const k = "CORE_PEER_LOCALMSPTYPE"
-	orig := os.Getenv(k)
-	defer func() { _ = os.Setenv(k, orig) }()
-	_ = os.Setenv(k, msp.ProviderTypeToString(msp.IDEMIX))
+	t.Setenv("CORE_PEER_LOCALMSPTYPE", msp.ProviderTypeToString(msp.IDEMIX))
 
 	cryptoProvider := factory.GetDefault()
 
@@ -182,11 +178,7 @@ func TestLoadLocalMSP_UnknownType(t *testing.T) { //nolint:paralleltest
 	defer func() { localMsp = savedMsp }()
 	localMsp = nil
 
-	// Set an unknown MSP type — loadLocalMSP should panic
-	const k = "CORE_PEER_LOCALMSPTYPE"
-	orig := os.Getenv(k)
-	defer func() { _ = os.Setenv(k, orig) }()
-	_ = os.Setenv(k, "unknown-type")
+	t.Setenv("CORE_PEER_LOCALMSPTYPE", "unknown-type")
 
 	require.Panics(t, func() {
 		cryptoProvider := factory.GetDefault()

@@ -38,6 +38,7 @@ linters:
     - unconvert
     - unused
     - usestdlibvars
+    - usetesting
   settings:
     goheader:
       # Two header forms are accepted: the SPDX form used by code written for
