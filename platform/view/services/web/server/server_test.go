@@ -99,9 +99,7 @@ var _ = Describe("Server", func() {
 	)
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "http-test")
-		Expect(err).NotTo(HaveOccurred())
+		tempDir = GinkgoT().TempDir()
 
 		generateCertificates(tempDir)
 		client = newHTTPClient(tempDir, true)
@@ -130,7 +128,6 @@ var _ = Describe("Server", func() {
 	})
 
 	AfterEach(func() {
-		utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
 		if srv != nil {
 			utils.IgnoreError(srv.Stop())
 		}
