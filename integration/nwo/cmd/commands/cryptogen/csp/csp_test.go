@@ -28,11 +28,7 @@ import (
 
 func TestLoadPrivateKey(t *testing.T) {
 	t.Parallel()
-	testDir, err := os.MkdirTemp("", "csp-test")
-	if err != nil {
-		t.Fatalf("Failed to create test directory: %s", err)
-	}
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
+	testDir := t.TempDir()
 	priv, err := csp.GeneratePrivateKey(testDir)
 	if err != nil {
 		t.Fatalf("Failed to generate private key: %s", err)
@@ -105,11 +101,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
 
 func TestGeneratePrivateKey(t *testing.T) {
 	t.Parallel()
-	testDir, err := os.MkdirTemp("", "csp-test")
-	if err != nil {
-		t.Fatalf("Failed to create test directory: %s", err)
-	}
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
+	testDir := t.TempDir()
 
 	expectedFile := filepath.Join(testDir, "priv_sk")
 	priv, err := csp.GeneratePrivateKey(testDir)

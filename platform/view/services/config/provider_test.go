@@ -51,15 +51,15 @@ func TestProvideFromRaw(t *testing.T) { //nolint:paralleltest
 }
 
 func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest
-	_ = os.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "new data source")
-	_ = os.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
-	_ = os.Setenv("CORE_NUMBER", "10")
-	_ = os.Setenv("CORE_DURATION", "10s")
-	_ = os.Setenv("CORE_PATH_RELATIVE", "newfile.name")
-	_ = os.Setenv("CORE_PATH_ABSOLUTE", "") // empty env vars are disregarded
-	_ = os.Setenv("CORE_NON_EXISTENT_KEY", "new")
-	_ = os.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
-	_ = os.Setenv("CORE_CORE_ISFINE", "yes")
+	t.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "new data source")
+	t.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
+	t.Setenv("CORE_NUMBER", "10")
+	t.Setenv("CORE_DURATION", "10s")
+	t.Setenv("CORE_PATH_RELATIVE", "newfile.name")
+	t.Setenv("CORE_PATH_ABSOLUTE", "") // empty env vars are disregarded
+	t.Setenv("CORE_NON_EXISTENT_KEY", "new")
+	t.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
+	t.Setenv("CORE_CORE_ISFINE", "yes")
 
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestGetProvider(t *testing.T) {
 }
 
 func TestProviderMore(t *testing.T) { //nolint:paralleltest
-	_ = os.Setenv("CORE_FSC_ID", "node1")
+	t.Setenv("CORE_FSC_ID", "node1")
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
 
@@ -245,10 +245,10 @@ func TestProviderError(t *testing.T) {
 }
 
 func TestEnvConversions(t *testing.T) { //nolint:paralleltest
-	_ = os.Setenv("CORE_ENV_INT", "123")
-	_ = os.Setenv("CORE_ENV_BOOL", "true")
-	_ = os.Setenv("CORE_ENV_FLOAT", "1.23")
-	_ = os.Setenv("CORE_ENV_MAP", "this should be ignored")
+	t.Setenv("CORE_ENV_INT", "123")
+	t.Setenv("CORE_ENV_BOOL", "true")
+	t.Setenv("CORE_ENV_FLOAT", "1.23")
+	t.Setenv("CORE_ENV_MAP", "this should be ignored")
 
 	raw := []byte(`
 env:
