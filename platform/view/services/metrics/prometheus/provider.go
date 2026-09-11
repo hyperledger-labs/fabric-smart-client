@@ -179,7 +179,11 @@ func getOrCreate[V prom.Collector, O any](p *Provider, kind, fqName string, opts
 			return entry
 		}()
 	}
-	return fromCache[V](key, e.(*cacheEntry), opts)
+	entry, ok := e.(*cacheEntry)
+	if !ok {
+		panic(fmt.Errorf("unexpected cache entry type [%T]", e))
+	}
+	return fromCache[V](key, entry, opts)
 }
 
 // fromCache returns the cached collector after checking that opts match the

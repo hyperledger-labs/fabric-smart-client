@@ -234,5 +234,9 @@ func GetFabricNetworkServiceProvider(sp services.Provider) (driver.FabricNetwork
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting fabric network service provider")
 	}
-	return s.(driver.FabricNetworkServiceProvider), nil
+	provider, ok := s.(driver.FabricNetworkServiceProvider)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for fabric network service provider", s)
+	}
+	return provider, nil
 }

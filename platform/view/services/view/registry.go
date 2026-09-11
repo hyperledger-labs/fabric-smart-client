@@ -200,8 +200,12 @@ func GetIdentifier(f view.View) string {
 		return "<nil view>"
 	}
 	t := reflect.TypeOf(f)
-	if id, ok := identifierCache.Load(t); ok {
-		return id.(string)
+	if v, ok := identifierCache.Load(t); ok {
+		id, ok := v.(string)
+		if !ok {
+			panic(errors.Errorf("unexpected cached identifier type [%T]", v))
+		}
+		return id
 	}
 
 	ptr := t
@@ -219,8 +223,12 @@ func GetName(f view.View) string {
 		return "<nil view>"
 	}
 	t := reflect.TypeOf(f)
-	if name, ok := nameCache.Load(t); ok {
-		return name.(string)
+	if v, ok := nameCache.Load(t); ok {
+		name, ok := v.(string)
+		if !ok {
+			panic(errors.Errorf("unexpected cached name type [%T]", v))
+		}
+		return name
 	}
 
 	ptr := t
@@ -239,5 +247,9 @@ func GetRegistry(sp services.Provider) *Registry {
 	if err != nil {
 		panic(err)
 	}
-	return s.(*Registry)
+	r, ok := s.(*Registry)
+	if !ok {
+		panic(errors.Errorf("unexpected service type [%T] for view registry", s))
+	}
+	return r
 }

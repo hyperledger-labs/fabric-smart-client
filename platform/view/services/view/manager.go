@@ -102,7 +102,11 @@ func GetManager(sp services.Provider) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.(*Manager), nil
+	m, ok := s.(*Manager)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for view manager", s)
+	}
+	return m, nil
 }
 
 // RegisterFactory registers a view factory for the given ID.

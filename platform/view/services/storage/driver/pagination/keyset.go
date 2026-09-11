@@ -22,7 +22,11 @@ type PropertyName[V comparable] string
 
 // ExtractField extracts the field from the given value
 func (p PropertyName[V]) ExtractField(v any) V {
-	return reflect.ValueOf(v).FieldByName(string(p)).Interface().(V)
+	fv, ok := reflect.ValueOf(v).FieldByName(string(p)).Interface().(V)
+	if !ok {
+		panic(errors.Errorf("field [%s] is not of the expected type", p))
+	}
+	return fv
 }
 
 type keyset[I comparable, V any] struct {
@@ -110,9 +114,17 @@ func nilElement[I any]() I {
 	var zero I
 	switch any(zero).(type) {
 	case int:
-		return any(-1).(I)
+		v, ok := any(-1).(I)
+		if !ok {
+			panic("unsupported type")
+		}
+		return v
 	case string:
-		return any("").(I)
+		v, ok := any("").(I)
+		if !ok {
+			panic("unsupported type")
+		}
+		return v
 	default:
 		panic("unsupported type")
 	}

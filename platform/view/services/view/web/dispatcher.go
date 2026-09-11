@@ -44,7 +44,13 @@ func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response any, st
 	escapedViewID := strings.ReplaceAll(viewID, "\n", "")
 	escapedViewID = strings.ReplaceAll(escapedViewID, "\r", "")
 
-	res, err := rd.vc.CallView(reqctx, escapedViewID, reqctx.Query.([]byte))
+	query, ok := reqctx.Query.([]byte)
+	if !ok {
+		logger.ErrorfContext(ctx, "unexpected query type [%T]", reqctx.Query)
+		return &server.ResponseErr{Reason: "internal error"}, 500
+	}
+
+	res, err := rd.vc.CallView(reqctx, escapedViewID, query)
 	if err != nil {
 		return &server.ResponseErr{Reason: err.Error()}, 500
 	}

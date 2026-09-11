@@ -114,6 +114,11 @@ func (e *EventListener) OnReceive(event events.Event) {
 		return
 	}
 
+	chaincodeEvent, ok := event.Message().(*committer.ChaincodeEvent)
+	if !ok {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), e.recvTimeout)
 	defer cancel()
 
@@ -132,6 +137,6 @@ func (e *EventListener) OnReceive(event events.Event) {
 		// if the event cannot send to the middleCh before the recvTimeout is fired,
 		// we return to not further block the event notifier
 		return
-	case e.middleCh <- event.Message().(*committer.ChaincodeEvent):
+	case e.middleCh <- chaincodeEvent:
 	}
 }

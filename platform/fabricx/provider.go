@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fabricx
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
@@ -65,7 +66,11 @@ func (d *Provider) New(network string, b bool) (fdriver.FabricNetworkService, er
 		transaction.NewFactory(net),
 	)
 
-	net.(*generic.Network).SetTransactionManager(txManager)
+	genNet, ok := net.(*generic.Network)
+	if !ok {
+		return nil, errors.Errorf("unexpected network type [%T]", net)
+	}
+	genNet.SetTransactionManager(txManager)
 
 	return net, nil
 }

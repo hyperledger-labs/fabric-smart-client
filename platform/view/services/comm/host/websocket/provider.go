@@ -75,11 +75,19 @@ type hostWrapper struct {
 }
 
 func (h *hostWrapper) ID() string {
-	return h.P2PHost.(interface{ ID() string }).ID()
+	idHost, ok := h.P2PHost.(interface{ ID() string })
+	if !ok {
+		panic(errors.Errorf("unexpected P2PHost type [%T]: missing ID()", h.P2PHost))
+	}
+	return idHost.ID()
 }
 
 func (h *hostWrapper) Addr() string {
-	return h.P2PHost.(interface{ Addr() string }).Addr()
+	addrHost, ok := h.P2PHost.(interface{ Addr() string })
+	if !ok {
+		panic(errors.Errorf("unexpected P2PHost type [%T]: missing Addr()", h.P2PHost))
+	}
+	return addrHost.Addr()
 }
 
 func (h *hostWrapper) Start(newStreamCallback func(stream host2.P2PStream)) error {
@@ -88,7 +96,11 @@ func (h *hostWrapper) Start(newStreamCallback func(stream host2.P2PStream)) erro
 	}
 
 	// Update the endpoint service with the actual address
-	actualAddr := h.P2PHost.(interface{ Addr() string }).Addr()
+	addrHost, ok := h.P2PHost.(interface{ Addr() string })
+	if !ok {
+		panic(errors.Errorf("unexpected P2PHost type [%T]: missing Addr()", h.P2PHost))
+	}
+	actualAddr := addrHost.Addr()
 	logger.Infof("Updating endpoint service for node [%s] with actual address [%s]", h.nodeID, actualAddr)
 	_, err := h.endpointService.UpdateResolver(
 		h.nodeID,

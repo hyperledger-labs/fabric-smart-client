@@ -84,7 +84,11 @@ func GetProvider(sp services.Provider) *Provider {
 	if err != nil {
 		panic(err)
 	}
-	return s.(*Provider)
+	p, ok := s.(*Provider)
+	if !ok {
+		panic(errors.Errorf("unexpected service type [%T] for config provider", s))
+	}
+	return p
 }
 
 // ID returns the FSC node ID from the configuration.

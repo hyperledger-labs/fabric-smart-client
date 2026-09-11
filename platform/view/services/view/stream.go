@@ -9,6 +9,7 @@ package view
 import (
 	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
@@ -38,5 +39,9 @@ func GetStreamIfExists(sp services.Provider) (Stream, error) {
 	if err != nil {
 		return nil, err
 	}
-	return scsBoxed.(Stream), nil
+	stream, ok := scsBoxed.(Stream)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for stream", scsBoxed)
+	}
+	return stream, nil
 }

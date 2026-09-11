@@ -140,5 +140,9 @@ func GetLedgerProvider(sp services.Provider) (*Provider, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find ledger provider")
 	}
-	return lp.(*Provider), nil
+	provider, ok := lp.(*Provider)
+	if !ok {
+		return nil, errors.Errorf("unexpected provider type [%T]", lp)
+	}
+	return provider, nil
 }

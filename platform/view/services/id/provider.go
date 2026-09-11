@@ -66,7 +66,11 @@ func GetProvider(sp services.Provider) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.(*Provider), nil
+	p, ok := s.(*Provider)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for id provider", s)
+	}
+	return p, nil
 }
 
 func (p *Provider) Load() error {

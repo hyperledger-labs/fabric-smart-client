@@ -42,7 +42,11 @@ func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider 
 }
 
 func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command) (any, error) {
-	initiateView := command.Payload.(*protos.Command_InitiateView).InitiateView
+	payload, ok := command.Payload.(*protos.Command_InitiateView)
+	if !ok {
+		return nil, errors.Errorf("unexpected command payload type [%T]", command.Payload)
+	}
+	initiateView := payload.InitiateView
 	_, span := s.tracer.Start(ctx, "initiate_view", tracing.WithAttributes(tracing.String(fidLabel, initiateView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 
@@ -64,7 +68,11 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command)
 }
 
 func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (any, error) {
-	callView := command.Payload.(*protos.Command_CallView).CallView
+	payload, ok := command.Payload.(*protos.Command_CallView)
+	if !ok {
+		return nil, errors.Errorf("unexpected command payload type [%T]", command.Payload)
+	}
+	callView := payload.CallView
 	// newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	// defer span.End()
 	fid := callView.Fid
@@ -95,7 +103,11 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (an
 }
 
 func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.Command, commandServer protos.ViewService_StreamCommandServer, marshaller Marshaller) error {
-	callView := command.Payload.(*protos.Command_CallView).CallView
+	payload, ok := command.Payload.(*protos.Command_CallView)
+	if !ok {
+		return errors.Errorf("unexpected command payload type [%T]", command.Payload)
+	}
+	callView := payload.CallView
 
 	fid := callView.Fid
 	input := callView.Input

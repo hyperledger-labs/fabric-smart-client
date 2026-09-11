@@ -104,5 +104,9 @@ func GetProvider(sp services.Provider) (Provider, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting provider")
 	}
-	return s.(Provider), nil
+	provider, ok := s.(Provider)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for tracing provider", s)
+	}
+	return provider, nil
 }

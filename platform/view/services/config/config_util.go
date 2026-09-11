@@ -29,7 +29,10 @@ func customDecodeHook(f, _ reflect.Type, data any) (any, error) {
 		return data, nil
 	}
 
-	raw := data.(string)
+	raw, ok := data.(string)
+	if !ok {
+		return nil, errors.Errorf("unexpected data type [%T]", data)
+	}
 	l := len(raw)
 	if l > 1 && raw[0] == '[' && raw[l-1] == ']' {
 		slice := strings.Split(raw[1:l-1], ",")
@@ -47,7 +50,10 @@ func byteSizeDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	if f != reflect.String || t != reflect.Uint32 {
 		return data, nil
 	}
-	raw := data.(string)
+	raw, ok := data.(string)
+	if !ok {
+		return nil, errors.Errorf("unexpected data type [%T]", data)
+	}
 	if raw == "" {
 		return data, nil
 	}
@@ -91,14 +97,21 @@ func stringFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	case reflect.String:
 		return data, nil
 	case reflect.Map:
-		d := data.(map[string]any)
+		d, ok := data.(map[string]any)
+		if !ok {
+			return nil, errors.Errorf("unexpected data type [%T]", data)
+		}
 		fileName, ok := d["File"]
 		if !ok {
 			fileName, ok = d["file"]
 		}
 		switch {
 		case ok && fileName != nil:
-			bytes, err := os.ReadFile(fileName.(string))
+			fileNameStr, ok := fileName.(string)
+			if !ok {
+				return nil, errors.Errorf("unexpected File value type [%T]", fileName)
+			}
+			bytes, err := os.ReadFile(fileNameStr)
 			if err != nil {
 				return data, err
 			}

@@ -77,7 +77,7 @@ func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 	for _, id := range ids {
 		if v, ok := o.cache.Get(id); !ok {
 			notFound = append(notFound, id)
-		} else if v != nil && len(v.([]byte)) > 0 {
+		} else if raw, ok := v.([]byte); ok && len(raw) > 0 {
 			result = append(result, id)
 		}
 	}
@@ -97,7 +97,7 @@ func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 	for _, id := range ids {
 		if v, ok := o.cache.Get(id); !ok {
 			notFound = append(notFound, id)
-		} else if v != nil && len(v.([]byte)) > 0 {
+		} else if raw, ok := v.([]byte); ok && len(raw) > 0 {
 			result = append(result, id)
 		}
 	}
@@ -159,7 +159,12 @@ func (o *KVS) Get(ctx context.Context, id string, state any) error {
 	cachedRaw, ok := o.cache.Get(id)
 	//nolint:gocritic // rewriting to switch would obscure the RLock/RUnlock and Lock/Unlock pairing across mixed branches (one branch has two early error returns); the if/else-if reads clearer and is not misleading here.
 	if cachedRaw != nil && ok {
-		raw = cachedRaw.([]byte)
+		var castOk bool
+		raw, castOk = cachedRaw.([]byte)
+		if !castOk {
+			o.putMutex.RUnlock()
+			return errors.Errorf("unexpected cached value type for [%s,%s]", o.namespace, id)
+		}
 		o.putMutex.RUnlock()
 	} else if !ok {
 		// Cache miss, need to fetch from store and add to cache

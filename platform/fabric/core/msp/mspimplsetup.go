@@ -39,7 +39,11 @@ func (msp *bccspmsp) getCertifiersIdentifier(certRaw []byte) ([]byte, error) {
 	root := false
 	// Search among root certificates
 	for _, v := range msp.rootCerts {
-		if v.(*identity).cert.Equal(cert) {
+		vID, ok := v.(*identity)
+		if !ok {
+			return nil, errors.Errorf("unexpected identity type [%T] in root certs", v)
+		}
+		if vID.cert.Equal(cert) {
 			found = true
 			root = true
 			break
@@ -48,7 +52,11 @@ func (msp *bccspmsp) getCertifiersIdentifier(certRaw []byte) ([]byte, error) {
 	if !found {
 		// Search among root intermediate certificates
 		for _, v := range msp.intermediateCerts {
-			if v.(*identity).cert.Equal(cert) {
+			vID, ok := v.(*identity)
+			if !ok {
+				return nil, errors.Errorf("unexpected identity type [%T] in intermediate certs", v)
+			}
+			if vID.cert.Equal(cert) {
 				found = true
 				break
 			}
@@ -158,10 +166,18 @@ func (msp *bccspmsp) setupCAs(conf *m.FabricMSPConfig) error {
 	// root CA and intermediate CA certificates are sanitized, they can be re-imported
 	msp.opts = &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()}
 	for _, id := range msp.rootCerts {
-		msp.opts.Roots.AddCert(id.(*identity).cert)
+		rootID, ok := id.(*identity)
+		if !ok {
+			return errors.Errorf("unexpected identity type [%T] in root certs", id)
+		}
+		msp.opts.Roots.AddCert(rootID.cert)
 	}
 	for _, id := range msp.intermediateCerts {
-		msp.opts.Intermediates.AddCert(id.(*identity).cert)
+		intID, ok := id.(*identity)
+		if !ok {
+			return errors.Errorf("unexpected identity type [%T] in intermediate certs", id)
+		}
+		msp.opts.Intermediates.AddCert(intID.cert)
 	}
 
 	return nil
@@ -253,15 +269,19 @@ func (msp *bccspmsp) setupCRLs(conf *m.FabricMSPConfig) error {
 func (msp *bccspmsp) finalizeSetupCAs() error {
 	// ensure that our CAs are properly formed and that they are valid
 	for _, id := range append(append([]Identity{}, msp.rootCerts...), msp.intermediateCerts...) {
-		if !id.(*identity).cert.IsCA {
-			return errors.Errorf("CA Certificate did not have the CA attribute, (SN: %x)", id.(*identity).cert.SerialNumber)
+		caID, ok := id.(*identity)
+		if !ok {
+			return errors.Errorf("unexpected identity type [%T] in CA certs", id)
 		}
-		if _, err := getSubjectKeyIdentifierFromCert(id.(*identity).cert); err != nil {
-			return errors.WithMessagef(err, "CA Certificate problem with Subject Key Identifier extension, (SN: %x)", id.(*identity).cert.SerialNumber)
+		if !caID.cert.IsCA {
+			return errors.Errorf("CA Certificate did not have the CA attribute, (SN: %x)", caID.cert.SerialNumber)
+		}
+		if _, err := getSubjectKeyIdentifierFromCert(caID.cert); err != nil {
+			return errors.WithMessagef(err, "CA Certificate problem with Subject Key Identifier extension, (SN: %x)", caID.cert.SerialNumber)
 		}
 
-		if err := msp.validateCAIdentity(id.(*identity)); err != nil {
-			return errors.WithMessagef(err, "CA Certificate is not valid, (SN: %s)", id.(*identity).cert.SerialNumber)
+		if err := msp.validateCAIdentity(caID); err != nil {
+			return errors.WithMessagef(err, "CA Certificate is not valid, (SN: %s)", caID.cert.SerialNumber)
 		}
 	}
 
@@ -269,12 +289,16 @@ func (msp *bccspmsp) finalizeSetupCAs() error {
 	// certification tree
 	msp.certificationTreeInternalNodesMap = make(map[string]bool)
 	for _, id := range append([]Identity{}, msp.intermediateCerts...) {
-		chain, err := msp.getUniqueValidationChain(id.(*identity).cert, msp.getValidityOptsForCert(id.(*identity).cert))
+		intID, ok := id.(*identity)
+		if !ok {
+			return errors.Errorf("unexpected identity type [%T] in intermediate certs", id)
+		}
+		chain, err := msp.getUniqueValidationChain(intID.cert, msp.getValidityOptsForCert(intID.cert))
 		if err != nil {
-			return errors.WithMessagef(err, "failed getting validation chain, (SN: %s)", id.(*identity).cert.SerialNumber)
+			return errors.WithMessagef(err, "failed getting validation chain, (SN: %s)", intID.cert.SerialNumber)
 		}
 
-		// Recall chain[0] is id.(*identity).id so it does not count as a parent
+		// Recall chain[0] is intID.id so it does not count as a parent
 		for i := 1; i < len(chain); i++ {
 			msp.certificationTreeInternalNodesMap[string(chain[i].Raw)] = true
 		}
