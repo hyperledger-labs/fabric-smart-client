@@ -12,22 +12,35 @@ permissions:
 
 jobs:
   fuzz:
-    name: fuzz-${{ matrix.target }}
+    name: fuzz-${{ matrix.target.name }}
     runs-on: ubuntu-latest
     # -fuzztime below is 2h; this leaves headroom for checkout/setup/upload.
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
-        # One entry per `func Fuzz...(f *testing.F)` in
-        # platform/fabric/core/generic/transaction/fuzz_test.go. `go test -fuzz`
-        # only fuzzes a single target per invocation, so each gets its own job
-        # and its own full 2h budget. Add new targets here as they land (see #1787).
+        # One entry per `func Fuzz...(f *testing.F)` in packages parsing untrusted
+        # input before authentication. `go test -fuzz` only fuzzes a single
+        # target per invocation, so each gets its own job and its own full 2h budget.
         target:
-          - FuzzUnpackSignedProposal
-          - FuzzUnpackEnvelopeFromBytes
-          - FuzzTransactionSetFromBytes
-          - FuzzTransactionSetFromEnvelopeBytes
+          - name: FuzzUnpackSignedProposal
+            path: platform/fabric/core/generic/transaction
+          - name: FuzzUnpackEnvelopeFromBytes
+            path: platform/fabric/core/generic/transaction
+          - name: FuzzTransactionSetFromBytes
+            path: platform/fabric/core/generic/transaction
+          - name: FuzzTransactionSetFromEnvelopeBytes
+            path: platform/fabric/core/generic/transaction
+          - name: FuzzECDSAVerify
+            path: platform/fabric/core/generic/msp/x509
+          - name: FuzzNewIdentityFromBytes
+            path: platform/fabric/core/generic/msp/x509
+          - name: FuzzDeserializeVerifier
+            path: platform/fabric/core/generic/msp/x509
+          - name: FuzzVarintReaderReadData
+            path: platform/view/services/comm/io
+          - name: FuzzPKExtractorExtractPublicKey
+            path: platform/view/services/comm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
@@ -51,14 +64,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # ratchet:actions/cache@v6.1.0
         with:
           path: ${{ steps.fuzz-cache-dir.outputs.path }}
-          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          key: fuzz-corpus-${{ matrix.target.name }}-${{ github.run_id }}
           restore-keys: |
-            fuzz-corpus-${{ matrix.target }}-
+            fuzz-corpus-${{ matrix.target.name }}-
 
-      - name: Fuzz ${{ matrix.target }}
+      - name: Fuzz ${{ matrix.target.name }}
         run: |
-          go test ./platform/fabric/core/generic/transaction \
-            -run='^$' -fuzz="^${{ matrix.target }}\$" -fuzztime=2h
+          go test ./${{ matrix.target.path }} \
+            -run='^$' -fuzz="^${{ matrix.target.name }}\$" -fuzztime=2h
 
       # A failing run means the fuzzer found a crasher; it's written under
       # testdata/fuzz/<target> in the checkout. Upload it so it can be pulled
@@ -68,6 +81,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7.0.1
         with:
-          name: fuzz-crash-${{ matrix.target }}
-          path: platform/fabric/core/generic/transaction/testdata/fuzz/${{ matrix.target }}
+          name: fuzz-crash-${{ matrix.target.name }}
+          path: ${{ matrix.target.path }}/testdata/fuzz/${{ matrix.target.name }}
           if-no-files-found: ignore
