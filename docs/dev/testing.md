@@ -49,12 +49,20 @@ overview](https://go.dev/doc/security/fuzz/) for the mechanics. FSC fuzzes the c
 parses attacker-controlled bytes before signature verification, where a panic is a remotely
 triggerable DoS.
 
-The fuzz targets live in
-[`platform/fabric/core/generic/transaction/fuzz_test.go`](../../platform/fabric/core/generic/transaction/fuzz_test.go):
-`FuzzUnpackSignedProposal`, `FuzzUnpackEnvelopeFromBytes`, `FuzzTransactionSetFromBytes`,
-`FuzzTransactionSetFromEnvelopeBytes`. A plain `go test` (via `make unit-tests` and friends)
-only replays their in-code seed corpus (the `f.Add(...)` calls) as ordinary subtests; it
-does not mutate anything.
+The fuzz targets live across several packages handling untrusted pre-auth bytes:
+
+- [`platform/fabric/core/generic/transaction/fuzz_test.go`](../../platform/fabric/core/generic/transaction/fuzz_test.go):
+  `FuzzUnpackSignedProposal`, `FuzzUnpackEnvelopeFromBytes`, `FuzzTransactionSetFromBytes`,
+  `FuzzTransactionSetFromEnvelopeBytes`.
+- [`platform/fabric/core/generic/msp/x509/fuzz_test.go`](../../platform/fabric/core/generic/msp/x509/fuzz_test.go):
+  `FuzzECDSAVerify`, `FuzzNewIdentityFromBytes`, `FuzzDeserializeVerifier`.
+- [`platform/view/services/comm/io/fuzz_test.go`](../../platform/view/services/comm/io/fuzz_test.go):
+  `FuzzVarintReaderReadData`.
+- [`platform/view/services/comm/fuzz_test.go`](../../platform/view/services/comm/fuzz_test.go):
+  `FuzzPKExtractorExtractPublicKey`.
+
+A plain `go test` (via `make unit-tests` and friends) only replays their in-code seed corpus
+(the `f.Add(...)` calls) as ordinary subtests; it does not mutate anything.
 
 Actual mutation-based fuzzing runs in
 [`.github/workflows/fuzz.yml`](../../.github/workflows/fuzz.yml):
@@ -84,12 +92,13 @@ go test fuzz v1
 []byte("...")
 ```
 
-1. Copy that file into `platform/fabric/core/generic/transaction/testdata/fuzz/<target>/`
-   (create the directory if it doesn't exist), keeping its filename.
+1. Copy that file into `<target-package-path>/testdata/fuzz/<target>/`
+   (e.g., `platform/fabric/core/generic/msp/x509/testdata/fuzz/<target>/`),
+   keeping its filename (create the directory if it doesn't exist).
 2. Reproduce it as a regular test: `go test` replays every file under
    `testdata/fuzz/<target>/` whenever `-run` matches, no `-fuzz` flag needed.
    ```bash
-   go test -run=<target> ./platform/fabric/core/generic/transaction -v
+   go test -run=<target> ./<target-package-path> -v
    ```
    This panics locally with the full stack trace.
 3. Fix the root cause. A parser should return an error on malformed input, not panic.
