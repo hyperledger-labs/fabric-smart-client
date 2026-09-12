@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func generateTestCert(t *testing.T) []byte {
-	t.Helper()
+func generateTestCert(tb testing.TB) []byte {
+	tb.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -43,7 +43,7 @@ func generateTestCert(t *testing.T) []byte {
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 }
