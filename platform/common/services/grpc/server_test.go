@@ -760,6 +760,44 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 		require.ErrorContains(t, err, "minVersion")
 	})
 
+	t.Run("an unconfigured range resolves to TLS 1.2 exactly", func(t *testing.T) {
+		t.Parallel()
+		lis := createListener(t)
+		testAddress := lis.Addr().String()
+
+		// SecOpts sets neither MinVersion nor MaxVersion, the case every deployment
+		// that omits both from its tls block reaches.
+		srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+			SecOpts: grpc3.SecureOptions{
+				UseTLS:      true,
+				Certificate: []byte(selfSignedCertPEM),
+				Key:         []byte(selfSignedKeyPEM),
+			},
+		})
+		require.NoError(t, err)
+		go utils.IgnoreErrorFunc(srv.Start)
+		t.Cleanup(srv.Stop)
+
+		conn, err := tls.Dial("tcp", testAddress, &tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
+		})
+		require.NoError(t, err, "a client willing to negotiate up to 1.3 must still land on 1.2")
+		defer utils.IgnoreErrorFunc(conn.Close)
+		require.NoError(t, conn.Handshake())
+		require.Equal(t, uint16(tls.VersionTLS12), conn.ConnectionState().Version)
+
+		// Prove the ceiling is enforced, not just that both sides happened to prefer
+		// 1.2: a client that will only speak 1.3 must be refused outright.
+		_, err = tls.Dial("tcp", testAddress, &tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS13,
+			MaxVersion: tls.VersionTLS13,
+		})
+		require.Error(t, err, "a TLS-1.3-only client must be rejected by a listener capped at 1.2")
+	})
+
 	t.Run("an explicit maxVersion still wins over minVersion", func(t *testing.T) {
 		t.Parallel()
 		lis := createListener(t)

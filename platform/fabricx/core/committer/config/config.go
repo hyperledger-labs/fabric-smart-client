@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"crypto/tls"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -120,13 +121,18 @@ type ServiceBackend interface {
 }
 
 // resolveEndpointTLS resolves each endpoint's client-side TLS, inheriting per field from the
-// network's tls block.
+// network's tls block. Fabric-x committer services require TLS 1.3, so a deployment that
+// configures no minVersion gets 1.3 here rather than the shared 1.2 floor other gRPC clients
+// fall back to.
 func resolveEndpointTLS(backend ServiceBackend, key string, endpoints []grpc.ConnectionConfig) error {
 	resolved, err := tlsconfig.ResolveEndpointClients(backend, "tls", key+".endpoints", len(endpoints))
 	if err != nil {
 		return err
 	}
 	for i := range endpoints {
+		if resolved[i].MinVersion == 0 {
+			resolved[i].MinVersion = tls.VersionTLS13
+		}
 		endpoints[i].TLS = resolved[i]
 	}
 	return nil

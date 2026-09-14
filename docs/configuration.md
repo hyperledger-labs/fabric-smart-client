@@ -579,9 +579,9 @@ fabric:
           maxSendMsgSize: 104857600
           tls:
             enabled: true
-            # minVersion/maxVersion default to 771/772 (TLS 1.2-1.3) here, same as any other
-            # dialled connection. Set minVersion: 772 to restore the TLS-1.3-only floor this
-            # endpoint used to pin unconditionally.
+            # Fabric-x requires TLS 1.3, so minVersion here defaults to 772 rather than the
+            # 771/772 (TLS 1.2-1.3) range every other dialled connection defaults to. Set it
+            # explicitly to override.
             rootCAs:
               files:
               - /path/to/sidecar/ca.crt

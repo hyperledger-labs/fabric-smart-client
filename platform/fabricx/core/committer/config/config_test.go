@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package config_test
 
 import (
+	"crypto/tls"
 	"errors"
 	"testing"
 	"time"
@@ -248,4 +249,54 @@ func TestQueryServiceConfigCarriesMessageSize(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, cfg.Endpoints, 1)
 	require.Equal(t, 200*1024*1024, cfg.Endpoints[0].MaxRecvMsgSize)
+}
+
+// TestEndpointTLSDefaultsToTLS13 covers a deployment that configures no TLS version for a
+// committer endpoint: the shared tlsconfig package leaves that as 1.2-1.3, but fabric-x
+// requires 1.3, so the fabric-x config layer must raise the floor by itself rather than
+// silently negotiating down to 1.2.
+func TestEndpointTLSDefaultsToTLS13(t *testing.T) {
+	t.Parallel()
+
+	fakeConfigService := &mock.ServiceBackend{}
+	fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		if key == "queryService" {
+			if cfg, ok := rawVal.(**config.Config); ok {
+				(*cfg).Endpoints = []grpc.ConnectionConfig{{Address: "test-address"}}
+			}
+		}
+		return nil
+	}
+
+	cfg, err := config.NewQueryServiceConfig(fakeConfigService)
+	require.NoError(t, err)
+	require.Len(t, cfg.Endpoints, 1)
+	require.Equal(t, uint16(tls.VersionTLS13), cfg.Endpoints[0].TLS.MinVersion)
+}
+
+// TestEndpointTLSHonorsExplicitMinVersion covers the opposite case: a deployment that does
+// configure a minVersion must get exactly that value, not the fabric-x default.
+func TestEndpointTLSHonorsExplicitMinVersion(t *testing.T) {
+	t.Parallel()
+
+	fakeConfigService := &mock.ServiceBackend{}
+	fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		if key == "queryService" {
+			if cfg, ok := rawVal.(**config.Config); ok {
+				(*cfg).Endpoints = []grpc.ConnectionConfig{{Address: "test-address"}}
+			}
+		}
+		return nil
+	}
+	fakeConfigService.RawSubtreeStub = func(key string) (map[string]any, bool) {
+		if key == "tls" {
+			return map[string]any{"minVersion": uint16(tls.VersionTLS12)}, true
+		}
+		return nil, false
+	}
+
+	cfg, err := config.NewQueryServiceConfig(fakeConfigService)
+	require.NoError(t, err)
+	require.Len(t, cfg.Endpoints, 1)
+	require.Equal(t, uint16(tls.VersionTLS12), cfg.Endpoints[0].TLS.MinVersion)
 }
