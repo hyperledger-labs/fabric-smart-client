@@ -24,10 +24,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
-func generateSelfSignedCert(t *testing.T) (*ecdsa.PrivateKey, []byte) {
-	t.Helper()
+func generateSelfSignedCert(tb testing.TB) (*ecdsa.PrivateKey, []byte) {
+	tb.Helper()
 	sk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -37,17 +37,17 @@ func generateSelfSignedCert(t *testing.T) (*ecdsa.PrivateKey, []byte) {
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
 	derBytes, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &sk.PublicKey, sk)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	return sk, certPEM
 }
 
-func serializeIdentity(t *testing.T, mspID string, certPEM []byte) []byte {
-	t.Helper()
+func serializeIdentity(tb testing.TB, mspID string, certPEM []byte) []byte {
+	tb.Helper()
 	sID := &msp2.SerializedIdentity{Mspid: mspID, IdBytes: certPEM}
 	raw, err := proto.Marshal(sID)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	return raw
 }
 
