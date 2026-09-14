@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -53,15 +54,17 @@ func FuzzUnpackSignedProposal(f *testing.F) {
 	f.Add([]byte("not a protobuf message"))
 
 	f.Fuzz(func(t *testing.T, proposalBytes []byte) {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("UnpackSignedProposal panicked on input %q: %v", proposalBytes, r)
-			}
-		}()
-		_, _ = transaction.UnpackSignedProposal(&pb.SignedProposal{
+		up, err := transaction.UnpackSignedProposal(&pb.SignedProposal{
 			ProposalBytes: proposalBytes,
 			Signature:     []byte("signature"),
 		})
+		if err == nil {
+			// UnpackSignedProposal is documented to return no zero-ed fields on success.
+			require.NotNil(t, up.Input)
+			require.NotEmpty(t, up.Input.Args)
+			require.NotNil(t, up.ChannelHeader)
+			require.NotNil(t, up.SignatureHeader)
+		}
 	})
 }
 
@@ -73,15 +76,11 @@ func FuzzUnpackEnvelopeFromBytes(f *testing.F) {
 	validEnv := createValidEnvelope(f)
 
 	validEnvBytes, err := proto.Marshal(validEnv)
-	if err != nil {
-		f.Fatal(err)
-	}
+	require.NoError(f, err)
 
 	emptyArgsEnv := createEnvelopeWithArgs(f, [][]byte{})
 	emptyArgsEnvBytes, err := proto.Marshal(emptyArgsEnv)
-	if err != nil {
-		f.Fatal(err)
-	}
+	require.NoError(f, err)
 
 	f.Add(validEnvBytes)
 	f.Add(emptyArgsEnvBytes)
@@ -90,12 +89,15 @@ func FuzzUnpackEnvelopeFromBytes(f *testing.F) {
 	f.Add([]byte(""))
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("UnpackEnvelopeFromBytes panicked on input %q: %v", raw, r)
-			}
-		}()
-		_, _, _ = transaction.UnpackEnvelopeFromBytes(raw)
+		upe, _, err := transaction.UnpackEnvelopeFromBytes(raw)
+		if err == nil {
+			// UnpackEnvelopeFromBytes gives the same no-zero-ed-fields guarantee as
+			// UnpackSignedProposal.
+			require.NotNil(t, upe.Input)
+			require.NotEmpty(t, upe.Input.Args)
+			require.NotNil(t, upe.ChannelHeader)
+			require.NotNil(t, upe.SignatureHeader)
+		}
 	})
 }
 
@@ -112,15 +114,11 @@ func FuzzTransactionSetFromBytes(f *testing.F) {
 
 	validTx := &transaction.Transaction{TSignedProposal: createValidSignedProposal(f)}
 	validRaw, err := json.Marshal(validTx)
-	if err != nil {
-		f.Fatal(err)
-	}
+	require.NoError(f, err)
 
 	emptyArgsTx := &transaction.Transaction{TSignedProposal: createSignedProposalWithArgs(f, [][]byte{})}
 	emptyArgsRaw, err := json.Marshal(emptyArgsTx)
-	if err != nil {
-		f.Fatal(err)
-	}
+	require.NoError(f, err)
 
 	f.Add(validRaw)
 	f.Add(emptyArgsRaw)
@@ -131,15 +129,7 @@ func FuzzTransactionSetFromBytes(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
 		tx, err := factory.NewTransaction(t.Context(), "channel", nil, nil, "", nil)
-		if err != nil {
-			t.Fatalf("factory.NewTransaction failed: %v", err)
-		}
-
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("SetFromBytes panicked on input %q: %v", raw, r)
-			}
-		}()
+		require.NoError(t, err)
 		_ = tx.SetFromBytes(raw)
 	})
 }
@@ -158,15 +148,11 @@ func FuzzTransactionSetFromEnvelopeBytes(f *testing.F) {
 	validEnv := createValidEnvelope(f)
 
 	validEnvBytes, err := proto.Marshal(validEnv)
-	if err != nil {
-		f.Fatal(err)
-	}
+	require.NoError(f, err)
 
 	emptyArgsEnv := createEnvelopeWithArgs(f, [][]byte{})
 	emptyArgsEnvBytes, err := proto.Marshal(emptyArgsEnv)
-	if err != nil {
-		f.Fatal(err)
-	}
+	require.NoError(f, err)
 
 	f.Add(validEnvBytes)
 	f.Add(emptyArgsEnvBytes)
@@ -176,15 +162,7 @@ func FuzzTransactionSetFromEnvelopeBytes(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
 		tx, err := factory.NewTransaction(t.Context(), "channel", nil, nil, "", nil)
-		if err != nil {
-			t.Fatalf("factory.NewTransaction failed: %v", err)
-		}
-
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("SetFromEnvelopeBytes panicked on input %q: %v", raw, r)
-			}
-		}()
+		require.NoError(t, err)
 		_ = tx.SetFromEnvelopeBytes(raw)
 	})
 }

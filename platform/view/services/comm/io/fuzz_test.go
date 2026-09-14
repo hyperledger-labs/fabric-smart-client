@@ -10,6 +10,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // FuzzVarintReaderReadData fuzzes varintReader.ReadData with arbitrary wire bytes.
@@ -43,10 +45,15 @@ func FuzzVarintReaderReadData(f *testing.F) {
 	hugeN := binary.PutUvarint(hugeBuf, 1024*1024*1024)
 	f.Add(hugeBuf[:hugeN])
 
-	// 5. Max 10-byte varint overflow
+	// 5. Boundary value math.MaxUint64 in the maximum 10-byte varint encoding;
+	// decodes cleanly to a valid (if huge) length, no overflow error.
 	f.Add([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01})
 
-	// 6. Partial varint and truncated payload boundaries
+	// 6. 11-byte varint exceeding binary.MaxVarintLen64; binary.ReadUvarint returns
+	// a genuine overflow error.
+	f.Add([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01})
+
+	// 7. Partial varint and truncated payload boundaries
 	f.Add([]byte{0x05, 'a', 'b'}) // claims 5 bytes, provides 2
 	f.Add([]byte{0x80})           // incomplete varint continuation bit
 	f.Add([]byte(nil))
@@ -54,17 +61,14 @@ func FuzzVarintReaderReadData(f *testing.F) {
 	f.Add([]byte("not a varint message"))
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("varintReader.ReadData panicked on input %q: %v", data, r)
-			}
-		}()
-
 		r := newVarintReader(bytes.NewReader(data), testBufferSize, testMaxMessageSize)
 		buf, err := r.ReadData()
-		if err == nil && len(buf) > 0 {
-			// If first message succeeded, attempt second read to exercise reader state continuation
-			_, _ = r.ReadData()
+		if err == nil {
+			require.LessOrEqual(t, len(buf), testMaxMessageSize)
+			if len(buf) > 0 {
+				// If first message succeeded, attempt second read to exercise reader state continuation
+				_, _ = r.ReadData()
+			}
 		}
 	})
 }

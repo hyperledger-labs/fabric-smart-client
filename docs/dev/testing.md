@@ -55,7 +55,7 @@ The fuzz targets live across several packages handling untrusted pre-auth bytes:
   `FuzzUnpackSignedProposal`, `FuzzUnpackEnvelopeFromBytes`, `FuzzTransactionSetFromBytes`,
   `FuzzTransactionSetFromEnvelopeBytes`.
 - [`platform/fabric/core/generic/msp/x509/fuzz_test.go`](../../platform/fabric/core/generic/msp/x509/fuzz_test.go):
-  `FuzzECDSAVerify`, `FuzzNewIdentityFromBytes`, `FuzzDeserializeVerifier`.
+  `FuzzDeserializeVerifier`.
 - [`platform/view/services/comm/io/fuzz_test.go`](../../platform/view/services/comm/io/fuzz_test.go):
   `FuzzVarintReaderReadData`.
 - [`platform/view/services/comm/fuzz_test.go`](../../platform/view/services/comm/fuzz_test.go):

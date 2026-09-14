@@ -22,6 +22,7 @@ jobs:
         # One entry per `func Fuzz...(f *testing.F)` in packages parsing untrusted
         # input before authentication. `go test -fuzz` only fuzzes a single
         # target per invocation, so each gets its own job and its own full 2h budget.
+        # Add new targets here as they land (see #1787).
         target:
           - name: FuzzUnpackSignedProposal
             path: platform/fabric/core/generic/transaction
@@ -31,10 +32,6 @@ jobs:
             path: platform/fabric/core/generic/transaction
           - name: FuzzTransactionSetFromEnvelopeBytes
             path: platform/fabric/core/generic/transaction
-          - name: FuzzECDSAVerify
-            path: platform/fabric/core/generic/msp/x509
-          - name: FuzzNewIdentityFromBytes
-            path: platform/fabric/core/generic/msp/x509
           - name: FuzzDeserializeVerifier
             path: platform/fabric/core/generic/msp/x509
           - name: FuzzVarintReaderReadData

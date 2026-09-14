@@ -17,12 +17,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // FuzzPKExtractorExtractPublicKey fuzzes PKExtractor.ExtractPublicKey with arbitrary
-// identity byte payloads. This is reached when verifying incoming TLS/P2P peer identities.
+// PEM/certificate byte payloads. ExtractPublicKey is only ever called on identity bytes
+// endpoint.Service already treats as local and trusted: resolver entries loaded from
+// core.yaml and the node's own certificate (see websocket/provider.go). It is not on a
+// path that receives a remote peer's raw bytes, but its PEM/X.509 parsing is shared code
+// worth fuzzing for panics regardless of where the bytes originate.
 func FuzzPKExtractorExtractPublicKey(f *testing.F) {
 	// 1. Valid ECDSA certificate PEM
 	validCertPEM := generateTestCert(f)
@@ -50,13 +52,8 @@ func FuzzPKExtractorExtractPublicKey(f *testing.F) {
 
 	extractor := &PKExtractor{}
 
-	f.Fuzz(func(t *testing.T, data []byte) {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("PKExtractor.ExtractPublicKey panicked on input %q: %v", data, r)
-			}
-		}()
-		_, _ = extractor.ExtractPublicKey(view.Identity(data))
+	f.Fuzz(func(_ *testing.T, data []byte) {
+		_, _ = extractor.ExtractPublicKey(data)
 	})
 }
 
