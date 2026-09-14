@@ -8,6 +8,7 @@ package delivery
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -60,7 +61,14 @@ type Service struct {
 	acceptedHeaderTypes collections.Set[common.HeaderType]
 	tracerProvider      tracing.Provider
 	metricsProvider     metrics.Provider
-	deliveryService     *Delivery
+	callback            driver.BlockCallback
+	vault               Vault
+
+	// deliveryService is replaced on each restart, so every read goes through
+	// mutex. A Delivery is single-use: recovering from a stop means building a
+	// new one, not restarting the old.
+	mutex           sync.Mutex
+	deliveryService *Delivery
 }
 
 // NewService creates the delivery Service for a channel. It fails if
@@ -114,6 +122,8 @@ func NewService(
 		Ledger:              ledger,
 		waitForEventTimeout: channelConfig.CommitterWaitForEventTimeout(),
 		deliveryService:     deliveryService,
+		callback:            callback,
+		vault:               vault,
 		transactionManager:  transactionManager,
 		tracerProvider:      tracerProvider,
 		metricsProvider:     metricsProvider,
@@ -121,24 +131,74 @@ func NewService(
 	}, nil
 }
 
-// Start begins streaming blocks in the background. It returns as soon as the
-// delivery goroutine is running, and never returns an error.
+// Start begins streaming blocks in the background and keeps a delivery running
+// for the lifetime of ctx. It returns as soon as the first delivery goroutine is
+// running, and never returns an error.
+//
+// A Delivery stops permanently once its block callback fails, so Start
+// supervises it: when one ends with an error it builds a replacement and starts
+// that instead, after DeliverySleepAfterFailure. Without this a single commit
+// failure - a vault outage, say - would leave the channel with no block delivery
+// for the lifetime of the process. The replacement resumes from
+// GetStartPosition, so no block is skipped.
 func (c *Service) Start(ctx context.Context) error {
-	c.deliveryService.Start(ctx)
+	c.mutex.Lock()
+	d := c.deliveryService
+	c.mutex.Unlock()
+	d.Start(ctx)
+	go c.supervise(ctx, d)
 	return nil
 }
 
-// Stop shuts the background delivery down cleanly. It is idempotent and does
-// not affect scans already in flight, which own their own Delivery.
-func (c *Service) Stop() {
-	c.deliveryService.Stop(nil)
+// supervise replaces d with a fresh Delivery whenever it stops with an error,
+// until ctx is cancelled or a delivery stops cleanly (which is what Stop does).
+func (c *Service) supervise(ctx context.Context, d *Delivery) {
+	backoff := c.channelConfig.DeliverySleepAfterFailure()
+	for {
+		err := d.untilStop()
+		if err == nil {
+			// A clean stop is Stop() or a callback asking to stop: intentional.
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		logger.Warnf("delivery for [%s:%s] stopped with [%v], restarting in %s", c.NetworkName, c.channel, err, backoff)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+
+		next, err := c.newDelivery(c.callback, c.vault)
+		if err != nil {
+			logger.Errorf("cannot rebuild delivery for [%s:%s]: %v", c.NetworkName, c.channel, err)
+			return
+		}
+		c.mutex.Lock()
+		c.deliveryService = next
+		c.mutex.Unlock()
+		next.Start(ctx)
+		d = next
+	}
 }
 
-// runBlockScan runs a throwaway Delivery over this channel, starting from the
-// position implied by vault, and invokes callback for each block. It blocks
-// until the callback asks to stop, the callback fails, or ctx is cancelled.
-func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
-	deliveryService, err := New(
+// Stop shuts the background delivery down cleanly. It is idempotent and does
+// not affect scans already in flight, which own their own Delivery. A clean stop
+// also ends supervision, so no replacement is started.
+func (c *Service) Stop() {
+	c.mutex.Lock()
+	d := c.deliveryService
+	c.mutex.Unlock()
+	d.Stop(nil)
+}
+
+// newDelivery builds a Delivery over this channel for the given vault and
+// callback. The supervised background delivery and one-off scans both use it, so
+// they always agree on how a Delivery is configured.
+func (c *Service) newDelivery(callback driver.BlockCallback, vault Vault) (*Delivery, error) {
+	return New(
 		c.NetworkName,
 		c.channelConfig,
 		c.LocalMembership,
@@ -152,6 +212,14 @@ func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver
 		c.tracerProvider,
 		c.metricsProvider,
 	)
+}
+
+// runBlockScan runs a throwaway Delivery over this channel, starting from the
+// position implied by vault, and invokes callback for each block. It blocks
+// until the callback asks to stop, the callback fails, or ctx is cancelled. A
+// failed callback is the scan's own result, so scans are not supervised.
+func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
+	deliveryService, err := c.newDelivery(callback, vault)
 	if err != nil {
 		return err
 	}

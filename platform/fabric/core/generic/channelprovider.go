@@ -246,7 +246,8 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ledgerService,
 		&vaultDeliveryWrapper{vaultStore: vaultStore},
 		func(ctx context.Context, block *common.Block) (bool, error) {
-			// commit the block, if an error occurs then retry
+			// A commit failure stops this delivery; the delivery service starts a
+			// replacement that resumes from the last block it received.
 			return false, committerService.Commit(ctx, block)
 		},
 	)
