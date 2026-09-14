@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -162,7 +161,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 	logger.Debugf("get view service client...done")
 	if conn != nil {
 		logger.Debugf("get view service client...got a connection")
-		defer utils.IgnoreErrorFunc(conn.Close)
+		defer func() { _ = conn.Close() }()
 	}
 	if err != nil {
 		logger.Errorf("failed creating view client [%s]", err)

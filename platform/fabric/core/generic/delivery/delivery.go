@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -153,9 +152,9 @@ func New(
 // immediately. The error returned by Run is discarded; use Run directly to
 // observe it.
 func (d *Delivery) Start(ctx context.Context) {
-	go utils.IgnoreErrorFunc(func() error {
-		return d.Run(ctx)
-	})
+	go func() {
+		_ = d.Run(ctx)
+	}()
 }
 
 // Stop shuts the delivery service down, reporting err as the cause. A nil err

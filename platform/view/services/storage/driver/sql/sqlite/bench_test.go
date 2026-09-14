@@ -22,7 +22,7 @@ import (
 func BenchmarkReadExistingSqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	require.NoError(b, err)
-	defer utils.IgnoreErrorFunc(db.Close)
+	defer func() { _ = db.Close() }()
 
 	common2.ReadExisting(b, db)
 }
@@ -30,7 +30,7 @@ func BenchmarkReadExistingSqlite(b *testing.B) {
 func BenchmarkReadNonExistingSqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	require.NoError(b, err)
-	defer utils.IgnoreErrorFunc(db.Close)
+	defer func() { _ = db.Close() }()
 
 	common2.ReadNonExisting(b, db)
 }
@@ -38,7 +38,7 @@ func BenchmarkReadNonExistingSqlite(b *testing.B) {
 func BenchmarkWriteOneSqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	require.NoError(b, err)
-	defer utils.IgnoreErrorFunc(db.Close)
+	defer func() { _ = db.Close() }()
 
 	common2.WriteOne(b, db)
 }
@@ -46,7 +46,7 @@ func BenchmarkWriteOneSqlite(b *testing.B) {
 func BenchmarkWriteManySqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	require.NoError(b, err)
-	defer utils.IgnoreErrorFunc(db.Close)
+	defer func() { _ = db.Close() }()
 
 	common2.WriteMany(b, db)
 }

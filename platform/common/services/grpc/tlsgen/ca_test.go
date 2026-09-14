@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func createTLSService(t *testing.T, ca CA, host string) *grpc.Server {
@@ -48,11 +46,11 @@ func TestTLSCA(t *testing.T) {
 	srv := createTLSService(t, ca, "127.0.0.1")
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	go utils.IgnoreErrorFunc(func() error {
-		return srv.Serve(listener)
-	})
+	go func() {
+		_ = srv.Serve(listener)
+	}()
 	defer srv.Stop()
-	defer utils.IgnoreErrorFunc(listener.Close)
+	defer func() { _ = listener.Close() }()
 
 	probeTLS := func(kp *CertKeyPair) error {
 		cert, err := tls.X509KeyPair(kp.Cert, kp.Key)
@@ -70,7 +68,7 @@ func TestTLSCA(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 		return nil
 	}
 

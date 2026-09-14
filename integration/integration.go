@@ -30,7 +30,6 @@ import (
 	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -253,7 +252,7 @@ func (i *Infrastructure) Stop() {
 	}
 	defer i.BuildServer.Shutdown(i.DeleteOnStop)
 	if i.DeleteOnStop {
-		defer utils.IgnoreErrorWithOneArg(os.RemoveAll, i.TestDir)
+		defer func() { _ = os.RemoveAll(i.TestDir) }()
 	}
 	i.NWO.Stop()
 }

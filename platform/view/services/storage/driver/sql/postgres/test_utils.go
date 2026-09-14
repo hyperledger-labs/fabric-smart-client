@@ -23,8 +23,6 @@ import (
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
 	_ "modernc.org/sqlite"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const (
@@ -307,7 +305,7 @@ func startContainerLogger(ctx context.Context, cli dcli.APIClient, containerID s
 		if err != nil {
 			logger.Errorf("can't show logs for container %s: %v", containerID, err)
 		}
-		defer utils.CloseMute(reader)
+		defer func() { _ = reader.Close() }()
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

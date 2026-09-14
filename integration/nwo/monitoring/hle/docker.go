@@ -20,7 +20,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const (
@@ -121,7 +120,7 @@ func (n *Extension) startExplorerDB() {
 			Timestamps: false,
 		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer utils.IgnoreErrorFunc(reader.Close)
+		defer func() { _ = reader.Close() }()
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
@@ -235,7 +234,7 @@ func (n *Extension) startExplorer() {
 			Timestamps: false,
 		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer utils.IgnoreErrorFunc(reader.Close)
+		defer func() { _ = reader.Close() }()
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

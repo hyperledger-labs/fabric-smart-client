@@ -20,7 +20,6 @@ import (
 	"github.com/onsi/gomega/gexec"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var logger = logging.MustGetLogger()
@@ -67,9 +66,9 @@ func (s *BuildServer) Serve() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	s.lis = lis
-	go utils.IgnoreErrorFunc(func() error {
-		return s.server.Serve(lis)
-	})
+	go func() {
+		_ = s.server.Serve(lis)
+	}()
 }
 
 func (s *BuildServer) Shutdown(deleteOnStop bool) {
@@ -79,7 +78,7 @@ func (s *BuildServer) Shutdown(deleteOnStop bool) {
 		defer gexec.CleanupBuildArtifacts()
 	}
 
-	utils.IgnoreError(s.server.Shutdown(ctx))
+	_ = s.server.Shutdown(ctx)
 }
 
 func (s *BuildServer) Client() *BuilderClient {

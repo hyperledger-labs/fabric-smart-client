@@ -13,8 +13,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")
@@ -22,7 +20,7 @@ var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")
 func TestGoodIndexJSON(t *testing.T) {
 	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "GoodIndexJSON")
-	defer utils.IgnoreError(cleanupDir(testDir))
+	t.Cleanup(func() { _ = cleanupDir(testDir) })
 
 	fileName := "META-INF/statedb/couchdb/indexes/myIndex.json"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -34,7 +32,7 @@ func TestGoodIndexJSON(t *testing.T) {
 func TestBadIndexJSON(t *testing.T) {
 	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadIndexJSON")
-	defer utils.IgnoreError(cleanupDir(testDir))
+	t.Cleanup(func() { _ = cleanupDir(testDir) })
 
 	fileName := "META-INF/statedb/couchdb/indexes/myIndex.json"
 	fileBytes := []byte("invalid json")
@@ -54,7 +52,7 @@ func TestBadIndexJSON(t *testing.T) {
 func TestIndexWrongLocation(t *testing.T) {
 	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "IndexWrongLocation")
-	defer utils.IgnoreError(cleanupDir(testDir))
+	t.Cleanup(func() { _ = cleanupDir(testDir) })
 
 	fileName := "META-INF/statedb/couchdb/myIndex.json"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -73,7 +71,7 @@ func TestIndexWrongLocation(t *testing.T) {
 func TestInvalidMetadataType(t *testing.T) {
 	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "InvalidMetadataType")
-	defer utils.IgnoreError(cleanupDir(testDir))
+	t.Cleanup(func() { _ = cleanupDir(testDir) })
 
 	fileName := "myIndex.json"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -90,7 +88,7 @@ func TestInvalidMetadataType(t *testing.T) {
 func TestBadMetadataExtension(t *testing.T) {
 	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
-	defer utils.IgnoreError(cleanupDir(testDir))
+	t.Cleanup(func() { _ = cleanupDir(testDir) })
 
 	fileName := "myIndex.go"
 	fileBytes := []byte(`{"index":{"fields":["data.docType","data.owner"]},"name":"indexOwner","type":"json"}`)
@@ -102,7 +100,7 @@ func TestBadMetadataExtension(t *testing.T) {
 func TestBadFilePaths(t *testing.T) {
 	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
-	defer utils.IgnoreError(cleanupDir(testDir))
+	t.Cleanup(func() { _ = cleanupDir(testDir) })
 
 	// Test bad META-INF
 	fileName := "META-INF1/statedb/couchdb/indexes/test1.json"

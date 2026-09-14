@@ -23,7 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/csp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func TestLoadPrivateKey(t *testing.T) {
@@ -94,7 +93,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
 			_, err = csp.LoadPrivateKey(badPEMFile)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.errMsg)
-			utils.IgnoreErrorWithOneArg(os.Remove, badPEMFile)
+			_ = os.Remove(badPEMFile)
 		})
 	}
 }

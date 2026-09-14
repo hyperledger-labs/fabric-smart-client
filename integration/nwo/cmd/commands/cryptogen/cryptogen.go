@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/ca"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const (
@@ -570,12 +569,12 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer utils.IgnoreErrorFunc(in.Close)
+	defer func() { _ = in.Close() }()
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer utils.IgnoreErrorFunc(out.Close)
+	defer func() { _ = out.Close() }()
 	_, err = io.Copy(out, in)
 	cerr := out.Close()
 	if err != nil {

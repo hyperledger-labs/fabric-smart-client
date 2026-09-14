@@ -25,7 +25,6 @@ import (
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
@@ -84,7 +83,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	defer srv.Stop()
 
 	// test grpc connection counts
@@ -107,7 +106,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 
 	for i, conn := range clientConns {
 		gt.Expect(closedConn.AddCallCount()).Should(Equal(i))
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 		gt.Eventually(closedConn.AddCallCount, time.Second).Should(Equal(i + 1))
 	}
 }

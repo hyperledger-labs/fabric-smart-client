@@ -22,7 +22,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 )
 
@@ -158,7 +157,7 @@ func ListTokens(opts *config.PKCS11) ([]pkcs11lib.TokenInfo, error) {
 	if ctx == nil {
 		return nil, errors.Errorf("pkcs11: instantiation failed for %s", opts.Library)
 	}
-	defer utils.IgnoreError(ctx.Finalize())
+	defer func() { _ = ctx.Finalize() }()
 	if err := ctx.Initialize(); err != nil {
 		return nil, errors.Errorf("pkcs11: initialization failed: %v", err)
 	}
@@ -191,7 +190,7 @@ func CheckToken(opts *config.PKCS11) error {
 	if ctx == nil {
 		return errors.Errorf("pkcs11: instantiation failed for %s", opts.Library)
 	}
-	defer utils.IgnoreError(ctx.Finalize())
+	defer func() { _ = ctx.Finalize() }()
 	if err := ctx.Initialize(); err != nil && !strings.Contains(err.Error(), "CKR_CRYPTOKI_ALREADY_INITIALIZED") {
 		return errors.Errorf("pkcs11: initialization failed: %v", err)
 	}
@@ -238,7 +237,7 @@ func CheckToken(opts *config.PKCS11) error {
 	if err != nil {
 		return errors.Wrap(err, "pkcs11: open session")
 	}
-	defer utils.IgnoreError(ctx.CloseSession(sess))
+	defer func() { _ = ctx.CloseSession(sess) }()
 	if err := ctx.Login(sess, pkcs11lib.CKU_USER, opts.Pin); err != nil {
 		return errors.Wrap(err, "pkcs11: login")
 	}
