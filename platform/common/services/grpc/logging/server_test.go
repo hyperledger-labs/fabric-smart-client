@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -64,11 +65,15 @@ func (f *fakeServerStream) SendMsg(m any) error {
 }
 
 func (f *fakeServerStream) RecvMsg(m any) error {
+	// A real stream does not populate m when the receive fails.
+	if f.recvErr != nil {
+		return f.recvErr
+	}
 	if f.recvFill != nil {
 		f.recvFill(m)
 	}
 
-	return f.recvErr
+	return nil
 }
 
 // TestLevelerFunc checks the adapter forwards to the wrapped function for both
@@ -104,17 +109,27 @@ func TestApplyOptionsDefaults(t *testing.T) {
 func TestApplyOptionsOverrides(t *testing.T) {
 	t.Parallel()
 
-	o := applyOptions(
-		WithLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.ErrorLevel })),
-	)
-	require.Equal(t, zapcore.ErrorLevel, o.Level(t.Context(), "/svc/Method"))
-	require.Equal(t, DefaultPayloadLevel, o.PayloadLevel(t.Context(), "/svc/Method"), "payload leveler keeps its default")
+	t.Run("WithLeveler", func(t *testing.T) {
+		t.Parallel()
 
-	o = applyOptions(
-		WithPayloadLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.InfoLevel })),
-	)
-	require.Equal(t, zapcore.DebugLevel, o.Level(t.Context(), "/svc/Method"), "leveler keeps its default")
-	require.Equal(t, zapcore.InfoLevel, o.PayloadLevel(t.Context(), "/svc/Method"))
+		o := applyOptions(
+			WithLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.ErrorLevel })),
+		)
+		assert.Equal(t, zapcore.ErrorLevel, o.Level(t.Context(), "/svc/Method"))
+		assert.Equal(t, DefaultPayloadLevel, o.PayloadLevel(t.Context(), "/svc/Method"),
+			"payload leveler keeps its default")
+	})
+
+	t.Run("WithPayloadLeveler", func(t *testing.T) {
+		t.Parallel()
+
+		o := applyOptions(
+			WithPayloadLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.InfoLevel })),
+		)
+		assert.Equal(t, zapcore.DebugLevel, o.Level(t.Context(), "/svc/Method"),
+			"leveler keeps its default")
+		assert.Equal(t, zapcore.InfoLevel, o.PayloadLevel(t.Context(), "/svc/Method"))
+	})
 }
 
 // TestWithFields checks the fields round-trip through the context.
@@ -161,7 +176,7 @@ func TestGetFieldsMethodParsing(t *testing.T) {
 				return
 			}
 			for k, v := range tc.expect {
-				require.Equal(t, v, fields[k])
+				assert.Equal(t, v, fields[k])
 			}
 		})
 	}
@@ -400,8 +415,22 @@ func TestServerStreamSendMsg(t *testing.T) {
 	require.Equal(t, []any{"a-message"}, inner.sent)
 	require.Contains(t, logMessages(logs), "sending stream message")
 
-	inner.sendErr = errors.New("send failed")
-	require.ErrorIs(t, ss.SendMsg("another"), inner.sendErr)
+	t.Run("a failed send is not logged", func(t *testing.T) {
+		t.Parallel()
+
+		logger, logs := observedLogger()
+		inner := &fakeServerStream{sendErr: errors.New("send failed")}
+		ss := &serverStream{
+			ServerStream:  inner,
+			context:       t.Context(),
+			payloadLogger: logger.Named("payload"),
+			payloadLevel:  DefaultPayloadLevel,
+		}
+
+		require.ErrorIs(t, ss.SendMsg("another"), inner.sendErr)
+		assert.NotContains(t, logMessages(logs), "sending stream message",
+			"nothing is logged for a message that may never have been sent")
+	})
 }
 
 // TestServerStreamRecvMsg checks the message is logged after it is received,
@@ -429,8 +458,24 @@ func TestServerStreamRecvMsg(t *testing.T) {
 	require.Equal(t, "filled-by-stream", msg)
 	require.Contains(t, logMessages(logs), "received stream message")
 
-	inner.recvErr = errors.New("recv failed")
-	require.ErrorIs(t, ss.RecvMsg(&msg), inner.recvErr)
+	t.Run("a failed receive is not logged", func(t *testing.T) {
+		t.Parallel()
+
+		logger, logs := observedLogger()
+		inner := &fakeServerStream{recvErr: errors.New("recv failed")}
+		ss := &serverStream{
+			ServerStream:  inner,
+			context:       t.Context(),
+			payloadLogger: logger.Named("payload"),
+			payloadLevel:  DefaultPayloadLevel,
+		}
+
+		var msg string
+		require.ErrorIs(t, ss.RecvMsg(&msg), inner.recvErr)
+		assert.Empty(t, msg, "a failed receive leaves the message unpopulated")
+		assert.NotContains(t, logMessages(logs), "received stream message",
+			"nothing is logged when there is no message to log")
+	})
 }
 
 // TestServerStreamPayloadLevelSuppressed checks messages still pass through
