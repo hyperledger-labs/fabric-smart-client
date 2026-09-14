@@ -25,14 +25,7 @@ var _ = Describe("Persistence", func() {
 		var testDir string
 
 		BeforeEach(func() {
-			var err error
-			testDir, err = os.MkdirTemp("", "persistence-test")
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			err := os.RemoveAll(testDir)
-			Expect(err).NotTo(HaveOccurred())
+			testDir = GinkgoT().TempDir()
 		})
 
 		It("writes a file", func() {
