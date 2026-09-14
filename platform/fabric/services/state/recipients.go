@@ -76,7 +76,11 @@ func RequestRecipientIdentity(viewCtx view.Context, other view.Identity) (view.I
 	if err != nil {
 		return nil, err
 	}
-	return recipientIdentityBoxed.(view.Identity), nil
+	id, ok := recipientIdentityBoxed.(view.Identity)
+	if !ok {
+		return nil, errors.Errorf("unexpected view result type [%T]", recipientIdentityBoxed)
+	}
+	return id, nil
 }
 
 func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
@@ -186,11 +190,15 @@ func NewRespondRequestRecipientIdentityView() view.View {
 // returns the identity sent to the requester. In this case, the identity used is the one returned by
 // fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()a
 func RespondRequestRecipientIdentity(viewCtx view.Context) (view.Identity, error) {
-	id, err := viewCtx.RunView(NewRespondRequestRecipientIdentityView())
+	res, err := viewCtx.RunView(NewRespondRequestRecipientIdentityView())
 	if err != nil {
 		return nil, err
 	}
-	return id.(view.Identity), nil
+	id, ok := res.(view.Identity)
+	if !ok {
+		return nil, errors.Errorf("unexpected view result type [%T]", res)
+	}
+	return id, nil
 }
 
 // ExchangeRecipientIdentitiesView models the view of the initiator of an exchange of recipient identities.
@@ -216,7 +224,11 @@ func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, 
 		return nil, nil, err
 	}
 
-	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
+	idList, ok := ids.([]view.Identity)
+	if !ok {
+		return nil, nil, errors.Errorf("unexpected view result type [%T]", ids)
+	}
+	return idList[0], idList[1], nil
 }
 
 func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error) {
@@ -305,7 +317,11 @@ func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOpt
 		return nil, nil, err
 	}
 
-	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
+	idList, ok := ids.([]view.Identity)
+	if !ok {
+		return nil, nil, errors.Errorf("unexpected view result type [%T]", ids)
+	}
+	return idList[0], idList[1], nil
 }
 
 func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error) {

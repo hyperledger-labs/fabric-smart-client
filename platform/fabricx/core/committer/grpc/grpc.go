@@ -72,7 +72,11 @@ func (*ClientProvider) getOrCreate(
 	loadCfg func(string) (*config.Config, error),
 ) (*grpc.ClientConn, error) {
 	if v, ok := cache.Load(network); ok {
-		return v.(*grpc.ClientConn), nil
+		conn, ok := v.(*grpc.ClientConn)
+		if !ok {
+			return nil, errors.Errorf("unexpected cached connection type [%T]", v)
+		}
+		return conn, nil
 	}
 
 	cfg, err := loadCfg(network)
@@ -87,7 +91,11 @@ func (*ClientProvider) getOrCreate(
 
 	if actual, loaded := cache.LoadOrStore(network, cc); loaded {
 		_ = cc.Close()
-		return actual.(*grpc.ClientConn), nil
+		conn, ok := actual.(*grpc.ClientConn)
+		if !ok {
+			return nil, errors.Errorf("unexpected cached connection type [%T]", actual)
+		}
+		return conn, nil
 	}
 
 	return cc, nil

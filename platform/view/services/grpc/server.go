@@ -92,7 +92,10 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 			secureConfig.CipherSuites = DefaultTLSCipherSuites
 		}
 		getCert := func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert := grpcServer.serverCertificate.Load().(tls.Certificate)
+			cert, ok := grpcServer.serverCertificate.Load().(tls.Certificate)
+			if !ok {
+				return nil, errors.New("unexpected server certificate type stored")
+			}
 			return &cert, nil
 		}
 
@@ -195,7 +198,11 @@ func (gServer *GRPCServer) Server() *grpc.Server {
 
 // ServerCertificate returns the tls.Certificate used by the grpc.Server
 func (gServer *GRPCServer) ServerCertificate() tls.Certificate {
-	return gServer.serverCertificate.Load().(tls.Certificate)
+	cert, ok := gServer.serverCertificate.Load().(tls.Certificate)
+	if !ok {
+		panic(errors.New("unexpected server certificate type stored"))
+	}
+	return cert
 }
 
 // TLSEnabled is a flag indicating whether or not TLS is enabled for the

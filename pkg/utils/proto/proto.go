@@ -56,3 +56,8 @@ func Equal(x, y Message) bool {
 func Clone(src Message) Message {
 	return proto.Clone(src)
 }
+
+// CloneOf returns a deep copy of m, preserving m's concrete message type.
+func CloneOf[M Message](m M) M {
+	return proto.CloneOf(m)
+}

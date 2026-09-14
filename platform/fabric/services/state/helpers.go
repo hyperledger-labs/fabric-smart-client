@@ -9,6 +9,7 @@ package state
 import (
 	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
@@ -18,7 +19,11 @@ func GetVaultService(ctx services.Provider) (VaultService, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.(VaultService), nil
+	vs, ok := s.(VaultService)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for vault service", s)
+	}
+	return vs, nil
 }
 
 func GetVault(ctx services.Provider) (Vault, error) {

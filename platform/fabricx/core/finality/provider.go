@@ -235,5 +235,9 @@ func GetListenerManager(sp services.Provider, network, channel string) (Listener
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find provider")
 	}
-	return lmp.(ListenerManagerProvider).NewManager(network, channel)
+	provider, ok := lmp.(ListenerManagerProvider)
+	if !ok {
+		return nil, errors.Errorf("unexpected provider type [%T]", lmp)
+	}
+	return provider.NewManager(network, channel)
 }

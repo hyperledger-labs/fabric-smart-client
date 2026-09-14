@@ -112,7 +112,10 @@ func ReceiveTransaction(viewCtx view.Context) (*Transaction, error) {
 		return nil, err
 	}
 
-	cctx := txBoxed.(*Transaction)
+	cctx, ok := txBoxed.(*Transaction)
+	if !ok {
+		return nil, errors.Errorf("unexpected view result type [%T]", txBoxed)
+	}
 	return cctx, nil
 }
 
@@ -122,7 +125,10 @@ func ReceiveTransactionFrom(viewCtx view.Context, party view.Identity) (*Transac
 		return nil, err
 	}
 
-	cctx := txBoxed.(*Transaction)
+	cctx, ok := txBoxed.(*Transaction)
+	if !ok {
+		return nil, errors.Errorf("unexpected view result type [%T]", txBoxed)
+	}
 	return cctx, nil
 }
 

@@ -9,6 +9,7 @@ package metrics
 import (
 	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
@@ -159,5 +160,9 @@ func GetProvider(sp services.Provider) Provider {
 	if err != nil {
 		panic(err)
 	}
-	return s.(Provider)
+	provider, ok := s.(Provider)
+	if !ok {
+		panic(errors.Errorf("unexpected service type [%T] for metrics provider", s))
+	}
+	return provider
 }

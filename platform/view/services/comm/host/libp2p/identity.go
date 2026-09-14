@@ -36,7 +36,11 @@ func newCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
 		return nil, err
 	}
 
-	priv, _, err := crypto.ECDSAKeyPairFromKey(k.(*ecdsa.PrivateKey))
+	ecdsaKey, ok := k.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errors.Errorf("unsupported private key type [%T], expected ECDSA", k)
+	}
+	priv, _, err := crypto.ECDSAKeyPairFromKey(ecdsaKey)
 	if err != nil {
 		return nil, err
 	}

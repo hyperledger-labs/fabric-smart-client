@@ -88,5 +88,9 @@ func GetQueryService(sp services.Provider, network, channel string) (QueryServic
 	if err != nil {
 		return nil, errors.Wrap(err, "could not find provider")
 	}
-	return qsp.(Provider).Get(network, channel)
+	provider, ok := qsp.(Provider)
+	if !ok {
+		return nil, errors.Errorf("unexpected provider type [%T]", qsp)
+	}
+	return provider.Get(network, channel)
 }

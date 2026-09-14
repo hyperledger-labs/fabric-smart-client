@@ -91,17 +91,20 @@ func (id *cachedSigningIdentity) GetPublicVersion() msp.Identity {
 }
 
 func (c *cachedMSP) DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error) {
-	id, ok := c.deserializeIdentityCache.Get(string(serializedIdentity))
-	if ok {
-		return c.wrap(id.(msp.Identity)), nil
+	if cached, ok := c.deserializeIdentityCache.Get(string(serializedIdentity)); ok {
+		id, ok := cached.(msp.Identity)
+		if !ok {
+			return nil, errors.Errorf("unexpected cached identity type [%T]", cached)
+		}
+		return c.wrap(id), nil
 	}
 
 	id, err := c.MSP.DeserializeIdentity(serializedIdentity)
-	if err == nil {
-		c.deserializeIdentityCache.Add(string(serializedIdentity), id)
-		return c.wrap(id.(msp.Identity)), nil
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+	c.deserializeIdentityCache.Add(string(serializedIdentity), id)
+	return c.wrap(id), nil
 }
 
 // wrap returns a cached identity wrapper that preserves the SigningIdentity
@@ -155,7 +158,11 @@ func (c *cachedMSP) SatisfiesPrincipal(id msp.Identity, principal *pmsp.MSPPrinc
 			return nil
 		}
 
-		return v.(error)
+		cachedErr, ok := v.(error)
+		if !ok {
+			return errors.Errorf("unexpected cached value type [%T]", v)
+		}
+		return cachedErr
 	}
 
 	err := c.MSP.SatisfiesPrincipal(id, principal)

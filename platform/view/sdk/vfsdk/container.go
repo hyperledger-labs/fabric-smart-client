@@ -96,7 +96,11 @@ type factoryEntry struct {
 }
 
 func newEntry(factory any, opts []FactoryOption) *factoryEntry {
-	entry := &factoryEntry{factory: factory.(view.Factory)}
+	f, ok := factory.(view.Factory)
+	if !ok {
+		panic(errors.Errorf("unexpected factory type [%T]", factory))
+	}
+	entry := &factoryEntry{factory: f}
 	for _, opt := range opts {
 		opt(entry)
 	}

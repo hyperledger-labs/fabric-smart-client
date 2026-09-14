@@ -160,7 +160,11 @@ func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, e
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting fabric network service provider")
 	}
-	return s.(*NetworkServiceProvider), nil
+	provider, ok := s.(*NetworkServiceProvider)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for fabric network service provider", s)
+	}
+	return provider, nil
 }
 
 func GetFabricNetworkNames(sp services.Provider) ([]string, error) {

@@ -139,7 +139,11 @@ func GetService(sp services.Provider) *Service {
 	if err != nil {
 		panic(err)
 	}
-	return s.(*Service)
+	svc, ok := s.(*Service)
+	if !ok {
+		panic(errors.Errorf("unexpected service type [%T] for endpoint service", s))
+	}
+	return svc
 }
 
 // Resolve returns the endpoints of the passed identity.

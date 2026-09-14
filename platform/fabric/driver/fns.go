@@ -9,6 +9,7 @@ package driver
 import (
 	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
@@ -53,5 +54,9 @@ func GetFabricManagementService(ctx services.Provider) FabricNetworkServiceProvi
 	if err != nil {
 		panic(err)
 	}
-	return s.(FabricNetworkServiceProvider)
+	provider, ok := s.(FabricNetworkServiceProvider)
+	if !ok {
+		panic(errors.Errorf("unexpected service type [%T] for fabric network service provider", s))
+	}
+	return provider
 }

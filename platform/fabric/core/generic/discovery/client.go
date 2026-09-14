@@ -145,7 +145,7 @@ func (req *Request) addQueryMapping(queryType QueryType, key string) {
 
 // Send sends the request and returns the response, or error on failure
 func (c *Client) Send(ctx context.Context, req *Request, auth *discovery.AuthInfo) (Response, error) {
-	reqToBeSent := proto.Clone(req.Request).(*discovery.Request)
+	reqToBeSent := proto.CloneOf(req.Request)
 	reqToBeSent.Authentication = auth
 	payload, err := proto.Marshal(reqToBeSent)
 	if err != nil {
@@ -199,7 +199,11 @@ func (cr *channelResponse) Config() (*discovery.ConfigResult, error) {
 		return config, nil
 	}
 
-	return nil, res.(error)
+	err, isErr := res.(error)
+	if !isErr {
+		return nil, errors.Errorf("unexpected discovery response type [%T]", res)
+	}
+	return nil, err
 }
 
 func parsePeers(queryType QueryType, r response, channel string, invocationChain ...*peer.ChaincodeCall) ([]*Peer, error) {
@@ -217,7 +221,11 @@ func parsePeers(queryType QueryType, r response, channel string, invocationChain
 		return peers, nil
 	}
 
-	return nil, res.(error)
+	err, isErr := res.(error)
+	if !isErr {
+		return nil, errors.Errorf("unexpected discovery response type [%T]", res)
+	}
+	return nil, err
 }
 
 func (cr *channelResponse) Peers(invocationChain ...*peer.ChaincodeCall) ([]*Peer, error) {
@@ -227,11 +235,15 @@ func (cr *channelResponse) Peers(invocationChain ...*peer.ChaincodeCall) ([]*Pee
 func (cr *channelResponse) Endorsers(invocationChain InvocationChain, f Filter) (Endorsers, error) {
 	// If we have a key that has no chaincode field,
 	// it means it's an error returned from the service
-	if err, exists := cr.response[key{
+	if errVal, exists := cr.response[key{
 		queryType: ChaincodeQueryType,
 		k:         cr.channel,
 	}]; exists {
-		return nil, err.(error)
+		err, isErr := errVal.(error)
+		if !isErr {
+			return nil, errors.Errorf("unexpected discovery response type [%T]", errVal)
+		}
+		return nil, err
 	}
 
 	// Else, the service returned a response that isn't an error
@@ -245,7 +257,10 @@ func (cr *channelResponse) Endorsers(invocationChain InvocationChain, f Filter) 
 		return nil, ErrNotFound
 	}
 
-	desc := res.(*endorsementDescriptor)
+	desc, ok := res.(*endorsementDescriptor)
+	if !ok {
+		return nil, errors.Errorf("unexpected discovery response type [%T]", res)
+	}
 	var seed [32]byte
 	_, _ = crand.Read(seed[:])
 	r := rand.New(rand.NewChaCha8(seed))

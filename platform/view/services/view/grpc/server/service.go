@@ -10,6 +10,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
@@ -41,5 +42,9 @@ func GetService(sp services.Provider) Service {
 	if err != nil {
 		panic(err)
 	}
-	return s.(Service)
+	svc, ok := s.(Service)
+	if !ok {
+		panic(errors.Errorf("unexpected service type [%T] for view service", s))
+	}
+	return svc
 }

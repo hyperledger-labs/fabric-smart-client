@@ -59,7 +59,11 @@ func GetService(sp services.Provider) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.(*Service), nil
+	svc, ok := s.(*Service)
+	if !ok {
+		return nil, errors.Errorf("unexpected service type [%T] for sig service", s)
+	}
+	return svc, nil
 }
 
 func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, signer driver2.Signer, verifier driver2.Verifier) error {
@@ -293,8 +297,8 @@ func (o *Service) GetSigningIdentity(identity view.Identity) (driver2.SigningIde
 		return nil, err
 	}
 
-	if _, ok := signer.(driver2.SigningIdentity); ok {
-		return signer.(driver2.SigningIdentity), nil
+	if signingIdentity, ok := signer.(driver2.SigningIdentity); ok {
+		return signingIdentity, nil
 	}
 
 	return &si{

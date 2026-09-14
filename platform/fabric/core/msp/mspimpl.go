@@ -168,7 +168,11 @@ func NewBccspMspWithKeyStore(version MSPVersion, keyStore bccsp.KeyStore, bccsp 
 	if err != nil {
 		return nil, err
 	}
-	thisMSP.(*bccspmsp).bccsp = csp
+	bccspMSP, ok := thisMSP.(*bccspmsp)
+	if !ok {
+		return nil, errors.Errorf("unexpected MSP type [%T]", thisMSP)
+	}
+	bccspMSP.bccsp = csp
 
 	return thisMSP, nil
 }
@@ -251,7 +255,11 @@ func (msp *bccspmsp) getSigningIdentityFromConf(sidInfo *m.SigningIdentityInfo) 
 		return nil, errors.WithMessage(err, "getIdentityFromBytes error: Failed initializing bccspCryptoSigner")
 	}
 
-	return newSigningIdentity(idPub.(*identity).cert, idPub.(*identity).pk, peerSigner, msp)
+	idPubID, ok := idPub.(*identity)
+	if !ok {
+		return nil, errors.Errorf("unexpected identity type [%T]", idPub)
+	}
+	return newSigningIdentity(idPubID.cert, idPubID.pk, peerSigner, msp)
 }
 
 // Setup sets up the internal data structures
@@ -512,7 +520,11 @@ func (msp *bccspmsp) satisfiesPrincipalInternalPreV13(id Identity, principal *m.
 			mspLogger.Debugf("Checking if identity satisfies ADMIN role for %s", msp.name)
 			// in the case of admin, we check that the
 			// id is exactly one of our admins
-			if msp.isInAdmins(id.(*identity)) {
+			idImpl, ok := id.(*identity)
+			if !ok {
+				return errors.Errorf("unexpected identity type [%T]", id)
+			}
+			if msp.isInAdmins(idImpl) {
 				return nil
 			}
 			return errors.New("This identity is not an admin")
@@ -539,7 +551,15 @@ func (msp *bccspmsp) satisfiesPrincipalInternalPreV13(id Identity, principal *m.
 			return errors.WithMessage(err, "invalid identity principal, not a certificate")
 		}
 
-		if bytes.Equal(id.(*identity).cert.Raw, principalID.(*identity).cert.Raw) {
+		idImpl, ok := id.(*identity)
+		if !ok {
+			return errors.Errorf("unexpected identity type [%T]", id)
+		}
+		principalIDImpl, ok := principalID.(*identity)
+		if !ok {
+			return errors.Errorf("unexpected identity type [%T]", principalID)
+		}
+		if bytes.Equal(idImpl.cert.Raw, principalIDImpl.cert.Raw) {
 			return principalID.Validate()
 		}
 
@@ -614,7 +634,7 @@ func (msp *bccspmsp) satisfiesPrincipalInternalV13(id Identity, principal *m.MSP
 // The function implements the additional behavior expected of an MSP starting from v2.0.
 // For v1.3 functionality, the function calls the satisfiesPrincipalInternalPreV13.
 func (msp *bccspmsp) satisfiesPrincipalInternalV142(id Identity, principal *m.MSPPrincipal) error {
-	_, okay := id.(*identity)
+	theID, okay := id.(*identity)
 	if !okay {
 		return errors.New("invalid identity type, expected *identity")
 	}
@@ -641,7 +661,7 @@ func (msp *bccspmsp) satisfiesPrincipalInternalV142(id Identity, principal *m.MS
 				mspLogger.Debugf("Checking if identity has been named explicitly as an admin for %s", msp.name)
 				// in the case of admin, we check that the
 				// id is exactly one of our admins
-				if msp.isInAdmins(id.(*identity)) {
+				if msp.isInAdmins(theID) {
 					return nil
 				}
 
@@ -676,7 +696,11 @@ func (msp *bccspmsp) satisfiesPrincipalInternalV142(id Identity, principal *m.MS
 
 func (msp *bccspmsp) isInAdmins(id *identity) bool {
 	for _, admincert := range msp.admins {
-		if bytes.Equal(id.cert.Raw, admincert.(*identity).cert.Raw) {
+		adminID, ok := admincert.(*identity)
+		if !ok {
+			continue
+		}
+		if bytes.Equal(id.cert.Raw, adminID.cert.Raw) {
 			// we do not need to check whether the admin is a valid identity
 			// according to this MSP, since we already check this at Setup time
 			// if there is a match, we can just return

@@ -15,6 +15,7 @@ linters:
     - durationcheck
     - errcheck
     - errorlint
+    - forcetypeassert
     - gocritic
     - goheader
     - gosec
@@ -115,6 +116,14 @@ linters:
       - path: (^integration/|^ci/|_test\.go$|_test_utils\.go$)
         linters:
           - gosec
+      # forcetypeassert: the nwo integration harness and hand-written test
+      # doubles under fake/ aren't attacker-reachable, so an unchecked type
+      # assertion there is a test bug at worst, not a security concern.
+      # Production code has no exclusion: every finding there was fixed with
+      # a checked assertion when the linter was enabled.
+      - path: (^integration/|_test\.go$|_test_utils\.go$|(^|/)fake/)
+        linters:
+          - forcetypeassert
       # The p2p comm layer (sessions, stream handlers, and the multiplexed/simple
       # websocket connections) deliberately manages resources - cached streams,
       # sub-connections, and sessions - whose lifecycles are independent of, and

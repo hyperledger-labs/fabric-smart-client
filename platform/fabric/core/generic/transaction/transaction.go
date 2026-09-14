@@ -163,7 +163,10 @@ func (t *Transaction) Results() ([]byte, error) {
 }
 
 func (t *Transaction) From(tx driver.Transaction) (err error) {
-	payload := tx.(*Transaction)
+	payload, ok := tx.(*Transaction)
+	if !ok {
+		return errors.Errorf("unexpected transaction type [%T]", tx)
+	}
 
 	t.TCreator = payload.TCreator
 	t.TNonce = payload.TNonce
@@ -531,7 +534,11 @@ func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity
 }
 
 func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) error {
-	return t.recordProposalResponse(response.(*ProposalResponse).pr)
+	pr, ok := response.(*ProposalResponse)
+	if !ok {
+		return errors.Errorf("unexpected proposal response type [%T]", response)
+	}
+	return t.recordProposalResponse(pr.pr)
 }
 
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {

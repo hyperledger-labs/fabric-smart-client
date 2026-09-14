@@ -51,7 +51,8 @@ func (e *deliveryListenerEntry) OnStatus(ctx context.Context, info txInfo) {
 }
 
 func (e *deliveryListenerEntry) Equals(other events.ListenerEntry[txInfo]) bool {
-	return other != nil && other.(*deliveryListenerEntry).l == e.l
+	o, ok := other.(*deliveryListenerEntry)
+	return ok && o.l == e.l
 }
 
 func NewDeliveryFLM(ctx context.Context, logger logging.Logger, config events.DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {

@@ -124,7 +124,7 @@ func (o *Service) Broadcast(ctx context.Context, blob any) error { //nolint:cont
 		env = b.Envelope()
 	case *common2.Envelope:
 		logger.DebugfContext(ctx, "new envelope to broadcast...")
-		env = blob.(*common2.Envelope)
+		env = b
 	default:
 		logger.ErrorfContext(ctx, "invalid blob type [%T]", blob)
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
