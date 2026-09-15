@@ -25,7 +25,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const (
@@ -359,7 +358,7 @@ func genCertificateECDSA(
 	}
 	// pem encode the cert
 	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
-	utils.IgnoreErrorFunc(certFile.Close)
+	_ = certFile.Close()
 	if err != nil {
 		return nil, err
 	}

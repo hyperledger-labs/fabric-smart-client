@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // Broadcast sends given env to Broadcast API of specified orderer.
@@ -33,7 +32,7 @@ func Broadcast(n *Network, o *topology.Orderer, env *common.Envelope) (*orderer.
 	if err != nil {
 		return nil, err
 	}
-	defer utils.IgnoreErrorFunc(conn.Close)
+	defer func() { _ = conn.Close() }()
 
 	broadcaster, err := orderer.NewAtomicBroadcastClient(conn).Broadcast(context.Background())
 	if err != nil {
@@ -65,7 +64,7 @@ func Deliver(n *Network, o *topology.Orderer, env *common.Envelope) (*common.Blo
 	if err != nil {
 		return nil, err
 	}
-	defer utils.IgnoreErrorFunc(conn.Close)
+	defer func() { _ = conn.Close() }()
 
 	deliverer, err := orderer.NewAtomicBroadcastClient(conn).Deliver(context.Background())
 	if err != nil {

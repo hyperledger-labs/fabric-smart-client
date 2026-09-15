@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // QueryResult structure used for handling result of query
@@ -126,7 +125,7 @@ func queryAgreementsByType(ctx contractapi.TransactionContextInterface, agreeTyp
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read from private data collection")
 	}
-	defer utils.IgnoreErrorFunc(agreementsIterator.Close)
+	defer func() { _ = agreementsIterator.Close() }()
 
 	var agreements []Agreement
 	for agreementsIterator.HasNext() {
@@ -153,7 +152,7 @@ func (*SmartContract) QueryAssetHistory(ctx contractapi.TransactionContextInterf
 	if err != nil {
 		return nil, err
 	}
-	defer utils.IgnoreErrorFunc(resultsIterator.Close)
+	defer func() { _ = resultsIterator.Close() }()
 
 	var results []QueryResult
 	for resultsIterator.HasNext() {

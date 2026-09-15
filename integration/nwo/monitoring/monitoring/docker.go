@@ -22,7 +22,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const PrometheusPort = 9090
@@ -143,7 +142,7 @@ func (n *Extension) startPrometheus() {
 			Timestamps: false,
 		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer utils.IgnoreErrorFunc(reader.Close)
+		defer func() { _ = reader.Close() }()
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
@@ -226,7 +225,7 @@ func (n *Extension) startGrafana() {
 			Timestamps: false,
 		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer utils.IgnoreErrorFunc(reader.Close)
+		defer func() { _ = reader.Close() }()
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

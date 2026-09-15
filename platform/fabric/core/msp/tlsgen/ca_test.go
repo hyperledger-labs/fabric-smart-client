@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func createTLSService(t *testing.T, ca CA, host string) *grpc.Server {
@@ -61,7 +60,7 @@ func TestTLSCA(t *testing.T) {
 	}()
 	defer func() {
 		srv.Stop()
-		utils.IgnoreError(listener.Close())
+		_ = listener.Close()
 	}()
 
 	probeTLS := func(kp *CertKeyPair) error {

@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
@@ -228,7 +227,8 @@ func GenerateVerifyingMSP(
 
 	ksDir := filepath.Join(baseDir, "keystore")
 	err = os.Mkdir(ksDir, 0o755)
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, ksDir)
+	defer func() { _ = os.RemoveAll(ksDir) }()
+
 	if err != nil {
 		return errors.WithMessage(err, "failed to create keystore directory")
 	}
@@ -287,7 +287,7 @@ func pemExport(path, pemType string, bytes []byte) error {
 	if err != nil {
 		return err
 	}
-	defer utils.IgnoreErrorFunc(file.Close)
+	defer func() { _ = file.Close() }()
 
 	return pem.Encode(file, &pem.Block{Type: pemType, Bytes: bytes})
 }
@@ -325,7 +325,7 @@ func exportConfig(mspDir, caFile string, enable bool) error {
 		return err
 	}
 
-	defer utils.IgnoreErrorFunc(file.Close)
+	defer func() { _ = file.Close() }()
 	_, err = file.WriteString(string(configBytes))
 
 	return err

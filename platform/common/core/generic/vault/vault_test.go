@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
@@ -171,7 +170,7 @@ func TestMemory(t *testing.T) { //nolint:tparallel
 			ddb, err := vault2.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
 			require.NotNil(t, ddb)
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			defer func() { _ = ddb.Close() }()
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
@@ -182,8 +181,8 @@ func TestMemory(t *testing.T) { //nolint:tparallel
 			require.NoError(t, err)
 			db2, err := vault2.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			defer func() { _ = db1.Close() }()
+			defer func() { _ = db2.Close() }()
 			c.Fn(xt, db1, db2, artifactProvider)
 		})
 	}
@@ -201,7 +200,7 @@ func TestSqlite(t *testing.T) { //nolint:tparallel
 		t.Run(c.Name, func(xt *testing.T) {
 			ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
 			require.NoError(t, err)
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			defer func() { _ = ddb.Close() }()
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
@@ -212,8 +211,8 @@ func TestSqlite(t *testing.T) { //nolint:tparallel
 			require.NoError(t, err)
 			db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
 			require.NoError(t, err)
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			defer func() { _ = db1.Close() }()
+			defer func() { _ = db2.Close() }()
 			c.Fn(xt, db1, db2, artifactProvider)
 		})
 	}
@@ -231,7 +230,7 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 		t.Run(c.Name, func(xt *testing.T) {
 			ddb, terminate, err := vault2.OpenPostgresVault("common-sdk-node1")
 			require.NoError(t, err)
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			defer func() { _ = ddb.Close() }()
 			defer terminate()
 			c.Fn(xt, ddb, artifactProvider)
 		})
@@ -243,8 +242,8 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 			require.NoError(t, err)
 			db2, terminate2, err := vault2.OpenPostgresVault("common-sdk-node2")
 			require.NoError(t, err)
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			defer func() { _ = db1.Close() }()
+			defer func() { _ = db2.Close() }()
 			defer terminate1()
 			defer terminate2()
 			c.Fn(xt, db1, db2, artifactProvider)
@@ -260,7 +259,7 @@ func newMemoryVault(t *testing.T) (*Vault[ValidationCode], driver.VaultStore) {
 	ddb, err := vault2.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 	require.NotNil(t, ddb)
-	t.Cleanup(func() { utils.IgnoreErrorFunc(ddb.Close) })
+	t.Cleanup(func() { _ = ddb.Close() })
 
 	provider := &testArtifactProvider{
 		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead { return items },

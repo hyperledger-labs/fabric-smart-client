@@ -29,7 +29,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const testTimeout = 1 * time.Second // conservative
@@ -346,9 +345,9 @@ func TestNewConnection(t *testing.T) {
 			}
 			srv := grpc.NewServer(serverOpts...)
 			t.Cleanup(srv.Stop)
-			go utils.IgnoreErrorFunc(func() error {
-				return srv.Serve(lis)
-			})
+			go func() {
+				_ = srv.Serve(lis)
+			}()
 			client, err := grpc3.NewGRPCClient(test.config)
 			require.NoError(t, err, "error creating client for test")
 			address := lis.Addr().String()
@@ -418,9 +417,9 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 
 	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLS)))
 	t.Cleanup(srv.Stop)
-	go utils.IgnoreErrorFunc(func() error {
-		return srv.Serve(lis)
-	})
+	go func() {
+		_ = srv.Serve(lis)
+	}()
 
 	// Create a client that will connect to the server
 	// The client expects "correct-hostname.example.com" but will connect to 127.0.0.1
@@ -442,7 +441,7 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 	// Assert that we get an error
 	require.Error(t, err)
 	if conn != nil {
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 	}
 
 	// The error should contain certificate/x509/SAN information, not just "context deadline exceeded"
@@ -477,9 +476,9 @@ func TestSetServerRootCAs(t *testing.T) {
 		Certificates: []tls.Certificate{testCerts.serverCert},
 	})))
 	t.Cleanup(srv.Stop)
-	go utils.IgnoreErrorFunc(func() error {
-		return srv.Serve(lis)
-	})
+	go func() {
+		_ = srv.Serve(lis)
+	}()
 
 	// initial config should work
 	t.Log("running initial good config")
@@ -487,7 +486,7 @@ func TestSetServerRootCAs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 	if conn != nil {
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 	}
 
 	// no root testCerts
@@ -507,7 +506,7 @@ func TestSetServerRootCAs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 	if conn != nil {
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 	}
 
 	// bad root cert
@@ -525,7 +524,7 @@ func TestSetMessageSize(t *testing.T) {
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
 	require.NoError(t, err, "failed to create test server")
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 
 	waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -585,7 +584,7 @@ func TestSetMessageSize(t *testing.T) {
 			t.Cleanup(func() {
 				_ = conn.Close
 			})
-			defer utils.IgnoreErrorFunc(conn.Close)
+			defer func() { _ = conn.Close() }()
 			// create service client from conn
 			svcClient := testpb.NewEchoServiceClient(conn)
 			callCtx := context.Background()
@@ -623,7 +622,7 @@ func TestClientConfigMessageSize(t *testing.T) {
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
 	require.NoError(t, err)
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 	waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
@@ -684,7 +683,7 @@ func TestCreateGRPCClientCarriesMessageSize(t *testing.T) {
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
 	require.NoError(t, err)
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 	waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 

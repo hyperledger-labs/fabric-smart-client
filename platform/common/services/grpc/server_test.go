@@ -35,7 +35,6 @@ import (
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // Embedded certificates for testing
@@ -117,7 +116,7 @@ func invokeEmptyCall(address string, dialOptions ...grpc.DialOption) (*testpb.Em
 	if err != nil {
 		return nil, err
 	}
-	defer utils.IgnoreErrorFunc(clientConn.Close)
+	defer func() { _ = clientConn.Close() }()
 
 	// create GRPC client
 	client := testpb.NewEmptyServiceClient(clientConn)
@@ -139,7 +138,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 	if err != nil {
 		return nil, err
 	}
-	defer utils.IgnoreErrorFunc(clientConn.Close)
+	defer func() { _ = clientConn.Close() }()
 
 	stream, err := testpb.NewEmptyServiceClient(clientConn).EmptyStream(ctx)
 	if err != nil {
@@ -175,7 +174,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 		return nil, errors.Errorf("stream send failed: %s", err)
 	}
 
-	utils.IgnoreError(stream.CloseSend())
+	_ = stream.CloseSend()
 	<-waitc
 	return msg, streamErr
 }
@@ -575,7 +574,7 @@ func TestNewGRPCServer(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	defer srv.Stop()
 
 	waitServerReady(t, testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -610,7 +609,7 @@ func TestNewGRPCServerFromListener(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	defer srv.Stop()
 
 	waitServerReady(t, testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -653,7 +652,7 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 
 	// create the client credentials
@@ -701,7 +700,7 @@ func TestNewSecureGRPCServer(t *testing.T) {
 			MaxVersion: tls.VersionTLS13,
 		})
 		require.NoError(t, err)
-		defer utils.IgnoreErrorFunc(conn.Close)
+		defer func() { _ = conn.Close() }()
 		require.NoError(t, conn.Handshake())
 		require.Equal(t, uint16(tls.VersionTLS12), conn.ConnectionState().Version)
 	})
@@ -731,7 +730,7 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		go utils.IgnoreErrorFunc(srv.Start)
+		go func() { _ = srv.Start() }()
 		t.Cleanup(srv.Stop)
 
 		conn, err := tls.Dial("tcp", testAddress, &tls.Config{
@@ -740,7 +739,7 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 			MaxVersion: tls.VersionTLS13,
 		})
 		require.NoError(t, err, "a Min-only override should still yield a usable (non-inverted) range")
-		defer utils.IgnoreErrorFunc(conn.Close)
+		defer func() { _ = conn.Close() }()
 		require.NoError(t, conn.Handshake())
 		require.Equal(t, uint16(tls.VersionTLS13), conn.ConnectionState().Version)
 	})
@@ -775,7 +774,7 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		go utils.IgnoreErrorFunc(srv.Start)
+		go func() { _ = srv.Start() }()
 		t.Cleanup(srv.Stop)
 
 		conn, err := tls.Dial("tcp", testAddress, &tls.Config{
@@ -784,7 +783,7 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 			MaxVersion: tls.VersionTLS13,
 		})
 		require.NoError(t, err, "a client willing to negotiate up to 1.3 must still land on 1.2")
-		defer utils.IgnoreErrorFunc(conn.Close)
+		defer func() { _ = conn.Close() }()
 		require.NoError(t, conn.Handshake())
 		require.Equal(t, uint16(tls.VersionTLS12), conn.ConnectionState().Version)
 
@@ -813,7 +812,7 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		go utils.IgnoreErrorFunc(srv.Start)
+		go func() { _ = srv.Start() }()
 		t.Cleanup(srv.Stop)
 
 		conn, err := tls.Dial("tcp", testAddress, &tls.Config{
@@ -822,7 +821,7 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 			MaxVersion: tls.VersionTLS13,
 		})
 		require.NoError(t, err)
-		defer utils.IgnoreErrorFunc(conn.Close)
+		defer func() { _ = conn.Close() }()
 		require.NoError(t, conn.Handshake())
 		require.Equal(t, uint16(tls.VersionTLS13), conn.ConnectionState().Version)
 	})
@@ -865,7 +864,7 @@ func TestVerifyCertificateCallback(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 		return nil
 	}
 
@@ -880,7 +879,7 @@ func TestVerifyCertificateCallback(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	go utils.IgnoreErrorFunc(gRPCServer.Start)
+	go func() { _ = gRPCServer.Start() }()
 	t.Cleanup(gRPCServer.Stop)
 
 	t.Run("Success path", func(t *testing.T) {
@@ -929,7 +928,7 @@ func TestWithSignedRootCertificates(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 
 	// create a CertPool
@@ -991,7 +990,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	// start the server
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 
 	// create a CertPool
@@ -1041,7 +1040,7 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 
 		// register the GRPC test server and start the GRPCServer
 		testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
-		go utils.IgnoreErrorFunc(srv.Start)
+		go func() { _ = srv.Start() }()
 		t.Cleanup(srv.Stop)
 
 		// should be ready
@@ -1146,7 +1145,7 @@ func TestSetClientRootCAs(t *testing.T) {
 
 	// register the GRPC test server and start the GRPCServer
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 
 	// Org1
@@ -1239,7 +1238,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	require.NoError(t, err)
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 
 	certPool := x509.NewCertPool()
@@ -1350,7 +1349,7 @@ func TestCipherSuites(t *testing.T) {
 	testAddress := lis.Addr().String()
 	srv, err := grpc3.NewGRPCServerFromListener(lis, serverConfig)
 	require.NoError(t, err)
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1405,7 +1404,7 @@ func TestServerInterceptors(t *testing.T) {
 	srv, err := grpc3.NewGRPCServerFromListener(lis, srvConfig)
 	require.NoError(t, err, "failed to create gRPC server")
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 
 	_, err = invokeEmptyCall(
@@ -1471,7 +1470,7 @@ func TestServerConfigMessageSize(t *testing.T) {
 			srv, err := grpc3.NewGRPCServerFromListener(lis, test.config)
 			require.NoError(t, err)
 			testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
-			go utils.IgnoreErrorFunc(srv.Start)
+			go func() { _ = srv.Start() }()
 			t.Cleanup(srv.Stop)
 			waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 

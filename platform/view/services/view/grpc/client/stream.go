@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
@@ -56,7 +55,7 @@ func (c *Stream) RecvProtoMsg(m any) error {
 
 // Result returns the result produced by the view.
 func (c *Stream) Result() ([]byte, error) {
-	defer utils.IgnoreErrorFunc(c.conn.Close)
+	defer func() { _ = c.conn.Close() }()
 	scr, err := c.scc.Recv()
 	if err != nil {
 		return nil, err

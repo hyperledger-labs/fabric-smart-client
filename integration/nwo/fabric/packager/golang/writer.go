@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // WriteBytesToPackage writes a file to a tar stream with the contents as provided via the raw parameter.
@@ -24,7 +23,7 @@ func WriteBytesToPackage(raw []byte, localpath, packagepath string, tw *tar.Writ
 	if err != nil {
 		return errors.Wrapf(err, "%s", localpath)
 	}
-	defer utils.IgnoreErrorFunc(fd.Close)
+	defer func() { _ = fd.Close() }()
 
 	fi, err := fd.Stat()
 	if err != nil {
@@ -68,7 +67,7 @@ func WriteFileToPackage(localpath, packagepath string, tw *tar.Writer) error {
 	if err != nil {
 		return errors.Wrapf(err, "%s", localpath)
 	}
-	defer utils.IgnoreErrorFunc(fd.Close)
+	defer func() { _ = fd.Close() }()
 
 	fi, err := fd.Stat()
 	if err != nil {

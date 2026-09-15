@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -124,7 +123,7 @@ func (p *P2PNode) Stop() {
 
 	p.cancel()
 
-	utils.IgnoreErrorFunc(p.host.Close)
+	_ = p.host.Close()
 
 	p.streamsMutex.Lock()
 	for _, streams := range p.streams {

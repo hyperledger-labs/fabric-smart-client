@@ -24,7 +24,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
@@ -122,7 +121,7 @@ func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed calling metrics")
 	}
-	defer utils.IgnoreErrorFunc(body.Close)
+	defer func() { _ = body.Close() }()
 	return c.metricsParser.TextToMetricFamilies(body)
 }
 
@@ -173,7 +172,7 @@ func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to call [%s]", fid)
 	}
-	defer utils.IgnoreErrorFunc(body.Close)
+	defer func() { _ = body.Close() }()
 	buff, err := io.ReadAll(body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))

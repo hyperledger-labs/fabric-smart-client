@@ -21,7 +21,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 type Docker struct {
@@ -106,7 +105,7 @@ func WaitUntilReadyWithTLS(ctx context.Context, grpcEndpoint string, tlsConfig c
 	if err != nil {
 		return fmt.Errorf("grpc Dial(%q) failed: %w", grpcEndpoint, err)
 	}
-	defer utils.IgnoreErrorFunc(conn.Close)
+	defer func() { _ = conn.Close() }()
 
 	healthClient := healthgrpc.NewHealthClient(conn)
 	res, err := healthClient.Check(ctx, &healthgrpc.HealthCheckRequest{})

@@ -15,7 +15,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
@@ -51,7 +50,7 @@ func TestMemory(t *testing.T) {
 		ddb, err := vault2.OpenMemoryVault(c.Name)
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			defer func() { _ = ddb.Close() }()
 			c.Fn(xt, ddb, ap)
 		})
 	}
@@ -63,8 +62,8 @@ func TestMemory(t *testing.T) {
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			xt.Parallel()
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			defer func() { _ = db1.Close() }()
+			defer func() { _ = db2.Close() }()
 			c.Fn(xt, db1, db2, ap)
 		})
 	}
@@ -81,7 +80,7 @@ func TestSqlite(t *testing.T) {
 		ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			defer func() { _ = ddb.Close() }()
 			c.Fn(xt, ddb, ap)
 		})
 	}
@@ -93,8 +92,8 @@ func TestSqlite(t *testing.T) {
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			xt.Parallel()
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			defer func() { _ = db1.Close() }()
+			defer func() { _ = db2.Close() }()
 			c.Fn(xt, db1, db2, ap)
 		})
 	}
@@ -111,7 +110,7 @@ func TestPostgres(t *testing.T) {
 		ddb, terminate, err := vault2.OpenPostgresVault("fabric-sdk-node1")
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			defer func() { _ = ddb.Close() }()
 			defer terminate()
 			c.Fn(xt, ddb, ap)
 		})
@@ -124,8 +123,8 @@ func TestPostgres(t *testing.T) {
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			xt.Parallel()
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			defer func() { _ = db1.Close() }()
+			defer func() { _ = db2.Close() }()
 			defer terminate1()
 			defer terminate2()
 			c.Fn(xt, db1, db2, ap)

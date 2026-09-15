@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
@@ -29,7 +28,7 @@ import (
 func GetConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) *common.Block {
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "getConfigBlock")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// fetch the config block
 	output := filepath.Join(tempDir, "config_block.pb")
@@ -75,7 +74,7 @@ func GetConfig(n *Network, peer *topology.Peer, orderer *topology.Orderer, chann
 func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, getConfigBlockFromOrderer bool, submitter *topology.Peer, additionalSigners ...*topology.Peer) {
 	tempDir, err := os.MkdirTemp("", "updateConfig")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// compute update
 	configUpdate, err := Compute(current, updated)
@@ -146,7 +145,7 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 func CurrentConfigBlockNumber(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) uint64 {
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "currentConfigBlock")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// fetch the config block
 	output := filepath.Join(tempDir, "config_block.pb")
@@ -208,7 +207,7 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	currentBlockNumber := CurrentConfigBlockNumber(n, submitter, orderer, channel)
 	ComputeUpdateOrdererConfig(updateFile, n, channel, current, updated, submitter, additionalSigners...)
