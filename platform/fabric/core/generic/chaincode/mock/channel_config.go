@@ -79,6 +79,16 @@ type ChannelConfig struct {
 	deliveryBufferSizeReturnsOnCall map[int]struct {
 		result1 int
 	}
+	DeliveryCommitRetriesStub        func() int
+	deliveryCommitRetriesMutex       sync.RWMutex
+	deliveryCommitRetriesArgsForCall []struct {
+	}
+	deliveryCommitRetriesReturns struct {
+		result1 int
+	}
+	deliveryCommitRetriesReturnsOnCall map[int]struct {
+		result1 int
+	}
 	DeliverySleepAfterFailureStub        func() time.Duration
 	deliverySleepAfterFailureMutex       sync.RWMutex
 	deliverySleepAfterFailureArgsForCall []struct {
@@ -540,6 +550,59 @@ func (fake *ChannelConfig) DeliveryBufferSizeReturnsOnCall(i int, result1 int) {
 		})
 	}
 	fake.deliveryBufferSizeReturnsOnCall[i] = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *ChannelConfig) DeliveryCommitRetries() int {
+	fake.deliveryCommitRetriesMutex.Lock()
+	ret, specificReturn := fake.deliveryCommitRetriesReturnsOnCall[len(fake.deliveryCommitRetriesArgsForCall)]
+	fake.deliveryCommitRetriesArgsForCall = append(fake.deliveryCommitRetriesArgsForCall, struct {
+	}{})
+	stub := fake.DeliveryCommitRetriesStub
+	fakeReturns := fake.deliveryCommitRetriesReturns
+	fake.recordInvocation("DeliveryCommitRetries", []interface{}{})
+	fake.deliveryCommitRetriesMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ChannelConfig) DeliveryCommitRetriesCallCount() int {
+	fake.deliveryCommitRetriesMutex.RLock()
+	defer fake.deliveryCommitRetriesMutex.RUnlock()
+	return len(fake.deliveryCommitRetriesArgsForCall)
+}
+
+func (fake *ChannelConfig) DeliveryCommitRetriesCalls(stub func() int) {
+	fake.deliveryCommitRetriesMutex.Lock()
+	defer fake.deliveryCommitRetriesMutex.Unlock()
+	fake.DeliveryCommitRetriesStub = stub
+}
+
+func (fake *ChannelConfig) DeliveryCommitRetriesReturns(result1 int) {
+	fake.deliveryCommitRetriesMutex.Lock()
+	defer fake.deliveryCommitRetriesMutex.Unlock()
+	fake.DeliveryCommitRetriesStub = nil
+	fake.deliveryCommitRetriesReturns = struct {
+		result1 int
+	}{result1}
+}
+
+func (fake *ChannelConfig) DeliveryCommitRetriesReturnsOnCall(i int, result1 int) {
+	fake.deliveryCommitRetriesMutex.Lock()
+	defer fake.deliveryCommitRetriesMutex.Unlock()
+	fake.DeliveryCommitRetriesStub = nil
+	if fake.deliveryCommitRetriesReturnsOnCall == nil {
+		fake.deliveryCommitRetriesReturnsOnCall = make(map[int]struct {
+			result1 int
+		})
+	}
+	fake.deliveryCommitRetriesReturnsOnCall[i] = struct {
 		result1 int
 	}{result1}
 }

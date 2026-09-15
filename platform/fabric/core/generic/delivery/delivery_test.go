@@ -439,6 +439,7 @@ func TestDeliveryLifecycle(t *testing.T) {
 		d := &Delivery{
 			bufferSize: 1,
 			stop:       make(chan struct{}),
+			metrics:    NewMetrics(nil),
 			callback: func(_ context.Context, _ *cb.Block) (bool, error) {
 				return false, errors.New("callback error")
 			},

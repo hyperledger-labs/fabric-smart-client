@@ -141,6 +141,43 @@ func TestServiceLifecycle(t *testing.T) {
 	})
 }
 
+// TestScanDoesNotRetry pins that a historical scan fails fast on an error its
+// callback returns, even one the committer feed would treat as transient.
+//
+// The retry budget exists for the long-running committer feed, where replaying a
+// block is safe because the committer skips transactions it has already
+// committed. A scan's callback is the caller's own, so that guarantee does not
+// cover it, and retrying would turn a scan the caller abandoned by cancelling its
+// context into a wait of the whole budget per block. mockChannelConfig reports a
+// non-zero budget, so this fails if runBlockScan stops clearing it.
+func TestScanDoesNotRetry(t *testing.T) {
+	t.Parallel()
+
+	recvChan := make(chan *pb.DeliverResponse, 5)
+	svc := newTestService(t, testServiceOpts{recvChan: recvChan})
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+
+	require.Positive(t, svc.channelConfig.DeliveryCommitRetries(),
+		"the configured budget must be non-zero for this test to prove anything")
+
+	recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+		Header:   &cb.BlockHeader{Number: 21},
+		Data:     &cb.BlockData{Data: [][]byte{}},
+		Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {}}},
+	}}}
+
+	var calls int
+	err := svc.ScanBlock(ctx, func(_ context.Context, _ *cb.Block) (bool, error) {
+		calls++
+		// Classifies as classRetry, so the committer feed would replay it.
+		return false, errors.Wrapf(context.Canceled, "caller gave up")
+	})
+
+	require.ErrorContains(t, err, "caller gave up")
+	require.Equal(t, 1, calls, "a scan callback must be invoked once, not retried")
+}
+
 func TestScanBlockVariants(t *testing.T) {
 	t.Run("Scan skips non-endorser and handles callback error", func(t *testing.T) {
 		t.Parallel()

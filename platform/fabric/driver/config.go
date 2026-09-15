@@ -53,6 +53,10 @@ type ChannelConfig interface {
 	CommitterWaitForEventTimeout() time.Duration
 	DeliveryBufferSize() int
 	DeliverySleepAfterFailure() time.Duration
+	// DeliveryCommitRetries is how many times a block whose commit failed
+	// transiently is replayed before the failure is treated as permanent and
+	// the channel's delivery is stopped. Zero commits once without retrying.
+	DeliveryCommitRetries() int
 	CommitParallelism() int
 	ChaincodeConfigs() []ChaincodeConfig
 	GetNumRetries() uint

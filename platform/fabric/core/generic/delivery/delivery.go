@@ -88,8 +88,19 @@ type Delivery struct {
 	vault               Vault
 	client              services.PeerClient
 	tracer              trace.Tracer
+	metrics             *Metrics
 	lastBlockReceived   uint64
 	bufferSize          int
+
+	// commitRetries bounds how many times a block whose commit failed
+	// transiently is replayed before the failure is treated as permanent. Zero
+	// means a single attempt with no retry.
+	commitRetries int
+
+	// onFatal is invoked when a commit fails with classFatal, so that the
+	// embedding application can decide whether to exit. A Delivery never exits
+	// the process itself; see reportFatal.
+	onFatal FatalHandler
 
 	// stop is closed exactly once, by Stop, to signal shutdown to every
 	// goroutine started by Run. It carries no value: untilStop, readBlocks and
@@ -122,7 +133,7 @@ func New(
 	waitForEventTimeout time.Duration,
 	bufferSize int,
 	tracerProvider tracing.Provider,
-	_ metrics.Provider,
+	metricsProvider metrics.Provider,
 ) (*Delivery, error) {
 	if channelConfig == nil {
 		return nil, errors.Errorf("expected channel config, got nil")
@@ -140,12 +151,27 @@ func New(
 		tracer: tracerProvider.Tracer("delivery", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{messageTypeLabel},
 		})),
-		callback:   callback,
-		vault:      vault,
-		bufferSize: max(bufferSize, 1),
-		stop:       make(chan struct{}),
+		callback:      callback,
+		vault:         vault,
+		bufferSize:    max(bufferSize, 1),
+		commitRetries: max(channelConfig.DeliveryCommitRetries(), 0),
+		metrics:       NewMetrics(metricsProvider),
+		stop:          make(chan struct{}),
 	}
 	return d, nil
+}
+
+// WithFatalHandler installs the handler invoked when a commit fails in a way that
+// leaves this node unable to trust its own committed state. It returns d so it
+// can be chained onto New, and must be called before Run or Start.
+//
+// Without a handler such a failure stops the channel's delivery and is logged at
+// ERROR, the same as any other unrecoverable failure. The handler exists for an
+// application that would rather exit and be restarted by its supervisor than keep
+// serving from state it cannot vouch for.
+func (d *Delivery) WithFatalHandler(h FatalHandler) *Delivery {
+	d.onFatal = h
+	return d
 }
 
 // Start runs the delivery service in its own goroutine and returns
@@ -197,17 +223,24 @@ func (d *Delivery) Run(ctx context.Context) error { //nolint:contextcheck // doc
 }
 
 // readBlocks invokes the callback for each block arriving on ch until the
-// service is stopped. It stops the service if the callback fails or asks to
-// stop.
+// service is stopped.
+//
+// A callback failure is classified rather than treated uniformly (see
+// failureClass): a transient one is retried on the same block, because the block
+// stream is the only way this node learns its transactions were committed and
+// losing it costs the channel every later block. A failure that a replay cannot
+// clear stops the service, which is unavoidable — a node that cannot apply a
+// block it has already accepted must not commit later ones over it — but the stop
+// is counted and logged at ERROR so it reads as a fault rather than as an absence
+// of traffic.
 func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 	for {
 		select {
 		case b := <-ch:
 			logger.Debugf("Invoking callback for block [%d]", b.block.Header.Number)
-			stop, err := d.callback(b.ctx, b.block)
+			stop, err := d.invokeCallback(b)
 			if err != nil {
-				logger.Errorf("callback errored for block [%d], stop delivery: [%v]", b.block.Header.Number, err)
-				d.Stop(err)
+				d.failBlock(b.block.Header.Number, err)
 				return
 			}
 			if stop {
@@ -220,6 +253,116 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 			return
 		}
 	}
+}
+
+// invokeCallback runs the callback for one block, retrying while the error it
+// returns is transient. It returns the callback's stop flag and the error that
+// ended the attempts, which is nil once the block is handled.
+//
+// The retry budget is bounded on purpose: an unbounded retry against a fault that
+// turns out to be permanent is a silent stall, which is the failure mode this
+// whole path exists to avoid. Exhausting it returns the last error, which
+// readBlocks then treats as any other non-retryable failure. The budget comes
+// from ChannelConfig.DeliveryCommitRetries and applies per block without
+// compounding: a block that commits on its third attempt leaves the next block a
+// full budget.
+//
+// Retrying is safe because a replayed block is a no-op for the committer:
+// CommitEndorserTransaction checks vault status and skips transactions already
+// marked valid or invalid, and CommitConfig skips a configuration already in the
+// vault. The stream's own reconnect path relies on the same property, since
+// GetStartPosition resumes from the last block received.
+func (d *Delivery) invokeCallback(b blockResponse) (bool, error) {
+	blockNum := b.block.Header.Number
+
+	var stop bool
+	var err error
+	for attempt := 0; attempt <= d.commitRetries; attempt++ {
+		if attempt > 0 {
+			logger.Warnf("retrying block [%d] after transient commit failure, attempt [%d/%d]: [%v]",
+				blockNum, attempt, d.commitRetries, err)
+			select {
+			case <-d.stop:
+				return false, err
+			case <-time.After(d.retryDelay()):
+			}
+		}
+
+		// Checked before every attempt, including the first: a block already in
+		// flight when the service is stopped must not be committed on the way
+		// out, and a zero retry delay would otherwise let the select above fall
+		// straight through to another attempt.
+		select {
+		case <-d.stop:
+			return false, err
+		default:
+		}
+
+		stop, err = d.callback(b.ctx, b.block)
+		if classify(err) != classRetry {
+			return stop, err
+		}
+		d.metrics.CommitRetries.Add(1)
+	}
+
+	logger.Errorf("block [%d] still failing after [%d] retries, giving up: [%v]", blockNum, d.commitRetries, err)
+
+	// Escalated out of the retry class: a fault that survived every attempt is no
+	// longer usefully called transient, and reporting it as retryable would hide
+	// it from the class an operator alerts on.
+	//
+	// Joined rather than formatted in, so both sentinels stay matchable by
+	// errors.Is — ErrRetriesExhausted for the class, and whatever the callback
+	// returned for the cause. runBlockScan hands this error to application
+	// callers of Scan, who branch on the cause with errors.Is the way this
+	// package does everywhere else, so flattening it into message text with %v
+	// would quietly break them. The repo's errors.Wrapf is cockroachdb's and does
+	// not support %w, which renders as %!w(...) rather than wrapping.
+	return stop, errors.Wrapf(
+		errors.Join(ErrRetriesExhausted, err),
+		"block [%d] failed after [%d] retries", blockNum, d.commitRetries,
+	)
+}
+
+// retryDelay is how long to wait before replaying a block whose commit failed
+// transiently. It reuses the stream's own reconnect delay: both are waiting for
+// the same class of downstream fault to clear, and a second knob for it would
+// have to be tuned against the first to mean anything.
+//
+// It is read per attempt rather than captured once per block so that a
+// configuration change between attempts takes effect on the next wait.
+func (d *Delivery) retryDelay() time.Duration {
+	return d.channelConfig.DeliverySleepAfterFailure()
+}
+
+// failBlock stops the service after a callback failure that a replay cannot
+// clear, recording the class so that an operator can tell a channel that has
+// gone quiet apart from one that has no traffic.
+func (d *Delivery) failBlock(blockNum uint64, err error) {
+	class := classify(err)
+	d.metrics.CommitFailures.With(failureClassLabel, class.String()).Add(1)
+	logger.Errorf("callback failed for block [%d] on [%s:%s] with class [%s], stopping delivery: [%v]",
+		blockNum, d.NetworkName, d.channel, class, err)
+
+	// Stopped before the handler runs, so that a handler which blocks or exits
+	// cannot leave this channel still consuming blocks it can no longer commit.
+	d.Stop(err)
+	if class == classFatal {
+		d.reportFatal(err)
+	}
+}
+
+// reportFatal hands a fatal commit failure to the handler installed for it, if
+// any. A Delivery does not exit the process itself: it runs inside an embedding
+// application that owns that decision, and killing the process from a library
+// goroutine would take down every other channel and network with it.
+func (d *Delivery) reportFatal(err error) {
+	if d.onFatal == nil {
+		logger.Errorf("fatal commit failure on [%s:%s] with no handler installed, delivery stopped: [%v]",
+			d.NetworkName, d.channel, err)
+		return
+	}
+	d.onFatal(d.NetworkName, d.channel, err)
 }
 
 // runReceiver maintains the Deliver stream to the peer, reconnecting on
