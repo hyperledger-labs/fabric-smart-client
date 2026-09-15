@@ -8,7 +8,9 @@ package delivery
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -417,4 +419,67 @@ func TestFakeVault(t *testing.T) {
 	block, err := v.GetLastBlock(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, uint64(10), block)
+}
+
+// A Delivery stops for good once its callback fails, so the long-running feed
+// must be supervised: a transient commit failure (a vault outage, say) would
+// otherwise leave the channel with no block delivery for the lifetime of the
+// process. Scans keep failing fast - see TestScanStopsOnCallbackError.
+func TestServiceRestartsAfterCallbackError(t *testing.T) {
+	t.Parallel()
+
+	recvChan := make(chan *pb.DeliverResponse, 8)
+	var calls atomic.Int32
+
+	svc := newTestService(t, testServiceOpts{
+		recvChan: recvChan,
+		callback: func(_ context.Context, _ *cb.Block) (bool, error) {
+			calls.Add(1)
+			return false, errors.New("transient vault failure")
+		},
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	first := svc.deliveryService
+	require.NoError(t, svc.Start(ctx))
+	t.Cleanup(svc.Stop)
+
+	// The callback fails, which stops that Delivery for good.
+	recvChan <- blockResponseFor(t, 1)
+
+	// Supervision replaces it with a running Delivery, so the channel still has
+	// one after the failure rather than none for the rest of the process.
+	require.Eventually(t, func() bool {
+		svc.mutex.Lock()
+		defer svc.mutex.Unlock()
+		return svc.deliveryService != first
+	}, 15*time.Second, 10*time.Millisecond,
+		"service never replaced the stopped delivery (callback invoked %d times)", calls.Load())
+
+	svc.mutex.Lock()
+	replacement := svc.deliveryService
+	svc.mutex.Unlock()
+
+	require.Error(t, first.stopError(), "the original delivery stopped on the callback error")
+	select {
+	case <-replacement.stop:
+		t.Fatalf("the replacement delivery is already stopped: %v", replacement.stopError())
+	default:
+	}
+}
+
+// Scans must keep failing fast: a one-off scan owns its Delivery and a failed
+// callback is the scan's own result, not something to recover from.
+func TestScanStopsOnCallbackError(t *testing.T) {
+	t.Parallel()
+
+	recvChan := make(chan *pb.DeliverResponse, 4)
+	svc := newTestService(t, testServiceOpts{recvChan: recvChan})
+	recvChan <- blockResponseFor(t, 7)
+
+	err := svc.Scan(t.Context(), "tx-7", func(driver.ProcessedTransaction) (bool, error) {
+		return false, errors.New("scan callback failed")
+	})
+	require.ErrorContains(t, err, "scan callback failed")
 }

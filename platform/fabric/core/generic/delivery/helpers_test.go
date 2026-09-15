@@ -9,6 +9,7 @@ package delivery
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -288,6 +289,7 @@ type testServiceOpts struct {
 	deliverErr error
 	txMgr      *mockTransactionManager
 	ledger     *mockLedger
+	callback   driver.BlockCallback
 }
 
 // newTestService creates a *Service with sensible defaults, failing the test on error.
@@ -331,7 +333,7 @@ func newTestService(t *testing.T, opts testServiceOpts) *Service {
 		ledger,
 		&mockVault{},
 		txMgr,
-		nil,
+		opts.callback,
 		noop.NewTracerProvider(),
 		nil,
 		[]cb.HeaderType{cb.HeaderType_ENDORSER_TRANSACTION},
@@ -355,4 +357,16 @@ func newValidEnvelopeBytes(t *testing.T, headerType cb.HeaderType, txID string) 
 	envBytes, err := proto.Marshal(&cb.Envelope{Payload: payloadBytes})
 	require.NoError(t, err)
 	return envBytes
+}
+
+// blockResponseFor builds a DeliverResponse carrying one valid endorser
+// transaction, for tests that only care that a block arrived.
+func blockResponseFor(t *testing.T, number uint64) *pb.DeliverResponse {
+	t.Helper()
+	envBytes := newValidEnvelopeBytes(t, cb.HeaderType_ENDORSER_TRANSACTION, fmt.Sprintf("tx-%d", number))
+	return &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+		Header:   &cb.BlockHeader{Number: number},
+		Data:     &cb.BlockData{Data: [][]byte{envBytes}},
+		Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID)}}},
+	}}}
 }
