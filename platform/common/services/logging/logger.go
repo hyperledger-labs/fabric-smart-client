@@ -8,6 +8,7 @@ package logging
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"runtime"
 	"strings"
@@ -96,9 +97,22 @@ func GetPackageName() (string, error) {
 	if fn == nil {
 		return "", errors.New("failed to get caller package name")
 	}
+	// A function name from a module path looks like
+	// github.com/org/repo/pkg.Func, so the package name is everything up to the
+	// first dot after the last slash. Names without a slash (the standard
+	// library's, for instance) do not have that shape, and neither does one
+	// whose final segment carries no dot, so report those rather than slicing
+	// with a negative index.
 	fullFuncName := fn.Name()
 	lastSlash := strings.LastIndex(fullFuncName, "/")
+	if lastSlash < 0 {
+		return "", fmt.Errorf("caller package name has no path separator: %s", fullFuncName)
+	}
 	dotAfterSlash := strings.Index(fullFuncName[lastSlash:], ".")
+	if dotAfterSlash < 0 {
+		return "", fmt.Errorf("caller package name has no function separator: %s", fullFuncName)
+	}
+
 	return fullFuncName[:lastSlash+dotAfterSlash], nil
 }
 

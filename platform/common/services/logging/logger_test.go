@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // restoreReplacers snapshots the global replacer registry and puts it back afterwards.
@@ -106,4 +107,57 @@ func TestNewSpecHandler(t *testing.T) {
 	t.Parallel()
 
 	assert.NotNil(t, NewSpecHandler())
+}
+
+// TestGetPackageName_UnexpectedCallDepth checks a caller at the wrong depth is reported
+// rather than panicked on. GetPackageName reads runtime.Caller(4), which assumes the
+// production call chain; called directly from a test there is no fourth frame.
+func TestGetPackageName_UnexpectedCallDepth(t *testing.T) {
+	t.Parallel()
+
+	name, err := GetPackageName()
+
+	require.Error(t, err)
+	assert.Empty(t, name)
+}
+
+// TestGetLogger_ReportsUnexpectedCallDepth checks the error is propagated rather than
+// panicking, for each of the three entry points that reach GetPackageName.
+func TestGetLogger_ReportsUnexpectedCallDepth(t *testing.T) {
+	t.Parallel()
+
+	t.Run("GetLogger", func(t *testing.T) {
+		t.Parallel()
+
+		logger, err := GetLogger()
+
+		require.Error(t, err)
+		assert.Nil(t, logger)
+	})
+
+	t.Run("GetLoggerWithReplacements", func(t *testing.T) {
+		t.Parallel()
+
+		logger, err := GetLoggerWithReplacements(map[string]string{"a": "b"}, nil)
+
+		require.Error(t, err)
+		assert.Nil(t, logger)
+	})
+}
+
+// TestMustGetLogger checks the happy path. MustGetLogger adds a frame of its own, so from a
+// test runtime.Caller(4) lands on the calling test function rather than testing.tRunner, and
+// the name resolves -- with the registered replacements applied.
+func TestMustGetLogger(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
+	logger := MustGetLogger()
+
+	require.NotNil(t, logger)
+	assert.Equal(t, "fsc.platform.common.services.logging", logger.Zap().Name(),
+		"the package path is resolved and the FSC replacement applied")
+}
+
+// TestMustGetLoggerParams checks params are appended to the resolved name.
+func TestMustGetLoggerParams(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
+	assert.Equal(t, "fsc.platform.common.services.logging.component",
+		MustGetLogger("component").Zap().Name())
 }
