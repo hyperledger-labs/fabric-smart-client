@@ -9,8 +9,6 @@ package lazy
 import (
 	"io"
 	"sync"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // Holder computes its value on first use, from the provider it was given, and
@@ -25,10 +23,14 @@ type Holder[V any] interface {
 	Reset() error
 }
 
+// NewHolder returns a [Holder] that produces its value from provider on
+// first use and, on Reset, releases it through closer.
 func NewHolder[V any](provider func() (V, error), closer func(V) error) *lazyHolder[V] {
 	return &lazyHolder[V]{provider: provider, closer: closer}
 }
 
+// NewCloserHolder is [NewHolder] for a value that releases itself, using its
+// own Close method as the closer.
 func NewCloserHolder[V io.Closer](provider func() (V, error)) *lazyHolder[V] {
 	return &lazyHolder[V]{provider: provider, closer: func(v V) error { return v.Close() }}
 }
@@ -58,7 +60,8 @@ func (h *lazyHolder[V]) Get() (V, error) {
 
 	v, err := h.provider()
 	if err != nil {
-		return utils.Zero[V](), err
+		var zero V
+		return zero, err
 	}
 
 	h.v = v
@@ -75,7 +78,8 @@ func (h *lazyHolder[V]) Reset() error {
 	if h.set {
 		err = h.closer(h.v)
 	}
-	h.v = utils.Zero[V]()
+	var zero V
+	h.v = zero
 	h.set = false
 	return err
 }
