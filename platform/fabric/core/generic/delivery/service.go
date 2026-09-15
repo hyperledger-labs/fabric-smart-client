@@ -156,6 +156,14 @@ func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver
 		return err
 	}
 
+	// A scan's callback is supplied by the caller, not the committer, so the
+	// property that makes replaying a block safe — the committer skipping
+	// transactions it has already committed — does not hold for it. Retrying
+	// would also turn a scan the caller meant to abandon, by cancelling its
+	// context, into a wait of the full budget per block. Scans fail fast; only
+	// the long-running committer feed retries.
+	deliveryService.commitRetries = 0
+
 	return deliveryService.Run(ctx)
 }
 

@@ -642,6 +642,19 @@ fabric:
         delivery:
           waitForEventTimeout: 300s
           sleepAfterFailure: 10s
+          # How many times a block whose commit failed transiently (storage
+          # contention, an expired context) is replayed before the failure is
+          # treated as permanent and this channel's delivery stops. Replaying a
+          # block is safe: the committer skips transactions it has already
+          # committed.
+          #
+          # sleepAfterFailure is the wait between attempts, so the two together
+          # set how long a channel is given to recover on its own — with the
+          # defaults, about a minute. Raise it to ride out a longer storage
+          # failover; set it to 0 to commit once and never retry. A stopped
+          # channel commits no further blocks of any type and is reported as
+          # fsc_fabric_core_generic_delivery_commit_failures.
+          commitRetries: 5
         # section about the discovery service  
         discovery:
           timeout: 10s

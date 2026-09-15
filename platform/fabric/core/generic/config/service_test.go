@@ -150,6 +150,7 @@ func TestChannelHelpers(t *testing.T) {
 	require.Equal(t, 1, ch.FinalityEventQueueWorkers())
 	require.Equal(t, 300*time.Second, ch.CommitterWaitForEventTimeout())
 	require.Equal(t, 1, ch.DeliveryBufferSize())
+	require.Equal(t, 5, ch.DeliveryCommitRetries())
 	require.Equal(t, 20*time.Second, ch.DiscoveryTimeout())
 	require.Equal(t, 3, ch.CommitterFinalityNumRetries())
 	require.Equal(t, 100*time.Millisecond, ch.CommitterFinalityUnknownTXTimeout())
@@ -165,6 +166,40 @@ func TestChannelHelpers(t *testing.T) {
 	arr := c.ChaincodeConfigs()
 	require.Len(t, arr, 1)
 	require.Equal(t, "cc1", arr[0].ID())
+}
+
+// DeliveryCommitRetries must distinguish an explicit zero — commit once, never
+// retry — from an absent setting, which takes the default. A plain int field
+// could not: the zero value and "unset" would be the same, so configuring no
+// retries would silently get five.
+func TestDeliveryCommitRetries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("absent takes the default", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, 5, (&cfg.Channel{}).DeliveryCommitRetries())
+	})
+
+	t.Run("explicit zero disables retrying", func(t *testing.T) {
+		t.Parallel()
+		zero := 0
+		ch := &cfg.Channel{Delivery: cfg.Delivery{CommitRetries: &zero}}
+		require.Equal(t, 0, ch.DeliveryCommitRetries())
+	})
+
+	t.Run("explicit value is returned", func(t *testing.T) {
+		t.Parallel()
+		n := 12
+		ch := &cfg.Channel{Delivery: cfg.Delivery{CommitRetries: &n}}
+		require.Equal(t, 12, ch.DeliveryCommitRetries())
+	})
+
+	t.Run("negative is clamped to zero, not treated as unbounded", func(t *testing.T) {
+		t.Parallel()
+		neg := -3
+		ch := &cfg.Channel{Delivery: cfg.Delivery{CommitRetries: &neg}}
+		require.Equal(t, 0, ch.DeliveryCommitRetries())
+	})
 }
 
 // CommitterFinalityUnknownTXTimeout must return its own configured field and

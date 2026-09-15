@@ -233,6 +233,37 @@ Operational notes:
 
 Primary implementation: `platform/fabric/core/generic/committer/metrics.go`, updated in `platform/fabric/core/generic/committer/committer.go`.
 
+### Fabric Delivery
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `fsc_fabric_core_generic_delivery_commit_retries` | counter | none | Number of block commit attempts retried after a transient failure. |
+| `fsc_fabric_core_generic_delivery_commit_failures` | counter | `class` | Number of block commit failures that stopped the delivery service, by failure class. |
+
+Operational notes:
+
+- A channel whose delivery has stopped emits no further blocks and no further
+  errors, so its failure does not show up in any duration metric: the
+  `block_commit` histogram simply stops receiving observations, which looks
+  identical to an idle channel. These counters exist so the stop itself is
+  recorded, and are what an alert should watch.
+- `commit_retries` rising while `commit_failures` stays flat is a channel
+  absorbing transient faults and recovering on its own. It is worth a dashboard,
+  not a page.
+- **Any** increment of `commit_failures` means a channel has stopped ingesting
+  blocks and will not resume without intervention. `class` says what kind of
+  failure it was:
+  - `degrade` — a deterministic failure on an already-final block, such as a
+    configuration this node cannot apply. Retrying cannot clear it.
+  - `fatal` — an invariant the node relies on is broken, so continuing would risk
+    committing over untrustworthy state.
+  - `retry` is never recorded here. A retryable failure that exhausts its budget
+    is wrapped in `ErrRetriesExhausted`, which classifies as `degrade`, so an
+    alert on `degrade` catches the exhausted-storage-fault case as well as the
+    deterministic ones.
+
+Primary implementation: `platform/fabric/core/generic/delivery/metrics.go`, updated in `platform/fabric/core/generic/delivery/delivery.go`.
+
 ### Vault
 
 | Metric | Type | Labels | Description |
@@ -331,6 +362,7 @@ The following labels are part of the current FSC metric surface.
 
 | Label | Meaning | Typical Values |
 | --- | --- | --- |
+| `class` | Delivery commit-failure class that stopped the block stream | `degrade`, `fatal` |
 | `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView`, `*protos.Command_InitiateView` |
 | `context_id` | FSC context identifier used by the WebSocket multiplexer tracer | FSC context UUID or caller-provided context ID |
 | `fid` | View factory identifier used by gRPC-oriented view tracers | application-defined factory ID |

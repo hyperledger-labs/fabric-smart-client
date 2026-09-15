@@ -224,8 +224,9 @@ func (*mockChannelConfig) DeliverySleepAfterFailure() time.Duration { return 10 
 func (*mockChannelConfig) CommitterWaitForEventTimeout() time.Duration {
 	return 10 * time.Millisecond
 }
-func (*mockChannelConfig) DeliveryBufferSize() int { return 1 }
-func (*mockChannelConfig) ID() string              { return "testChannel" }
+func (*mockChannelConfig) DeliveryBufferSize() int    { return 1 }
+func (*mockChannelConfig) DeliveryCommitRetries() int { return 2 }
+func (*mockChannelConfig) ID() string                 { return "testChannel" }
 
 // --- Transaction mocks ---
 

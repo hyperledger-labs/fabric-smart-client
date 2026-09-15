@@ -14,6 +14,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
+// defaultDeliveryCommitRetries is the retry budget applied when a channel's
+// configuration does not set one.
+//
+// Combined with the default DeliverySleepAfterFailure of 10s between attempts,
+// this gives a channel around a minute to recover from a transient commit
+// failure on its own: long enough to ride out a storage failover, short enough
+// that an operator sees a stopped channel rather than one retrying forever.
+const defaultDeliveryCommitRetries = 5
+
 type BCCSP struct {
 	Default string            `yaml:"Default,omitempty"`
 	SW      *SoftwareProvider `yaml:"SW,omitempty"`
@@ -99,6 +108,7 @@ type Delivery struct {
 	BufferSize          int           `yaml:"BufferSize,omitempty"`
 	WaitForEventTimeout time.Duration `yaml:"WaitForEventTimeout,omitempty"`
 	SleepAfterFailure   time.Duration `yaml:"SleepAfterFailure,omitempty"`
+	CommitRetries       *int          `yaml:"CommitRetries,omitempty"`
 }
 
 type Discovery struct {
@@ -168,6 +178,21 @@ func (c *Channel) DeliverySleepAfterFailure() time.Duration {
 		return 10 * time.Second
 	}
 	return c.Delivery.SleepAfterFailure
+}
+
+// DeliveryCommitRetries returns how many times a block whose commit failed
+// transiently is replayed before the failure is treated as permanent.
+//
+// Zero is a meaningful setting — commit once and never retry — so it is
+// distinguished from an absent one: the field is only defaulted when the
+// configuration omits it entirely. A negative value is treated as zero rather
+// than as unbounded, because an unbounded retry against a fault that turns out
+// to be permanent is the silent stall the retry exists to avoid.
+func (c *Channel) DeliveryCommitRetries() int {
+	if c.Delivery.CommitRetries == nil {
+		return defaultDeliveryCommitRetries
+	}
+	return max(*c.Delivery.CommitRetries, 0)
 }
 
 func (c *Channel) ChaincodeConfigs() []driver.ChaincodeConfig {

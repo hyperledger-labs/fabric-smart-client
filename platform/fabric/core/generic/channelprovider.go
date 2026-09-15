@@ -246,7 +246,11 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ledgerService,
 		&vaultDeliveryWrapper{vaultStore: vaultStore},
 		func(ctx context.Context, block *common.Block) (bool, error) {
-			// commit the block, if an error occurs then retry
+			// Errors are classified by the delivery service: a transient one is
+			// retried on this same block, anything a replay cannot clear stops
+			// this channel's delivery and is counted. Returning the error
+			// unwrapped keeps that classification possible, so do not annotate
+			// it here with anything that would hide its cause.
 			return false, committerService.Commit(ctx, block)
 		},
 	)
