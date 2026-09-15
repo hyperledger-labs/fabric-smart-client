@@ -61,6 +61,24 @@ func TestValues(t *testing.T) {
 	require.ElementsMatch(t, []int{1, 2}, Values(input))
 }
 
+// TestKeysEmptyMapReturnsNonNil pins that Keys never returns nil, even for an
+// empty or nil map: callers that marshal the result (e.g. to JSON) need "[]",
+// not "null".
+func TestKeysEmptyMapReturnsNonNil(t *testing.T) {
+	t.Parallel()
+
+	require.NotNil(t, Keys(map[string]int{}))
+	require.NotNil(t, Keys[string, int](nil))
+}
+
+// TestValuesEmptyMapReturnsNonNil is TestKeysEmptyMapReturnsNonNil for Values.
+func TestValuesEmptyMapReturnsNonNil(t *testing.T) {
+	t.Parallel()
+
+	require.NotNil(t, Values(map[string]int{}))
+	require.NotNil(t, Values[string, int](nil))
+}
+
 func TestSubMap(t *testing.T) {
 	t.Parallel()
 

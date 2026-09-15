@@ -28,14 +28,16 @@ func Inverse[K, V comparable](in map[K]V) map[V]K {
 	return out
 }
 
-// Values returns all values of the input map, in no particular order
+// Values returns all values of the input map, in no particular order. Never
+// nil, even for an empty or nil map.
 func Values[K comparable, V any](m map[K]V) []V {
-	return slices.Collect(maps.Values(m))
+	return slices.AppendSeq(make([]V, 0, len(m)), maps.Values(m))
 }
 
-// Keys returns all keys of the input map, in no particular order
+// Keys returns all keys of the input map, in no particular order. Never nil,
+// even for an empty or nil map.
 func Keys[K comparable, V any](m map[K]V) []K {
-	return slices.Collect(maps.Keys(m))
+	return slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))
 }
 
 // ContainsValue scans the comparable values of a map for the input value

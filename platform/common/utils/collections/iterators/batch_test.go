@@ -59,13 +59,13 @@ func TestBatchedIterator(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			it := iterators.Slice(toPointerSlice(testCase.items))
+			it := iterators.Slice(ptrs(testCase.items...))
 			batched := iterators.Batch[any](it, testCase.batchSize)
 			actual, err := iterators.ReadAllPointers(batched)
 			require.NoError(t, err)
 			require.Len(t, actual, len(testCase.expected))
 			for i := range testCase.expected {
-				require.Equal(t, toPointerSlice(testCase.expected[i]), *actual[i])
+				require.Equal(t, ptrs(testCase.expected[i]...), *actual[i])
 			}
 		})
 	}
@@ -81,26 +81,10 @@ func TestBatchedIteratorPropagatesError(t *testing.T) {
 
 	first, err := batched.Next()
 	require.NoError(t, err)
-	require.Equal(t, []int{1, 2, 3}, derefAll(*first))
+	require.Equal(t, ptrs(1, 2, 3), *first)
 
 	// the batch in progress when the source fails (the lone element 4) is
 	// discarded, not returned alongside the error
 	_, err = batched.Next()
 	require.ErrorIs(t, err, errAt)
-}
-
-func derefAll[T any](ps []*T) []T {
-	vs := make([]T, len(ps))
-	for i, p := range ps {
-		vs[i] = *p
-	}
-	return vs
-}
-
-func toPointerSlice[V any](vs []V) []*V {
-	ps := make([]*V, len(vs))
-	for i, v := range vs {
-		ps[i] = &v
-	}
-	return ps
 }

@@ -15,15 +15,11 @@ import (
 
 // Remove removes the first occurrence of the input item from the input slice
 func Remove[T comparable](items []T, toRemove T) ([]T, bool) {
-	if items == nil {
-		return nil, false
+	i := slices.Index(items, toRemove)
+	if i < 0 {
+		return items, false
 	}
-	for i, l := range items {
-		if l == toRemove {
-			return append(items[:i], items[i+1:]...), true
-		}
-	}
-	return items, false
+	return slices.Delete(items, i, i+1), true
 }
 
 // Difference returns a slice that contains all elements of the first input slice without the elements of the second input slice
@@ -45,11 +41,7 @@ func Intersection[V comparable](a, b []V) []V {
 
 // Repeat returns a slice with the same element repeated {{times}} times
 func Repeat[T any](item T, times int) []T {
-	items := make([]T, times)
-	for i := range times {
-		items[i] = item
-	}
-	return items
+	return slices.Repeat([]T{item}, times)
 }
 
 // SortedSlice is a slice kept in ascending order by [SortedSlice.Add]. The
