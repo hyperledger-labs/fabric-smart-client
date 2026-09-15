@@ -11,8 +11,8 @@ import (
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 // Source is the configuration this package reads. Satisfied by *config.Provider and by the
@@ -124,6 +124,8 @@ func buildServer(src Source, key string, s ServerTLS, defaultClientAuth, dynamic
 	out := grpc.SecureOptions{
 		UseTLS:            deref(s.Enabled, false),
 		RequireClientCert: deref(s.ClientAuthRequired, defaultClientAuth),
+		MinVersion:        deref(s.MinVersion, 0),
+		MaxVersion:        deref(s.MaxVersion, 0),
 	}
 	var err error
 	if out.Certificate, err = readFile(src, key, "cert", s.Cert); err != nil {
@@ -144,6 +146,8 @@ func buildClient(src Source, key string, c ClientTLS, fallbackCert, fallbackKey 
 	out := grpc.SecureOptions{
 		UseTLS:             deref(c.Enabled, false),
 		ServerNameOverride: deref(c.ServerNameOverride, ""),
+		MinVersion:         deref(c.MinVersion, 0),
+		MaxVersion:         deref(c.MaxVersion, 0),
 	}
 	var err error
 	if out.Certificate, err = readFile(src, key, "clientCert", cert); err != nil {

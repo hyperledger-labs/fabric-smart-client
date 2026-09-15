@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tlsconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 )
 
 // fsc.metrics.tls is independent of fsc.web.tls. Without an address of its own the operations

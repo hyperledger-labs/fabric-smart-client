@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"crypto/tls"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tlsconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 )
 
 // DefaultRequestTimeout is the default timeout for gRPC requests.
@@ -67,8 +68,13 @@ func DefaultConfig() Config {
 
 // Config holds the configuration for the gRPC client.
 type Config struct {
-	// Endpoints is a list of gRPC endpoints to connect to.
-	Endpoints []Endpoint `yaml:"endpoints,omitempty"`
+	// Endpoints is a list of gRPC endpoints to connect to. Only one is supported today;
+	// see config.ClientProvider.
+	//
+	// It is the shared ConnectionConfig rather than a Fabric-x type of its own: address,
+	// connection timeout, resolved TLS and message size are the same four things a Fabric
+	// peer or orderer endpoint configures, under the same yaml keys.
+	Endpoints []grpc.ConnectionConfig `yaml:"endpoints,omitempty"`
 	// RequestTimeout is the timeout for gRPC requests.
 	RequestTimeout time.Duration `yaml:"requestTimeout,omitempty"`
 	// HandlerTimeout is the deadline set on the context handed to a single
@@ -96,22 +102,6 @@ type Config struct {
 	SweepInterval time.Duration `yaml:"sweepInterval,omitempty"`
 }
 
-// Endpoint describes a single gRPC endpoint.
-type Endpoint struct {
-	// Address is the host:port of the gRPC service.
-	Address string `yaml:"address,omitempty"`
-	// ConnectionTimeout is the timeout for establishing a connection.
-	ConnectionTimeout time.Duration `yaml:"connectionTimeout,omitempty"`
-	// TLS is the resolved client-side TLS for this endpoint: inherited per field from the
-	// network's tls block, with every configured file already read and validated.
-	//
-	// It has no yaml tag. The endpoint's tls: block is resolved separately, because an array
-	// element has no addressable configuration key — see tlsconfig.ResolveEndpointClient.
-	// It replaces a bespoke block that used flat path strings and a plural rootCerts, the
-	// last surface still spelling the client template its own way.
-	TLS grpc.SecureOptions `yaml:"-"`
-}
-
 // ServiceBackend defines the interface for retrieving configuration values. It is satisfied
 // by a Fabric network's config service, which is why it can resolve TLS: the accessors below
 // are exactly tlsconfig.Source plus UnmarshalKey.
@@ -131,13 +121,18 @@ type ServiceBackend interface {
 }
 
 // resolveEndpointTLS resolves each endpoint's client-side TLS, inheriting per field from the
-// network's tls block.
-func resolveEndpointTLS(backend ServiceBackend, key string, endpoints []Endpoint) error {
+// network's tls block. Fabric-x committer services require TLS 1.3, so a deployment that
+// configures no minVersion gets 1.3 here rather than the shared 1.2 floor other gRPC clients
+// fall back to.
+func resolveEndpointTLS(backend ServiceBackend, key string, endpoints []grpc.ConnectionConfig) error {
 	resolved, err := tlsconfig.ResolveEndpointClients(backend, "tls", key+".endpoints", len(endpoints))
 	if err != nil {
 		return err
 	}
 	for i := range endpoints {
+		if resolved[i].MinVersion == 0 {
+			resolved[i].MinVersion = tls.VersionTLS13
+		}
 		endpoints[i].TLS = resolved[i]
 	}
 	return nil

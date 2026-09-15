@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 )
 
 func waitServerReady(t *testing.T, address string, dialOptions ...grpc.DialOption) {

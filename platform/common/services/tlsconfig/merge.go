@@ -24,6 +24,8 @@ func mergeServer(parent, child ServerTLS) ServerTLS {
 		Key:                cmp.Or(child.Key, parent.Key),
 		ClientAuthRequired: cmp.Or(child.ClientAuthRequired, parent.ClientAuthRequired),
 		ClientRootCAs:      cmp.Or(child.ClientRootCAs, parent.ClientRootCAs),
+		MinVersion:         cmp.Or(child.MinVersion, parent.MinVersion),
+		MaxVersion:         cmp.Or(child.MaxVersion, parent.MaxVersion),
 	}
 }
 
@@ -35,5 +37,7 @@ func mergeClient(parent, child ClientTLS) ClientTLS {
 		ClientCert:         cmp.Or(child.ClientCert, parent.ClientCert),
 		ClientKey:          cmp.Or(child.ClientKey, parent.ClientKey),
 		ServerNameOverride: cmp.Or(child.ServerNameOverride, parent.ServerNameOverride),
+		MinVersion:         cmp.Or(child.MinVersion, parent.MinVersion),
+		MaxVersion:         cmp.Or(child.MaxVersion, parent.MaxVersion),
 	}
 }

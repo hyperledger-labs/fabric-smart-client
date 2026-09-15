@@ -18,9 +18,9 @@ import (
 	fabric_topo "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 var logger = logging.MustGetLogger()
@@ -112,7 +112,7 @@ func (e *Extension) addSCPeer() {
 // endpointTemplate carries the CONFIGURATION of one endpoint, which is what an extension
 // writes into a node's core.yaml.
 //
-// Deliberately not config.Endpoint: that type now holds RESOLVED TLS — bytes already read
+// Deliberately not grpc.ConnectionConfig: that type holds RESOLVED TLS — bytes already read
 // from disk — whereas a template has to emit the paths the node will resolve for itself.
 type endpointTemplate struct {
 	Address           string

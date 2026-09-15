@@ -8,8 +8,8 @@ package client
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tlsconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 )
 

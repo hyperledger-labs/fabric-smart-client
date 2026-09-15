@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
-option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb";
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb";
 
 package testpb;
 
