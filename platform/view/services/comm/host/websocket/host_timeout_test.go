@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
@@ -35,16 +36,17 @@ func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
 	}
 
 	// Create a host with the invalid address
-	host := websocket.NewHost(
+	host, err := websocket.NewHost(
 		"test-node",
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
 		noopProvider(),
 		cfg,
 		nil, // caPoolProvider
 	)
+	require.NoError(t, err)
 
 	// Attempt to start the host - should fail due to inability to listen
-	err := host.Start(func(host2.P2PStream) {})
+	err = host.Start(func(host2.P2PStream) {})
 	require.Error(t, err)
 	// The error should be related to failing to listen
 }
@@ -67,13 +69,14 @@ func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 	}
 
 	// Create a host
-	h := websocket.NewHost(
+	h, err := websocket.NewHost(
 		"test-node",
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
 		noopProvider(),
 		cfg,
 		nil, // caPoolProvider
 	)
+	require.NoError(t, err)
 
 	// Ensure we clean up resources
 	defer func() {
@@ -94,17 +97,51 @@ func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-// mockConfig implements websocket.Config for testing
-type mockConfig struct {
-	listenAddress host2.PeerIPAddress
+// TestNewHostPropagatesClientTLSConfigError checks that a client TLS config error is
+// returned instead of panicking.
+func TestNewHostPropagatesClientTLSConfigError(t *testing.T) {
+	t.Parallel()
+	_, err := websocket.NewHost(
+		"test-node",
+		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
+		noopProvider(),
+		&mockConfig{clientErr: errors.New("boom")},
+		nil,
+	)
+	require.ErrorContains(t, err, "failed to build client TLS config")
 }
 
-func (m *mockConfig) ListenAddress() host2.PeerIPAddress                      { return m.listenAddress }
-func (*mockConfig) ClientTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
-func (*mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
-func (*mockConfig) CertPath() string                                          { return "" }
-func (*mockConfig) MaxSubConns() int                                          { return 100 }
-func (*mockConfig) ReadHeaderTimeout() time.Duration                          { return 10 * time.Second }
+// TestNewHostPropagatesServerTLSConfigError checks that a server TLS config error is
+// returned instead of panicking.
+func TestNewHostPropagatesServerTLSConfigError(t *testing.T) {
+	t.Parallel()
+	_, err := websocket.NewHost(
+		"test-node",
+		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
+		noopProvider(),
+		&mockConfig{serverErr: errors.New("boom")},
+		nil,
+	)
+	require.ErrorContains(t, err, "failed to build server TLS config")
+}
+
+// mockConfig implements websocket.Config for testing
+type mockConfig struct {
+	listenAddress        host2.PeerIPAddress
+	clientErr, serverErr error
+}
+
+func (m *mockConfig) ListenAddress() host2.PeerIPAddress { return m.listenAddress }
+func (m *mockConfig) ClientTLSConfig(websocket.ExtraCAPoolProvider) (*tls.Config, error) {
+	return nil, m.clientErr
+}
+
+func (m *mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) (*tls.Config, error) {
+	return nil, m.serverErr
+}
+func (*mockConfig) CertPath() string                 { return "" }
+func (*mockConfig) MaxSubConns() int                 { return 100 }
+func (*mockConfig) ReadHeaderTimeout() time.Duration { return 10 * time.Second }
 
 func (*mockConfig) ReadTimeout() time.Duration { return 30 * time.Second }
 
