@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
+	"cmp"
+
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 
@@ -72,7 +74,7 @@ func newKMSDriver(in struct {
 	Drivers []driver2.NamedDriver `group:"kms-drivers"`
 },
 ) (*kms.KMS, error) {
-	driverName := utils.DefaultString(in.Config.GetString("fsc.identity.type"), "file")
+	driverName := cmp.Or(in.Config.GetString("fsc.identity.type"), "file")
 	for _, driver := range in.Drivers {
 		if string(driver.Name) == driverName {
 			return &kms.KMS{Driver: driver.Driver}, nil
