@@ -34,8 +34,7 @@ func TestProtoMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			core, observed := observer.New(zapcore.InfoLevel)
-			logger := zap.New(core)
+			logger, observed := observedLogger()
 
 			logger.Info("test", ProtoMessage("key", tt.value))
 

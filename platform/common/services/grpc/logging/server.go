@@ -170,16 +170,24 @@ func (ss *serverStream) Context() context.Context {
 }
 
 func (ss *serverStream) SendMsg(msg any) error {
-	if ce := ss.payloadLogger.Check(ss.payloadLevel, "sending stream message"); ce != nil {
+	err := ss.ServerStream.SendMsg(msg)
+	// Log only what was actually sent, matching the unary path: a failed send
+	// may not have transmitted the message at all.
+	if ce := ss.payloadLogger.Check(ss.payloadLevel, "sending stream message"); ce != nil && err == nil {
 		ce.Write(ProtoMessage("message", msg))
 	}
-	return ss.ServerStream.SendMsg(msg)
+
+	return err
 }
 
 func (ss *serverStream) RecvMsg(msg any) error {
 	err := ss.ServerStream.RecvMsg(msg)
-	if ce := ss.payloadLogger.Check(ss.payloadLevel, "received stream message"); ce != nil {
+	// A failed receive leaves msg unpopulated, or holding stale data if the
+	// caller reuses it, so there is nothing meaningful to log. The unary path
+	// guards its response the same way.
+	if ce := ss.payloadLogger.Check(ss.payloadLevel, "received stream message"); ce != nil && err == nil {
 		ce.Write(ProtoMessage("message", msg))
 	}
+
 	return err
 }
