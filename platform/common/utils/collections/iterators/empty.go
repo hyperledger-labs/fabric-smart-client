@@ -6,13 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 package iterators
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-
 // Empty returns an empty Iterator
-func Empty[K any]() Iterator[K] { return &empty[K]{zero: utils.Zero[K]()} }
+func Empty[K any]() Iterator[K] { return &empty[K]{} }
 
-type empty[K any] struct{ zero K }
+type empty[K any] struct{}
 
 func (*empty[K]) Close() {}
 
-func (i *empty[K]) Next() (K, error) { return i.zero, nil }
+func (*empty[K]) Next() (K, error) {
+	var zero K
+	return zero, nil
+}

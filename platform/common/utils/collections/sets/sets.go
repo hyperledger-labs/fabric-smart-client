@@ -14,6 +14,7 @@ import (
 
 type set[V comparable] map[V]struct{}
 
+// New creates a [Set] containing the given items, deduplicated.
 func New[V comparable](items ...V) Set[V] {
 	s := make(set[V], len(items))
 	for _, item := range items {
@@ -68,11 +69,13 @@ func (s *set[V]) Empty() bool {
 	return s.Length() == 0
 }
 
+// String formats the set as its elements, in no particular order.
 func (s *set[V]) String() string {
 	return fmt.Sprintf("%v", s.ToSlice())
 }
 
-// Set is a collection of unique comparable items
+// Set is a collection of unique comparable items. It is not safe for
+// concurrent use.
 type Set[V comparable] interface {
 	Add(...V)
 	Remove(...V)

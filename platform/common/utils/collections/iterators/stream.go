@@ -9,8 +9,6 @@ package iterators
 import (
 	"errors"
 	"io"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 type stream[T any] interface {
@@ -18,6 +16,9 @@ type stream[T any] interface {
 	CloseSend() error
 }
 
+// Stream adapts a gRPC-style receive stream to an [Iterator]. Next turns
+// io.EOF into the exhaustion signal (zero value, nil error); any other error
+// from Recv is returned as-is. Close sends the stream's half-close.
 func Stream[T any](cli stream[T]) Iterator[T] {
 	return &streamIterator[T]{cli: cli}
 }
@@ -31,10 +32,11 @@ func (it *streamIterator[T]) Next() (T, error) {
 	if err == nil {
 		return n, nil
 	}
+	var zero T
 	if errors.Is(err, io.EOF) {
-		return utils.Zero[T](), nil
+		return zero, nil
 	}
-	return utils.Zero[T](), err
+	return zero, err
 }
 
 func (it *streamIterator[T]) Close() {

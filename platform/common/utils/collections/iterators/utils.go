@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package iterators
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-
 // Copy returns a copy of the input Iterator
 func Copy[T any](it Iterator[*T]) (Iterator[*T], error) {
 	all, err := ReadAllPointers(it)
@@ -81,19 +79,23 @@ func Reduce[V, S any](it Iterator[*V], reducer Reducer[*V, S]) (S, error) {
 	return ReduceValue(it, reducer.Produce(), reducer.Reduce)
 }
 
+// ReduceValue folds the elements of it into result by applying reduce to each
+// in turn, starting from the given initial result. It underlies [Reduce],
+// exposed separately for callers that build up a result without a [Reducer].
 func ReduceValue[V, S any](it Iterator[*V], result S, reduce ReduceFunc[*V, S]) (S, error) {
 	defer it.Close()
+	var zero S
 	for {
 		item, err := it.Next()
 		if err != nil {
-			return utils.Zero[S](), err
+			return zero, err
 		}
 		if item == nil {
 			return result, nil
 		}
 		result, err = reduce(result, item)
 		if err != nil {
-			return utils.Zero[S](), err
+			return zero, err
 		}
 	}
 }

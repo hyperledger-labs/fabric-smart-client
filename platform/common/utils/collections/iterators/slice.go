@@ -6,11 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package iterators
 
-import (
-	"math/rand"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-)
+import "math/rand"
 
 type PermutatableIterator[V any] interface {
 	Iterator[V]
@@ -42,7 +38,8 @@ func Slice[T any](items []T) PermutatableIterator[T] { return &slice[T]{items: i
 
 func (it *slice[T]) Next() (T, error) {
 	if !it.HasNext() {
-		return utils.Zero[T](), nil
+		var zero T
+		return zero, nil
 	}
 	item := it.items[it.i]
 	it.i++
@@ -70,7 +67,8 @@ type permutation[T any] struct {
 
 func (it *permutation[T]) Next() (T, error) {
 	if !it.HasNext() {
-		return utils.Zero[T](), nil
+		var zero T
+		return zero, nil
 	}
 	item := it.items[it.perm[it.i]]
 	it.i++
