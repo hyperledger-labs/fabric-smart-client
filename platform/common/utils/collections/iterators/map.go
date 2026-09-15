@@ -6,10 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package iterators
 
-import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-)
-
 // Map returns a lazy [Iterator] that applies transformer to each element of
 // iterator. Closing the returned [Iterator] closes iterator.
 //
@@ -29,7 +25,8 @@ type mapped[A any, B any] struct {
 func (it *mapped[A, B]) Next() (B, error) {
 	next, err := it.Iterator.Next()
 	if err != nil {
-		return utils.Zero[B](), err
+		var zero B
+		return zero, err
 	}
 	return it.transformer(next)
 }

@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package maps
 
-import "maps"
+import (
+	"maps"
+	"slices"
+)
 
 // Copy copies the elements of the second map to the first
 func Copy[K comparable, V any](to, from map[K]V) {
@@ -25,28 +28,14 @@ func Inverse[K, V comparable](in map[K]V) map[V]K {
 	return out
 }
 
-// Values returns all values of the input map
+// Values returns all values of the input map, in no particular order
 func Values[K comparable, V any](m map[K]V) []V {
-	res := make([]V, len(m))
-	i := 0
-	for _, v := range m {
-		res[i] = v
-		i++
-	}
-
-	return res
+	return slices.Collect(maps.Values(m))
 }
 
-// Keys returns all keys of the input map
+// Keys returns all keys of the input map, in no particular order
 func Keys[K comparable, V any](m map[K]V) []K {
-	res := make([]K, len(m))
-	i := 0
-	for k := range m {
-		res[i] = k
-		i++
-	}
-
-	return res
+	return slices.Collect(maps.Keys(m))
 }
 
 // ContainsValue scans the comparable values of a map for the input value

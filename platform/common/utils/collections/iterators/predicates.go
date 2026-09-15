@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package iterators
 
-// DuplicatesBy is used for filtering duplicate elements by a comparable property
+// DuplicatesBy returns a stateful [Predicate] that keeps the first element
+// seen for each key prop derives and rejects every later element with a key
+// already seen. Reuse it only across a single pass: the seen set never
+// shrinks.
 func DuplicatesBy[V any, I comparable](prop func(V) I) Predicate[V] {
 	s := map[I]struct{}{}
 	return func(v V) bool {
@@ -19,6 +22,7 @@ func DuplicatesBy[V any, I comparable](prop func(V) I) Predicate[V] {
 	}
 }
 
+// Or returns a [Predicate] that accepts a value when either this or that does.
 func Or[A any](this, that Predicate[A]) Predicate[A] {
 	return func(v A) bool { return this(v) || that(v) }
 }

@@ -9,7 +9,6 @@ package iterators
 import (
 	"cmp"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
 )
 
@@ -71,13 +70,17 @@ type maxByReducer[V any, K cmp.Ordered] struct {
 }
 
 //nolint:revive // confusing-naming: maxByReducer implements the exported Reducer interface; renaming Produce is an API break; see follow-up
-func (*maxByReducer[V, K]) Produce() V { return utils.Zero[V]() }
+func (*maxByReducer[V, K]) Produce() V {
+	var zero V
+	return zero
+}
 
 //nolint:revive // confusing-naming: maxByReducer implements the exported Reducer interface; renaming Reduce is an API break; see follow-up
 func (r *maxByReducer[V, K]) Reduce(maxVal, v V) (V, error) {
 	currKey, err := r.fn(v)
 	if err != nil {
-		return utils.Zero[V](), err
+		var zero V
+		return zero, err
 	}
 	if r.seen && currKey <= r.maxKey {
 		return maxVal, nil

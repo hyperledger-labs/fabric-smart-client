@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sets
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -53,4 +54,13 @@ func TestMinus(t *testing.T) {
 
 	diff := New("alice", "bob", "carol").Minus(New("bob"))
 	require.ElementsMatch(t, []string{"alice", "carol"}, diff.ToSlice())
+}
+
+func TestString(t *testing.T) {
+	t.Parallel()
+
+	// a single element sidesteps the set's unordered iteration, keeping the
+	// expected string deterministic
+	s := New("alice")
+	require.Equal(t, "[alice]", fmt.Sprintf("%v", s))
 }

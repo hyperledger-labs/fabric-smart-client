@@ -35,19 +35,20 @@ func (it *flattenedPointers[A, B]) Next() (B, error) {
 		it.remaining = it.remaining[1:]
 		return n, nil
 	}
+	var zero B
 	next, err := it.Iterator.Next()
 	if err != nil {
-		return utils.Zero[B](), errors.Wrapf(err, "failed fetching")
+		return zero, errors.Wrapf(err, "failed fetching")
 	}
 	if utils.IsNil(next) {
-		return utils.Zero[B](), nil
+		return zero, nil
 	}
 	transformed, err := it.transformer(next)
 	if err != nil {
-		return utils.Zero[B](), errors.Wrapf(err, "failed transforming")
+		return zero, errors.Wrapf(err, "failed transforming")
 	}
 	if len(transformed) == 0 {
-		return utils.Zero[B](), nil
+		return zero, nil
 	}
 	it.remaining = transformed[1:]
 	return transformed[0], nil

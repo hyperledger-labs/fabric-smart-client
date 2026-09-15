@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package iterators_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -115,12 +116,16 @@ func TestReadFirstNonPositiveLimitReadsNothing(t *testing.T) {
 	t.Parallel()
 
 	for _, limit := range []int{0, -1} {
-		it := newInfallible(ptrs(1, 2))
-		got, err := iterators.ReadFirst[int](it, limit)
-		require.NoError(t, err)
-		require.Empty(t, got)
-		require.Zero(t, it.calls, "limit %d: the source is never read", limit)
-		require.True(t, it.closed, "limit %d: the iterator is still closed", limit)
+		t.Run(strconv.Itoa(limit), func(t *testing.T) {
+			t.Parallel()
+
+			it := newInfallible(ptrs(1, 2))
+			got, err := iterators.ReadFirst[int](it, limit)
+			require.NoError(t, err)
+			require.Empty(t, got)
+			require.Zero(t, it.calls, "the source is never read")
+			require.True(t, it.closed, "the iterator is still closed")
+		})
 	}
 }
 
