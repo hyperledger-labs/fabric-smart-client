@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
@@ -30,10 +30,14 @@ type ConfigProvider interface {
 	UnmarshalKey(key string, rawVal any) error
 }
 
-func GetPersistenceName(cs ConfigProvider, prefix string) driver2.PersistenceName {
+// GetPersistenceName returns the persistence name configured under prefix. It returns an error
+// if the configured value cannot be unmarshalled into a driver2.PersistenceName.
+func GetPersistenceName(cs ConfigProvider, prefix string) (driver2.PersistenceName, error) {
 	var persistence driver2.PersistenceName
-	utils.Must(cs.UnmarshalKey(prefix, &persistence))
-	return persistence
+	if err := cs.UnmarshalKey(prefix, &persistence); err != nil {
+		return "", errors.Wrapf(err, "failed to unmarshal persistence name for key [%s]", prefix)
+	}
+	return persistence, nil
 }
 
 type Config struct {

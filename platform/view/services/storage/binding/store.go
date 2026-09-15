@@ -12,6 +12,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 )
 
+// NewDefaultStore constructs a BindingStore backed by the persistence configured under
+// "fsc.binding.persistence", resolved through d.
 func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.BindingStore, error) {
-	return d.NewBinding(common.GetPersistenceName(cp, "fsc.binding.persistence"), "default")
+	name, err := common.GetPersistenceName(cp, "fsc.binding.persistence")
+	if err != nil {
+		return nil, err
+	}
+	return d.NewBinding(name, "default")
 }

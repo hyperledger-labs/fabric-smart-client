@@ -20,8 +20,14 @@ type identifier interface {
 	UniqueKey() string
 }
 
+// NewStore constructs a MetadataStore-backed store keyed by K with metadata of type M, using the
+// persistence configured under "fsc.metadata.persistence" and resolved through d.
 func NewStore[K identifier, M any](cp driver.Config, d multiplexed.Driver, params ...string) (*store[K, M], error) {
-	m, err := d.NewMetadata(common.GetPersistenceName(cp, "fsc.metadata.persistence"), params...)
+	name, err := common.GetPersistenceName(cp, "fsc.metadata.persistence")
+	if err != nil {
+		return nil, err
+	}
+	m, err := d.NewMetadata(name, params...)
 	if err != nil {
 		return nil, err
 	}

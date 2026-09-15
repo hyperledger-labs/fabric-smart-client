@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -65,7 +64,11 @@ func newKVS(config vdriver.ConfigService, driver multiplexed.Driver) (*kvs2.KVS,
 		return nil, err
 	}
 
-	return kvs2.New(utils.MustGet(kvs2.NewKeyValueStore(config, driver)), "_default", size)
+	store, err := kvs2.NewKeyValueStore(config, driver)
+	if err != nil {
+		return nil, err
+	}
+	return kvs2.New(store, "_default", size)
 }
 
 func newKMSDriver(in struct {
