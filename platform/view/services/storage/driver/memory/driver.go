@@ -54,13 +54,18 @@ func (d *Driver) NewAuditInfo(_ driver.PersistenceName, params ...string) (drive
 	return newPersistenceWithOpts(d.dbProvider, sqlite2.NewAuditInfoStore, params...)
 }
 
+// newPersistenceWithOpts constructs a V backed by an in-memory sqlite database, using params to
+// compute its table names, and invokes constructor to build the store before creating its schema.
 func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite2.DbProvider, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
 	opts := Op.GetOpts(params...)
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
 		return utils.Zero[V](), fmt.Errorf("error opening db: %w", err)
 	}
-	tables := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	tables, err := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	if err != nil {
+		return utils.Zero[V](), err
+	}
 	p, err := constructor(dbs, tables)
 	if err != nil {
 		return utils.Zero[V](), err

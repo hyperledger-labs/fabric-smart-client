@@ -59,6 +59,9 @@ func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (dr
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewAuditInfoStore, params...)
 }
 
+// NewPersistenceWithOpts constructs a V backed by the postgres persistence configured under name and
+// params: it resolves the connection options and table names, opens the database, and invokes
+// constructor to build the store, creating its schema unless configured to skip.
 func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider DbProvider, name driver.PersistenceName, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
 	o, err := cfg.GetOpts(name, params...)
 	if err != nil {
@@ -78,7 +81,10 @@ func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider 
 	if err != nil {
 		return utils.Zero[V](), fmt.Errorf("error opening db: %w", err)
 	}
-	tables := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	tables, err := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	if err != nil {
+		return utils.Zero[V](), err
+	}
 	p, err := constructor(dbs, tables)
 	if err != nil {
 		return utils.Zero[V](), err

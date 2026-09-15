@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -27,12 +26,18 @@ func TestSqlite(t *testing.T) {
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
 	}
 	common.TestCases(t, func(_ string) (driver.KeyValueStore, error) {
-		p, err := NewKeyValueStore(utils.MustGet(open(o)), common.GetTableNames(o.TablePrefix, o.TableNameParams...))
+		dbs, err := open(o)
+		require.NoError(t, err)
+		tables, err := common.GetTableNames(o.TablePrefix, o.TableNameParams...)
+		require.NoError(t, err)
+		p, err := NewKeyValueStore(dbs, tables)
 		require.NoError(t, err)
 		require.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(_ string) (driver.UnversionedNotifier, error) {
-		p, err := NewKeyValueStoreNotifier(utils.MustGet(open(o)), "test")
+		dbs, err := open(o)
+		require.NoError(t, err)
+		p, err := NewKeyValueStoreNotifier(dbs, "test")
 		require.NoError(t, err)
 		require.NoError(t, p.Persistence.(*KeyValueStore).CreateSchema())
 		return p, nil

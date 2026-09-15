@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -57,7 +56,15 @@ func newTestKeyValueStore(dir string) (driver.KeyValueStore, error) {
 		MaxIdleConns: 2,
 		MaxIdleTime:  2 * time.Minute,
 	}
-	p, err := NewKeyValueStore(utils.MustGet(open(o)), common2.GetTableNames(o.TablePrefix, o.TableNameParams...))
+	dbs, err := open(o)
+	if err != nil {
+		return nil, err
+	}
+	tables, err := common2.GetTableNames(o.TablePrefix, o.TableNameParams...)
+	if err != nil {
+		return nil, err
+	}
+	p, err := NewKeyValueStore(dbs, tables)
 	if err != nil {
 		return nil, err
 	}

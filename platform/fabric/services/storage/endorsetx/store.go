@@ -19,8 +19,14 @@ type identifier interface {
 	UniqueKey() string
 }
 
+// NewStore constructs an EndorseTxStore-backed store keyed by K, using the persistence configured
+// under "fsc.endorsetx.persistence" and resolved through d.
 func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*endorseTxStore[K], error) {
-	e, err := d.NewEndorseTx(common.GetPersistenceName(cp, "fsc.endorsetx.persistence"), params...)
+	name, err := common.GetPersistenceName(cp, "fsc.endorsetx.persistence")
+	if err != nil {
+		return nil, err
+	}
+	e, err := d.NewEndorseTx(name, params...)
 	if err != nil {
 		return nil, err
 	}

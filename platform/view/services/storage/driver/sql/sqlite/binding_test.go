@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
@@ -24,8 +23,10 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
 	}
-	dbs := utils.MustGet(open(o))
-	tables := common.GetTableNames(o.TablePrefix, o.TableNameParams...)
+	dbs, err := open(o)
+	require.NoError(tb, err)
+	tables, err := common.GetTableNames(o.TablePrefix, o.TableNameParams...)
+	require.NoError(tb, err)
 	db := buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding)
 	require.NoError(tb, db.CreateSchema())
 	return db
