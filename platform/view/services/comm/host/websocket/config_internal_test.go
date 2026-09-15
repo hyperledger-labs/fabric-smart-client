@@ -133,6 +133,24 @@ func TestNewConfigDefaultsToMutualTLS(t *testing.T) {
 	require.True(t, cfg.serverTLS.RequireClientCert)
 }
 
+// An invalid root CA is caught when the pool is built, not silently ignored or panicked.
+func TestClientAndServerTLSConfigRejectInvalidRootCA(t *testing.T) {
+	t.Parallel()
+	dir, _, _ := writeNodeDir(t, p2pCore)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "ca.crt"), []byte("not a pem"), 0o600))
+
+	p, err := config2.NewProvider(dir)
+	require.NoError(t, err)
+	cfg, err := NewConfig(p)
+	require.NoError(t, err)
+
+	_, err = cfg.ClientTLSConfig(nil)
+	require.ErrorContains(t, err, "failed to build client root CA pool")
+
+	_, err = cfg.ServerTLSConfig(nil)
+	require.ErrorContains(t, err, "failed to build server root CA pool")
+}
+
 // A key that no longer exists, and a key that never did, are both rejected rather than
 // silently discarded. The two cases differ only in the tls: block.
 func TestNewConfigRejectsBadP2PTLSKeys(t *testing.T) {

@@ -46,14 +46,24 @@ func NewEndpointBasedProvider(config Config, endpointService endpointService, ro
 	}
 }
 
+// GetNewHost builds a new websocket P2P host, deriving the node ID from the configured
+// identity and validating that mutual TLS is configured before constructing it. It returns an
+// error if the identity cannot be loaded, the TLS configuration is missing or not mutual, or the
+// host itself fails to build.
 func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 	raw, err := id.LoadIdentity(p.config.CertPath())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
 	}
 	nodeID := string(p.endpointService.ExtractPKI(raw))
-	clientTLSConfig := p.config.ClientTLSConfig(p)
-	serverTLSConfig := p.config.ServerTLSConfig(p)
+	clientTLSConfig, err := p.config.ClientTLSConfig(p)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build client TLS config")
+	}
+	serverTLSConfig, err := p.config.ServerTLSConfig(p)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build server TLS config")
+	}
 	if clientTLSConfig == nil || serverTLSConfig == nil {
 		return nil, errors.Errorf("websocket p2p communication requires TLS and mutual TLS configuration")
 	}
@@ -61,8 +71,12 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 		return nil, errors.Errorf("websocket p2p communication requires mutual TLS (client certificates)")
 	}
 
+	h, err := NewHost(nodeID, p.routing, p.streamProvider, p.config, p)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create p2p host")
+	}
 	return &hostWrapper{
-		P2PHost:         NewHost(nodeID, p.routing, p.streamProvider, p.config, p),
+		P2PHost:         h,
 		endpointService: p.endpointService,
 		nodeID:          nodeID,
 	}, nil

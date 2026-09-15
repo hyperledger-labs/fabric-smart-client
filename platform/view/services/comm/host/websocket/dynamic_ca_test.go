@@ -116,7 +116,7 @@ func TestDynamicCA(t *testing.T) {
 	require.NoError(t, os.WriteFile(clientKeyFile, clientKeyPEM, 0o600))
 	require.NoError(t, os.WriteFile(clientCertFile, clientCertPEM, 0o600))
 
-	config := websocket.NewConfigFromProperties(
+	config, err := websocket.NewConfigFromProperties(
 		"127.0.0.1:0",
 		serverKeyFile,
 		serverCertFile,
@@ -125,6 +125,7 @@ func TestDynamicCA(t *testing.T) {
 		true,                     // Require mTLS
 		100, nil,
 	)
+	require.NoError(t, err)
 
 	epService := &mockEndpointService{}
 	r := routing.NewEndpointServiceIDRouter(epService)
@@ -179,6 +180,32 @@ func TestDynamicCA(t *testing.T) {
 		_ = resp.Body.Close()
 	}
 	require.NoError(t, err, "should succeed as client cert is now trusted via EndpointService")
+}
+
+// GetNewHost's own TLS-config check must surface the error, not just NewHost's.
+func TestGetNewHostPropagatesTLSConfigErrors(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	certPEM, keyPEM, err := websocket.GenerateTestCert("node")
+	require.NoError(t, err)
+	certFile, keyFile := filepath.Join(tempDir, "n.crt"), filepath.Join(tempDir, "n.key")
+	require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+	require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+	badCAFile := filepath.Join(tempDir, "bad-ca.crt")
+	require.NoError(t, os.WriteFile(badCAFile, []byte("not a pem"), 0o600))
+
+	config, err := websocket.NewConfigFromProperties("127.0.0.1:0", keyFile, certFile,
+		[]string{badCAFile}, []string{certFile}, true, 100, nil)
+	require.NoError(t, err)
+
+	epService := &mockEndpointService{}
+	r := routing.NewEndpointServiceIDRouter(epService)
+	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
+	streamProvider := ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	provider := websocket.NewEndpointBasedProvider(config, epService, discovery, streamProvider)
+
+	_, err = provider.GetNewHost()
+	require.ErrorContains(t, err, "failed to build client TLS config")
 }
 
 func mustLoadKeyPair(certFile, keyFile string) tls.Certificate {

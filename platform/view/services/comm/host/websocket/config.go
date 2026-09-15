@@ -11,7 +11,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
@@ -41,8 +39,8 @@ type configService interface {
 // Config is the websocket P2P host's view of its configuration.
 type Config interface {
 	ListenAddress() host2.PeerIPAddress
-	ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) *tls.Config
-	ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) *tls.Config
+	ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error)
+	ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error)
 	CertPath() string
 	MaxSubConns() int
 	ReadHeaderTimeout() time.Duration
@@ -121,44 +119,6 @@ func NewConfig(cs configService) (*config, error) {
 	}, nil
 }
 
-// NewConfigFromProperties builds a configuration from file paths, reading each one eagerly.
-// The certificate serves as both the transport certificate and the node's identity, which
-// is what tests of a single host want; production resolves the two separately in
-// [NewConfig].
-func NewConfigFromProperties(listenAddress, privateKeyPath, certPath string, serverRootCAs, clientRootCAs []string, clientAuthRequired bool, maxSubConns int, corsAllowedOrigins []string) *config {
-	read := func(path string) []byte {
-		if path == "" {
-			return nil
-		}
-		return utils.MustGet(os.ReadFile(path))
-	}
-	readAll := func(paths []string) [][]byte {
-		out := make([][]byte, 0, len(paths))
-		for _, p := range paths {
-			if b := read(p); len(b) > 0 {
-				out = append(out, b)
-			}
-		}
-		return out
-	}
-
-	cert, key := read(certPath), read(privateKeyPath)
-	return &config{
-		listenAddress:    listenAddress,
-		identityCertPath: certPath,
-		serverTLS: grpc.SecureOptions{
-			UseTLS: true, Certificate: cert, Key: key,
-			RequireClientCert: clientAuthRequired, ClientRootCAs: readAll(clientRootCAs),
-		},
-		clientTLS: grpc.SecureOptions{
-			UseTLS: true, Certificate: cert, Key: key,
-			ServerRootCAs: readAll(serverRootCAs),
-		},
-		maxSubConns:        maxSubConns,
-		corsAllowedOrigins: corsAllowedOrigins,
-	}
-}
-
 type config struct {
 	listenAddress host2.PeerIPAddress
 	// identityCertPath is the APPLICATION identity certificate, used only to derive the
@@ -204,30 +164,42 @@ func (c *config) CORSAllowedOrigins() []string { return c.corsAllowedOrigins }
 
 // ClientTLSConfig returns the TLS configuration for outbound connections, trusting the
 // configured root CAs plus any the provider supplies at call time. TLS 1.3 is pinned. It
-// returns nil when no TLS material is configured at all.
-func (c *config) ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) *tls.Config {
+// returns nil when no TLS material is configured at all, and an error if the configured root
+// CAs or the client keypair are invalid.
+func (c *config) ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error) {
 	c.mu.Lock()
 	if c.serverRootCAPool == nil {
-		c.serverRootCAPool = utils.MustGet(NewRootCAPoolFromPEM(c.clientTLS.ServerRootCAs))
+		pool, err := NewRootCAPoolFromPEM(c.clientTLS.ServerRootCAs)
+		if err != nil {
+			c.mu.Unlock()
+			return nil, errors.Wrapf(err, "failed to build client root CA pool")
+		}
+		c.serverRootCAPool = pool
 	}
 	serverRootCAPool := c.serverRootCAPool
 	c.mu.Unlock()
 
-	return utils.MustGet(newClientTLSConfig(serverRootCAPool, c.clientTLS, caPoolProvider))
+	return newClientTLSConfig(serverRootCAPool, c.clientTLS, caPoolProvider)
 }
 
 // ServerTLSConfig returns the TLS configuration for inbound connections. When mutual TLS is
 // required the client CA pool is rebuilt per handshake so anchors the provider discovers
-// later are honoured. TLS 1.3 is pinned. It returns nil when no TLS material is configured.
-func (c *config) ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) *tls.Config {
+// later are honoured. TLS 1.3 is pinned. It returns nil when no TLS material is configured,
+// and an error if the configured root CAs or the server keypair are invalid.
+func (c *config) ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error) {
 	c.mu.Lock()
 	if c.clientRootCAPool == nil {
-		c.clientRootCAPool = utils.MustGet(NewRootCAPoolFromPEM(c.serverTLS.ClientRootCAs))
+		pool, err := NewRootCAPoolFromPEM(c.serverTLS.ClientRootCAs)
+		if err != nil {
+			c.mu.Unlock()
+			return nil, errors.Wrapf(err, "failed to build server root CA pool")
+		}
+		c.clientRootCAPool = pool
 	}
 	clientRootCAPool := c.clientRootCAPool
 	c.mu.Unlock()
 
-	return utils.MustGet(newServerTLSConfig(clientRootCAPool, c.serverTLS, caPoolProvider))
+	return newServerTLSConfig(clientRootCAPool, c.serverTLS, caPoolProvider)
 }
 
 func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions, caPoolProvider ExtraCAPoolProvider) (*tls.Config, error) {
