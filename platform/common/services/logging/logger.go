@@ -15,13 +15,8 @@ import (
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-<<<<<<< HEAD
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-=======
->>>>>>> upstream/main
 )
 
 // Logger provides logging API

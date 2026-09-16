@@ -109,7 +109,6 @@ func TestNewSpecHandler(t *testing.T) {
 	assert.NotNil(t, NewSpecHandler())
 }
 
-<<<<<<< HEAD
 // TestGetPackageName_UnexpectedCallDepth checks a caller at the wrong depth is reported
 // rather than panicked on. GetPackageName reads runtime.Caller(4), which assumes the
 // production call chain; called directly from a test there is no fourth frame.
@@ -161,21 +160,4 @@ func TestMustGetLogger(t *testing.T) { //nolint:paralleltest // reads the shared
 func TestMustGetLoggerParams(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
 	assert.Equal(t, "fsc.platform.common.services.logging.component",
 		MustGetLogger("component").Zap().Name())
-=======
-// TestMustGetLogger checks it returns a working Logger rather than panicking on the
-// happy path, the behavior utils.MustGet used to provide before MustGetLogger inlined
-// the check. GetLogger itself isn't exercised directly here: calling it from this
-// package's own tests is one stack frame shallower than the MustGetLogger/GetLogger/
-// GetLoggerWithReplacements chain GetPackageName's runtime.Caller(4) offset assumes,
-// which lands on testing.tRunner instead of a package path and panics — a pre-existing,
-// separately tracked bug (#1841), not something this change introduces or fixes.
-func TestMustGetLogger(t *testing.T) {
-	t.Parallel()
-
-	var l Logger
-	assert.NotPanics(t, func() {
-		l = MustGetLogger("component")
-	})
-	assert.NotNil(t, l)
->>>>>>> upstream/main
 }
