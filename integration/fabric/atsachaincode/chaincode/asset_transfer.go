@@ -59,7 +59,7 @@ func (*SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, a
 	// Asset properties must be retrieved from the transient field as they are private
 	immutablePropertiesJSON, ok := transientMap["asset_properties"]
 	if !ok {
-		return fmt.Errorf("asset_properties key not found in the transient map")
+		return errors.New("asset_properties key not found in the transient map")
 	}
 
 	// Get client org id and verify it matches peer org id.
@@ -119,7 +119,7 @@ func (s *SmartContract) ChangePublicDescription(ctx contractapi.TransactionConte
 	fmt.Println("check org")
 	// Auth check to ensure that client's org actually owns the asset
 	if clientOrgID != asset.OwnerOrg {
-		return fmt.Errorf("a client from %s cannot update the description of a asset owned by %s", clientOrgID, asset.OwnerOrg)
+		return errors.Errorf("a client from %s cannot update the description of a asset owned by %s", clientOrgID, asset.OwnerOrg)
 	}
 
 	fmt.Println("update description")
@@ -146,7 +146,7 @@ func (s *SmartContract) AgreeToSell(ctx contractapi.TransactionContextInterface,
 
 	// Verify that this clientOrgId actually owns the asset.
 	if clientOrgID != asset.OwnerOrg {
-		return fmt.Errorf("a client from %s cannot sell an asset owned by %s", clientOrgID, asset.OwnerOrg)
+		return errors.Errorf("a client from %s cannot sell an asset owned by %s", clientOrgID, asset.OwnerOrg)
 	}
 
 	return agreeToPrice(ctx, assetID, typeAssetForSale)
@@ -173,7 +173,7 @@ func agreeToPrice(ctx contractapi.TransactionContextInterface, assetID, priceTyp
 	// Asset price must be retrieved from the transient field as they are private
 	price, ok := transMap["asset_price"]
 	if !ok {
-		return fmt.Errorf("asset_price key not found in the transient map")
+		return errors.New("asset_price key not found in the transient map")
 	}
 
 	collection := buildCollectionName(clientOrgID)
@@ -206,7 +206,7 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 	// / Asset properties must be retrieved from the transient field as they are private
 	immutablePropertiesJSON, ok := transMap["asset_properties"]
 	if !ok {
-		return false, fmt.Errorf("asset_properties key not found in the transient map")
+		return false, errors.New("asset_properties key not found in the transient map")
 	}
 
 	asset, err := s.ReadAsset(ctx, assetID)
@@ -220,7 +220,7 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 		return false, errors.Wrapf(err, "failed to read asset private properties hash from seller's collection")
 	}
 	if immutablePropertiesOnChainHash == nil {
-		return false, fmt.Errorf("asset private properties hash does not exist: %s", assetID)
+		return false, errors.Errorf("asset private properties hash does not exist: %s", assetID)
 	}
 
 	h := sha256.Sum256(immutablePropertiesJSON)
@@ -228,7 +228,7 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 
 	// verify that the hash of the passed immutable properties matches the on-chain hash
 	if !bytes.Equal(immutablePropertiesOnChainHash, calculatedPropertiesHash) {
-		return false, fmt.Errorf("hash %x for passed immutable properties %s does not match on-chain hash %x",
+		return false, errors.Errorf("hash %x for passed immutable properties %s does not match on-chain hash %x",
 			calculatedPropertiesHash,
 			immutablePropertiesJSON,
 			immutablePropertiesOnChainHash,
@@ -253,12 +253,12 @@ func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterfac
 
 	immutablePropertiesJSON, ok := transMap["asset_properties"]
 	if !ok {
-		return fmt.Errorf("asset_properties key not found in the transient map")
+		return errors.New("asset_properties key not found in the transient map")
 	}
 
 	priceJSON, ok := transMap["asset_price"]
 	if !ok {
-		return fmt.Errorf("asset_price key not found in the transient map")
+		return errors.New("asset_price key not found in the transient map")
 	}
 
 	var agreement Agreement
@@ -296,7 +296,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 	// CHECK1: Auth check to ensure that client's org actually owns the asset
 
 	if clientOrgID != asset.OwnerOrg {
-		return fmt.Errorf("a client from %s cannot transfer a asset owned by %s", clientOrgID, asset.OwnerOrg)
+		return errors.Errorf("a client from %s cannot transfer a asset owned by %s", clientOrgID, asset.OwnerOrg)
 	}
 
 	// CHECK2: Verify that the hash of the passed immutable properties matches the on-chain hash
@@ -307,7 +307,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 		return errors.Wrapf(err, "failed to read asset private properties hash from seller's collection")
 	}
 	if immutablePropertiesOnChainHash == nil {
-		return fmt.Errorf("asset private properties hash does not exist: %s", asset.ID)
+		return errors.Errorf("asset private properties hash does not exist: %s", asset.ID)
 	}
 
 	hash := sha256.New()
@@ -316,7 +316,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 
 	// verify that the hash of the passed immutable properties matches the on-chain hash
 	if !bytes.Equal(immutablePropertiesOnChainHash, calculatedPropertiesHash) {
-		return fmt.Errorf("hash %x for passed immutable properties %s does not match on-chain hash %x",
+		return errors.Errorf("hash %x for passed immutable properties %s does not match on-chain hash %x",
 			calculatedPropertiesHash,
 			immutablePropertiesJSON,
 			immutablePropertiesOnChainHash,
@@ -335,7 +335,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 		return errors.Wrapf(err, "failed to get seller price hash")
 	}
 	if sellerPriceHash == nil {
-		return fmt.Errorf("seller price for %s does not exist", asset.ID)
+		return errors.Errorf("seller price for %s does not exist", asset.ID)
 	}
 
 	// Get buyers bid price
@@ -349,7 +349,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 		return errors.Wrapf(err, "failed to get buyer price hash")
 	}
 	if buyerPriceHash == nil {
-		return fmt.Errorf("buyer price for %s does not exist", asset.ID)
+		return errors.Errorf("buyer price for %s does not exist", asset.ID)
 	}
 
 	hash = sha256.New()
@@ -358,7 +358,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 
 	// Verify that the hash of the passed price matches the on-chain sellers price hash
 	if !bytes.Equal(calculatedPriceHash, sellerPriceHash) {
-		return fmt.Errorf("hash %x for passed price JSON %s does not match on-chain hash %x, seller hasn't agreed to the passed trade id and price",
+		return errors.Errorf("hash %x for passed price JSON %s does not match on-chain hash %x, seller hasn't agreed to the passed trade id and price",
 			calculatedPriceHash,
 			priceJSON,
 			sellerPriceHash,
@@ -367,7 +367,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 
 	// Verify that the hash of the passed price matches the on-chain buyer price hash
 	if !bytes.Equal(calculatedPriceHash, buyerPriceHash) {
-		return fmt.Errorf("hash %x for passed price JSON %s does not match on-chain hash %x, buyer hasn't agreed to the passed trade id and price",
+		return errors.Errorf("hash %x for passed price JSON %s does not match on-chain hash %x, buyer hasn't agreed to the passed trade id and price",
 			calculatedPriceHash,
 			priceJSON,
 			buyerPriceHash,
@@ -519,7 +519,7 @@ func verifyClientOrgMatchesPeerOrg(clientOrgID string) error {
 	}
 
 	if clientOrgID != peerOrgID {
-		return fmt.Errorf("client from org %s is not authorized to read or write private data from an org %s peer",
+		return errors.Errorf("client from org %s is not authorized to read or write private data from an org %s peer",
 			clientOrgID,
 			peerOrgID,
 		)

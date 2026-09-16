@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package channelconfig
 
 import (
-	"fmt"
 	"reflect"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -60,7 +59,7 @@ func NewStandardValues(protosStructs ...any) (*StandardValues, error) {
 func (sv *StandardValues) Deserialize(key string, value []byte) (proto.Message, error) {
 	msg, ok := sv.lookup[key]
 	if !ok {
-		return nil, fmt.Errorf("unexpected key %s", key)
+		return nil, errors.Errorf("unexpected key %s", key)
 	}
 
 	err := proto.Unmarshal(value, msg)
@@ -74,10 +73,10 @@ func (sv *StandardValues) Deserialize(key string, value []byte) (proto.Message, 
 func (sv *StandardValues) initializeProtosStruct(objValue reflect.Value) error {
 	objType := objValue.Type()
 	if objType.Kind() != reflect.Pointer {
-		return fmt.Errorf("non pointer type")
+		return errors.New("non pointer type")
 	}
 	if objType.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("non struct type")
+		return errors.New("non struct type")
 	}
 
 	numFields := objValue.Elem().NumField()
@@ -87,21 +86,21 @@ func (sv *StandardValues) initializeProtosStruct(objValue reflect.Value) error {
 		case reflect.Pointer:
 			fieldPtr := objValue.Elem().Field(i)
 			if !fieldPtr.CanSet() {
-				return fmt.Errorf("cannot set structure field %s (unexported?)", structField.Name)
+				return errors.Errorf("cannot set structure field %s (unexported?)", structField.Name)
 			}
 			fieldPtr.Set(reflect.New(structField.Type.Elem()))
 		default:
-			return fmt.Errorf("bad type supplied: %s", structField.Type.Kind())
+			return errors.Errorf("bad type supplied: %s", structField.Type.Kind())
 		}
 
 		proto, ok := objValue.Elem().Field(i).Interface().(proto.Message)
 		if !ok {
-			return fmt.Errorf("field type %T does not implement proto.Message", objValue.Elem().Field(i))
+			return errors.Errorf("field type %T does not implement proto.Message", objValue.Elem().Field(i))
 		}
 
 		_, ok = sv.lookup[structField.Name]
 		if ok {
-			return fmt.Errorf("ambiguous field name specified, multiple occurrences of %s", structField.Name)
+			return errors.Errorf("ambiguous field name specified, multiple occurrences of %s", structField.Name)
 		}
 
 		sv.lookup[structField.Name] = proto

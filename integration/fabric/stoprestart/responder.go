@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package stoprestart
 
 import (
-	"errors"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )

@@ -12,7 +12,6 @@ import (
 	"database/sql"
 	"encoding/gob"
 	errors2 "errors"
-	"fmt"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
@@ -451,11 +450,11 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("error querying db: %w", err)
+		return nil, nil, errors.Wrap(err, "error querying db")
 	}
 	meta, err := unmarshalMetadata(m)
 	if err != nil {
-		return meta, nil, fmt.Errorf("error decoding metadata: %w", err)
+		return meta, nil, errors.Wrap(err, "error decoding metadata")
 	}
 
 	return meta, kversion, err
@@ -491,7 +490,7 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 
 func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	if p == nil {
-		return nil, fmt.Errorf("invalid input pagination: %+v", p)
+		return nil, errors.Errorf("invalid input pagination: %+v", p)
 	}
 
 	txStatusIterator, err := db.queryStatus(ctx, nil, p)

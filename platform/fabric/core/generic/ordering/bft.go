@@ -8,7 +8,6 @@ package ordering
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -151,7 +150,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 				default:
 					usedConnections = append(usedConnections, connection)
 					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())])
-					errs = append(errs, fmt.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())]))
+					errs = append(errs, errors.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())]))
 					return
 				}
 			}(orderer)

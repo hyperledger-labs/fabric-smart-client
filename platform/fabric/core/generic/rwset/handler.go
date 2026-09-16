@@ -8,10 +8,10 @@ package rwset
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -29,7 +29,7 @@ func NewEndorserTransactionHandler(network, channel string, v driver.RWSetInspec
 func (h *endorserTransactionHandler) Load(payl *common.Payload, chdr *common.ChannelHeader) (driver.RWSet, driver.ProcessTransaction, error) {
 	upe, err := UnpackEnvelopeFromPayloadAndCHHeader(h.network, payl, chdr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed unpacking envelope [%s]: %w", chdr.TxId, err)
+		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", chdr.TxId)
 	}
 
 	logger.Debugf("retrieve rws [%s,%s]", h.channel, chdr.TxId)
@@ -56,7 +56,7 @@ func NewEndorserTransactionReader(network string) *endorserTransactionReader {
 func (h *endorserTransactionReader) Read(payl *common.Payload, chdr *common.ChannelHeader) (vault.ReadWriteSet, error) {
 	upe, err := UnpackEnvelopeFromPayloadAndCHHeader(h.network, payl, chdr)
 	if err != nil {
-		return vault.ReadWriteSet{}, fmt.Errorf("failed unpacking envelope [%s]: %w", chdr.TxId, err)
+		return vault.ReadWriteSet{}, errors.Wrapf(err, "failed unpacking envelope [%s]", chdr.TxId)
 	}
 
 	logger.Debugf("retrieve rws [%s,%s]", h.network, chdr.TxId)

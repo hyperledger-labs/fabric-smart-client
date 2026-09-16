@@ -8,7 +8,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	"github.com/XSAM/otelsql"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
@@ -64,12 +64,12 @@ func open(opts Opts) (*common.RWDB, error) {
 	logger.Debugf("Opening read db [%v]", opts.DataSource)
 	readDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas, opts.Tracing)
 	if err != nil {
-		return nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
+		return nil, errors.Wrapf(err, "can't open read %s database", driverName)
 	}
 	logger.Debugf("Opening write db [%v]", opts.DataSource)
 	writeDB, err := openDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas, opts.Tracing)
 	if err != nil {
-		return nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
+		return nil, errors.Wrapf(err, "can't open write %s database", driverName)
 	}
 	return &common.RWDB{
 		ReadDB:  readDB,
@@ -86,14 +86,14 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 
 	db, err := sqlOpen(dataSourceName, tracing)
 	if err != nil {
-		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
+		return nil, errors.Wrapf(err, "can't open %s database", driverName)
 	}
 	db.SetMaxOpenConns(maxOpenConns)
 	db.SetMaxIdleConns(maxIdleConns)
 	db.SetConnMaxIdleTime(maxIdleTime)
 
 	if err = db.Ping(); err != nil && strings.Contains(err.Error(), "out of memory (14)") {
-		return nil, fmt.Errorf("can't open %s database, does the folder exist?", driverName)
+		return nil, errors.Errorf("can't open %s database, does the folder exist?", driverName)
 	} else if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 	}
 	logger.Debug(sqlitePragmas)
 	if _, err = db.Exec(sqlitePragmas); err != nil {
-		return nil, fmt.Errorf("error setting pragmas: %w", err)
+		return nil, errors.Wrap(err, "error setting pragmas")
 	}
 
 	return db, nil

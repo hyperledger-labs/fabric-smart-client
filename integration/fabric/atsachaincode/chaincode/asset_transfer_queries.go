@@ -11,7 +11,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
@@ -41,7 +40,7 @@ func (*SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, ass
 		return nil, errors.Wrapf(err, "failed to read from world state")
 	}
 	if assetJSON == nil {
-		return nil, fmt.Errorf("%s does not exist", assetID)
+		return nil, errors.Errorf("%s does not exist", assetID)
 	}
 
 	var asset *Asset
@@ -65,7 +64,7 @@ func (*SmartContract) GetAssetPrivateProperties(ctx contractapi.TransactionConte
 		return "", errors.Wrapf(err, "failed to read asset private properties from client org's collection")
 	}
 	if immutableProperties == nil {
-		return "", fmt.Errorf("asset private details does not exist in client org's collection: %s", assetID)
+		return "", errors.Errorf("asset private details does not exist in client org's collection: %s", assetID)
 	}
 
 	return string(immutableProperties), nil
@@ -98,7 +97,7 @@ func getAssetPrice(ctx contractapi.TransactionContextInterface, assetID, priceTy
 		return "", errors.Wrapf(err, "failed to read asset price from implicit private data collection")
 	}
 	if price == nil {
-		return "", fmt.Errorf("asset price does not exist: %s", assetID)
+		return "", errors.Errorf("asset price does not exist: %s", assetID)
 	}
 
 	return string(price), nil

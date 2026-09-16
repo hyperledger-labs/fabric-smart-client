@@ -13,7 +13,6 @@ import (
 	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
-	"fmt"
 	"strings"
 
 	"github.com/hyperledger/fabric-lib-go/bccsp"
@@ -955,7 +954,7 @@ func (msp *bccspmsp) sanitizeCert(cert *x509.Certificate) (*x509.Certificate, er
 		// to sanitize the cert whenever it's intermediate or leaf certificate
 		var parentCert *x509.Certificate
 		if len(chain) <= 1 {
-			return nil, fmt.Errorf("failed to traverse certificate verification chain"+
+			return nil, errors.Errorf("failed to traverse certificate verification chain"+
 				" for leaf or intermediate certificate, with subject %s", cert.Subject)
 		}
 		parentCert = chain[1]

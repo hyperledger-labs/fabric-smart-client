@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
-	"fmt"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -51,7 +50,7 @@ func NewCore(config core.DynamicConfigService) (*core.Config, error) {
 func NewProvider(config core.DynamicConfigService) (Provider, error) {
 	c, err := core.NewConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create config provider")
+		return nil, errors.New("failed to create config provider")
 	}
 	return &provider{
 		defaultName:   c.DefaultName(),

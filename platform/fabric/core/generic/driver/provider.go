@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"fmt"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
@@ -93,10 +92,10 @@ func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, er
 		d.channelProvider.NewChannel,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed instantiating fabric service provider: %w", err)
+		return nil, errors.Wrap(err, "failed instantiating fabric service provider")
 	}
 	if err := net.Init(); err != nil {
-		return nil, fmt.Errorf("failed to initialize fabric service provider: %w", err)
+		return nil, errors.Wrap(err, "failed to initialize fabric service provider")
 	}
 
 	return net, nil

@@ -9,12 +9,12 @@ package benchmark
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
@@ -50,7 +50,7 @@ func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input
 	}
 
 	if commandResp.GetErr() != nil {
-		return nil, fmt.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
+		return nil, errors.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
 	}
 
 	return commandResp.GetCallViewResponse().GetResult(), nil

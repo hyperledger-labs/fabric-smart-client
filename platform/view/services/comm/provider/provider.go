@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -32,7 +32,7 @@ func NewHostProvider(
 	case websocket.P2PCommunicationType:
 		return NewWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
 	default:
-		return nil, fmt.Errorf("unknown p2p type: %v", p2pCommType)
+		return nil, errors.Errorf("unknown p2p type: %v", p2pCommType)
 	}
 }
 

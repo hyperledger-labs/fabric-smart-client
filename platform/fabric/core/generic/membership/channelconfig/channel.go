@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package channelconfig
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/hyperledger/fabric-lib-go/bccsp"
@@ -109,7 +108,7 @@ func NewChannelConfig(channelGroup *cb.ConfigGroup, bccsp bccsp.BCCSP) (*Channel
 		case ConsortiumsGroupKey:
 			cc.consortiumsConfig, err = NewConsortiumsConfig(group, mspConfigHandler)
 		default:
-			return nil, fmt.Errorf("disallowed channel group: %s", group)
+			return nil, errors.Errorf("disallowed channel group: %s", group)
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not create channel %s sub-group config", groupName)
@@ -228,21 +227,21 @@ func (cc *ChannelConfig) validateHashingAlgorithm() error {
 
 func (cc *ChannelConfig) validateBlockDataHashingStructure() error {
 	if cc.protos.BlockDataHashingStructure.Width != math.MaxUint32 {
-		return fmt.Errorf("BlockDataHashStructure width only supported at MaxUint32 in this version")
+		return errors.New("BlockDataHashStructure width only supported at MaxUint32 in this version")
 	}
 	return nil
 }
 
 func (cc *ChannelConfig) validateOrdererAddresses() error {
 	if len(cc.protos.OrdererAddresses.Addresses) == 0 {
-		return fmt.Errorf("must set some OrdererAddresses")
+		return errors.New("must set some OrdererAddresses")
 	}
 	return nil
 }
 
 func (cc *ChannelConfig) validateNoOrdererAddresses() error {
 	if len(cc.protos.OrdererAddresses.Addresses) > 0 {
-		return fmt.Errorf("global OrdererAddresses are not allowed with V3_0 capability, use org specific addresses only")
+		return errors.New("global OrdererAddresses are not allowed with V3_0 capability, use org specific addresses only")
 	}
 	return nil
 }

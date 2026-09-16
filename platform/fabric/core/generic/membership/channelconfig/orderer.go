@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package channelconfig
 
 import (
-	"fmt"
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -81,7 +80,7 @@ func (oc *OrdererOrgConfig) Endpoints() []string {
 // NewOrdererOrgConfig returns an orderer org config built from the given ConfigGroup.
 func NewOrdererOrgConfig(orgName string, orgGroup *cb.ConfigGroup, mspConfigHandler *MSPConfigHandler, channelCapabilities ChannelCapabilities) (*OrdererOrgConfig, error) {
 	if len(orgGroup.Groups) > 0 {
-		return nil, fmt.Errorf("OrdererOrg config does not allow sub-groups")
+		return nil, errors.New("OrdererOrg config does not allow sub-groups")
 	}
 
 	if !channelCapabilities.OrgSpecificOrdererEndpoints() {
@@ -208,16 +207,16 @@ func (oc *OrdererConfig) Validate() error {
 
 func (oc *OrdererConfig) validateBatchSize() error {
 	if oc.protos.BatchSize.MaxMessageCount == 0 {
-		return fmt.Errorf("attempted to set the batch size max message count to an invalid value: 0")
+		return errors.New("attempted to set the batch size max message count to an invalid value: 0")
 	}
 	if oc.protos.BatchSize.AbsoluteMaxBytes == 0 {
-		return fmt.Errorf("attempted to set the batch size absolute max bytes to an invalid value: 0")
+		return errors.New("attempted to set the batch size absolute max bytes to an invalid value: 0")
 	}
 	if oc.protos.BatchSize.PreferredMaxBytes == 0 {
-		return fmt.Errorf("attempted to set the batch size preferred max bytes to an invalid value: 0")
+		return errors.New("attempted to set the batch size preferred max bytes to an invalid value: 0")
 	}
 	if oc.protos.BatchSize.PreferredMaxBytes > oc.protos.BatchSize.AbsoluteMaxBytes {
-		return fmt.Errorf("attempted to set the batch size preferred max bytes (%v) greater than the absolute max bytes (%v)", oc.protos.BatchSize.PreferredMaxBytes, oc.protos.BatchSize.AbsoluteMaxBytes)
+		return errors.Errorf("attempted to set the batch size preferred max bytes (%v) greater than the absolute max bytes (%v)", oc.protos.BatchSize.PreferredMaxBytes, oc.protos.BatchSize.AbsoluteMaxBytes)
 	}
 	return nil
 }
@@ -229,7 +228,7 @@ func (oc *OrdererConfig) validateBatchTimeout() error {
 		return errors.Wrapf(err, "attempted to set the batch timeout to a invalid value")
 	}
 	if oc.batchTimeout <= 0 {
-		return fmt.Errorf("attempted to set the batch timeout to a non-positive value: %s", oc.batchTimeout)
+		return errors.Errorf("attempted to set the batch timeout to a non-positive value: %s", oc.batchTimeout)
 	}
 	return nil
 }

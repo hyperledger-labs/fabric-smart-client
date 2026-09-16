@@ -10,7 +10,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -77,7 +76,7 @@ func (*Platform) ValidateCodePackage(code []byte) error {
 		// only files and directories; no links or special files
 		mode := header.FileInfo().Mode()
 		if mode&^(os.ModeDir|0o777) != 0 {
-			return fmt.Errorf("illegal file mode in payload: %s", header.Name)
+			return errors.Errorf("illegal file mode in payload: %s", header.Name)
 		}
 	}
 

@@ -41,6 +41,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/otlp"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -814,7 +815,7 @@ func goModuleInfo(dir string) (modPath, modDir string, err error) {
 	if len(parts) != 2 || parts[1] == "" {
 		// no go.mod found; "go list -m" falls back to the synthetic
 		// "command-line-arguments" pseudo-module with an empty Dir.
-		return "", "", fmt.Errorf("no module found for %s: %s", dir, out)
+		return "", "", errors.Errorf("no module found for %s: %s", dir, out)
 	}
 	return parts[0], parts[1], nil
 }

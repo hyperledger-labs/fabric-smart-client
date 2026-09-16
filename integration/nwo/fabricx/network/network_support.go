@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // namespaceApproverOrgs returns the list of org names that appear
@@ -26,7 +27,7 @@ func namespaceApproverOrgs(n *Network) ([]string, error) {
 
 	fabricTopology := n.Topology()
 	if fabricTopology == nil {
-		return nil, fmt.Errorf("fabric topology not available")
+		return nil, errors.New("fabric topology not available")
 	}
 
 	for _, profile := range fabricTopology.Profiles {
@@ -41,7 +42,7 @@ func namespaceApproverOrgs(n *Network) ([]string, error) {
 
 			matches := mspMemberPolicyRE.FindAllStringSubmatch(policy.Rule, -1)
 			if len(matches) == 0 {
-				return nil, fmt.Errorf("no MSP orgs found in LifecycleEndorsement policy [%s]", policy.Rule)
+				return nil, errors.Errorf("no MSP orgs found in LifecycleEndorsement policy [%s]", policy.Rule)
 			}
 
 			orgs := make([]string, 0, len(matches))
@@ -57,10 +58,10 @@ func namespaceApproverOrgs(n *Network) ([]string, error) {
 			return orgs, nil
 		}
 
-		return nil, fmt.Errorf("LifecycleEndorsement policy not found in profile [%s]", profile.Name)
+		return nil, errors.Errorf("LifecycleEndorsement policy not found in profile [%s]", profile.Name)
 	}
 
-	return nil, fmt.Errorf("profile [OrgsChannel] not found")
+	return nil, errors.New("profile [OrgsChannel] not found")
 }
 
 // namespaceApproverOrg is a helper that returns a single org, the first one
@@ -70,7 +71,7 @@ func namespaceApproverOrg(n *Network) (string, error) {
 		return "", err
 	}
 	if len(orgs) == 0 {
-		return "", fmt.Errorf("no namespace approver orgs found")
+		return "", errors.New("no namespace approver orgs found")
 	}
 	return orgs[0], nil
 }
