@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"runtime"
 	"strings"
