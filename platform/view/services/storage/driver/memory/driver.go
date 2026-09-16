@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -54,19 +53,26 @@ func (d *Driver) NewAuditInfo(_ driver.PersistenceName, params ...string) (drive
 	return newPersistenceWithOpts(d.dbProvider, sqlite2.NewAuditInfoStore, params...)
 }
 
+// newPersistenceWithOpts constructs a V backed by an in-memory sqlite database, using params to
+// compute its table names, and invokes constructor to build the store before creating its schema.
 func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite2.DbProvider, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
+	var zero V
+
 	opts := Op.GetOpts(params...)
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
-		return utils.Zero[V](), fmt.Errorf("error opening db: %w", err)
+		return zero, fmt.Errorf("error opening db: %w", err)
 	}
-	tables := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	tables, err := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	if err != nil {
+		return zero, err
+	}
 	p, err := constructor(dbs, tables)
 	if err != nil {
-		return utils.Zero[V](), err
+		return zero, err
 	}
 	if err := p.CreateSchema(); err != nil {
-		return utils.Zero[V](), err
+		return zero, err
 	}
 
 	return p, nil

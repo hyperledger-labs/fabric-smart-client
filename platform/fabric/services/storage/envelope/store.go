@@ -19,8 +19,14 @@ type identifier interface {
 	UniqueKey() string
 }
 
+// NewStore constructs an EnvelopeStore-backed store keyed by K, using the persistence configured
+// under "fsc.envelope.persistence" and resolved through d.
 func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*envelopeStore[K], error) {
-	e, err := d.NewEnvelope(common.GetPersistenceName(cp, "fsc.envelope.persistence"), params...)
+	name, err := common.GetPersistenceName(cp, "fsc.envelope.persistence")
+	if err != nil {
+		return nil, err
+	}
+	e, err := d.NewEnvelope(name, params...)
 	if err != nil {
 		return nil, err
 	}

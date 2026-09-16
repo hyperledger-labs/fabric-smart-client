@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 )
 
@@ -56,10 +55,6 @@ func (c *TableNameCreator) GetFormatter(prefix string) (*tableNameFormatter, err
 	return c.formatterProvider.Get(prefix)
 }
 
-func (c *TableNameCreator) MustGetTableName(tablePrefix, name string, params ...string) string {
-	return utils.MustGet(c.CreateTableName(tablePrefix, name, params...))
-}
-
 func (c *TableNameCreator) CreateTableName(tablePrefix, name string, params ...string) (string, error) {
 	nc, err := c.formatterProvider.Get(tablePrefix)
 	if err != nil {
@@ -79,16 +74,20 @@ type tableNameFormatter struct {
 	r      *regexp.Regexp
 }
 
-func (c *tableNameFormatter) MustFormat(name string, params ...string) string {
-	return utils.MustGet(c.Format(name, params...))
-}
-
+// Format builds the table name for name, prefixed with the formatter's configured prefix and,
+// when params are given, an identifier escaped from them so that different callers of the same
+// name don't collide. It returns an error if params contain characters that can't be turned into
+// a valid identifier, or if the resulting table name is invalid.
 func (c *tableNameFormatter) Format(name string, params ...string) (string, error) {
 	if len(params) > 0 {
-		name = fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
+		escaped, err := escapeForTableName(params...)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to build table name for [%s]", name)
+		}
+		name = fmt.Sprintf("%s_%s", escaped, name)
 	}
 	if !c.r.MatchString(name) {
-		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", name)
+		return "", errors.Errorf("invalid table name [%s]: only letters and underscores allowed", name)
 	}
 	return fmt.Sprintf("%s%s", c.prefix, name), nil
 }
@@ -104,13 +103,16 @@ func (r *replacer) Escape(s string) string {
 	return r.regex.ReplaceAllString(s, r.repl)
 }
 
-func escapeForTableName(params ...string) string {
+// escapeForTableName joins params and replaces characters that are unsafe in a table name
+// (".", "-", "_") with identifier-safe substitutes. It returns an error if the result still
+// contains characters outside [a-zA-Z_].
+func escapeForTableName(params ...string) (string, error) {
 	name := strings.Join(params, "_")
 	for _, r := range replacers {
 		name = r.Escape(name)
 	}
 	if len(name) > 0 && !validName.MatchString(name) {
-		panic("unsupported chars found: " + name)
+		return "", errors.Errorf("unsupported chars found: %s", name)
 	}
-	return name
+	return name, nil
 }

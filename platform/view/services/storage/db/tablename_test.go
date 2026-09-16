@@ -27,7 +27,9 @@ func TestEscapeTableName(t *testing.T) {
 		{[]string{"alpha", "test-channel", "other.param"}, "alpha__test_dchannel__other_fparam"},
 	}
 	for _, c := range cases {
-		require.Equal(t, c.expectedOutput, escapeForTableName(c.input...))
+		out, err := escapeForTableName(c.input...)
+		require.NoError(t, err)
+		require.Equal(t, c.expectedOutput, out)
 	}
 }
 
@@ -38,7 +40,8 @@ func TestEscapeTableNameError(t *testing.T) {
 		{"alpha", "test-#channel"},
 	}
 	for _, c := range cases {
-		require.Panics(t, func() { escapeForTableName(c...) })
+		_, err := escapeForTableName(c...)
+		require.Error(t, err)
 	}
 }
 
@@ -105,37 +108,6 @@ func TestTableNameCreator_GetFormatter(t *testing.T) {
 		formatter2, err := creator.GetFormatter("cached")
 		require.NoError(t, err)
 		require.Equal(t, formatter1, formatter2)
-	})
-}
-
-func TestTableNameCreator_MustGetTableName(t *testing.T) {
-	t.Parallel()
-	creator := NewTableNameCreator("fsc")
-
-	t.Run("valid table name", func(t *testing.T) {
-		t.Parallel()
-		name := creator.MustGetTableName("test", "users")
-		require.Equal(t, "test_users", name)
-	})
-
-	t.Run("with params", func(t *testing.T) {
-		t.Parallel()
-		name := creator.MustGetTableName("test", "users", "alpha", "beta")
-		require.Equal(t, "test_alpha__beta_users", name)
-	})
-
-	t.Run("panics on invalid prefix", func(t *testing.T) {
-		t.Parallel()
-		require.Panics(t, func() {
-			creator.MustGetTableName("invalid-prefix", "users")
-		})
-	})
-
-	t.Run("panics on invalid name", func(t *testing.T) {
-		t.Parallel()
-		require.Panics(t, func() {
-			creator.MustGetTableName("test", "invalid-name")
-		})
 	})
 }
 
@@ -313,31 +285,6 @@ func TestTableNameFormatter_Format(t *testing.T) {
 	})
 }
 
-func TestTableNameFormatter_MustFormat(t *testing.T) {
-	t.Parallel()
-
-	t.Run("valid name", func(t *testing.T) {
-		t.Parallel()
-		formatter := &tableNameFormatter{
-			prefix: "test_",
-			r:      validName,
-		}
-		name := formatter.MustFormat("users")
-		require.Equal(t, "test_users", name)
-	})
-
-	t.Run("panics on invalid name", func(t *testing.T) {
-		t.Parallel()
-		formatter := &tableNameFormatter{
-			prefix: "test_",
-			r:      validName,
-		}
-		require.Panics(t, func() {
-			formatter.MustFormat("invalid-name")
-		})
-	})
-}
-
 func TestReplacer(t *testing.T) {
 	t.Parallel()
 
@@ -382,43 +329,50 @@ func TestEscapeForTableName_EdgeCases(t *testing.T) {
 
 	t.Run("single param", func(t *testing.T) {
 		t.Parallel()
-		result := escapeForTableName("alpha")
+		result, err := escapeForTableName("alpha")
+		require.NoError(t, err)
 		require.Equal(t, "alpha", result)
 	})
 
 	t.Run("param with all special chars", func(t *testing.T) {
 		t.Parallel()
-		result := escapeForTableName("test-channel.param_value")
+		result, err := escapeForTableName("test-channel.param_value")
+		require.NoError(t, err)
 		require.Equal(t, "test_dchannel_fparam__value", result)
 	})
 
 	t.Run("multiple params with special chars", func(t *testing.T) {
 		t.Parallel()
-		result := escapeForTableName("test-channel", "other.param", "value_name")
+		result, err := escapeForTableName("test-channel", "other.param", "value_name")
+		require.NoError(t, err)
 		require.Equal(t, "test_dchannel__other_fparam__value__name", result)
 	})
 
 	t.Run("param with consecutive underscores", func(t *testing.T) {
 		t.Parallel()
-		result := escapeForTableName("test__value")
+		result, err := escapeForTableName("test__value")
+		require.NoError(t, err)
 		require.Equal(t, "test____value", result)
 	})
 
 	t.Run("param with consecutive dashes", func(t *testing.T) {
 		t.Parallel()
-		result := escapeForTableName("test--value")
+		result, err := escapeForTableName("test--value")
+		require.NoError(t, err)
 		require.Equal(t, "test_d_dvalue", result)
 	})
 
 	t.Run("param with consecutive dots", func(t *testing.T) {
 		t.Parallel()
-		result := escapeForTableName("test..value")
+		result, err := escapeForTableName("test..value")
+		require.NoError(t, err)
 		require.Equal(t, "test_f_fvalue", result)
 	})
 
 	t.Run("uppercase letters", func(t *testing.T) {
 		t.Parallel()
-		result := escapeForTableName("TestValue")
+		result, err := escapeForTableName("TestValue")
+		require.NoError(t, err)
 		require.Equal(t, "TestValue", result)
 	})
 }

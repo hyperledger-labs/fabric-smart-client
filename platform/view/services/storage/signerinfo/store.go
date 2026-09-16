@@ -12,6 +12,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 )
 
+// NewDefaultStore constructs a SignerInfoStore backed by the persistence configured under
+// "fsc.signerinfo.persistence", resolved through d.
 func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.SignerInfoStore, error) {
-	return d.NewSignerInfo(common.GetPersistenceName(cp, "fsc.signerinfo.persistence"), "default")
+	name, err := common.GetPersistenceName(cp, "fsc.signerinfo.persistence")
+	if err != nil {
+		return nil, err
+	}
+	return d.NewSignerInfo(name, "default")
 }

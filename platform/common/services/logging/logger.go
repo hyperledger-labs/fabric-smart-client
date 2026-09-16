@@ -15,10 +15,13 @@ import (
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+<<<<<<< HEAD
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+=======
+>>>>>>> upstream/main
 )
 
 // Logger provides logging API
@@ -71,10 +74,25 @@ func (l *logger) With(args ...any) Logger {
 	return newLogger(l.Zap().Sugar().With(args...).Desugar())
 }
 
+// MustGetLogger returns the same logger as GetLogger, panicking instead of
+// returning an error. This follows the regexp.MustCompile convention: it is
+// meant for the near-universal call pattern var logger =
+// logging.MustGetLogger() at package scope, where there is no caller to
+// propagate an error to. GetLogger only fails when GetPackageName cannot
+// determine the caller's package (see its Godoc), a static invariant of the
+// process rather than runtime input, so panicking on it is a programmer-error
+// signal, not a crash on bad data.
 func MustGetLogger(params ...string) Logger {
-	return utils.MustGet(GetLogger(params...))
+	l, err := GetLogger(params...)
+	if err != nil {
+		panic(err)
+	}
+	return l
 }
 
+// GetLogger returns a Logger named after the caller's package, with any
+// registered Replacers applied and params appended to the name. It fails
+// only if GetPackageName cannot resolve the caller.
 func GetLogger(params ...string) (Logger, error) {
 	return GetLoggerWithReplacements(Replacers(), params)
 }
@@ -88,6 +106,13 @@ func GetLoggerWithReplacements(replacements map[string]string, params []string) 
 	return newLogger(flogging.Global.ZapLogger(name)), nil
 }
 
+// GetPackageName resolves the package path of the caller four stack frames
+// above its own, an offset fixed to the GetLogger/GetLoggerWithReplacements
+// chain that GetLogger and MustGetLogger call it through. It returns an
+// error rather than panicking if that frame cannot be found or resolved to a
+// function, since callers other than that fixed chain (direct callers, or
+// tests calling this package's exported functions at a different depth) can
+// legitimately hit it.
 func GetPackageName() (string, error) {
 	pc, _, _, ok := runtime.Caller(4)
 	if !ok {

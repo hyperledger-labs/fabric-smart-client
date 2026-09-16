@@ -12,6 +12,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 )
 
+// NewDefaultStore constructs an AuditInfoStore backed by the persistence configured under
+// "fsc.auditinfo.persistence", resolved through d.
 func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.AuditInfoStore, error) {
-	return d.NewAuditInfo(common.GetPersistenceName(cp, "fsc.auditinfo.persistence"), "default")
+	name, err := common.GetPersistenceName(cp, "fsc.auditinfo.persistence")
+	if err != nil {
+		return nil, err
+	}
+	return d.NewAuditInfo(name, "default")
 }

@@ -36,9 +36,18 @@ type StreamProvider interface {
 	io.Closer
 }
 
-func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) *host {
-	clientConfig := config.ClientTLSConfig(caPoolProvider)
-	serverConfig := config.ServerTLSConfig(caPoolProvider)
+// NewHost builds a websocket P2P host, resolving its client and server TLS configuration
+// from config. It returns an error if either TLS configuration cannot be built (invalid root
+// CAs or an invalid keypair).
+func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) (*host, error) {
+	clientConfig, err := config.ClientTLSConfig(caPoolProvider)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build client TLS config")
+	}
+	serverConfig, err := config.ServerTLSConfig(caPoolProvider)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build server TLS config")
+	}
 	logger.Debugf("Create p2p client for node ID [%s] with TLS config [server: %v] [client: %v]", nodeID, serverConfig, clientConfig)
 
 	return &host{
@@ -61,7 +70,7 @@ func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvi
 			streamProvider: streamProvider,
 		},
 		routing: routing,
-	}
+	}, nil
 }
 
 func (h *host) Addr() string {

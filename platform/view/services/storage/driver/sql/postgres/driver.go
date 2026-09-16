@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -59,10 +58,15 @@ func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (dr
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewAuditInfoStore, params...)
 }
 
+// NewPersistenceWithOpts constructs a V backed by the postgres persistence configured under name and
+// params: it resolves the connection options and table names, opens the database, and invokes
+// constructor to build the store, creating its schema unless configured to skip.
 func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider DbProvider, name driver.PersistenceName, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
+	var zero V
+
 	o, err := cfg.GetOpts(name, params...)
 	if err != nil {
-		return utils.Zero[V](), err
+		return zero, err
 	}
 
 	opts := Opts{
@@ -76,16 +80,19 @@ func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider 
 	}
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
-		return utils.Zero[V](), fmt.Errorf("error opening db: %w", err)
+		return zero, fmt.Errorf("error opening db: %w", err)
 	}
-	tables := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	tables, err := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	if err != nil {
+		return zero, err
+	}
 	p, err := constructor(dbs, tables)
 	if err != nil {
-		return utils.Zero[V](), err
+		return zero, err
 	}
 	if !o.SkipCreateTable {
 		if err := p.CreateSchema(); err != nil {
-			return utils.Zero[V](), err
+			return zero, err
 		}
 	}
 	return p, nil
