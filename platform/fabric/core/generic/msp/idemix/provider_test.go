@@ -283,6 +283,44 @@ func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, verifier.Verify(msg, sigma))
 }
 
+// TestProvider_VerifyRejectsMismatchedNym ensures that an association proof cannot be
+// paired with a Nym public key other than the one it was generated for. Without binding
+// the proof to a specific Nym, an adversary could take a valid proof from one identity
+// and attach an arbitrary attacker-chosen Nym to it.
+func TestProvider_VerifyRejectsMismatchedNym(t *testing.T) { //nolint:paralleltest
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+
+	config, err = fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
+	require.NoError(t, err)
+	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	require.NoError(t, err)
+	require.NotNil(t, p2)
+
+	id, _, err := p.Identity(nil)
+	require.NoError(t, err)
+	id2, _, err := p2.Identity(nil)
+	require.NoError(t, err)
+
+	r, err := p.Deserialize(id, false)
+	require.NoError(t, err)
+	r2, err := p.Deserialize(id2, false)
+	require.NoError(t, err)
+
+	// Forge an identity that carries id's association proof but id2's Nym public key.
+	forged := *r.Identity
+	forged.NymPublicKey = r2.NymPublicKey
+	require.Error(t, forged.Validate())
+}
+
 func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)

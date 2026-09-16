@@ -172,6 +172,7 @@ func (id *MSPIdentity) verifyProof() error {
 			Epoch:            id.Idemix.Epoch,
 			VerificationType: id.VerificationType,
 			Metadata:         metadata,
+			Nym:              id.NymPublicKey,
 		},
 	)
 	if err == nil && !valid {
