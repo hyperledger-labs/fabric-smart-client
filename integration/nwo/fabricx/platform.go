@@ -9,6 +9,7 @@ package fabricx
 import (
 	"fmt"
 
+	"github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit/grouper"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
@@ -19,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/scv2"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var logger = logging.MustGetLogger()
@@ -155,7 +155,7 @@ func (*Platform) DeleteVault(id string) {
 
 func (p *Platform) PostRun(load bool) {
 	// set up our docker environment for chaincode containers
-	utils.Must(p.dockerSupport.Setup())
+	gomega.Expect(p.dockerSupport.Setup()).NotTo(gomega.HaveOccurred())
 
 	// network post run
 	p.Network.PostRun(load)
@@ -165,5 +165,5 @@ func (p *Platform) Cleanup() {
 	p.Network.Cleanup()
 
 	// cleanup docker environment
-	utils.Must(p.dockerSupport.Cleanup())
+	gomega.Expect(p.dockerSupport.Cleanup()).NotTo(gomega.HaveOccurred())
 }

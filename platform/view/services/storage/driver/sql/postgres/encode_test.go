@@ -12,11 +12,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
-var someCompositeKey = utils.MustGet(kvs.CreateCompositeKey("prefix", []string{"a", "b", "c"}))
+var someCompositeKey = kvs.CreateCompositeKeyOrPanic("prefix", []string{"a", "b", "c"})
 
 func TestDecodeBYTEA(t *testing.T) {
 	t.Parallel()

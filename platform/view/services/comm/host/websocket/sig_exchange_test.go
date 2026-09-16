@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
@@ -61,7 +60,8 @@ func newWebsocketSignedParty(
 
 	// --- endpoint service ---------------------------------------------------
 	drv := mem.NewDriver()
-	bindingStore := utils.MustGet(drv.NewBinding(""))
+	bindingStore, err := drv.NewBinding("")
+	require.NoError(t, err)
 	es, err := endpoint.NewService(bindingStore)
 	require.NoError(t, err)
 	// Use the same PKI extractor and synthesizer as the production websocket
@@ -80,8 +80,10 @@ func newWebsocketSignedParty(
 	// --- sig service --------------------------------------------------------
 	deserializer, err := sig.NewDeserializer()
 	require.NoError(t, err)
-	signerStore := utils.MustGet(drv.NewSignerInfo(""))
-	auditStore := utils.MustGet(drv.NewAuditInfo(""))
+	signerStore, err := drv.NewSignerInfo("")
+	require.NoError(t, err)
+	auditStore, err := drv.NewAuditInfo("")
+	require.NoError(t, err)
 	sigService := sig.NewService(deserializer, auditStore, signerStore)
 
 	// Register this node's signer using the secret key of its comm key-pair.

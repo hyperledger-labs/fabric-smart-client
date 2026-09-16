@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
@@ -38,7 +37,8 @@ func render(p driver.Pagination) (string, []sqlbuild.Param) {
 }
 
 func setupPaginationWithLastID() *driver.PageIterator[*any] {
-	p := utils.MustGet(pagination.KeysetWithField[string](200, 10, "col_id", "StringField"))
+	p, err := pagination.KeysetWithField[string](200, 10, "col_id", "StringField")
+	Expect(err).ToNot(HaveOccurred())
 	query, args := render(p)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200"))
 	Expect(args).To(BeNil())
@@ -135,7 +135,8 @@ func TestKeysetGoingNextBack(t *testing.T) { //nolint:paralleltest
 func TestKeysetEmptyResults(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	p := utils.MustGet(pagination.KeysetWithField[string](200, 10, "col_id", "StringField"))
+	p, err := pagination.KeysetWithField[string](200, 10, "col_id", "StringField")
+	Expect(err).ToNot(HaveOccurred())
 	query, args := render(p)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200"))
 	Expect(args).To(BeNil())
@@ -156,7 +157,8 @@ func TestKeysetEmptyResults(t *testing.T) { //nolint:paralleltest
 func TestKeysetPartialResults(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	p := utils.MustGet(pagination.KeysetWithField[string](200, 20, "col_id", "StringField"))
+	p, err := pagination.KeysetWithField[string](200, 20, "col_id", "StringField")
+	Expect(err).ToNot(HaveOccurred())
 	query, args := render(p)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 20 OFFSET 200"))
 	Expect(args).To(BeNil())
@@ -178,7 +180,8 @@ func TestKeysetPartialResults(t *testing.T) { //nolint:paralleltest
 func TestKeysetInt(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	p := utils.MustGet(pagination.KeysetWithField[int](200, 10, "col_id", "IntField"))
+	p, err := pagination.KeysetWithField[int](200, 10, "col_id", "IntField")
+	Expect(err).ToNot(HaveOccurred())
 	query, args := render(p)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200"))
 	Expect(args).To(BeNil())

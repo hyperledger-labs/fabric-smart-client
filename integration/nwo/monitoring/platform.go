@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/jaeger"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/prometheus"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var logger = logging.MustGetLogger()
@@ -64,6 +63,11 @@ type Platform struct {
 }
 
 func New(reg api.Context, topology *Topology) *Platform {
+	prometheusReporter, err := prometheus.NewLocalReporter()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	jaegerReporter, err := jaeger.NewLocalReporter()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	p := &Platform{
 		Context:            reg,
 		RootDir:            reg.RootDir(),
@@ -71,8 +75,8 @@ func New(reg api.Context, topology *Topology) *Platform {
 		topology:           topology,
 		Extensions:         []Extension{},
 		networkID:          common.UniqueName(),
-		prometheusReporter: utils.MustGet(prometheus.NewLocalReporter()),
-		jaegerReporter:     utils.MustGet(jaeger.NewLocalReporter()),
+		prometheusReporter: prometheusReporter,
+		jaegerReporter:     jaegerReporter,
 	}
 	p.AddExtension(hle.NewExtension(p))
 	p.AddExtension(monitoring.NewExtension(p))

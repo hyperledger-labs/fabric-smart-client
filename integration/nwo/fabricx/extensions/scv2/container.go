@@ -25,6 +25,7 @@ import (
 	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
+	"github.com/onsi/gomega"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	"golang.org/x/sync/errgroup"
@@ -35,7 +36,6 @@ import (
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	fabricx_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func (e *Extension) launchContainer() {
@@ -60,10 +60,12 @@ func (e *Extension) launchContainer() {
 	// orderer config file and load it into the container.
 	// This can be removed and replaced with proper configuration via env vars once the issue #567 is fixed.
 	mockOrdererConfigPath := filepath.Clean(filepath.Join(e.network.Context.RootDir(), e.network.Prefix, "mock-orderer.yaml"))
-	utils.Must(generateMockOrdererConfigFile(mockOrdererConfigPath, ordererConsenters(e.network)))
+	gomega.Expect(generateMockOrdererConfigFile(mockOrdererConfigPath, ordererConsenters(e.network))).NotTo(gomega.HaveOccurred())
 
-	d := utils.MustGet(docker.GetInstance())
-	localIP := utils.MustGet(d.LocalIP(networkID))
+	d, err := docker.GetInstance()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	localIP, err := d.LocalIP(networkID)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// prep extra hosts:
 	var extraHosts []string
@@ -89,9 +91,10 @@ func (e *Extension) launchContainer() {
 	logger.Infof("Run fabric-x committer test container on %v ports: sidecar=%v query=%v orderer=%v",
 		localIP, sidecarPort, queryServicePort, orderingServicePort)
 
-	cli := utils.MustGet(dcli.New(dcli.FromEnv))
+	cli, err := dcli.New(dcli.FromEnv)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	ctx := context.TODO()
-	resp := utils.MustGet(cli.ContainerCreate(
+	resp, err := cli.ContainerCreate(
 		ctx,
 		dcli.ContainerCreateOptions{
 			Name: containerName,
@@ -134,9 +137,11 @@ func (e *Extension) launchContainer() {
 				},
 			},
 		},
-	))
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	_ = utils.MustGet(cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{}))
+	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	dockerLogger := logging.MustGetLogger("sc.container." + resp.ID[:8])
@@ -150,7 +155,7 @@ func (e *Extension) launchContainer() {
 			ShowStderr: true,
 			Follow:     true,
 		})
-		utils.Must(errx)
+		gomega.Expect(errx).NotTo(gomega.HaveOccurred())
 		defer func() {
 			_ = reader.Close()
 		}()
@@ -170,15 +175,17 @@ func (e *Extension) launchContainer() {
 
 	var tlsConfig credentials.TransportCredentials
 	if e.network.TLSEnabled {
-		caCert := utils.MustGet(os.ReadFile(e.network.CACertsBundlePath()))
+		caCert, err := os.ReadFile(e.network.CACertsBundlePath())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
 		tlsDir := e.network.PeerUserTLSDir(sidecarPeer, "Admin")
-		cert := utils.MustGet(tls.LoadX509KeyPair(
+		cert, err := tls.LoadX509KeyPair(
 			filepath.Join(tlsDir, "client.crt"),
 			filepath.Join(tlsDir, "client.key"),
-		))
+		)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		tlsConfig = credentials.NewTLS(&tls.Config{
 			RootCAs:      caCertPool,
@@ -201,5 +208,5 @@ func (e *Extension) launchContainer() {
 			return fabric.WaitUntilReadyWithTLS(ctx, addr, tlsConfig)
 		})
 	}
-	utils.Must(g.Wait())
+	gomega.Expect(g.Wait()).NotTo(gomega.HaveOccurred())
 }
