@@ -16,6 +16,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
