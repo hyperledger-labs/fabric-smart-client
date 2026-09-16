@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package iterators
 
 import (
+	"reflect"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // Flatten returns a lazy [Iterator] over the elements of the slices that
@@ -40,7 +41,7 @@ func (it *flattenedPointers[A, B]) Next() (B, error) {
 	if err != nil {
 		return zero, errors.Wrapf(err, "failed fetching")
 	}
-	if utils.IsNil(next) {
+	if isNil(next) {
 		return zero, nil
 	}
 	transformed, err := it.transformer(next)
@@ -77,7 +78,7 @@ func (it *flattenedValues[A, B]) Next() (*B, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed fetching")
 	}
-	if utils.IsNil(next) {
+	if isNil(next) {
 		return nil, nil
 	}
 	transformed, err := it.transformer(next)
@@ -89,4 +90,10 @@ func (it *flattenedValues[A, B]) Next() (*B, error) {
 	}
 	it.remaining = transformed[1:]
 	return &transformed[0], nil
+}
+
+func isNil[T any](value T) bool {
+	// Use reflection to check if the value is nil
+	v := reflect.ValueOf(value)
+	return (v.Kind() == reflect.Pointer || v.Kind() == reflect.Slice || v.Kind() == reflect.Map || v.Kind() == reflect.Chan || v.Kind() == reflect.Func || v.Kind() == reflect.Interface) && v.IsNil()
 }
