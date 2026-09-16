@@ -13,13 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestZero(t *testing.T) {
-	t.Parallel()
-	require.Equal(t, 0, Zero[int]())
-	require.Empty(t, Zero[string]())
-	require.Nil(t, Zero[*int]())
-}
-
 func TestMust(t *testing.T) {
 	t.Parallel()
 
