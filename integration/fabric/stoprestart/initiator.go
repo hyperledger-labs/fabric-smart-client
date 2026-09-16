@@ -8,10 +8,9 @@ package stoprestart
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -41,7 +40,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 			return nil, errors.New(string(msg.Payload))
 		}
 		if !bytes.Equal(msg.Payload, p.in) {
-			return nil, fmt.Errorf("expected %s, got %s", string(p.in), string(msg.Payload))
+			return nil, errors.Errorf("expected %s, got %s", string(p.in), string(msg.Payload))
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")

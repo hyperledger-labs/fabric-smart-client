@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package prometheus
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -17,6 +17,7 @@ import (
 
 	prom "github.com/prometheus/client_golang/prometheus"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
@@ -181,7 +182,7 @@ func getOrCreate[V prom.Collector, O any](p *Provider, kind, fqName string, opts
 	}
 	entry, ok := e.(*cacheEntry)
 	if !ok {
-		panic(fmt.Errorf("unexpected cache entry type [%T]", e))
+		panic(errors.Errorf("unexpected cache entry type [%T]", e))
 	}
 	return fromCache[V](key, entry, opts)
 }
@@ -193,7 +194,7 @@ func fromCache[V prom.Collector, O any](key string, e *cacheEntry, opts O) V {
 	if sameType && reflect.DeepEqual(e.opts, opts) {
 		return c
 	}
-	panic(fmt.Errorf("metric [%s] was requested with a different type or options than it was created with", key))
+	panic(errors.Errorf("metric [%s] was requested with a different type or options than it was created with", key))
 }
 
 // register registers c and returns it. If an identical collector is already
@@ -204,11 +205,11 @@ func register[V prom.Collector](fqName string, c V) prom.Collector {
 		return c
 	}
 	are := prom.AlreadyRegisteredError{}
-	if errors.As(err, &are) {
+	if stderrors.As(err, &are) {
 		if existing, ok := are.ExistingCollector.(V); ok {
 			return existing
 		}
-		err = fmt.Errorf("metric [%s] is already registered with an incompatible collector type %T", fqName, are.ExistingCollector)
+		err = errors.Errorf("metric [%s] is already registered with an incompatible collector type %T", fqName, are.ExistingCollector)
 	}
 	panic(err)
 }

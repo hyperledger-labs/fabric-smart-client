@@ -23,6 +23,7 @@ import (
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
@@ -227,11 +228,11 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	}
 	peers := n.PeersInOrg(orgName)
 	if len(peers) == 0 {
-		return nil, fmt.Errorf("no peers found for org %s", orgName)
+		return nil, errors.Errorf("no peers found for org %s", orgName)
 	}
 	committerNode := n.Peer(n.CommitterOrg, n.CommitterName)
 	if committerNode == nil {
-		return nil, fmt.Errorf("no committer peer (name=%v) found for org=%v", n.CommitterName, n.CommitterOrg)
+		return nil, errors.Errorf("no committer peer (name=%v) found for org=%v", n.CommitterName, n.CommitterOrg)
 	}
 	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, QueryServicePortName))
 
@@ -258,7 +259,7 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	}
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
 	if sess.ExitCode() != 0 {
-		return nil, fmt.Errorf("namespace list returned non-zero exit code %d: %s", sess.ExitCode(), string(sess.Err.Contents()))
+		return nil, errors.Errorf("namespace list returned non-zero exit code %d: %s", sess.ExitCode(), string(sess.Err.Contents()))
 	}
 	return parseNamespaceList(string(sess.Out.Contents())), nil
 }

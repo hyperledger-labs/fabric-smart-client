@@ -8,7 +8,6 @@ package network
 
 import (
 	"bytes"
-	"fmt"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 
@@ -231,12 +230,12 @@ func Compute(original, updated *cb.Config) (*cb.ConfigUpdate, error) {
 	}
 
 	if updated.ChannelGroup == nil {
-		return nil, fmt.Errorf("no channel group included for updated config")
+		return nil, errors.New("no channel group included for updated config")
 	}
 
 	readSet, writeSet, groupUpdated := computeGroupUpdate(original.ChannelGroup, updated.ChannelGroup)
 	if !groupUpdated {
-		return nil, fmt.Errorf("no differences detected between original and updated config")
+		return nil, errors.New("no differences detected between original and updated config")
 	}
 	return &cb.ConfigUpdate{
 		ReadSet:  readSet,

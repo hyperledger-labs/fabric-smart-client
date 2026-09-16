@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -137,7 +138,7 @@ func executeSignedCommand(cli *benchmark.ViewClient, sc *protos2.SignedCommand, 
 		return err
 	}
 	if commandResp.GetErr() != nil {
-		return fmt.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
+		return errors.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
 	}
 
 	return nil

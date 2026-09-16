@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
-	"fmt"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
@@ -63,7 +62,7 @@ func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite2.DbProvider, co
 	opts := Op.GetOpts(params...)
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
-		return zero, fmt.Errorf("error opening db: %w", err)
+		return zero, errors.Wrap(err, "error opening db")
 	}
 	tables, err := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	if err != nil {

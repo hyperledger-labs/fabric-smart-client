@@ -11,7 +11,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"fmt"
 	"time"
 
 	"github.com/hyperledger/fabric-lib-go/bccsp"
@@ -64,7 +63,7 @@ func (msp *bccspmsp) getCertifiersIdentifier(certRaw []byte) ([]byte, error) {
 	}
 	if !found {
 		// Certificate not valid, reject configuration
-		return nil, fmt.Errorf("failed adding OU. Certificate [%v] not in root or intermediate certs", cert)
+		return nil, errors.Errorf("failed adding OU. Certificate [%v] not in root or intermediate certs", cert)
 	}
 
 	// 3. get the certification path for it

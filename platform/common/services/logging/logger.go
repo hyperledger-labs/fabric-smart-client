@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
-	"errors"
 	"net/http"
 	"runtime"
 	"strings"
@@ -16,6 +15,8 @@ import (
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // Logger provides logging API

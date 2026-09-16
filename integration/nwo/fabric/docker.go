@@ -8,7 +8,6 @@ package fabric
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -32,7 +31,7 @@ func (d *Docker) Setup() error {
 	// getting our docker helper, check required images exists and launch a docker network
 	client, err := docker.GetInstance()
 	if err != nil {
-		return fmt.Errorf("failed to get docker helper: %w", err)
+		return errors.Wrap(err, "failed to get docker helper")
 	}
 
 	// check if all docker images we need are available
@@ -103,21 +102,21 @@ func WaitUntilReadyWithTLS(ctx context.Context, grpcEndpoint string, tlsConfig c
 
 	conn, err := grpc.NewClient(grpcEndpoint, options...)
 	if err != nil {
-		return fmt.Errorf("grpc Dial(%q) failed: %w", grpcEndpoint, err)
+		return errors.Wrapf(err, "grpc Dial(%q) failed", grpcEndpoint)
 	}
 	defer func() { _ = conn.Close() }()
 
 	healthClient := healthgrpc.NewHealthClient(conn)
 	res, err := healthClient.Check(ctx, &healthgrpc.HealthCheckRequest{})
 	if status.Code(err) == codes.Canceled {
-		return fmt.Errorf("healthcheck canceled: %w", err)
+		return errors.Wrap(err, "healthcheck canceled")
 	}
 	if err != nil {
-		return fmt.Errorf("healthcheck failed: %w", err)
+		return errors.Wrap(err, "healthcheck failed")
 	}
 
 	if res.Status != healthgrpc.HealthCheckResponse_SERVING {
-		return fmt.Errorf("invalid status .... %s", res)
+		return errors.Errorf("invalid status .... %s", res)
 	}
 
 	logger.Infof("Ready! (t=%v)", time.Since(startWaitingAt))

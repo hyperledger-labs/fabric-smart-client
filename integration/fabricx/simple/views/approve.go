@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
-	"fmt"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
@@ -41,16 +40,16 @@ func (*ApproveView) Call(viewCtx view.Context) (any, error) {
 
 	// check that tx has a create command
 	if tx.Commands().Count() != 1 {
-		return nil, fmt.Errorf("cmd count is wrong, expected 1 but got %d", tx.Commands().Count())
+		return nil, errors.Errorf("cmd count is wrong, expected 1 but got %d", tx.Commands().Count())
 	}
 
 	cmd := tx.Commands().At(0)
 	if cmd.Name != "create" {
-		return nil, fmt.Errorf("cmd type is wrong, expected `create` but got %s", cmd.Name)
+		return nil, errors.Errorf("cmd type is wrong, expected `create` but got %s", cmd.Name)
 	}
 
 	if tx.NumOutputs() != 1 {
-		return nil, fmt.Errorf("num of output must be 1, got %d", tx.NumOutputs())
+		return nil, errors.Errorf("num of output must be 1, got %d", tx.NumOutputs())
 	}
 
 	obj := &SomeObject{}
@@ -71,12 +70,12 @@ func (*ApproveView) Call(viewCtx view.Context) (any, error) {
 
 	// note that this obj should not yet exist
 	if val != nil {
-		return nil, fmt.Errorf("this should be an error")
+		return nil, errors.New("this should be an error")
 	}
 
 	// some additional checks
 	if obj.Value < 0 {
-		return nil, fmt.Errorf("obj value can not be smaller than 0, go %d", obj.Value)
+		return nil, errors.Errorf("obj value can not be smaller than 0, go %d", obj.Value)
 	}
 
 	// The approver is ready to send back the transaction signed

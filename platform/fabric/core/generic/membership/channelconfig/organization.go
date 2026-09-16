@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package channelconfig
 
 import (
-	"fmt"
-
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	mspprotos "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 
@@ -39,7 +37,7 @@ type OrganizationConfig struct {
 // NewOrganizationConfig creates a new config for an organization
 func NewOrganizationConfig(name string, orgGroup *cb.ConfigGroup, mspConfigHandler *MSPConfigHandler) (*OrganizationConfig, error) {
 	if len(orgGroup.Groups) > 0 {
-		return nil, fmt.Errorf("organizations do not support sub-groups")
+		return nil, errors.New("organizations do not support sub-groups")
 	}
 
 	oc := &OrganizationConfig{
@@ -90,7 +88,7 @@ func (oc *OrganizationConfig) validateMSP() error {
 	oc.mspID, _ = oc.msp.GetIdentifier()
 
 	if oc.mspID == "" {
-		return fmt.Errorf("MSP for org %s has empty MSP ID", oc.name)
+		return errors.Errorf("MSP for org %s has empty MSP ID", oc.name)
 	}
 
 	return nil

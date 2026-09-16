@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"fmt"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
@@ -85,7 +84,7 @@ func NewPersistenceWithOpts[V common2.DBObject](cfg *postgres2.ConfigProvider, d
 	}
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
-		return zero, fmt.Errorf("error opening db: %w", err)
+		return zero, errors.Wrap(err, "error opening db")
 	}
 	tables, err := common3.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	if err != nil {

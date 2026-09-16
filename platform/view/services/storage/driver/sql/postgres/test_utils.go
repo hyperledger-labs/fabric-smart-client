@@ -23,6 +23,8 @@ import (
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
 	_ "modernc.org/sqlite"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const (
@@ -176,7 +178,7 @@ func ConfigFromDataSource(s string) (*ContainerConfig, error) {
 		Port:   cfg["port"],
 	}
 	if len(c.DBName) == 0 || len(c.Port) == 0 || len(c.Pass) == 0 || len(c.User) == 0 {
-		return nil, fmt.Errorf("incomplete datasource: %s", s)
+		return nil, errors.Errorf("incomplete datasource: %s", s)
 	}
 
 	return &ContainerConfig{
@@ -191,12 +193,12 @@ func ConfigFromDataSource(s string) (*ContainerConfig, error) {
 // allows to connect to the database. If an error occurs, the closeF is nil and the datasource string is empty.
 func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func(), string, error) {
 	if c == nil {
-		return nil, "", fmt.Errorf("container config is nil")
+		return nil, "", errors.New("container config is nil")
 	}
 
 	cli, err := dcli.New(dcli.FromEnv)
 	if err != nil {
-		return nil, "", fmt.Errorf("can't get docker client: %w", err)
+		return nil, "", errors.Wrap(err, "can't get docker client")
 	}
 
 	// define postgres port inside the container
@@ -243,7 +245,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 		HostConfig: hostCfg,
 	})
 	if err != nil {
-		return nil, "", fmt.Errorf("can't create postgres container: %w", err)
+		return nil, "", errors.Wrap(err, "can't create postgres container")
 	}
 
 	// define our close function that is returned to the caller
@@ -257,7 +259,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 
 	if _, err := cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{}); err != nil {
 		closeFunc()
-		return nil, "", fmt.Errorf("can't start postgres container: %w", err)
+		return nil, "", errors.Wrap(err, "can't start postgres container")
 	}
 
 	// read the actual exposed postgres port
@@ -321,11 +323,11 @@ func waitUntilHealth(ctx context.Context, cli dcli.APIClient, containerID string
 	for {
 		inspect, err := cli.ContainerInspect(ctx, containerID, dcli.ContainerInspectOptions{})
 		if err != nil {
-			return fmt.Errorf("inspect failed: %w", err)
+			return errors.Wrap(err, "inspect failed")
 		}
 
 		if inspect.Container.State.Health == nil {
-			return fmt.Errorf("no healthcheck defined in container %s", containerID)
+			return errors.Errorf("no healthcheck defined in container %s", containerID)
 		}
 
 		switch inspect.Container.State.Health.Status {
@@ -334,7 +336,7 @@ func waitUntilHealth(ctx context.Context, cli dcli.APIClient, containerID string
 			return nil
 		case container.Unhealthy:
 			// :(
-			return fmt.Errorf("container %s unhealthy", containerID)
+			return errors.Errorf("container %s unhealthy", containerID)
 		default:
 		}
 
@@ -400,7 +402,7 @@ func getPostgresPort(ctx context.Context, cli dcli.APIClient, containerID string
 	// Look for the exposed port 5432/tcp
 	portBindings := inspection.Container.NetworkSettings.Ports[network.MustParsePort("5432/tcp")]
 	if len(portBindings) == 0 {
-		return "", fmt.Errorf("port 5432 not mapped")
+		return "", errors.New("port 5432 not mapped")
 	}
 
 	return portBindings[0].HostPort, nil

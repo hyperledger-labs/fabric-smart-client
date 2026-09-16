@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/jaeger"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/prometheus"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
@@ -263,7 +264,7 @@ func (n *NWO) PrometheusReporter() (prometheus.Reporter, error) {
 			return metricsPlatform.PrometheusReporter(), nil
 		}
 	}
-	return nil, fmt.Errorf("no Prometheus API available on any platform")
+	return nil, errors.New("no Prometheus API available on any platform")
 }
 
 func (n *NWO) JaegerReporter() (jaeger.Reporter, error) {
@@ -272,5 +273,5 @@ func (n *NWO) JaegerReporter() (jaeger.Reporter, error) {
 			return metricsPlatform.JaegerReporter(), nil
 		}
 	}
-	return nil, fmt.Errorf("no Jaeger API available on any platform")
+	return nil, errors.New("no Jaeger API available on any platform")
 }

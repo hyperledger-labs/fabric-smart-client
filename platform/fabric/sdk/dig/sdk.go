@@ -8,12 +8,10 @@ package sdk
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"go.uber.org/dig"
 
-	e "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -143,7 +141,7 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	}
 
 	if err := p.fnsProvider.Start(ctx); err != nil {
-		return e.Wrapf(err, "failed starting fabric network service provider")
+		return errors.Wrapf(err, "failed starting fabric network service provider")
 	}
 
 	go func() {
@@ -172,7 +170,7 @@ func registerProcessorsForDrivers(in struct {
 		logger.Infof("trying to install for driver: %s", d.Name)
 		c, err := in.CoreConfig.Config(in.CoreConfig.DefaultName())
 		if err != nil {
-			return e.Wrapf(err, "failed getting config for default fabric network")
+			return errors.Wrapf(err, "failed getting config for default fabric network")
 		}
 		if c.Driver != d.Name {
 			logger.Infof("Skipping registration of default network, because its driver is %s. We are registering %s", c.Driver, d.Name)
@@ -180,7 +178,7 @@ func registerProcessorsForDrivers(in struct {
 		}
 		defaultFns, err := in.NetworkServiceProvider.FabricNetworkService("")
 		if err != nil {
-			return fmt.Errorf("could not find default FNS: %w", err)
+			return errors.Wrap(err, "could not find default FNS")
 		}
 		for _, name := range in.CoreConfig.Names() {
 			c, err := in.CoreConfig.Config(name)
@@ -191,10 +189,10 @@ func registerProcessorsForDrivers(in struct {
 			logger.Infof("did not skip: %s", c.Driver)
 			fns, err := in.NetworkServiceProvider.FabricNetworkService(name)
 			if err != nil {
-				return fmt.Errorf("could not find FNS [%s]: %w", name, err)
+				return errors.Wrapf(err, "could not find FNS [%s]", name)
 			}
 			if err := fns.ProcessorManager().SetDefaultProcessor(state.NewRWSetProcessor(defaultFns)); err != nil {
-				return e.Wrapf(err, "failed setting state processor for fabric network [%s]", name)
+				return errors.Wrapf(err, "failed setting state processor for fabric network [%s]", name)
 			}
 		}
 	}
@@ -212,17 +210,17 @@ func registerRWSetLoaderHandlerProviders(in struct {
 	for _, network := range in.CoreConfig.Names() {
 		fsn, err := in.FSNProvider.FabricNetworkService(network)
 		if err != nil {
-			return e.Wrapf(err, "could not find network service for %s", network)
+			return errors.Wrapf(err, "could not find network service for %s", network)
 		}
 		for _, channelName := range fsn.ConfigService().ChannelIDs() {
 			ch, err := fsn.Channel(channelName)
 			if err != nil {
-				return e.Wrapf(err, "could not find channel %s for network %s", channelName, network)
+				return errors.Wrapf(err, "could not find channel %s for network %s", channelName, network)
 			}
 			loader := ch.RWSetLoader()
 			for _, handlerProvider := range in.HandlerProviders {
 				if err := loader.AddHandlerProvider(handlerProvider.Type, handlerProvider.New); err != nil {
-					return e.Wrapf(err, "failed to add handler to channel %s", channelName)
+					return errors.Wrapf(err, "failed to add handler to channel %s", channelName)
 				}
 			}
 		}

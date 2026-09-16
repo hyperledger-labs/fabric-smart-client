@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
@@ -166,7 +167,7 @@ func validateIndexJSON(indexDefinition map[string]any) error {
 		case "index":
 
 			if reflect.TypeOf(jsonValue).Kind() != reflect.Map {
-				return fmt.Errorf("invalid entry, \"index\" must be a JSON")
+				return errors.New("invalid entry, \"index\" must be a JSON")
 			}
 
 			err := processIndexMap(jsonValue.(map[string]any))
@@ -180,7 +181,7 @@ func validateIndexJSON(indexDefinition map[string]any) error {
 
 			// Verify the design doc is a string
 			if reflect.TypeOf(jsonValue).Kind() != reflect.String {
-				return fmt.Errorf("invalid entry, \"ddoc\" must be a string")
+				return errors.New("invalid entry, \"ddoc\" must be a string")
 			}
 
 			logger.Debugf("Found index object: \"%s\":\"%s\"", jsonKey, jsonValue)
@@ -189,7 +190,7 @@ func validateIndexJSON(indexDefinition map[string]any) error {
 
 			// Verify the name is a string
 			if reflect.TypeOf(jsonValue).Kind() != reflect.String {
-				return fmt.Errorf("invalid entry, \"name\" must be a string")
+				return errors.New("invalid entry, \"name\" must be a string")
 			}
 
 			logger.Debugf("Found index object: \"%s\":\"%s\"", jsonKey, jsonValue)
@@ -197,20 +198,20 @@ func validateIndexJSON(indexDefinition map[string]any) error {
 		case "type":
 
 			if jsonValue != "json" {
-				return fmt.Errorf("index type must be json")
+				return errors.New("index type must be json")
 			}
 
 			logger.Debugf("Found index object: \"%s\":\"%s\"", jsonKey, jsonValue)
 
 		default:
 
-			return fmt.Errorf("invalid Entry.  Entry %s", jsonKey)
+			return errors.Errorf("invalid Entry.  Entry %s", jsonKey)
 
 		}
 	}
 
 	if !indexIncluded {
-		return fmt.Errorf("index definition must include a \"fields\" definition")
+		return errors.New("index definition must include a \"fields\" definition")
 	}
 
 	return nil
@@ -248,7 +249,7 @@ func processIndexMap(jsonFragment map[string]any) error {
 				}
 
 			default:
-				return fmt.Errorf("expecting a JSON array of fields")
+				return errors.New("expecting a JSON array of fields")
 			}
 
 		case "partial_filter_selector":
@@ -260,7 +261,7 @@ func processIndexMap(jsonFragment map[string]any) error {
 
 			// if anything other than "fields" or "partial_filter_selector" was found,
 			// return an error
-			return fmt.Errorf("invalid Entry.  Entry %s", jsonKey)
+			return errors.Errorf("invalid Entry.  Entry %s", jsonKey)
 
 		}
 	}
@@ -278,12 +279,12 @@ func validateFieldMap(jsonFragment map[string]any) error {
 			// Ensure the sort is either "asc" or "desc"
 			jv := strings.ToLower(jsonValue)
 			if jv != "asc" && jv != "desc" {
-				return fmt.Errorf("sort must be either \"asc\" or \"desc\".  \"%s\" was found", jsonValue)
+				return errors.Errorf("sort must be either \"asc\" or \"desc\".  \"%s\" was found", jsonValue)
 			}
 			logger.Debugf("Found index field name: \"%s\":\"%s\"", jsonKey, jsonValue)
 
 		default:
-			return fmt.Errorf("invalid field definition, fields must be in the form \"fieldname\":\"sort\"")
+			return errors.New("invalid field definition, fields must be in the form \"fieldname\":\"sort\"")
 		}
 	}
 

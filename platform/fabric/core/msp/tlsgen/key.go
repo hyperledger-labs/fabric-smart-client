@@ -15,7 +15,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"net"
 	"time"
@@ -124,7 +123,7 @@ func encodePEM(keyType string, data []byte) []byte {
 func computeSKI(key *ecdsa.PublicKey) ([]byte, error) {
 	ecdhPk, err := key.ECDH()
 	if err != nil {
-		return nil, fmt.Errorf("public key transition failed: %w", err)
+		return nil, errors.Wrap(err, "public key transition failed")
 	}
 
 	hash := sha256.Sum256(ecdhPk.Bytes())

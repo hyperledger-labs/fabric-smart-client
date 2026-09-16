@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
-	"errors"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
