@@ -22,7 +22,6 @@ import (
 	benchviews "github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
@@ -139,76 +138,98 @@ type clientConfig struct {
 }
 
 type (
-	ServerOption func(c *serverConfig)
-	ClientOption func(c *clientConfig)
+	ServerOption func(c *serverConfig) error
+	ClientOption func(c *clientConfig) error
 )
 
 // --- Server Options ---
 
 func WithNOOPWorkload() ServerOption {
-	return func(c *serverConfig) {
+	return func(c *serverConfig) error {
 		factory := &benchviews.NoopViewFactory{}
-		v := utils.MustGet(factory.NewView(nil))
+		v, err := factory.NewView(nil)
+		if err != nil {
+			return err
+		}
 		c.workload = v
+		return nil
 	}
 }
 
 func WithCPUWorkload(n int) ServerOption {
-	return func(c *serverConfig) {
+	return func(c *serverConfig) error {
 		params := &benchviews.CPUParams{N: n}
 		input, _ := json.Marshal(params)
 		factory := &benchviews.CPUViewFactory{}
-		v := utils.MustGet(factory.NewView(input))
+		v, err := factory.NewView(input)
+		if err != nil {
+			return err
+		}
 		c.workload = v
+		return nil
 	}
 }
 
 func WithECDSAWorkload() ServerOption {
-	return func(c *serverConfig) {
+	return func(c *serverConfig) error {
 		params := &benchviews.ECDSASignParams{}
 		input, _ := json.Marshal(params)
 		factory := &benchviews.ECDSASignViewFactory{}
-		v := utils.MustGet(factory.NewView(input))
+		v, err := factory.NewView(input)
+		if err != nil {
+			return err
+		}
 		c.workload = v
+		return nil
 	}
 }
 
 func WithServerMockSigner(id string) ServerOption {
-	return func(c *serverConfig) {
+	return func(c *serverConfig) error {
 		mIdentity := view.Identity(id)
 		c.signer = &benchmark.MockSigner{
 			SerializeFunc: func() ([]byte, error) { return mIdentity.Bytes(), nil },
 			SignFunc:      func(b []byte) ([]byte, error) { return b, nil },
 		}
 		c.idProvider = &benchmark.MockIdentityProvider{DefaultSigner: mIdentity}
+		return nil
 	}
 }
 
 func WithServerECDSASigner(certPath, keyPath string) ServerOption {
-	return func(c *serverConfig) {
-		signer := utils.MustGet(client.NewX509SigningIdentity(certPath, keyPath))
+	return func(c *serverConfig) error {
+		signer, err := client.NewX509SigningIdentity(certPath, keyPath)
+		if err != nil {
+			return err
+		}
 		c.signer = signer
 		serialized, _ := signer.Serialize()
 		c.idProvider = &benchmark.MockIdentityProvider{DefaultSigner: serialized}
+		return nil
 	}
 }
 
 // --- Client Options ---
 
 func WithClientMockSigner(id string) ClientOption {
-	return func(c *clientConfig) {
+	return func(c *clientConfig) error {
 		mIdentity := view.Identity(id)
 		c.signer = &benchmark.MockSigner{
 			SerializeFunc: func() ([]byte, error) { return mIdentity.Bytes(), nil },
 			SignFunc:      func(b []byte) ([]byte, error) { return b, nil },
 		}
+		return nil
 	}
 }
 
 func WithClientECDSASigner(certPath, keyPath string) ClientOption {
-	return func(c *clientConfig) {
-		signer := utils.MustGet(client.NewX509SigningIdentity(certPath, keyPath))
+	return func(c *clientConfig) error {
+		signer, err := client.NewX509SigningIdentity(certPath, keyPath)
+		if err != nil {
+			return err
+		}
 		c.signer = signer
+		return nil
 	}
 }
 
@@ -219,7 +240,7 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 	cfg := &serverConfig{}
 	// Apply options
 	for _, opt := range opts {
-		opt(cfg)
+		require.NoError(tb, opt(cfg))
 	}
 
 	// Validate that the options successfully populated the config
@@ -283,7 +304,7 @@ func setupClient(tb testing.TB, srvEndpoint string, opts ...ClientOption) (*benc
 	cfg := &clientConfig{}
 	// Apply options
 	for _, opt := range opts {
-		opt(cfg)
+		require.NoError(tb, opt(cfg))
 	}
 	// Validate that the signer is present before proceeding
 	require.NotNil(tb, cfg.signer, "client signer was not configured by options")

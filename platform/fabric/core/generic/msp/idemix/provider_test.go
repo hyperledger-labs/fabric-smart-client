@@ -14,7 +14,6 @@ import (
 	math "github.com/IBM/mathlib"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -25,10 +24,10 @@ import (
 )
 
 func TestProvider(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
@@ -46,23 +45,32 @@ func TestProvider(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, p)
 }
 
-func newSignerInfo() driver.SignerInfoStore {
-	return utils.MustGet(mem.NewDriver().NewSignerInfo(""))
+func newSignerInfo(t *testing.T) driver.SignerInfoStore {
+	t.Helper()
+	s, err := mem.NewDriver().NewSignerInfo("")
+	require.NoError(t, err)
+	return s
 }
 
-func newAuditInfo() driver.AuditInfoStore {
-	return utils.MustGet(mem.NewDriver().NewAuditInfo(""))
+func newAuditInfo(t *testing.T) driver.AuditInfoStore {
+	t.Helper()
+	s, err := mem.NewDriver().NewAuditInfo("")
+	require.NoError(t, err)
+	return s
 }
 
-func newKVS() driver.KeyValueStore {
-	return utils.MustGet(mem.NewDriver().NewKVS(""))
+func newKVS(t *testing.T) driver.KeyValueStore {
+	t.Helper()
+	s, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	return s
 }
 
 func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
@@ -121,10 +129,10 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 }
 
 func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
@@ -185,9 +193,9 @@ func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
 }
 
 func TestAuditWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
@@ -223,10 +231,10 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 }
 
 func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
@@ -276,9 +284,9 @@ func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
 }
 
 func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	require.NoError(t, err)
@@ -339,9 +347,9 @@ func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 }
 
 func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	require.NoError(t, err)
@@ -402,10 +410,10 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralle
 }
 
 func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)

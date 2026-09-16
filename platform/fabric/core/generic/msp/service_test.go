@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
@@ -35,7 +34,9 @@ func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
-	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
+	kvsStore, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
 	des := sig.NewMultiplexDeserializer()
@@ -59,7 +60,9 @@ func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest
 func TestIdemixTypeFolder(t *testing.T) { //nolint:paralleltest
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
 	require.NoError(t, err)
-	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
+	kvsStore, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	des := sig.NewMultiplexDeserializer()
 	config, err := config2.NewService(cp, "default", true)
@@ -78,7 +81,9 @@ func TestRegisterX509LocalMSP(t *testing.T) { //nolint:paralleltest
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
-	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
+	kvsStore, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
 	des := sig.NewMultiplexDeserializer()
@@ -102,7 +107,9 @@ func TestX509TypeFolder(t *testing.T) { //nolint:paralleltest
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	require.NoError(t, err)
 
-	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
+	kvsStore, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
 	des := sig.NewMultiplexDeserializer()
@@ -124,7 +131,9 @@ func TestRefresh(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	require.NoError(t, err)
 
-	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
+	kvsStore, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	des := sig.NewMultiplexDeserializer()
 	config, err := config2.NewService(cp, "default", true)
@@ -200,7 +209,9 @@ func setup(t *testing.T) (mspManager, *mock.SignerService, *mock.BinderService, 
 	cp.IsSetReturns(false)
 	cp.GetStringReturns("default_msp")
 
-	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
+	kvsStore, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
 	des := sig.NewMultiplexDeserializer()

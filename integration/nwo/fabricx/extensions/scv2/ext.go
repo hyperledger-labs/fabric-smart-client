@@ -13,6 +13,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	fabric_topo "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -20,7 +22,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var logger = logging.MustGetLogger()
@@ -167,7 +168,7 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 		}
 
 		var extension bytes.Buffer
-		utils.Must(t.Execute(&extension, data))
+		gomega.Expect(t.Execute(&extension, data)).NotTo(gomega.HaveOccurred())
 
 		for _, uniqueName := range fscNode.ReplicaUniqueNames() {
 			context.AddExtension(uniqueName, api.FabricExtension, extension.String())

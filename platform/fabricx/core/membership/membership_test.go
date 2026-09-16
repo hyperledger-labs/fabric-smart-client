@@ -26,7 +26,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -744,10 +743,10 @@ func TestService_CheckACL_IdemixSignedProposal(t *testing.T) { //nolint:parallel
 	mspConf, err := fabricmsp.GetLocalMspConfigWithType(idemixMSPDir, nil, idemixMSPI, "idemix")
 	require.NoError(t, err)
 
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	provider, err := idemix2.NewProviderWithAnyPolicy(mspConf, kvss, sigService)
 	require.NoError(t, err)
@@ -824,14 +823,23 @@ func (s *idemixSignerSerializer) Serialize() ([]byte, error) {
 
 // KVS helpers shared with the Idemix provider test (same pattern as provider_test.go).
 
-func newSignerInfo() storagedriver.SignerInfoStore {
-	return utils.MustGet(mem.NewDriver().NewSignerInfo(""))
+func newSignerInfo(t *testing.T) storagedriver.SignerInfoStore {
+	t.Helper()
+	s, err := mem.NewDriver().NewSignerInfo("")
+	require.NoError(t, err)
+	return s
 }
 
-func newAuditInfo() storagedriver.AuditInfoStore {
-	return utils.MustGet(mem.NewDriver().NewAuditInfo(""))
+func newAuditInfo(t *testing.T) storagedriver.AuditInfoStore {
+	t.Helper()
+	s, err := mem.NewDriver().NewAuditInfo("")
+	require.NoError(t, err)
+	return s
 }
 
-func newKVS() storagedriver.KeyValueStore {
-	return utils.MustGet(mem.NewDriver().NewKVS(""))
+func newKVS(t *testing.T) storagedriver.KeyValueStore {
+	t.Helper()
+	s, err := mem.NewDriver().NewKVS("")
+	require.NoError(t, err)
+	return s
 }

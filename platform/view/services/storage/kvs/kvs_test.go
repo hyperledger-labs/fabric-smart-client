@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
@@ -42,7 +41,9 @@ type stuff struct {
 
 func testRound(t *testing.T, drv driver2.Driver) {
 	t.Helper()
-	kvstore, err := kvs2.New(utils.MustGet(drv.NewKVS("")), "_default", kvs2.DefaultCacheSize)
+	kvsStore, err := drv.NewKVS("")
+	require.NoError(t, err)
+	kvstore, err := kvs2.New(kvsStore, "_default", kvs2.DefaultCacheSize)
 	require.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -131,7 +132,9 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 
 func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	t.Helper()
-	kvstore, err := kvs2.New(utils.MustGet(drv.NewKVS("")), "_default", kvs2.DefaultCacheSize)
+	kvsStore, err := drv.NewKVS("")
+	require.NoError(t, err)
+	kvstore, err := kvs2.New(kvsStore, "_default", kvs2.DefaultCacheSize)
 	require.NoError(t, err)
 	defer kvstore.Stop()
 

@@ -20,10 +20,10 @@ import (
 
 func TestIdentityLoader_Load(t *testing.T) { //nolint:paralleltest
 
-	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
 	loader := &idemix.IdentityLoader{
 		KVS:           kvss,
