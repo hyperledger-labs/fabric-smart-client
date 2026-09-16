@@ -218,6 +218,8 @@ Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updat
 | `fsc_fabric_core_generic_committer_block_commit` | histogram | none | End-to-end duration of committing the transactions in a block. |
 | `fsc_fabric_core_generic_committer_event_queue` | histogram | none | Time spent enqueueing a finality event into the committer's internal event channel. |
 | `fsc_fabric_core_generic_committer_event_queue_length` | gauge | none | Current number of pending events in the committer's event queue. |
+| `fsc_fabric_core_generic_committer_commit_retries` | counter | `network`, `channel` | Number of block commit attempts retried after a transient failure. |
+| `fsc_fabric_core_generic_committer_commit_failures` | counter | `network`, `channel`, `class` | Number of block commit failures returned to the caller, which stop that channel's block stream. |
 
 Operational notes:
 
@@ -230,6 +232,26 @@ Operational notes:
   - `successful`
 - `event_queue` measures enqueue blocking time, not the total residence time of an event in the queue.
 - `event_queue_length` is a manually maintained occupancy gauge.
+- `commit_retries` rising while `commit_failures` stays flat is a channel absorbing
+  transient faults and recovering on its own. It is worth a dashboard, not a page.
+- **Any** increment of `commit_failures` means that channel has stopped ingesting
+  blocks and will not resume without intervention. A stopped channel emits no
+  further blocks and no further errors, so it does not show up in `block_commit` at
+  all - that histogram simply stops receiving observations, which is
+  indistinguishable from an idle channel. This counter is what an alert should
+  watch.
+- `commit_failures{class}` uses the values:
+  - `degrade` - a deterministic failure on an already-final block, such as a
+    configuration this node cannot apply. Retrying cannot clear it.
+  - `fatal` - an invariant the node relies on is broken, so continuing would risk
+    committing over untrustworthy state.
+  - `retry` never appears here: a retryable failure that exhausts its budget is
+    wrapped in `ErrRetriesExhausted`, which classifies as `degrade`, so an alert on
+    `degrade` catches the exhausted-storage-fault case as well as the deterministic
+    ones.
+- Both counters carry `network` and `channel`, because the metrics provider is
+  process-wide and a node serves several channels: without them every channel would
+  increment one series and an operator would learn only that something stopped.
 
 Primary implementation: `platform/fabric/core/generic/committer/metrics.go`, updated in `platform/fabric/core/generic/committer/committer.go`.
 
@@ -331,6 +353,8 @@ The following labels are part of the current FSC metric surface.
 
 | Label | Meaning | Typical Values |
 | --- | --- | --- |
+| `channel` | Fabric channel name | deployment-specific channel name |
+| `class` | Committer commit-failure class that stopped the channel's block stream | `degrade`, `fatal` |
 | `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView`, `*protos.Command_InitiateView` |
 | `context_id` | FSC context identifier used by the WebSocket multiplexer tracer | FSC context UUID or caller-provided context ID |
 | `fid` | View factory identifier used by gRPC-oriented view tracers | application-defined factory ID |
