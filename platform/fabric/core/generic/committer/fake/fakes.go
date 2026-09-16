@@ -50,7 +50,17 @@ type ChannelConfig struct {
 	WaitForEventTimeout      time.Duration
 	FinalityEventQueueWorker int
 	PollingTimeout           time.Duration
+	Retries                  int
+	RetrySleep               time.Duration
 }
+
+// CommitRetries reports the retry budget. The zero value means no retry, which
+// keeps every test that does not care about retrying on a single attempt.
+func (c *ChannelConfig) CommitRetries() int { return c.Retries }
+
+// CommitRetrySleep reports the wait between attempts. The zero value means no
+// wait, so a test that does exercise retrying does not sleep.
+func (c *ChannelConfig) CommitRetrySleep() time.Duration { return c.RetrySleep }
 
 func (c *ChannelConfig) CommitterPollingTimeout() time.Duration {
 	return c.PollingTimeout

@@ -638,6 +638,23 @@ fabric:
             numRetries: 3
             unknownTxTimeout: 100ms
           parallelism: 3 # maximum go routines to commit at the same time transactions of the same block
+          # How many times a block whose commit failed transiently (storage
+          # contention, an expired context) is committed again before the failure
+          # is treated as permanent. Committing a block again is safe: already
+          # committed transactions are skipped.
+          #
+          # retries and retrySleep together set how long a channel is given to
+          # recover on its own - with the defaults, about a minute. Raise them to
+          # ride out a longer storage failover; set retries to 0 to commit once
+          # and never retry.
+          #
+          # When the budget is exhausted the error is returned, which stops this
+          # channel's block stream: no further blocks of any type are committed
+          # until the node is restarted. That is reported as
+          # fsc_fabric_core_generic_committer_commit_failures, labelled by
+          # network, channel and failure class.
+          retries: 5
+          retrySleep: 10s
         # section about the delivery service
         delivery:
           waitForEventTimeout: 300s

@@ -17,9 +17,14 @@ import (
 type DeliveryCallback func(tx ProcessedTransaction) (bool, error)
 
 // BlockCallback is the callback function prototype to alert the rest of the stack about the availability of a new block.
-// The function returns two argument a boolean to signal if delivery should be stopped, and an error
-// to signal an issue during the processing of the block.
-// In case of an error, the same block is re-processed after a delay.
+// It returns a boolean to signal that delivery should stop, and an error to
+// signal that processing the block failed.
+//
+// An error stops delivery for that channel. Whatever could be retried is expected
+// to have been retried by the callback already - the committer, for one, retries a
+// transient commit failure on the block internally - so an error returned here is
+// final and is not attempted again. To end delivery without reporting a failure,
+// return true instead.
 type BlockCallback func(context.Context, *common.Block) (bool, error)
 
 // Delivery gives access to Fabric channel delivery
