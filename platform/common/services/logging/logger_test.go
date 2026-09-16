@@ -107,3 +107,20 @@ func TestNewSpecHandler(t *testing.T) {
 
 	assert.NotNil(t, NewSpecHandler())
 }
+
+// TestMustGetLogger checks it returns a working Logger rather than panicking on the
+// happy path, the behavior utils.MustGet used to provide before MustGetLogger inlined
+// the check. GetLogger itself isn't exercised directly here: calling it from this
+// package's own tests is one stack frame shallower than the MustGetLogger/GetLogger/
+// GetLoggerWithReplacements chain GetPackageName's runtime.Caller(4) offset assumes,
+// which lands on testing.tRunner instead of a package path and panics — a pre-existing,
+// separately tracked bug (#1841), not something this change introduces or fixes.
+func TestMustGetLogger(t *testing.T) {
+	t.Parallel()
+
+	var l Logger
+	assert.NotPanics(t, func() {
+		l = MustGetLogger("component")
+	})
+	assert.NotNil(t, l)
+}
