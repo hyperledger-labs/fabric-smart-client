@@ -110,7 +110,7 @@ func GetPackageName() (string, error) {
 	}
 	dotAfterSlash := strings.Index(fullFuncName[lastSlash:], ".")
 	if dotAfterSlash < 0 {
-		return "", fmt.Errorf("caller package name has no function separator: %s", fullFuncName)
+		return "", errors.Errorf("caller package name has no function separator: %s", fullFuncName)
 	}
 
 	return fullFuncName[:lastSlash+dotAfterSlash], nil
