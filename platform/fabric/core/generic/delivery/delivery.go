@@ -197,8 +197,15 @@ func (d *Delivery) Run(ctx context.Context) error { //nolint:contextcheck // doc
 }
 
 // readBlocks invokes the callback for each block arriving on ch until the
-// service is stopped. It stops the service if the callback fails or asks to
-// stop.
+// service is stopped.
+//
+// Any error from the callback stops the service. The callback is expected to have
+// already dealt with whatever it could: the committer retries a transient commit
+// failure internally, on the block, because it is the component that can tell a
+// fault worth retrying from one that never clears. So an error arriving here is
+// final, and a Delivery neither inspects it nor tries again — it stops and reports
+// the cause. A callback that wants the stream to end without signalling a failure
+// returns true instead.
 func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 	for {
 		select {
@@ -206,7 +213,8 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 			logger.Debugf("Invoking callback for block [%d]", b.block.Header.Number)
 			stop, err := d.callback(b.ctx, b.block)
 			if err != nil {
-				logger.Errorf("callback errored for block [%d], stop delivery: [%v]", b.block.Header.Number, err)
+				logger.Errorf("callback failed for block [%d] on [%s:%s], stopping delivery: [%v]",
+					b.block.Header.Number, d.NetworkName, d.channel, err)
 				d.Stop(err)
 				return
 			}

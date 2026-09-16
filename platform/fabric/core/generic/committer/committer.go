@@ -113,6 +113,11 @@ type Committer struct {
 	listeners      map[string][]chan FinalityEvent
 	mutex          sync.Mutex
 	pollingTimeout time.Duration
+
+	// commitBlock substitutes for one attempt at committing a block. It is nil in
+	// production, where commitOnce runs the real path; a test sets it to drive
+	// retryBlock's classification and budget without standing up a vault.
+	commitBlock func(context.Context, *common.Block) error
 }
 
 func New(
@@ -152,7 +157,7 @@ func New(
 		TransactionManager: transactionManager,
 		DependencyResolver: dependencyResolver,
 		QuietNotifier:      quiet,
-		metrics:            NewMetrics(tracerProvider, metricsProvider),
+		metrics:            NewMetrics(tracerProvider, metricsProvider, configService.NetworkName(), channelConfig.ID()),
 		tracer:             tracerProvider.Tracer("committer", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
 		logger:             logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
 		listeners:          map[string][]chan FinalityEvent{},
@@ -289,11 +294,96 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 	return nil
 }
 
-// Commit commits the transactions in the block passed as argument
+// Commit commits the transactions in the block passed as argument.
+//
+// A transient failure — storage contention, an expired context — is retried here,
+// on this same block, because this is the component that can tell a fault worth
+// retrying from one that will never clear: it owns the vault, the membership
+// service and the channel configuration. Committing a block again is safe:
+// CommitEndorserTransaction skips transactions already marked valid or invalid,
+// and CommitConfig skips a configuration already in the vault.
+//
+// The error returned is therefore final. Retrying it will not help, and a caller
+// driving the commit — the channel's block delivery — should stop rather than
+// inspect it. Every failure is counted before it is returned, so a stopped stream
+// shows up as a fault rather than as an absence of traffic.
 func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 	newCtx, span := c.metrics.Commits.Start(ctx, "commit_block")
 	defer span.End()
 
+	err := c.retryBlock(newCtx, block)
+	if err == nil {
+		return nil
+	}
+
+	class := classify(err)
+	c.metrics.CommitFailures.With(failureClassLabel, class.String()).Add(1)
+	c.logger.Errorf("commit failed for block [%d] with class [%s], not retrying further: [%v]",
+		block.GetHeader().GetNumber(), class, err)
+	return err
+}
+
+// retryBlock commits a block, retrying while the failure classifies as
+// transient. It returns nil once the block is committed, or the error that ended
+// the attempts.
+//
+// The budget is bounded on purpose: an unbounded retry against a fault that turns
+// out to be permanent is a silent stall, which is the failure mode this path
+// exists to avoid. Exhausting it wraps the last error in ErrRetriesExhausted so
+// that it escalates out of the retry class, keeping the original cause matchable
+// underneath.
+func (c *Committer) retryBlock(ctx context.Context, block *common.Block) error {
+	blockNum := block.GetHeader().GetNumber()
+	retries := max(c.ChannelConfig.CommitRetries(), 0)
+
+	var err error
+	for attempt := 0; attempt <= retries; attempt++ {
+		if attempt > 0 {
+			c.logger.Warnf("retrying block [%d] after transient commit failure, attempt [%d/%d]: [%v]",
+				blockNum, attempt, retries, err)
+			select {
+			case <-ctx.Done():
+				return errors.Wrapf(errors.Join(ErrRetriesExhausted, err), "block [%d] abandoned: %v", blockNum, ctx.Err())
+			case <-time.After(c.ChannelConfig.CommitRetrySleep()):
+			}
+		}
+
+		// Checked before every attempt, including the first: a caller that has
+		// already given up must not have this block committed on the way out, and
+		// a zero retry delay would otherwise let the select above fall straight
+		// through to another attempt.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		err = c.commitOnce(ctx, block)
+		if classify(err) != classRetry {
+			return err
+		}
+		c.metrics.CommitRetries.Add(1)
+	}
+
+	// Wrapped rather than formatted in, so both stay matchable by errors.Is:
+	// ErrRetriesExhausted for the class, and whatever failed for the cause. The
+	// repo's errors.Wrapf is cockroachdb's and does not implement %w.
+	return errors.Wrapf(
+		errors.Join(ErrRetriesExhausted, err),
+		"block [%d] failed after [%d] retries", blockNum, retries,
+	)
+}
+
+// commitOnce makes a single attempt at committing every transaction in the block,
+// through commitBlock when a test has substituted one.
+func (c *Committer) commitOnce(ctx context.Context, block *common.Block) error {
+	if c.commitBlock != nil {
+		return c.commitBlock(ctx, block)
+	}
+	return c.commitBlockOnce(ctx, block)
+}
+
+// commitBlockOnce makes a single attempt at committing every transaction in the
+// block.
+func (c *Committer) commitBlockOnce(ctx context.Context, block *common.Block) error {
 	txs, err := unmarshalTxs(block)
 	if err != nil {
 		return errors.Wrapf(err, "[%s] unmarshal tx failed", c.ChannelConfig.ID())
@@ -301,7 +391,7 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 
 	resolvedTxs := c.DependencyResolver.Resolve(txs)
 
-	return c.commitTxs(newCtx, resolvedTxs, block.Metadata)
+	return c.commitTxs(ctx, resolvedTxs, block.Metadata)
 }
 
 func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups ParallelExecutable[SerialExecutable[CommitTx]], blockMetadata *common.BlockMetadata) error {
