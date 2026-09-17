@@ -2,6 +2,8 @@ module github.com/hyperledger-labs/fabric-smart-client
 
 go 1.27.1
 
+replace github.com/hyperledger/fabric-x-common => github.com/adecaro/fabric-x-common v0.0.0-20260917121949-8f54b999feb8
+
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/IBM/idemix v0.3.2-0.20260917063518-cc83c530b100
