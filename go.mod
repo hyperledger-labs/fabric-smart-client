@@ -4,8 +4,7 @@ go 1.27.1
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/IBM/idemix v0.3.2-0.20260916065527-4c03735f5d39
-	github.com/IBM/mathlib v0.3.2
+	github.com/IBM/idemix v0.3.2-0.20260917063518-cc83c530b100
 	github.com/XSAM/otelsql v0.44.0
 	github.com/cockroachdb/errors v1.14.0
 	github.com/containerd/errdefs v1.0.0
@@ -53,6 +52,7 @@ require (
 )
 
 require (
+	github.com/IBM/mathlib v0.3.2 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

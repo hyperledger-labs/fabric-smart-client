@@ -19,49 +19,53 @@ import (
 )
 
 func TestIdentityLoader_Load(t *testing.T) { //nolint:paralleltest
+	for _, dir := range curveDirs(t) {
+		t.Run(dir, func(t *testing.T) { //nolint:paralleltest
+			kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+			require.NoError(t, err)
 
-	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
-	require.NoError(t, err)
+			sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
+			loader := &idemix.IdentityLoader{
+				KVS:           kvss,
+				SignerService: sigService,
+			}
 
-	loader := &idemix.IdentityLoader{
-		KVS:           kvss,
-		SignerService: sigService,
+			mockConfig := &mock.Config{}
+			mockConfig.TranslatePathReturns(dir)
+
+			mockManager := &mock.Manager{}
+			mockManager.ConfigReturns(mockConfig)
+			mockManager.CacheSizeReturns(10)
+
+			mspConfig := config.MSP{
+				ID:        "idemix",
+				MSPType:   idemix.MSPType,
+				MSPID:     "idemix",
+				Path:      dir,
+				CacheSize: 5,
+				CurveID:   curveIDForDir(dir),
+			}
+
+			// Successful load
+			err = loader.Load(mockManager, mspConfig)
+			require.NoError(t, err)
+			require.Equal(t, 1, mockManager.AddMSPCallCount())
+			require.Equal(t, 1, mockManager.AddDeserializerCallCount())
+			id, mspType, enrollmentID, idGetter := mockManager.AddMSPArgsForCall(0)
+			require.Equal(t, "idemix", id)
+			require.Equal(t, idemix.MSPType, mspType)
+			require.NotEmpty(t, enrollmentID)
+			require.NotNil(t, idGetter)
+
+			// Error path: invalid config path
+			mockConfigErr := &mock.Config{}
+			mockConfigErr.TranslatePathReturns("./invalid/path")
+			mockManagerErr := &mock.Manager{}
+			mockManagerErr.ConfigReturns(mockConfigErr)
+
+			err = loader.Load(mockManagerErr, mspConfig)
+			require.ErrorContains(t, err, "failed reading idemix msp configuration")
+		})
 	}
-
-	mockConfig := &mock.Config{}
-	mockConfig.TranslatePathReturns("./testdata/idemix")
-
-	mockManager := &mock.Manager{}
-	mockManager.ConfigReturns(mockConfig)
-	mockManager.CacheSizeReturns(10)
-
-	mspConfig := config.MSP{
-		ID:        "idemix",
-		MSPType:   idemix.MSPType,
-		MSPID:     "idemix",
-		Path:      "./testdata/idemix",
-		CacheSize: 5,
-	}
-
-	// Successful load
-	err = loader.Load(mockManager, mspConfig)
-	require.NoError(t, err)
-	require.Equal(t, 1, mockManager.AddMSPCallCount())
-	require.Equal(t, 1, mockManager.AddDeserializerCallCount())
-	id, mspType, enrollmentID, idGetter := mockManager.AddMSPArgsForCall(0)
-	require.Equal(t, "idemix", id)
-	require.Equal(t, idemix.MSPType, mspType)
-	require.NotEmpty(t, enrollmentID)
-	require.NotNil(t, idGetter)
-
-	// Error path: invalid config path
-	mockConfigErr := &mock.Config{}
-	mockConfigErr.TranslatePathReturns("./invalid/path")
-	mockManagerErr := &mock.Manager{}
-	mockManagerErr.ConfigReturns(mockConfigErr)
-
-	err = loader.Load(mockManagerErr, mspConfig)
-	require.ErrorContains(t, err, "failed reading idemix msp configuration")
 }

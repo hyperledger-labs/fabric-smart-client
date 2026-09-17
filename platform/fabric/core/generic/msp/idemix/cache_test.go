@@ -22,14 +22,11 @@ func TestIdentityCache(t *testing.T) { //nolint:paralleltest
 	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)
 		return []byte("hello world"), []byte("audit"), nil
-	}, 100, nil, nil)
+	}, 100, nil)
 	defer c.Close()
 
 	// fetch from backend directly +1
-	id, audit, err := c.Identity(&driver.IdentityOptions{
-		EIDExtension: true,
-		AuditInfo:    nil,
-	})
+	id, audit, err := c.Identity(&driver.IdentityOptions{})
 	require.NoError(t, err)
 	require.Equal(t, view.Identity([]byte("hello world")), id)
 	require.Equal(t, []byte("audit"), audit)
@@ -56,7 +53,7 @@ func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
 	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)
 		return []byte("hello world"), []byte("audit"), nil
-	}, 10, nil, nil)
+	}, 10, nil)
 
 	// Trigger cache initialization
 	id, audit, err := c.Identity(nil)

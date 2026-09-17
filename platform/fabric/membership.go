@@ -14,43 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type IdentityOptions struct {
-	IdemixEIDExtension bool
-	AuditInfo          []byte
-}
-
-func CompileIdentityOptions(opts ...IdentityOption) (*IdentityOptions, error) {
-	txOptions := &IdentityOptions{}
-	for _, opt := range opts {
-		if err := opt(txOptions); err != nil {
-			return nil, err
-		}
-	}
-	return txOptions, nil
-}
-
-type IdentityOption func(*IdentityOptions) error
-
-func WithIdemixEIDExtension() IdentityOption {
-	return func(o *IdentityOptions) error {
-		o.IdemixEIDExtension = true
-		return nil
-	}
-}
-
-func WithAuditInfo(ai []byte) IdentityOption {
-	return func(o *IdentityOptions) error {
-		o.AuditInfo = ai
-		return nil
-	}
-}
-
-type GetIdentityFunc func(opts ...IdentityOption) (view.Identity, []byte, error)
-
 type IdentityInfo struct {
 	ID           string
 	EnrollmentID string
-	GetIdentity  GetIdentityFunc
+	GetIdentity  driver.GetIdentityFunc
 }
 
 type SigningIdentity interface {
@@ -98,16 +65,7 @@ func (s *LocalMembership) GetIdentityInfoByLabel(mspType, label string) *Identit
 	return &IdentityInfo{
 		ID:           iInfo.ID,
 		EnrollmentID: iInfo.EnrollmentID,
-		GetIdentity: func(opts ...IdentityOption) (view.Identity, []byte, error) {
-			idOpts, err := CompileIdentityOptions(opts...)
-			if err != nil {
-				return nil, nil, err
-			}
-			return iInfo.GetIdentity(&driver.IdentityOptions{
-				EIDExtension: idOpts.IdemixEIDExtension,
-				AuditInfo:    idOpts.AuditInfo,
-			})
-		},
+		GetIdentity:  iInfo.GetIdentity,
 	}
 }
 
@@ -119,16 +77,7 @@ func (s *LocalMembership) GetIdentityInfoByIdentity(mspType string, id view.Iden
 	return &IdentityInfo{
 		ID:           iInfo.ID,
 		EnrollmentID: iInfo.EnrollmentID,
-		GetIdentity: func(opts ...IdentityOption) (view.Identity, []byte, error) {
-			idOpts, err := CompileIdentityOptions(opts...)
-			if err != nil {
-				return nil, nil, err
-			}
-			return iInfo.GetIdentity(&driver.IdentityOptions{
-				EIDExtension: idOpts.IdemixEIDExtension,
-				AuditInfo:    idOpts.AuditInfo,
-			})
-		},
+		GetIdentity:  iInfo.GetIdentity,
 	}
 }
 

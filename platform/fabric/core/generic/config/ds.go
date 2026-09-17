@@ -57,6 +57,11 @@ type MSP struct {
 	Path      string         `yaml:"path"`
 	CacheSize int            `yaml:"cacheSize"`
 	Opts      map[string]any `yaml:"opts,omitempty"`
+	// CurveID selects the pairing curve an idemix MSP uses, matching one of the curve ID
+	// string constants idemixgen writes (e.g. "FP256BN_AMCL", "BLS12_381_BBS"). It is
+	// ignored by non-idemix MSP types. When empty, the idemix MSP falls back to its
+	// scheme's default curve.
+	CurveID string `yaml:"curveId,omitempty"`
 }
 
 type File struct {

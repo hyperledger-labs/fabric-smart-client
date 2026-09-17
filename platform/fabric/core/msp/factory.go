@@ -61,24 +61,16 @@ func New(opts NewOpts, cryptoProvider bccsp.BCCSP) (MSP, error) {
 	case *IdemixNewOpts:
 		switch opts.GetVersion() {
 		case MSPv1_3, MSPv1_4_3:
-			msp, err := msp2.NewIdemixMsp(MSPv1_3)
+			idemixMsp, err := msp2.NewIdemixMsp(msp2.MSPv1_3)
 			if err != nil {
 				return nil, err
-			}
-			idemixMsp, ok := msp.(*msp2.Idemixmsp)
-			if !ok {
-				return nil, errors.Errorf("unexpected idemix MSP type [%T]", msp)
 			}
 
 			return &idemixMSPWrapper{idemixMsp}, nil
 		case MSPv1_1:
-			msp, err := msp2.NewIdemixMsp(MSPv1_1)
+			idemixMsp, err := msp2.NewIdemixMsp(msp2.MSPv1_1)
 			if err != nil {
 				return nil, err
-			}
-			idemixMsp, ok := msp.(*msp2.Idemixmsp)
-			if !ok {
-				return nil, errors.Errorf("unexpected idemix MSP type [%T]", msp)
 			}
 
 			return &idemixMSPWrapper{idemixMsp}, nil
