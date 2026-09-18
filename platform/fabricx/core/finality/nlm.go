@@ -53,7 +53,7 @@ type handlerEntry struct {
 }
 
 type notificationListenerManager struct {
-	notifyClient   committerpb.NotifierClient
+	notifyClient   committerpb.SidecarServiceClient
 	requestQueue   chan *committerpb.NotificationRequest
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration

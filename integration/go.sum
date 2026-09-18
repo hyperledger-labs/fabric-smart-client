@@ -615,6 +615,8 @@ github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/XSAM/otelsql v0.44.0 h1:KxCiv26Fh4okTPlgROE2BWk+lgi20pdgMGxuSwgbRls=
 github.com/XSAM/otelsql v0.44.0/go.mod h1:FySZIr4R4WWMqvIjf2Iah7C0LAlpKvs9XRkaX7rE608=
+github.com/adecaro/fabric-x-common v0.0.0-20260917121949-8f54b999feb8 h1:mzvFHll3yzKaokzYQXaJw1wqWIYAOhVMFquIbfutyro=
+github.com/adecaro/fabric-x-common v0.0.0-20260917121949-8f54b999feb8/go.mod h1:O3qM8/XHDdgbOoC4JOtXtuhXWx/jHQC5KpXLMxpKLHY=
 github.com/ajstarks/deck v0.0.0-20200831202436-30c9fc6549a9/go.mod h1:JynElWSGnm/4RlzPXRlREEwqTHAN3T56Bv2ITsFT3gY=
 github.com/ajstarks/deck/generate v0.0.0-20210309230005-c3f852c02e19/go.mod h1:T13YZdzov6OU0A1+RfKZiZN9ca6VeKdBdyDV+BY97Tk=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
@@ -945,8 +947,6 @@ github.com/hyperledger/fabric-lib-go v1.1.5-0.20260708100132-163bcc919208 h1:qA4
 github.com/hyperledger/fabric-lib-go v1.1.5-0.20260708100132-163bcc919208/go.mod h1:EKqTudBsC2yovZdcJq5ekWvkq3USF1mbau07I0y8zMs=
 github.com/hyperledger/fabric-protos-go-apiv2 v0.3.7 h1:sQ5qv8vQQfwewa1JlCiSCC8dLElmaU2/frLolpgibEY=
 github.com/hyperledger/fabric-protos-go-apiv2 v0.3.7/go.mod h1:bJnwzfv03oZQeCc863pdGTDgf5nmCy6Za3RAE7d2XsQ=
-github.com/hyperledger/fabric-x-common v0.2.8 h1:gTKJlORCjZjZo+4gPAvOUjTlOYBG8GToy3BTMLOI7sA=
-github.com/hyperledger/fabric-x-common v0.2.8/go.mod h1:f30Yws3c5Cg22yHLy2oT2XR0wwZI+JdqbUqB2fwFIsM=
 github.com/iancoleman/strcase v0.2.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=

@@ -14,14 +14,18 @@ import (
 	"testing"
 
 	idemixconfig "github.com/IBM/idemix/msp/config"
+	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/stretchr/testify/require"
 )
 
 const curvesRoot = "./testdata/curves"
@@ -118,6 +122,95 @@ func newProvider(t *testing.T, dir string) *idemix2.Provider {
 	return p
 }
 
+func TestNewProvider_SetupError(t *testing.T) { //nolint:paralleltest
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
+
+	dir := curveDirs(t)[0]
+	mspConfig, err := fabricmsp.GetLocalMspConfigWithType(dir, nil, "idemix", "idemix")
+	require.NoError(t, err)
+	mspConfig.Config = []byte("not a valid protobuf payload")
+
+	p, err := idemix2.NewProvider(mspConfig, kvss, sigService)
+	require.ErrorContains(t, err, "failed setting up MSP")
+	require.Nil(t, p)
+}
+
+func TestProvider_String(t *testing.T) { //nolint:paralleltest
+	for _, dir := range curveDirs(t) { //nolint:paralleltest
+		t.Run(dir, func(t *testing.T) { //nolint:paralleltest
+			p := newProvider(t, dir)
+			require.Contains(t, p.String(), "Idemix Provider [")
+		})
+	}
+}
+
+func TestProvider_Identity_RegisterSignerError(t *testing.T) { //nolint:paralleltest
+	dir := curveDirs(t)[0]
+
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+
+	mspConfig, err := fabricmsp.GetLocalMspConfigWithType(dir, nil, "idemix", "idemix")
+	require.NoError(t, err)
+
+	var idemixCfg idemixconfig.IdemixMSPConfig
+	require.NoError(t, proto.Unmarshal(mspConfig.Config, &idemixCfg))
+	idemixCfg.CurveId = curveIDForDir(dir)
+	mspConfig.Config, err = proto.Marshal(&idemixCfg)
+	require.NoError(t, err)
+
+	registerErr := errors.New("register signer failure")
+	signerService := &mock.SignerService{}
+	signerService.RegisterSignerReturns(registerErr)
+
+	p, err := idemix2.NewProvider(mspConfig, kvss, signerService)
+	require.NoError(t, err)
+
+	id, audit, err := p.Identity(nil)
+	require.ErrorIs(t, err, registerErr)
+	require.Nil(t, id)
+	require.Nil(t, audit)
+}
+
+func TestProvider_DeserializeVerifier_Errors(t *testing.T) { //nolint:paralleltest
+	dir := curveDirs(t)[0]
+	p := newProvider(t, dir)
+
+	// Malformed bytes: fails at DeserializeIdentity.
+	_, err := p.DeserializeVerifier([]byte("not a valid identity"))
+	require.ErrorContains(t, err, "failed deserializing identity")
+
+	// Well-formed identity with the right MSP ID but a corrupted zero-knowledge
+	// proof: DeserializeIdentity succeeds (Proof is opaque bytes at that stage)
+	// but Validate's verifyProof rejects it.
+	id, _, err := p.Identity(nil)
+	require.NoError(t, err)
+
+	sID := &m.SerializedIdentity{}
+	require.NoError(t, proto.Unmarshal(id, sID))
+	innerID := &idemixconfig.SerializedIdemixIdentity{}
+	require.NoError(t, proto.Unmarshal(sID.IdBytes, innerID))
+	require.NotEmpty(t, innerID.Proof)
+	innerID.Proof[0] ^= 0xFF
+	sID.IdBytes, err = proto.Marshal(innerID)
+	require.NoError(t, err)
+	tampered, err := proto.Marshal(sID)
+	require.NoError(t, err)
+
+	_, err = p.DeserializeVerifier(tampered)
+	require.ErrorContains(t, err, "failed validating deserialized identity")
+}
+
+func TestProvider_Info_Error(t *testing.T) { //nolint:paralleltest
+	dir := curveDirs(t)[0]
+	p := newProvider(t, dir)
+
+	_, err := p.Info([]byte("not a valid identity"), nil)
+	require.ErrorContains(t, err, "failed deserializing identity")
+}
+
 func TestProvider(t *testing.T) { //nolint:paralleltest
 	for _, dir := range curveDirs(t) {
 		t.Run(dir, func(t *testing.T) { //nolint:paralleltest
@@ -127,7 +220,7 @@ func TestProvider(t *testing.T) { //nolint:paralleltest
 }
 
 func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
-	for _, dir := range curveDirs(t) {
+	for _, dir := range curveDirs(t) { //nolint:paralleltest
 		t.Run(dir, func(t *testing.T) { //nolint:paralleltest
 			p := newProvider(t, dir)
 
@@ -149,7 +242,7 @@ func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
 }
 
 func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
-	for _, dir := range curveDirs(t) {
+	for _, dir := range curveDirs(t) { //nolint:paralleltest
 		t.Run(dir, func(t *testing.T) { //nolint:paralleltest
 			p := newProvider(t, dir)
 			p2 := newProvider(t, filepath.Join(dir, "admin"))
@@ -192,7 +285,7 @@ func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
 }
 
 func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest
-	for _, dir := range curveDirs(t) {
+	for _, dir := range curveDirs(t) { //nolint:paralleltest
 		t.Run(dir, func(t *testing.T) { //nolint:paralleltest
 			p := newProvider(t, dir)
 

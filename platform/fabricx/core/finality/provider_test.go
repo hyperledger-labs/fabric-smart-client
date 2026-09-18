@@ -79,14 +79,14 @@ func (f *fakeServiceConfigProvider) argForCall(i int) string {
 
 // setupMockNotificationManager creates a notificationListenerManager with mocked gRPC components
 // This allows us to test the REAL listen() behavior with controlled stream responses
-func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Context, *mock2.Notifier_OpenNotificationStreamClient)) *notificationListenerManager {
+func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Context, *mock2.SidecarServiceOpenNotificationStreamClient)) *notificationListenerManager {
 	t.Helper()
 
-	fakeStream := &mock2.Notifier_OpenNotificationStreamClient{}
-	fakeClient := &mock2.NotifierClient{}
+	fakeStream := &mock2.SidecarServiceOpenNotificationStreamClient{}
+	fakeClient := &mock2.SidecarServiceClient{}
 
 	// Configure the client to return our fake stream
-	fakeClient.OpenNotificationStreamStub = func(c context.Context, _ ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
+	fakeClient.OpenNotificationStreamStub = func(c context.Context, _ ...grpc.CallOption) (committerpb.SidecarService_OpenNotificationStreamClient, error) {
 		fakeStream.ContextReturns(c)
 
 		// Apply custom stream behavior if provided
@@ -193,7 +193,7 @@ func TestProvider_Initialize(t *testing.T) {
 		// does, so the read raced the write.
 		provider := NewListenerManagerProvider(&mockGRPCClientProvider{}, nil)
 		provider.newNotificationManager = func(string, GRPCClientProvider, config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -234,7 +234,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock with stream that blocks until context is done
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					<-ctx.Done()
@@ -274,7 +274,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock with stream that blocks
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -306,7 +306,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -343,7 +343,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock stream that returns error immediately
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(_ context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(_ context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					return nil, errors.New("stream error")
@@ -378,7 +378,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock stream that blocks until context canceled
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					<-ctx.Done()
@@ -443,7 +443,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -491,7 +491,7 @@ func TestProvider_NewManager(t *testing.T) {
 		var receivedCfg config.Config
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			receivedCfg = cfg
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -520,7 +520,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			called = true
 			receivedCfg = cfg
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -575,7 +575,7 @@ func TestGetListenerManager(t *testing.T) {
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.SidecarServiceOpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()

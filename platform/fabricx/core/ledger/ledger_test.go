@@ -23,7 +23,7 @@ import (
 
 func TestLedger_GetLedgerInfo(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -48,7 +48,7 @@ func TestLedger_GetLedgerInfo(t *testing.T) {
 
 func TestLedger_GetTransactionByID(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -96,7 +96,7 @@ func TestLedger_GetTransactionByID(t *testing.T) {
 
 func TestLedger_GetBlockNumberByTxID(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -116,7 +116,7 @@ func TestLedger_GetBlockNumberByTxID(t *testing.T) {
 
 func TestLedger_GetBlockByNumber(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -163,7 +163,7 @@ func TestProcessedTransaction_Results(t *testing.T) {
 
 func TestLedger_GetLedgerInfo_Error(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -179,7 +179,7 @@ func TestLedger_GetLedgerInfo_Error(t *testing.T) {
 
 func TestLedger_GetTransactionByID_GetTxByIDError(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -196,7 +196,7 @@ func TestLedger_GetTransactionByID_GetTxByIDError(t *testing.T) {
 
 func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -234,7 +234,7 @@ func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
 
 func TestLedger_GetTransactionByID_NoStatusReturned(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -272,7 +272,7 @@ func TestLedger_GetTransactionByID_NoStatusReturned(t *testing.T) {
 
 func TestLedger_GetTransactionByID_InvalidPayload(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -293,7 +293,7 @@ func TestLedger_GetTransactionByID_InvalidPayload(t *testing.T) {
 
 func TestLedger_GetTransactionByID_InvalidHeaderType(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -330,7 +330,7 @@ func TestLedger_GetTransactionByID_InvalidHeaderType(t *testing.T) {
 
 func TestLedger_GetBlockNumberByTxID_Error(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
@@ -347,7 +347,7 @@ func TestLedger_GetBlockNumberByTxID_Error(t *testing.T) {
 
 func TestLedger_GetBlockByNumber_Error(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
 	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)

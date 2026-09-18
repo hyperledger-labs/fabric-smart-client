@@ -8,6 +8,8 @@ replace (
 	github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p => ../platform/view/services/comm/host/libp2p
 )
 
+replace github.com/hyperledger/fabric-x-common => github.com/adecaro/fabric-x-common v0.0.0-20260917121949-8f54b999feb8
+
 require (
 	github.com/IBM/idemix v0.3.2-0.20260917063518-cc83c530b100
 	github.com/containerd/errdefs v1.0.0

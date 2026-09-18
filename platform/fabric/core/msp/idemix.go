@@ -66,7 +66,7 @@ type idemixMSPWrapper struct {
 // reconstructed by re-wrapping the payload into a SerializedIdentity and going through
 // the public DeserializeIdentity path.
 func (i *idemixMSPWrapper) deserializeIdentityInternal(serializedIdentity []byte) (Identity, error) {
-	mspID, err := i.MSP.GetIdentifier()
+	mspID, err := i.GetIdentifier()
 	if err != nil {
 		return nil, err
 	}
