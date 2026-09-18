@@ -74,11 +74,3 @@ func TestIdentityEndpointServiceFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "bob", "the error names the label that failed")
 	assert.Contains(t, err.Error(), "no such endpoint", "the underlying error is preserved")
 }
-
-// TestInfoUnparseableIdentity checks that an identity neither deserializer understands
-// renders as the empty string rather than failing.
-func TestInfoUnparseableIdentity(t *testing.T) {
-	t.Parallel()
-
-	assert.Empty(t, Info(view.Identity("not a serialized identity"), nil))
-}

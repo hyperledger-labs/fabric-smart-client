@@ -16,8 +16,7 @@ import (
 )
 
 type IdentityOptions struct {
-	EIDExtension bool
-	AuditInfo    []byte
+	AuditInfo []byte
 }
 
 type GetIdentityFunc func(opts *IdentityOptions) (view.Identity, []byte, error)

@@ -143,12 +143,6 @@ func TestIdentityInfo(t *testing.T) {
 	mockFNS.LocalMembershipReturns(mockLM)
 	lm := &LocalMembership{network: mockFNS}
 
-	// Identity options
-	opts, err := CompileIdentityOptions(WithIdemixEIDExtension(), WithAuditInfo([]byte("audit")))
-	require.NoError(t, err)
-	require.True(t, opts.IdemixEIDExtension)
-	require.Equal(t, []byte("audit"), opts.AuditInfo)
-
 	// GetIdentityInfoByLabel
 	mockIInfo := &driver.IdentityInfo{
 		ID:           "id1",
@@ -164,7 +158,7 @@ func TestIdentityInfo(t *testing.T) {
 	require.Equal(t, "id1", iInfo.ID)
 	require.Equal(t, "eid1", iInfo.EnrollmentID)
 
-	id, audit, err := iInfo.GetIdentity(WithIdemixEIDExtension())
+	id, audit, err := iInfo.GetIdentity(&driver.IdentityOptions{AuditInfo: []byte("audit")})
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("ident"), id)
 	require.Equal(t, []byte("audit"), audit)
@@ -186,7 +180,7 @@ func TestIdentityInfo(t *testing.T) {
 	require.NotNil(t, iInfo2)
 	require.Equal(t, "id2", iInfo2.ID)
 
-	id2, audit2, err := iInfo2.GetIdentity(WithAuditInfo([]byte("audit2")))
+	id2, audit2, err := iInfo2.GetIdentity(&driver.IdentityOptions{AuditInfo: []byte("audit2")})
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("ident"), id2)
 	require.Equal(t, []byte("audit2"), audit2)

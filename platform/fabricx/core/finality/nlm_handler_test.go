@@ -74,7 +74,7 @@ func respFor(txIDs ...string) *committerpb.NotificationResponse {
 
 // feedResponses makes Recv return each response once, in order, then park until
 // the context is done.
-func feedResponses(ctx context.Context, fakeStream *mock.Notifier_OpenNotificationStreamClient, responses ...*committerpb.NotificationResponse) {
+func feedResponses(ctx context.Context, fakeStream *mock.SidecarServiceOpenNotificationStreamClient, responses ...*committerpb.NotificationResponse) {
 	var idx atomic.Int32
 	fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 		i := int(idx.Add(1)) - 1

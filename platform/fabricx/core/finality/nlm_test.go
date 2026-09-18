@@ -29,8 +29,8 @@ import (
 )
 
 // To re-generate the mock/ run "go generate" directive
-//go:generate counterfeiter -o mock/notifier_client.go --fake-name Notifier_OpenNotificationStreamClient github.com/hyperledger/fabric-x-common/api/committerpb.Notifier_OpenNotificationStreamClient
-//go:generate counterfeiter -o mock/notifier_grpc_client.go --fake-name NotifierClient github.com/hyperledger/fabric-x-common/api/committerpb.NotifierClient
+//go:generate counterfeiter -o mock/notification_stream_client.go --fake-name SidecarServiceOpenNotificationStreamClient github.com/hyperledger/fabric-x-common/api/committerpb.SidecarService_OpenNotificationStreamClient
+//go:generate counterfeiter -o mock/sidecar_service_client.go --fake-name SidecarServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.SidecarServiceClient
 
 const (
 	tick               = 10 * time.Millisecond
@@ -118,14 +118,14 @@ func (d *delayedListener) OnStatus(ctx context.Context, txID string, status int,
 	d.mockListener.OnStatus(ctx, txID, status, errMsg)
 }
 
-func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_OpenNotificationStreamClient) {
+func setupTest(tb testing.TB) (*notificationListenerManager, *mock.SidecarServiceOpenNotificationStreamClient) {
 	tb.Helper()
 
-	fakeStream := &mock.Notifier_OpenNotificationStreamClient{}
-	fakeClient := &mock.NotifierClient{}
+	fakeStream := &mock.SidecarServiceOpenNotificationStreamClient{}
+	fakeClient := &mock.SidecarServiceClient{}
 
 	// Configure the client to return our fake stream
-	fakeClient.OpenNotificationStreamStub = func(c context.Context, _ ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
+	fakeClient.OpenNotificationStreamStub = func(c context.Context, _ ...grpc.CallOption) (committerpb.SidecarService_OpenNotificationStreamClient, error) {
 		fakeStream.ContextReturns(c)
 		return fakeStream, nil
 	}
@@ -1085,7 +1085,7 @@ const (
 
 // setupSweepTest builds a manager with local expiry enabled and a Recv that
 // blocks, so the sweeper is the only thing touching the handlers map.
-func setupSweepTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_OpenNotificationStreamClient) {
+func setupSweepTest(tb testing.TB) (*notificationListenerManager, *mock.SidecarServiceOpenNotificationStreamClient) {
 	tb.Helper()
 	nlm, fakeStream := setupTest(tb)
 	nlm.listenerTTL = testTTL
@@ -1098,7 +1098,7 @@ func setupSweepTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier
 
 // blockingRecv makes Recv park until the context is done, so no notification ever
 // arrives and only expiry can settle a listener.
-func blockingRecv(ctx context.Context, fakeStream *mock.Notifier_OpenNotificationStreamClient) {
+func blockingRecv(ctx context.Context, fakeStream *mock.SidecarServiceOpenNotificationStreamClient) {
 	fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 		<-ctx.Done()
 		return nil, ctx.Err()
