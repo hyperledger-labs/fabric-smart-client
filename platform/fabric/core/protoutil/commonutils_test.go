@@ -11,8 +11,11 @@ import (
 	"testing"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
@@ -233,4 +236,32 @@ func TestGetRandomNonce(t *testing.T) {
 	key1, err := getRandomNonce()
 	require.NoErrorf(t, err, "error getting random bytes")
 	require.Len(t, key1, NonceSize)
+}
+
+// failingSerializer reports an error from Serialize. It is defined locally rather than
+// using mock.SignerSerializer because mock imports this package, which an internal test
+// cannot do without an import cycle.
+type failingSerializer struct{}
+
+func (failingSerializer) Serialize() ([]byte, error) { return nil, errors.New("serialize failed") }
+
+// TestNewSignatureHeaderSerializerError checks a serializer failure is returned, not
+// swallowed.
+func TestNewSignatureHeaderSerializerError(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewSignatureHeader(failingSerializer{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "serialize failed")
+}
+
+// TestMarshalRejectsNilMessage checks a typed nil message is reported by Marshal and
+// panics MarshalOrPanic.
+func TestMarshalRejectsNilMessage(t *testing.T) {
+	t.Parallel()
+
+	_, err := Marshal((*peer.Proposal)(nil))
+	require.Error(t, err)
+
+	assert.Panics(t, func() { MarshalOrPanic((*peer.Proposal)(nil)) })
 }

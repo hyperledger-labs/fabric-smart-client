@@ -14,6 +14,7 @@ import (
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -430,4 +431,111 @@ func TestGetBytesProposalPayloadForTx(t *testing.T) {
 
 	_, err = protoutil.GetBytesProposalPayloadForTx(nil)
 	require.Error(t, err, "Expected error with nil proposal payload")
+}
+
+// TestGetEnvelopeFromBlockMalformed checks bytes that are not an envelope are reported.
+func TestGetEnvelopeFromBlockMalformed(t *testing.T) {
+	t.Parallel()
+
+	_, err := protoutil.GetEnvelopeFromBlock([]byte{0xff})
+	require.Error(t, err)
+}
+
+// TestGetSignedProposalErrors checks nil arguments and a signing failure are reported.
+func TestGetSignedProposalErrors(t *testing.T) {
+	t.Parallel()
+
+	_, err := protoutil.GetSignedProposal(nil, &mock.SignerSerializer{})
+	require.Error(t, err, "nil proposal")
+
+	_, err = protoutil.GetSignedProposal(&pb.Proposal{}, nil)
+	require.Error(t, err, "nil signer")
+
+	signer := &mock.SignerSerializer{}
+	signer.SignReturns(nil, errors.New("sign failed"))
+	_, err = protoutil.GetSignedProposal(&pb.Proposal{}, signer)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "sign failed")
+}
+
+// TestGetBytesProposalPayloadForTxNil checks a nil payload is reported.
+func TestGetBytesProposalPayloadForTxNil(t *testing.T) {
+	t.Parallel()
+
+	_, err := protoutil.GetBytesProposalPayloadForTx(nil)
+	require.Error(t, err)
+}
+
+// TestCreateSignedEnvelopeSignerErrors checks serialize and sign failures are both reported.
+func TestCreateSignedEnvelopeSignerErrors(t *testing.T) {
+	t.Parallel()
+
+	serializeFails := &mock.SignerSerializer{}
+	serializeFails.SerializeReturns(nil, errors.New("serialize failed"))
+	_, err := protoutil.CreateSignedEnvelope(cb.HeaderType_CONFIG, "mychannel", serializeFails, &cb.ConfigEnvelope{}, 0, 0)
+	require.Error(t, err)
+
+	signFails := &mock.SignerSerializer{}
+	signFails.SignReturns(nil, errors.New("sign failed"))
+	_, err = protoutil.CreateSignedEnvelope(cb.HeaderType_CONFIG, "mychannel", signFails, &cb.ConfigEnvelope{}, 0, 0)
+	require.Error(t, err)
+}
+
+// TestCreateSignedEnvelopeNilData checks a typed nil message is reported rather than
+// marshalled into the envelope.
+func TestCreateSignedEnvelopeNilData(t *testing.T) {
+	t.Parallel()
+
+	_, err := protoutil.CreateSignedEnvelope(cb.HeaderType_CONFIG, "mychannel", &mock.SignerSerializer{}, (*cb.ConfigEnvelope)(nil), 0, 0)
+	require.Error(t, err)
+}
+
+// signedTxProposal builds a proposal CreateSignedTx accepts, whose creator is the given bytes.
+func signedTxProposal(t *testing.T, creator []byte) *pb.Proposal {
+	t.Helper()
+
+	ext, err := proto.Marshal(&pb.ChaincodeHeaderExtension{ChaincodeId: &pb.ChaincodeID{Name: "mycc"}})
+	require.NoError(t, err)
+	chdr, err := proto.Marshal(&cb.ChannelHeader{Extension: ext})
+	require.NoError(t, err)
+	shdr, err := proto.Marshal(&cb.SignatureHeader{Creator: creator})
+	require.NoError(t, err)
+	hdr, err := proto.Marshal(&cb.Header{ChannelHeader: chdr, SignatureHeader: shdr})
+	require.NoError(t, err)
+
+	return &pb.Proposal{Header: hdr}
+}
+
+// TestCreateSignedTxSignerErrors checks serialize and sign failures are both reported.
+func TestCreateSignedTxSignerErrors(t *testing.T) {
+	t.Parallel()
+
+	response := &pb.ProposalResponse{
+		Payload:     []byte("payload"),
+		Endorsement: &pb.Endorsement{},
+		Response:    &pb.Response{Status: 200},
+	}
+
+	t.Run("serialize", func(t *testing.T) {
+		t.Parallel()
+
+		signer := &mock.SignerSerializer{}
+		signer.SerializeReturns(nil, errors.New("serialize failed"))
+
+		_, err := protoutil.CreateSignedTx(signedTxProposal(t, []byte("signer")), signer, response)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "serialize failed")
+	})
+
+	t.Run("sign", func(t *testing.T) {
+		t.Parallel()
+
+		signer := &mock.SignerSerializer{}
+		signer.SerializeReturns([]byte("signer"), nil)
+		signer.SignReturns(nil, errors.New("sign failed"))
+
+		_, err := protoutil.CreateSignedTx(signedTxProposal(t, []byte("signer")), signer, response)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "sign failed")
+	})
 }
