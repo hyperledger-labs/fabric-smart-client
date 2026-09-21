@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // restoreReplacers snapshots the global replacer registry and puts it back afterwards.
@@ -108,19 +109,55 @@ func TestNewSpecHandler(t *testing.T) {
 	assert.NotNil(t, NewSpecHandler())
 }
 
-// TestMustGetLogger checks it returns a working Logger rather than panicking on the
-// happy path, the behavior utils.MustGet used to provide before MustGetLogger inlined
-// the check. GetLogger itself isn't exercised directly here: calling it from this
-// package's own tests is one stack frame shallower than the MustGetLogger/GetLogger/
-// GetLoggerWithReplacements chain GetPackageName's runtime.Caller(4) offset assumes,
-// which lands on testing.tRunner instead of a package path and panics — a pre-existing,
-// separately tracked bug (#1841), not something this change introduces or fixes.
-func TestMustGetLogger(t *testing.T) {
+// TestGetPackageName_UnexpectedCallDepth checks a caller at the wrong depth is reported
+// rather than panicked on. GetPackageName reads runtime.Caller(4), which assumes the
+// production call chain; called directly from a test there is no fourth frame.
+func TestGetPackageName_UnexpectedCallDepth(t *testing.T) {
 	t.Parallel()
 
-	var l Logger
-	assert.NotPanics(t, func() {
-		l = MustGetLogger("component")
+	name, err := GetPackageName()
+
+	require.Error(t, err)
+	assert.Empty(t, name)
+}
+
+// TestGetLogger_ReportsUnexpectedCallDepth checks the error is propagated rather than
+// panicking, for both entry points that reach GetPackageName directly.
+func TestGetLogger_ReportsUnexpectedCallDepth(t *testing.T) {
+	t.Parallel()
+
+	t.Run("GetLogger", func(t *testing.T) {
+		t.Parallel()
+
+		logger, err := GetLogger()
+
+		require.Error(t, err)
+		assert.Nil(t, logger)
 	})
-	assert.NotNil(t, l)
+
+	t.Run("GetLoggerWithReplacements", func(t *testing.T) {
+		t.Parallel()
+
+		logger, err := GetLoggerWithReplacements(map[string]string{"a": "b"}, nil)
+
+		require.Error(t, err)
+		assert.Nil(t, logger)
+	})
+}
+
+// TestMustGetLogger checks the happy path. MustGetLogger adds a frame of its own, so from a
+// test runtime.Caller(4) lands on the calling test function rather than testing.tRunner, and
+// the name resolves -- with the registered replacements applied.
+func TestMustGetLogger(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
+	logger := MustGetLogger()
+
+	require.NotNil(t, logger)
+	assert.Equal(t, "fsc.platform.common.services.logging", logger.Zap().Name(),
+		"the package path is resolved and the FSC replacement applied")
+}
+
+// TestMustGetLoggerParams checks params are appended to the resolved name.
+func TestMustGetLoggerParams(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
+	assert.Equal(t, "fsc.platform.common.services.logging.component",
+		MustGetLogger("component").Zap().Name())
 }
