@@ -134,6 +134,15 @@ func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram {
 	return &histogram{hv: hv}
 }
 
+// GetPackageName returns the package path of the caller callerSkipFrames stack
+// frames above its own, an offset fixed to the metric constructor chain that
+// reaches it. It supplies the default namespace and subsystem for metrics that
+// leave those fields empty.
+//
+// A frame whose function name has no path separator, such as "main.main", is
+// returned unchanged: there is no package path to strip. It panics if the frame
+// cannot be found or resolved to a function, which a caller at a different stack
+// depth than the constructor chain can hit.
 func GetPackageName() string {
 	pc, _, _, ok := runtime.Caller(callerSkipFrames)
 	if !ok {
@@ -145,6 +154,9 @@ func GetPackageName() string {
 	}
 	fullFuncName := fn.Name()
 	lastSlash := strings.LastIndex(fullFuncName, "/")
+	if lastSlash == -1 {
+		return fullFuncName
+	}
 	dotAfterSlash := strings.Index(fullFuncName[lastSlash:], ".")
 	return fullFuncName[:lastSlash+dotAfterSlash]
 }
