@@ -81,7 +81,15 @@ func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
 	if err := proto.Unmarshal(raw, block); err != nil {
 		return 0, errors.Wrap(err, "unmarshal failed")
 	}
-	return block.Header.Number, nil
+	// A block that unmarshals successfully can still carry no Header, since
+	// an absent optional message is a valid encoding. The bytes come from a
+	// remote peer, so treat a missing header as a query failure rather than
+	// dereferencing block.Header directly.
+	header := block.GetHeader()
+	if header == nil {
+		return 0, errors.Errorf("block for txID [%s] has no header", txID)
+	}
+	return header.Number, nil
 }
 
 // GetBlockByNumber fetches a block by number
