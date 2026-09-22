@@ -6,6 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package runner
 
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+)
+
 // NewSerialRunner creates a BatchRunner that executes operations serially without batching.
 // Each Run call is processed immediately by invoking the runner function with a single-element slice.
 func NewSerialRunner[V any](runner ExecuteFunc[V, error]) BatchRunner[V] {
@@ -17,7 +21,11 @@ type serialRunner[V any] struct {
 }
 
 func (r *serialRunner[V]) Run(val V) error {
-	return r.executor([]V{val})[0]
+	res := r.executor([]V{val})
+	if len(res) != 1 {
+		return errors.Errorf("expected 1 output, but got %d", len(res))
+	}
+	return res[0]
 }
 
 // NewSerialExecutor creates a BatchExecutor that executes operations serially without batching.
@@ -32,6 +40,10 @@ type serialExecutor[I any, O any] struct {
 
 //nolint:revive // confusing-naming: serialExecutor and batchExecutor both implement the exported BatchExecutor interface; renaming Execute is an API break; see follow-up
 func (r *serialExecutor[I, O]) Execute(input I) (O, error) {
-	res := r.executor([]I{input})[0]
-	return res.Val, res.Err
+	res := r.executor([]I{input})
+	if len(res) != 1 {
+		var zero O
+		return zero, errors.Errorf("expected 1 output, but got %d", len(res))
+	}
+	return res[0].Val, res[0].Err
 }

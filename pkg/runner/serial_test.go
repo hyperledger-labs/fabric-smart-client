@@ -73,3 +73,57 @@ func TestSerialExecutor_Error(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, 0, val)
 }
+
+// An ExecuteFunc must return exactly one output per input. The serial
+// implementations pair outputs to inputs positionally, so a short or empty
+// result would index out of range; they report the mismatch instead.
+
+func TestSerialRunner_EmptyResult(t *testing.T) {
+	t.Parallel()
+
+	runner := NewSerialRunner(func([]int) []error {
+		return nil
+	})
+
+	err := runner.Run(42)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected 1 output, but got 0")
+}
+
+func TestSerialRunner_TooManyResults(t *testing.T) {
+	t.Parallel()
+
+	runner := NewSerialRunner(func([]int) []error {
+		return []error{nil, nil}
+	})
+
+	err := runner.Run(42)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected 1 output, but got 2")
+}
+
+func TestSerialExecutor_EmptyResult(t *testing.T) {
+	t.Parallel()
+
+	executor := NewSerialExecutor(func([]string) []Output[int] {
+		return nil
+	})
+
+	val, err := executor.Execute("hello")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected 1 output, but got 0")
+	require.Zero(t, val)
+}
+
+func TestSerialExecutor_TooManyResults(t *testing.T) {
+	t.Parallel()
+
+	executor := NewSerialExecutor(func([]string) []Output[int] {
+		return []Output[int]{{Val: 1}, {Val: 2}}
+	})
+
+	val, err := executor.Execute("hello")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected 1 output, but got 2")
+	require.Zero(t, val)
+}
