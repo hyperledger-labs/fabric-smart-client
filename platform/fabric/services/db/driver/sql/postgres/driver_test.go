@@ -22,19 +22,19 @@ import (
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
-// errStub stands in for any failure the driver only passes through. It is a
+// errFake stands in for any failure the driver only passes through. It is a
 // sentinel so the assertions can match it with errors.Is rather than on text.
-var errStub = errors.New("stub failure")
+var errFake = errors.New("fake failure")
 
-// stubDbProvider hands out a pre-built RWDB instead of dialling a server, so the
+// fakeDbProvider hands out a pre-built RWDB instead of dialling a server, so the
 // driver surface is exercised without a database. A nil err yields dbs.
-type stubDbProvider struct {
+type fakeDbProvider struct {
 	dbs  *common2.RWDB
 	err  error
 	opts []postgres2.Opts
 }
 
-func (p *stubDbProvider) Get(o postgres2.Opts) (*common2.RWDB, error) {
+func (p *fakeDbProvider) Get(o postgres2.Opts) (*common2.RWDB, error) {
 	p.opts = append(p.opts, o)
 	if p.err != nil {
 		return nil, p.err
@@ -82,7 +82,7 @@ func emptyConfig() driver2.Config {
 func TestNewNamedDriver(t *testing.T) {
 	t.Parallel()
 
-	nd := NewNamedDriver(validConfig(), &stubDbProvider{})
+	nd := NewNamedDriver(validConfig(), &fakeDbProvider{})
 	require.Equal(t, Persistence, nd.Name)
 	require.Equal(t, driver.PersistenceType("postgres"), nd.Name)
 	require.NotNil(t, nd.Driver)
@@ -100,7 +100,7 @@ func TestNewDriver(t *testing.T) {
 func TestNewDriverWithDbProvider(t *testing.T) {
 	t.Parallel()
 
-	p := &stubDbProvider{}
+	p := &fakeDbProvider{}
 	d := NewDriverWithDbProvider(validConfig(), p)
 	require.NotNil(t, d.cp)
 	require.Same(t, p, d.dbProvider)
@@ -120,7 +120,7 @@ func TestDriverStoreConstructors(t *testing.T) {
 		t.Run(name+"/valid", func(t *testing.T) {
 			t.Parallel()
 			dbs, _ := mockDB(t)
-			s, err := newStore(NewDriverWithDbProvider(validConfig(), &stubDbProvider{dbs: dbs}))
+			s, err := newStore(NewDriverWithDbProvider(validConfig(), &fakeDbProvider{dbs: dbs}))
 			require.NoError(t, err)
 			require.NotNil(t, s)
 		})
@@ -128,16 +128,16 @@ func TestDriverStoreConstructors(t *testing.T) {
 		t.Run(name+"/invalid config", func(t *testing.T) {
 			t.Parallel()
 			dbs, _ := mockDB(t)
-			_, err := newStore(NewDriverWithDbProvider(emptyConfig(), &stubDbProvider{dbs: dbs}))
+			_, err := newStore(NewDriverWithDbProvider(emptyConfig(), &fakeDbProvider{dbs: dbs}))
 			require.ErrorContains(t, err, "missing data source")
 		})
 
 		t.Run(name+"/db open failure", func(t *testing.T) {
 			t.Parallel()
-			p := &stubDbProvider{err: errStub}
+			p := &fakeDbProvider{err: errFake}
 			_, err := newStore(NewDriverWithDbProvider(validConfig(), p))
 			require.ErrorContains(t, err, "error opening db")
-			require.ErrorIs(t, err, errStub)
+			require.ErrorIs(t, err, errFake)
 		})
 	}
 }
@@ -148,7 +148,7 @@ func TestNewPersistenceWithOptsPassesParams(t *testing.T) {
 	t.Parallel()
 
 	dbs, _ := mockDB(t)
-	p := &stubDbProvider{dbs: dbs}
+	p := &fakeDbProvider{dbs: dbs}
 	d := NewDriverWithDbProvider(validConfig(), p)
 
 	_, err := d.NewEndorseTx("", "chan", "ns")
@@ -179,7 +179,7 @@ func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
-	d := NewDriverWithDbProvider(cp, &stubDbProvider{dbs: &common2.RWDB{ReadDB: db, WriteDB: db}})
+	d := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: &common2.RWDB{ReadDB: db, WriteDB: db}})
 	store, err := d.NewVault("")
 	require.NoError(t, err)
 	require.NotNil(t, store)
@@ -205,7 +205,7 @@ func TestNewPersistenceWithOptsBadTablePrefix(t *testing.T) {
 	})
 
 	dbs, _ := mockDB(t)
-	d := NewDriverWithDbProvider(cp, &stubDbProvider{dbs: dbs})
+	d := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: dbs})
 
 	_, err := d.NewEndorseTx("")
 	require.ErrorContains(t, err, "illegal character in table prefix")
@@ -216,11 +216,11 @@ func TestNewPersistenceWithOptsConstructorError(t *testing.T) {
 	t.Parallel()
 
 	dbs, _ := mockDB(t)
-	d := NewDriverWithDbProvider(validConfig(), &stubDbProvider{dbs: dbs})
+	d := NewDriverWithDbProvider(validConfig(), &fakeDbProvider{dbs: dbs})
 
 	_, err := NewPersistenceWithOpts(d.cp, d.dbProvider, "",
-		func(*common2.RWDB, common3.TableNames) (*VaultStore, error) { return nil, errStub })
-	require.ErrorIs(t, err, errStub)
+		func(*common2.RWDB, common3.TableNames) (*VaultStore, error) { return nil, errFake })
+	require.ErrorIs(t, err, errFake)
 }
 
 // The build* helpers pick one table out of TableNames per store. The chosen
