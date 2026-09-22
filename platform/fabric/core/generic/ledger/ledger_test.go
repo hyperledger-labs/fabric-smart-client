@@ -171,11 +171,17 @@ func TestGetBlockNumberByTxID(t *testing.T) {
 	}
 	raw, _ := proto.Marshal(block)
 
+	// A Block with no Header is a valid protobuf encoding, so a peer can
+	// return one that unmarshals cleanly.
+	noHeaderRaw, err := proto.Marshal(&common.Block{})
+	require.NoError(t, err)
+
 	tests := []struct {
-		name     string
-		queryRes []byte
-		queryErr error
-		wantErr  bool
+		name        string
+		queryRes    []byte
+		queryErr    error
+		wantErr     bool
+		errContains string
 	}{
 		{
 			name:     "Success",
@@ -188,6 +194,13 @@ func TestGetBlockNumberByTxID(t *testing.T) {
 			queryRes: nil,
 			queryErr: errors.New("failed"),
 			wantErr:  true,
+		},
+		{
+			name:        "NilHeader",
+			queryRes:    noHeaderRaw,
+			queryErr:    nil,
+			wantErr:     true,
+			errContains: "has no header",
 		},
 	}
 
@@ -211,6 +224,9 @@ func TestGetBlockNumberByTxID(t *testing.T) {
 			res, err := l.GetBlockNumberByTxID("tx1")
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.errContains != "" {
+					require.ErrorContains(t, err, tt.errContains)
+				}
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, uint64(10), res)
