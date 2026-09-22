@@ -31,4 +31,7 @@ type Output[O any] struct {
 }
 
 // ExecuteFunc is a function that processes a batch of inputs and returns corresponding outputs.
+// Implementations must return exactly one output per input, in the same order:
+// callers pair outputs to inputs positionally and report an error when the
+// counts disagree.
 type ExecuteFunc[I any, O any] func([]I) []O
