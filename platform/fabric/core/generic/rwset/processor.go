@@ -115,6 +115,9 @@ func (r *processorManager) SetDefaultProcessor(processor driver.Processor) error
 }
 
 func (r *processorManager) AddChannelProcessor(channel, ns string, processor driver.Processor) error {
+	if r.channelProcessors[channel] == nil {
+		r.channelProcessors[channel] = map[string]driver.Processor{}
+	}
 	r.channelProcessors[channel][ns] = processor
 	return nil
 }

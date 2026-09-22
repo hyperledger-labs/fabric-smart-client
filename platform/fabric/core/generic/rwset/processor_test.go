@@ -37,9 +37,14 @@ func TestProcessorManagerConfigurationHelpers(t *testing.T) {
 	require.NoError(t, pm.SetDefaultProcessor(defaultP))
 	require.Same(t, defaultP, pm.defaultProcessor)
 
-	pm.channelProcessors["ch1"] = map[string]fdriver.Processor{}
+	// AddChannelProcessor creates the per-channel map on first use for a channel.
 	require.NoError(t, pm.AddChannelProcessor("ch1", "ns2", custom))
 	require.Same(t, custom, pm.channelProcessors["ch1"]["ns2"])
+
+	second := &rwsetmock.Processor{}
+	require.NoError(t, pm.AddChannelProcessor("ch1", "ns3", second))
+	require.Same(t, custom, pm.channelProcessors["ch1"]["ns2"])
+	require.Same(t, second, pm.channelProcessors["ch1"]["ns3"])
 }
 
 func TestProcessorManagerProcessByID(t *testing.T) {
