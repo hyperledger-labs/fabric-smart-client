@@ -477,6 +477,22 @@ var _ = Describe("Provider", func() {
 			})
 		})
 	})
+
+	Describe("GetPackageName", func() {
+		// Go's main package has no path separator in its fully qualified
+		// function name ("main.main"), so strings.LastIndex(..., "/") returns
+		// -1 for it. A binary that creates a metric directly from main reaches
+		// GetPackageName with main.main as the resolved frame, so the
+		// no-separator case is an ordinary production path, not a defensive
+		// one. Calling GetPackageName directly here resolves to a runtime
+		// frame, which is slash-free for the same reason.
+		It("returns the unqualified name when the caller has no path separator", func() {
+			var name string
+			Expect(func() { name = prometheus.GetPackageName() }).NotTo(Panic())
+			Expect(name).NotTo(BeEmpty())
+			Expect(name).NotTo(ContainSubstring("/"))
+		})
+	})
 })
 
 // countingRegisterer counts Register calls so tests can tell cache hits from
