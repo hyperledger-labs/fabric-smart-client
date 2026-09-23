@@ -414,6 +414,9 @@ func (c *Context) newSession(view view.View, contextID string, party view.Identi
 	if err != nil {
 		return nil, err
 	}
+	if resolver == nil {
+		return nil, errors.Errorf("no endpoint resolver found for party [%s]", party)
+	}
 	logger.DebugfContext(c.Context(), "Open new session to %s", resolver.GetName())
 	return c.sessionFactory.NewSession(GetIdentifier(view), contextID, resolver.GetAddress(endpoint.P2PPort), pkid)
 }
@@ -461,6 +464,9 @@ func (c *Context) resolve(id view.Identity) (view.Identity, error) {
 	resolver, _, err := c.resolver.Resolver(c.ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if resolver == nil {
+		return nil, errors.WithMessagef(ErrInvalidIdentity, "no endpoint resolver found for [%s]", id)
 	}
 	return resolver.GetId(), nil
 }
