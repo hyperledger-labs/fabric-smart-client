@@ -232,3 +232,34 @@ func TestContextRace(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// EndpointService is an interface, so an implementation may return a nil
+// resolver together with a nil error. GetSession must report that instead of
+// dereferencing it: it consults resolve while looking for an existing session
+// and newSession when opening a new one, and both call sites now guard.
+func TestContextNilResolver(t *testing.T) {
+	t.Parallel()
+	registry := view2.NewServiceProvider()
+	idProvider := &mock.IdentityProvider{}
+	resolver := &mock.EndpointService{}
+	sessionFactory := &mock.SessionFactory{}
+	resolver.ResolverReturns(nil, []byte("pkid"), nil)
+
+	ctx, err := view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
+	require.NoError(t, err)
+
+	s, err := ctx.GetSession(&DummyView{}, view.Identity("party2"))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no endpoint resolver found")
+	require.Nil(t, s)
+	require.Equal(t, 0, sessionFactory.NewSessionCallCount())
+
+	// GetSessionByID reaches newSessionByID, which must fail the same way: a nil
+	// resolver leaves both the endpoint address and pkid empty, so the session
+	// could never reach the party.
+	s, err = ctx.GetSessionByID("sid", view.Identity("party2"))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no endpoint resolver found")
+	require.Nil(t, s)
+	require.Equal(t, 0, sessionFactory.NewSessionWithIDCallCount())
+}
