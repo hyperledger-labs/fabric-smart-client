@@ -426,12 +426,11 @@ func (c *Context) newSessionByID(sessionID, contextID string, party view.Identit
 	if err != nil {
 		return nil, err
 	}
-	var ep string
-	if resolver != nil {
-		ep = resolver.GetAddress(endpoint.P2PPort)
-		logger.DebugfContext(c.Context(), "Open new session by id to %s", resolver.GetName())
+	if resolver == nil {
+		return nil, errors.Errorf("no endpoint resolver found for party [%s]", party)
 	}
-	logger.DebugfContext(c.Context(), "Open new session by id to %s", ep)
+	ep := resolver.GetAddress(endpoint.P2PPort)
+	logger.DebugfContext(c.Context(), "Open new session by id to %s [%s]", resolver.GetName(), ep)
 	return c.sessionFactory.NewSessionWithID(sessionID, contextID, ep, pkid)
 }
 

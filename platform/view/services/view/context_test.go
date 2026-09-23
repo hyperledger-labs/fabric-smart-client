@@ -253,4 +253,13 @@ func TestContextNilResolver(t *testing.T) {
 	require.ErrorContains(t, err, "no endpoint resolver found")
 	require.Nil(t, s)
 	require.Equal(t, 0, sessionFactory.NewSessionCallCount())
+
+	// GetSessionByID reaches newSessionByID, which must fail the same way: a nil
+	// resolver leaves both the endpoint address and pkid empty, so the session
+	// could never reach the party.
+	s, err = ctx.GetSessionByID("sid", view.Identity("party2"))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no endpoint resolver found")
+	require.Nil(t, s)
+	require.Equal(t, 0, sessionFactory.NewSessionWithIDCallCount())
 }
