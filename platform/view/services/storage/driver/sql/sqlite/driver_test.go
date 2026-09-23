@@ -51,8 +51,8 @@ func TestDriverKVS(t *testing.T) {
 	o := Opts{DataSource: ds}
 
 	common.TestCases(t, func(string) (driver.KeyValueStore, error) {
-		// A fresh driver per store, as the Postgres test does: the DB provider caches the
-		// connection by data source, and each case closes its store when done.
+		// A fresh driver per store, as the Postgres test does, so each case gets its own
+		// connection: the suite closes every store it is given.
 		return NewDriver(driverConfig(Config{DataSource: ds})).NewKVS("")
 	}, func(string) (driver.UnversionedNotifier, error) {
 		dbs, err := open(o)

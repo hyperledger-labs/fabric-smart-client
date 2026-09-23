@@ -31,4 +31,5 @@ func TestIsolationLevelsMap(t *testing.T) {
 
 	_, err = IsolationLevels.Map(cdriver.IsolationLevel(99))
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "99", "the requested level is reported")
 }

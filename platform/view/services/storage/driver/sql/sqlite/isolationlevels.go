@@ -23,7 +23,7 @@ type isolationLevelMapper map[driver.IsolationLevel]sql.IsolationLevel
 func (m isolationLevelMapper) Map(level driver.IsolationLevel) (sql.IsolationLevel, error) {
 	il, ok := m[level]
 	if !ok {
-		return 0, errors.Errorf("isolation level [%d] not defined for sqlite", il)
+		return 0, errors.Errorf("isolation level [%d] not defined for sqlite", level)
 	}
 	return il, nil
 }

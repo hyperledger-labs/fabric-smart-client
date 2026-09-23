@@ -47,6 +47,8 @@ func TestGetOptsKeepsExplicitIdleSettings(t *testing.T) {
 
 	o, err := cp.GetOpts("")
 	require.NoError(t, err)
+	require.NotNil(t, o.MaxIdleConns)
+	require.NotNil(t, o.MaxIdleTime)
 	assert.Equal(t, 7, *o.MaxIdleConns)
 	assert.Equal(t, 3*time.Second, *o.MaxIdleTime)
 }
