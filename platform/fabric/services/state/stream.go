@@ -9,6 +9,7 @@ package state
 import (
 	"slices"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 )
 
@@ -105,7 +106,12 @@ type output struct {
 	delete    bool
 }
 
+// State unmarshals the output into state. A nil receiver, as returned by
+// outputStream.At for an out-of-range position, is reported as an error.
 func (o *output) State(state any) error {
+	if o == nil {
+		return errors.New("output not found")
+	}
 	return o.namespace.GetOutputAt(o.index, state)
 }
 
@@ -160,8 +166,13 @@ func (o *outputStream) Count() int {
 	return len(o.outputs)
 }
 
-// At returns the output at the passed position
+// At returns the output at the passed position, or nil if it is out of range.
+// State reports a nil receiver as an error, but ID and IsDelete dereference it,
+// so check the result before calling those.
 func (o *outputStream) At(index int) *output {
+	if index < 0 || index >= len(o.outputs) {
+		return nil
+	}
 	return o.outputs[index]
 }
 
@@ -180,11 +191,20 @@ type input struct {
 	key       ID
 }
 
+// VerifyCertification verifies this input's certification. A nil receiver is
+// reported as an error.
 func (i *input) VerifyCertification() error {
+	if i == nil {
+		return errors.New("input not found")
+	}
 	return i.namespace.VerifyInputCertificationAt(i.index, string(i.key))
 }
 
+// State unmarshals the input into state. A nil receiver is reported as an error.
 func (i *input) State(state any) error {
+	if i == nil {
+		return errors.New("input not found")
+	}
 	return i.namespace.GetInputAt(i.index, state)
 }
 
@@ -213,8 +233,12 @@ func (o *inputStream) Count() int {
 	return len(o.inputs)
 }
 
-// At returns the inputs at the passed position
+// At returns the input at the passed position, or nil if it is out of range.
+// See outputStream.At.
 func (o *inputStream) At(i int) *input {
+	if i < 0 || i >= len(o.inputs) {
+		return nil
+	}
 	return o.inputs[i]
 }
 
@@ -248,7 +272,11 @@ func (o *commandStream) Count() int {
 	return len(o.commands)
 }
 
-// At returns the command at the passed position
+// At returns the command at the passed position, or nil if it is out of range.
+// See outputStream.At.
 func (o *commandStream) At(i int) *Command {
+	if i < 0 || i >= len(o.commands) {
+		return nil
+	}
 	return o.commands[i]
 }
