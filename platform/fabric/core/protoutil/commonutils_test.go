@@ -260,8 +260,8 @@ func TestNewSignatureHeaderSerializerError(t *testing.T) {
 func TestMarshalRejectsNilMessage(t *testing.T) {
 	t.Parallel()
 
-	_, err := Marshal((*peer.Proposal)(nil))
+	_, err := Marshal((*pb.Proposal)(nil))
 	require.Error(t, err)
 
-	assert.Panics(t, func() { MarshalOrPanic((*peer.Proposal)(nil)) })
+	assert.Panics(t, func() { MarshalOrPanic((*pb.Proposal)(nil)) })
 }
