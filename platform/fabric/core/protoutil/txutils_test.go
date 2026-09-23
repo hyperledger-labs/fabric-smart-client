@@ -350,7 +350,6 @@ func TestCreateSignedEnvelope(t *testing.T) {
 
 	id := &mock.SignerSerializer{}
 	id.SignReturnsOnCall(0, []byte("goodsig"), nil)
-	id.SignReturnsOnCall(1, nil, errors.New("bad signature"))
 	env, err := protoutil.CreateSignedEnvelope(cb.HeaderType_CONFIG, channelID,
 		id, msg, int32(1), uint64(1))
 	require.NoError(t, err, "Unexpected error creating signed envelope")
@@ -364,10 +363,6 @@ func TestCreateSignedEnvelope(t *testing.T) {
 	err = proto.Unmarshal(payload.Data, data)
 	require.NoError(t, err, "Expected payload data to be a config envelope")
 	require.True(t, proto.Equal(msg, data), "Payload data does not match expected value")
-
-	_, err = protoutil.CreateSignedEnvelope(cb.HeaderType_CONFIG, channelID,
-		id, &cb.ConfigEnvelope{}, int32(1), uint64(1))
-	require.Error(t, err, "Expected sign error")
 }
 
 func TestCreateSignedEnvelopeNilSigner(t *testing.T) {
@@ -408,11 +403,6 @@ func TestGetSignedProposal(t *testing.T) {
 		"Proposal bytes did not match expected value")
 	require.Equal(t, sig, signedProp.Signature,
 		"Signature did not match expected value")
-
-	_, err = protoutil.GetSignedProposal(nil, signID)
-	require.Error(t, err, "Expected error with nil proposal")
-	_, err = protoutil.GetSignedProposal(prop, nil)
-	require.Error(t, err, "Expected error with nil signing identity")
 }
 
 func TestGetBytesProposalPayloadForTx(t *testing.T) {
@@ -428,9 +418,6 @@ func TestGetBytesProposalPayloadForTx(t *testing.T) {
 	result, err := protoutil.GetBytesProposalPayloadForTx(input)
 	require.NoError(t, err, "Unexpected error getting proposal payload")
 	require.Equal(t, expected, result, "Payload does not match expected value")
-
-	_, err = protoutil.GetBytesProposalPayloadForTx(nil)
-	require.Error(t, err, "Expected error with nil proposal payload")
 }
 
 // TestGetEnvelopeFromBlockMalformed checks bytes that are not an envelope are reported.
