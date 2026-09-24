@@ -228,3 +228,48 @@ func BenchmarkSecondChanceCacheBytes(b *testing.B) {
 		cache.Add(key, fmt.Sprintf("value-%d", i))
 	}
 }
+
+// A size of 1 is the smallest the victim scan can work with: filling it and
+// adding again must evict rather than fail.
+func TestSecondChanceCacheSizeOne(t *testing.T) {
+	t.Parallel()
+
+	cache := New(1)
+	require.NotNil(t, cache)
+	cache.Add("k1", "v1")
+	v, ok := cache.Get("k1")
+	require.True(t, ok)
+	require.Equal(t, "v1", v)
+
+	cache.Add("k2", "v2")
+	v, ok = cache.Get("k2")
+	require.True(t, ok)
+	require.Equal(t, "v2", v)
+
+	bytesCache := NewBytes(1)
+	require.NotNil(t, bytesCache)
+	bytesCache.Add([]byte("k1"), "v1")
+	v, ok = bytesCache.Get([]byte("k1"))
+	require.True(t, ok)
+	require.Equal(t, "v1", v)
+
+	bytesCache.Add([]byte("k2"), "v2")
+	v, ok = bytesCache.Get([]byte("k2"))
+	require.True(t, ok)
+	require.Equal(t, "v2", v)
+}
+
+func TestSecondChanceCacheGetOrLoadSizeOne(t *testing.T) {
+	t.Parallel()
+
+	cache := NewTyped[string](1)
+	v, loaded, err := cache.GetOrLoad("k1", func() (string, error) { return "v1", nil })
+	require.NoError(t, err)
+	require.False(t, loaded)
+	require.Equal(t, "v1", v)
+
+	v, loaded, err = cache.GetOrLoad("k1", func() (string, error) { return "other", nil })
+	require.NoError(t, err)
+	require.True(t, loaded)
+	require.Equal(t, "v1", v)
+}

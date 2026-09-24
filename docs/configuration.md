@@ -206,8 +206,9 @@ fsc:
   # such as bindings (eg resolvers)
   kvs:
     cache:
-      # Sets the maximum number of cached items
-      # If not specified, default is 100 (TBD: What is the scale here ?, what does 0 mean)
+      # Sets the maximum number of cached items.
+      # If not specified, default is 100. Must be >= 1: the cache cannot be
+      # disabled, and a size below 1 is rejected at startup.
       size:
 
   # ------------------- Persistence Configuration -------------------------

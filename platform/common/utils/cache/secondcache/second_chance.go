@@ -46,6 +46,11 @@ func New(cacheSize int) *secondChanceCache {
 	return NewTyped[any](cacheSize)
 }
 
+// NewTyped returns a cache holding at most cacheSize entries, which must be at
+// least 1: the victim scan evicts into a fixed set of slots, so a smaller size
+// leaves it nothing to index. Callers validate the size they pass, either against
+// configuration (kvs.CacheSizeFromConfig) or by skipping the cache entirely
+// (vault.NewCachedVault).
 func NewTyped[T any](cacheSize int) *typedSecondChanceCache[T] {
 	var cache typedSecondChanceCache[T]
 	cache.position = 0
@@ -188,6 +193,8 @@ type cacheItemBytes struct {
 	referenced atomic.Int32
 }
 
+// NewBytes returns a cache holding at most cacheSize entries, keyed by a byte
+// slice. cacheSize must be at least 1, as in NewTyped.
 func NewBytes(cacheSize int) *secondChanceCacheBytes {
 	var cache secondChanceCacheBytes
 	cache.position = 0
