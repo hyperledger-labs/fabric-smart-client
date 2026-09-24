@@ -99,7 +99,8 @@ func TestProviderGetHash(t *testing.T) {
 			t.Parallel()
 
 			p := NewProvider()
-			h := p.GetHash()
+			h, err := p.GetHash()
+			require.NoError(t, err)
 			require.NotNil(t, h)
 			require.Equal(t, sha256.Size, h.Size())
 			require.Equal(t, sha256.BlockSize, h.BlockSize())
@@ -118,7 +119,7 @@ func TestProviderGetHash(t *testing.T) {
 	}
 }
 
-func TestProviderHashPanicsOnHasherError(t *testing.T) {
+func TestProviderHashReturnsHasherError(t *testing.T) {
 	t.Parallel()
 
 	p := &provider{
@@ -135,12 +136,15 @@ func TestProviderHashPanicsOnHasherError(t *testing.T) {
 		},
 	}
 
-	require.PanicsWithError(t, "failed computing SHA256 on [68 65 6c 6c 6f 20 77 6f 72 6c 64]", func() {
-		_, _ = p.Hash([]byte("hello world"))
-	})
+	digest, err := p.Hash([]byte("hello world"))
+	require.Error(t, err)
+	require.Nil(t, digest)
+	require.ErrorContains(t, err, "failed computing SHA256 on [68 65 6c 6c 6f 20 77 6f 72 6c 64]")
+	// the cause is preserved rather than discarded
+	require.ErrorContains(t, err, "hash failed")
 }
 
-func TestProviderGetHashPanicsOnHasherError(t *testing.T) {
+func TestProviderGetHashReturnsHasherError(t *testing.T) {
 	t.Parallel()
 
 	p := &provider{
@@ -156,7 +160,9 @@ func TestProviderGetHashPanicsOnHasherError(t *testing.T) {
 		},
 	}
 
-	require.PanicsWithError(t, "failed getting SHA256", func() {
-		_ = p.GetHash()
-	})
+	h, err := p.GetHash()
+	require.Error(t, err)
+	require.Nil(t, h)
+	require.ErrorContains(t, err, "failed getting SHA256")
+	require.ErrorContains(t, err, "get hash failed")
 }

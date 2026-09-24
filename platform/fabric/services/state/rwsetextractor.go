@@ -64,7 +64,7 @@ func (r *RWSetProcessor) Process(_ fabric.Request, tx fabric.ProcessTransaction,
 		}
 		k, err := fieldMappingKey(ns, key)
 		if err != nil {
-			panic("filed creating mapping key")
+			return errors.Wrapf(err, "failed creating mapping key for [%s:%s]", ns, key)
 		}
 		if len(transientMap[k]) == 0 {
 			continue
