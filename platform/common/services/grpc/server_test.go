@@ -1492,3 +1492,18 @@ func TestServerConfigMessageSize(t *testing.T) {
 		})
 	}
 }
+
+// SetClientRootCAs is exported and reachable on a server created without TLS,
+// where gServer.tls is nil and there is no configuration to add authorities to.
+func TestSetClientRootCAsNoTLS(t *testing.T) {
+	t.Parallel()
+
+	lis := createListener(t)
+	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{})
+	require.NoError(t, err, "failed to create GRPCServer")
+	require.False(t, srv.TLSEnabled())
+
+	err = srv.SetClientRootCAs(nil)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "TLS is not enabled")
+}

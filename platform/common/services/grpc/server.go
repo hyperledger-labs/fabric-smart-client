@@ -277,10 +277,16 @@ func (gServer *GRPCServer) appendClientRootCA(clientRoot []byte) error {
 }
 
 // SetClientRootCAs sets the list of authorities used to verify client
-// certificates based on a list of PEM-encoded X509 certificate authorities
+// certificates based on a list of PEM-encoded X509 certificate authorities.
+// It reports an error when TLS is disabled, since there is no TLS
+// configuration to hold the authorities.
 func (gServer *GRPCServer) SetClientRootCAs(clientRoots [][]byte) error {
 	gServer.lock.Lock()
 	defer gServer.lock.Unlock()
+
+	if !gServer.TLSEnabled() {
+		return errors.New("failed to set client root certificate(s): TLS is not enabled")
+	}
 
 	// create a new map and CertPool
 	clientRootCAs := make(map[string]*x509.Certificate)
