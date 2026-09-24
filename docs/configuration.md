@@ -638,6 +638,11 @@ fabric:
             numRetries: 3
             unknownTxTimeout: 100ms
           parallelism: 3 # maximum go routines to commit at the same time transactions of the same block
+          # Re-commit attempts for a transiently failed block, and the wait between
+          # them. Exhausting them stops this channel's block stream until restart,
+          # reported as fsc_fabric_core_generic_committer_commit_failures.
+          retries: 5
+          retrySleep: 10s
         # section about the delivery service
         delivery:
           waitForEventTimeout: 300s

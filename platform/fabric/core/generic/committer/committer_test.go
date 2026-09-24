@@ -456,7 +456,7 @@ func TestRunEventNotifiersProcessesQueue(t *testing.T) {
 		ConfigService:   &fake.ConfigService{NetworkNameValue: "net-run"},
 		ChannelConfig:   &fake.ChannelConfig{IDValue: "ch-run"},
 		EventsPublisher: publisher,
-		metrics:         NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}),
+		metrics:         NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 		FinalityManager: commoncommitter.NewFinalityManager[fdriver.ValidationCode](lm, logger, nil, noop.NewTracerProvider(), 1, fdriver.Valid, fdriver.Invalid),
 		listeners:       map[string][]chan FinalityEvent{},
 		events:          make(chan FinalityEvent, 1),
@@ -633,7 +633,7 @@ func TestStart(t *testing.T) {
 
 	c := &Committer{
 		FinalityManager: commoncommitter.NewFinalityManager[fdriver.ValidationCode](&fake.ListenerManager{}, logger, nil, noop.NewTracerProvider(), 1, fdriver.Valid, fdriver.Invalid),
-		metrics:         NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}),
+		metrics:         NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 		listeners:       map[string][]chan FinalityEvent{},
 		events:          make(chan FinalityEvent, 1),
 	}
@@ -696,7 +696,7 @@ func TestCommitReturnsUnmarshalError(t *testing.T) {
 		logger:             logger,
 		ChannelConfig:      &fake.ChannelConfig{IDValue: "ch-commit"},
 		DependencyResolver: NewSerialDependencyResolver(),
-		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}),
+		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 	}
 
 	block := &common.Block{
@@ -716,7 +716,7 @@ func TestCommitTxs(t *testing.T) {
 		c := &Committer{
 			logger:        logger,
 			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-ct", CommitParallelismValue: 1},
-			metrics:       NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}),
+			metrics:       NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 			events:        make(chan FinalityEvent, 1),
 			Handlers: map[common.HeaderType]TransactionHandler{
 				common.HeaderType_ENDORSER_TRANSACTION: func(ctx context.Context, _ *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error) {
@@ -741,7 +741,7 @@ func TestCommitTxs(t *testing.T) {
 		c := &Committer{
 			logger:        logger,
 			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-ct2", CommitParallelismValue: 1},
-			metrics:       NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}),
+			metrics:       NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 			events:        make(chan FinalityEvent, 1),
 			Handlers:      map[common.HeaderType]TransactionHandler{},
 		}
@@ -762,7 +762,7 @@ func TestCommitTxs(t *testing.T) {
 		c := &Committer{
 			logger:        logger,
 			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-ct3", CommitParallelismValue: 1},
-			metrics:       NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}),
+			metrics:       NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 			events:        make(chan FinalityEvent, 1),
 			Handlers: map[common.HeaderType]TransactionHandler{
 				common.HeaderType_ENDORSER_TRANSACTION: func(context.Context, *common.BlockMetadata, CommitTx) (*FinalityEvent, error) {

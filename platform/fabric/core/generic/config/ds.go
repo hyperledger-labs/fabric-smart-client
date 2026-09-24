@@ -14,6 +14,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
+// defaultCommitRetries is the retry budget applied when a channel's
+// configuration does not set one. It matches the committer's own fallback, which
+// applies when a ChannelConfig carries no retry policy at all.
+const defaultCommitRetries = 5
+
+// defaultCommitRetrySleep is the wait between attempts at committing the same
+// block when the configuration does not set one. It matches the delivery
+// service's own reconnect delay, since both are waiting for the same class of
+// downstream fault to clear.
+const defaultCommitRetrySleep = 10 * time.Second
+
 type BCCSP struct {
 	Default string            `yaml:"Default,omitempty"`
 	SW      *SoftwareProvider `yaml:"SW,omitempty"`
@@ -115,6 +126,8 @@ type Committer struct {
 	PollingTimeout      time.Duration     `yaml:"PollingTimeout,omitempty"`
 	Finality            CommitterFinality `yaml:"Finality,omitempty"`
 	Parallelism         int               `yaml:"Parallelism,omitempty"`
+	Retries             *int              `yaml:"Retries,omitempty"`
+	RetrySleep          time.Duration     `yaml:"RetrySleep,omitempty"`
 }
 
 type Channel struct {
@@ -168,6 +181,33 @@ func (c *Channel) DeliverySleepAfterFailure() time.Duration {
 		return 10 * time.Second
 	}
 	return c.Delivery.SleepAfterFailure
+}
+
+// CommitRetries returns how many times a block whose commit failed transiently is
+// committed again before the failure is treated as permanent.
+//
+// Zero is a meaningful setting — commit once and never retry — so it is
+// distinguished from an absent one: the field is only defaulted when the
+// configuration omits it entirely. A negative value is treated as zero rather
+// than as unbounded, because an unbounded retry against a fault that turns out
+// to be permanent is the silent stall the retry exists to avoid.
+func (c *Channel) CommitRetries() int {
+	if c.Committer.Retries == nil {
+		return defaultCommitRetries
+	}
+	return max(*c.Committer.Retries, 0)
+}
+
+// CommitRetrySleep returns how long to wait between attempts at committing the
+// same block.
+//
+// Together with CommitRetries this sets how long a channel is given to recover
+// from a transient fault on its own; with both defaults, about a minute.
+func (c *Channel) CommitRetrySleep() time.Duration {
+	if c.Committer.RetrySleep <= 0 {
+		return defaultCommitRetrySleep
+	}
+	return c.Committer.RetrySleep
 }
 
 func (c *Channel) ChaincodeConfigs() []driver.ChaincodeConfig {
