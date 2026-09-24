@@ -178,12 +178,23 @@ func TestRetryBlockTransient(t *testing.T) {
 			return dbdriver.DeadlockDetected
 		}
 
+		var counted []string
+		c.metrics.CommitFailures = &countingCounter{onAdd: func(labels []string) {
+			counted = append(counted, labels...)
+		}}
+
 		err := c.Commit(ctx, testBlock(13))
 
 		require.Error(t, err)
 		require.Zero(t, calls.Load(), "a cancelled caller must not have the block committed")
 		require.ErrorIs(t, err, context.Canceled,
 			"the reason the caller stopped must stay matchable")
+		// The class, not the error, is what Commit promises its caller and what the
+		// metrics catalog promises an operator. Without the escalation this returns
+		// classRetry, which both say never happens.
+		require.Equal(t, classDegrade, classify(err),
+			"an abandoned block must not report as retryable")
+		require.Equal(t, []string{failureClassLabel, classDegrade.String()}, counted)
 	})
 
 	t.Run("abandoning mid-retry keeps the last failure readable", func(t *testing.T) {
@@ -204,6 +215,9 @@ func TestRetryBlockTransient(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled, "why we stopped")
 		require.ErrorIs(t, err, dbdriver.DeadlockDetected, "what was failing")
 		require.ErrorContains(t, err, "vault contention")
+		// The escalation must survive carrying a retryable cause: classify checks
+		// ErrRetriesExhausted first so the deadlock cannot pull this back to retry.
+		require.Equal(t, classDegrade, classify(err))
 	})
 
 	t.Run("a zero budget commits once", func(t *testing.T) {

@@ -336,14 +336,16 @@ func (c *Committer) retryBlock(ctx context.Context, block *common.Block) error {
 	blockNum := block.GetHeader().GetNumber()
 	retries, retrySleep := c.retryPolicy()
 
+	// abandon reports that the caller gave up before the block committed. Wrapped in
+	// ErrRetriesExhausted so classify escalates out of classRetry — the cancelled
+	// context would otherwise classify as retryable and leak that class to a caller
+	// promised a final error. Both causes stay matchable.
 	abandon := func(lastErr error) error {
-		if lastErr == nil {
-			return errors.Wrapf(ctx.Err(), "commit of block [%d] abandoned", blockNum)
+		cause := ctx.Err()
+		if lastErr != nil {
+			cause = errors.Join(ctx.Err(), lastErr)
 		}
-		return errors.Wrapf(
-			errors.Join(ctx.Err(), lastErr),
-			"commit of block [%d] abandoned after a transient failure", blockNum,
-		)
+		return errors.Wrapf(errors.Join(ErrRetriesExhausted, cause), "block [%d] abandoned", blockNum)
 	}
 
 	var err error
