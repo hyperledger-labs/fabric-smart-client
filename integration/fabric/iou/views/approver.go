@@ -47,7 +47,7 @@ func (*ApproverView) Call(viewCtx view.Context) (any, error) {
 	assert.Equal("iou", tx.Namespaces()[0], "expected the [iou] namespace, got [%s]", tx.Namespaces()[0])
 
 	// Commands are properly populated
-	assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
+	assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%d]", tx.Commands().Count())
 	switch command := tx.Commands().At(0); command.Name {
 	case "create":
 		// If the create command is attached to the transaction then...

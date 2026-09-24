@@ -38,6 +38,11 @@ func (k Namespaces) Filter(f func(k string) bool) Namespaces {
 	return filtered
 }
 
+// At returns the namespace at the passed position, or the empty string if it is
+// out of range.
 func (k Namespaces) At(i int) string {
-	return k[i]
+	if i < 0 || i >= len(k) {
+		return ""
+	}
+	return k[i] //nolint:gosec // G602: i is bounds-checked against len(k) directly above
 }
