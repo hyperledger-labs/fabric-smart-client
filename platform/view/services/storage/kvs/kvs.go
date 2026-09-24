@@ -261,7 +261,10 @@ func (i *it) Next(state any) (string, error) {
 
 // CacheSizeFromConfig returns the KVS cache size from current configuration.
 // Returns DefaultCacheSize, if no configuration found.
-// Returns an error and DefaultCacheSize, if the loaded value from configuration is invalid (must be >= 0).
+// Returns an error and DefaultCacheSize, if the loaded value from configuration
+// is invalid (must be >= 1). The cache holds a fixed number of slots and needs
+// at least one to evict into, and there is no separate way to disable it, so a
+// configured 0 is a misconfiguration rather than a request to turn it off.
 func CacheSizeFromConfig(cp ConfigProvider) (int, error) {
 	if !cp.IsSet(cacheSizeConfigKey) {
 		// no cache size configure, let's use default
@@ -269,8 +272,8 @@ func CacheSizeFromConfig(cp ConfigProvider) (int, error) {
 	}
 
 	cacheSize := cp.GetInt(cacheSizeConfigKey)
-	if cacheSize < 0 {
-		return DefaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 0, actual %d", cacheSize)
+	if cacheSize < 1 {
+		return DefaultCacheSize, errors.Errorf("invalid cache size configuration: expect value >= 1, actual %d", cacheSize)
 	}
 	return cacheSize, nil
 }

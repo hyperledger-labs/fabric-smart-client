@@ -829,12 +829,13 @@ func TestCacheSizeFromConfig(t *testing.T) {
 			expectedSize: 200,
 		},
 		{
-			name: "zero cache size",
+			name: "zero cache size - error",
 			setupMock: func(m *mock.ConfigProvider) {
 				m.IsSetReturns(true)
 				m.GetIntReturns(0)
 			},
-			expectedSize: 0,
+			expectedSize:   kvs2.DefaultCacheSize,
+			expectedErrMsg: "expect value >= 1, actual 0",
 		},
 		{
 			name: "negative cache size - error",
@@ -843,7 +844,7 @@ func TestCacheSizeFromConfig(t *testing.T) {
 				m.GetIntReturns(-1)
 			},
 			expectedSize:   kvs2.DefaultCacheSize,
-			expectedErrMsg: "invalid cache size configuration",
+			expectedErrMsg: "expect value >= 1, actual -1",
 		},
 	}
 
