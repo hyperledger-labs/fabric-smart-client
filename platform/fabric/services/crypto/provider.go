@@ -28,18 +28,20 @@ func NewProvider() *provider {
 	return &provider{hasher: factory.GetDefault()}
 }
 
+// Hash returns the SHA256 digest of msg.
 func (p *provider) Hash(msg []byte) ([]byte, error) {
 	hash, err := p.hasher.Hash(msg, &bccsp.SHA256Opts{})
 	if err != nil {
-		panic(errors.Errorf("failed computing SHA256 on [% x]", msg))
+		return nil, errors.Wrapf(err, "failed computing SHA256 on [% x]", msg)
 	}
 	return hash, nil
 }
 
-func (p *provider) GetHash() hash.Hash {
+// GetHash returns a SHA256 hash instance.
+func (p *provider) GetHash() (hash.Hash, error) {
 	hash, err := p.hasher.GetHash(&bccsp.SHA256Opts{})
 	if err != nil {
-		panic(errors.Errorf("failed getting SHA256"))
+		return nil, errors.Wrap(err, "failed getting SHA256")
 	}
-	return hash
+	return hash, nil
 }
