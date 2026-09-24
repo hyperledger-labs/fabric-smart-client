@@ -8,6 +8,7 @@ package committer
 
 import (
 	"context"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -74,6 +75,39 @@ func (c failureClass) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// retryConfig is the part of a channel's configuration the commit retry needs.
+// Declared here rather than on driver.ChannelConfig because nothing else reads
+// these values, and adding them there would oblige every implementation and mock
+// to carry them.
+type retryConfig interface {
+	// CommitRetries is how many times a transiently failed block is committed
+	// again before the failure is treated as permanent. Zero commits once.
+	CommitRetries() int
+	// CommitRetrySleep is the wait between attempts.
+	CommitRetrySleep() time.Duration
+}
+
+const (
+	// Applied when the channel configuration carries no retry policy. Together,
+	// about a minute to recover: long enough for a storage failover, short enough
+	// that an operator sees a stopped channel rather than one retrying forever.
+	defaultCommitRetries    = 5
+	defaultCommitRetrySleep = 10 * time.Second
+)
+
+// retryPolicy returns this channel's retry budget and delay, defaulting only when
+// the configuration carries no policy at all. A configuration that has one is taken
+// at its word, zero delay included — it already defaults an absent key, and
+// defaulting again here would override a deliberate "retry without waiting". The
+// budget is clamped because a negative one would skip the first attempt.
+func (c *Committer) retryPolicy() (retries int, sleep time.Duration) {
+	cfg, ok := c.ChannelConfig.(retryConfig)
+	if !ok {
+		return defaultCommitRetries, defaultCommitRetrySleep
+	}
+	return max(cfg.CommitRetries(), 0), cfg.CommitRetrySleep()
 }
 
 // ErrRetriesExhausted marks a transient commit failure that did not clear within

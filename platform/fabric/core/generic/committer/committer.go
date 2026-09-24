@@ -334,17 +334,28 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 // underneath.
 func (c *Committer) retryBlock(ctx context.Context, block *common.Block) error {
 	blockNum := block.GetHeader().GetNumber()
-	retries := max(c.ChannelConfig.CommitRetries(), 0)
+	retries, retrySleep := c.retryPolicy()
+
+	abandon := func(lastErr error) error {
+		if lastErr == nil {
+			return errors.Wrapf(ctx.Err(), "commit of block [%d] abandoned", blockNum)
+		}
+		return errors.Wrapf(
+			errors.Join(ctx.Err(), lastErr),
+			"commit of block [%d] abandoned after a transient failure", blockNum,
+		)
+	}
 
 	var err error
 	for attempt := 0; attempt <= retries; attempt++ {
 		if attempt > 0 {
+			c.metrics.CommitRetries.Add(1)
 			c.logger.Warnf("retrying block [%d] after transient commit failure, attempt [%d/%d]: [%v]",
 				blockNum, attempt, retries, err)
 			select {
 			case <-ctx.Done():
-				return errors.Wrapf(errors.Join(ErrRetriesExhausted, err), "block [%d] abandoned: %v", blockNum, ctx.Err())
-			case <-time.After(c.ChannelConfig.CommitRetrySleep()):
+				return abandon(err)
+			case <-time.After(retrySleep):
 			}
 		}
 
@@ -352,15 +363,14 @@ func (c *Committer) retryBlock(ctx context.Context, block *common.Block) error {
 		// already given up must not have this block committed on the way out, and
 		// a zero retry delay would otherwise let the select above fall straight
 		// through to another attempt.
-		if err := ctx.Err(); err != nil {
-			return err
+		if ctx.Err() != nil {
+			return abandon(err)
 		}
 
 		err = c.commitOnce(ctx, block)
 		if classify(err) != classRetry {
 			return err
 		}
-		c.metrics.CommitRetries.Add(1)
 	}
 
 	// Wrapped rather than formatted in, so both stay matchable by errors.Is:

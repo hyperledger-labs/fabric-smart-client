@@ -15,12 +15,8 @@ import (
 )
 
 // defaultCommitRetries is the retry budget applied when a channel's
-// configuration does not set one.
-//
-// Combined with the default CommitRetrySleep of 10s between attempts, this gives
-// a channel around a minute to recover from a transient commit failure on its
-// own: long enough to ride out a storage failover, short enough that an operator
-// sees a stopped channel rather than one retrying forever.
+// configuration does not set one. It matches the committer's own fallback, which
+// applies when a ChannelConfig carries no retry policy at all.
 const defaultCommitRetries = 5
 
 // defaultCommitRetrySleep is the wait between attempts at committing the same

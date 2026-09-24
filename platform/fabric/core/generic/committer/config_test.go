@@ -9,6 +9,7 @@ package committer
 import (
 	"context"
 	stderrors "errors"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -16,11 +17,13 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 // configEnvelope builds a channel configuration transaction carrying the given
@@ -519,5 +522,128 @@ func TestCommitConfigInternalErrorPaths(t *testing.T) {
 		}
 		err := c.applyConfigCommit(t.Context(), "configtx_4", 4, 4, []byte("env"))
 		require.ErrorContains(t, err, "failed committing configtx rws")
+	})
+}
+
+// configVault is a vault whose status reflects what CommitConfig has actually
+// recorded, so that a second call sees what the first one left behind.
+//
+// The real vault behaves this way, and a stub that always reports Unknown would
+// hide the very thing this file pins: the masking depends on a later attempt
+// observing Valid and taking CommitConfig's early return.
+//
+// The status sequence mirrors the real one within a single call. CommitConfig
+// checks once itself and must see Unknown to proceed; applyConfigCommit then calls
+// NewRWSet, which the real vault uses to mark the txID Busy, and CommitTX checks
+// again and must see Busy to take the commitBusyTx path.
+type configVault struct {
+	fake.Vault
+	committed atomic.Bool
+	busy      atomic.Bool
+}
+
+func (v *configVault) Status(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+	switch {
+	case v.committed.Load():
+		return fdriver.Valid, "", nil
+	case v.busy.Load():
+		return fdriver.Busy, "", nil
+	default:
+		return fdriver.Unknown, "", nil
+	}
+}
+
+func (v *configVault) NewRWSet(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
+	v.busy.Store(true)
+	return &fake.RWSet{}, nil
+}
+
+func (v *configVault) CommitTX(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
+	v.busy.Store(false)
+	v.committed.Store(true)
+	return nil
+}
+
+// TestCommitConfigAppliesBeforeRecording pins the ordering inside CommitConfig: the
+// membership service and the orderer list are updated before the vault write.
+//
+// The ordering is load-bearing because CommitConfig returns early when the vault
+// already holds the configuration. Writing first means a commit retried after the
+// write succeeded but an update failed would take that early return and report
+// success having applied nothing — the node then serves a stale membership service
+// while believing it is current, which is the failure #1624 describes.
+func TestCommitConfigAppliesBeforeRecording(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a retry after a failed update still applies the configuration", func(t *testing.T) {
+		t.Parallel()
+
+		var configureCalls, updateCalls atomic.Int32
+		vault := &configVault{}
+		c := &Committer{
+			logger:        logger,
+			Vault:         vault,
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch"},
+			MembershipService: &fake.MembershipService{
+				UpdateFn: func(*common.Envelope) error {
+					updateCalls.Add(1)
+					return nil
+				},
+				OrdererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
+					return "etcdraft", []*grpc.ConnectionConfig{{Address: "orderer:7050"}}, nil
+				},
+			},
+			ProcessorManager: &fake.ProcessorManager{
+				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+			},
+			OrderingService: &fake.OrderingService{
+				ConfigureFn: func(string, []*grpc.ConnectionConfig) error {
+					// Fail the first attempt transiently, as a dial would, then succeed.
+					if configureCalls.Add(1) == 1 {
+						return errors.Wrapf(dbdriver.SqlBusy, "orderer connection busy")
+					}
+					return nil
+				},
+			},
+		}
+
+		env := configEnvelope(11)
+
+		// First attempt: the orderer update fails, so the whole commit must fail.
+		require.Error(t, c.CommitConfig(t.Context(), 1, []byte("raw"), env),
+			"a failed orderer update must fail the commit")
+
+		// Second attempt, as the retry would make it: it must actually apply the
+		// configuration rather than find a vault entry and skip.
+		require.NoError(t, c.CommitConfig(t.Context(), 1, []byte("raw"), env))
+
+		require.Equal(t, int32(2), configureCalls.Load(),
+			"the orderer list must be configured on the retry, not skipped as already done")
+		require.Equal(t, int32(2), updateCalls.Load(),
+			"the membership service must be updated on the retry")
+		require.True(t, vault.committed.Load(),
+			"the configuration must be recorded once it is actually in force")
+	})
+
+	t.Run("nothing is recorded when the membership update fails", func(t *testing.T) {
+		t.Parallel()
+
+		vault := &configVault{}
+		c := &Committer{
+			logger:        logger,
+			Vault:         vault,
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch"},
+			MembershipService: &fake.MembershipService{
+				UpdateFn: func(*common.Envelope) error {
+					return errors.New("initializing channelconfig failed")
+				},
+			},
+		}
+
+		err := c.CommitConfig(t.Context(), 1, []byte("raw"), configEnvelope(12))
+
+		require.ErrorContains(t, err, "failed updating membership service")
+		require.False(t, vault.committed.Load(),
+			"a configuration that was never applied must not be recorded as committed")
 	})
 }

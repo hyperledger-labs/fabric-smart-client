@@ -29,26 +29,6 @@ type ChannelConfig struct {
 	commitParallelismReturnsOnCall map[int]struct {
 		result1 int
 	}
-	CommitRetriesStub        func() int
-	commitRetriesMutex       sync.RWMutex
-	commitRetriesArgsForCall []struct {
-	}
-	commitRetriesReturns struct {
-		result1 int
-	}
-	commitRetriesReturnsOnCall map[int]struct {
-		result1 int
-	}
-	CommitRetrySleepStub        func() time.Duration
-	commitRetrySleepMutex       sync.RWMutex
-	commitRetrySleepArgsForCall []struct {
-	}
-	commitRetrySleepReturns struct {
-		result1 time.Duration
-	}
-	commitRetrySleepReturnsOnCall map[int]struct {
-		result1 time.Duration
-	}
 	CommitterFinalityNumRetriesStub        func() int
 	committerFinalityNumRetriesMutex       sync.RWMutex
 	committerFinalityNumRetriesArgsForCall []struct {
@@ -296,112 +276,6 @@ func (fake *ChannelConfig) CommitParallelismReturnsOnCall(i int, result1 int) {
 	}
 	fake.commitParallelismReturnsOnCall[i] = struct {
 		result1 int
-	}{result1}
-}
-
-func (fake *ChannelConfig) CommitRetries() int {
-	fake.commitRetriesMutex.Lock()
-	ret, specificReturn := fake.commitRetriesReturnsOnCall[len(fake.commitRetriesArgsForCall)]
-	fake.commitRetriesArgsForCall = append(fake.commitRetriesArgsForCall, struct {
-	}{})
-	stub := fake.CommitRetriesStub
-	fakeReturns := fake.commitRetriesReturns
-	fake.recordInvocation("CommitRetries", []interface{}{})
-	fake.commitRetriesMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ChannelConfig) CommitRetriesCallCount() int {
-	fake.commitRetriesMutex.RLock()
-	defer fake.commitRetriesMutex.RUnlock()
-	return len(fake.commitRetriesArgsForCall)
-}
-
-func (fake *ChannelConfig) CommitRetriesCalls(stub func() int) {
-	fake.commitRetriesMutex.Lock()
-	defer fake.commitRetriesMutex.Unlock()
-	fake.CommitRetriesStub = stub
-}
-
-func (fake *ChannelConfig) CommitRetriesReturns(result1 int) {
-	fake.commitRetriesMutex.Lock()
-	defer fake.commitRetriesMutex.Unlock()
-	fake.CommitRetriesStub = nil
-	fake.commitRetriesReturns = struct {
-		result1 int
-	}{result1}
-}
-
-func (fake *ChannelConfig) CommitRetriesReturnsOnCall(i int, result1 int) {
-	fake.commitRetriesMutex.Lock()
-	defer fake.commitRetriesMutex.Unlock()
-	fake.CommitRetriesStub = nil
-	if fake.commitRetriesReturnsOnCall == nil {
-		fake.commitRetriesReturnsOnCall = make(map[int]struct {
-			result1 int
-		})
-	}
-	fake.commitRetriesReturnsOnCall[i] = struct {
-		result1 int
-	}{result1}
-}
-
-func (fake *ChannelConfig) CommitRetrySleep() time.Duration {
-	fake.commitRetrySleepMutex.Lock()
-	ret, specificReturn := fake.commitRetrySleepReturnsOnCall[len(fake.commitRetrySleepArgsForCall)]
-	fake.commitRetrySleepArgsForCall = append(fake.commitRetrySleepArgsForCall, struct {
-	}{})
-	stub := fake.CommitRetrySleepStub
-	fakeReturns := fake.commitRetrySleepReturns
-	fake.recordInvocation("CommitRetrySleep", []interface{}{})
-	fake.commitRetrySleepMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ChannelConfig) CommitRetrySleepCallCount() int {
-	fake.commitRetrySleepMutex.RLock()
-	defer fake.commitRetrySleepMutex.RUnlock()
-	return len(fake.commitRetrySleepArgsForCall)
-}
-
-func (fake *ChannelConfig) CommitRetrySleepCalls(stub func() time.Duration) {
-	fake.commitRetrySleepMutex.Lock()
-	defer fake.commitRetrySleepMutex.Unlock()
-	fake.CommitRetrySleepStub = stub
-}
-
-func (fake *ChannelConfig) CommitRetrySleepReturns(result1 time.Duration) {
-	fake.commitRetrySleepMutex.Lock()
-	defer fake.commitRetrySleepMutex.Unlock()
-	fake.CommitRetrySleepStub = nil
-	fake.commitRetrySleepReturns = struct {
-		result1 time.Duration
-	}{result1}
-}
-
-func (fake *ChannelConfig) CommitRetrySleepReturnsOnCall(i int, result1 time.Duration) {
-	fake.commitRetrySleepMutex.Lock()
-	defer fake.commitRetrySleepMutex.Unlock()
-	fake.CommitRetrySleepStub = nil
-	if fake.commitRetrySleepReturnsOnCall == nil {
-		fake.commitRetrySleepReturnsOnCall = make(map[int]struct {
-			result1 time.Duration
-		})
-	}
-	fake.commitRetrySleepReturnsOnCall[i] = struct {
-		result1 time.Duration
 	}{result1}
 }
 

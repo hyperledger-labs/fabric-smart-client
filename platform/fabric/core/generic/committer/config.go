@@ -171,18 +171,24 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 	}
 
-	// when validation passes, we can commit the config transaction
-	if err := c.applyConfigCommit(ctx, txID, blockNumber, sequence, raw); err != nil {
-		return errors.Wrapf(err, "failed committing configtx to the vault")
-	}
-
-	// once committed, we can update the membership service
+	// Applied before the vault write, so a Valid entry means "in force" rather than
+	// "stored". Writing first would let a retry take the early return above and
+	// report success having applied nothing.
 	if err := c.MembershipService.Update(env); err != nil {
 		return errors.Wrapf(err, "failed updating membership service for configtx [%s]", txID)
 	}
 
-	// and apply other updates
-	return c.applyConfigUpdates()
+	if err := c.applyConfigUpdates(); err != nil {
+		return errors.Wrapf(err, "failed applying config updates for configtx [%s]", txID)
+	}
+
+	// Recorded last: a crash before this replays the config on restart, which is
+	// idempotent. Skipping one that was never applied is not.
+	if err := c.applyConfigCommit(ctx, txID, blockNumber, sequence, raw); err != nil {
+		return errors.Wrapf(err, "failed committing configtx to the vault")
+	}
+
+	return nil
 }
 
 // applyConfigUpdates notifies all components that are impacted by a config update
