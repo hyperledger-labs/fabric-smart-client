@@ -158,6 +158,9 @@ func TestInterceptorClosedRejectsCalls(t *testing.T) {
 	errs := i.SetStateMetadatas("ns", map[driver.PKey]driver.Metadata{"k1": {"md": []byte("v")}})
 	require.Len(t, errs, 1)
 	require.ErrorContains(t, errs["k1"], "this instance was closed")
+
+	_, err = i.GetDirectState("ns", "k1")
+	require.ErrorContains(t, err, "this instance was closed")
 }
 
 // TestInterceptorClear empties every namespace-scoped set while the
@@ -304,7 +307,7 @@ func TestInterceptorGetStateMissingKey(t *testing.T) {
 }
 
 // TestInterceptorIsValidWithoutQueryExecutor treats a write-only interceptor
-// as trivially valid.
+// as trivially valid, and rejects every read that needs the query executor.
 func TestInterceptorIsValidWithoutQueryExecutor(t *testing.T) {
 	t.Parallel()
 
@@ -315,6 +318,9 @@ func TestInterceptorIsValidWithoutQueryExecutor(t *testing.T) {
 	require.ErrorContains(t, err, "this instance is write only")
 
 	_, err = i.GetStateMetadata("ns", "k1")
+	require.ErrorContains(t, err, "this instance is write only")
+
+	_, err = i.GetDirectState("ns", "k1")
 	require.ErrorContains(t, err, "this instance is write only")
 }
 
