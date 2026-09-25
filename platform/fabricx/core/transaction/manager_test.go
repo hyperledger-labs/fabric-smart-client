@@ -193,12 +193,47 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 	})
 }
 
-func TestManagerNewTransactionFromEnvelopeBytesPanics(t *testing.T) {
+func TestManagerNewTransactionFromEnvelopeBytes(t *testing.T) {
 	t.Parallel()
-	m := NewManager()
+	ctx := t.Context()
 
-	require.PanicsWithValue(t, "NewTransactionFromEnvelopeBytes >> implement me", func() {
-		_, _ = m.NewTransactionFromEnvelopeBytes(t.Context(), "ch1", []byte("env"))
+	t.Run("missing default factory", func(t *testing.T) {
+		t.Parallel()
+		m := NewManager()
+
+		tx, err := m.NewTransactionFromEnvelopeBytes(ctx, "ch1", []byte("env"))
+		require.Nil(t, tx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no transaction factory found")
+	})
+
+	t.Run("factory creation fails", func(t *testing.T) {
+		t.Parallel()
+		m := NewManager()
+		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
+			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
+				return nil, assertErr("boom")
+			},
+		})
+
+		tx, err := m.NewTransactionFromEnvelopeBytes(ctx, "ch1", []byte("env"))
+		require.Nil(t, tx)
+		require.EqualError(t, err, "boom")
+	})
+
+	t.Run("SetFromEnvelopeBytes fails", func(t *testing.T) {
+		t.Parallel()
+		m := NewManager()
+		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
+			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
+				return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
+			},
+		})
+
+		tx, err := m.NewTransactionFromEnvelopeBytes(ctx, "ch1", []byte("not-an-envelope"))
+		require.Nil(t, tx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unpack envelope from bytes")
 	})
 }
 
