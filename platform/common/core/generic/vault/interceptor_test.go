@@ -400,3 +400,39 @@ func TestInterceptorDoneIsIdempotent(t *testing.T) {
 	require.NotPanics(t, i.Done)
 	require.True(t, i.IsClosed())
 }
+
+// notFoundQE reports every key as absent the way the SQL vault reader does:
+// GetState resolves through iterators.GetUnique, whose Next returns the zero
+// *driver.VaultRead and a nil error once the iterator is exhausted.
+type notFoundQE struct{ VersionedQueryExecutor }
+
+func (notFoundQE) GetState(context.Context, driver.Namespace, driver.PKey) (*driver.VaultRead, error) {
+	return nil, nil
+}
+
+// TestInterceptorGetDirectStateNotFound checks an absent key is reported as a
+// nil value rather than dereferenced, as GetState's FromStorage option does.
+func TestInterceptorGetDirectStateNotFound(t *testing.T) {
+	t.Parallel()
+
+	i := newTestInterceptor(notFoundQE{})
+
+	val, err := i.GetDirectState("ns", "missing")
+	require.NoError(t, err)
+	require.Nil(t, val)
+
+	_, in := i.rws.ReadSet.Get("ns", "missing")
+	require.False(t, in, "a direct read must not be recorded in the read set")
+}
+
+// TestInterceptorGetStateNotFound pins the same behaviour on the FromStorage
+// path that GetDirectState is aligned with.
+func TestInterceptorGetStateNotFound(t *testing.T) {
+	t.Parallel()
+
+	i := newTestInterceptor(notFoundQE{})
+
+	val, err := i.GetState("ns", "missing", driver.FromStorage)
+	require.NoError(t, err)
+	require.Nil(t, val)
+}

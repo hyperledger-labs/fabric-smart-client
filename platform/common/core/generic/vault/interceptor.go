@@ -333,10 +333,16 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 	}
 }
 
+// GetDirectState reads the value straight from storage, bypassing the read set.
+// A key that is absent from storage yields a nil value and no error, matching
+// GetState's FromStorage option.
 func (i *Interceptor[V]) GetDirectState(namespace driver.Namespace, key string) ([]byte, error) {
 	vv, err := i.qe.GetState(i.ctx, namespace, key)
 	if err != nil {
 		return nil, err
+	}
+	if vv == nil {
+		return []byte(nil), nil
 	}
 	return vv.Raw, nil
 }
