@@ -784,6 +784,18 @@ func TestRecipientViewsAndWrappers(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("respond exchange view missing recipient data", func(t *testing.T) {
+		t.Parallel()
+		payload, err := (&ExchangeRecipientRequest{Channel: "c"}).Bytes()
+		require.NoError(t, err)
+		ch := make(chan *view.Message, 1)
+		ch <- &view.Message{Status: view.OK, Payload: payload}
+		close(ch)
+		ctx := &mockViewContext{session: &mockSession{recv: ch}}
+		_, err = (&RespondExchangeRecipientIdentitiesView{}).Call(ctx)
+		require.ErrorContains(t, err, "missing recipient data in request")
+	})
+
 	t.Run("recipient wrappers", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
