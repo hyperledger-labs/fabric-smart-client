@@ -337,10 +337,22 @@ func (i *Interceptor[V]) GetState(namespace driver.Namespace, key driver.PKey, o
 // A key that is absent from storage yields a nil value and no error, matching
 // GetState's FromStorage option.
 func (i *Interceptor[V]) GetDirectState(namespace driver.Namespace, key string) ([]byte, error) {
+	if i.IsClosed() {
+		return nil, errors.New("this instance was closed")
+	}
+
+	i.RLock()
+	if i.qe == nil {
+		i.RUnlock()
+		return nil, errors.New("this instance is write only")
+	}
 	vv, err := i.qe.GetState(i.ctx, namespace, key)
 	if err != nil {
+		i.RUnlock()
 		return nil, err
 	}
+	i.RUnlock()
+
 	if vv == nil {
 		return []byte(nil), nil
 	}
