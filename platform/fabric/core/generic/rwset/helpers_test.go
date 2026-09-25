@@ -97,6 +97,66 @@ func buildTestEnvelope(t *testing.T, headerType cb.HeaderType, results []byte) (
 	return env, payl, chdr, creator, function, args
 }
 
+// buildPayloadShell builds a *cb.Payload/*cb.ChannelHeader pair with a valid header and
+// signature header but caller-controlled Data, so tests can feed a malformed
+// peer.Transaction into UnpackEnvelopeFromPayloadAndCHHeader without going through the
+// full protoutil.CreateSignedTx pipeline (which refuses to build the adversarial states
+// a malicious peer could still send on the wire).
+func buildPayloadShell(t *testing.T, headerType cb.HeaderType, data []byte) (*cb.Payload, *cb.ChannelHeader) {
+	t.Helper()
+
+	chdr := &cb.ChannelHeader{
+		Type:      int32(headerType),
+		TxId:      "txid",
+		ChannelId: "channel",
+	}
+	sdr := &cb.SignatureHeader{Creator: []byte("creator"), Nonce: []byte("nonce")}
+	payl := &cb.Payload{
+		Header: &cb.Header{
+			ChannelHeader:   mustMarshalProto(t, chdr),
+			SignatureHeader: mustMarshalProto(t, sdr),
+		},
+		Data: data,
+	}
+	return payl, chdr
+}
+
+func buildTransactionData(t *testing.T, actions []*pb.TransactionAction) []byte {
+	t.Helper()
+	return mustMarshalProto(t, &pb.Transaction{Actions: actions})
+}
+
+func buildValidEndorsedAction(t *testing.T) *pb.ChaincodeEndorsedAction {
+	t.Helper()
+
+	prp := &pb.ProposalResponsePayload{
+		Extension: mustMarshalProto(t, &pb.ChaincodeAction{Results: []byte("results")}),
+	}
+	return &pb.ChaincodeEndorsedAction{
+		ProposalResponsePayload: mustMarshalProto(t, prp),
+		Endorsements:            []*pb.Endorsement{{Endorser: []byte("endorser"), Signature: []byte("sig")}},
+	}
+}
+
+func buildActionPayload(t *testing.T, cis *pb.ChaincodeInvocationSpec, action *pb.ChaincodeEndorsedAction) []byte {
+	t.Helper()
+
+	cpp := &pb.ChaincodeProposalPayload{Input: mustMarshalProto(t, cis)}
+	return mustMarshalProto(t, &pb.ChaincodeActionPayload{
+		ChaincodeProposalPayload: mustMarshalProto(t, cpp),
+		Action:                   action,
+	})
+}
+
+func buildValidCIS() *pb.ChaincodeInvocationSpec {
+	return &pb.ChaincodeInvocationSpec{
+		ChaincodeSpec: &pb.ChaincodeSpec{
+			ChaincodeId: &pb.ChaincodeID{Name: "mycc", Version: "v1"},
+			Input:       &pb.ChaincodeInput{Args: [][]byte{[]byte("invoke")}},
+		},
+	}
+}
+
 func buildValidRWSetBytes(t *testing.T) []byte {
 	t.Helper()
 
