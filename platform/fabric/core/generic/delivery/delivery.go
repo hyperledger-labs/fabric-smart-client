@@ -25,7 +25,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -122,7 +121,6 @@ func New(
 	waitForEventTimeout time.Duration,
 	bufferSize int,
 	tracerProvider tracing.Provider,
-	_ metrics.Provider,
 ) (*Delivery, error) {
 	if channelConfig == nil {
 		return nil, errors.Errorf("expected channel config, got nil")
@@ -247,97 +245,92 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 		select {
 		case <-d.stop:
 			logger.Debugf("Stopped receiver")
+			if dfCancel != nil {
+				dfCancel()
+			}
 			return
+		case <-ctx.Done():
+			logger.Debugf("Ctx done")
+			if dfCancel != nil {
+				dfCancel()
+			}
+			d.Stop(errors.New("context done"))
 		default:
-			select {
-			case <-d.stop:
-				logger.Debugf("Stopped receiver")
-				if dfCancel != nil {
-					dfCancel()
-				}
-				return
-			case <-ctx.Done():
-				logger.Debugf("Ctx done")
-				// Time to cancel
-				if dfCancel != nil {
-					dfCancel()
-				}
-				d.Stop(errors.New("context done"))
-			default:
-				deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
-				if df == nil {
-					logger.Debugf("deliver service [%s:%s], connecting...", d.NetworkName, d.channel)
-					span.AddEvent("connect")
-					df, dfCancel, err = d.connect(ctx)
-					if err != nil {
-						logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
-						time.Sleep(waitTime)
-						logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)
-						span.RecordError(err)
-						span.End()
-						continue
-					}
-				}
-
-				logger.Debugf("call receive, it is the [%d]-th time", counter)
-				counter++
-				span.AddEvent("wait_message")
-				resp, err := df.Recv()
-				span.AddEvent("received_message")
+			deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
+			if df == nil {
+				logger.Debugf("deliver service [%s:%s], connecting...", d.NetworkName, d.channel)
+				span.AddEvent("connect")
+				df, dfCancel, err = d.connect(ctx)
 				if err != nil {
-					if dfCancel != nil {
-						dfCancel()
-					}
-					df = nil
-					logger.Errorf("delivery service [%s:%s:%s], failed receiving response [%s]",
-						d.client.Address(), d.NetworkName, d.channel,
-						errors.WithMessagef(err, "error receiving deliver response from peer %s", d.client.Address()))
+					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
+					time.Sleep(waitTime)
+					logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)
 					span.RecordError(err)
 					span.End()
 					continue
 				}
+			}
 
-				switch r := resp.Type.(type) {
-				case *pb.DeliverResponse_Block:
-					span.SetAttributes(tracing.String(messageTypeLabel, block))
-					if !d.handleBlockResponse(deliveryCtx, span, r, ch, waitTime) { //nolint:contextcheck // deliveryCtx is a fresh root span per block-delivery attempt (context.Background(), see above), by design: block traces are independent per-attempt spans, not children of one span spanning the receiver's whole reconnect-loop lifetime
-						if dfCancel != nil {
-							dfCancel()
-						}
-						df = nil
-						span.End()
-						continue
+			logger.Debugf("call receive, it is the [%d]-th time", counter)
+			counter++
+			span.AddEvent("wait_message")
+			resp, err := df.Recv()
+			span.AddEvent("received_message")
+			if err != nil {
+				if dfCancel != nil {
+					dfCancel()
+				}
+				df = nil
+				logger.Errorf("delivery service [%s:%s:%s], failed receiving response [%s]",
+					d.client.Address(), d.NetworkName, d.channel,
+					errors.WithMessagef(err, "error receiving deliver response from peer %s", d.client.Address()))
+				span.RecordError(err)
+				span.End()
+				continue
+			}
+
+			switch r := resp.Type.(type) {
+			case *pb.DeliverResponse_Block:
+				span.SetAttributes(tracing.String(messageTypeLabel, block))
+				if !d.handleBlockResponse(deliveryCtx, span, r, ch, waitTime) { //nolint:contextcheck // deliveryCtx is a fresh root span per block-delivery attempt (context.Background(), see above), by design: block traces are independent per-attempt spans, not children of one span spanning the receiver's whole reconnect-loop lifetime
+					if dfCancel != nil {
+						dfCancel()
 					}
-				case *pb.DeliverResponse_Status:
-					span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
-					if r.Status == cb.Status_NOT_FOUND {
-						span.RecordError(errors.New("not found"))
-						df = nil
-						if dfCancel != nil {
-							dfCancel()
-						}
-						logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.NetworkName, d.channel, r.Status)
-						time.Sleep(waitTime)
-					} else {
-						logger.Warnf("delivery service [%s:%s:%s] status [%s]", d.client.Address(), d.NetworkName, d.channel, r.Status)
-					}
-				default:
-					span.SetAttributes(tracing.String(messageTypeLabel, other))
+					df = nil
+					span.End()
+					continue
+				}
+			case *pb.DeliverResponse_Status:
+				span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
+				if r.Status == cb.Status_NOT_FOUND {
+					span.RecordError(errors.New("not found"))
 					df = nil
 					if dfCancel != nil {
 						dfCancel()
 					}
-					logger.Errorf("delivery service [%s:%s:%s], got [%s]", d.client.Address(), d.NetworkName, d.channel, r)
+					logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.NetworkName, d.channel, r.Status)
+					time.Sleep(waitTime)
+				} else {
+					logger.Warnf("delivery service [%s:%s:%s] status [%s]", d.client.Address(), d.NetworkName, d.channel, r.Status)
 				}
-				span.End()
+			default:
+				span.SetAttributes(tracing.String(messageTypeLabel, other))
+				df = nil
+				if dfCancel != nil {
+					dfCancel()
+				}
+				logger.Errorf("delivery service [%s:%s:%s], got [%s]", d.client.Address(), d.NetworkName, d.channel, r)
 			}
+			span.End()
 		}
 	}
 }
 
 // handleBlockResponse validates and dispatches a received block to ch.
-// It returns false if the block is malformed (in which case the caller must
-// tear down the current stream and retry), true if the block was handled.
+// It returns false if the block is malformed or the service is stopping
+// while the push is pending (in either case the caller must tear down the
+// current stream, and, on its next loop iteration, either retry or exit), or
+// true if the block was handed off.
 func (d *Delivery) handleBlockResponse(ctx context.Context, span trace.Span, r *pb.DeliverResponse_Block, ch chan<- blockResponse, waitTime time.Duration) bool {
 	if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
 		logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
@@ -351,13 +344,18 @@ func (d *Delivery) handleBlockResponse(ctx context.Context, span trace.Span, r *
 
 	span.AddEvent(fmt.Sprintf("push_%d_to_channel", r.Block.Header.Number))
 	logger.Debugf("Pushing block [%d] to channel with current length %d", r.Block.Header.Number, len(ch))
-	ch <- blockResponse{
-		ctx:   ctx,
-		block: r.Block,
+	// Guarded against d.stop: ch is bounded (DeliveryBufferSize, default 1), and
+	// once readBlocks has stopped draining it, an unconditional send here would
+	// block forever, leaking this goroutine and the stream it never releases.
+	select {
+	case ch <- blockResponse{ctx: ctx, block: r.Block}:
+		logger.Debugf("Pushed block [%d] to channel", r.Block.Header.Number)
+		span.AddEvent("pushed_to_channel")
+		return true
+	case <-d.stop:
+		logger.Debugf("stopped while pushing block [%d] to channel", r.Block.Header.Number)
+		return false
 	}
-	logger.Debugf("Pushed block [%d] to channel", r.Block.Header.Number)
-	span.AddEvent("pushed_to_channel")
-	return true
 }
 
 // untilStop blocks until the service is stopped and returns the error that
