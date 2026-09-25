@@ -115,6 +115,15 @@ var (
 		},
 	}
 
+	resultsWithTooManyDescriptors = &discovery.QueryResult_CcQueryRes{
+		CcQueryRes: &discovery.ChaincodeQueryResult{
+			Content: []*discovery.EndorsementDescriptor{
+				{Chaincode: "mycc"},
+				{Chaincode: "mycc"},
+			},
+		},
+	}
+
 	resultsWithEnvelopesButWithMismatchedLayout = &discovery.QueryResult_CcQueryRes{
 		CcQueryRes: &discovery.ChaincodeQueryResult{
 			Content: []*discovery.EndorsementDescriptor{
@@ -539,6 +548,22 @@ func TestBadResponses(t *testing.T) {
 	r, err = cl.Send(ctx, req, auth)
 	require.Contains(t, err.Error(), "group B isn't mapped to endorsers, but exists in a layout")
 	require.Empty(t, r)
+
+	// Scenario VII: discovery service sends back more endorsement descriptors than the client
+	// asked chaincodes for. https://github.com/hyperledger-labs/fabric-smart-client/issues/1900
+	svc.On("Discover").Return(&discovery.Response{
+		Results: []*discovery.QueryResult{
+			{
+				Result: resultsWithTooManyDescriptors,
+			},
+		},
+	}, nil).Once()
+	req = NewRequest()
+	req, err = req.OfChannel("mychannel").AddEndorsersQuery(interest("mycc"))
+	require.NoError(t, err)
+	r, err = cl.Send(ctx, req, auth)
+	require.Contains(t, err.Error(), "expected 1 endorsement descriptors but got 2")
+	require.Nil(t, r)
 }
 
 func TestAddEndorsersQueryInvalidInput(t *testing.T) {

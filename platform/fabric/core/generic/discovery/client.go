@@ -521,9 +521,14 @@ func (resp response) mapEndorsers(
 	return nil
 }
 
+// mapEndorsersOfChannel matches each entry of ccRs.Content, from the discovery
+// peer, against the corresponding entry of invocationChain, from the
+// client's own request, by position. The lengths must be equal: ccRs is
+// peer-controlled, and a peer returning more descriptors than requested would
+// otherwise index invocationChain out of range below.
 func (resp response) mapEndorsersOfChannel(ccRs *discovery.ChaincodeQueryResult, channel string, invocationChain []InvocationChain) error {
-	if len(ccRs.Content) < len(invocationChain) {
-		return errors.Errorf("expected %d endorsement descriptors but got only %d", len(invocationChain), len(ccRs.Content))
+	if len(ccRs.Content) != len(invocationChain) {
+		return errors.Errorf("expected %d endorsement descriptors but got %d", len(invocationChain), len(ccRs.Content))
 	}
 	for i, desc := range ccRs.Content {
 		expectedCCName := invocationChain[i][0].Name
