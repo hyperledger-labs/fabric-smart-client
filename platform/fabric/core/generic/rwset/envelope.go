@@ -41,11 +41,16 @@ func UnpackEnvelopeFromBytes(networkID string, raw []byte) (*UnpackedEnvelope, e
 	return UnpackEnvelope(networkID, env)
 }
 
+// UnpackEnvelope unmarshals env.Payload and its channel header, rejecting a payload
+// with a nil Header, then delegates to UnpackEnvelopeFromPayloadAndCHHeader.
 func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, error) {
 	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
 		logger.Errorf("VSCC error: GetPayload failed, err %s", err)
 		return nil, err
+	}
+	if payl.Header == nil {
+		return nil, errors.Errorf("payload header is nil")
 	}
 
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
@@ -56,6 +61,12 @@ func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, 
 	return UnpackEnvelopeFromPayloadAndCHHeader(networkID, payl, chdr)
 }
 
+// UnpackEnvelopeFromPayloadAndCHHeader extracts an UnpackedEnvelope from an already
+// unmarshaled payload and channel header. payl and chdr may come from an untrusted
+// source (a peer-supplied block or envelope), so every nested field it reads —
+// Transaction.Actions, the ChaincodeInvocationSpec's ChaincodeSpec/Input/ChaincodeId/Args,
+// and the ChaincodeActionPayload's Action — is validated before use; a malformed value
+// yields an error instead of an index-out-of-range or nil-pointer panic.
 func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload, chdr *common.ChannelHeader) (*UnpackedEnvelope, error) {
 	// validate the payload type
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
@@ -74,6 +85,9 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 		logger.Errorf("VSCC error: GetTransaction failed, err %s", err)
 		return nil, err
 	}
+	if len(tx.Actions) == 0 {
+		return nil, errors.Errorf("VSCC error: transaction has no actions")
+	}
 
 	actionPayload, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
 	if err != nil {
@@ -90,7 +104,22 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 		logger.Errorf("VSCC error: UnmarshalChaincodeInvocationSpec failed, err %s", err)
 		return nil, err
 	}
+	if cis.ChaincodeSpec == nil {
+		return nil, errors.Errorf("chaincode invocation spec did not contain chaincode spec")
+	}
+	if cis.ChaincodeSpec.Input == nil {
+		return nil, errors.Errorf("chaincode input did not contain any input")
+	}
+	if len(cis.ChaincodeSpec.Input.Args) == 0 {
+		return nil, errors.Errorf("chaincode input has no arguments")
+	}
+	if cis.ChaincodeSpec.ChaincodeId == nil {
+		return nil, errors.Errorf("chaincode invocation spec did not contain chaincode id")
+	}
 
+	if actionPayload.Action == nil {
+		return nil, errors.Errorf("VSCC error: chaincode action payload has no action")
+	}
 	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(actionPayload.Action.ProposalResponsePayload)
 	if err != nil {
 		err = errors.Errorf("GetProposalResponsePayload error %s", err)
