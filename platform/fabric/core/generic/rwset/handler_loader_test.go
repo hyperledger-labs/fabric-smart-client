@@ -157,6 +157,26 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 		require.ErrorContains(t, err, "failed unmarshalling envelope")
 	})
 
+	t.Run("nil payload header", func(t *testing.T) {
+		t.Parallel()
+		env := &cb.Envelope{Payload: mustMarshalProto(t, &cb.Payload{Data: []byte("data")})}
+		envelopeService := &rwsetfake.EnvelopeService{ExistsValue: true, Envelope: mustMarshalProto(t, env)}
+		loader := NewLoader(
+			"network",
+			"mychannel",
+			envelopeService,
+			nil,
+			nil,
+			nil,
+		)
+
+		var err error
+		require.NotPanics(t, func() {
+			_, _, err = loader.GetRWSetFromEvn(t.Context(), "tx1")
+		})
+		require.ErrorContains(t, err, "channel mismatch, expected [mychannel], got []")
+	})
+
 	t.Run("unsupported header type", func(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_CONFIG, []byte("rwset"))

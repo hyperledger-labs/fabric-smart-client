@@ -273,6 +273,25 @@ func TestCreateSignedTx(t *testing.T) {
 	require.Error(t, err, "Expected error with malformed proposal header")
 }
 
+// TestCreateSignedTxNilResponse covers a ProposalResponse with a nil Response field:
+// CreateSignedTx must report it as a failed proposal rather than dereferencing it.
+func TestCreateSignedTxNilResponse(t *testing.T) {
+	t.Parallel()
+
+	response := &pb.ProposalResponse{
+		Payload:     []byte("payload"),
+		Endorsement: &pb.Endorsement{},
+	}
+
+	signer := &mock.SignerSerializer{}
+	signer.SerializeReturns([]byte("signer"), nil)
+
+	require.NotPanics(t, func() {
+		_, err := protoutil.CreateSignedTx(signedTxProposal(t, []byte("signer")), signer, response)
+		require.EqualError(t, err, "proposal response was not successful, error code 0, msg ")
+	})
+}
+
 func TestCreateSignedTxNoSigner(t *testing.T) {
 	t.Parallel()
 	_, err := protoutil.CreateSignedTx(nil, nil, &pb.ProposalResponse{})

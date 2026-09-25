@@ -217,7 +217,7 @@ func unpackResults(payloadRaw []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal payload")
 	}
 
-	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+	chdr, err := protoutil.UnmarshalChannelHeader(payl.GetHeader().GetChannelHeader())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal channel header")
 	}
