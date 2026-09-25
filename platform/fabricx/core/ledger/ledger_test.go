@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger/mock"
 )
@@ -92,6 +93,36 @@ func TestLedger_GetTransactionByID(t *testing.T) {
 	require.Equal(t, 1, fakeQueryService.GetTransactionStatusCallCount())
 	argStatusQueryTxID := fakeQueryService.GetTransactionStatusArgsForCall(0)
 	require.Equal(t, txID, argStatusQueryTxID)
+}
+
+// TestLedger_GetTransactionByID_NilPayloadHeaderDoesNotPanic covers a payload with no
+// Header field: unpackResults must unmarshal the channel header via the nil-safe
+// GetHeader() accessor instead of dereferencing a nil Header. A nil ChannelHeader decodes
+// to the zero-value HeaderType (HeaderType_MESSAGE), so this is accepted rather than
+// rejected.
+func TestLedger_GetTransactionByID_NilPayloadHeaderDoesNotPanic(t *testing.T) {
+	t.Parallel()
+	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
+	ctx := context.Background()
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
+
+	txID := "test-tx"
+
+	payload := &cb.Payload{Data: []byte("rwset-data")}
+	payloadRaw, err := protoutil.Marshal(payload)
+	require.NoError(t, err)
+
+	expectedEnv := &cb.Envelope{Payload: payloadRaw}
+	fakeBlockClient.GetTxByIDReturns(expectedEnv, nil)
+	fakeQueryService.GetTransactionStatusReturns(int32(committerpb.Status_COMMITTED), nil)
+
+	var pt driver.ProcessedTransaction
+	require.NotPanics(t, func() {
+		pt, err = l.GetTransactionByID(txID)
+	})
+	require.NoError(t, err)
+	require.Equal(t, []byte("rwset-data"), pt.Results())
 }
 
 func TestLedger_GetBlockNumberByTxID(t *testing.T) {

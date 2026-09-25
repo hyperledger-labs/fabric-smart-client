@@ -117,6 +117,9 @@ func GetChannelHeaderType(raw []byte) (common.HeaderType, error) {
 	if err != nil {
 		return -1, errors.Wrap(err, "failed to unmarshal payload")
 	}
+	if payl.Header == nil {
+		return -1, errors.Errorf("payload header is nil")
+	}
 
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
 	if err != nil {
