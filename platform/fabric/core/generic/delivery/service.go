@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -59,7 +58,6 @@ type Service struct {
 	waitForEventTimeout time.Duration
 	acceptedHeaderTypes collections.Set[common.HeaderType]
 	tracerProvider      tracing.Provider
-	metricsProvider     metrics.Provider
 	deliveryService     *Delivery
 }
 
@@ -79,7 +77,6 @@ func NewService(
 	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
 	tracerProvider tracing.Provider,
-	metricsProvider metrics.Provider,
 	acceptedHeaderTypes []common.HeaderType,
 ) (*Service, error) {
 	if channelConfig == nil {
@@ -98,7 +95,6 @@ func NewService(
 		channelConfig.CommitterWaitForEventTimeout(),
 		channelConfig.DeliveryBufferSize(),
 		tracerProvider,
-		metricsProvider,
 	)
 	if err != nil {
 		return nil, err
@@ -116,7 +112,6 @@ func NewService(
 		deliveryService:     deliveryService,
 		transactionManager:  transactionManager,
 		tracerProvider:      tracerProvider,
-		metricsProvider:     metricsProvider,
 		acceptedHeaderTypes: collections.NewSet(acceptedHeaderTypes...),
 	}, nil
 }
@@ -150,7 +145,6 @@ func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver
 		c.channelConfig.CommitterWaitForEventTimeout(),
 		c.channelConfig.DeliveryBufferSize(),
 		c.tracerProvider,
-		c.metricsProvider,
 	)
 	if err != nil {
 		return err
@@ -174,57 +168,19 @@ func (c *Service) ScanBlockFrom(ctx context.Context, block driver.BlockNum, call
 // time and in block order, skipping any whose header type this Service was not
 // configured to accept. Passing an empty txID starts from the genesis block.
 func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
-	vault := &fakeVault{txID: txID}
-	return c.runBlockScan(ctx, vault,
-		func(_ context.Context, block *common.Block) (bool, error) {
-			for i, tx := range block.Data.Data {
-				validationCode, err := validationCodeAt(block, i)
-				if err != nil {
-					logger.Errorf("[%s] %s", c.channel, err)
-					return false, err
-				}
-
-				// if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
-				//	continue
-				// }
-				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)
-				if err != nil {
-					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)
-					return false, err
-				}
-
-				if !c.acceptedHeaderTypes.Contains(common.HeaderType(channelHeader.Type)) {
-					continue
-				}
-				ptx, err := c.transactionManager.NewProcessedTransactionFromEnvelopeRaw(tx)
-				if err != nil {
-					return false, err
-				}
-
-				stop, err := callback(&processedTransaction{
-					txID:    ptx.TxID(),
-					results: ptx.Results(),
-					vc:      int32(validationCode),
-					env:     ptx.Envelope(),
-				})
-				if err != nil {
-					// if an error occurred, stop processing
-					return false, err
-				}
-				if stop {
-					return true, nil
-				}
-				vault.txID = channelHeader.TxId
-				logger.Debugf("commit transaction [%s] in block [%d]", channelHeader.TxId, block.Header.Number)
-			}
-			return false, nil
-		})
+	return c.scanTransactions(ctx, &fakeVault{txID: txID}, callback)
 }
 
 // ScanFromBlock behaves like Scan but starts from the given block number
 // instead of from a transaction ID.
 func (c *Service) ScanFromBlock(ctx context.Context, block driver.BlockNum, callback driver.DeliveryCallback) error {
-	vault := &fakeVault{block: block}
+	return c.scanTransactions(ctx, &fakeVault{block: block}, callback)
+}
+
+// scanTransactions runs a block scan seeded by vault, unmarshalling each
+// transaction in every delivered block and invoking callback for it, skipping
+// any whose header type this Service was not configured to accept.
+func (c *Service) scanTransactions(ctx context.Context, vault *fakeVault, callback driver.DeliveryCallback) error {
 	return c.runBlockScan(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
@@ -234,9 +190,6 @@ func (c *Service) ScanFromBlock(ctx context.Context, block driver.BlockNum, call
 					return false, err
 				}
 
-				// if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
-				//	continue
-				// }
 				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {
 					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)

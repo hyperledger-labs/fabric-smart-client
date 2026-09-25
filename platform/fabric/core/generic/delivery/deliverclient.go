@@ -40,19 +40,16 @@ type TxEvent struct {
 	Err          error
 }
 
-// DeliverFiltered defines the interface that abstracts deliver filtered grpc calls to peer
-type DeliverFiltered interface {
-	Send(*common.Envelope) error
-	Recv() (*pb.DeliverResponse, error)
-	CloseSend() error
-}
-
 // DeliverStream defines the interface that abstracts deliver grpc calls to peer
 type DeliverStream interface {
 	Send(*common.Envelope) error
 	Recv() (*pb.DeliverResponse, error)
 	CloseSend() error
 }
+
+// DeliverFiltered is DeliverStream's filtered-block variant: same three-method
+// shape, kept as a distinct name to say which kind of stream a value is.
+type DeliverFiltered = DeliverStream
 
 // DeliverClient defines the interface to create a DeliverStream client
 type DeliverClient interface {

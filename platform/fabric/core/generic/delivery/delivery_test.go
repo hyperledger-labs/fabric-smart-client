@@ -137,7 +137,6 @@ func TestNew_NilChannelConfig(t *testing.T) {
 		time.Second,
 		1,
 		nil,
-		nil,
 	)
 	require.Error(t, err)
 }
