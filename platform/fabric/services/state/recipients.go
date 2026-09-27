@@ -324,6 +324,12 @@ func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOpt
 	return idList[0], idList[1], nil
 }
 
+// Call does the following:
+//  1. Reads a first message from the context's session and unmarshals it into an ExchangeRecipientRequest
+//  2. Rejects the request if it does not carry recipient data, since the message comes from the counterparty
+//     and cannot be trusted to be well-formed
+//  3. Resolves the identity to send back, defaulting to fns.LocalMembership().DefaultIdentity() if IdentityLabel is not set
+//  4. Sends back the resolved identity and binds both identities in the Endpoint Resolver
 func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error) {
 	session, requestRaw, err := session2.ReadFirstMessage(viewCtx)
 	if err != nil {
@@ -334,6 +340,11 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any
 	request := &ExchangeRecipientRequest{}
 	if err := request.FromBytes(requestRaw); err != nil {
 		return nil, err
+	}
+	// RecipientData is attacker-controlled: the counterparty can send a well-formed
+	// request that omits it, so it must be checked before use.
+	if request.RecipientData == nil {
+		return nil, errors.New("missing recipient data in request")
 	}
 
 	fns, err := fabric.GetFabricNetworkService(viewCtx, s.Network)
