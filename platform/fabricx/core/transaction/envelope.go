@@ -107,7 +107,7 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		return nil, -1, errors.Wrap(err, "failed to unmarshal payload")
 	}
 
-	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+	chdr, err := protoutil.UnmarshalChannelHeader(payl.GetHeader().GetChannelHeader())
 	if err != nil {
 		return nil, -1, errors.Wrap(err, "failed to unmarshal channel header")
 	}

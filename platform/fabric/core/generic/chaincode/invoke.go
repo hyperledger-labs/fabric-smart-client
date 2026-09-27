@@ -177,7 +177,7 @@ func (i *Invoke) doSubmit() (string, []byte, error) {
 	// assemble a signed transaction (it's an Envelope message)
 	env, err := protoutil.CreateSignedTx(prop, signer, responses...)
 	if err != nil {
-		return txID, proposalResp.Response.Payload, errors.WithMessage(err, "could not assemble transaction")
+		return txID, proposalResp.GetResponse().GetPayload(), errors.WithMessage(err, "could not assemble transaction")
 	}
 
 	// Broadcast envelope and wait for finality
@@ -186,7 +186,7 @@ func (i *Invoke) doSubmit() (string, []byte, error) {
 		return "", nil, err
 	}
 
-	return txID, proposalResp.Response.Payload, nil
+	return txID, proposalResp.GetResponse().GetPayload(), nil
 }
 
 func (i *Invoke) WithContext(ctx context.Context) driver.ChaincodeInvocation {

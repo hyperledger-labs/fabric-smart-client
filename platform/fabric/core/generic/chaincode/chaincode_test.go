@@ -881,4 +881,31 @@ func TestInvoke_EndorseQuerySubmit(t *testing.T) {
 		require.Empty(t, txID)
 		require.Nil(t, res)
 	})
+
+	t.Run("Submit Fail on Proposal Response Missing Response Field", func(t *testing.T) {
+		t.Parallel()
+		fix := setupInvokeTest(t)
+		inv := chaincode.NewInvoke(fix.Chaincode, "my-func", "arg1")
+		inv.WithSignerIdentity(view.Identity("user1"))
+		inv.WithEndorsersByConnConfig(&fscGrpc.ConnectionConfig{Address: "localhost:7051"})
+
+		// Response is optional on peer.ProposalResponse; a peer that omits it must
+		// not crash the client when CreateSignedTx rejects the response.
+		fix.EndorserClient.ProcessProposalReturns(&pb.ProposalResponse{
+			Payload: fix.PrpBytes,
+			Endorsement: &pb.Endorsement{
+				Endorser: []byte("peer1-identity"),
+			},
+		}, nil)
+
+		var txID string
+		var res []byte
+		var err error
+		require.NotPanics(t, func() {
+			txID, res, err = inv.Submit()
+		})
+		require.ErrorContains(t, err, "proposal response was not successful, error code 0")
+		require.Empty(t, txID)
+		require.Nil(t, res)
+	})
 }

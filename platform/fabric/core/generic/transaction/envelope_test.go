@@ -235,6 +235,18 @@ func TestUnpackEnvelopePayload_NilHeaderReturnsError(t *testing.T) {
 	require.Error(t, err, "SetFromEnvelopeBytes must reject an envelope payload with no Header")
 }
 
+// TestGetChannelHeaderType_NilHeaderReturnsError covers the same nil-Header guard for
+// GetChannelHeaderType, whose payload-unmarshaling path mirrors UnpackEnvelopePayload's.
+func TestGetChannelHeaderType_NilHeaderReturnsError(t *testing.T) {
+	t.Parallel()
+
+	envBytes, err := proto.Marshal(&common.Envelope{})
+	require.NoError(t, err)
+
+	_, err = transaction.GetChannelHeaderType(envBytes)
+	require.Error(t, err, "GetChannelHeaderType must reject an envelope payload with no Header")
+}
+
 func TestEnvelope_Errors(t *testing.T) {
 	t.Parallel()
 	e := transaction.NewEnvelope()

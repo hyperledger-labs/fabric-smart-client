@@ -179,8 +179,8 @@ func CreateSignedTx(
 	// ensure that all actions are bitwise equal and that they are successful
 	var a1 []byte
 	for n, r := range resps {
-		if r.Response.Status < 200 || r.Response.Status >= 400 {
-			return nil, errors.Errorf("proposal response was not successful, error code %d, msg %s", r.Response.Status, r.Response.Message)
+		if status := r.GetResponse().GetStatus(); status < 200 || status >= 400 {
+			return nil, errors.Errorf("proposal response was not successful, error code %d, msg %s", status, r.GetResponse().GetMessage())
 		}
 
 		if n == 0 {
