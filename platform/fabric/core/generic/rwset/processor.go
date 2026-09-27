@@ -8,6 +8,7 @@ package rwset
 
 import (
 	"context"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -34,6 +35,7 @@ func (r *request) ID() string {
 }
 
 type processorManager struct {
+	mu                sync.RWMutex
 	channelProvider   ChannelProvider
 	defaultProcessor  driver.Processor
 	processors        map[string]driver.Processor
@@ -85,7 +87,7 @@ func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID
 		logger.Debugf("process transaction namespace [%s,%s,%s]", channel, txID, ns)
 
 		// TODO: search channel first
-		p, ok := r.processors[ns]
+		p, ok := r.processor(ns)
 		if ok {
 			logger.Debugf("process transaction namespace, using custom processor [%s,%s,%s]", channel, txID, ns)
 			if err := p.Process(req, tx, rws, ns); err != nil {
@@ -93,8 +95,8 @@ func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID
 			}
 		} else {
 			logger.Debugf("process transaction namespace, resorting to default processor [%s,%s,%s]", channel, txID, ns)
-			if r.defaultProcessor != nil {
-				if err := r.defaultProcessor.Process(req, tx, rws, ns); err != nil {
+			if defaultProcessor := r.defaultProcessorOrNil(); defaultProcessor != nil {
+				if err := defaultProcessor.Process(req, tx, rws, ns); err != nil {
 					return err
 				}
 			}
@@ -104,17 +106,43 @@ func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID
 	return nil
 }
 
+// processor returns the processor registered for ns, if any.
+func (r *processorManager) processor(ns string) (driver.Processor, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	p, ok := r.processors[ns]
+	return p, ok
+}
+
+// defaultProcessorOrNil returns the default processor, or nil when none is set.
+func (r *processorManager) defaultProcessorOrNil() driver.Processor {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.defaultProcessor
+}
+
 func (r *processorManager) AddProcessor(ns string, processor driver.Processor) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.processors[ns] = processor
 	return nil
 }
 
 func (r *processorManager) SetDefaultProcessor(processor driver.Processor) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.defaultProcessor = processor
 	return nil
 }
 
 func (r *processorManager) AddChannelProcessor(channel, ns string, processor driver.Processor) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.channelProcessors[channel] == nil {
 		r.channelProcessors[channel] = map[string]driver.Processor{}
 	}
