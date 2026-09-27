@@ -136,6 +136,41 @@ func TestProposalResponseAccessors(t *testing.T) {
 	require.Equal(t, "accepted", pr.ResponseMessage())
 }
 
+// TestProposalResponseAccessorsNilEndorsementAndResponse verifies that the
+// accessors return zero values instead of panicking when a well-formed
+// proposal response omits Endorsement and/or Response.
+func TestProposalResponseAccessorsNilEndorsementAndResponse(t *testing.T) {
+	t.Parallel()
+	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{Payload: []byte("payload")})
+	require.NoError(t, err)
+
+	require.NotPanics(t, func() {
+		require.Nil(t, pr.Endorser())
+		require.Nil(t, pr.EndorserSignature())
+		require.Equal(t, int32(0), pr.ResponseStatus())
+		require.Empty(t, pr.ResponseMessage())
+	})
+}
+
+// TestVerifyEndorsementNilEndorsement verifies that VerifyEndorsement derives
+// an empty endorser identity instead of panicking when Endorsement is nil.
+func TestVerifyEndorsementNilEndorsement(t *testing.T) {
+	t.Parallel()
+	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{Payload: []byte("payload")})
+	require.NoError(t, err)
+
+	fakeProvider := &mock.VerifierProvider{}
+	fakeProvider.GetVerifierReturns(nil, errors.New("unknown identity"))
+
+	require.NotPanics(t, func() {
+		err = pr.VerifyEndorsement(fakeProvider)
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "getting verifier")
+	require.Equal(t, 1, fakeProvider.GetVerifierCallCount())
+	require.Empty(t, fakeProvider.GetVerifierArgsForCall(0))
+}
+
 // TestProposalResponseBytes verifies that a wrapped proposal response can be
 // marshaled back into protobuf bytes.
 func TestProposalResponseBytes(t *testing.T) {
