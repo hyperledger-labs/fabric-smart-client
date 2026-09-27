@@ -133,6 +133,37 @@ func TestProposalResponse_Errors(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestProposalResponseNilEndorsementAndResponse verifies that the accessors and
+// VerifyEndorsement return zero values or a normal error, instead of
+// panicking, when a well-formed proposal response omits Endorsement and/or
+// Response.
+func TestProposalResponseNilEndorsementAndResponse(t *testing.T) {
+	t.Parallel()
+	pr := createValidProposalResponse(t)
+	pr.Endorsement = nil
+	pr.Response = nil
+
+	tpr, err := transaction.NewProposalResponseFromResponse(pr)
+	require.NoError(t, err)
+
+	require.NotPanics(t, func() {
+		require.Nil(t, tpr.Endorser())
+		require.Nil(t, tpr.EndorserSignature())
+		require.Equal(t, int32(0), tpr.ResponseStatus())
+		require.Empty(t, tpr.ResponseMessage())
+	})
+
+	mockProvider := &mock.VerifierProvider{}
+	mockProvider.GetVerifierReturns(nil, contextError("unknown identity"))
+
+	var verifyErr error
+	require.NotPanics(t, func() {
+		verifyErr = tpr.VerifyEndorsement(mockProvider)
+	})
+	require.ErrorContains(t, verifyErr, "failed getting verifier")
+	require.Equal(t, 1, mockProvider.GetVerifierCallCount())
+}
+
 // Helper to create errors
 type contextError string
 

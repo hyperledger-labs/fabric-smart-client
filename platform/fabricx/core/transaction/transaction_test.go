@@ -296,13 +296,28 @@ func TestAppendProposalResponse(t *testing.T) {
 				require.Equal(t, []byte("endorser-1"), tx.TProposalResponses[0].Endorsement.Endorser)
 			},
 		},
+		{
+			name:          "existing entry has no endorsement",
+			existing:      []*peer.ProposalResponse{{}},
+			response:      &peer.ProposalResponse{Endorsement: &peer.Endorsement{Endorser: []byte("endorser-1")}},
+			expectedCount: 2,
+		},
+		{
+			name:          "incoming response has no endorsement",
+			existing:      []*peer.ProposalResponse{{Endorsement: &peer.Endorsement{Endorser: []byte("endorser-1")}}},
+			response:      &peer.ProposalResponse{},
+			expectedCount: 2,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tx := &Transaction{TProposalResponses: tc.existing}
-			err := tx.recordProposalResponse(tc.response)
+			var err error
+			require.NotPanics(t, func() {
+				err = tx.recordProposalResponse(tc.response)
+			})
 			require.NoError(t, err)
 			require.Len(t, tx.TProposalResponses, tc.expectedCount)
 			if tc.assert != nil {

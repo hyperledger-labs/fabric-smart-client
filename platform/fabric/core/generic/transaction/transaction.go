@@ -634,8 +634,8 @@ func (t *Transaction) generateProposal(signer SerializableSigner) error {
 
 func (t *Transaction) recordProposalResponse(response *pb.ProposalResponse) error {
 	for _, r := range t.TProposalResponses {
-		if bytes.Equal(r.Endorsement.Endorser, response.Endorsement.Endorser) {
-			logger.Debugf("an endorsement from [%s] found, skip it", view.Identity(r.Endorsement.Endorser))
+		if bytes.Equal(r.GetEndorsement().GetEndorser(), response.GetEndorsement().GetEndorser()) {
+			logger.Debugf("an endorsement from [%s] found, skip it", view.Identity(r.GetEndorsement().GetEndorser()))
 			return nil
 		}
 	}

@@ -201,7 +201,6 @@ func NewChannelProvider(in struct {
 				nw.TransactionManager(),
 				callback,
 				in.TracerProvider,
-				in.MetricsProvider,
 				[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 			)
 		},

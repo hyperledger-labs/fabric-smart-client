@@ -111,7 +111,6 @@ func TestServiceLifecycle(t *testing.T) {
 			&mockTransactionManager{},
 			func(_ context.Context, _ *cb.Block) (bool, error) { return false, nil },
 			noop.NewTracerProvider(),
-			nil,
 			[]cb.HeaderType{cb.HeaderType_ENDORSER_TRANSACTION},
 		)
 		require.Error(t, err)

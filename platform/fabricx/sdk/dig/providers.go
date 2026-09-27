@@ -131,7 +131,6 @@ func NewChannelProvider(in struct {
 				nw.TransactionManager(),
 				callback,
 				in.TracerProvider,
-				in.MetricsProvider,
 				[]cb.HeaderType{cb.HeaderType_MESSAGE},
 			)
 		},

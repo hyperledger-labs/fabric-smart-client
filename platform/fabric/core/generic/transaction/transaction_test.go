@@ -637,6 +637,66 @@ func TestTransaction_EnvelopeErrors(t *testing.T) {
 	require.ErrorContains(t, err, "failed getting proposalResponses")
 }
 
+// TestTransaction_AppendProposalResponseNilEndorsement verifies that
+// AppendProposalResponse compares endorsers without panicking when an
+// existing or incoming proposal response omits Endorsement.
+func TestTransaction_AppendProposalResponseNilEndorsement(t *testing.T) {
+	t.Parallel()
+
+	withEndorser := func(t *testing.T) *pb.ProposalResponse {
+		t.Helper()
+		pr := createValidProposalResponse(t)
+		pr.Endorsement.Endorser = []byte("endorser-1")
+		return pr
+	}
+	withoutEndorsement := func(t *testing.T) *pb.ProposalResponse {
+		t.Helper()
+		pr := createValidProposalResponse(t)
+		pr.Endorsement = nil
+		return pr
+	}
+
+	tests := []struct {
+		name     string
+		existing func(t *testing.T) *pb.ProposalResponse
+		response func(t *testing.T) *pb.ProposalResponse
+	}{
+		{
+			name:     "existing entry has no endorsement",
+			existing: withoutEndorsement,
+			response: withEndorser,
+		},
+		{
+			name:     "incoming response has no endorsement",
+			existing: withEndorser,
+			response: withoutEndorsement,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			mockChannelProvider := &mock.ChannelProvider{}
+			mockSigService := &mock.SignerService{}
+			mockChannel := &mock.Channel{}
+			mockChannelProvider.ChannelReturns(mockChannel, nil)
+			factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
+			tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+			require.NoError(t, err)
+
+			tx.(*transaction.Transaction).TProposalResponses = []*pb.ProposalResponse{tc.existing(t)}
+			dpr, err := transaction.NewProposalResponseFromResponse(tc.response(t))
+			require.NoError(t, err)
+
+			require.NotPanics(t, func() {
+				err = tx.AppendProposalResponse(dpr)
+			})
+			require.NoError(t, err)
+			require.Len(t, tx.(*transaction.Transaction).TProposalResponses, 2)
+		})
+	}
+}
+
 func TestTransaction_EndorseWithIdentityErrors(t *testing.T) {
 	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}

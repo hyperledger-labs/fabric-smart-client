@@ -85,9 +85,23 @@ func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, r
 	return tx, nil
 }
 
-func (*Manager) NewTransactionFromEnvelopeBytes(context.Context, string, []byte) (driver.Transaction, error) {
-	// TODO: implement me
-	panic("NewTransactionFromEnvelopeBytes >> implement me")
+func (m *Manager) NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
+	// TODO: remove fixed transaction type
+	txFactory, err := m.transactionFactory(driver.EndorserTransaction)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := txFactory.NewTransaction(ctx, channel, nil, nil, "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.SetFromEnvelopeBytes(raw); err != nil {
+		return nil, err
+	}
+
+	return tx, nil
 }
 
 func (m *Manager) AddTransactionFactory(transactionType driver.TransactionType, factory driver.TransactionFactory) {
