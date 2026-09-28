@@ -72,8 +72,12 @@ type Client struct {
 	metricsParser expfmt.TextParser
 }
 
-// NewClient returns a new web client
+// NewClient returns a new web client. It returns an error if config is nil.
 func NewClient(config *Config) (*Client, error) {
+	if config == nil {
+		return nil, errors.New("missing client config")
+	}
+
 	var tlsClientConfig *tls.Config
 
 	tlsEnabled := len(config.CACertPath) != 0 || len(config.CACertRaw) != 0
@@ -189,6 +193,10 @@ func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte)
 	return response.CallViewResponse.Result, nil
 }
 
-func (*Client) Initiate(_ string, _ []byte) (string, error) {
-	panic("implement me")
+// Initiate always returns an error: the web client's REST API exposes only
+// CallView and StreamCallView (see the dispatcher in
+// platform/view/services/view/web), with no endpoint to initiate a view and
+// report back its context ID.
+func (*Client) Initiate(fid string, _ []byte) (string, error) {
+	return "", errors.Errorf("initiate is not supported by the web client for view [%s]", fid)
 }
