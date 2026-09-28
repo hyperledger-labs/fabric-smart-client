@@ -145,17 +145,16 @@ func (e *Extension) launchContainer() {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	dockerLogger := logging.MustGetLogger("sc.container." + resp.ID[:8])
+	reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+	})
+	gomega.Expect(errx).NotTo(gomega.HaveOccurred())
 	go func() {
 		defer cancel()
 		dockerLogger.Debugf("fetch logs from container [%s]", containerName)
 		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
-
-		reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-		})
-		gomega.Expect(errx).NotTo(gomega.HaveOccurred())
 		defer func() {
 			_ = reader.Close()
 		}()

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package hle
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 const (
@@ -111,22 +109,7 @@ func (n *Extension) startExplorerDB() {
 	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	dockerLogger := logging.MustGetLogger()
-	go func() {
-		reader, err := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Timestamps: false,
-		})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer func() { _ = reader.Close() }()
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-	}()
+	gomega.Expect(docker.StartLogs(cli, resp.ID, containerName)).ToNot(gomega.HaveOccurred())
 }
 
 func (n *Extension) startExplorer() {
@@ -225,20 +208,5 @@ func (n *Extension) startExplorer() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	time.Sleep(3 * time.Second)
 
-	dockerLogger := logging.MustGetLogger()
-	go func() {
-		reader, err := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-			Follow:     true,
-			Timestamps: false,
-		})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer func() { _ = reader.Close() }()
-
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-	}()
+	gomega.Expect(docker.StartLogs(cli, resp.ID, containerName)).ToNot(gomega.HaveOccurred())
 }
