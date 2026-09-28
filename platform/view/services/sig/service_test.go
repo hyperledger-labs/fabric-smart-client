@@ -752,9 +752,14 @@ func TestSigningIdentityWrapper(t *testing.T) {
 	signer := &mock.Signer{}
 	signer.SignReturns(signature, nil)
 
+	verifier := &mock.Verifier{}
+	service := NewService(&mock.Deserializer{}, &mock.AuditInfoStore{}, &mock.SignerInfoStore{})
+	require.NoError(t, service.RegisterVerifier(identity, verifier))
+
 	si := &si{
-		id:     identity,
-		signer: signer,
+		id:        identity,
+		signer:    signer,
+		verifiers: service,
 	}
 
 	t.Run("Sign", func(t *testing.T) {
@@ -779,10 +784,23 @@ func TestSigningIdentityWrapper(t *testing.T) {
 		require.Equal(t, si, pub)
 	})
 
-	t.Run("Verify panics", func(t *testing.T) {
+	t.Run("Verify", func(t *testing.T) {
 		t.Parallel()
-		require.Panics(t, func() {
-			_ = si.Verify(message, signature)
-		})
+		require.NoError(t, si.Verify(message, signature))
+		require.Equal(t, 1, verifier.VerifyCallCount())
+		msg, sig := verifier.VerifyArgsForCall(0)
+		require.Equal(t, message, msg)
+		require.Equal(t, signature, sig)
+	})
+
+	t.Run("Verify without verifier", func(t *testing.T) {
+		t.Parallel()
+		deserializer := &mock.Deserializer{}
+		deserializer.DeserializeVerifierReturns(nil, errors.New("no verifier"))
+		service := NewService(deserializer, &mock.AuditInfoStore{}, &mock.SignerInfoStore{})
+		require.NoError(t, service.RegisterSigner(context.Background(), identity, signer, nil))
+		signingIdentity, err := service.GetSigningIdentity(identity)
+		require.NoError(t, err)
+		require.ErrorContains(t, signingIdentity.Verify(message, signature), "no verifier")
 	})
 }

@@ -302,8 +302,9 @@ func (o *Service) GetSigningIdentity(identity view.Identity) (driver2.SigningIde
 	}
 
 	return &si{
-		id:     identity,
-		signer: signer,
+		id:        identity,
+		signer:    signer,
+		verifiers: o,
 	}, nil
 }
 
@@ -314,12 +315,18 @@ func (o *Service) deleteSigner(id string) {
 }
 
 type si struct {
-	id     view.Identity
-	signer driver2.Signer
+	id        view.Identity
+	signer    driver2.Signer
+	verifiers *Service
 }
 
-func (*si) Verify(_, _ []byte) error {
-	panic("implement me")
+// Verify verifies the signature with the verifier the service resolves for this identity.
+func (s *si) Verify(message, signature []byte) error {
+	verifier, err := s.verifiers.GetVerifier(s.id)
+	if err != nil {
+		return errors.Wrapf(err, "failed getting verifier for [%s]", s.id)
+	}
+	return verifier.Verify(message, signature)
 }
 
 func (s *si) GetPublicVersion() driver2.VerifyingIdentity {
