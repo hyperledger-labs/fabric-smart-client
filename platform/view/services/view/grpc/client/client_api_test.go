@@ -112,6 +112,36 @@ func TestInitiate_Returns_Error_When_Response_Is_Missing(t *testing.T) {
 	require.Contains(t, err.Error(), "expected initiate view response")
 }
 
+func TestCallViewWithContext_Returns_Error_When_Response_Is_Missing(t *testing.T) {
+	t.Parallel()
+
+	rawResponse, err := proto.Marshal(&protos.CommandResponse{})
+	require.NoError(t, err)
+
+	viewClient := &fakeViewServiceClient{
+		processCommandResponse: &protos.SignedCommandResponse{Response: rawResponse},
+	}
+	transport := &fakeTransport{
+		viewClient:  viewClient,
+		certificate: &tls.Certificate{},
+		createErr:   nil,
+	}
+
+	c := &client{
+		ViewServiceClient: transport,
+		RandomnessReader:  bytes.NewReader(make([]byte, 32)),
+		Time:              func() time.Time { return time.Unix(1700000000, 0) },
+		SigningIdentity:   stubSigningIdentity{},
+		tracer:            noop.NewTracerProvider().Tracer("test"),
+	}
+
+	result, err := c.CallViewWithContext(context.Background(), "myView", []byte("payload"))
+
+	require.Error(t, err)
+	require.Nil(t, result)
+	require.Contains(t, err.Error(), "expected call view response")
+}
+
 func TestValidateClientConfig_Returns_Error_For_Missing_Connection_Config(t *testing.T) {
 	t.Parallel()
 
@@ -122,11 +152,11 @@ func TestValidateClientConfig_Returns_Error_For_Missing_Connection_Config(t *tes
 
 type stubSigningIdentity struct{}
 
-func (s stubSigningIdentity) Serialize() ([]byte, error) {
+func (stubSigningIdentity) Serialize() ([]byte, error) {
 	return []byte("creator"), nil
 }
 
-func (s stubSigningIdentity) Sign(message []byte) ([]byte, error) {
+func (stubSigningIdentity) Sign(_ []byte) ([]byte, error) {
 	return []byte("signature"), nil
 }
 
@@ -155,7 +185,7 @@ func (f *fakeViewServiceClient) ProcessCommand(_ context.Context, in *protos.Sig
 	return f.processCommandResponse, f.processCommandErr
 }
 
-func (f *fakeViewServiceClient) StreamCommand(_ context.Context, _ ...grpc.CallOption) (grpc.BidiStreamingClient[protos.SignedCommand, protos.SignedCommandResponse], error) {
+func (*fakeViewServiceClient) StreamCommand(_ context.Context, _ ...grpc.CallOption) (grpc.BidiStreamingClient[protos.SignedCommand, protos.SignedCommandResponse], error) {
 	return nil, io.EOF
 }
 

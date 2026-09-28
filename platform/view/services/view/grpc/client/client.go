@@ -79,7 +79,9 @@ type client struct {
 	tracer            trace.Tracer
 }
 
-// NewClient returns a new instance of the view service client.
+// NewClient returns a new instance of the view service client. It returns an
+// error if config or config.ConnectionConfig is nil, or if the underlying
+// gRPC connection cannot be created.
 func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provider) (*client, error) {
 	if config == nil {
 		return nil, errors.New("missing client config")

@@ -53,7 +53,9 @@ func FromJSON(raw []byte) (Configs, error) {
 	return *configs, nil
 }
 
-// ValidateClientConfig validates the given client config.
+// ValidateClientConfig validates the given client config. It returns an
+// error if config.ConnectionConfig is nil, if the peer address is missing, or
+// if TLS is enabled without trust anchors resolved.
 func ValidateClientConfig(config Config) error {
 	if config.ConnectionConfig == nil {
 		return errors.New("missing fsc peer connection config")
