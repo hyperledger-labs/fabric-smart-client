@@ -92,3 +92,54 @@ func TestRegisterWithParams(t *testing.T) {
 	require.NoError(t, sdk.Install())
 	require.NoError(t, sdk.Start(context.Background()))
 }
+
+// valueFactory implements view.Factory on its value receiver, so a constructor
+// may return it without a pointer. validateConstructorType accepts that, since
+// it only requires the returned type to implement the interface.
+type valueFactory struct{}
+
+func (valueFactory) NewView([]byte) (view.View, error) { return nil, nil }
+
+func TestValueFactory(t *testing.T) {
+	t.Parallel()
+	c := vfsdk.NewContainer()
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() valueFactory { return valueFactory{} }, vfsdk.WithFactoryId("value")))
+
+	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
+	require.NoError(t, sdk.Install())
+	require.NoError(t, sdk.Start(context.Background()))
+}
+
+func TestValueFactoryWithError(t *testing.T) {
+	t.Parallel()
+	c := vfsdk.NewContainer()
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() (valueFactory, error) { return valueFactory{}, nil }, vfsdk.WithFactoryId("value-err")))
+
+	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
+	require.NoError(t, sdk.Install())
+	require.NoError(t, sdk.Start(context.Background()))
+}
+
+func TestErrorWithFactoryId(t *testing.T) {
+	t.Parallel()
+	c := vfsdk.NewContainer()
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() (*myFactory, error) { return nil, errors.New("error occurred") }, vfsdk.WithFactoryId("abc")))
+
+	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
+	require.NoError(t, sdk.Install())
+	require.ErrorContains(t, sdk.Start(context.Background()), "error occurred")
+}
+
+func TestInterfaceErrorWithFactoryId(t *testing.T) {
+	t.Parallel()
+	c := vfsdk.NewContainer()
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() (registry3.Factory, error) { return nil, errors.New("error occurred") }, vfsdk.WithFactoryId("abc")))
+
+	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
+	require.NoError(t, sdk.Install())
+	require.ErrorContains(t, sdk.Start(context.Background()), "error occurred")
+}

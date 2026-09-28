@@ -71,9 +71,12 @@ func (c *vfContainer) Provide(constructor any, opts ...common.ProvideOption) err
 
 	fn := reflect.MakeFunc(fnType, func(args []reflect.Value) []reflect.Value {
 		results := reflect.ValueOf(constructor).Call(args)
-		if !results[0].IsNil() {
-			results[0] = reflect.ValueOf(newEntry(results[0].Interface(), vfOpts))
+		// dig discards the other results of a failed constructor, and a
+		// failed constructor may return a nil view.Factory, which newEntry rejects.
+		if len(results) == 2 && results[1].Interface() != nil {
+			return []reflect.Value{reflect.Zero(factoryEntryType), results[1]}
 		}
+		results[0] = reflect.ValueOf(newEntry(results[0].Interface(), vfOpts))
 		if len(results) == 1 {
 			results = append(results, nilError)
 		}
