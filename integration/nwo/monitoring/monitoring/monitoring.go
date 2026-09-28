@@ -128,8 +128,14 @@ func (n *Extension) fabricScrapes(p *Prometheus) {
 	}
 }
 
+// fscScrapes appends a Prometheus scrape config for every FSC peer to p. It
+// fails the test if the context has no fsc platform registered, or more than
+// one.
 func (n *Extension) fscScrapes(p *Prometheus) {
-	platform := n.platform.GetContext().PlatformsByType(fsc.TopologyName)[0].(*fsc.Platform)
+	platforms := n.platform.GetContext().PlatformsByType(fsc.TopologyName)
+	gomega.Expect(platforms).To(gomega.HaveLen(1), "expected exactly one fsc platform")
+	platform, ok := platforms[0].(*fsc.Platform)
+	gomega.Expect(ok).To(gomega.BeTrue(), "expected the fsc platform to be a *fsc.Platform")
 	for _, peer := range platform.Peers {
 		replace := func(s string) string {
 			return strings.ReplaceAll(s, n.fscCryptoDir(), "/etc/prometheus/fsc/crypto")
@@ -267,6 +273,13 @@ func (n *Extension) prometheusConfigFilePath() string {
 	return filepath.Join(n.configFileDir(), "prometheus", "prometheus.yml")
 }
 
+// fscCryptoDir returns the crypto material path of the context's fsc
+// platform. It fails the test if there is no fsc platform registered, or
+// more than one.
 func (n *Extension) fscCryptoDir() string {
-	return n.platform.GetContext().PlatformsByType(fsc.TopologyName)[0].(*fsc.Platform).CryptoPath()
+	platforms := n.platform.GetContext().PlatformsByType(fsc.TopologyName)
+	gomega.Expect(platforms).To(gomega.HaveLen(1), "expected exactly one fsc platform")
+	platform, ok := platforms[0].(*fsc.Platform)
+	gomega.Expect(ok).To(gomega.BeTrue(), "expected the fsc platform to be a *fsc.Platform")
+	return platform.CryptoPath()
 }

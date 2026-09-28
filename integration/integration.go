@@ -200,8 +200,14 @@ func Clients(dir string, topologies ...api.Topology) (*Infrastructure, error) {
 	return n, nil
 }
 
+// ViewCmd builds the connection parameters the CLI needs to invoke a view on
+// node, from the registered fsc platform. It fails the test if no fsc
+// platform is registered.
 func (i *Infrastructure) ViewCmd(node *smartclient.Replica) commands.View {
-	p := i.NWOCtx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
+	platform := i.NWOCtx.PlatformByName(fsc.TopologyName)
+	gomega.Expect(platform).NotTo(gomega.BeNil(), "expected an fsc platform named [%s]", fsc.TopologyName)
+	p, ok := platform.(*fsc.Platform)
+	gomega.Expect(ok).To(gomega.BeTrue(), "expected the fsc platform to be a *fsc.Platform")
 
 	return commands.View{
 		TLSCA:         path.Join(p.NodeLocalTLSDir(node.Peer), "ca.crt"),
