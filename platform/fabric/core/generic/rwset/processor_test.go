@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
+	"context"
 	stderrors "errors"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -144,4 +147,66 @@ func newFakeChannel(envExists, txExists bool, loader fdriver.RWSetLoader) *rwset
 		TransactionServiceValue: &rwsetfake.EndorserTransactionService{ExistsValue: txExists},
 		RWSetLoaderValue:        loader,
 	}
+}
+
+// Registration stays open for the manager's lifetime, so an application may
+// register a processor while the committer dispatches a transaction on another
+// goroutine. Run under -race, this fails if the registries are unguarded.
+func TestProcessorManagerConcurrentRegistrationAndDispatch(t *testing.T) {
+	t.Parallel()
+
+	// rwsetfake.RWSet counts Done calls without synchronisation, so each
+	// dispatch gets its own fake: the contention under test is the manager's
+	// registries, not the fixture's counter.
+	loader := &rwsetmock.RWSetLoader{}
+	loader.GetRWSetFromEvnCalls(func(context.Context, string) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+		return &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns1"}},
+			&rwsetfake.ProcessTransaction{IDValue: "tx1", ChannelValue: "ch1"},
+			nil
+	})
+	channelProvider := &rwsetfake.ChannelProvider{ChannelValue: newFakeChannel(true, false, loader)}
+
+	pm := NewProcessorManager(channelProvider, &rwsetmock.Processor{})
+
+	var wg sync.WaitGroup
+	for i := range 50 {
+		wg.Go(func() {
+			require.NoError(t, pm.ProcessByID(t.Context(), "ch1", "tx1"))
+		})
+		wg.Go(func() {
+			require.NoError(t, pm.AddProcessor(fmt.Sprintf("ns%d", i), &rwsetmock.Processor{}))
+		})
+		wg.Go(func() {
+			require.NoError(t, pm.AddChannelProcessor("ch1", fmt.Sprintf("ns%d", i), &rwsetmock.Processor{}))
+		})
+		wg.Go(func() {
+			require.NoError(t, pm.SetDefaultProcessor(&rwsetmock.Processor{}))
+		})
+	}
+	wg.Wait()
+}
+
+// A processor's Process call is arbitrary application code, so it must not run
+// with the registry locked: a processor that registers another processor would
+// otherwise deadlock.
+func TestProcessorManagerProcessMayRegister(t *testing.T) {
+	t.Parallel()
+
+	rws := &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns1"}}
+	tx := &rwsetfake.ProcessTransaction{IDValue: "tx1", ChannelValue: "ch1"}
+	loader := &rwsetmock.RWSetLoader{}
+	loader.GetRWSetFromEvnReturns(rws, tx, nil)
+	channelProvider := &rwsetfake.ChannelProvider{ChannelValue: newFakeChannel(true, false, loader)}
+
+	pm := NewProcessorManager(channelProvider, nil)
+
+	reentrant := &rwsetmock.Processor{}
+	reentrant.ProcessCalls(func(_ fdriver.Request, _ fdriver.ProcessTransaction, _ fdriver.RWSet, _ string) error {
+		return pm.AddProcessor("ns-from-processor", &rwsetmock.Processor{})
+	})
+	require.NoError(t, pm.AddProcessor("ns1", reentrant))
+
+	require.NoError(t, pm.ProcessByID(t.Context(), "ch1", "tx1"))
+	_, ok := pm.processor("ns-from-processor")
+	require.True(t, ok)
 }
