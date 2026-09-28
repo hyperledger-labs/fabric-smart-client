@@ -55,7 +55,7 @@ require (
 	github.com/knadh/koanf/providers/env/v2 v2.0.1 // indirect
 	github.com/knadh/koanf/providers/file v1.2.1 // indirect
 	github.com/knadh/koanf/providers/rawbytes v1.0.1 // indirect
-	github.com/knadh/koanf/v2 v2.3.6 // indirect
+	github.com/knadh/koanf/v2 v2.3.7 // indirect
 	github.com/koron/go-ssdp v0.9.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -88,7 +88,7 @@ require (
 	github.com/multiformats/go-multistream v0.6.1 // indirect
 	github.com/multiformats/go-varint v0.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/gomega v1.43.1 // indirect
+	github.com/onsi/gomega v1.44.0 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.1.4 // indirect
