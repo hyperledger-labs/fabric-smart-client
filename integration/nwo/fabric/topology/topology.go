@@ -94,9 +94,16 @@ func (t *Topology) AppendPeer(peer *Peer) {
 	t.Peers = append(t.Peers, peer)
 }
 
+// AppendOrganization adds org to the topology and to every existing
+// consortium and profile. It is safe to call on a topology with no
+// consortiums (e.g. one built with network.NewEmptyTopology()): the
+// consortium loop is simply a no-op in that case.
 func (t *Topology) AppendOrganization(org *Organization) {
 	t.Organizations = append(t.Organizations, org)
-	t.Consortiums[0].Organizations = append(t.Consortiums[0].Organizations, org.Name)
+
+	for _, consortium := range t.Consortiums {
+		consortium.Organizations = append(consortium.Organizations, org.Name)
+	}
 
 	for _, profile := range t.Profiles {
 		profile.Organizations = append(profile.Organizations, org.Name)
