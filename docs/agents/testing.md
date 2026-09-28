@@ -83,6 +83,23 @@ Check that a focused run actually ran something. `go test` prints nothing for a 
 package, so a filter matching **zero specs** reports `ok ... 9.5s`, which reads exactly
 like success. Pass `-v` and read `Ran N of M Specs` before believing it.
 
+## Gomega assertions in spawned goroutines
+
+`gomega.Expect(...).To(...)` calls `ginkgo.Fail`, which panics to unwind to a `recover()`
+that only exists on the goroutine Ginkgo is currently running the spec on. A `go func(){
+gomega.Expect(err).NotTo(gomega.HaveOccurred()) }()` has no such `recover()`: a failed
+assertion there panics the whole test binary instead of failing one spec.
+
+- If the goroutine's result is joined before the spec ends (`sync.WaitGroup.Wait()`,
+  `errgroup.Wait()`), `defer ginkgo.GinkgoRecover()` as its first statement turns that
+  panic back into a normal spec failure.
+- If the goroutine can outlive the spec (a fire-and-forget log streamer), don't put a
+  `gomega.Expect` in it at all, even behind `GinkgoRecover` — Ginkgo would attribute a
+  late panic to whichever spec happens to be running by then. Do the fallible call before
+  spawning the goroutine and assert its error synchronously on the calling goroutine; let
+  the goroutine itself only log-and-continue on errors that occur purely within its own
+  work. See `docker.StartLogs` (`integration/nwo/common/docker/utils.go`).
+
 ## Mocks and fakes
 
 Mocks are generated with [counterfeiter](https://github.com/maxbrunsfeld/counterfeiter)
