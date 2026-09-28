@@ -322,3 +322,32 @@ func TestBatcher_CallAfterCancelReportsError(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	require.Zero(t, val)
 }
+
+// TestBatcher_InvalidArgumentsPanicInCaller asserts that an invalid capacity or
+// timeout panics in the constructor, where the caller can see and recover it, rather
+// than in the batching goroutine, where it would crash the process.
+func TestBatcher_InvalidArgumentsPanicInCaller(t *testing.T) {
+	t.Parallel()
+
+	noop := func(vs []int) []error { return make([]error, len(vs)) }
+	tests := []struct {
+		name     string
+		capacity int
+		timeout  time.Duration
+		msg      string
+	}{
+		{name: "zero capacity", capacity: 0, timeout: time.Second, msg: "batch capacity must be at least 1, got 0"},
+		{name: "negative capacity", capacity: -1, timeout: time.Second, msg: "batch capacity must be at least 1, got -1"},
+		{name: "zero timeout", capacity: 2, timeout: 0, msg: "batch timeout must be positive, got 0s"},
+		{name: "negative timeout", capacity: 2, timeout: -time.Second, msg: "batch timeout must be positive, got -1s"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.PanicsWithError(t, tt.msg, func() { NewBatchRunner(t.Context(), noop, tt.capacity, tt.timeout) })
+			require.PanicsWithError(t, tt.msg, func() {
+				NewBatchExecutor(t.Context(), func(in []int) []Output[int] { return make([]Output[int], len(in)) }, tt.capacity, tt.timeout)
+			})
+		})
+	}
+}

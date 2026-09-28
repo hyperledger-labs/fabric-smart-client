@@ -26,7 +26,15 @@ type batcher[I any, O any] struct {
 	timeout  time.Duration
 }
 
+// newBatcher validates its arguments before starting the batching goroutine, where
+// an invalid capacity or timeout would otherwise panic out of reach of the caller.
 func newBatcher[I, O any](ctx context.Context, executor func([]I) []O, capacity int, timeout time.Duration) *batcher[I, O] {
+	if capacity < 1 {
+		panic(errors.Errorf("batch capacity must be at least 1, got %d", capacity))
+	}
+	if timeout <= 0 {
+		panic(errors.Errorf("batch timeout must be positive, got %v", timeout))
+	}
 	inputs := make([]chan I, capacity)
 	outputs := make([]chan O, capacity)
 	locks := make([]sync.Mutex, capacity)
@@ -143,6 +151,7 @@ type batchExecutor[I any, O any] struct {
 // The executor function receives a batch of inputs and must return corresponding outputs.
 // If ctx is cancelled while a call is in flight, that call's Execute returns the zero
 // value of O and ctx.Err().
+// It panics if capacity is less than 1 or timeout is not positive.
 func NewBatchExecutor[I, O any](
 	ctx context.Context,
 	executor ExecuteFunc[I, Output[O]],
@@ -170,6 +179,7 @@ type batchRunner[V any] struct {
 // Batching occurs when capacity is reached or timeout expires.
 // The runner function receives a batch of values and must return corresponding errors.
 // If ctx is cancelled while a call is in flight, that call's Run returns ctx.Err().
+// It panics if capacity is less than 1 or timeout is not positive.
 func NewBatchRunner[V any](ctx context.Context, runner func([]V) []error, capacity int, timeout time.Duration) BatchRunner[V] {
 	return &batchRunner[V]{batcher: newBatcher(ctx, runner, capacity, timeout)}
 }
