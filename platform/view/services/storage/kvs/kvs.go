@@ -46,9 +46,32 @@ type ConfigProvider interface {
 	GetInt(key string) int
 }
 
+// Iterator iterates over the states returned by a KVS scan.
+//
+// Callers alternate HasNext and Next:
+//
+//	for it.HasNext() {
+//		key, err := it.Next(&state)
+//		if err != nil {
+//			return err
+//		}
+//	}
+//
+// HasNext advances to the next state and reports whether there is one for Next
+// to return. When reading from the store fails, HasNext returns true and Next
+// returns the failure, so a scan that did not complete is never mistaken for
+// one that did. Iteration ends after a failure. The caller must call Close when
+// done.
 type Iterator interface {
+	// HasNext advances the iterator and reports whether Next has a state or a
+	// read failure to return.
 	HasNext() bool
+	// Close releases the underlying store iterator.
 	Close() error
+	// Next unmarshals the current state into state and returns its key. It
+	// returns an error if reading the state from the store failed, if the state
+	// cannot be unmarshalled, or if there is no current state because HasNext
+	// was not called or returned false.
 	Next(state any) (string, error)
 }
 
@@ -218,6 +241,9 @@ func (o *KVS) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// GetByPartialCompositeID returns an Iterator over the states whose keys are
+// composite keys, as built by CreateCompositeKey, that start with prefix and attrs.
+// The caller must close the returned Iterator.
 func (o *KVS) GetByPartialCompositeID(ctx context.Context, prefix string, attrs []string) (Iterator, error) {
 	partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
 	if err != nil {
@@ -244,15 +270,28 @@ func (o *KVS) Stop() {
 type it struct {
 	ri   iterators.Iterator[*driver.UnversionedRead]
 	next *driver.UnversionedRead
+	err  error
+	done bool
 }
 
 func (i *it) HasNext() bool {
-	var err error
-	i.next, err = i.ri.Next()
-	if err != nil || i.next == nil {
+	i.next, i.err = nil, nil
+	if i.done {
 		return false
 	}
-	return true
+	next, err := i.ri.Next()
+	switch {
+	case err != nil:
+		// the store iterator is not read after a failure
+		i.err, i.done = err, true
+		return true
+	case next == nil:
+		i.done = true
+		return false
+	default:
+		i.next = next
+		return true
+	}
 }
 
 func (i *it) Close() error {
@@ -260,9 +299,15 @@ func (i *it) Close() error {
 	return nil
 }
 
-// Next unmarshals the current state into the given state object.
-// It also returns the key of the current state.
 func (i *it) Next(state any) (string, error) {
+	if i.err != nil {
+		err := i.err
+		i.err = nil
+		return "", errors.Wrap(err, "failed reading next state")
+	}
+	if i.next == nil {
+		return "", errors.New("no current state")
+	}
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 

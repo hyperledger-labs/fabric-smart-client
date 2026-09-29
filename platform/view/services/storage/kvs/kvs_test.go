@@ -872,6 +872,129 @@ func TestKVS_Iterator(t *testing.T) {
 	})
 }
 
+// scanIterator replays a scripted sequence of (item, error) pairs and then
+// reports exhaustion, so tests can inject read failures into a range scan.
+type scanIterator struct {
+	results []scanResult
+	nexts   int
+}
+
+type scanResult struct {
+	item *driver.UnversionedRead
+	err  error
+}
+
+func (s *scanIterator) Next() (*driver.UnversionedRead, error) {
+	s.nexts++
+	if s.nexts > len(s.results) {
+		return nil, nil
+	}
+	return s.results[s.nexts-1].item, s.results[s.nexts-1].err
+}
+
+func (*scanIterator) Close() {}
+
+func TestKVS_Iterator_Errors(t *testing.T) {
+	t.Parallel()
+	errScan := fmt.Errorf("scan error")
+	newIter := func(t *testing.T, results ...scanResult) (kvs2.Iterator, *scanIterator) {
+		t.Helper()
+		scan := &scanIterator{results: results}
+		mockStore := &mock.KeyValueStore{}
+		mockStore.GetStateRangeScanIteratorReturns(scan, nil)
+		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		require.NoError(t, err)
+		iter, err := k.GetByPartialCompositeID(context.Background(), "prefix", nil)
+		require.NoError(t, err)
+		return iter, scan
+	}
+
+	tests := []struct {
+		name      string
+		results   []scanResult
+		wantKeys  []string
+		wantNexts int
+	}{
+		{
+			name:      "nil item with error",
+			results:   []scanResult{{err: errScan}},
+			wantNexts: 1,
+		},
+		{
+			name: "non-nil item with error",
+			results: []scanResult{
+				{item: &driver.UnversionedRead{Key: "key1", Raw: []byte(`"v1"`)}, err: errScan},
+				{item: &driver.UnversionedRead{Key: "key2", Raw: []byte(`"v2"`)}},
+			},
+			wantNexts: 1,
+		},
+		{
+			name: "error after some items",
+			results: []scanResult{
+				{item: &driver.UnversionedRead{Key: "key1", Raw: []byte(`"v1"`)}},
+				{err: errScan},
+				{item: &driver.UnversionedRead{Key: "key2", Raw: []byte(`"v2"`)}},
+			},
+			wantKeys:  []string{"key1"},
+			wantNexts: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			iter, scan := newIter(t, tt.results...)
+
+			var keys []string
+			var nextErr error
+			for iter.HasNext() {
+				var v string
+				key, err := iter.Next(&v)
+				if err != nil {
+					nextErr = err
+					break
+				}
+				keys = append(keys, key)
+			}
+			require.ErrorIs(t, nextErr, errScan, "the read failure must reach the caller through Next")
+			require.Equal(t, tt.wantKeys, keys)
+			require.False(t, iter.HasNext(), "iteration must end after a read failure")
+			require.Equal(t, tt.wantNexts, scan.nexts, "the store must not be read after a failure")
+		})
+	}
+
+	t.Run("Next without a current item", func(t *testing.T) {
+		t.Parallel()
+		iter, _ := newIter(t, scanResult{item: &driver.UnversionedRead{Key: "key1", Raw: []byte(`"v1"`)}})
+		var v string
+
+		_, err := iter.Next(&v)
+		require.Error(t, err, "Next before HasNext")
+
+		require.True(t, iter.HasNext())
+		key, err := iter.Next(&v)
+		require.NoError(t, err)
+		require.Equal(t, "key1", key)
+		require.Equal(t, "v1", v)
+
+		require.False(t, iter.HasNext())
+		_, err = iter.Next(&v)
+		require.Error(t, err, "Next after HasNext returned false")
+	})
+
+	t.Run("Next after the read failure was returned", func(t *testing.T) {
+		t.Parallel()
+		iter, _ := newIter(t, scanResult{err: errScan})
+		var v string
+
+		require.True(t, iter.HasNext())
+		_, err := iter.Next(&v)
+		require.ErrorIs(t, err, errScan)
+		_, err = iter.Next(&v)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, errScan, "the read failure is reported once")
+	})
+}
+
 func TestKVS_Stop(t *testing.T) {
 	t.Parallel()
 	t.Run("successful stop", func(t *testing.T) {
