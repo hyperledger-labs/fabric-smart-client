@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package api
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -30,8 +31,13 @@ type Output struct {
 	Death     Script // Death script descriptor
 }
 
-func (*Output) Equals(_ *Output) bool {
-	panic("implement me")
+// Equals reports whether o and o2 have the same reference, ID, raw state, and birth and death scripts.
+func (o *Output) Equals(o2 *Output) bool {
+	if o2 == nil {
+		return false
+	}
+	sameRef := o.Reference == o2.Reference || (o.Reference != nil && o2.Reference != nil && *o.Reference == *o2.Reference)
+	return sameRef && o.ID == o2.ID && bytes.Equal(o.Raw, o2.Raw) && o.Birth.Equal(&o2.Birth) && o.Death.Equal(&o2.Death)
 }
 
 // Transaction provides a UTXO transaction abstraction
