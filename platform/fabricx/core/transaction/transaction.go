@@ -191,6 +191,9 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	return nil
 }
 
+// SetFromEnvelopeBytes populates the transaction from a marshaled Fabric endorser
+// transaction envelope (HeaderType_ENDORSER_TRANSACTION). It returns an error for any
+// other header type, including the HeaderType_MESSAGE envelopes produced by Envelope.
 func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	// TODO: check the current payload is compatible with the content of the signed proposal
 	upe, _, err := transaction.UnpackEnvelopeFromBytes(raw)
@@ -505,12 +508,19 @@ func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) e
 	return t.recordProposalResponse(resp.PR())
 }
 
+// ProposalHasBeenEndorsedBy verifies that party signed the transaction's signed
+// proposal, using the verifier the channel membership resolves for party. It returns
+// an error if the transaction carries no signed proposal.
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
+	sp := t.SignedProposal()
+	if sp == nil {
+		return errors.Errorf("transaction [txID=%s] has no signed proposal", t.ID())
+	}
 	verifier, err := t.channel.ChannelMembership().GetVerifier(party)
 	if err != nil {
 		return errors.Wrap(err, "get verifier from channel membership")
 	}
-	return verifier.Verify(t.SignedProposal().ProposalBytes(), t.SignedProposal().Signature())
+	return verifier.Verify(sp.ProposalBytes(), sp.Signature())
 }
 
 func (t *Transaction) StoreTransient() error {
@@ -691,12 +701,12 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 
 		digest, err := tx.Namespaces[idx].ASN1Marshal(txID, nil)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed asn1 marshal for [txID=%s] [ns=%s]", txID, ns)
+			return nil, errors.Wrapf(err, "failed asn1 marshal for [txID=%s] [ns=%s]", txID, ns.GetNsId())
 		}
 
 		sig, err := signer.Sign(digest)
 		if err != nil {
-			return nil, errors.Wrapf(err, "signing transaction [txID=%s] [ns=%s]", txID, ns)
+			return nil, errors.Wrapf(err, "signing transaction [txID=%s] [ns=%s]", txID, ns.GetNsId())
 		}
 
 		// store signature together with the signer's identity

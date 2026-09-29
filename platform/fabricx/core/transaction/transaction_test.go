@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/msppb"
+	"github.com/hyperledger/fabric-x-common/protoutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -1377,4 +1378,626 @@ func BenchmarkTransactionBytes(b *testing.B) {
 			})
 		})
 	}
+}
+
+// endorsingChannel returns a channel whose metadata service accepts StoreTransient.
+func endorsingChannel() *mock.Channel {
+	ch := &mock.Channel{}
+	ch.MetadataServiceReturns(&mock.MetadataService{})
+	return ch
+}
+
+// fnsWithSigner returns a network service whose signer service hands out signer.
+func fnsWithSigner(signer driver.Signer, err error) (*mock.FabricNetworkService, *mock.SignerService) {
+	fns := &mock.FabricNetworkService{}
+	ss := &mock.SignerService{}
+	fns.SignerServiceReturns(ss)
+	ss.GetSignerReturns(signer, err)
+	return fns, ss
+}
+
+func TestEndorseWithSigner(t *testing.T) {
+	t.Parallel()
+
+	_, creator := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+
+	newTx := func(ch *mock.Channel) *Transaction {
+		return &Transaction{
+			ctx:        t.Context(),
+			TTxID:      "tx1",
+			TNonce:     []byte("nonce"),
+			TCreator:   creator,
+			TChannel:   "channel1",
+			TChaincode: "cc",
+			TFunction:  "invoke",
+			channel:    ch,
+		}
+	}
+
+	t.Run("generates a proposal and no response without rwset", func(t *testing.T) {
+		t.Parallel()
+		tx := newTx(endorsingChannel())
+
+		require.NoError(t, tx.EndorseWithSigner(creator, &testSerializableSigner{creator: creator, signRes: []byte("sig")}))
+		require.NotNil(t, tx.SignedProposal())
+		require.NotNil(t, tx.TSignedProposal)
+		require.Equal(t, []byte("sig"), tx.SignedProposal().Signature())
+		require.Empty(t, tx.TProposalResponses)
+	})
+
+	t.Run("endorses one namespace per rwset namespace", func(t *testing.T) {
+		t.Parallel()
+		rawTx := mustRawTx(t, &applicationpb.Tx{Namespaces: []*applicationpb.TxNamespace{{NsId: "ns1"}, {NsId: "ns2"}}})
+		fakeRWSet := &mock.RWSet{}
+		fakeRWSet.BytesReturns(rawTx, nil)
+		tx := newTx(endorsingChannel())
+		tx.rwSetHandle = fakeRWSet
+
+		require.NoError(t, tx.EndorseWithSigner(creator, &testSerializableSigner{creator: creator, signRes: []byte("sig")}))
+		require.NotNil(t, tx.SignedProposal())
+		require.Len(t, tx.TProposalResponses, 1)
+		resp := tx.TProposalResponses[0]
+		require.Equal(t, rawTx, resp.Payload)
+		require.Equal(t, creator, resp.Endorsement.Endorser)
+
+		endorsements, err := unmarshalEndorsementsFromProposalResponse(resp.Endorsement.Signature)
+		require.NoError(t, err)
+		require.Len(t, endorsements, 2)
+		for _, e := range endorsements {
+			require.Len(t, e.EndorsementsWithIdentity, 1)
+			require.Equal(t, []byte("sig"), e.EndorsementsWithIdentity[0].Endorsement)
+		}
+
+		// The deferred Close terminates the simulation.
+		require.Equal(t, 1, fakeRWSet.DoneCallCount())
+		require.Nil(t, tx.RWS())
+	})
+
+	t.Run("wraps proposal generation failure", func(t *testing.T) {
+		t.Parallel()
+		tx := newTx(endorsingChannel())
+
+		err := tx.EndorseWithSigner(creator, &testSerializableSigner{creator: creator, signErr: errors.New("boom")})
+		require.ErrorContains(t, err, "generate signed proposal")
+	})
+
+	t.Run("wraps proposal response failure", func(t *testing.T) {
+		t.Parallel()
+		fakeRWSet := &mock.RWSet{}
+		fakeRWSet.BytesReturns(nil, errors.New("boom"))
+		tx := newTx(endorsingChannel())
+		tx.rwSetHandle = fakeRWSet
+
+		err := tx.EndorseWithSigner(creator, &testSerializableSigner{creator: creator, signRes: []byte("sig")})
+		require.ErrorContains(t, err, "getting proposal response")
+		require.Equal(t, 1, fakeRWSet.DoneCallCount())
+	})
+
+	t.Run("wraps store transient failure", func(t *testing.T) {
+		t.Parallel()
+		mds := &mock.MetadataService{}
+		mds.StoreTransientReturns(errors.New("boom"))
+		ch := &mock.Channel{}
+		ch.MetadataServiceReturns(mds)
+		tx := newTx(ch)
+
+		err := tx.EndorseWithSigner(creator, &testSerializableSigner{creator: creator, signRes: []byte("sig")})
+		require.ErrorContains(t, err, "failed storing transient")
+	})
+}
+
+// TestEndorseDelegatesWithCreator pins that the identity-less endorse methods sign
+// with the transaction creator.
+func TestEndorseDelegatesWithCreator(t *testing.T) {
+	t.Parallel()
+
+	_, creator := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+	rawTx := mustRawTx(t, &applicationpb.Tx{Namespaces: []*applicationpb.TxNamespace{{NsId: "ns1"}}})
+
+	tests := []struct {
+		name    string
+		endorse func(*Transaction) error
+	}{
+		{name: "Endorse", endorse: (*Transaction).Endorse},
+		{name: "EndorseProposal", endorse: (*Transaction).EndorseProposal},
+		{name: "EndorseProposalResponse", endorse: (*Transaction).EndorseProposalResponse},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fakeSigner := &mock.Signer{}
+			fakeSigner.SignReturns([]byte("sig"), nil)
+			fns, ss := fnsWithSigner(fakeSigner, nil)
+			fakeRWSet := &mock.RWSet{}
+			fakeRWSet.BytesReturns(rawTx, nil)
+			sp, err := newSignedProposal(testSignedProposalBytes(t))
+			require.NoError(t, err)
+
+			tx := &Transaction{
+				ctx:            t.Context(),
+				TTxID:          "tx1",
+				TNonce:         []byte("nonce"),
+				TCreator:       creator,
+				TChannel:       "channel1",
+				TChaincode:     "cc",
+				TFunction:      "invoke",
+				fns:            fns,
+				channel:        endorsingChannel(),
+				signedProposal: sp,
+				rwSetHandle:    fakeRWSet,
+			}
+
+			require.NoError(t, tc.endorse(tx))
+			require.Equal(t, 1, ss.GetSignerCallCount())
+			require.Equal(t, view.Identity(creator), ss.GetSignerArgsForCall(0))
+		})
+	}
+}
+
+func TestEndorseWithIdentityErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		fns           driver.FabricNetworkService
+		expectedError string
+	}{
+		{
+			name:          "nil fabric network service",
+			expectedError: "fabric network service not initialized",
+		},
+		{
+			name:          "nil signer service",
+			fns:           &mock.FabricNetworkService{},
+			expectedError: "signer service not initialized",
+		},
+		{
+			name: "get signer fails",
+			fns: func() driver.FabricNetworkService {
+				fns, _ := fnsWithSigner(nil, errors.New("boom"))
+				return fns
+			}(),
+			expectedError: "get signer identity",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tx := &Transaction{fns: tc.fns}
+			require.ErrorContains(t, tx.EndorseWithIdentity(view.Identity("id")), tc.expectedError)
+		})
+	}
+}
+
+func TestGetProposalResponseErrors(t *testing.T) {
+	t.Parallel()
+
+	_, creator := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+	rawTx := mustRawTx(t, &applicationpb.Tx{Namespaces: []*applicationpb.TxNamespace{{NsId: "ns1"}}})
+	sp, err := newSignedProposal(testSignedProposalBytes(t))
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		setup         func(*Transaction)
+		signer        *testSerializableSigner
+		expectedError string
+	}{
+		{
+			name: "get rwset fails",
+			setup: func(tx *Transaction) {
+				v := &mock.Vault{}
+				v.NewRWSetReturns(nil, errors.New("boom"))
+				ch := &mock.Channel{}
+				ch.VaultReturns(v)
+				tx.channel = ch
+			},
+			signer:        &testSerializableSigner{creator: creator},
+			expectedError: "getting rwset for [txID=tx1]",
+		},
+		{
+			name: "rwset bytes fails",
+			setup: func(tx *Transaction) {
+				rws := &mock.RWSet{}
+				rws.BytesReturns(nil, errors.New("boom"))
+				tx.rwSetHandle = rws
+			},
+			signer:        &testSerializableSigner{creator: creator},
+			expectedError: "serializing rws for [txID=tx1]",
+		},
+		{
+			name: "payload is not a tx",
+			setup: func(tx *Transaction) {
+				rws := &mock.RWSet{}
+				rws.BytesReturns([]byte("not-a-tx"), nil)
+				tx.rwSetHandle = rws
+			},
+			signer:        &testSerializableSigner{creator: creator},
+			expectedError: "unmarshalling tx [txID=tx1]",
+		},
+		{
+			name: "creator is not an x509 identity",
+			setup: func(tx *Transaction) {
+				rws := &mock.RWSet{}
+				rws.BytesReturns(rawTx, nil)
+				tx.rwSetHandle = rws
+			},
+			signer:        &testSerializableSigner{creator: []byte("not-an-identity")},
+			expectedError: "converting signer identity to msp identity",
+		},
+		{
+			name: "sign fails",
+			setup: func(tx *Transaction) {
+				rws := &mock.RWSet{}
+				rws.BytesReturns(rawTx, nil)
+				tx.rwSetHandle = rws
+			},
+			signer:        &testSerializableSigner{creator: creator, signErr: errors.New("boom")},
+			expectedError: "signing transaction [txID=tx1] [ns=ns1]",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tx := &Transaction{ctx: t.Context(), TTxID: "tx1", signedProposal: sp}
+			tc.setup(tx)
+			resp, err := tx.getProposalResponse(tc.signer)
+			require.ErrorContains(t, err, tc.expectedError)
+			require.Nil(t, resp)
+		})
+	}
+}
+
+// mustEndorserEnvelope builds a signed HeaderType_ENDORSER_TRANSACTION envelope with a
+// single proposal response, as produced by a Fabric peer.
+func mustEndorserEnvelope(t *testing.T, creator []byte) []byte {
+	t.Helper()
+
+	signer := &testSerializableSigner{creator: creator, signRes: []byte("sig")}
+	src := &Transaction{
+		TTxID:             "tx-env",
+		TNonce:            []byte("nonce"),
+		TCreator:          creator,
+		TChannel:          "channel1",
+		TChaincode:        "cc",
+		TChaincodeVersion: "v1",
+		TFunction:         "invoke",
+		TParameters:       [][]byte{[]byte("a"), []byte("b")},
+	}
+	require.NoError(t, src.generateProposal(signer))
+
+	resp, err := protoutil.CreateProposalResponse(
+		src.TProposal.Header, src.TProposal.Payload,
+		&peer.Response{Status: 200}, []byte("results"), nil,
+		&peer.ChaincodeID{Name: "cc", Version: "v1"}, signer,
+	)
+	require.NoError(t, err)
+	env, err := protoutil.CreateSignedTx(src.TProposal, signer, resp)
+	require.NoError(t, err)
+	raw, err := proto.Marshal(env)
+	require.NoError(t, err)
+	return raw
+}
+
+func TestTransactionSetFromEnvelopeBytesEndorserTransaction(t *testing.T) {
+	t.Parallel()
+
+	creator := []byte("creator")
+	raw := mustEndorserEnvelope(t, creator)
+
+	t.Run("sets every field", func(t *testing.T) {
+		t.Parallel()
+		fakeFNS := &mock.FabricNetworkService{}
+		ch := &mock.Channel{}
+		fakeFNS.ChannelReturns(ch, nil)
+
+		tx := &Transaction{fns: fakeFNS}
+		require.NoError(t, tx.SetFromEnvelopeBytes(raw))
+		require.Equal(t, "tx-env", tx.ID())
+		require.Equal(t, []byte("nonce"), tx.Nonce())
+		require.Equal(t, "channel1", tx.Channel())
+		require.Equal(t, "cc", tx.Chaincode())
+		require.Equal(t, "v1", tx.ChaincodeVersion())
+		require.Equal(t, "invoke", tx.Function())
+		require.Equal(t, [][]byte{[]byte("a"), []byte("b")}, tx.Parameters())
+		require.Equal(t, view.Identity(creator), tx.Creator())
+		require.Len(t, tx.TProposalResponses, 1)
+		require.Equal(t, creator, tx.TProposalResponses[0].Endorsement.Endorser)
+		require.Equal(t, "channel1", fakeFNS.ChannelArgsForCall(0))
+		require.Same(t, ch, tx.channel)
+	})
+
+	t.Run("keeps an existing creator", func(t *testing.T) {
+		t.Parallel()
+		fakeFNS := &mock.FabricNetworkService{}
+		fakeFNS.ChannelReturns(&mock.Channel{}, nil)
+
+		tx := &Transaction{fns: fakeFNS, TCreator: view.Identity("existing")}
+		require.NoError(t, tx.SetFromEnvelopeBytes(raw))
+		require.Equal(t, view.Identity("existing"), tx.Creator())
+	})
+
+	t.Run("wraps channel lookup failure", func(t *testing.T) {
+		t.Parallel()
+		fakeFNS := &mock.FabricNetworkService{}
+		fakeFNS.ChannelReturns(nil, errors.New("boom"))
+
+		tx := &Transaction{fns: fakeFNS}
+		require.ErrorContains(t, tx.SetFromEnvelopeBytes(raw), "get channel [channel1]")
+	})
+
+	// The generic unpacker accepts only endorser transactions, so the
+	// HeaderType_MESSAGE envelope this package assembles for ordering is rejected.
+	t.Run("rejects an envelope from Envelope()", func(t *testing.T) {
+		t.Parallel()
+		src, _ := envelopeReadyTx(t)
+		env, err := src.Envelope()
+		require.NoError(t, err)
+		envRaw, err := env.Bytes()
+		require.NoError(t, err)
+
+		tx := &Transaction{fns: &mock.FabricNetworkService{}}
+		err = tx.SetFromEnvelopeBytes(envRaw)
+		require.ErrorContains(t, err, "only EndorserClient Transactions are supported")
+	})
+}
+
+func TestTransactionSetFromBytesSignedProposal(t *testing.T) {
+	t.Parallel()
+
+	t.Run("fills fields from the signed proposal", func(t *testing.T) {
+		t.Parallel()
+		raw, err := json.Marshal(&Transaction{TSignedProposal: testSignedProposalBytes(t)})
+		require.NoError(t, err)
+		fakeFNS := &mock.FabricNetworkService{}
+		fakeFNS.ChannelReturns(&mock.Channel{}, nil)
+
+		tx := &Transaction{fns: fakeFNS}
+		require.NoError(t, tx.SetFromBytes(raw))
+		require.Equal(t, "tx-signed", tx.ID())
+		require.Equal(t, []byte("nonce"), tx.Nonce())
+		require.Equal(t, "channel1", tx.Channel())
+		require.Equal(t, "cc", tx.Chaincode())
+		require.Equal(t, "v1", tx.ChaincodeVersion())
+		require.Equal(t, "invoke", tx.Function())
+		require.Equal(t, [][]byte{[]byte("a"), []byte("b")}, tx.Parameters())
+		require.NotEmpty(t, tx.Creator())
+		require.NotNil(t, tx.TProposal)
+		require.Equal(t, "cc", tx.SignedProposal().ChaincodeName())
+	})
+
+	t.Run("invalid signed proposal", func(t *testing.T) {
+		t.Parallel()
+		raw, err := json.Marshal(&Transaction{TSignedProposal: &peer.SignedProposal{ProposalBytes: []byte("garbage")}})
+		require.NoError(t, err)
+
+		tx := &Transaction{fns: &mock.FabricNetworkService{}}
+		require.ErrorContains(t, tx.SetFromBytes(raw), "unpacking proposal")
+	})
+}
+
+func TestTransactionFromSignedProposal(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rebuilds signed proposal", func(t *testing.T) {
+		t.Parallel()
+		dst := &Transaction{}
+		require.NoError(t, dst.From(&Transaction{TSignedProposal: testSignedProposalBytes(t)}))
+		require.NotNil(t, dst.SignedProposal())
+		require.Equal(t, "cc", dst.SignedProposal().ChaincodeName())
+	})
+
+	t.Run("signed proposal cannot be unpacked", func(t *testing.T) {
+		t.Parallel()
+		dst := &Transaction{}
+		require.Error(t, dst.From(&Transaction{TSignedProposal: &peer.SignedProposal{ProposalBytes: []byte("garbage")}}))
+	})
+}
+
+func TestProposalHasBeenEndorsedBy(t *testing.T) {
+	t.Parallel()
+
+	sp, err := newSignedProposal(testSignedProposalBytes(t))
+	require.NoError(t, err)
+	party := view.Identity("party")
+
+	newTx := func(verifier driver.Verifier, verifierErr error) (*Transaction, *mock.ChannelMembership) {
+		cm := &mock.ChannelMembership{}
+		cm.GetVerifierReturns(verifier, verifierErr)
+		ch := &mock.Channel{}
+		ch.ChannelMembershipReturns(cm)
+		return &Transaction{channel: ch, signedProposal: sp}, cm
+	}
+
+	t.Run("valid signature", func(t *testing.T) {
+		t.Parallel()
+		v := &mock.Verifier{}
+		tx, cm := newTx(v, nil)
+
+		require.NoError(t, tx.ProposalHasBeenEndorsedBy(party))
+		require.Equal(t, party, cm.GetVerifierArgsForCall(0))
+		msg, sig := v.VerifyArgsForCall(0)
+		require.Equal(t, sp.ProposalBytes(), msg)
+		require.Equal(t, sp.Signature(), sig)
+	})
+
+	t.Run("get verifier fails", func(t *testing.T) {
+		t.Parallel()
+		tx, _ := newTx(nil, errors.New("boom"))
+		require.ErrorContains(t, tx.ProposalHasBeenEndorsedBy(party), "get verifier from channel membership")
+	})
+
+	t.Run("verify fails", func(t *testing.T) {
+		t.Parallel()
+		v := &mock.Verifier{}
+		v.VerifyReturns(errors.New("bad signature"))
+		tx, _ := newTx(v, nil)
+		require.ErrorContains(t, tx.ProposalHasBeenEndorsedBy(party), "bad signature")
+	})
+
+	t.Run("nil signed proposal", func(t *testing.T) {
+		t.Parallel()
+		tx, cm := newTx(&mock.Verifier{}, nil)
+		tx.signedProposal = nil
+		tx.TTxID = "tx1"
+
+		var err error
+		require.NotPanics(t, func() { err = tx.ProposalHasBeenEndorsedBy(party) })
+		require.ErrorContains(t, err, "transaction [txID=tx1] has no signed proposal")
+		require.Equal(t, 0, cm.GetVerifierCallCount())
+	})
+}
+
+func TestTransactionSetRWSetVaultErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		tx            *Transaction
+		expectedError string
+	}{
+		{
+			name:          "from proposal response",
+			tx:            &Transaction{TProposalResponses: []*peer.ProposalResponse{{Payload: []byte("malformed")}}},
+			expectedError: "populate rws from proposal response",
+		},
+		{
+			name:          "from rwset",
+			tx:            &Transaction{RWSet: []byte("malformed")},
+			expectedError: "populate rws from existing rws",
+		},
+		{
+			name:          "from scratch",
+			tx:            &Transaction{},
+			expectedError: "create fresh rws",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			v := &mock.Vault{}
+			v.NewRWSetReturns(nil, errors.New("boom"))
+			v.NewRWSetFromBytesReturns(nil, errors.New("boom"))
+			ch := &mock.Channel{}
+			ch.VaultReturns(v)
+			tc.tx.ctx = t.Context()
+			tc.tx.channel = ch
+
+			require.ErrorContains(t, tc.tx.SetRWSet(), tc.expectedError)
+			_, err := tc.tx.GetRWSet()
+			require.ErrorContains(t, err, tc.expectedError)
+			require.Nil(t, tc.tx.RWS())
+		})
+	}
+}
+
+func TestTransactionBytesPropagatesRWSetError(t *testing.T) {
+	t.Parallel()
+
+	for name, bytesFn := range map[string]func(*Transaction) ([]byte, error){
+		"Bytes":            (*Transaction).Bytes,
+		"BytesNoTransient": (*Transaction).BytesNoTransient,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			rws := &mock.RWSet{}
+			rws.BytesReturns(nil, errors.New("boom"))
+			raw, err := bytesFn(&Transaction{rwSetHandle: rws})
+			require.ErrorContains(t, err, "marshalling rws")
+			require.Nil(t, raw)
+		})
+	}
+
+	t.Run("BytesNoTransient invalid signed proposal", func(t *testing.T) {
+		t.Parallel()
+		tx := &Transaction{TSignedProposal: &peer.SignedProposal{ProposalBytes: []byte("garbage")}}
+		_, err := tx.BytesNoTransient()
+		require.Error(t, err)
+	})
+}
+
+func TestStoreTransientErrors(t *testing.T) {
+	t.Parallel()
+
+	fmKey, err := rwset.CreateCompositeKey("field_mapping", []string{"ns", "S", "1234"})
+	require.NoError(t, err)
+
+	newTx := func(mds *mock.MetadataService, rws *mock.RWSet) *Transaction {
+		ch := &mock.Channel{}
+		ch.MetadataServiceReturns(mds)
+		return &Transaction{
+			ctx:         t.Context(),
+			TTxID:       "tx1",
+			channel:     ch,
+			rwSetHandle: rws,
+			TTransient:  driver.TransientMap{fmKey: []byte("blob")},
+		}
+	}
+
+	t.Run("store transient fails", func(t *testing.T) {
+		t.Parallel()
+		mds := &mock.MetadataService{}
+		mds.StoreTransientReturns(errors.New("boom"))
+		require.ErrorContains(t, newTx(mds, &mock.RWSet{}).StoreTransient(), "boom")
+		require.Equal(t, 0, mds.PutFieldMappingCallCount())
+	})
+
+	t.Run("field mapping without local write is skipped", func(t *testing.T) {
+		t.Parallel()
+		mds := &mock.MetadataService{}
+		rws := &mock.RWSet{}
+		rws.GetStateReturns(nil, nil)
+		require.NoError(t, newTx(mds, rws).StoreTransient())
+		require.Equal(t, 1, rws.GetStateCallCount())
+		require.Equal(t, 0, mds.PutFieldMappingCallCount())
+	})
+
+	t.Run("put field mapping fails", func(t *testing.T) {
+		t.Parallel()
+		mds := &mock.MetadataService{}
+		mds.PutFieldMappingReturns(errors.New("boom"))
+		rws := &mock.RWSet{}
+		rws.GetStateReturns([]byte("value"), nil)
+		require.ErrorContains(t, newTx(mds, rws).StoreTransient(), "failed persisting field mapping for [ns:")
+	})
+}
+
+func TestTransactionProposal(t *testing.T) {
+	t.Parallel()
+
+	tx := &Transaction{TProposal: &peer.Proposal{Header: []byte("header"), Payload: []byte("payload")}}
+	p := tx.Proposal()
+	require.Equal(t, []byte("header"), p.Header())
+	require.Equal(t, []byte("payload"), p.Payload())
+}
+
+func TestTransactionEnvelope(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		tx, _ := envelopeReadyTx(t)
+		env, err := tx.Envelope()
+		require.NoError(t, err)
+		require.Equal(t, "tx1", env.TxID())
+		require.Equal(t, []byte("nonce"), env.Nonce())
+		require.Equal(t, tx.TCreator.Bytes(), env.Creator())
+		require.Nil(t, env.Results())
+
+		raw, err := env.Bytes()
+		require.NoError(t, err)
+		decoded := NewEmptyEnvelope()
+		require.NoError(t, decoded.FromBytes(raw))
+		require.True(t, proto.Equal(env.(*Envelope).Envelope(), decoded.Envelope()))
+	})
+
+	t.Run("wraps createSCEnvelope error", func(t *testing.T) {
+		t.Parallel()
+		_, err := (&Transaction{TTxID: "tx1"}).Envelope()
+		require.ErrorContains(t, err, "could not assemble transaction")
+	})
 }

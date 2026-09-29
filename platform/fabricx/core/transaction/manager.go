@@ -85,6 +85,9 @@ func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, r
 	return tx, nil
 }
 
+// NewTransactionFromEnvelopeBytes creates an endorser transaction and populates it from
+// raw via Transaction.SetFromEnvelopeBytes, so raw must be a Fabric endorser
+// transaction envelope.
 func (m *Manager) NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
 	// TODO: remove fixed transaction type
 	txFactory, err := m.transactionFactory(driver.EndorserTransaction)
