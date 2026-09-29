@@ -16,8 +16,9 @@ import (
 
 // IdentityProvider models the identity provider for the view service.
 type IdentityProvider interface {
+	// DefaultIdentity returns the node's default identity, which is always authorized.
 	DefaultIdentity() view2.Identity
-	Admins() []view2.Identity
+	// Clients returns the additional identities authorized to submit commands (fsc.client.certs).
 	Clients() []view2.Identity
 }
 
@@ -37,18 +38,11 @@ func NewAccessControlChecker(identityProvider IdentityProvider, verifierProvider
 	return &AccessControlChecker{IdentityProvider: identityProvider, VerifierProvider: verifierProvider}
 }
 
-// Check checks if the given command is authorized.
+// Check checks if the given command is authorized: its creator must be the node's default
+// identity or one of the client identities, and the command signature must verify under it.
 func (a *AccessControlChecker) Check(sc *protos2.SignedCommand, c *protos2.Command) error {
 	// Is the creator recognized
-	validIdentities := []view2.Identity{a.IdentityProvider.DefaultIdentity()}
-	admins := a.IdentityProvider.Admins()
-	if len(admins) != 0 {
-		validIdentities = append(validIdentities, admins...)
-	}
-	clients := a.IdentityProvider.Clients()
-	if len(clients) != 0 {
-		validIdentities = append(validIdentities, clients...)
-	}
+	validIdentities := append([]view2.Identity{a.IdentityProvider.DefaultIdentity()}, a.IdentityProvider.Clients()...)
 
 	found := false
 	for _, identity := range validIdentities {

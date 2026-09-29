@@ -29,8 +29,8 @@ fsc:
       file: /path/to/key.pwm
 
   # This is used to list the authorized clients of this FSC node.
-  # At least one client certificate must be specified
-  # The GRPC service uses this list to filter the connecting clients
+  # The GRPC view service accepts commands signed by the node's default identity
+  # (fsc.identity) or by one of the identities listed here.
   client:
     certs:
     - path/to/client-cert.pem
