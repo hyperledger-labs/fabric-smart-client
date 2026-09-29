@@ -270,7 +270,8 @@ func TestBuilder(t *testing.T) {
 	fakeIP := &mock.IdentityProvider{}
 	fakeFNS.IdentityProviderReturns(fakeIP)
 
-	builder := NewBuilder(fakeSP)
+	builder, err := NewBuilder(fakeSP)
+	require.NoError(t, err)
 	require.NotNil(t, builder)
 
 	// Test NewTransaction
