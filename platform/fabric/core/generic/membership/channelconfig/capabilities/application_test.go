@@ -123,6 +123,14 @@ func TestApplicationPvtDataExperimental(t *testing.T) {
 	require.True(t, ap.PrivateChannelData())
 }
 
+func TestApplicationMetadataLifecycle(t *testing.T) {
+	t.Parallel()
+	ap := NewApplicationProvider(map[string]*cb.Capability{
+		ApplicationV2_0: {},
+	})
+	require.False(t, ap.MetadataLifecycle())
+}
+
 func TestHasCapability(t *testing.T) {
 	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{})

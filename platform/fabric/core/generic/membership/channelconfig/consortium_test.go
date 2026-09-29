@@ -27,3 +27,24 @@ func TestConsortiumConfig(t *testing.T) {
 	policy := cc.ChannelCreationPolicy()
 	require.EqualValues(t, cb.Policy_UNKNOWN, policy.Type, "Expected policy type to be UNKNOWN")
 }
+
+func TestNewConsortiumConfigErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("UnknownValueKey", func(t *testing.T) {
+		t.Parallel()
+		_, err := NewConsortiumConfig(&cb.ConfigGroup{Values: map[string]*cb.ConfigValue{"Bogus": {}}}, nil)
+		require.ErrorContains(t, err, "unexpected key Bogus")
+	})
+
+	t.Run("OrgSubGroupError", func(t *testing.T) {
+		t.Parallel()
+		consortiumGroup := &cb.ConfigGroup{
+			Groups: map[string]*cb.ConfigGroup{
+				"org1": {Groups: map[string]*cb.ConfigGroup{"nested": {}}},
+			},
+		}
+		_, err := NewConsortiumConfig(consortiumGroup, nil)
+		require.ErrorContains(t, err, "do not support sub-groups")
+	})
+}

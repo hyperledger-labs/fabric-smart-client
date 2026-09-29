@@ -11,6 +11,7 @@ import (
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig/capabilities"
@@ -47,5 +48,43 @@ func TestACL(t *testing.T) {
 		cg := proto.Clone(cgt).(*cb.ConfigGroup)
 		_, err := NewApplicationConfig(proto.Clone(cg).(*cb.ConfigGroup), nil)
 		g.Expect(err).NotTo(HaveOccurred())
+	})
+}
+
+func TestApplicationConfigAPIPolicyMapper(t *testing.T) {
+	t.Parallel()
+	appGroup := &cb.ConfigGroup{
+		Values: map[string]*cb.ConfigValue{
+			ACLsKey: {
+				Value: protoutil.MarshalOrPanic(
+					ACLValues(map[string]string{"api": "/Channel/Application/Writers"}).Value(),
+				),
+			},
+		},
+	}
+	ac, err := NewApplicationConfig(appGroup, nil)
+	require.NoError(t, err)
+	require.Equal(t, "/Channel/Application/Writers", ac.APIPolicyMapper().PolicyRefForAPI("api"))
+	require.Empty(t, ac.APIPolicyMapper().PolicyRefForAPI("missing"))
+}
+
+func TestNewApplicationConfigErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("UnknownValueKey", func(t *testing.T) {
+		t.Parallel()
+		_, err := NewApplicationConfig(&cb.ConfigGroup{Values: map[string]*cb.ConfigValue{"Bogus": {}}}, nil)
+		require.ErrorContains(t, err, "unexpected key Bogus")
+	})
+
+	t.Run("OrgSubGroupError", func(t *testing.T) {
+		t.Parallel()
+		appGroup := &cb.ConfigGroup{
+			Groups: map[string]*cb.ConfigGroup{
+				"org1": {Groups: map[string]*cb.ConfigGroup{"nested": {}}},
+			},
+		}
+		_, err := NewApplicationConfig(appGroup, nil)
+		require.ErrorContains(t, err, "does not allow sub-groups")
 	})
 }
