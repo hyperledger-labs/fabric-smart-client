@@ -17,6 +17,8 @@ To use the Fabric-x platform within an FSC application node, you need to install
 
 ```go
 import (
+	"log"
+
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -25,7 +27,7 @@ import (
 func main() {
 	node := fscnode.New()
 	if err := node.InstallSDK(fabricx.NewSDK(node)); err != nil {
-		panic(err)
+		log.Fatalf("failed installing SDK: %v", err)
 	}
 	node.Execute(func() error {
 		registry := view.GetRegistry(node)

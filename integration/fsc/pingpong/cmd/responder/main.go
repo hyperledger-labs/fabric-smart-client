@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"log"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/fake"
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
@@ -18,7 +20,7 @@ import (
 func main() {
 	node := fscnode.New()
 	if err := node.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(node))); err != nil {
-		panic(err)
+		log.Fatalf("failed installing SDK: %v", err)
 	}
 	node.Execute(func() error {
 		registry := view.GetRegistry(node)
