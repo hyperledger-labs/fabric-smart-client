@@ -117,15 +117,12 @@ func TestNewRWSetLoader(t *testing.T) {
 	loader := NewRWSetLoader("testchannel", fnsMock, nil, nil, nil)
 	require.NotNil(t, loader)
 
-	err := loader.AddHandlerProvider(cb.HeaderType_MESSAGE, func(string, string, fdriver.RWSetInspector) fdriver.RWSetPayloadHandler {
+	// The fabricx loader ignores handler providers, so repeated registration succeeds.
+	provider := func(string, string, fdriver.RWSetInspector) fdriver.RWSetPayloadHandler {
 		return nil
-	})
-	require.NoError(t, err)
-
-	err = loader.AddHandlerProvider(cb.HeaderType_MESSAGE, func(string, string, fdriver.RWSetInspector) fdriver.RWSetPayloadHandler {
-		return nil
-	})
-	require.ErrorContains(t, err, "already defined for header type")
+	}
+	require.NoError(t, loader.AddHandlerProvider(cb.HeaderType_MESSAGE, provider))
+	require.NoError(t, loader.AddHandlerProvider(cb.HeaderType_MESSAGE, provider))
 }
 
 type channelProviderHarness struct {
