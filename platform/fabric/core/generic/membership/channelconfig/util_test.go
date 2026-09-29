@@ -18,6 +18,7 @@ import (
 	mspprotos "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/hyperledger/fabric-protos-go-apiv2/orderer/etcdraft"
+	"github.com/hyperledger/fabric-protos-go-apiv2/orderer/smartbft"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
 
@@ -363,6 +364,32 @@ func TestMarshalEtcdRaftMetadata(t *testing.T) {
 	for i := range len(inputCerts) - 1 {
 		require.NotEqual(t, outputCerts[i+1], outputCerts[i], "expected extracted certs to differ from each other")
 	}
+}
+
+func TestOrderersValue(t *testing.T) {
+	t.Parallel()
+	consenters := []*cb.Consenter{{Id: 1, Host: "node1", Port: 7050}}
+	sv := OrderersValue(consenters)
+	require.Equal(t, OrderersKey, sv.Key())
+	require.Equal(t, consenters, sv.Value().(*cb.Orderers).ConsenterMapping)
+}
+
+func TestEndpointsValue(t *testing.T) {
+	t.Parallel()
+	sv := EndpointsValue([]string{"orderer:7050"})
+	require.Equal(t, EndpointsKey, sv.Key())
+	require.Equal(t, []string{"orderer:7050"}, sv.Value().(*cb.OrdererAddresses).Addresses)
+}
+
+func TestMarshalBFTOptions(t *testing.T) {
+	t.Parallel()
+	opts := &smartbft.Options{RequestBatchMaxCount: 10, RequestBatchMaxBytes: 1024}
+	packed, err := MarshalBFTOptions(opts)
+	require.NoError(t, err)
+
+	unpacked := &smartbft.Options{}
+	require.NoError(t, proto.Unmarshal(packed, unpacked))
+	require.True(t, proto.Equal(opts, unpacked))
 }
 
 func newConfigGroup() *cb.ConfigGroup {
