@@ -6,7 +6,9 @@ An SDK is a set of services that an FSC node can use to implement its logic. An 
 ```go
 func main() {
 	n := fscnode.New()
-	n.InstallSDK(iou.NewSDK(n))
+	if err := n.InstallSDK(iou.NewSDK(n)); err != nil {
+		log.Fatalf("failed installing SDK: %v", err)
+	}
 	
 	n.Execute(func() error {
 		registry := viewregistry.GetRegistry(n)

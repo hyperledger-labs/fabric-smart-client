@@ -13,6 +13,7 @@ package main
 
 import (
     "fmt"
+    "log"
     
     fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
     sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
@@ -21,7 +22,7 @@ import (
 func main() {
     node := fscnode.New()
     if err := node.InstallSDK(sdk.NewSDK(node)); err != nil {
-        panic(err)
+        log.Fatalf("failed installing SDK: %v", err)
     }
     node.Execute(func() error {
         fmt.Println("Hello World")
