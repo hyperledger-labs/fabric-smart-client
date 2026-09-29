@@ -59,7 +59,7 @@ function init_work() {
   go work use $(module_dirs)
 }
 
-# update deps; take as parameter the dependency to update; if empty all deps are updates
+# update deps; take as parameter the dependency to update; if empty all deps are updated
 function update() {
   if [[ -z $1 ]]; then
     # check all update

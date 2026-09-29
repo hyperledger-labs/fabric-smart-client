@@ -61,13 +61,13 @@ func (i *invokeChaincodeView) Invoke(viewCtx view.Context) (string, []byte, erro
 		chaincodeName: i.ChaincodeName,
 		network:       i.Network,
 		channel:       i.Channel,
-		identitiy:     i.InvokerIdentity,
+		identity:      i.InvokerIdentity,
 	}
 	chaincode, err := getChaincode(viewCtx, info)
 	if err != nil {
 		return "", nil, err
 	}
-	i.InvokerIdentity = info.identitiy
+	i.InvokerIdentity = info.identity
 
 	logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 	invocation := chaincode.Invoke(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)

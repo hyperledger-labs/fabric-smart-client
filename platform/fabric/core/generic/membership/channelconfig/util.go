@@ -96,7 +96,7 @@ func BlockDataHashingStructureValue() *StandardConfigValue {
 	}
 }
 
-// OrdererAddressesValue returns the a config definition for the orderer addresses.
+// OrdererAddressesValue returns a config definition for the orderer addresses.
 // It is a value for the /Channel group.
 func OrdererAddressesValue(addresses []string) *StandardConfigValue {
 	return &StandardConfigValue{

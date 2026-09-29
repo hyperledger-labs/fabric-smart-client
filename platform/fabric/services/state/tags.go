@@ -37,11 +37,11 @@ func (n *Namespace) setFieldMapping(namespace, key string, mapping map[string][]
 
 	raw, err := json.Marshal(mapping)
 	if err != nil {
-		return errors.Wrap(err, "filed marshalling mapping")
+		return errors.Wrap(err, "failed marshalling mapping")
 	}
 	k, err := fieldMappingKey(namespace, key)
 	if err != nil {
-		return errors.Wrap(err, "filed creating mapping key")
+		return errors.Wrap(err, "failed creating mapping key")
 	}
 	err = n.tx.SetTransient(k, raw)
 	if err != nil {
@@ -57,7 +57,7 @@ func (n *Namespace) getFieldMapping(namespace, key string, flag bool) (map[strin
 
 	k, err := fieldMappingKey(namespace, key)
 	if err != nil {
-		return nil, errors.Wrap(err, "filed creating mapping key")
+		return nil, errors.Wrap(err, "failed creating mapping key")
 	}
 	t := n.tx.GetTransient(k)
 	var raw []byte
@@ -71,11 +71,11 @@ func (n *Namespace) getFieldMapping(namespace, key string, flag bool) (map[strin
 		logger.Debugf("getting field mapping for [%s:%s], not found in transient, looking into the rws", namespace, key)
 		rws, err := n.tx.RWSet()
 		if err != nil {
-			return nil, errors.Wrap(err, "filed getting rw set")
+			return nil, errors.Wrap(err, "failed getting rw set")
 		}
 		meta, err := rws.GetStateMetadata(namespace, key, driver.FromBoth)
 		if err != nil {
-			return nil, errors.Wrap(err, "filed getting metadata")
+			return nil, errors.Wrap(err, "failed getting metadata")
 		}
 		if len(meta) == 0 || len(meta[k]) == 0 {
 			logger.Debugf("getting field mapping for [%s:%s], not found in rws", namespace, key)
@@ -88,7 +88,7 @@ func (n *Namespace) getFieldMapping(namespace, key string, flag bool) (map[strin
 	mapping := map[string][]byte{}
 	err = json.Unmarshal(raw, &mapping)
 	if err != nil {
-		return nil, errors.Wrap(err, "filed unmarshalling mapping")
+		return nil, errors.Wrap(err, "failed unmarshalling mapping")
 	}
 	for k, v := range mapping {
 		logger.Debugf("getting field mapping for [%s:%s], entry [%s:%s]", namespace, key, k, string(v))

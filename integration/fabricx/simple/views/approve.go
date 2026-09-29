@@ -83,7 +83,7 @@ func (*ApproveView) Call(viewCtx view.Context) (any, error) {
 
 	// some additional checks
 	if obj.Value < 0 {
-		return nil, errors.Errorf("obj value can not be smaller than 0, go %d", obj.Value)
+		return nil, errors.Errorf("obj value can not be smaller than 0, got %d", obj.Value)
 	}
 
 	// The approver is ready to send back the transaction signed

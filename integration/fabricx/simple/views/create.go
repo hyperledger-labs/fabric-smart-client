@@ -57,7 +57,7 @@ func (i *CreateView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	// note that this function produces a new entry in thr write set, generating a key and using obj as value
+	// note that this function produces a new entry in the write set, generating a key and using obj as value
 	if err = tx.AddOutput(obj); err != nil {
 		return nil, err
 	}

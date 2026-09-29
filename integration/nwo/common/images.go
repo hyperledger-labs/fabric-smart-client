@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 )
 
-// UniqueName generates base-32 enocded UUIDs for container names.
+// UniqueName generates base-32 encoded UUIDs for container names.
 func UniqueName() string {
 	name := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(utils.GenerateBytesUUID())
 	return strings.ToLower(name)

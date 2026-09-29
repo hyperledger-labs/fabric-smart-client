@@ -40,7 +40,7 @@ function checkFabricBinaryPresence() {
 
     if [[ $? -ne 0  ]]; then
         echo "no fabric binaries detected, pulling down"
-        # No binaries found, pull then down
+        # No binaries found, pull them down
         pullBinaries $VERSION
         return
     fi

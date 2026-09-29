@@ -282,7 +282,7 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 		Constructor: func() view.View { return cfg.workload },
 		Identity:    cfg.idProvider.DefaultIdentity(),
 	}
-	// register view manager wit grpc impl
+	// register view manager with grpc impl
 	server.InstallViewHandler(vm, srv, noop.NewTracerProvider())
 
 	// register grpc impl with grpc server

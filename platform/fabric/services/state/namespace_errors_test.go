@@ -373,10 +373,6 @@ func TestNamespaceInterleavedAddDeleteRead(t *testing.T) {
 	require.True(t, outputs.At(1).IsDelete(), "the deleted key is reported as a delete")
 }
 
-// The error tests below match a substring of the injected cause rather than the
-// whole message: several wrap messages carry a long-standing "filed"/"failed"
-// typo, and an exact match would turn a spelling fix into a test failure.
-
 func TestNamespaceNumInputsAndOutputsErrorOnRWSetError(t *testing.T) {
 	t.Parallel()
 

@@ -56,7 +56,7 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configPro
 		grpcClientProvider:     grpcClientProvider,
 		configProvider:         configProvider,
 		managers:               make(map[string]ListenerManager),
-		newNotificationManager: newNotifiWithGRPC,
+		newNotificationManager: newNotificationManagerWithGRPC,
 		baseCtx:                deferred.NewHolder[context.Context]("finality listener manager provider base context"),
 	}
 }
@@ -190,12 +190,12 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	return lm, nil
 }
 
-// newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
+// newNotificationManagerWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
 //
 // cfg is expected to already be fully resolved (see config.NewNotificationServiceConfig /
 // config.DefaultConfig). The pool sizes are clamped anyway: they reach make() and the
 // worker loop directly, where zero leaves nothing to drain the queue and negative panics.
-func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
+func newNotificationManagerWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)

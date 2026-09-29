@@ -28,7 +28,7 @@ func (r *RecipientData) Bytes() ([]byte, error) {
 	return json.Marshal(r)
 }
 
-// FromBytes unmarshalls the passed bytes into this struct
+// FromBytes unmarshals the passed bytes into this struct
 func (r *RecipientData) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, r)
 }
@@ -45,7 +45,7 @@ func (r *ExchangeRecipientRequest) Bytes() ([]byte, error) {
 	return json.Marshal(r)
 }
 
-// FromBytes unmarshalls the passed bytes into this struct
+// FromBytes unmarshals the passed bytes into this struct
 func (r *ExchangeRecipientRequest) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, r)
 }
@@ -61,7 +61,7 @@ func (r *RecipientRequest) Bytes() ([]byte, error) {
 	return json.Marshal(r)
 }
 
-// FromBytes unmarshalls the passed bytes into this struct
+// FromBytes unmarshals the passed bytes into this struct
 func (r *RecipientRequest) FromBytes(raw []byte) error {
 	return json.Unmarshal(raw, r)
 }

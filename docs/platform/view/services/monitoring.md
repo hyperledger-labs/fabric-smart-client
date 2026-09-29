@@ -232,7 +232,7 @@ func NewMyService(... Deps, tracerProvider tracing.Provider, otherService OtherS
 	return &MyService {
 		...
 		tracer: p.Tracer("transfer_responder", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			LabelNames: []tracing.LabelName{currencyLabel, cuccessLabel, validatorTypeLabel},
+			LabelNames: []tracing.LabelName{currencyLabel, successLabel, validatorTypeLabel},
 		})),
 		...
 	}

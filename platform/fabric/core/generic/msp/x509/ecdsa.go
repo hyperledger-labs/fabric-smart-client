@@ -27,7 +27,7 @@ import (
 )
 
 // curveHalfOrders contains the precomputed curve group orders halved.
-// It is used to ensure that signature' S value is lower or equal to the
+// It is used to ensure that signature's S value is lower or equal to the
 // curve group order halved. We accept only low-S signatures.
 // They are precomputed for efficiency reasons.
 var curveHalfOrders = map[elliptic.Curve]*big.Int{
@@ -61,11 +61,11 @@ func (d *edsaSigner) Sign(message []byte) ([]byte, error) {
 	return utils.MarshalECDSASignature(r, s)
 }
 
-type edsaVerifier struct {
+type ecdsaVerifier struct {
 	pk *ecdsa.PublicKey
 }
 
-func (d *edsaVerifier) Verify(message, sigma []byte) error {
+func (d *ecdsaVerifier) Verify(message, sigma []byte) error {
 	signature := &ecdsaSignature{}
 	_, err := asn1.Unmarshal(sigma, signature)
 	if err != nil {
@@ -110,11 +110,11 @@ func NewSigner() (view.Identity, driver.Signer, driver.Verifier, error) {
 		return nil, nil, nil, errors.Wrap(err, "failed marshalling msp serialized identity")
 	}
 
-	return idRaw, &edsaSigner{sk: sk}, &edsaVerifier{pk: &sk.PublicKey}, nil
+	return idRaw, &edsaSigner{sk: sk}, &ecdsaVerifier{pk: &sk.PublicKey}, nil
 }
 
-func NewVerifier(pk *ecdsa.PublicKey) *edsaVerifier {
-	return &edsaVerifier{pk: pk}
+func NewVerifier(pk *ecdsa.PublicKey) *ecdsaVerifier {
+	return &ecdsaVerifier{pk: pk}
 }
 
 func NewIdentityFromBytes(raw []byte) (view.Identity, driver.Verifier, error) {
@@ -133,7 +133,7 @@ func NewIdentityFromBytes(raw []byte) (view.Identity, driver.Verifier, error) {
 		return nil, nil, errors.New("expected *ecdsa.PublicKey")
 	}
 
-	return raw, &edsaVerifier{pk: publicKey}, nil
+	return raw, &ecdsaVerifier{pk: publicKey}, nil
 }
 
 // PemEncodeKey takes a Go key and converts it to bytes

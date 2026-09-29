@@ -655,7 +655,7 @@ func TestNewNotifiWithGRPC_HandlerPool(t *testing.T) {
 		cfg.HandlerWorkers = 3
 		cfg.HandlerQueueSize = 7
 
-		nlm, err := newNotifiWithGRPC("network1", &mockGRPCClientProvider{}, cfg)
+		nlm, err := newNotificationManagerWithGRPC("network1", &mockGRPCClientProvider{}, cfg)
 		require.NoError(t, err)
 		require.Equal(t, 3, nlm.handlerWorkers)
 		require.Equal(t, 7, nlm.handlerQueueSize)

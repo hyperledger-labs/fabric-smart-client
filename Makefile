@@ -267,7 +267,7 @@ INTEGRATION_FLAGS_fabric-iou-libp2p = --label-filter=libp2p
 integration_default_dir = $(firstword $(subst -, ,$(1)))/$(subst $(firstword $(subst -, ,$(1)))-,,$(1))
 integration_dir = $(or $(INTEGRATION_DIR_$(1)),$(call integration_default_dir,$(1)))
 
-.PHONE: list-integration-tests
+.PHONY: list-integration-tests
 list-integration-tests: ## List all integration tests
 	@$(foreach t,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS),echo "$(t)";)
 

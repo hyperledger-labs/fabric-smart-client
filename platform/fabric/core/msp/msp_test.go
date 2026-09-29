@@ -1544,7 +1544,7 @@ func TestMSPIdentityIdentifier(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.False(t, lowS)
 
-	// Check that id.(*signingidentity).cert is in LoswS
+	// Check that id.(*signingidentity).cert is in LowS
 	_, S, err = utils.UnmarshalECDSASignature(id.(*signingidentity).cert.Signature)
 	require.NoError(t, err)
 	lowS, err = utils.IsLowS(caCertFromFile.PublicKey.(*ecdsa.PublicKey), S)

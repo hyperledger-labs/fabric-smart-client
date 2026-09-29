@@ -101,7 +101,7 @@ func (*TransferResponderView) Call(viewCtx view.Context) (any, error) {
 	id, err := state.RespondRequestRecipientIdentity(viewCtx)
 	assert.NoError(err, "failed to respond to identity request")
 
-	// Expect an state transaction
+	// Expect a state transaction
 	tx, err := state.ReceiveTransaction(viewCtx)
 	assert.NoError(err)
 

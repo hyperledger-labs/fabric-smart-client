@@ -145,7 +145,7 @@ func queryAgreementsByType(ctx contractapi.TransactionContextInterface, agreeTyp
 	return agreements, nil
 }
 
-// QueryAssetHistory returns the chain of custody for a asset since issuance
+// QueryAssetHistory returns the chain of custody for an asset since issuance
 func (*SmartContract) QueryAssetHistory(ctx contractapi.TransactionContextInterface, assetID string) ([]QueryResult, error) {
 	resultsIterator, err := ctx.GetStub().GetHistoryForKey(assetID)
 	if err != nil {

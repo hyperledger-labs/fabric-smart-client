@@ -22,7 +22,7 @@ func (p *UnpackedProposalResponse) Results() []byte {
 	return p.ChaincodeAction.Results
 }
 
-// UnpackProposalResponse creates an an *UnpackedProposalResponse which is guaranteed to have
+// UnpackProposalResponse creates an *UnpackedProposalResponse which is guaranteed to have
 // no zero-ed fields or it returns an error.
 func UnpackProposalResponse(proposalResponse *pb.ProposalResponse) (*UnpackedProposalResponse, error) {
 	prop, err := protoutil.UnmarshalProposalResponsePayload(proposalResponse.Payload)

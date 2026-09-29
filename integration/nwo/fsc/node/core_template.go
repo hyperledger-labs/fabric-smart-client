@@ -72,7 +72,7 @@ fsc:
     listenAddress: /ip4/0.0.0.0/tcp/{{ .NodePort Replica "P2P" }}
     opts:
       # Only needed when type == libp2p
-      # If empty, this is a P2P bootstrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+      # If empty, this is a P2P bootstrap node. Otherwise, it contains the name of the FSC node that is a bootstrap node
       libp2p:
         bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
   persistences: {{ range $key, $value := Persistences }}

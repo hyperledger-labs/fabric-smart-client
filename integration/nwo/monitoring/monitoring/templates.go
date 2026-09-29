@@ -455,7 +455,7 @@ const DashboardFabricBackendTemplate = `{
       "thresholds": "1000, 5000 10000",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Endorsment Proposal Requests",
+      "title": "Endorsement Proposal Requests",
       "type": "singlestat",
       "valueFontSize": "120%",
       "valueMaps": [
@@ -541,7 +541,7 @@ const DashboardFabricBackendTemplate = `{
       "thresholds": "1000, 5000, 10000",
       "timeFrom": null,
       "timeShift": null,
-      "title": "Endorsment Proposal Successful",
+      "title": "Endorsement Proposal Successful",
       "type": "singlestat",
       "valueFontSize": "120%",
       "valueMaps": [
@@ -1494,7 +1494,7 @@ const DashboardFabricBackendTemplate = `{
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Broadcast Enqueu",
+      "title": "Broadcast Enqueue",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1685,7 +1685,7 @@ const DashboardFabricBackendTemplate = `{
           "expr": "chaincode_launch_duration_sum",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{Tota}}, {{chaincode}}",
+          "legendFormat": "{{Total}}, {{chaincode}}",
           "refId": "C"
         }
       ],

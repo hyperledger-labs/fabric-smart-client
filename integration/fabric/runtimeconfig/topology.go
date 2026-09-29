@@ -42,7 +42,7 @@ func Topology(opts *Opts) []api.Topology {
 	fabricTopology.TLSEnabled = opts.TLSEnabled
 	fabricTopology.EnableMinimalFSCFabricConfig()
 
-	// Define an FSC topology with 3 FCS nodes.
+	// Define an FSC topology with 3 FSC nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = opts.CommType

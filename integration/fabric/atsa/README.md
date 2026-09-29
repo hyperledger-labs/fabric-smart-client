@@ -37,7 +37,7 @@ Indeed, here are some important points of friction we have encountered:
 - `Ownership`: There is no obvious way to hide the owner of an asset. 
   The implicit collection's endorsement policy defines `ownership`, kind of abuse.
 - `Leakage`:  The implicit collection name leaks the organization name the collection belongs to.
-- `Thread Model - No rouge peer resistance`: Suppose there is a rogue peer in OrgA, 
+- `Threat Model - No rogue peer resistance`: Suppose there is a rogue peer in OrgA, 
   this peer can endorse a transfer of asset `A` to OrgB without setting the private information 
   into the OrgB's implicit collection. At validation time, a signature from OrgB will not be required. 
   In other words, no fair exchange can happen without a trusted third-party.

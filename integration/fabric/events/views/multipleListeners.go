@@ -94,7 +94,7 @@ func (c *MultipleListenersView) Call(viewCtx view.Context) (any, error) {
 	invCh := make(chan struct{}, invokes)
 	defer close(invCh)
 
-	// create a another consumer
+	// create another consumer
 	go func() {
 		for {
 			select {

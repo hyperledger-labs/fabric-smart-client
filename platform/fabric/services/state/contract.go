@@ -21,12 +21,12 @@ func (*contractMetaHandler) StoreMeta(ns *Namespace, _ any, namespace, key strin
 	// update meta
 	rws, err := ns.RWSet()
 	if err != nil {
-		return errors.Wrap(err, "filed getting rw set")
+		return errors.Wrap(err, "failed getting rw set")
 	}
 
 	meta, err := rws.GetStateMetadata(namespace, key, driver.FromIntermediate)
 	if err != nil {
-		return errors.Wrap(err, "filed getting metadata")
+		return errors.Wrap(err, "failed getting metadata")
 	}
 	if len(meta) == 0 {
 		meta = map[string][]byte{}

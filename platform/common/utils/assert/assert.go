@@ -14,11 +14,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type panickier struct {
+type panicker struct {
 	releasers []func()
 }
 
-func (p *panickier) Errorf(format string, args ...any) {
+func (p *panicker) Errorf(format string, args ...any) {
 	if len(p.releasers) != 0 {
 		for _, releaser := range p.releasers {
 			releaser()
@@ -29,13 +29,13 @@ func (p *panickier) Errorf(format string, args ...any) {
 
 func NotNil(object any, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.NotNil(&panickier{releasers: releasers}, object, ma...)
+	assert.NotNil(&panicker{releasers: releasers}, object, ma...)
 }
 
 // ValidIdentity checks that the passed error is nil and id is not empty
 func ValidIdentity(id view.Identity, err error, msgAndArgs ...any) view.Identity {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	p := &panickier{releasers: releasers}
+	p := &panicker{releasers: releasers}
 	assert.NoError(p, err, ma...) //nolint:testifylint
 	assert.False(p, id.IsNone(), ma...)
 	return id
@@ -44,44 +44,44 @@ func ValidIdentity(id view.Identity, err error, msgAndArgs ...any) view.Identity
 // NoError checks that the passed error is nil, it panics otherwise
 func NoError(err error, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.NoError(&panickier{releasers: releasers}, err, ma...)
+	assert.NoError(&panicker{releasers: releasers}, err, ma...)
 }
 
 // Error checks that the passed error is not nil, it panics otherwise
 func Error(err error, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.Error(&panickier{releasers: releasers}, err, ma...)
+	assert.Error(&panicker{releasers: releasers}, err, ma...)
 }
 
 func NotEmpty(o any, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.NotEmpty(&panickier{releasers: releasers}, o, ma...)
+	assert.NotEmpty(&panicker{releasers: releasers}, o, ma...)
 }
 
 // Equal checks that actual is as expected, it panics otherwise
 func Equal(expected, actual any, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.Equal(&panickier{releasers: releasers}, expected, actual, ma...)
+	assert.Equal(&panicker{releasers: releasers}, expected, actual, ma...)
 }
 
 func NotEqual(expected, actual any, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.NotEqual(&panickier{releasers: releasers}, expected, actual, ma...)
+	assert.NotEqual(&panicker{releasers: releasers}, expected, actual, ma...)
 }
 
 func True(value bool, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.True(&panickier{releasers: releasers}, value, ma...)
+	assert.True(&panicker{releasers: releasers}, value, ma...)
 }
 
 func False(value bool, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.False(&panickier{releasers: releasers}, value, ma...)
+	assert.False(&panicker{releasers: releasers}, value, ma...)
 }
 
 func Fail(failureMessage string, msgAndArgs ...any) {
 	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.Fail(&panickier{releasers: releasers}, failureMessage, ma...)
+	assert.Fail(&panicker{releasers: releasers}, failureMessage, ma...)
 }
 
 func extractReleasers(msgAndArgs ...any) ([]any, []func()) {

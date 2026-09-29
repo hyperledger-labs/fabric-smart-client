@@ -352,7 +352,7 @@ Views can temporarily switch role through nested execution options such as `AsRe
 
 ## Minimal Example
 
-This example shows two view implementations as a reference of the View API adapted from `integration/fsc/pingping`.
+This example shows two view implementations as a reference of the View API adapted from `integration/fsc/pingpong`.
 
 The initiator view:
 

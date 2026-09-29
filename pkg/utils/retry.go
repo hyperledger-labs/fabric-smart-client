@@ -88,7 +88,7 @@ func (f *retryRunner) Run(runner func() error) error {
 
 // RunWithErrors will retry until runner() returns true or until it returns maxTimes false.
 // If it returns true, then the error or nil will be returned.
-// If it returns maxTimes false, then it will always return an error: either a join of all errors it encountered or a ErrMaxRetriesExceeded.
+// If it returns maxTimes false, then it will always return an error: either a join of all errors it encountered or an ErrMaxRetriesExceeded.
 func (f *retryRunner) RunWithErrors(runner func() (bool, error)) error {
 	errs := make([]error, 0)
 	for i := 0; f.maxTimes < 0 || i < f.maxTimes; i++ {

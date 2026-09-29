@@ -25,7 +25,7 @@ import (
 )
 
 // To re-generate the mock/ run "go generate" directive
-//go:generate counterfeiter -o mock/quer_service_client.go github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
+//go:generate counterfeiter -o mock/query_service_client.go github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
 
 func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *mock.FakeQueryServiceClient) {
 	tb.Helper()

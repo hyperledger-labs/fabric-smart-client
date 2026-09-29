@@ -949,7 +949,7 @@ func (msp *bccspmsp) sanitizeCert(cert *x509.Certificate) (*x509.Certificate, er
 			return cert, nil
 		}
 
-		// ok, this is no a root CA cert, and now we
+		// ok, this is not a root CA cert, and now we
 		// have chain of certs and can extract parent
 		// to sanitize the cert whenever it's intermediate or leaf certificate
 		var parentCert *x509.Certificate
