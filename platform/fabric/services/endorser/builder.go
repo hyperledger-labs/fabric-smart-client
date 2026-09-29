@@ -31,11 +31,6 @@ func NewBuilder(sp services.Provider) (*Builder, error) {
 	return &Builder{sp: sp}, nil
 }
 
-// NewBuilderWithServiceProvider is equivalent to NewBuilder.
-func NewBuilderWithServiceProvider(sp services.Provider) (*Builder, error) {
-	return NewBuilder(sp)
-}
-
 func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.TransactionOption) (*Transaction, error) {
 	fabricOptions, err := fabric.CompileTransactionOptions(opts...)
 	if err != nil {
@@ -161,7 +156,7 @@ func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Tra
 }
 
 func NewTransactionWithSigner(viewCtx view.Context, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
-	txBuilder, err := NewBuilderWithServiceProvider(viewCtx)
+	txBuilder, err := NewBuilder(viewCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -174,7 +169,7 @@ func NewTransactionWithSigner(viewCtx view.Context, network, channel string, id 
 }
 
 func NewTransactionWith(ctx context.Context, sp services.Provider, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
-	txBuilder, err := NewBuilderWithServiceProvider(sp)
+	txBuilder, err := NewBuilder(sp)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -186,7 +181,7 @@ func NewTransactionWith(ctx context.Context, sp services.Provider, network, chan
 }
 
 func NewTransactionFromEnvelopeBytes(ctx context.Context, sp services.Provider, bytes []byte) (*Builder, *Transaction, error) {
-	txBuilder, err := NewBuilderWithServiceProvider(sp)
+	txBuilder, err := NewBuilder(sp)
 	if err != nil {
 		return nil, nil, err
 	}
