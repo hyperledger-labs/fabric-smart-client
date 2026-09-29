@@ -13,10 +13,12 @@ import (
 	"sync/atomic"
 	"testing"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -253,6 +255,25 @@ func TestVaultX_NewRWSetFromBytes(t *testing.T) {
 
 	// Verify the content
 	require.Equal(t, 1, rws2.NumWrites("ns1"))
+}
+
+// A serialized message other than applicationpb.Tx must not load as an empty RWSet.
+func TestVaultX_RejectsForeignRWSetBytes(t *testing.T) {
+	t.Parallel()
+	v := vault.NewVault(newMockQueryService(), nil)
+	ctx := context.Background()
+	raw, err := proto.Marshal(&cb.ChannelHeader{Type: int32(cb.HeaderType_MESSAGE), ChannelId: "ch", TxId: "tx1"})
+	require.NoError(t, err)
+
+	_, err = v.NewRWSetFromBytes(ctx, "tx1", raw)
+	require.ErrorContains(t, err, "unknown fields")
+
+	_, err = v.InspectRWSet(ctx, raw)
+	require.ErrorContains(t, err, "unknown fields")
+
+	rws, err := v.NewRWSet(ctx, "tx1")
+	require.NoError(t, err)
+	require.ErrorContains(t, rws.AppendRWSet(raw), "unknown fields")
 }
 
 func TestVaultX_Status(t *testing.T) {

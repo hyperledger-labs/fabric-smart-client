@@ -248,16 +248,13 @@ func TestGetRWSetFromEvn(t *testing.T) {
 		require.ErrorContains(t, err, "failed to unmarshal rwset")
 	})
 
-	t.Run("payload data carrying another message yields an empty rwset", func(t *testing.T) {
+	t.Run("payload data carrying another message is rejected", func(t *testing.T) {
 		t.Parallel()
-		// Protobuf skips unknown fields, so any well-formed message whose fields do not
-		// collide with applicationpb.Tx decodes as a transaction without namespaces.
 		data := protoutil.MarshalOrPanic(protoutil.MakeChannelHeader(cb.HeaderType_MESSAGE, 0, "x", 0))
 		env := buildEnvelope(testTxID, data)
-		rws, _, err := newLoader(&rwsetfake.EnvelopeService{ExistsValue: true, Envelope: env}, newTestVault()).
+		_, _, err := newLoader(&rwsetfake.EnvelopeService{ExistsValue: true, Envelope: env}, newTestVault()).
 			GetRWSetFromEvn(t.Context(), testTxID)
-		require.NoError(t, err)
-		require.Empty(t, rws.Namespaces())
+		require.ErrorContains(t, err, "unknown fields in")
 	})
 
 	t.Run("vault error is wrapped", func(t *testing.T) {
