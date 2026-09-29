@@ -541,12 +541,19 @@ func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) e
 	return t.recordProposalResponse(pr.pr)
 }
 
+// ProposalHasBeenEndorsedBy verifies that party signed the transaction's signed
+// proposal, using the verifier the channel membership resolves for party. It returns
+// an error if the transaction carries no signed proposal.
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
+	sp := t.SignedProposal()
+	if sp == nil {
+		return errors.Errorf("transaction [txID=%s] has no signed proposal", t.ID())
+	}
 	verifier, err := t.channel.ChannelMembership().GetVerifier(party)
 	if err != nil {
 		return err
 	}
-	return verifier.Verify(t.SignedProposal().ProposalBytes(), t.SignedProposal().Signature())
+	return verifier.Verify(sp.ProposalBytes(), sp.Signature())
 }
 
 func (t *Transaction) StoreTransient() error {
