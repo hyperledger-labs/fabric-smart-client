@@ -152,7 +152,8 @@ func TestNamespaceLifecycleHelpers(t *testing.T) {
 
 	require.NoError(t, tx.AddCommand("create", view.Identity("alice")))
 	require.NoError(t, tx.AddCommand("approve", view.Identity("bob")))
-	cs := tx.Commands()
+	cs, err := tx.Commands()
+	require.NoError(t, err)
 	require.Equal(t, 2, cs.Count())
 	require.Equal(t, "create", cs.At(0).Name)
 	require.Equal(t, "approve", cs.At(1).Name)
@@ -161,15 +162,17 @@ func TestNamespaceLifecycleHelpers(t *testing.T) {
 
 	require.NoError(t, rwset.AddReadAt("assetns", "k1", nil))
 	require.NoError(t, rwset.SetState("assetns", "k2", []byte("v2")))
-	require.Equal(t, 1, tx.NumInputs())
-	require.Equal(t, 2, tx.NumOutputs())
+	require.Equal(t, 1, numInputs(t, tx))
+	require.Equal(t, 2, numOutputs(t, tx))
 
-	outs := tx.Outputs()
+	outs, err := tx.Outputs()
+	require.NoError(t, err)
 	require.Equal(t, 2, outs.Count())
 	require.Equal(t, ID("k1"), outs.At(0).ID())
 	require.Equal(t, ID("k2"), outs.At(1).ID())
 
-	ins := tx.Inputs()
+	ins, err := tx.Inputs()
+	require.NoError(t, err)
 	require.Equal(t, 1, ins.Count())
 	require.Equal(t, ID("k1"), ins.At(0).ID())
 
@@ -211,9 +214,10 @@ func TestNamespaceAddOutputInputDelete(t *testing.T) {
 	require.True(t, byID.Owner.Equal(house.Owner))
 
 	require.NoError(t, tx.Delete(house))
-	require.Equal(t, 2, tx.NumOutputs())
-	last := tx.Outputs().At(1)
-	require.True(t, last.IsDelete())
+	require.Equal(t, 2, numOutputs(t, tx))
+	outs, err := tx.Outputs()
+	require.NoError(t, err)
+	require.True(t, outs.At(1).IsDelete())
 }
 
 func TestNamespaceHashHidingAndFieldMapping(t *testing.T) {
@@ -271,13 +275,13 @@ func TestNamespaceErrorBranches(t *testing.T) {
 		require.False(t, tx.Present())
 	})
 
-	t.Run("commands invalid header panic", func(t *testing.T) {
+	t.Run("commands invalid header", func(t *testing.T) {
 		t.Parallel()
 		tx, _, driverTx := newTestStateTransaction("assetns")
 		driverTx.params = [][]byte{[]byte("{bad-json")}
-		require.Panics(t, func() {
-			_ = tx.Commands()
-		})
+		cs, err := tx.Commands()
+		require.ErrorContains(t, err, "failed unmarshalling header entry")
+		require.Nil(t, cs)
 	})
 
 	t.Run("set meta handler error", func(t *testing.T) {

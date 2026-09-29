@@ -39,17 +39,25 @@ func (*ApproveView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	// check that tx has a create command
-	if tx.Commands().Count() != 1 {
-		return nil, errors.Errorf("cmd count is wrong, expected 1 but got %d", tx.Commands().Count())
+	commands, err := tx.Commands()
+	if err != nil {
+		return nil, err
+	}
+	if commands.Count() != 1 {
+		return nil, errors.Errorf("cmd count is wrong, expected 1 but got %d", commands.Count())
 	}
 
-	cmd := tx.Commands().At(0)
+	cmd := commands.At(0)
 	if cmd.Name != "create" {
 		return nil, errors.Errorf("cmd type is wrong, expected `create` but got %s", cmd.Name)
 	}
 
-	if tx.NumOutputs() != 1 {
-		return nil, errors.Errorf("num of output must be 1, got %d", tx.NumOutputs())
+	numOutputs, err := tx.NumOutputs()
+	if err != nil {
+		return nil, err
+	}
+	if numOutputs != 1 {
+		return nil, errors.Errorf("num of output must be 1, got %d", numOutputs)
 	}
 
 	obj := &SomeObject{}
