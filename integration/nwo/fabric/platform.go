@@ -338,8 +338,13 @@ func (p *Platform) PeersByOrg(fabricHost, orgName string, includeAll bool) []*fa
 	return peers
 }
 
+// UserByOrg builds the fabric.User identity for user in orgName, using the
+// org's first peer to locate its crypto material. It fails the test if
+// orgName has no peers.
 func (p *Platform) UserByOrg(orgName, user string) *fabric.User {
-	peer := p.Network.PeersInOrg(orgName)[0]
+	peers := p.Network.PeersInOrg(orgName)
+	gomega.Expect(peers).NotTo(gomega.BeEmpty(), "org [%s] has no peers", orgName)
+	peer := peers[0]
 
 	return &fabric.User{
 		Name: user + "@" + p.Network.Organization(orgName).Domain,
@@ -348,11 +353,16 @@ func (p *Platform) UserByOrg(orgName, user string) *fabric.User {
 	}
 }
 
+// UsersByOrg builds the fabric.User identity for every UserSpec declared on
+// orgName, using the org's first peer to locate their crypto material. It
+// fails the test if orgName has no peers.
 func (p *Platform) UsersByOrg(orgName string) []*fabric.User {
 	org := p.Network.Organization(orgName)
+	peers := p.Network.PeersInOrg(orgName)
+	gomega.Expect(peers).NotTo(gomega.BeEmpty(), "org [%s] has no peers", orgName)
+	peer := peers[0]
 	var users []*fabric.User
 	for _, spec := range org.UserSpecs {
-		peer := p.Network.PeersInOrg(orgName)[0]
 		users = append(users, &fabric.User{
 			Name: spec.Name + "@" + p.Network.Organization(orgName).Domain,
 			Cert: p.Network.PeerUserCert(peer, spec.Name),
@@ -461,10 +471,18 @@ func (p *Platform) Channels() []*fabric.Channel {
 	return channels
 }
 
+// InvokeChaincode invokes method on cc as User1 of the topology's first peer
+// organization, via the peer named "orderer", and returns the invocation's
+// result. It fails the test if the topology declares no peer organizations
+// or that organization has no peers.
 func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string, args ...[]byte) []byte {
 	orderer := p.Network.Orderer("orderer")
-	org := p.PeerOrgs()[0]
-	peer := p.Network.Peer(org.Name, p.PeersByOrg("", org.Name, false)[0].Name)
+	orgs := p.PeerOrgs()
+	gomega.Expect(orgs).NotTo(gomega.BeEmpty(), "the fabric topology declares no peer organizations")
+	org := orgs[0]
+	peersInOrg := p.PeersByOrg("", org.Name, false)
+	gomega.Expect(peersInOrg).NotTo(gomega.BeEmpty(), "org [%s] has no peers", org.Name)
+	peer := p.Network.Peer(org.Name, peersInOrg[0].Name)
 	s := &struct {
 		Args []string `json:"Args,omitempty"`
 	}{}
@@ -488,7 +506,9 @@ func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string,
 	return sess.Buffer().Contents()
 }
 
-// ConnectionProfile returns Fabric connection profile
+// ConnectionProfile returns Fabric connection profile. It fails the test if
+// ca is false and a peer organization has no fabric.Peer (e.g. only FSC
+// peers), since an admin identity is then read from a peer that doesn't exist.
 func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionProfile {
 	fabricHost := "fabric"
 	if runtime.GOOS == "darwin" {
@@ -523,6 +543,7 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 				},
 			}
 		} else {
+			gomega.Expect(peers).NotTo(gomega.BeEmpty(), "org [%s] has no peers", org.Name)
 			signCert, err := os.ReadFile(p.Network.PeerUserCert(p.Network.PeerByName(peers[0].Name), "Admin"))
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 

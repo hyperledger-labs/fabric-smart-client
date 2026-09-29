@@ -21,8 +21,12 @@ import (
 // node via the "inject" view. It must be called once, after the infrastructure has started and
 // before any IOU view is invoked, on a topology built with Topology (which enables
 // Topology.MinimalFSCFabricConfig and registers the "inject" view factory on every FSC node).
+// It fails the test if the infrastructure has no fabric platform, or more than one.
 func InjectAll(ii *integration.Infrastructure) {
-	fabricPlatform := ii.NWOCtx.PlatformsByType(fabric.TopologyName)[0].(*fabric.Platform)
+	platforms := ii.NWOCtx.PlatformsByType(fabric.TopologyName)
+	gomega.Expect(platforms).To(gomega.HaveLen(1), "expected exactly one fabric platform")
+	fabricPlatform, ok := platforms[0].(*fabric.Platform)
+	gomega.Expect(ok).To(gomega.BeTrue(), "expected the fabric platform to be a *fabric.Platform")
 	n := fabricPlatform.Network
 	networkName := n.Topology().Name()
 
