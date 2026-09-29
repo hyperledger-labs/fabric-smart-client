@@ -691,7 +691,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 
 		digest, err := tx.Namespaces[idx].ASN1Marshal(txID, nil)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed asn1 marshalfor [txID=%s] [ns=%s]", txID, ns)
+			return nil, errors.Wrapf(err, "failed asn1 marshal for [txID=%s] [ns=%s]", txID, ns)
 		}
 
 		sig, err := signer.Sign(digest)

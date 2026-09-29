@@ -105,7 +105,7 @@ A business process is started by an **initiator view**
 
 ## The Fabric Smart Client Stack
 
-The Fabric Smart Client consists of **platforms** to support different DLT backends. Each platform exposes a coherent set of API to address specific tasks. A platform SDK buddles the platform specific features and implementations.
+The Fabric Smart Client consists of **platforms** to support different DLT backends. Each platform exposes a coherent set of API to address specific tasks. A platform SDK bundles the platform specific features and implementations.
 Currently, FSC comes with the following SDKs:
 
 ![stack.png](imgs/stack.png)

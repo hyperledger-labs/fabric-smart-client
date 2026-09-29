@@ -156,7 +156,7 @@ func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultSto
 	t.Helper()
 	ns := "namespace"
 	k := "key1"
-	mk := "meyakey1"
+	mk := "metakey1"
 
 	vault1, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)

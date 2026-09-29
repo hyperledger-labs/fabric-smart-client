@@ -119,7 +119,7 @@ func (s *SmartContract) ChangePublicDescription(ctx contractapi.TransactionConte
 	fmt.Println("check org")
 	// Auth check to ensure that client's org actually owns the asset
 	if clientOrgID != asset.OwnerOrg {
-		return errors.Errorf("a client from %s cannot update the description of a asset owned by %s", clientOrgID, asset.OwnerOrg)
+		return errors.Errorf("a client from %s cannot update the description of an asset owned by %s", clientOrgID, asset.OwnerOrg)
 	}
 
 	fmt.Println("update description")
@@ -296,7 +296,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 	// CHECK1: Auth check to ensure that client's org actually owns the asset
 
 	if clientOrgID != asset.OwnerOrg {
-		return errors.Errorf("a client from %s cannot transfer a asset owned by %s", clientOrgID, asset.OwnerOrg)
+		return errors.Errorf("a client from %s cannot transfer an asset owned by %s", clientOrgID, asset.OwnerOrg)
 	}
 
 	// CHECK2: Verify that the hash of the passed immutable properties matches the on-chain hash
@@ -528,7 +528,7 @@ func verifyClientOrgMatchesPeerOrg(clientOrgID string) error {
 	return nil
 }
 
-// setAssetStateBasedEndorsement adds an endorsement policy to a asset so that only a peer from an owning org
+// setAssetStateBasedEndorsement adds an endorsement policy to an asset so that only a peer from an owning org
 // can update or transfer the asset.
 func setAssetStateBasedEndorsement(ctx contractapi.TransactionContextInterface, assetID, orgToEndorse string) error {
 	endorsementPolicy, err := statebased.NewStateEP(nil)

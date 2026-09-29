@@ -19,7 +19,7 @@ import (
 )
 
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
-	// Create an fabric-x topology with idemix enabled
+	// Create a fabric-x topology with idemix enabled
 	fabricTopology := nwofabricx.NewDefaultTopology()
 	fabricTopology.EnableIdemix()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")

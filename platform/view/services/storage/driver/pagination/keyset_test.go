@@ -210,7 +210,7 @@ func TestKeysetInt(t *testing.T) { //nolint:paralleltest
 	Expect(args).To(Equal([]sqlbuild.Param{10}))
 }
 
-func TestKeysetSeriliazation(t *testing.T) { //nolint:paralleltest
+func TestKeysetSerialization(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastID()

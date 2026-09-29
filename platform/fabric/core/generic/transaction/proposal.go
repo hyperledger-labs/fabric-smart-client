@@ -43,7 +43,7 @@ func (up *UnpackedProposal) Nonce() []byte {
 	return up.SignatureHeader.Nonce
 }
 
-// UnpackSignedProposal creates an an *UnpackedProposal which is guaranteed to have
+// UnpackSignedProposal creates an *UnpackedProposal which is guaranteed to have
 // no zero-ed fields or it returns an error.
 func UnpackSignedProposal(signedProp *pb.SignedProposal) (*UnpackedProposal, error) {
 	prop, err := protoutil.UnmarshalProposal(signedProp.ProposalBytes)

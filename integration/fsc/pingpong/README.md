@@ -341,7 +341,7 @@ that a node might use must be burned inside the FSC node executable (We will sol
 by adding support for YAEGI, [`Issue 19`](https://github.com/hyperledger-labs/fabric-smart-client/issues/19)).
 
 Now, let us go step by step and explain the meaning of the above code. Our goal is to describe 
-the nodes in the network we want to boostrap. Each node will have its own definition.
+the nodes in the network we want to bootstrap. Each node will have its own definition.
 We have two nodes here, the `initiator`, Alice, and the `responder`, Bob. 
 
 - **Create an empty FSC network topology**: We start by creating an empty topology to which FSC node 
@@ -573,7 +573,7 @@ fsc:
     # Listening address
     listenAddress: /ip4/127.0.0.1/tcp/20001
     libp2p:
-      # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+      # If empty, this is a P2P bootstrap node. Otherwise, it contains the name of the FSC node that is a bootstrap node
       bootstrapNode: 
   persistences:
     default:

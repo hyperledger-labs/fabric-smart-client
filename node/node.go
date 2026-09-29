@@ -31,7 +31,7 @@ type FSCNode interface {
 }
 
 // Node is a cobra based application that offers the following commands:
-// - `peer start` to instantiate and start the Fabric Smart Client stack.
+// - `node start` to instantiate and start the Fabric Smart Client stack.
 // - `version` to get the version of the executed code.
 type Node struct {
 	FSCNode

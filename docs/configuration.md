@@ -433,8 +433,8 @@ fabric:
         mspType: idemix
         mspID: IdemixOrgMSP
         # Path to idemix credentials
-        path: /path/to/myanonousmous/idemix
-        # TDB: Optional, applies only to idemix, need to define the scale and meaning and what 0 means
+        path: /path/to/myanonymous/idemix
+        # TBD: Optional, applies only to idemix, need to define the scale and meaning and what 0 means
         # used to override the MSPCacheSize
         cacheSize: 3
 

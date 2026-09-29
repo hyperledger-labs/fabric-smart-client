@@ -383,12 +383,12 @@ func getMspConfig(dir, id string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfi
 		FabricNodeOus:                 nodeOUs,
 	}
 
-	fmpsjs, err := proto.Marshal(fmspconf)
+	fmspjs, err := proto.Marshal(fmspconf)
 	if err != nil {
 		return nil, err
 	}
 
-	return &msp.MSPConfig{Config: fmpsjs, Type: int32(FABRIC)}, nil
+	return &msp.MSPConfig{Config: fmspjs, Type: int32(FABRIC)}, nil
 }
 
 func loadCertificateAt(dir, certificatePath, ouType string) []byte {

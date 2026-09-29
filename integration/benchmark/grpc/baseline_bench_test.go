@@ -34,12 +34,12 @@ import (
 )
 
 func BenchmarkGRPCBaseline(b *testing.B) {
-	b.Run("w=noop", func(b *testing.B) { runGPRCBaseline(b, "noop") })
-	b.Run("w=cpu", func(b *testing.B) { runGPRCBaseline(b, "cpu") })
-	b.Run("w=ecdsa", func(b *testing.B) { runGPRCBaseline(b, "ecdsa") })
+	b.Run("w=noop", func(b *testing.B) { runGRPCBaseline(b, "noop") })
+	b.Run("w=cpu", func(b *testing.B) { runGRPCBaseline(b, "cpu") })
+	b.Run("w=ecdsa", func(b *testing.B) { runGRPCBaseline(b, "ecdsa") })
 }
 
-func runGPRCBaseline(b *testing.B, w string) {
+func runGRPCBaseline(b *testing.B, w string) {
 	b.Helper()
 	srvEndpoint := setupBaselineServer(b, w)
 

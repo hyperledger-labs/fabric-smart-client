@@ -18,7 +18,7 @@ import (
 )
 
 // curveHalfOrders contains the precomputed curve group orders halved.
-// It is used to ensure that signature' S value is lower or equal to the
+// It is used to ensure that signature's S value is lower or equal to the
 // curve group order halved. We accept only low-S signatures.
 // They are precomputed for efficiency reasons.
 var curveHalfOrders = map[elliptic.Curve]*big.Int{

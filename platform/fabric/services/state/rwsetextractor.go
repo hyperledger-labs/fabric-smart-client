@@ -51,7 +51,7 @@ func (r *RWSetProcessor) Process(_ fabric.Request, tx fabric.ProcessTransaction,
 
 		meta, err := rws.GetStateMetadata(ns, key, driver.FromIntermediate)
 		if err != nil {
-			return errors.Wrap(err, "filed getting metadata")
+			return errors.Wrap(err, "failed getting metadata")
 		}
 		if len(meta) == 0 {
 			meta = map[string][]byte{}

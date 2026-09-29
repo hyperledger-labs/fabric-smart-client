@@ -27,7 +27,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	f2Topology.SetNamespaceApproverOrgs("Org3")
 	f2Topology.AddNamespace("ns2", topology.Unanimity("Org3"))
 
-	// Define an FSC topology with 2 FCS nodes.
+	// Define an FSC topology with 2 FSC nodes.
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
 

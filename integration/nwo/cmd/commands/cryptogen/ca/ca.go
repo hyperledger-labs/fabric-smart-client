@@ -370,7 +370,7 @@ func genCertificateECDSA(
 	return x509Cert, nil
 }
 
-// LoadCertificateECDSA load a ecdsa cert from a file in cert path
+// LoadCertificateECDSA loads an ECDSA cert from a file in cert path
 func LoadCertificateECDSA(certPath string) (*x509.Certificate, error) {
 	var cert *x509.Certificate
 	var err error

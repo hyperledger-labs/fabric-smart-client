@@ -30,7 +30,7 @@ func TestSetRawReads(t *testing.T) {
 	require.Equal(t, expected, rqi)
 }
 
-func TestSetMerkelSummary(t *testing.T) {
+func TestSetMerkleSummary(t *testing.T) {
 	t.Parallel()
 	rqi := &kvrwset.RangeQueryInfo{StartKey: "start", EndKey: "end"}
 	merkleSummary := &kvrwset.QueryReadsMerkleSummary{MaxDegree: 12, MaxLevel: 99}
@@ -41,6 +41,6 @@ func TestSetMerkelSummary(t *testing.T) {
 		ReadsInfo: &kvrwset.RangeQueryInfo_ReadsMerkleHashes{ReadsMerkleHashes: merkleSummary},
 	}
 
-	SetMerkelSummary(rqi, merkleSummary)
+	SetMerkleSummary(rqi, merkleSummary)
 	require.Equal(t, expected, rqi)
 }

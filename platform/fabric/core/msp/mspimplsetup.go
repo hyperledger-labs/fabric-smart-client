@@ -217,13 +217,13 @@ func (msp *bccspmsp) setupAdminsV142(conf *m.FabricMSPConfig) error {
 func isECDSASignatureAlgorithm(algid asn1.ObjectIdentifier) bool {
 	// This is the set of ECDSA algorithms supported by Go 1.14 for CRL
 	// signatures.
-	ecdsaSignaureAlgorithms := []asn1.ObjectIdentifier{
+	ecdsaSignatureAlgorithms := []asn1.ObjectIdentifier{
 		{1, 2, 840, 10045, 4, 1},    // oidSignatureECDSAWithSHA1
 		{1, 2, 840, 10045, 4, 3, 2}, // oidSignatureECDSAWithSHA256
 		{1, 2, 840, 10045, 4, 3, 3}, // oidSignatureECDSAWithSHA384
 		{1, 2, 840, 10045, 4, 3, 4}, // oidSignatureECDSAWithSHA512
 	}
-	for _, id := range ecdsaSignaureAlgorithms {
+	for _, id := range ecdsaSignatureAlgorithms {
 		if id.Equal(algid) {
 			return true
 		}

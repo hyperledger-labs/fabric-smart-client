@@ -130,7 +130,7 @@ func (n *Namespace) AddCommand(command string, ids ...view.Identity) error {
 func (n *Namespace) AddInputByLinearID(id string, state any, opts ...AddInputOption) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return errors.Wrap(err, "filed getting rw set")
+		return errors.Wrap(err, "failed getting rw set")
 	}
 
 	// retrieve the state from the local vault,
@@ -188,7 +188,7 @@ func (n *Namespace) AddOutput(st any, opts ...AddOutputOption) error {
 	var err error
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return errors.Wrap(err, "filed getting rw set")
+		return errors.Wrap(err, "failed getting rw set")
 	}
 
 	// Get ID
@@ -258,7 +258,7 @@ func (n *Namespace) AddOutput(st any, opts ...AddOutputOption) error {
 func (n *Namespace) GetOutputAt(index int, state any) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return errors.Wrap(err, "filed getting rw set")
+		return errors.Wrap(err, "failed getting rw set")
 	}
 	k, raw, err := rwSet.GetWriteAt(n.namespace(), index)
 	if err != nil {
@@ -294,7 +294,7 @@ func (n *Namespace) GetOutputAt(index int, state any) error {
 func (n *Namespace) GetInputAt(index int, state any) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return errors.Wrap(err, "filed getting rw set")
+		return errors.Wrap(err, "failed getting rw set")
 	}
 
 	flag := true
@@ -346,7 +346,7 @@ func (n *Namespace) Delete(state any) error {
 	var err error
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return errors.Wrap(err, "filed getting rw set")
+		return errors.Wrap(err, "failed getting rw set")
 	}
 
 	// Get ID
@@ -369,7 +369,7 @@ func (n *Namespace) Delete(state any) error {
 func (n *Namespace) NumInputs() (int, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return 0, errors.Wrap(err, "filed getting rw set")
+		return 0, errors.Wrap(err, "failed getting rw set")
 	}
 
 	return rwSet.NumReads(n.namespace()), nil
@@ -380,7 +380,7 @@ func (n *Namespace) NumInputs() (int, error) {
 func (n *Namespace) NumOutputs() (int, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return 0, errors.Wrap(err, "filed getting rw set")
+		return 0, errors.Wrap(err, "failed getting rw set")
 	}
 
 	return rwSet.NumWrites(n.namespace()), nil
@@ -414,14 +414,14 @@ func (n *Namespace) Commands() (*commandStream, error) {
 func (n *Namespace) Outputs() (*outputStream, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return nil, errors.Wrap(err, "filed getting rw set")
+		return nil, errors.Wrap(err, "failed getting rw set")
 	}
 
 	var outputs []*output
 	for i := 0; i < rwSet.NumWrites(n.namespace()); i++ {
 		k, v, err := rwSet.GetWriteAt(n.namespace(), i)
 		if err != nil {
-			return nil, errors.Wrapf(err, "filed getting [%d] write", i)
+			return nil, errors.Wrapf(err, "failed getting [%d] write", i)
 		}
 		outputs = append(outputs, &output{
 			namespace: n,
@@ -440,14 +440,14 @@ func (n *Namespace) Outputs() (*outputStream, error) {
 func (n *Namespace) Inputs() (*inputStream, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return nil, errors.Wrap(err, "filed getting rw set")
+		return nil, errors.Wrap(err, "failed getting rw set")
 	}
 
 	var inputs []*input
 	for i := 0; i < rwSet.NumReads(n.namespace()); i++ {
 		k, err := rwSet.GetReadKeyAt(n.namespace(), i)
 		if err != nil {
-			return nil, errors.Wrapf(err, "filed getting [%d] read key", i)
+			return nil, errors.Wrapf(err, "failed getting [%d] read key", i)
 		}
 		inputs = append(inputs, &input{
 			namespace: n,

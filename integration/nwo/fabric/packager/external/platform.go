@@ -31,7 +31,7 @@ func (*Platform) Name() string {
 }
 
 // ValidatePath is used to ensure that path provided points to something that
-// looks like go chainccode.
+// looks like go chaincode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
 func (*Platform) ValidatePath(_ string) error {

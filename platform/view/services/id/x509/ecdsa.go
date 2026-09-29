@@ -19,7 +19,7 @@ import (
 )
 
 // curveHalfOrders contains the precomputed curve group orders halved.
-// It is used to ensure that signature' S value is lower or equal to the
+// It is used to ensure that signature's S value is lower or equal to the
 // curve group order halved. We accept only low-S signatures.
 // They are precomputed for efficiency reasons.
 var curveHalfOrders = map[elliptic.Curve]*big.Int{
@@ -37,11 +37,11 @@ func MarshalECDSASignature(r, s *big.Int) ([]byte, error) {
 	return asn1.Marshal(ecdsaSignature{r, s})
 }
 
-type EdsaVerifier struct {
+type EcdsaVerifier struct {
 	pk *ecdsa.PublicKey
 }
 
-func (d *EdsaVerifier) Verify(message, sigma []byte) error {
+func (d *EcdsaVerifier) Verify(message, sigma []byte) error {
 	signature := &ecdsaSignature{}
 	_, err := asn1.Unmarshal(sigma, signature)
 	if err != nil {
@@ -66,8 +66,8 @@ func (d *EdsaVerifier) Verify(message, sigma []byte) error {
 	return nil
 }
 
-func NewVerifier(pk *ecdsa.PublicKey) *EdsaVerifier {
-	return &EdsaVerifier{pk: pk}
+func NewVerifier(pk *ecdsa.PublicKey) *EcdsaVerifier {
+	return &EcdsaVerifier{pk: pk}
 }
 
 // PemDecodeKey takes bytes and returns a Go key

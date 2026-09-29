@@ -37,7 +37,7 @@ func TestTxRWSetMarshalUnmarshal(t *testing.T) {
 	})
 
 	rqi2 := &kvrwset.RangeQueryInfo{StartKey: "k00", EndKey: "k90", ItrExhausted: true}
-	SetMerkelSummary(rqi2, &kvrwset.QueryReadsMerkleSummary{MaxDegree: 5, MaxLevel: 4, MaxLevelHashes: [][]byte{[]byte("Hash-1"), []byte("Hash-2")}})
+	SetMerkleSummary(rqi2, &kvrwset.QueryReadsMerkleSummary{MaxDegree: 5, MaxLevel: 4, MaxLevelHashes: [][]byte{[]byte("Hash-1"), []byte("Hash-2")}})
 
 	txRwSet.NsRwSets = []*NsRwSet{
 		{NameSpace: "ns1", KvRwSet: &kvrwset.KVRWSet{
@@ -163,7 +163,7 @@ func sampleKvRwSet() *kvrwset.KVRWSet {
 	})
 
 	rqi2 := &kvrwset.RangeQueryInfo{StartKey: "k00", EndKey: "k90", ItrExhausted: true}
-	SetMerkelSummary(rqi2, &kvrwset.QueryReadsMerkleSummary{MaxDegree: 5, MaxLevel: 4, MaxLevelHashes: [][]byte{[]byte("Hash-1"), []byte("Hash-2")}})
+	SetMerkleSummary(rqi2, &kvrwset.QueryReadsMerkleSummary{MaxDegree: 5, MaxLevel: 4, MaxLevelHashes: [][]byte{[]byte("Hash-1"), []byte("Hash-2")}})
 	return &kvrwset.KVRWSet{
 		Reads:            []*kvrwset.KVRead{{Key: "key1", Version: &kvrwset.Version{BlockNum: 1, TxNum: 1}}},
 		RangeQueriesInfo: []*kvrwset.RangeQueryInfo{rqi1},

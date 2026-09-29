@@ -17,7 +17,7 @@ func SetRawReads(rqi *kvrwset.RangeQueryInfo, kvReads []*kvrwset.KVRead) {
 	}
 }
 
-// SetMerkelSummary sets the 'readsInfo' field to merkle summary of the raw KVReads of query results
-func SetMerkelSummary(rqi *kvrwset.RangeQueryInfo, merkleSummary *kvrwset.QueryReadsMerkleSummary) {
+// SetMerkleSummary sets the 'readsInfo' field to merkle summary of the raw KVReads of query results
+func SetMerkleSummary(rqi *kvrwset.RangeQueryInfo, merkleSummary *kvrwset.QueryReadsMerkleSummary) {
 	rqi.ReadsInfo = &kvrwset.RangeQueryInfo_ReadsMerkleHashes{ReadsMerkleHashes: merkleSummary}
 }

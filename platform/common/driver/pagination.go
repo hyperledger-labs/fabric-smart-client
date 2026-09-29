@@ -22,7 +22,7 @@ type Pagination interface {
 	Serialize() ([]byte, error)
 }
 
-// PageIterator is an ieterator with support for pagination
+// PageIterator is an iterator with support for pagination
 type PageIterator[R comparable] struct {
 	Items      iterators.Iterator[R]
 	Pagination Pagination

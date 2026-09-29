@@ -8,13 +8,13 @@ package iterators
 
 import "math/rand"
 
-type PermutatableIterator[V any] interface {
+type PermutableIterator[V any] interface {
 	Iterator[V]
 	NewPermutation() Iterator[V]
 }
 
 // Permutate creates a new Iterator that contains the elements of the input Iterator permutated
-func Permutate[T any](it Iterator[*T]) (PermutatableIterator[*T], error) {
+func Permutate[T any](it Iterator[*T]) (PermutableIterator[*T], error) {
 	items, err := ReadAllPointers(it)
 	if err != nil {
 		return nil, err
@@ -24,7 +24,7 @@ func Permutate[T any](it Iterator[*T]) (PermutatableIterator[*T], error) {
 }
 
 // From creates an Iterator containing the passed elements
-func From[T any](items ...T) PermutatableIterator[T] {
+func From[T any](items ...T) PermutableIterator[T] {
 	return Slice[T](items)
 }
 
@@ -34,7 +34,7 @@ type slice[T any] struct {
 }
 
 // Slice creates an iterator from the elements of the passed slice
-func Slice[T any](items []T) PermutatableIterator[T] { return &slice[T]{items: items} }
+func Slice[T any](items []T) PermutableIterator[T] { return &slice[T]{items: items} }
 
 func (it *slice[T]) Next() (T, error) {
 	if !it.HasNext() {

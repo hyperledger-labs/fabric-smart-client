@@ -27,7 +27,7 @@ type info struct {
 	chaincodeName string
 	network       string
 	channel       string
-	identitiy     view.Identity
+	identity      view.Identity
 }
 
 type RegisterChaincodeCall struct {
@@ -80,7 +80,7 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewCtx view.Context) error
 		chaincodeName: r.ChaincodeName,
 		network:       r.Network,
 		channel:       r.Channel,
-		identitiy:     r.InvokerIdentity,
+		identity:      r.InvokerIdentity,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to get chaincode [%s:%s:%s]", r.Network, r.Channel, r.ChaincodeName)
@@ -147,8 +147,8 @@ func getChaincode(viewCtx view.Context, info *info) (*fabric.Chaincode, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", info.network, info.channel)
 	}
-	if len(info.identitiy) == 0 {
-		info.identitiy = fNetwork.IdentityProvider().DefaultIdentity()
+	if len(info.identity) == 0 {
+		info.identity = fNetwork.IdentityProvider().DefaultIdentity()
 	}
 	chaincode := channel.Chaincode(info.chaincodeName)
 	if chaincode == nil {
