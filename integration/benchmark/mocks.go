@@ -34,10 +34,6 @@ func (m *MockIdentityProvider) DefaultIdentity() view.Identity {
 	return m.DefaultSigner
 }
 
-func (*MockIdentityProvider) Admins() []view.Identity {
-	panic("implement me")
-}
-
 func (*MockIdentityProvider) Clients() []view.Identity {
 	panic("implement me")
 }

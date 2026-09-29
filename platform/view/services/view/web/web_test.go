@@ -365,7 +365,6 @@ func (*fakeView) Call(_ view2.Context) (any, error) {
 type fakeIdentityProvider struct{}
 
 func (*fakeIdentityProvider) DefaultIdentity() view2.Identity { return nil }
-func (*fakeIdentityProvider) Admins() []view2.Identity        { return nil }
 func (*fakeIdentityProvider) Clients() []view2.Identity       { return nil }
 
 type fakeViewContext struct {

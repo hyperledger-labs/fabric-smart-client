@@ -43,7 +43,6 @@ type Provider struct {
 	sigService      SigService
 	endpointService EndpointService
 	defaultID       view.Identity
-	admins          []view.Identity
 	clients         []view.Identity
 	kms             *kms.KMS
 }
@@ -96,10 +95,6 @@ func (p *Provider) Identity(label string) view.Identity {
 		return nil
 	}
 	return id
-}
-
-func (p *Provider) Admins() []view.Identity {
-	return p.admins
 }
 
 func (p *Provider) Clients() []view.Identity {
