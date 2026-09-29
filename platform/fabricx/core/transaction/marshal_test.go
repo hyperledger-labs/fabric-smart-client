@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -214,4 +215,84 @@ func mustRawTx(t *testing.T, tx *applicationpb.Tx) []byte {
 	raw, err := proto.Marshal(tx)
 	require.NoError(t, err)
 	return raw
+}
+
+// envelopeReadyTx returns a transaction that createSCEnvelope can assemble, wired to a
+// network service whose channel resolves to one with an X.509 channel membership.
+func envelopeReadyTx(t *testing.T) (*Transaction, *mock.FabricNetworkService) {
+	t.Helper()
+
+	rawTx := mustRawTx(t, sampleTx("ns1", "key1", "value1"))
+	resp := &peer.ProposalResponse{
+		Payload: rawTx,
+		Endorsement: &peer.Endorsement{
+			Signature: mustSerializedEndorsements(t, []*applicationpb.Endorsements{
+				sampleNamespaceEndorsements("Org1MSP", "sig-org1"),
+			}),
+		},
+	}
+
+	fakeSigner := &mock.Signer{}
+	fakeSigner.SignReturns([]byte("envelope-signature"), nil)
+	fakeFNS, _ := fnsWithSigner(fakeSigner, nil)
+	fakeChannel := &mock.Channel{}
+	fakeChannel.ChannelMembershipReturns(&mock.ChannelMembership{})
+	fakeFNS.ChannelReturns(fakeChannel, nil)
+
+	_, creatorBytes := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+
+	return &Transaction{
+		TTxID:              "tx1",
+		TNonce:             []byte("nonce"),
+		TCreator:           view.Identity(creatorBytes),
+		TChannel:           "testchannel",
+		TProposalResponses: []*peer.ProposalResponse{resp},
+		fns:                fakeFNS,
+	}, fakeFNS
+}
+
+func TestCreateSCEnvelopeChannelErrors(t *testing.T) {
+	t.Parallel()
+
+	idemixErr := errors.New("channel configuration not loaded")
+	tests := []struct {
+		name          string
+		channel       driver.Channel
+		channelErr    error
+		expectedError string
+	}{
+		{
+			name:          "channel lookup fails",
+			channelErr:    errors.New("boom"),
+			expectedError: "get channel [testchannel]",
+		},
+		{
+			name:          "nil channel membership",
+			channel:       &mock.Channel{},
+			expectedError: "no channel membership for channel [testchannel]",
+		},
+		{
+			name: "idemix lookup fails",
+			channel: func() driver.Channel {
+				cm := &mock.ChannelMembership{}
+				cm.IsIdemixMSPReturns(false, idemixErr)
+				ch := &mock.Channel{}
+				ch.ChannelMembershipReturns(cm)
+				return ch
+			}(),
+			expectedError: "converting creator to cached identity",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tx, fakeFNS := envelopeReadyTx(t)
+			fakeFNS.ChannelReturns(tc.channel, tc.channelErr)
+
+			env, err := tx.createSCEnvelope()
+			require.ErrorContains(t, err, tc.expectedError)
+			require.Nil(t, env)
+		})
+	}
 }

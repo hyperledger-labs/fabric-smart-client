@@ -730,3 +730,22 @@ func TestTransaction_EndorseWithIdentityErrors(t *testing.T) {
 	err = tx.EndorseProposalResponseWithIdentity([]byte("id"))
 	require.ErrorContains(t, err, "bytes err")
 }
+
+// TestTransaction_ProposalHasBeenEndorsedByWithoutSignedProposal pins that a transaction
+// that was never endorsed reports the missing signed proposal instead of panicking.
+func TestTransaction_ProposalHasBeenEndorsedByWithoutSignedProposal(t *testing.T) {
+	t.Parallel()
+	mockChannelProvider := &mock.ChannelProvider{}
+	mockChannel := &mock.Channel{}
+	mockMembership := &mock.ChannelMembership{}
+	mockChannelProvider.ChannelReturns(mockChannel, nil)
+	mockChannel.ChannelMembershipReturns(mockMembership)
+
+	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, &mock.SignerService{})
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	require.NoError(t, err)
+
+	require.NotPanics(t, func() { err = tx.ProposalHasBeenEndorsedBy([]byte("endorser")) })
+	require.ErrorContains(t, err, "transaction [txID=txid] has no signed proposal")
+	require.Equal(t, 0, mockMembership.GetVerifierCallCount())
+}

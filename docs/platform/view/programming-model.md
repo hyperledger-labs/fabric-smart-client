@@ -112,6 +112,8 @@ A minimal node structure looks like this:
 package main
 
 import (
+	"log"
+
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 )
@@ -119,7 +121,7 @@ import (
 func main() {
 	node := fscnode.New()
 	if err := node.InstallSDK(viewsdk.NewSDK(node)); err != nil {
-		panic(err)
+		log.Fatalf("failed installing SDK: %v", err)
 	}
 
 	node.Execute(func() error {
