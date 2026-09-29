@@ -22,18 +22,18 @@ type Builder struct {
 	sp services.Provider
 }
 
-func NewBuilder(sp services.Provider) *Builder {
+// NewBuilder returns a Builder that creates transactions using the given service provider.
+// It returns an error if sp is nil.
+func NewBuilder(sp services.Provider) (*Builder, error) {
 	if sp == nil {
-		panic("service provider must be set")
+		return nil, errors.New("service provider must be set")
 	}
-	return &Builder{sp: sp}
+	return &Builder{sp: sp}, nil
 }
 
-func NewBuilderWithServiceProvider(sp services.Provider) *Builder {
-	if sp == nil {
-		panic("service provider must be set")
-	}
-	return &Builder{sp: sp}
+// NewBuilderWithServiceProvider is equivalent to NewBuilder.
+func NewBuilderWithServiceProvider(sp services.Provider) (*Builder, error) {
+	return NewBuilder(sp)
 }
 
 func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.TransactionOption) (*Transaction, error) {
@@ -91,6 +91,9 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, logging.SHA256Base64(raw))
 	defer logger.Debugf("NewTransaction...done.")
 
+	if t.sp == nil {
+		return nil, errors.New("service provider must be set")
+	}
 	fNetwork, err := fabric.GetFabricNetworkService(t.sp, network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", network)
@@ -132,7 +135,10 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 }
 
 func NewTransaction(viewCtx view.Context, opts ...fabric.TransactionOption) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilder(viewCtx)
+	txBuilder, err := NewBuilder(viewCtx)
+	if err != nil {
+		return nil, nil, err
+	}
 	tx, err := txBuilder.NewTransaction(viewCtx.Context(), opts...)
 	if err != nil {
 		return nil, nil, err
@@ -142,7 +148,10 @@ func NewTransaction(viewCtx view.Context, opts ...fabric.TransactionOption) (*Bu
 }
 
 func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilder(viewCtx)
+	txBuilder, err := NewBuilder(viewCtx)
+	if err != nil {
+		return nil, nil, err
+	}
 	tx, err := txBuilder.NewTransactionFromBytes(bytes)
 	if err != nil {
 		return nil, nil, err
@@ -152,7 +161,10 @@ func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Tra
 }
 
 func NewTransactionWithSigner(viewCtx view.Context, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilderWithServiceProvider(viewCtx)
+	txBuilder, err := NewBuilderWithServiceProvider(viewCtx)
+	if err != nil {
+		return nil, nil, err
+	}
 	tx, err := txBuilder.buildTransaction(viewCtx.Context(), id, network, channel, nil, nil, false)
 	if err != nil {
 		return nil, nil, err
@@ -162,7 +174,10 @@ func NewTransactionWithSigner(viewCtx view.Context, network, channel string, id 
 }
 
 func NewTransactionWith(ctx context.Context, sp services.Provider, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilderWithServiceProvider(sp)
+	txBuilder, err := NewBuilderWithServiceProvider(sp)
+	if err != nil {
+		return nil, nil, err
+	}
 	tx, err := txBuilder.buildTransaction(ctx, id, network, channel, nil, nil, false)
 	if err != nil {
 		return nil, nil, err
@@ -171,7 +186,10 @@ func NewTransactionWith(ctx context.Context, sp services.Provider, network, chan
 }
 
 func NewTransactionFromEnvelopeBytes(ctx context.Context, sp services.Provider, bytes []byte) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilderWithServiceProvider(sp)
+	txBuilder, err := NewBuilderWithServiceProvider(sp)
+	if err != nil {
+		return nil, nil, err
+	}
 	tx, err := txBuilder.NewTransactionFromEnvelopeBytes(ctx, bytes)
 	if err != nil {
 		return nil, nil, err
