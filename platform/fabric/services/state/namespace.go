@@ -364,58 +364,64 @@ func (n *Namespace) Delete(state any) error {
 	return nil
 }
 
-// NumInputs returns the number of inputs (or reads in the RWSet) contained in this namespace
-func (n *Namespace) NumInputs() int {
+// NumInputs returns the number of inputs (or reads in the RWSet) contained in this namespace.
+// It returns an error if the transaction's RWSet cannot be obtained.
+func (n *Namespace) NumInputs() (int, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		panic(errors.Wrap(err, "filed getting rw set").Error())
+		return 0, errors.Wrap(err, "filed getting rw set")
 	}
 
-	return rwSet.NumReads(n.namespace())
+	return rwSet.NumReads(n.namespace()), nil
 }
 
-// NumOutputs returns the number of outputs (or writes in the RWSet) contained in this namespace
-func (n *Namespace) NumOutputs() int {
+// NumOutputs returns the number of outputs (or writes in the RWSet) contained in this namespace.
+// It returns an error if the transaction's RWSet cannot be obtained.
+func (n *Namespace) NumOutputs() (int, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		panic(errors.Wrap(err, "filed getting rw set").Error())
+		return 0, errors.Wrap(err, "filed getting rw set")
 	}
 
-	return rwSet.NumWrites(n.namespace())
+	return rwSet.NumWrites(n.namespace()), nil
 }
 
-// Commands returns a stream containing the commands in this namespace
-func (n *Namespace) Commands() *commandStream {
+// Commands returns a stream containing the commands in this namespace.
+// The commands are decoded from the header stored in the transaction's first
+// parameter; it returns an error if that parameter is not a valid JSON header.
+func (n *Namespace) Commands() (*commandStream, error) {
 	params := n.tx.Parameters()
 	if len(params) == 0 {
 		return &commandStream{
 			namespace: n,
 			commands:  nil,
-		}
+		}, nil
 	}
 
 	tx := &Header{}
 	if err := json.Unmarshal(params[0], tx); err != nil {
-		panic(errors.Wrap(err, "failed unmarshalling header entry").Error())
+		return nil, errors.Wrap(err, "failed unmarshalling header entry")
 	}
 	return &commandStream{
 		namespace: n,
 		commands:  tx.Commands,
-	}
+	}, nil
 }
 
-// Outputs returns a stream containing the outputs in this namespace
-func (n *Namespace) Outputs() *outputStream {
+// Outputs returns a stream containing the outputs in this namespace.
+// It returns an error if the transaction's RWSet cannot be obtained or one of
+// its writes cannot be read.
+func (n *Namespace) Outputs() (*outputStream, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		panic(errors.Wrap(err, "filed getting rw set").Error())
+		return nil, errors.Wrap(err, "filed getting rw set")
 	}
 
 	var outputs []*output
 	for i := 0; i < rwSet.NumWrites(n.namespace()); i++ {
 		k, v, err := rwSet.GetWriteAt(n.namespace(), i)
 		if err != nil {
-			panic(errors.Wrapf(err, "filed getting [%d] write", i).Error())
+			return nil, errors.Wrapf(err, "filed getting [%d] write", i)
 		}
 		outputs = append(outputs, &output{
 			namespace: n,
@@ -425,21 +431,23 @@ func (n *Namespace) Outputs() *outputStream {
 		})
 	}
 
-	return &outputStream{namespace: n, outputs: outputs}
+	return &outputStream{namespace: n, outputs: outputs}, nil
 }
 
-// Inputs returns a stream containing the inputs in this namespace
-func (n *Namespace) Inputs() *inputStream {
+// Inputs returns a stream containing the inputs in this namespace.
+// It returns an error if the transaction's RWSet cannot be obtained or one of
+// its read keys cannot be read.
+func (n *Namespace) Inputs() (*inputStream, error) {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		panic(errors.Wrap(err, "filed getting rw set").Error())
+		return nil, errors.Wrap(err, "filed getting rw set")
 	}
 
 	var inputs []*input
 	for i := 0; i < rwSet.NumReads(n.namespace()); i++ {
 		k, err := rwSet.GetReadKeyAt(n.namespace(), i)
 		if err != nil {
-			panic(errors.Wrapf(err, "filed getting [%d] read key", i).Error())
+			return nil, errors.Wrapf(err, "filed getting [%d] read key", i)
 		}
 		inputs = append(inputs, &input{
 			namespace: n,
@@ -447,7 +455,7 @@ func (n *Namespace) Inputs() *inputStream {
 			key:       ID(k),
 		})
 	}
-	return &inputStream{n, inputs}
+	return &inputStream{n, inputs}, nil
 }
 
 // TODO: remove

@@ -30,21 +30,29 @@ func (*AcceptAssetView) Call(viewCtx view.Context) (any, error) {
 	// Here are examples of possible checks
 
 	// Namespaces are properly populated
-	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
-	assert.Equal("asset_transfer", tx.Namespaces()[0], "expected the [asset_transfer] namespace, got [%s]", tx.Namespaces()[0])
+	namespaces, err := tx.Namespaces()
+	assert.NoError(err, "failed getting namespaces")
+	assert.Equal(1, len(namespaces), "expected only one namespace")
+	assert.Equal("asset_transfer", namespaces[0], "expected the [asset_transfer] namespace, got [%s]", namespaces[0])
 
 	// Commands are properly populated
-	assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
-	switch command := tx.Commands().At(0); command.Name {
+	commands, err := tx.Commands()
+	assert.NoError(err, "failed getting commands")
+	assert.Equal(1, commands.Count(), "expected only a single command, got [%s]", commands.Count())
+	switch command := commands.At(0); command.Name {
 	case "issue":
 		// If the issue command is attached to the transaction then...
 
 		// Check that the transaction is as expected
-		assert.Equal(0, tx.Inputs().Count(), "expected zero input, got [%d]", tx.Inputs().Count())
-		assert.Equal(1, tx.Outputs().Count(), "expected one output, got [%d]", tx.Outputs().Count())
+		inputs, err := tx.Inputs()
+		assert.NoError(err, "failed getting inputs")
+		outputs, err := tx.Outputs()
+		assert.NoError(err, "failed getting outputs")
+		assert.Equal(0, inputs.Count(), "expected zero input, got [%d]", inputs.Count())
+		assert.Equal(1, outputs.Count(), "expected one output, got [%d]", outputs.Count())
 
 		asset := &states.Asset{}
-		assert.NoError(tx.Outputs().At(0).State(asset), "failed unmarshalling asset")
+		assert.NoError(outputs.At(0).State(asset), "failed unmarshalling asset")
 		assert.True(asset.Owner.Equal(id), "expected me to be the owner, got [%s]", asset.Owner)
 	default:
 		return nil, errors.Errorf("invalid command, expected [issue], was [%s]", command.Name)

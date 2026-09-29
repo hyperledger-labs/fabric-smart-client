@@ -26,20 +26,20 @@ func seedOutput(tb testing.TB, tx *Transaction, h *House) string {
 	return h.LinearID
 }
 
-// requirePanicsContaining asserts f panics and that the panic value mentions want.
-//
-// It matches a substring rather than the whole value on purpose: several of these
-// messages carry a long-standing "filed"/"failed" typo, and an exact match would
-// turn a spelling fix into a test failure. Prefer the injected cause as want, since
-// that is the part a behaviour change would actually drop.
-func requirePanicsContaining(tb testing.TB, want string, f func()) {
+// numOutputs returns tx.NumOutputs(), failing the test if it errors.
+func numOutputs(tb testing.TB, tx *Transaction) int {
 	tb.Helper()
-	defer func() {
-		r := recover()
-		require.NotNil(tb, r, "expected a panic")
-		require.Contains(tb, fmt.Sprint(r), want)
-	}()
-	f()
+	n, err := tx.NumOutputs()
+	require.NoError(tb, err)
+	return n
+}
+
+// numInputs returns tx.NumInputs(), failing the test if it errors.
+func numInputs(tb testing.TB, tx *Transaction) int {
+	tb.Helper()
+	n, err := tx.NumInputs()
+	require.NoError(tb, err)
+	return n
 }
 
 // seedRead registers a read entry for key with the given raw value.
@@ -94,7 +94,7 @@ func TestNamespaceGetOutputAtLastValidIndex(t *testing.T) {
 	tx, _, _ := newTestStateTransaction(errNS)
 	seedOutput(t, tx, &House{Address: "first", LinearID: "id-1"})
 	seedOutput(t, tx, &House{Address: "second", LinearID: "id-2"})
-	require.Equal(t, 2, tx.NumOutputs())
+	require.Equal(t, 2, numOutputs(t, tx))
 
 	var got House
 	require.NoError(t, tx.GetOutputAt(1, &got))
@@ -319,9 +319,10 @@ func TestNamespaceDeleteWritesNilValue(t *testing.T) {
 
 	tx, _, _ := newTestStateTransaction(errNS)
 	require.NoError(t, tx.Delete(&House{LinearID: "id-1"}))
-	require.Equal(t, 1, tx.NumOutputs())
+	require.Equal(t, 1, numOutputs(t, tx))
 
-	outputs := tx.Outputs()
+	outputs, err := tx.Outputs()
+	require.NoError(t, err)
 	require.Equal(t, 1, outputs.Count())
 	require.True(t, outputs.At(0).IsDelete(), "a deleted key is reported as a delete")
 }
@@ -347,86 +348,97 @@ func TestNamespaceInterleavedAddDeleteRead(t *testing.T) {
 	t.Parallel()
 
 	tx, rwset, _ := newTestStateTransaction(errNS)
-	require.Zero(t, tx.NumOutputs())
-	require.Zero(t, tx.NumInputs())
+	require.Zero(t, numOutputs(t, tx))
+	require.Zero(t, numInputs(t, tx))
 
 	seedOutput(t, tx, &House{Address: "first", LinearID: "id-1"})
-	require.Equal(t, 1, tx.NumOutputs())
+	require.Equal(t, 1, numOutputs(t, tx))
 
 	require.NoError(t, tx.Delete(&House{LinearID: "id-2"}))
-	require.Equal(t, 2, tx.NumOutputs(), "deleting a fresh key is one more write")
+	require.Equal(t, 2, numOutputs(t, tx), "deleting a fresh key is one more write")
 
 	seedOutput(t, tx, &House{Address: "third", LinearID: "id-3"})
-	require.Equal(t, 3, tx.NumOutputs())
+	require.Equal(t, 3, numOutputs(t, tx))
 
 	require.NoError(t, rwset.AddReadAt(errNS, "id-3", nil))
-	require.Equal(t, 1, tx.NumInputs())
+	require.Equal(t, 1, numInputs(t, tx))
 
 	var got House
 	require.NoError(t, tx.GetOutputAt(2, &got))
 	require.Equal(t, "third", got.Address)
 
-	outputs := tx.Outputs()
+	outputs, err := tx.Outputs()
+	require.NoError(t, err)
 	require.Equal(t, 3, outputs.Count())
 	require.True(t, outputs.At(1).IsDelete(), "the deleted key is reported as a delete")
 }
 
-func TestNamespaceNumInputsAndOutputsPanicOnRWSetError(t *testing.T) {
+// The error tests below match a substring of the injected cause rather than the
+// whole message: several wrap messages carry a long-standing "filed"/"failed"
+// typo, and an exact match would turn a spelling fix into a test failure.
+
+func TestNamespaceNumInputsAndOutputsErrorOnRWSetError(t *testing.T) {
 	t.Parallel()
 
 	t.Run("num inputs", func(t *testing.T) {
 		t.Parallel()
 		tx, _, driverTx := newTestStateTransaction(errNS)
 		driverTx.getRWSetErr = errors.New("rwset failed")
-		requirePanicsContaining(t, "rwset failed", func() { _ = tx.NumInputs() })
+		_, err := tx.NumInputs()
+		require.ErrorContains(t, err, "rwset failed")
 	})
 
 	t.Run("num outputs", func(t *testing.T) {
 		t.Parallel()
 		tx, _, driverTx := newTestStateTransaction(errNS)
 		driverTx.getRWSetErr = errors.New("rwset failed")
-		requirePanicsContaining(t, "rwset failed", func() { _ = tx.NumOutputs() })
+		_, err := tx.NumOutputs()
+		require.ErrorContains(t, err, "rwset failed")
 	})
 }
 
-func TestNamespaceStreamsPanicOnRWSetError(t *testing.T) {
+func TestNamespaceStreamsErrorOnRWSetError(t *testing.T) {
 	t.Parallel()
 
 	t.Run("outputs", func(t *testing.T) {
 		t.Parallel()
 		tx, _, driverTx := newTestStateTransaction(errNS)
 		driverTx.getRWSetErr = errors.New("rwset failed")
-		require.Panics(t, func() { _ = tx.Outputs() })
+		_, err := tx.Outputs()
+		require.ErrorContains(t, err, "rwset failed")
 	})
 
 	t.Run("inputs", func(t *testing.T) {
 		t.Parallel()
 		tx, _, driverTx := newTestStateTransaction(errNS)
 		driverTx.getRWSetErr = errors.New("rwset failed")
-		require.Panics(t, func() { _ = tx.Inputs() })
+		_, err := tx.Inputs()
+		require.ErrorContains(t, err, "rwset failed")
 	})
 }
 
-// TestNamespaceOutputsPanicOnWriteLookupError covers the panic inside the loop,
+// TestNamespaceOutputsErrorOnWriteLookupError covers the error inside the loop,
 // which is a different call site from the RWSet lookup above.
-func TestNamespaceOutputsPanicOnWriteLookupError(t *testing.T) {
+func TestNamespaceOutputsErrorOnWriteLookupError(t *testing.T) {
 	t.Parallel()
 
 	tx, rwset, _ := newTestStateTransaction(errNS)
 	seedOutput(t, tx, &House{Address: "one", LinearID: "id-1"})
 	rwset.getWriteAtErr = errors.New("write lookup failed")
 
-	require.Panics(t, func() { _ = tx.Outputs() })
+	_, err := tx.Outputs()
+	require.ErrorContains(t, err, "write lookup failed")
 }
 
-func TestNamespaceInputsPanicOnReadKeyLookupError(t *testing.T) {
+func TestNamespaceInputsErrorOnReadKeyLookupError(t *testing.T) {
 	t.Parallel()
 
 	tx, rwset, _ := newTestStateTransaction(errNS)
 	require.NoError(t, rwset.AddReadAt(errNS, "id-1", nil))
 	rwset.getReadKeyAtErr = errors.New("read key lookup failed")
 
-	require.Panics(t, func() { _ = tx.Inputs() })
+	_, err := tx.Inputs()
+	require.ErrorContains(t, err, "read key lookup failed")
 }
 
 func TestNamespaceCommandsEmptyAndPopulated(t *testing.T) {
@@ -435,7 +447,9 @@ func TestNamespaceCommandsEmptyAndPopulated(t *testing.T) {
 	t.Run("no parameters", func(t *testing.T) {
 		t.Parallel()
 		tx, _, _ := newTestStateTransaction(errNS)
-		require.Zero(t, tx.Commands().Count())
+		commands, err := tx.Commands()
+		require.NoError(t, err)
+		require.Zero(t, commands.Count())
 	})
 
 	t.Run("appends to existing header", func(t *testing.T) {
@@ -444,7 +458,8 @@ func TestNamespaceCommandsEmptyAndPopulated(t *testing.T) {
 		require.NoError(t, tx.AddCommand("create"))
 		require.NoError(t, tx.AddCommand("transfer"))
 
-		commands := tx.Commands()
+		commands, err := tx.Commands()
+		require.NoError(t, err)
 		require.Equal(t, 2, commands.Count())
 		require.Equal(t, "create", commands.At(0).Name)
 		require.Equal(t, "transfer", commands.At(1).Name)
@@ -500,7 +515,7 @@ func TestNamespaceAddOutputEmbeddingStateDerivesInnerID(t *testing.T) {
 	require.Equal(t, inner, got.Inner)
 
 	// Nothing is written under the wrapper's own generated id.
-	require.Equal(t, 1, tx.NumOutputs())
+	require.Equal(t, 1, numOutputs(t, tx))
 	key, _, err := rwset.GetWriteAt(errNS, 0)
 	require.NoError(t, err)
 	require.Equal(t, "inner-id", key)

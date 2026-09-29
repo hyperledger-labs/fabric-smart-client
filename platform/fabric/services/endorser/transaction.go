@@ -182,13 +182,14 @@ func (t *Transaction) GetSignatureOf(party view.Identity) ([]byte, error) {
 }
 
 // Namespaces returns the list of namespaces this transaction contains.
-func (t *Transaction) Namespaces() Namespaces {
+// It returns an error if the transaction's RWSet cannot be obtained.
+func (t *Transaction) Namespaces() (Namespaces, error) {
 	rwSet, err := t.RWSet()
 	if err != nil {
-		panic(errors.Wrap(err, "failed getting rw set").Error())
+		return nil, errors.Wrap(err, "failed getting rw set")
 	}
 
-	return rwSet.Namespaces()
+	return rwSet.Namespaces(), nil
 }
 
 func (t *Transaction) Close() {

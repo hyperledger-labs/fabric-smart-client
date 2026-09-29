@@ -187,12 +187,14 @@ func TestTransaction(t *testing.T) {
 
 	fakeRWS.NamespacesReturns([]string{"ns1", "ns2"})
 	fakeTx.GetRWSetReturns(fakeRWS, nil)
-	ns := et.Namespaces()
+	ns, err := et.Namespaces()
+	require.NoError(t, err)
 	require.Equal(t, 2, ns.Count())
 
 	// RWSet failure
 	fakeTx.GetRWSetReturns(nil, fmt.Errorf("err"))
-	require.Panics(t, func() { et.Namespaces() })
+	_, err = et.Namespaces()
+	require.ErrorContains(t, err, "failed getting rw set")
 
 	// Test Results error
 	fakeTx.GetRWSetReturns(nil, fmt.Errorf("err"))

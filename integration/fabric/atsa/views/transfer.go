@@ -57,12 +57,16 @@ func (f *TransferView) Call(viewCtx view.Context) (any, error) {
 	assert.NoError(err, "failed sending and received transaction")
 
 	// Check that tx2 is as expected
-	assert.Equal(3, tx2.Inputs().Count(), "expected three input, got [%d]", tx2.Inputs().Count())
-	assert.Equal(3, tx2.Outputs().Count(), "expected three output, got [%d]", tx2.Outputs().Count())
-	assert.Equal(2, tx2.Outputs().Deleted().Count(), "expected two delete, got [%d]", tx2.Outputs().Deleted().Count())
+	inputs, err := tx2.Inputs()
+	assert.NoError(err, "failed getting inputs")
+	outputs, err := tx2.Outputs()
+	assert.NoError(err, "failed getting outputs")
+	assert.Equal(3, inputs.Count(), "expected three input, got [%d]", inputs.Count())
+	assert.Equal(3, outputs.Count(), "expected three output, got [%d]", outputs.Count())
+	assert.Equal(2, outputs.Deleted().Count(), "expected two delete, got [%d]", outputs.Deleted().Count())
 
 	agreementToBuy := &states.AgreementToBuy{}
-	inputState := tx2.Inputs().Filter(state.InputHasIDPrefixFilter(states.TypeAssetBid)).At(0)
+	inputState := inputs.Filter(state.InputHasIDPrefixFilter(states.TypeAssetBid)).At(0)
 	assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to buy")
 	assert.NoError(inputState.State(agreementToBuy), "failed unmarshalling agreement to buy")
 
@@ -105,32 +109,40 @@ func (*TransferResponderView) Call(viewCtx view.Context) (any, error) {
 	// Here are examples of possible checks
 
 	// Namespaces are properly populated
-	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
-	assert.Equal("asset_transfer", tx.Namespaces()[0], "expected the [asset_transfer] namespace, got [%s]", tx.Namespaces()[0])
+	namespaces, err := tx.Namespaces()
+	assert.NoError(err, "failed getting namespaces")
+	assert.Equal(1, len(namespaces), "expected only one namespace")
+	assert.Equal("asset_transfer", namespaces[0], "expected the [asset_transfer] namespace, got [%s]", namespaces[0])
 
 	// Commands are properly populated
-	assert.Equal(1, tx.Commands().Count(), "expected only a single command, got [%s]", tx.Commands().Count())
-	switch command := tx.Commands().At(0); command.Name {
+	commands, err := tx.Commands()
+	assert.NoError(err, "failed getting commands")
+	assert.Equal(1, commands.Count(), "expected only a single command, got [%s]", commands.Count())
+	switch command := commands.At(0); command.Name {
 	case "transfer":
 		// If the transfer command is attached to the transaction then...
 
 		// Check that the transaction is as expected
-		assert.Equal(2, tx.Inputs().Count(), "expected two inputs, got [%d]", tx.Inputs().Count())
-		assert.Equal(2, tx.Outputs().Count(), "expected two outputs, got [%d]", tx.Outputs().Count())
-		assert.Equal(1, tx.Outputs().Deleted().Count(), "expected one delete, got [%d]", tx.Outputs().Deleted().Count())
+		inputs, err := tx.Inputs()
+		assert.NoError(err, "failed getting inputs")
+		outputs, err := tx.Outputs()
+		assert.NoError(err, "failed getting outputs")
+		assert.Equal(2, inputs.Count(), "expected two inputs, got [%d]", inputs.Count())
+		assert.Equal(2, outputs.Count(), "expected two outputs, got [%d]", outputs.Count())
+		assert.Equal(1, outputs.Deleted().Count(), "expected one delete, got [%d]", outputs.Deleted().Count())
 
 		agreementToSell := &states.AgreementToSell{}
-		inputState := tx.Inputs().Filter(state.InputHasIDPrefixFilter(states.TypeAssetForSale)).At(0)
+		inputState := inputs.Filter(state.InputHasIDPrefixFilter(states.TypeAssetForSale)).At(0)
 		assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to sell")
 		assert.NoError(inputState.State(agreementToSell), "failed unmarshalling agreement to sell")
 
 		assetIn := &states.Asset{}
-		inputState = tx.Inputs().Filter(state.InputHasIDPrefixFilter(states.TypeAsset)).At(0)
+		inputState = inputs.Filter(state.InputHasIDPrefixFilter(states.TypeAsset)).At(0)
 		assert.NoError(inputState.VerifyCertification(), "failed certifying asset in")
 		assert.NoError(inputState.State(assetIn), "failed unmarshalling asset in")
 
 		assetOut := &states.Asset{}
-		assert.NoError(tx.Outputs().Written().At(0).State(assetOut), "failed unmarshalling asset out")
+		assert.NoError(outputs.Written().At(0).State(assetOut), "failed unmarshalling asset out")
 		assert.True(assetOut.Owner.Equal(id), "expected me to be the owner, got [%s]", assetOut.Owner)
 
 		assert.Equal(assetIn.PrivateProperties, assetOut.PrivateProperties)
