@@ -36,6 +36,11 @@ func (c *evictionCache[K, V]) String() string {
 type EvictionPolicy[K comparable] interface {
 	// Push adds a key and must be invoked under write-lock
 	Push(K)
+	// Touch marks an existing key as recently used. It is invoked from Get,
+	// which holds only a read lock, so unlike Push it may run concurrently
+	// with itself and must do its own locking. Policies whose eviction order
+	// does not depend on reads implement it as a no-op.
+	Touch(K)
 }
 
 //nolint:revive // confusing-naming: evictionCache and mapCache both implement the exported Map interface; renaming either is an API break; see follow-up
@@ -43,6 +48,9 @@ func (c *evictionCache[K, V]) Get(key K) (V, bool) {
 	c.l.RLock()
 	defer c.l.RUnlock()
 	v, ok := c.m[key]
+	if ok {
+		c.evictionPolicy.Touch(key)
+	}
 	return v, ok
 }
 
