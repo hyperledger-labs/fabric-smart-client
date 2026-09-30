@@ -10,7 +10,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	io2 "io"
 	"sync"
 	"testing"
 	"time"
@@ -149,4 +151,30 @@ func messageOfSize(size int) proto.Message {
 		panic("too small message")
 	}
 	return &comm.ViewPacket{Payload: bytes.Repeat([]byte{1}, size-2)}
+}
+
+func TestStreamAccessorsAndReadAfterClose(t *testing.T) { //nolint:paralleltest
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	conn := &mockConn{written: make(chan []byte, 1), read: make(chan []byte, 1)}
+	info := host.StreamInfo{RemotePeerID: "peer", RemotePeerAddress: "127.0.0.1:1", ContextID: "ctx"}
+	stream := ws.NewWSStream(conn, context.Background(), info)
+	require.Equal(t, info.RemotePeerAddress, stream.RemotePeerAddress())
+	require.NoError(t, stream.Context().Err())
+
+	conn.read <- []byte("hello")
+	buf := make([]byte, 3)
+	n, err := stream.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "hel", string(buf[:n]))
+
+	require.NoError(t, stream.Close())
+	require.ErrorIs(t, stream.Context().Err(), context.Canceled)
+	// the leftover of a value already taken off the channel is still returned
+	n, err = stream.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "lo", string(buf[:n]))
+
+	_, err = stream.Read(buf)
+	require.True(t, errors.Is(err, io2.EOF) || errors.Is(err, context.Canceled), "got %v", err)
 }

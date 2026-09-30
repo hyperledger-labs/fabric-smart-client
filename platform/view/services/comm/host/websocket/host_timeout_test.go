@@ -128,6 +128,7 @@ func TestNewHostPropagatesServerTLSConfigError(t *testing.T) {
 // mockConfig implements websocket.Config for testing
 type mockConfig struct {
 	listenAddress        host2.PeerIPAddress
+	certPath             string
 	clientErr, serverErr error
 }
 
@@ -139,7 +140,7 @@ func (m *mockConfig) ClientTLSConfig(websocket.ExtraCAPoolProvider) (*tls.Config
 func (m *mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) (*tls.Config, error) {
 	return nil, m.serverErr
 }
-func (*mockConfig) CertPath() string                 { return "" }
+func (m *mockConfig) CertPath() string               { return m.certPath }
 func (*mockConfig) MaxSubConns() int                 { return 100 }
 func (*mockConfig) ReadHeaderTimeout() time.Duration { return 10 * time.Second }
 
