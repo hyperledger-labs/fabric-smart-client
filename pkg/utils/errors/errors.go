@@ -13,9 +13,9 @@ func Join(errs ...error) error {
 	return errors.Join(errs...)
 }
 
-// HasType recursively checks errors wrapped using Wrapf until it detects the target error type
+// HasType reports whether source, or any error it wraps, has the same concrete type as target.
 func HasType(source, target error) bool {
-	return source != nil && target != nil && errors.As(source, &target)
+	return source != nil && target != nil && errors.HasType(source, target)
 }
 
 // HasCause recursively checks errors wrapped using Wrapf until it detects the target error

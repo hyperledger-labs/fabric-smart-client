@@ -40,11 +40,13 @@ func TestHasType(t *testing.T) {
 	nestedErr := &newErrType{msg: "nested err"}
 	err := Wrapf(nestedErr, "some error")
 	require.True(t, HasType(err, &newErrType{}))
+	require.False(t, HasType(Wrapf(New("other"), "some error"), &newErrType{}))
 }
 
 func TestHasTypeNil(t *testing.T) {
 	t.Parallel()
 	require.False(t, HasType(New("some err"), nil))
+	require.False(t, HasType(nil, &newErrType{}))
 }
 
 func TestNew(t *testing.T) {

@@ -9,7 +9,9 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	stderrors "errors"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -24,10 +26,6 @@ const (
 
 type ResponseErr struct {
 	Reason string
-}
-
-type Config struct {
-	MaxReqSize uint16
 }
 
 //nolint:revive // var-naming: renaming this exported type is an API break; see follow-up
@@ -69,12 +67,16 @@ func (h *HttpHandler) RegisterURI(uri, method string, rh RequestHandler) {
 }
 
 func (*HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, rh RequestHandler) {
-	if _, err := negotiateContentType(req); err != nil {
-		sendErr(backToClient, http.StatusBadRequest, "bad content type", err)
+	if !acceptsJSON(req) {
+		sendErr(backToClient, http.StatusBadRequest, "bad content type", nil)
 		return
 	}
 
-	reqPayload, err := io.ReadAll(req.Body)
+	reqPayload, err := io.ReadAll(http.MaxBytesReader(backToClient, req.Body, maxMessageSize))
+	if _, ok := stderrors.AsType[*http.MaxBytesError](err); ok {
+		sendErr(backToClient, http.StatusRequestEntityTooLarge, "request too large", err)
+		return
+	}
 	if err != nil {
 		sendErr(backToClient, http.StatusBadRequest, "failed reading request", err)
 		return
@@ -93,6 +95,12 @@ func (*HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, 
 	}
 
 	resultFromBackend, statusCode := rh.HandleRequest(reqCtx)
+	// WriteHeader panics on a status code outside 100-999.
+	if statusCode < 100 || statusCode > 999 {
+		sendErr(backToClient, http.StatusInternalServerError, "invalid status code from backend",
+			errors.Errorf("backend returned status code %d", statusCode))
+		return
+	}
 
 	response := &bytes.Buffer{}
 
@@ -129,20 +137,22 @@ func sendErr(resp http.ResponseWriter, code int, errToClient string, errLogged e
 	}
 }
 
-func negotiateContentType(req *http.Request) (string, error) {
-	acceptReq := req.Header.Get("Accept")
-	if len(acceptReq) == 0 {
-		return "application/json", nil
+// acceptsJSON reports whether the request's Accept header admits application/json, the only
+// content type the handler responds with. A missing header accepts anything.
+func acceptsJSON(req *http.Request) bool {
+	accept := req.Header.Get("Accept")
+	if accept == "" {
+		return true
 	}
-
-	options := strings.SplitSeq(acceptReq, ",")
-	for opt := range options {
-		if strings.Contains(opt, "application/json") ||
-			strings.Contains(opt, "application/*") ||
-			strings.Contains(opt, "*/*") {
-			return "application/json", nil
+	for opt := range strings.SplitSeq(accept, ",") {
+		mediaType, _, err := mime.ParseMediaType(opt)
+		if err != nil {
+			continue
+		}
+		switch mediaType {
+		case "application/json", "application/*", "*/*":
+			return true
 		}
 	}
-
-	return "", errors.New("response Content-Type is application/json only")
+	return false
 }
