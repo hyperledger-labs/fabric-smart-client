@@ -111,8 +111,11 @@ func LoadVerifyingMSPAt(dir, id, mspType string) (msp.MSP, error) {
 func LoadLocalMSPSignerCert(dir string) ([]byte, error) {
 	signCertsPath := filepath.Join(dir, SignCerts)
 	signCerts, err := getPemMaterialFromDir(signCertsPath)
-	if err != nil || len(signCerts) == 0 {
+	if err != nil {
 		return nil, errors.Wrapf(err, "could not load a valid signer certificate from directory %s", signCertsPath)
+	}
+	if len(signCerts) == 0 {
+		return nil, errors.Errorf("could not load a valid signer certificate from directory %s: no PEM content found", signCertsPath)
 	}
 	return signCerts[0], nil
 }

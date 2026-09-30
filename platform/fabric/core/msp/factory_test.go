@@ -74,3 +74,44 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.NotNil(t, i)
 }
+
+func TestNewBCCSPVersions(t *testing.T) { //nolint:paralleltest
+	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
+	require.NoError(t, err)
+	funcName := func(f any) string { return runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name() }
+
+	for _, tc := range []struct {
+		version  MSPVersion
+		expected func(*bccspmsp) []any
+	}{
+		{MSPv1_3, func(b *bccspmsp) []any {
+			return []any{b.setupV11, b.validateIdentityOUsV11, b.satisfiesPrincipalInternalV13}
+		}},
+		{MSPv1_4_3, func(b *bccspmsp) []any {
+			return []any{b.setupV142, b.validateIdentityOUsV142, b.satisfiesPrincipalInternalV142}
+		}},
+		{MSPv3_0, func(b *bccspmsp) []any {
+			return []any{b.setupV3, b.validateIdentityOUsV142, b.satisfiesPrincipalInternalV142}
+		}},
+	} {
+		i, err := New(&BCCSPNewOpts{NewBaseOpts{Version: tc.version}}, cryptoProvider)
+		require.NoError(t, err)
+		b := i.(*bccspmsp)
+		require.Equal(t, tc.version, b.GetVersion())
+		expected := tc.expected(b)
+		require.Equal(t, funcName(expected[0]), funcName(b.internalSetupFunc))
+		require.Equal(t, funcName(expected[1]), funcName(b.internalValidateIdentityOusFunc))
+		require.Equal(t, funcName(expected[2]), funcName(b.internalSatisfiesPrincipalInternalFunc))
+	}
+}
+
+func TestNewBccspMspInvalidVersion(t *testing.T) { //nolint:paralleltest
+	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
+	require.NoError(t, err)
+
+	_, err = newBccspMsp(-1, cryptoProvider)
+	require.EqualError(t, err, "Invalid MSP version [-1]")
+
+	_, err = NewBccspMspWithKeyStore(-1, sw.NewDummyKeyStore(), cryptoProvider)
+	require.EqualError(t, err, "Invalid MSP version [-1]")
+}

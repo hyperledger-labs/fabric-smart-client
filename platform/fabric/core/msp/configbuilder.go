@@ -205,8 +205,11 @@ func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, id string) 
 	}
 
 	signcert, err := getPemMaterialFromDir(signcertDir)
-	if err != nil || len(signcert) == 0 {
+	if err != nil {
 		return nil, errors.Wrapf(err, "could not load a valid signer certificate from directory %s", signcertDir)
+	}
+	if len(signcert) == 0 {
+		return nil, errors.Errorf("could not load a valid signer certificate from directory %s: no PEM content found", signcertDir)
 	}
 
 	/* FIXME: for now we're making the following assumptions
@@ -242,8 +245,11 @@ func getMspConfig(dir, id string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfi
 	tlsintermediatecertsDir := filepath.Join(dir, tlsintermediatecerts)
 
 	cacerts, err := getPemMaterialFromDir(cacertDir)
-	if err != nil || len(cacerts) == 0 {
+	if err != nil {
 		return nil, errors.WithMessagef(err, "could not load a valid ca certificate from directory %s", cacertDir)
+	}
+	if len(cacerts) == 0 {
+		return nil, errors.Errorf("could not load a valid ca certificate from directory %s: no PEM content found", cacertDir)
 	}
 
 	admincert, err := getPemMaterialFromDir(admincertDir)
