@@ -338,9 +338,14 @@ func (r *rwSetWrapper) SetState(namespace cdriver.Namespace, key cdriver.PKey, v
 // conditional write the caller never asked for, which the committer invalidates on any
 // concurrent ledger update. Do not simulate one RWSet from multiple goroutines.
 //
-// A key already in the read set must still be at the recorded version. If a commit changed
-// it since, GetState returns an error: the caller acted on the earlier value, and replacing
-// the recorded version would let IsValid accept a simulation built on stale data.
+// A key that does not exist is recorded as a read with a nil version, which requires the
+// key to still be absent when the transaction commits. Without it, a transaction that
+// checks a key is free before creating it could not detect a concurrent creation.
+//
+// A key already in the read set must still be at the recorded version, or still be absent
+// if it was absent then. If a commit changed it since, GetState returns an error: the
+// caller acted on the earlier value, and replacing the recorded version would let IsValid
+// accept a simulation built on stale data.
 func (r *rwSetWrapper) GetState(namespace cdriver.Namespace, key cdriver.PKey, opts ...cdriver.GetStateOpt) (cdriver.RawValue, error) {
 	// Check writes first
 	r.mu.Lock()
@@ -365,8 +370,10 @@ func (r *rwSetWrapper) GetState(namespace cdriver.Namespace, key cdriver.PKey, o
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get state for namespace=%s, key=%s", namespace, key)
 	}
-	if vaultValue == nil {
-		return nil, nil
+	var value cdriver.RawValue
+	var version cdriver.RawVersion // nil for a key that does not exist
+	if vaultValue != nil {
+		value, version = vaultValue.Raw, vaultValue.Version
 	}
 
 	// Add to read set, pinning the namespace version alongside the key's read version.
@@ -376,15 +383,15 @@ func (r *rwSetWrapper) GetState(namespace cdriver.Namespace, key cdriver.PKey, o
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if recorded, ok := r.rws.ReadSet.Get(namespace, key); ok {
-		if !bytes.Equal(recorded, vaultValue.Version) {
-			return nil, errors.Errorf("invalid read [%s:%s]: previously read at version [%x], now at version [%x]", namespace, key, recorded, vaultValue.Version)
+		if !bytes.Equal(recorded, version) {
+			return nil, errors.Errorf("invalid read [%s:%s]: previously read at version [%x], now at version [%x]", namespace, key, recorded, version)
 		}
-		return vaultValue.Raw, nil
+		return value, nil
 	}
-	r.rws.ReadSet.Add(namespace, key, vaultValue.Version)
+	r.rws.ReadSet.Add(namespace, key, version)
 	r.cachedBytes = nil
 
-	return vaultValue.Raw, nil
+	return value, nil
 }
 
 // GetDirectState accesses the state directly from the QueryService without checking the RWSet.

@@ -142,17 +142,63 @@ func TestRWSet_GetState(t *testing.T) {
 		require.Equal(t, 0, rws.NumReads("ns1"))
 	})
 
-	t.Run("remote miss records nothing", func(t *testing.T) {
+	// A miss is a read dependency on the key's absence: it enters the read set with a nil
+	// version and serializes as a versionless read.
+	t.Run("remote miss records an absent read", func(t *testing.T) {
 		t.Parallel()
 		qs := newMockQueryService()
+		qs.setState("_meta", "ns1", nil, 7)
 		rws := newTestRWSet(t, qs, nil)
 
 		val, err := rws.GetState("ns1", "missing")
 		require.NoError(t, err)
 		require.Nil(t, val)
-		require.Equal(t, 0, rws.NumReads("ns1"))
-		require.Empty(t, rws.Namespaces())
-		require.Equal(t, int32(0), qs.getStatesCount.Load(), "a miss must not pin the namespace")
+		require.Equal(t, 1, rws.NumReads("ns1"))
+		require.NoError(t, rws.IsValid())
+
+		raw, err := rws.Bytes()
+		require.NoError(t, err)
+		var tx applicationpb.Tx
+		require.NoError(t, proto.Unmarshal(raw, &tx))
+		require.Len(t, tx.GetNamespaces(), 1)
+		require.Equal(t, uint64(7), tx.GetNamespaces()[0].GetNsVersion())
+		require.Len(t, tx.GetNamespaces()[0].GetReadsOnly(), 1)
+		require.Nil(t, tx.GetNamespaces()[0].GetReadsOnly()[0].Version)
+	})
+
+	// Checking that a key is free and then creating it must conflict with a concurrent
+	// creation of the same key.
+	t.Run("key created after a missed read", func(t *testing.T) {
+		t.Parallel()
+		qs := newMockQueryService()
+		rws := newTestRWSet(t, qs, nil)
+		val, err := rws.GetState("ns1", "key1")
+		require.NoError(t, err)
+		require.Nil(t, val)
+		require.NoError(t, rws.SetState("ns1", "key1", []byte("mine")))
+
+		raw, err := rws.Bytes()
+		require.NoError(t, err)
+		var tx applicationpb.Tx
+		require.NoError(t, proto.Unmarshal(raw, &tx))
+		require.Len(t, tx.GetNamespaces()[0].GetReadWrites(), 1, "the create must be conditional on absence")
+		require.Nil(t, tx.GetNamespaces()[0].GetReadWrites()[0].Version)
+		require.Empty(t, tx.GetNamespaces()[0].GetBlindWrites())
+
+		qs.setState("ns1", "key1", []byte("theirs"), 1)
+		require.ErrorContains(t, rws.IsValid(), "version mismatch for key key1 in namespace ns1")
+	})
+
+	t.Run("re-read after a missed key was created", func(t *testing.T) {
+		t.Parallel()
+		qs := newMockQueryService()
+		rws := newTestRWSet(t, qs, nil)
+		_, err := rws.GetState("ns1", "key1")
+		require.NoError(t, err)
+
+		qs.setState("ns1", "key1", []byte("theirs"), 1)
+		_, err = rws.GetState("ns1", "key1")
+		require.ErrorContains(t, err, "invalid read [ns1:key1]")
 	})
 
 	t.Run("re-read at the recorded version", func(t *testing.T) {
