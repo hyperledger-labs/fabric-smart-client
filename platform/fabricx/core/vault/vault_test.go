@@ -15,6 +15,7 @@ import (
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -30,7 +31,8 @@ import (
 
 // mockMDS implements fdriver.MetadataService for exercising the field-mapping read fallback.
 type mockMDS struct {
-	fieldMappings map[string]fdriver.TransientMap // keyed by string(valueDigest)
+	fieldMappings      map[string]fdriver.TransientMap // keyed by string(valueDigest)
+	getFieldMappingErr error
 }
 
 func (*mockMDS) Exists(context.Context, string) bool                                { return false }
@@ -48,6 +50,9 @@ func (m *mockMDS) PutFieldMapping(_ context.Context, _, _ string, valueDigest []
 }
 
 func (m *mockMDS) GetFieldMapping(_ context.Context, _, _ string, valueDigest []byte) (fdriver.TransientMap, error) {
+	if m.getFieldMappingErr != nil {
+		return nil, m.getFieldMappingErr
+	}
 	return m.fieldMappings[string(valueDigest)], nil
 }
 
@@ -81,6 +86,8 @@ type mockQueryService struct {
 	txStatuses     map[string]int32
 	getStatesCount atomic.Int32
 	getStatesErr   error
+	getStateErr    error
+	txStatusesErr  error
 
 	// queryMu guards lastGetStates, which records the shape of the most recent batch so
 	// tests can assert on how a query was assembled.
@@ -96,10 +103,11 @@ func newMockQueryService() *mockQueryService {
 }
 
 func (m *mockQueryService) GetState(ns driver.Namespace, key driver.PKey) (*driver.VaultValue, error) {
-	if nsMap, ok := m.states[ns]; ok {
-		if val, ok := nsMap[key]; ok {
-			return &val, nil
-		}
+	if m.getStateErr != nil {
+		return nil, m.getStateErr
+	}
+	if val, ok := m.states[ns][key]; ok {
+		return &val, nil
 	}
 	return nil, nil
 }
@@ -123,8 +131,8 @@ func (m *mockQueryService) GetStates(keys map[driver.Namespace][]driver.PKey) (m
 	for ns, keyList := range keys {
 		result[ns] = make(map[driver.PKey]driver.VaultValue)
 		for _, key := range keyList {
-			if val, err := m.GetState(ns, key); err == nil && val != nil {
-				result[ns][key] = *val
+			if val, ok := m.states[ns][key]; ok {
+				result[ns][key] = val
 			}
 		}
 	}
@@ -139,6 +147,9 @@ func (m *mockQueryService) GetTransactionStatus(txID string) (int32, error) {
 }
 
 func (m *mockQueryService) GetTransactionStatuses(txIDs []string) (map[string]int32, error) {
+	if m.txStatusesErr != nil {
+		return nil, m.txStatusesErr
+	}
 	out := make(map[string]int32, len(txIDs))
 	for _, txID := range txIDs {
 		if status, ok := m.txStatuses[txID]; ok {
@@ -197,6 +208,35 @@ func TestVaultX_NewQueryExecutor(t *testing.T) {
 	// Cleanup
 	err = qe.Done()
 	require.NoError(t, err)
+}
+
+func TestVaultX_QueryExecutor(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	qs := newMockQueryService()
+	qs.setState("ns1", "key1", []byte("value1"), 4)
+
+	qe, err := vault.NewVault(qs, nil).NewQueryExecutor(ctx)
+	require.NoError(t, err)
+
+	meta, version, err := qe.GetStateMetadata(ctx, "ns1", "key1")
+	require.NoError(t, err)
+	require.Nil(t, meta)
+	require.Equal(t, vault.MarshalVersion(4), version)
+
+	meta, version, err = qe.GetStateMetadata(ctx, "ns1", "missing")
+	require.NoError(t, err)
+	require.Nil(t, meta)
+	require.Nil(t, version)
+
+	_, err = qe.GetStateRange(ctx, "ns1", "a", "z")
+	require.ErrorContains(t, err, "GetStateRange not supported")
+
+	qs.getStateErr = errors.New("simulated failure")
+	_, err = qe.GetState(ctx, "ns1", "key1")
+	require.ErrorContains(t, err, "failed to get state for namespace=ns1, key=key1")
+	_, _, err = qe.GetStateMetadata(ctx, "ns1", "key1")
+	require.ErrorContains(t, err, "failed to get state metadata for namespace=ns1, key=key1")
 }
 
 func TestVaultX_NewRWSet(t *testing.T) {
@@ -331,6 +371,46 @@ func TestVaultX_Statuses(t *testing.T) {
 
 	require.Equal(t, driver.TxID("tx2"), statuses[2].TxID)
 	require.Equal(t, fdriver.Unknown, statuses[2].ValidationCode)
+}
+
+func TestVaultX_StatusMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status committerpb.Status
+		want   fdriver.ValidationCode
+	}{
+		{committerpb.Status_COMMITTED, fdriver.Valid},
+		{committerpb.Status_STATUS_UNSPECIFIED, fdriver.Unknown},
+		{committerpb.Status_ABORTED_MVCC_CONFLICT, fdriver.Invalid},
+	}
+	for _, tc := range tests {
+		t.Run(tc.status.String(), func(t *testing.T) {
+			t.Parallel()
+			qs := newMockQueryService()
+			qs.setTxStatus("tx1", int32(tc.status))
+
+			code, _, err := vault.NewVault(qs, nil).Status(context.Background(), "tx1")
+			require.NoError(t, err)
+			require.Equal(t, tc.want, code)
+		})
+	}
+}
+
+func TestVaultX_StatusQueryError(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	qs := newMockQueryService()
+	qs.txStatusesErr = errors.New("simulated failure")
+	v := vault.NewVault(qs, nil)
+
+	code, _, err := v.Status(ctx, "tx1")
+	require.ErrorContains(t, err, "failed to get transaction status for txID=tx1")
+	require.ErrorContains(t, err, "simulated failure")
+	require.Equal(t, fdriver.Unknown, code)
+
+	_, err = v.Statuses(ctx, "tx1", "tx2")
+	require.ErrorContains(t, err, "failed to get transaction statuses")
 }
 
 // The commit-pipeline methods (SetDiscarded/DiscardTx/CommitTX/Match/RWSExists) are unreachable in
