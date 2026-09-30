@@ -70,8 +70,12 @@ func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []strin
 	return startKey, endKey, nil
 }
 
-// SplitCompositeKey splits the passed composite key into objectType and attributes
+// SplitCompositeKey splits a composite key built by CreateCompositeKey into its
+// objectType and attributes. It returns an error if compositeKey is not such a key.
 func SplitCompositeKey(compositeKey string) (string, []string, error) {
+	if !strings.HasPrefix(compositeKey, compositeKeyNamespace) {
+		return "", nil, errors.Errorf("not a composite key: [%x]", compositeKey)
+	}
 	componentIndex := 1
 	var components []string
 	for i := 1; i < len(compositeKey); i++ {
@@ -79,6 +83,9 @@ func SplitCompositeKey(compositeKey string) (string, []string, error) {
 			components = append(components, compositeKey[componentIndex:i])
 			componentIndex = i + 1
 		}
+	}
+	if len(components) == 0 {
+		return "", nil, errors.Errorf("not a composite key: [%x]", compositeKey)
 	}
 	return components[0], components[1:], nil
 }

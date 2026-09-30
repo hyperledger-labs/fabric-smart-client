@@ -246,6 +246,33 @@ func (m *mockIterator) Close() {
 	m.closed = true
 }
 
+// readResult is a single (item, error) pair returned by resultIterator.Next.
+type readResult struct {
+	item *driver.UnversionedRead
+	err  error
+}
+
+// resultIterator replays results in order and then reports exhaustion.
+// Unlike mockIterator, it can yield errors, with or without an item.
+type resultIterator struct {
+	results []readResult
+	nexts   int
+	closed  bool
+}
+
+func (r *resultIterator) Next() (*driver.UnversionedRead, error) {
+	r.nexts++
+	if r.nexts > len(r.results) {
+		return nil, nil
+	}
+	res := r.results[r.nexts-1]
+	return res.item, res.err
+}
+
+func (r *resultIterator) Close() {
+	r.closed = true
+}
+
 func TestNew(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -648,6 +675,76 @@ func TestKVS_GetExisting(t *testing.T) {
 
 			result := k.GetExisting(context.Background(), tt.ids...)
 			require.ElementsMatch(t, tt.expected, result)
+		})
+	}
+}
+
+func TestKVS_GetExisting_Iterator(t *testing.T) {
+	t.Parallel()
+	errScan := fmt.Errorf("scan error")
+	tests := []struct {
+		name        string
+		results     []readResult
+		expected    []string
+		wantNexts   int
+		wantRefetch []string
+	}{
+		{
+			name:        "no error",
+			results:     []readResult{{item: &driver.UnversionedRead{Key: "key1", Raw: []byte("v1")}}},
+			expected:    []string{"key1"},
+			wantNexts:   2,
+			wantRefetch: []string{"key2"},
+		},
+		{
+			name:        "nil item with error",
+			results:     []readResult{{err: errScan}},
+			expected:    []string{},
+			wantNexts:   1,
+			wantRefetch: []string{"key1", "key2"},
+		},
+		{
+			name: "non-nil item with error",
+			results: []readResult{
+				{item: &driver.UnversionedRead{Key: "key1", Raw: []byte("v1")}, err: errScan},
+				{item: &driver.UnversionedRead{Key: "key2", Raw: []byte("v2")}},
+			},
+			expected:    []string{},
+			wantNexts:   1,
+			wantRefetch: []string{"key1", "key2"},
+		},
+		{
+			name: "error after some items",
+			results: []readResult{
+				{item: &driver.UnversionedRead{Key: "key1", Raw: []byte("v1")}},
+				{err: errScan},
+				{item: &driver.UnversionedRead{Key: "key2", Raw: []byte("v2")}},
+			},
+			expected:    []string{"key1"},
+			wantNexts:   2,
+			wantRefetch: []string{"key2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			it := &resultIterator{results: tt.results}
+			mockStore := &mock.KeyValueStore{}
+			mockStore.GetStateSetIteratorReturns(it, nil)
+
+			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			require.NoError(t, err)
+
+			require.ElementsMatch(t, tt.expected, k.GetExisting(context.Background(), "key1", "key2"))
+			require.Equal(t, tt.wantNexts, it.nexts, "iteration must stop at exhaustion or the first error")
+			require.True(t, it.closed, "iterator must be closed")
+
+			// keys read before the error are cached; the others are fetched again
+			k.GetExisting(context.Background(), "key1", "key2")
+			require.Equal(t, 2, mockStore.GetStateSetIteratorCallCount())
+			_, _, refetched := mockStore.GetStateSetIteratorArgsForCall(1)
+			require.ElementsMatch(t, tt.wantRefetch, refetched)
 		})
 	}
 }

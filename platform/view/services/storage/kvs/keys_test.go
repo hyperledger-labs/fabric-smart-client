@@ -369,6 +369,26 @@ func TestSplitCompositeKey(t *testing.T) {
 			expectedAttributes: []string{"file-name.txt", "user@example.com"},
 			expectError:        false,
 		},
+		{
+			name:         "empty key",
+			compositeKey: "",
+			expectError:  true,
+		},
+		{
+			name:         "key without namespace prefix",
+			compositeKey: "user\x00alice\x00",
+			expectError:  true,
+		},
+		{
+			name:         "namespace prefix only",
+			compositeKey: "\x00",
+			expectError:  true,
+		},
+		{
+			name:         "object type without terminator",
+			compositeKey: "\x00user",
+			expectError:  true,
+		},
 	}
 
 	for _, tt := range tests {
