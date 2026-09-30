@@ -12,7 +12,10 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 func TestSetupBCCSPKeystoreConfig(t *testing.T) { //nolint:paralleltest
@@ -171,4 +174,98 @@ func TestReadFileUtils(t *testing.T) { //nolint:paralleltest
 	// test that reading an existing file which is not a PEM file doesn't crash
 	_, err = readPemFile("/dev/null")
 	require.Error(t, err)
+}
+
+func TestGetMspConfigWithType(t *testing.T) { //nolint:paralleltest
+	conf, err := GetLocalMspConfigWithType("testdata/sampleconfig", nil, "SampleOrg", ProviderTypeToString(FABRIC))
+	require.NoError(t, err)
+	require.Equal(t, int32(FABRIC), conf.Type)
+
+	conf, err = GetLocalMspConfigWithType(idemixTestDir, nil, "idemix", ProviderTypeToString(IDEMIX))
+	require.NoError(t, err)
+	require.Equal(t, int32(IDEMIX), conf.Type)
+
+	conf, err = GetVerifyingMspConfig(idemixTestDir, "idemix", ProviderTypeToString(IDEMIX))
+	require.NoError(t, err)
+	require.Equal(t, int32(IDEMIX), conf.Type)
+
+	_, err = GetLocalMspConfigWithType("testdata/sampleconfig", nil, "SampleOrg", "unknown")
+	require.EqualError(t, err, "unknown MSP type 'unknown'")
+	_, err = GetVerifyingMspConfig("testdata/sampleconfig", "SampleOrg", "unknown")
+	require.EqualError(t, err, "unknown MSP type 'unknown'")
+}
+
+// copySampleConfig returns a writable copy of testdata/sampleconfig.
+func copySampleConfig(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "msp")
+	require.NoError(t, os.CopyFS(dir, os.DirFS("testdata/sampleconfig")))
+	return dir
+}
+
+func TestGetMspConfigEmptyCertDirs(t *testing.T) { //nolint:paralleltest
+	dir := copySampleConfig(t)
+	require.NoError(t, os.RemoveAll(filepath.Join(dir, signcerts)))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, signcerts), 0o755))
+	_, err := GetLocalMspConfig(dir, nil, "SampleOrg")
+	require.ErrorContains(t, err, "could not load a valid signer certificate")
+	require.ErrorContains(t, err, "no PEM content found")
+
+	require.NoError(t, os.RemoveAll(filepath.Join(dir, cacerts)))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, cacerts), 0o755))
+	_, err = GetVerifyingMspConfig(dir, "SampleOrg", ProviderTypeToString(FABRIC))
+	require.ErrorContains(t, err, "could not load a valid ca certificate")
+	require.ErrorContains(t, err, "no PEM content found")
+}
+
+func TestGetMspConfigUnreadableDirs(t *testing.T) { //nolint:paralleltest
+	for _, tc := range []struct { //nolint:paralleltest
+		dir, msg string
+	}{
+		{admincerts, "could not load a valid admin certificate"},
+		{intermediatecerts, "failed loading intermediate ca certs"},
+		{tlscacerts, "failed loading TLS ca certs"},
+		{tlsintermediatecerts, "failed loading TLS intermediate ca certs"},
+		{crlsfolder, "failed loading crls"},
+	} {
+		t.Run(tc.dir, func(t *testing.T) { //nolint:paralleltest
+			dir := copySampleConfig(t)
+			path := filepath.Join(dir, tc.dir)
+			require.NoError(t, os.RemoveAll(path))
+			require.NoError(t, os.WriteFile(path, nil, 0o600))
+
+			_, err := GetVerifyingMspConfig(dir, "SampleOrg", ProviderTypeToString(FABRIC))
+			require.ErrorContains(t, err, tc.msg)
+		})
+	}
+}
+
+func TestGetMspConfigEmptyTLSCACertsSkipsIntermediates(t *testing.T) { //nolint:paralleltest
+	dir := copySampleConfig(t)
+	require.NoError(t, os.RemoveAll(filepath.Join(dir, tlscacerts)))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, tlscacerts), 0o755))
+
+	conf, err := GetVerifyingMspConfig(dir, "SampleOrg", ProviderTypeToString(FABRIC))
+	require.NoError(t, err)
+	fabricConf := &msp.FabricMSPConfig{}
+	require.NoError(t, proto.Unmarshal(conf.Config, fabricConf))
+	require.Empty(t, fabricConf.TlsRootCerts)
+	require.Empty(t, fabricConf.TlsIntermediateCerts)
+}
+
+func TestGetMspConfigBadConfigFile(t *testing.T) { //nolint:paralleltest
+	for _, tc := range []struct { //nolint:paralleltest
+		name, content, msg string
+	}{
+		{"invalid yaml", "OrganizationalUnitIdentifiers: [", "failed unmarshalling configuration file"},
+		{"missing OU certificate", "OrganizationalUnitIdentifiers:\n  - Certificate: cacerts/missing.pem\n    OrganizationalUnitIdentifier: COP\n", "failed loading OrganizationalUnit certificate"},
+	} {
+		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest
+			dir := copySampleConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, configfilename), []byte(tc.content), 0o600))
+
+			_, err := GetVerifyingMspConfig(dir, "SampleOrg", ProviderTypeToString(FABRIC))
+			require.ErrorContains(t, err, tc.msg)
+		})
+	}
 }
