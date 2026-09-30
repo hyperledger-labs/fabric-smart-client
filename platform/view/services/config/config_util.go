@@ -21,9 +21,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-// customDecodeHook adds the additional functions of parsing durations from strings
-// as well as parsing strings of the format "[thing1, thing2, thing3]" into string slices
-// Note that whitespace around slice elements is removed
+// byteSizeRegexp matches byte sizes such as "10mb", "5 GB" or "3k".
+var byteSizeRegexp = regexp.MustCompile(`^([0-9]+)\s*(?i)([kmg])b?$`)
+
+// customDecodeHook parses strings of the format "[thing1, thing2, thing3]" into string
+// slices, trimming whitespace around each element. "[]" decodes to an empty slice.
 func customDecodeHook(f, _ reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
@@ -35,7 +37,11 @@ func customDecodeHook(f, _ reflect.Type, data any) (any, error) {
 	}
 	l := len(raw)
 	if l > 1 && raw[0] == '[' && raw[l-1] == ']' {
-		slice := strings.Split(raw[1:l-1], ",")
+		inner := strings.TrimSpace(raw[1 : l-1])
+		if inner == "" {
+			return []string{}, nil
+		}
+		slice := strings.Split(inner, ",")
 		for i, v := range slice {
 			slice[i] = strings.TrimSpace(v)
 		}
@@ -57,129 +63,106 @@ func byteSizeDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	if raw == "" {
 		return data, nil
 	}
-	re := regexp.MustCompile(`^(?P<size>[0-9]+)\s*(?i)(?P<unit>(k|m|g))b?$`)
-	if re.MatchString(raw) {
-		size, err := strconv.ParseUint(re.ReplaceAllString(raw, "${size}"), 10, 64)
-		if err != nil {
-			return data, errors.Wrapf(err, "invalid byte size value '%s'", raw)
-		}
-		var shift uint
-		switch strings.ToLower(re.ReplaceAllString(raw, "${unit}")) {
-		case "k":
-			shift = 10
-		case "m":
-			shift = 20
-		case "g":
-			shift = 30
-		}
-		// Checked before shifting: a shift that overflows uint64 would wrap silently.
-		if size > math.MaxUint32>>shift {
-			return data, errors.Errorf("value '%s' overflows uint32", raw)
-		}
-		return size << shift, nil
+	m := byteSizeRegexp.FindStringSubmatch(raw)
+	if m == nil {
+		return data, nil
 	}
-	return data, nil
+	size, err := strconv.ParseUint(m[1], 10, 64)
+	if err != nil {
+		return data, errors.Wrapf(err, "invalid byte size value '%s'", raw)
+	}
+	var shift uint
+	switch strings.ToLower(m[2]) {
+	case "k":
+		shift = 10
+	case "m":
+		shift = 20
+	case "g":
+		shift = 30
+	}
+	// Checked before shifting: a shift that overflows uint64 would wrap silently.
+	if size > math.MaxUint32>>shift {
+		return data, errors.Errorf("value '%s' overflows uint32", raw)
+	}
+	return size << shift, nil
 }
 
-// stringFromFileDecodeHook reads a string from a file if the input is a map with a "File" key.
+// stringFromFileDecodeHook decodes a map with a "File" (or "file") key into a string by
+// reading the named file. Any other input is returned unchanged.
 func stringFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
-	// "to" type should be string
-	if t != reflect.String {
+	if f != reflect.Map || t != reflect.String {
 		return data, nil
 	}
-	// "from" type should be map
-	if f != reflect.Map {
+	d, ok := data.(map[string]any)
+	if !ok {
+		return nil, errors.Errorf("unexpected data type [%T]", data)
+	}
+	fileName, ok := d["File"]
+	if !ok {
+		fileName, ok = d["file"]
+	}
+	switch {
+	case !ok:
+		return data, nil
+	case fileName == nil:
+		return nil, errors.Errorf("value of File: was nil")
+	}
+	fileNameStr, ok := fileName.(string)
+	if !ok {
+		return nil, errors.Errorf("unexpected File value type [%T]", fileName)
+	}
+	bytes, err := os.ReadFile(fileNameStr)
+	if err != nil {
+		return data, err
+	}
+	return string(bytes), nil
+}
+
+// pemBlocksFromFileDecodeHook decodes a map with a string "File" (or "file") value into the
+// CERTIFICATE PEM blocks without headers found in the named file; other blocks are skipped.
+// Any other input is returned unchanged.
+func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
+	if f != reflect.Map || t != reflect.Slice {
 		return data, nil
 	}
-	v := reflect.ValueOf(data)
-	switch v.Kind() {
-	case reflect.String:
-		return data, nil
-	case reflect.Map:
-		d, ok := data.(map[string]any)
-		if !ok {
-			return nil, errors.Errorf("unexpected data type [%T]", data)
-		}
-		fileName, ok := d["File"]
+	var fileName string
+	var ok bool
+	switch d := data.(type) {
+	case map[string]string:
+		fileName, ok = d["File"]
 		if !ok {
 			fileName, ok = d["file"]
 		}
-		switch {
-		case ok && fileName != nil:
-			fileNameStr, ok := fileName.(string)
-			if !ok {
-				return nil, errors.Errorf("unexpected File value type [%T]", fileName)
-			}
-			bytes, err := os.ReadFile(fileNameStr)
-			if err != nil {
-				return data, err
-			}
-			return string(bytes), nil
-		case ok:
-			// fileName was nil
-			return nil, errors.Errorf("value of File: was nil")
+	case map[string]any:
+		fileI, found := d["File"]
+		if !found {
+			fileI = d["file"]
 		}
+		fileName, ok = fileI.(string)
 	}
-	return data, nil
-}
-
-// pemBlocksFromFileDecodeHook reads PEM blocks from a file if the input is a map with a "File" key.
-func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
-	// "to" type should be string
-	if t != reflect.Slice {
+	switch {
+	case !ok:
 		return data, nil
+	case fileName == "":
+		return nil, errors.Errorf("value of File: is empty")
 	}
-	// "from" type should be map
-	if f != reflect.Map {
-		return data, nil
+	bytes, err := os.ReadFile(fileName)
+	if err != nil {
+		return data, err
 	}
-	v := reflect.ValueOf(data)
-	switch v.Kind() {
-	case reflect.String:
-		return data, nil
-	case reflect.Map:
-		var fileName string
-		var ok bool
-		switch d := data.(type) {
-		case map[string]string:
-			fileName, ok = d["File"]
-			if !ok {
-				fileName, ok = d["file"]
-			}
-		case map[string]any:
-			var fileI any
-			fileI, ok = d["File"]
-			if !ok {
-				fileI = d["file"]
-			}
-			fileName, ok = fileI.(string)
+	var result []string
+	for len(bytes) > 0 {
+		var block *pem.Block
+		block, bytes = pem.Decode(bytes)
+		if block == nil {
+			break
 		}
-
-		switch {
-		case ok && fileName != "":
-			var result []string
-			bytes, err := os.ReadFile(fileName)
-			if err != nil {
-				return data, err
-			}
-			for len(bytes) > 0 {
-				var block *pem.Block
-				block, bytes = pem.Decode(bytes)
-				if block == nil {
-					break
-				}
-				if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
-					continue
-				}
-				result = append(result, string(pem.EncodeToMemory(block)))
-			}
-			return result, nil
-		case ok:
-			// fileName was nil
-			return nil, errors.Errorf("value of File: was nil")
+		if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+			continue
 		}
+		result = append(result, string(pem.EncodeToMemory(block)))
 	}
-	return data, nil
+	return result, nil
 }
 
 // EnhancedExactUnmarshal is intended to unmarshal a config file into a structure

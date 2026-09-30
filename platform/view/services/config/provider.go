@@ -373,7 +373,7 @@ func (*Provider) initConfigPaths(confPath string) ([]string, error) {
 		// If we get here, we should use the default paths in priority order:
 		//
 		// *) CWD
-		// *) /etc/hyperledger/fsc
+		// *) OfficialPath
 
 		// CWD
 		paths = append(paths, "./")

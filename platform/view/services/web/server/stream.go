@@ -27,6 +27,7 @@ type WSStream struct {
 	ws *websocket.Conn
 }
 
+// maxMessageSize bounds both a websocket message and an HTTP request body.
 const maxMessageSize = 10 * 1024 * 1024
 
 func OpenWSServerConn(writer http.ResponseWriter, request *http.Request) (*websocket.Conn, error) {
@@ -84,10 +85,11 @@ func (c *WSStream) Send(p any) error {
 
 func (c *WSStream) Read() ([]byte, error) {
 	_, message, err := c.ws.ReadMessage()
-	logger.Debugf("received message: %s", message)
 	if err != nil {
 		logger.Errorf("error receiving message: %v", err)
+		return nil, err
 	}
+	logger.Debugf("received message: %s", message)
 	return message, nil
 }
 

@@ -114,9 +114,11 @@ func TestCustomDecodeHook(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a", "b", "c"}, out)
 
-	out, err = customDecodeHook(str, str, "[]")
-	require.NoError(t, err)
-	assert.Equal(t, []string{""}, out)
+	for _, in := range []string{"[]", "[ ]"} {
+		out, err = customDecodeHook(str, str, in)
+		require.NoError(t, err)
+		assert.Equal(t, []string{}, out, in)
+	}
 
 	out, err = customDecodeHook(str, str, "plain")
 	require.NoError(t, err)
@@ -220,7 +222,7 @@ func TestPemBlocksFromFileDecodeHook(t *testing.T) {
 	}
 
 	_, err = pemBlocksFromFileDecodeHook(reflect.Map, reflect.Slice, map[string]any{"File": ""})
-	require.ErrorContains(t, err, "value of File: was nil")
+	require.ErrorContains(t, err, "value of File: is empty")
 
 	_, err = pemBlocksFromFileDecodeHook(reflect.Map, reflect.Slice, map[string]any{"File": filepath.Join(t.TempDir(), "missing")})
 	require.ErrorIs(t, err, fs.ErrNotExist)

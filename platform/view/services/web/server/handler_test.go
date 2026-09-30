@@ -94,6 +94,18 @@ func TestHttpHandlerErrors(t *testing.T) {
 			wantReason: "bad content type",
 		},
 		{
+			name:       "unparsable accept header",
+			accept:     "application/jsonx",
+			wantCode:   http.StatusBadRequest,
+			wantReason: "bad content type",
+		},
+		{
+			name:       "body too large",
+			body:       strings.NewReader(strings.Repeat("a", 10*1024*1024+1)),
+			wantCode:   http.StatusRequestEntityTooLarge,
+			wantReason: "request too large",
+		},
+		{
 			name:       "unreadable body",
 			body:       iotest.ErrReader(errors.New("boom")),
 			wantCode:   http.StatusBadRequest,
@@ -114,6 +126,14 @@ func TestHttpHandlerErrors(t *testing.T) {
 			wantCode:    http.StatusInternalServerError,
 			wantReason:  "failed encoding response from backend",
 			hidden:      "chan",
+			wantParsed:  1,
+			wantHandled: 1,
+		},
+		{
+			name:        "backend invalid status code",
+			setup:       func(rh *mock.RequestHandler) { rh.HandleRequestReturns("x", 0) },
+			wantCode:    http.StatusInternalServerError,
+			wantReason:  "invalid status code from backend",
 			wantParsed:  1,
 			wantHandled: 1,
 		},
@@ -165,7 +185,7 @@ func TestHttpHandlerErrors(t *testing.T) {
 func TestHttpHandlerAcceptedContentTypes(t *testing.T) {
 	t.Parallel()
 
-	for _, accept := range []string{"", "application/json", "application/*", "*/*", "text/html, application/json"} {
+	for _, accept := range []string{"", "application/json", "application/*", "*/*", "text/html, application/json", "application/json; charset=utf-8", "text/html;q=0.9, */*;q=0.8"} {
 		t.Run(accept, func(t *testing.T) {
 			t.Parallel()
 			rh := &mock.RequestHandler{}
@@ -283,4 +303,31 @@ func TestWSStreamRoundTrip(t *testing.T) {
 	r := <-done
 	require.NoError(t, r.err)
 	require.NoError(t, r.closeErr)
+}
+
+func TestWSStreamReadReportsClosedConnection(t *testing.T) {
+	t.Parallel()
+
+	done := make(chan error, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		stream, err := server.NewWSStream(w, r)
+		if err != nil {
+			done <- err
+			return
+		}
+		defer func() { _ = stream.Close() }()
+		_, err = stream.ReadInput()
+		done <- err
+	}))
+	defer srv.Close()
+
+	conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.NoError(t, conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")))
+	_ = conn.Close()
+
+	err = <-done
+	require.Error(t, err)
+	assert.True(t, websocket.IsCloseError(err, websocket.CloseNormalClosure), "got %v", err)
 }
