@@ -389,6 +389,8 @@ func newTestStateTransaction(ns string) (*Transaction, *testRWSet, *testDriverTr
 
 type testBindingStore struct {
 	bindings map[string]view.Identity
+	// failLongTerm makes PutBindings fail when binding to this long-term identity.
+	failLongTerm view.Identity
 }
 
 func newTestBindingStore() *testBindingStore {
@@ -404,6 +406,9 @@ func (t *testBindingStore) HaveSameBinding(_ context.Context, this, that view.Id
 }
 
 func (t *testBindingStore) PutBindings(_ context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
+	if t.failLongTerm != nil && longTerm.Equal(t.failLongTerm) {
+		return fmt.Errorf("put bindings for [%s] failed", longTerm)
+	}
 	for _, e := range ephemeral {
 		t.bindings[string(e)] = longTerm
 	}

@@ -24,12 +24,13 @@ import (
 )
 
 type mockSession struct {
+	info    view.SessionInfo
 	recv    <-chan *view.Message
 	sendErr error
 	sent    [][]byte
 }
 
-func (*mockSession) Info() view.SessionInfo { return view.SessionInfo{} }
+func (m *mockSession) Info() view.SessionInfo { return m.info }
 
 func (m *mockSession) Send(_ context.Context, payload []byte) error {
 	if m.sendErr != nil {
@@ -168,6 +169,17 @@ func TestGetVaultService(t *testing.T) {
 		}
 		_, err := GetVaultService(p)
 		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("unexpected service type", func(t *testing.T) {
+		t.Parallel()
+		p := &mockServiceProvider{
+			getFn: func(_ any) (any, error) {
+				return "not a vault service", nil
+			},
+		}
+		_, err := GetVaultService(p)
+		require.EqualError(t, err, "unexpected service type [string] for vault service")
 	})
 }
 
@@ -441,6 +453,24 @@ func TestReceiveTransactionViews(t *testing.T) {
 		_, err := NewReceiveTransactionFromView(view.Identity("bob")).Call(ctx)
 		require.EqualError(t, err, "session error")
 	})
+
+	t.Run("receiveTransactionFromView reads the party session", func(t *testing.T) {
+		t.Parallel()
+		ch := make(chan *view.Message, 1)
+		ch <- &view.Message{Status: view.ERROR, Payload: []byte("remote error")}
+		close(ch)
+		var party view.Identity
+		// No context session: reading it would panic.
+		ctx := &mockViewContext{
+			getSessionFn: func(_ view.View, p view.Identity, _ ...view.View) (view.Session, error) {
+				party = p
+				return &mockSession{recv: ch}, nil
+			},
+		}
+		_, err := NewReceiveTransactionFromView(view.Identity("bob")).Call(ctx)
+		require.EqualError(t, err, "remote error")
+		require.Equal(t, view.Identity("bob"), party)
+	})
 }
 
 func TestRunViewWrappers(t *testing.T) {
@@ -482,6 +512,30 @@ func TestRunViewWrappers(t *testing.T) {
 		got, err := ReceiveTransaction(ctx)
 		require.NoError(t, err)
 		require.Same(t, expected, got)
+	})
+
+	t.Run("ReceiveTransaction wrappers unexpected result type", func(t *testing.T) {
+		t.Parallel()
+		ctx := &mockViewContext{
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
+				return 42, nil
+			},
+		}
+		_, err := ReceiveTransaction(ctx)
+		require.EqualError(t, err, "unexpected view result type [int]")
+		_, err = ReceiveTransactionFrom(ctx, view.Identity("bob"))
+		require.EqualError(t, err, "unexpected view result type [int]")
+	})
+
+	t.Run("ReceiveTransactionFrom wrapper error", func(t *testing.T) {
+		t.Parallel()
+		ctx := &mockViewContext{
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
+				return nil, errors.New("run failed")
+			},
+		}
+		_, err := ReceiveTransactionFrom(ctx, view.Identity("bob"))
+		require.EqualError(t, err, "run failed")
 	})
 
 	t.Run("ReceiveTransactionFrom wrapper success", func(t *testing.T) {
