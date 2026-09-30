@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
 )
 
 // Marshaller is the custom marshaller for fabricx that handles serialization and deserialization
@@ -65,23 +66,29 @@ func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driv
 
 	namespaceSet := make(map[driver.Namespace]*namespaceType)
 
-	// writes ...
-	for ns, keyMap := range rws.Writes {
-		// check that namespace exists as in _meta
+	// namespaceFor returns the entry for ns, creating it on first use. Every serialized
+	// namespace needs a non-nil version: a nil one would silently encode as version 0.
+	namespaceFor := func(ns driver.Namespace) (*namespaceType, error) {
+		if namespace, exists := namespaceSet[ns]; exists {
+			return namespace, nil
+		}
 		nsVersion, exists := nsInfo[ns]
 		if !exists {
 			return nil, errors.Errorf("nsInfo does not contain entry for ns = [%s]", ns)
 		}
-
 		if nsVersion == nil {
 			return nil, errors.Errorf("nsVersion is nil for ns = [%s]", ns)
 		}
+		namespace := newNamespace(ns, nsVersion)
+		namespaceSet[ns] = namespace
+		return namespace, nil
+	}
 
-		// create namespace if not already exists
-		namespace, exists := namespaceSet[ns]
-		if !exists {
-			namespace = newNamespace(ns, nsVersion)
-			namespaceSet[ns] = namespace
+	// writes ...
+	for ns, keyMap := range rws.Writes {
+		namespace, err := namespaceFor(ns)
+		if err != nil {
+			return nil, err
 		}
 
 		for key, val := range keyMap {
@@ -92,17 +99,9 @@ func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driv
 
 	// reads
 	for ns, keyMap := range rws.Reads {
-		// check that namespace exists as in _meta
-		nsVersion, exists := nsInfo[ns]
-		if !exists {
-			return nil, errors.Errorf("ns = [%s] does not exist in nsInfo", ns)
-		}
-
-		// create namespace if not already exists
-		namespace, exists := namespaceSet[ns]
-		if !exists {
-			namespace = newNamespace(ns, nsVersion)
-			namespaceSet[ns] = namespace
+		namespace, err := namespaceFor(ns)
+		if err != nil {
+			return nil, err
 		}
 
 		for key, ver := range keyMap {
@@ -213,8 +212,9 @@ func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.Re
 // endorsed bytes. A foreign message whose wire form happens to match the Tx schema is
 // indistinguishable from a transaction and is accepted.
 //
-// Returns an error if deserialization fails, if the input carries unknown fields, or if
-// adding reads/writes fails.
+// The payload is validated before destination is touched, so a failed Append leaves
+// destination unchanged. Returns an error if deserialization fails, if the input carries
+// unknown fields, or if the payload carries an invalid namespace ID.
 func (*Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) (map[driver.Namespace]driver.RawVersion, error) {
 	var txIn applicationpb.Tx
 	err := proto.Unmarshal(raw, &txIn)
@@ -239,13 +239,21 @@ func (*Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespace
 		}
 	}
 
-	nsVersions := make(map[driver.Namespace]driver.RawVersion, len(txIn.GetNamespaces()))
+	txNamespaces := make([]*applicationpb.TxNamespace, 0, len(txIn.GetNamespaces()))
 	for _, txNs := range txIn.GetNamespaces() {
 		if wanted != nil {
 			if _, ok := wanted[txNs.GetNsId()]; !ok {
 				continue
 			}
 		}
+		if err := keys.ValidateNs(txNs.GetNsId()); err != nil {
+			return nil, err
+		}
+		txNamespaces = append(txNamespaces, txNs)
+	}
+
+	nsVersions := make(map[driver.Namespace]driver.RawVersion, len(txNamespaces))
+	for _, txNs := range txNamespaces {
 		nsVersions[txNs.GetNsId()] = MarshalVersion(txNs.GetNsVersion())
 
 		for _, read := range txNs.GetReadsOnly() {
@@ -254,7 +262,6 @@ func (*Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespace
 
 		for _, write := range txNs.GetBlindWrites() {
 			if err := destination.WriteSet.Add(txNs.GetNsId(), string(write.GetKey()), write.GetValue()); err != nil {
-				// TODO: ... should we really just stop here or revert all changes ... ?
 				return nil, errors.Wrapf(err, "adding blindwrite [%s]", write.GetKey())
 			}
 		}
@@ -268,7 +275,6 @@ func (*Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespace
 			destination.ReadSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), optionalVersion(readWrite.Version))
 
 			if err := destination.WriteSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), readWrite.GetValue()); err != nil {
-				// TODO: ... should we really just stop here or revert all changes ... ?
 				return nil, errors.Wrapf(err, "adding readwrite [%s]", readWrite.GetKey())
 			}
 		}

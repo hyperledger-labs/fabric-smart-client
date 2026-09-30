@@ -59,8 +59,7 @@ func NewVault(qs queryservice.QueryService, mds fdriver.MetadataService) *Vault 
 // queryExecutor wraps the QueryService to implement the cdriver.QueryExecutor interface.
 // It delegates all state queries to the remote QueryService.
 type queryExecutor struct {
-	qs  queryservice.QueryService // Remote query service
-	ctx context.Context           // Ctx for queries
+	qs queryservice.QueryService // Remote query service
 }
 
 // GetState retrieves the state for a specific namespace and key from the remote QueryService.
@@ -110,11 +109,8 @@ func (*queryExecutor) Done() error {
 
 // NewQueryExecutor creates a new query executor that wraps the QueryService.
 // The executor can be used to query state from the remote service.
-func (v *Vault) NewQueryExecutor(ctx context.Context) (cdriver.QueryExecutor, error) {
-	return &queryExecutor{
-		qs:  v.queryService,
-		ctx: ctx,
-	}, nil
+func (v *Vault) NewQueryExecutor(context.Context) (cdriver.QueryExecutor, error) {
+	return &queryExecutor{qs: v.queryService}, nil
 }
 
 // rwSetWrapper wraps a ReadWriteSet to implement the cdriver.RWSet interface.
@@ -127,10 +123,9 @@ func (v *Vault) NewQueryExecutor(ctx context.Context) (cdriver.QueryExecutor, er
 // key can interleave. See GetState for what that produces. Callers that need a coherent
 // simulation must not mutate one RWSet from multiple goroutines.
 type rwSetWrapper struct {
-	txID cdriver.TxID          // Transaction ID
-	rws  *vault.ReadWriteSet   // Underlying read-write set
-	qe   cdriver.QueryExecutor // Query executor for state queries
-	v    *Vault                // Parent vault for accessing query service
+	txID cdriver.TxID        // Transaction ID
+	rws  *vault.ReadWriteSet // Underlying read-write set
+	v    *Vault              // Parent vault for accessing query service
 
 	mu sync.Mutex // Protects rws, nsVersions and cachedBytes
 	// nsVersions holds the _meta version pinned for each namespace at the moment it first
@@ -218,12 +213,10 @@ func (r *rwSetWrapper) IsValid() error {
 		addKey(metaNamespace, ns)
 	}
 
-	// A namespace with no keys makes the query service reject the whole batch.
+	// Every entry in querySets holds at least one key: the query service rejects a batch
+	// containing a namespace with none.
 	query := make(map[cdriver.Namespace][]cdriver.PKey, len(querySets))
 	for ns, keys := range querySets {
-		if len(keys) == 0 {
-			continue
-		}
 		query[ns] = slices.Collect(maps.Keys(keys))
 	}
 	if len(query) == 0 {
@@ -243,7 +236,7 @@ func (r *rwSetWrapper) IsValid() error {
 			if !found && expectedVersion != nil {
 				return errors.Errorf("read validation failed: key %s in namespace %s was deleted", key, ns)
 			}
-			if found && !r.v.versionEqual(expectedVersion, current.Version) {
+			if found && !bytes.Equal(expectedVersion, current.Version) {
 				return errors.Errorf("read validation failed: version mismatch for key %s in namespace %s", key, ns)
 			}
 		}
@@ -257,7 +250,7 @@ func (r *rwSetWrapper) IsValid() error {
 		if found {
 			currentVersion = current.Version
 		}
-		if !r.v.versionEqual(pinnedVersion, currentVersion) {
+		if !bytes.Equal(pinnedVersion, currentVersion) {
 			return errors.Errorf("read validation failed: namespace %s version changed since simulation", ns)
 		}
 	}
@@ -344,6 +337,10 @@ func (r *rwSetWrapper) SetState(namespace cdriver.Namespace, key cdriver.PKey, v
 // Marshal turns a key that is both read and written into a ReadWrite — a version-
 // conditional write the caller never asked for, which the committer invalidates on any
 // concurrent ledger update. Do not simulate one RWSet from multiple goroutines.
+//
+// A key already in the read set must still be at the recorded version. If a commit changed
+// it since, GetState returns an error: the caller acted on the earlier value, and replacing
+// the recorded version would let IsValid accept a simulation built on stale data.
 func (r *rwSetWrapper) GetState(namespace cdriver.Namespace, key cdriver.PKey, opts ...cdriver.GetStateOpt) (cdriver.RawValue, error) {
 	// Check writes first
 	r.mu.Lock()
@@ -378,6 +375,12 @@ func (r *rwSetWrapper) GetState(namespace cdriver.Namespace, key cdriver.PKey, o
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if recorded, ok := r.rws.ReadSet.Get(namespace, key); ok {
+		if !bytes.Equal(recorded, vaultValue.Version) {
+			return nil, errors.Errorf("invalid read [%s:%s]: previously read at version [%x], now at version [%x]", namespace, key, recorded, vaultValue.Version)
+		}
+		return vaultValue.Raw, nil
+	}
 	r.rws.ReadSet.Add(namespace, key, vaultValue.Version)
 	r.cachedBytes = nil
 
@@ -531,22 +534,17 @@ func (r *rwSetWrapper) Namespaces() []cdriver.Namespace {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	nsMap := make(map[cdriver.Namespace]bool)
+	nss := make(map[cdriver.Namespace]struct{})
 	for ns := range r.rws.Reads {
-		nsMap[ns] = true
+		nss[ns] = struct{}{}
 	}
 	for ns := range r.rws.Writes {
-		nsMap[ns] = true
+		nss[ns] = struct{}{}
 	}
 	for ns := range r.rws.MetaWrites {
-		nsMap[ns] = true
+		nss[ns] = struct{}{}
 	}
-
-	namespaces := make([]cdriver.Namespace, 0, len(nsMap))
-	for ns := range nsMap {
-		namespaces = append(namespaces, ns)
-	}
-	return namespaces
+	return slices.Collect(maps.Keys(nss))
 }
 
 // AppendRWSet deserializes and appends RWSet data from bytes to this RWSet.
@@ -597,7 +595,10 @@ func (r *rwSetWrapper) Bytes() ([]byte, error) {
 func (*rwSetWrapper) Done() {
 }
 
-// Equals compares this RWSet with another RWSet for equality.
+// Equals compares this RWSet with another RWSet for equality: reads, writes, metadata
+// writes, and the pinned version of every namespace with reads or writes. Those versions
+// are serialized as NsVersion and covered by the endorsement digest, so two RWSets that
+// differ only there produce different transactions.
 // If namespaces are specified, only those namespaces are compared.
 // Returns an error if the RWSets are not equal or if the input is not an *rwSetWrapper.
 func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
@@ -631,23 +632,27 @@ func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
 	if err := r.rws.MetaWrites.Equals(other.rws.MetaWrites, nss...); err != nil {
 		return err
 	}
+	// Only namespaces with reads or writes are serialized with an NsVersion. Reads and writes
+	// matched above, so both RWSets hold the same such namespaces.
+	serialized := slices.Concat(slices.Collect(maps.Keys(r.rws.Reads)), slices.Collect(maps.Keys(r.rws.Writes)))
+	for _, ns := range serialized {
+		if len(nss) > 0 && !slices.Contains(nss, ns) {
+			continue
+		}
+		if v1, v2 := r.nsVersions[ns], other.nsVersions[ns]; !bytes.Equal(v1, v2) {
+			return errors.Errorf("namespace version for [%s] does not match [%x]!=[%x]", ns, v1, v2)
+		}
+	}
 	return nil
 }
 
 // NewRWSet creates a new empty RWSet for the given transaction ID.
 // The returned wrapper owns the ReadWriteSet; the vault does not retain a reference to it.
-func (v *Vault) NewRWSet(ctx context.Context, txID cdriver.TxID) (cdriver.RWSet, error) {
+func (v *Vault) NewRWSet(_ context.Context, txID cdriver.TxID) (cdriver.RWSet, error) {
 	rws := vault.EmptyRWSet()
-
-	qe, err := v.NewQueryExecutor(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create query executor")
-	}
-
 	return &rwSetWrapper{
 		txID:       txID,
 		rws:        &rws,
-		qe:         qe,
 		v:          v,
 		nsVersions: make(map[cdriver.Namespace]cdriver.RawVersion),
 	}, nil
@@ -658,21 +663,14 @@ func (v *Vault) NewRWSet(ctx context.Context, txID cdriver.TxID) (cdriver.RWSet,
 // Namespace versions are taken from the serialized transaction, so re-serializing the
 // result reproduces the bytes it was built from — which is what lets an endorser sign
 // over the same digest the proposer produced.
-func (v *Vault) NewRWSetFromBytes(ctx context.Context, txID cdriver.TxID, rwset []byte) (cdriver.RWSet, error) {
+func (v *Vault) NewRWSetFromBytes(_ context.Context, txID cdriver.TxID, rwset []byte) (cdriver.RWSet, error) {
 	rws, nsVersions, err := v.marshaller.RWSetFromBytes(rwset)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal rwset")
 	}
-
-	qe, err := v.NewQueryExecutor(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create query executor")
-	}
-
 	return &rwSetWrapper{
 		txID:       txID,
 		rws:        rws,
-		qe:         qe,
 		v:          v,
 		nsVersions: nsVersions,
 	}, nil
@@ -702,10 +700,7 @@ func (v *Vault) Status(ctx context.Context, txID cdriver.TxID) (fdriver.Validati
 // is omitted from the batched result and is reported here as Unknown
 // ("not final yet"). The result preserves the order of the input txIDs.
 func (v *Vault) Statuses(_ context.Context, txIDs ...cdriver.TxID) ([]cdriver.TxValidationStatus[fdriver.ValidationCode], error) {
-	ids := make([]string, len(txIDs))
-	copy(ids, txIDs)
-
-	codes, err := v.queryService.GetTransactionStatuses(ids)
+	codes, err := v.queryService.GetTransactionStatuses(txIDs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get transaction statuses")
 	}
@@ -741,22 +736,16 @@ func (*Vault) CommitTX(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.
 // InspectRWSet creates an ephemeral RWSet from bytes for inspection purposes.
 // If namespaces are specified, only those namespaces will be included.
 // The RWSet is not stored locally (ephemeral).
-func (v *Vault) InspectRWSet(ctx context.Context, rwset []byte, namespaces ...cdriver.Namespace) (cdriver.RWSet, error) {
+func (v *Vault) InspectRWSet(_ context.Context, rwset []byte, namespaces ...cdriver.Namespace) (cdriver.RWSet, error) {
 	rws, nsVersions, err := v.marshaller.RWSetFromBytes(rwset, namespaces...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal rwset for inspection")
-	}
-
-	qe, err := v.NewQueryExecutor(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create query executor")
 	}
 
 	// Return ephemeral RWSet (not stored in local map)
 	return &rwSetWrapper{
 		txID:       "", // Empty txID for ephemeral rwset
 		rws:        rws,
-		qe:         qe,
 		v:          v,
 		nsVersions: nsVersions,
 	}, nil
@@ -779,19 +768,6 @@ func (*Vault) Match(context.Context, cdriver.TxID, []byte) error {
 // Close is a no-op. The vault holds no per-transaction state to release.
 func (*Vault) Close() error {
 	return nil
-}
-
-// versionEqual compares two version byte slices for equality.
-func (*Vault) versionEqual(v1, v2 cdriver.RawVersion) bool {
-	if len(v1) != len(v2) {
-		return false
-	}
-	for i := range v1 {
-		if v1[i] != v2[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // mapStatusToValidationCode converts a committerpb.Status code to a fdriver.ValidationCode.
