@@ -284,12 +284,15 @@ type txVaultReader struct {
 	newVaultReader func() (*vaultReader, releaseFunc, error)
 	vr             *vaultReader
 	release        releaseFunc
+	// err holds the outcome of the single open attempt. It must live on the
+	// struct rather than in setVaultReader: once.Do runs only once, so a local
+	// would be nil on every later call and the caller would dereference a nil vr.
+	err error
 }
 
 func (db *txVaultReader) setVaultReader() error {
-	var err error
-	db.once.Do(func() { db.vr, db.release, err = db.newVaultReader() })
-	return err
+	db.once.Do(func() { db.vr, db.release, db.err = db.newVaultReader() })
+	return db.err
 }
 
 func (db *txVaultReader) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
