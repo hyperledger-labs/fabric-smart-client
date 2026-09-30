@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package rwsetutil
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset/kvrwset"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -479,4 +482,36 @@ func TestNilOrZeroLengthByteArrayValueConvertedToDelete(t *testing.T) {
 			))
 		})
 	})
+}
+
+func TestGetTxSimulationResultsError(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		write func(b *RWSetBuilder)
+	}{
+		{name: "invalid private write", write: func(b *RWSetBuilder) { b.AddToPvtAndHashedWriteSet("ns", "coll", "\xff", []byte("v")) }},
+		{name: "invalid public write", write: func(b *RWSetBuilder) { b.AddToWriteSet("ns", "\xff", []byte("v")) }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			b := NewRWSetBuilder()
+			tc.write(b)
+			results, err := b.GetTxSimulationResults()
+			require.ErrorContains(t, err, "invalid UTF-8")
+			assert.Nil(t, results)
+		})
+	}
+}
+
+func TestKeysSort(t *testing.T) {
+	t.Parallel()
+	ks := keys{newKey(reflect.ValueOf("c")), newKey(reflect.ValueOf("b")), newKey(reflect.ValueOf("a"))}
+	sort.Sort(ks)
+	got := make([]string, 0, len(ks))
+	for _, k := range ks {
+		got = append(got, k.str)
+	}
+	assert.Equal(t, []string{"a", "b", "c"}, got)
 }
