@@ -61,7 +61,7 @@ func TestCreateCompositeKey(t *testing.T) {
 		},
 		{
 			name:        "invalid objectType with maxUnicodeRuneValue",
-			objectType:  string([]rune{'t', 'e', 's', 't', maxUnicodeRuneValue}),
+			objectType:  string([]rune{'t', 'e', 's', 't', utf8.MaxRune}),
 			attributes:  []string{"attr"},
 			expectError: true,
 			errorMsg:    "U+10FFFF",
@@ -76,7 +76,7 @@ func TestCreateCompositeKey(t *testing.T) {
 		{
 			name:        "invalid attribute with maxUnicodeRuneValue",
 			objectType:  "user",
-			attributes:  []string{string([]rune{'i', 'n', 'v', 'a', 'l', 'i', 'd', maxUnicodeRuneValue})},
+			attributes:  []string{string([]rune{'i', 'n', 'v', 'a', 'l', 'i', 'd', utf8.MaxRune})},
 			expectError: true,
 			errorMsg:    "U+10FFFF",
 		},
@@ -123,83 +123,6 @@ func TestCreateCompositeKey(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestValidateCompositeKeyAttribute(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name        string
-		input       string
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name:        "valid string",
-			input:       "validAttribute",
-			expectError: false,
-		},
-		{
-			name:        "valid empty string",
-			input:       "",
-			expectError: false,
-		},
-		{
-			name:        "valid unicode string",
-			input:       "用户名",
-			expectError: false,
-		},
-		{
-			name:        "invalid with minUnicodeRuneValue at start",
-			input:       "\x00test",
-			expectError: true,
-			errorMsg:    "U+0000",
-		},
-		{
-			name:        "invalid with minUnicodeRuneValue in middle",
-			input:       "test\x00value",
-			expectError: true,
-			errorMsg:    "U+0000",
-		},
-		{
-			name:        "invalid with minUnicodeRuneValue at end",
-			input:       "test\x00",
-			expectError: true,
-			errorMsg:    "U+0000",
-		},
-		{
-			name:        "invalid with maxUnicodeRuneValue",
-			input:       string([]rune{'t', 'e', 's', 't', maxUnicodeRuneValue}),
-			expectError: true,
-			errorMsg:    "U+10FFFF",
-		},
-		{
-			name:        "invalid UTF-8 sequence",
-			input:       "test\xff\xfe",
-			expectError: true,
-			errorMsg:    "not a valid utf8 string",
-		},
-		{
-			name:        "valid string with special characters",
-			input:       "test-value_123.txt",
-			expectError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := validateCompositeKeyAttribute(tt.input)
-
-			if tt.expectError {
-				require.Error(t, err)
-				if tt.errorMsg != "" {
-					require.Contains(t, err.Error(), tt.errorMsg)
-				}
-			} else {
-				require.NoError(t, err)
 			}
 		})
 	}
@@ -260,7 +183,7 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 			objectType:    "user",
 			attributes:    []string{"alice"},
 			expectedStart: "\x00user\x00alice\x00",
-			expectedEnd:   "\x00user\x00alice\x00" + string(maxUnicodeRuneValue),
+			expectedEnd:   "\x00user\x00alice\x00" + "\U0010FFFF",
 			expectError:   false,
 		},
 		{
@@ -268,7 +191,7 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 			objectType:    "asset",
 			attributes:    []string{"type1", "id123"},
 			expectedStart: "\x00asset\x00type1\x00id123\x00",
-			expectedEnd:   "\x00asset\x00type1\x00id123\x00" + string(maxUnicodeRuneValue),
+			expectedEnd:   "\x00asset\x00type1\x00id123\x00" + "\U0010FFFF",
 			expectError:   false,
 		},
 		{
@@ -276,7 +199,7 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 			objectType:    "config",
 			attributes:    []string{},
 			expectedStart: "\x00config\x00",
-			expectedEnd:   "\x00config\x00" + string(maxUnicodeRuneValue),
+			expectedEnd:   "\x00config\x00" + "\U0010FFFF",
 			expectError:   false,
 		},
 		{
@@ -511,24 +434,6 @@ func TestRangeKeysContainment(t *testing.T) {
 	}
 }
 
-func TestCompositeKeyConstants(t *testing.T) {
-	t.Parallel()
-	t.Run("minUnicodeRuneValue is zero", func(t *testing.T) {
-		t.Parallel()
-		require.Equal(t, rune(0), minUnicodeRuneValue)
-	})
-
-	t.Run("maxUnicodeRuneValue is MaxRune", func(t *testing.T) {
-		t.Parallel()
-		require.Equal(t, utf8.MaxRune, maxUnicodeRuneValue)
-	})
-
-	t.Run("compositeKeyNamespace is null byte", func(t *testing.T) {
-		t.Parallel()
-		require.Equal(t, "\x00", compositeKeyNamespace)
-	})
-}
-
 func TestCreateCompositeKeyPerformance(t *testing.T) {
 	t.Parallel()
 	// This test ensures that CreateCompositeKey uses strings.Builder efficiently
@@ -542,7 +447,7 @@ func TestCreateCompositeKeyPerformance(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the result starts with namespace and object type
-	require.True(t, strings.HasPrefix(result, compositeKeyNamespace+objectType))
+	require.True(t, strings.HasPrefix(result, "\x00"+objectType))
 
 	// Verify all attributes are present
 	for _, attr := range attributes {

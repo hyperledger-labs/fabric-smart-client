@@ -18,6 +18,7 @@ import (
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -101,7 +102,7 @@ func TestTrustedReadCertifier_WholeState_OK(t *testing.T) {
 	t.Parallel()
 	root := []byte(`{"asset_id":"1234","price":10}`)
 	h := sha256.Sum256(root)
-	key, err := CreateCompositeKey("S", []string{"1234"})
+	key, err := rwset.CreateCompositeKey("S", []string{"1234"})
 	require.NoError(t, err)
 	n := newCertifierNamespace(t, "asset_transfer", key, h[:], map[string][]byte{"_root_": root})
 	require.NoError(t, (&TrustedReadCertifier{}).VerifyInputCertificationAt(n, 0, key))
@@ -111,7 +112,7 @@ func TestTrustedReadCertifier_WholeState_Tampered(t *testing.T) {
 	t.Parallel()
 	root := []byte(`{"asset_id":"1234"}`)
 	wrong := sha256.Sum256([]byte("different"))
-	key, err := CreateCompositeKey("S", []string{"1234"})
+	key, err := rwset.CreateCompositeKey("S", []string{"1234"})
 	require.NoError(t, err)
 	n := newCertifierNamespace(t, "asset_transfer", key, wrong[:], map[string][]byte{"_root_": root})
 	err = (&TrustedReadCertifier{}).VerifyInputCertificationAt(n, 0, key)
@@ -122,7 +123,7 @@ func TestTrustedReadCertifier_WholeState_Tampered(t *testing.T) {
 func TestTrustedReadCertifier_FieldLevel_OK(t *testing.T) {
 	t.Parallel()
 	committed := []byte(`{"assetID":"1234","privateProperties":"hash"}`)
-	key, err := CreateCompositeKey("A", []string{"1234"})
+	key, err := rwset.CreateCompositeKey("A", []string{"1234"})
 	require.NoError(t, err)
 	// No _root_ mapping: field-level hiding; Verify only confirms the state is committed.
 	n := newCertifierNamespace(t, "asset_transfer", key, committed, nil)
@@ -131,7 +132,7 @@ func TestTrustedReadCertifier_FieldLevel_OK(t *testing.T) {
 
 func TestTrustedReadCertifier_MissingCommitted(t *testing.T) {
 	t.Parallel()
-	key, err := CreateCompositeKey("A", []string{"1234"})
+	key, err := rwset.CreateCompositeKey("A", []string{"1234"})
 	require.NoError(t, err)
 	n := newCertifierNamespace(t, "asset_transfer", key, nil, nil)
 	err = (&TrustedReadCertifier{}).VerifyInputCertificationAt(n, 0, key)
@@ -191,7 +192,7 @@ func TestCertificationPayloadFunctions(t *testing.T) {
 func TestCertificationKey(t *testing.T) {
 	t.Parallel()
 
-	composite, err := CreateCompositeKey("asset", []string{"owner", "id1"})
+	composite, err := rwset.CreateCompositeKey("asset", []string{"owner", "id1"})
 	require.NoError(t, err)
 
 	key, err := certificationKey(composite)
@@ -294,11 +295,11 @@ func TestNamespaceVerifyInputCertificationAtBranches(t *testing.T) {
 
 	t.Run("missing certification payload", func(t *testing.T) {
 		t.Parallel()
-		tx, rwset, driverTx := newTestStateTransaction("assetns")
+		tx, rws, driverTx := newTestStateTransaction("assetns")
 		driverTx.transient[CertificationType] = []byte(ChaincodeCertification)
-		key, err := CreateCompositeKey("asset", []string{"1"})
+		key, err := rwset.CreateCompositeKey("asset", []string{"1"})
 		require.NoError(t, err)
-		require.NoError(t, rwset.AddReadAt("assetns", key, nil))
+		require.NoError(t, rws.AddReadAt("assetns", key, nil))
 
 		err = tx.VerifyInputCertificationAt(0, key)
 		require.Error(t, err)
@@ -307,16 +308,16 @@ func TestNamespaceVerifyInputCertificationAtBranches(t *testing.T) {
 
 	t.Run("channel lookup failure", func(t *testing.T) {
 		t.Parallel()
-		tx, rwset, driverTx := newTestStateTransaction("assetns")
+		tx, rws, driverTx := newTestStateTransaction("assetns")
 		driverTx.transient[CertificationType] = []byte(ChaincodeCertification)
 		tx.Provider = &mockServiceProvider{
 			getFn: func(_ any) (any, error) {
 				return nil, errors.New("service missing")
 			},
 		}
-		key, err := CreateCompositeKey("asset", []string{"1"})
+		key, err := rwset.CreateCompositeKey("asset", []string{"1"})
 		require.NoError(t, err)
-		require.NoError(t, rwset.AddReadAt("assetns", key, nil))
+		require.NoError(t, rws.AddReadAt("assetns", key, nil))
 		require.NoError(t, SetCertification(tx, key, []byte("fake-envelope")))
 
 		err = tx.VerifyInputCertificationAt(0, key)

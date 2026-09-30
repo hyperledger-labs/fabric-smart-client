@@ -30,7 +30,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -635,7 +634,7 @@ func (c *Committer) applyConfigCommit(ctx context.Context, txID driver2.TxID, bl
 	}
 	defer rws.Done()
 
-	key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(seq, 10)})
+	key, err := compose.CreateCompositeKey(&strings.Builder{}, channelConfigKey, strconv.FormatUint(seq, 10))
 	if err != nil {
 		return errors.Wrapf(err, "cannot create configtx rws key")
 	}

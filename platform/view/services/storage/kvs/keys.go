@@ -8,84 +8,30 @@ package kvs
 
 import (
 	"strings"
-	"unicode/utf8"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 )
 
-const (
-	minUnicodeRuneValue   rune = 0            // U+0000
-	maxUnicodeRuneValue   rune = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
-	compositeKeyNamespace      = "\x00"
-)
-
-// CreateCompositeKey and its related functions and consts copied from core/chaincode/shim/chaincode.go
+// CreateCompositeKey builds a composite key from objectType and attributes, using the
+// encoding of the Fabric chaincode shim. See compose.CreateCompositeKey.
 func CreateCompositeKey(objectType string, attributes []string) (string, error) {
-	if err := validateCompositeKeyAttribute(objectType); err != nil {
-		return "", err
-	}
-	var sb strings.Builder
-	sb.WriteString(compositeKeyNamespace)
-	sb.WriteString(objectType)
-	sb.WriteRune(minUnicodeRuneValue)
-	for _, att := range attributes {
-		if err := validateCompositeKeyAttribute(att); err != nil {
-			return "", err
-		}
-		sb.WriteString(att)
-		sb.WriteRune(minUnicodeRuneValue)
-	}
-	return sb.String(), nil
+	return compose.CreateCompositeKey(&strings.Builder{}, objectType, attributes...)
 }
 
-func validateCompositeKeyAttribute(str string) error {
-	if !utf8.ValidString(str) {
-		return errors.Errorf("not a valid utf8 string: [%x]", str)
-	}
-	for index, runeValue := range str {
-		if runeValue == minUnicodeRuneValue || runeValue == maxUnicodeRuneValue {
-			return errors.Errorf(`input contain unicode %#U starting at position [%d]. %#U and %#U are not allowed in the input attribute of a composite key`,
-				runeValue, index, minUnicodeRuneValue, maxUnicodeRuneValue)
-		}
-	}
-	return nil
-}
-
+// CreateCompositeKeyOrPanic is like CreateCompositeKey but panics if objectType or an
+// attribute is invalid.
 func CreateCompositeKeyOrPanic(objectType string, attributes []string) string {
-	k, err := CreateCompositeKey(objectType, attributes)
-	if err != nil {
-		panic(err)
-	}
-	return k
+	return compose.CreateCompositeKeyOrPanic(&strings.Builder{}, objectType, attributes...)
 }
 
+// CreateRangeKeysForPartialCompositeKey returns the start and end keys of a range scan
+// over all composite keys that begin with objectType and attributes.
 func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []string) (startKey, endKey string, err error) {
-	partialCompositeKey, err := CreateCompositeKey(objectType, attributes)
-	if err != nil {
-		return "", "", err
-	}
-	startKey = partialCompositeKey
-	endKey = partialCompositeKey + string(maxUnicodeRuneValue)
-
-	return startKey, endKey, nil
+	return compose.CreateRangeKeysForPartialCompositeKey(objectType, attributes...)
 }
 
 // SplitCompositeKey splits a composite key built by CreateCompositeKey into its
 // objectType and attributes. It returns an error if compositeKey is not such a key.
 func SplitCompositeKey(compositeKey string) (string, []string, error) {
-	if !strings.HasPrefix(compositeKey, compositeKeyNamespace) {
-		return "", nil, errors.Errorf("not a composite key: [%x]", compositeKey)
-	}
-	componentIndex := 1
-	var components []string
-	for i := 1; i < len(compositeKey); i++ {
-		if rune(compositeKey[i]) == minUnicodeRuneValue {
-			components = append(components, compositeKey[componentIndex:i])
-			componentIndex = i + 1
-		}
-	}
-	if len(components) == 0 {
-		return "", nil, errors.Errorf("not a composite key: [%x]", compositeKey)
-	}
-	return components[0], components[1:], nil
+	return compose.SplitCompositeKey(compositeKey)
 }

@@ -7,76 +7,36 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"fmt"
 	"strings"
-	"unicode/utf8"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 )
 
-const (
-	minUnicodeRuneValue   = 0            // U+0000
-	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
-	compositeKeyNamespace = "\x00"
-	emptyKeySubstitute    = "\x01"
-)
-
+// CreateCompositeKey builds a composite key from objectType and attributes, using the
+// encoding of the Fabric chaincode shim. See compose.CreateCompositeKey.
 func CreateCompositeKey(objectType string, attributes []string) (string, error) {
-	if err := validateCompositeKeyAttribute(objectType); err != nil {
-		return "", err
-	}
-	var ck strings.Builder
-	ck.WriteString(compositeKeyNamespace + objectType + string(rune(minUnicodeRuneValue)))
-	for _, att := range attributes {
-		if err := validateCompositeKeyAttribute(att); err != nil {
-			return "", err
-		}
-		ck.WriteString(att + string(rune(minUnicodeRuneValue)))
-	}
-	return ck.String(), nil
+	return compose.CreateCompositeKey(&strings.Builder{}, objectType, attributes...)
 }
 
+// CreateRangeKeysForPartialCompositeKey returns the start and end keys of a range scan
+// over all composite keys that begin with objectType and attributes.
 func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []string) (startKey, endKey string, err error) {
-	partialCompositeKey, err := CreateCompositeKey(objectType, attributes)
-	if err != nil {
-		return "", "", err
-	}
-	startKey = partialCompositeKey
-	endKey = partialCompositeKey + fmt.Sprint(maxUnicodeRuneValue)
-
-	return startKey, endKey, nil
+	return compose.CreateRangeKeysForPartialCompositeKey(objectType, attributes...)
 }
 
+// SplitCompositeKey splits a composite key into its objectType and attributes.
+// A key that is not a composite key is returned unchanged as the objectType, with no
+// attributes and no error, so callers can derive keys from plain and composite keys alike.
 func SplitCompositeKey(compositeKey string) (string, []string, error) {
-	componentIndex := 1
-	components := []string{}
-	for i := 1; i < len(compositeKey); i++ {
-		if compositeKey[i] == minUnicodeRuneValue {
-			components = append(components, compositeKey[componentIndex:i])
-			componentIndex = i + 1
-		}
-	}
-	if len(components) == 0 {
+	if !compose.IsCompositeKey(compositeKey) || strings.IndexByte(compositeKey[1:], 0) < 0 {
 		return compositeKey, nil, nil
 	}
-
-	// there is an extra tokenIdPrefix component in the beginning, trim it off
-	var attrs []string
-	if len(components) > 1 {
-		attrs = components[1:]
+	objectType, attrs, err := compose.SplitCompositeKey(compositeKey)
+	if err != nil {
+		return "", nil, err
 	}
-	return components[0], attrs, nil
-}
-
-func validateCompositeKeyAttribute(str string) error {
-	if !utf8.ValidString(str) {
-		return errors.Errorf("not a valid utf8 string: [%x]", str)
+	if len(attrs) == 0 {
+		attrs = nil
 	}
-	for index, runeValue := range str {
-		if runeValue == minUnicodeRuneValue || runeValue == maxUnicodeRuneValue {
-			return errors.Errorf(`input contains unicode %#U starting at position [%d]. %#U and %#U are not allowed in the input attribute of a composite key`,
-				runeValue, index, minUnicodeRuneValue, maxUnicodeRuneValue)
-		}
-	}
-	return nil
+	return objectType, attrs, nil
 }

@@ -9,12 +9,13 @@ package committer
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -57,7 +58,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 		case driver.Valid:
 			c.logger.Debugf("config block available, txID [%s], loading...", txID)
 
-			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
+			key, err := compose.CreateCompositeKey(&strings.Builder{}, channelConfigKey, strconv.FormatUint(sequence, 10))
 			if err != nil {
 				return errors.Wrapf(err, "cannot create configtx rws key")
 			}

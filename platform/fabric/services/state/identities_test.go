@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -43,9 +44,9 @@ func TestIdentitiesHelpers(t *testing.T) {
 func TestIDAndIDsHelpers(t *testing.T) {
 	t.Parallel()
 
-	composite, err := CreateCompositeKey("asset", []string{"id1"})
+	composite, err := rwset.CreateCompositeKey("asset", []string{"id1"})
 	require.NoError(t, err)
-	plainComposite, err := CreateCompositeKey("asset", nil)
+	plainComposite, err := rwset.CreateCompositeKey("asset", nil)
 	require.NoError(t, err)
 
 	id := ID(composite)
@@ -88,11 +89,11 @@ func TestNamespacesHelpers(t *testing.T) {
 func TestStreamsHelpers(t *testing.T) {
 	t.Parallel()
 
-	composite1, err := CreateCompositeKey("asset", []string{"1"})
+	composite1, err := rwset.CreateCompositeKey("asset", []string{"1"})
 	require.NoError(t, err)
-	composite2, err := CreateCompositeKey("asset", []string{"2"})
+	composite2, err := rwset.CreateCompositeKey("asset", []string{"2"})
 	require.NoError(t, err)
-	composite3, err := CreateCompositeKey("asset", []string{"3"})
+	composite3, err := rwset.CreateCompositeKey("asset", []string{"3"})
 	require.NoError(t, err)
 
 	outs := []*output{

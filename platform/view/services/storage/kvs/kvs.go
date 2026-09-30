@@ -245,13 +245,10 @@ func (o *KVS) Delete(ctx context.Context, id string) error {
 // composite keys, as built by CreateCompositeKey, that start with prefix and attrs.
 // The caller must close the returned Iterator.
 func (o *KVS) GetByPartialCompositeID(ctx context.Context, prefix string, attrs []string) (Iterator, error) {
-	partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
+	startKey, endKey, err := CreateRangeKeysForPartialCompositeKey(prefix, attrs)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed building composite key")
 	}
-
-	startKey := partialCompositeKey
-	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
 
 	itr, err := o.store.GetStateRangeScanIterator(ctx, o.namespace, startKey, endKey)
 	if err != nil {

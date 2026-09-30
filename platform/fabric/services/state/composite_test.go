@@ -44,35 +44,6 @@ func (t *testUnmarshaller) Unmarshal(raw []byte, v any) error {
 	return t.err
 }
 
-func TestCreateCompositeKeyAndRangeKeys(t *testing.T) {
-	t.Parallel()
-
-	key, err := CreateCompositeKey("asset", []string{"type", "id"})
-	require.NoError(t, err)
-	require.Equal(t, "\x00asset\x00type\x00id\x00", key)
-
-	start, end, err := CreateRangeKeysForPartialCompositeKey("asset", []string{"type"})
-	require.NoError(t, err)
-	require.Equal(t, "\x00asset\x00type\x00", start)
-	require.Equal(t, start+string(MaxUnicodeRuneValue), end)
-}
-
-func TestCreateCompositeKeyValidationErrors(t *testing.T) {
-	t.Parallel()
-
-	_, err := CreateCompositeKey("asset\x00type", []string{"id"})
-	require.Error(t, err)
-	require.ErrorContains(t, err, "U+0000")
-
-	_, err = CreateCompositeKey("asset", []string{"\xff\xfe"})
-	require.Error(t, err)
-	require.ErrorContains(t, err, "not a valid utf8 string")
-
-	err = validateCompositeKeyAttribute(string([]rune{'a', MaxUnicodeRuneValue}))
-	require.Error(t, err)
-	require.ErrorContains(t, err, "U+10FFFF")
-}
-
 func TestCompileServiceOptions(t *testing.T) {
 	t.Parallel()
 
