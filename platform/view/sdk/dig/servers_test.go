@@ -168,7 +168,6 @@ func (*fakeViewManager) DeleteContext(string) {}
 type fakeIdentityProvider struct{}
 
 func (*fakeIdentityProvider) DefaultIdentity() view.Identity { return nil }
-func (*fakeIdentityProvider) Admins() []view.Identity        { return nil }
 func (*fakeIdentityProvider) Clients() []view.Identity       { return nil }
 
 func TestNewWebServer(t *testing.T) {

@@ -22,6 +22,9 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// Loader reconstructs read-write sets of fabricx transactions from stored envelopes and
+// endorser transactions. Fabricx envelopes are always of type HeaderType_MESSAGE and the
+// loader decodes them itself; it does not dispatch to pluggable payload handlers.
 type Loader struct {
 	Network            string
 	Channel            string
@@ -29,8 +32,7 @@ type Loader struct {
 	TransactionService driver.EndorserTransactionService
 	TransactionManager driver.TransactionManager
 
-	Vault    driver.RWSetInspector
-	handlers map[cb.HeaderType]driver.RWSetPayloadHandler
+	Vault driver.RWSetInspector
 }
 
 func NewLoader(
@@ -48,16 +50,13 @@ func NewLoader(
 		TransactionService: transactionService,
 		TransactionManager: transactionManager,
 		Vault:              vault,
-		handlers:           map[cb.HeaderType]driver.RWSetPayloadHandler{},
 	}
 }
 
-func (c *Loader) AddHandlerProvider(headerType cb.HeaderType, handlerProvider driver.RWSetPayloadHandlerProvider) error {
-	if handler, ok := c.handlers[headerType]; ok {
-		return errors.Errorf("handler %T already defined for header type %v", handler, headerType)
-	}
-
-	c.handlers[headerType] = handlerProvider(c.Network, c.Channel, c.Vault)
+// AddHandlerProvider is a no-op that always returns nil: the loader decodes fabricx
+// envelopes itself. It exists to satisfy driver.RWSetLoader, whose callers register the
+// same providers on every channel's loader at startup and fail on an error.
+func (*Loader) AddHandlerProvider(cb.HeaderType, driver.RWSetPayloadHandlerProvider) error {
 	return nil
 }
 
@@ -72,16 +71,12 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 
 	rawEnv, err := c.EnvelopeService.LoadEnvelope(ctx, txID)
 	if err != nil {
-		return nil, nil, errors.Errorf("load envelope [txID=%s]", txID)
+		return nil, nil, errors.Wrapf(err, "load envelope [txID=%s]", txID)
 	}
 
-	_, payl, chdr, err := fabricutils.UnmarshalTx(rawEnv)
+	payl, chdr, err := c.unmarshalEnvelope(txID, rawEnv)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unmarshal payload and channel header")
-	}
-
-	if txID != chdr.TxId {
-		return nil, nil, errors.Errorf("txID mismatch in channel header, expected=%s, actual=%s", txID, chdr.TxId)
 	}
 
 	rws, err := c.Vault.NewRWSetFromBytes(ctx, chdr.TxId, payl.Data)
@@ -139,7 +134,7 @@ func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxI
 
 	logger.Debugf("retrieve rwset from envelope [channel=%s] [txID=%s]", c.Channel, txID)
 
-	_, payl, chdr, err := fabricutils.UnmarshalTx(envelopeRaw)
+	payl, chdr, err := c.unmarshalEnvelope(txID, envelopeRaw)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [txID=%s]", txID)
 	}
@@ -158,11 +153,30 @@ func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxI
 	pt := &processedTransaction{
 		network:  c.Network,
 		channel:  chdr.ChannelId,
-		id:       txID,
+		id:       chdr.TxId,
 		function: function,
 	}
 
 	return rws, pt, nil
+}
+
+// unmarshalEnvelope parses raw and checks that it is a fabricx transaction envelope for
+// txID on the loader's channel.
+func (c *Loader) unmarshalEnvelope(txID driver2.TxID, raw []byte) (*cb.Payload, *cb.ChannelHeader, error) {
+	_, payl, chdr, err := fabricutils.UnmarshalTx(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	if cb.HeaderType(chdr.Type) != cb.HeaderType_MESSAGE {
+		return nil, nil, errors.Errorf("unsupported header type %v, expected %v", cb.HeaderType(chdr.Type), cb.HeaderType_MESSAGE)
+	}
+	if txID != chdr.TxId {
+		return nil, nil, errors.Errorf("txID mismatch in channel header, expected=%s, actual=%s", txID, chdr.TxId)
+	}
+	if c.Channel != chdr.ChannelId {
+		return nil, nil, errors.Errorf("channel mismatch in channel header, expected=%s, actual=%s", c.Channel, chdr.ChannelId)
+	}
+	return payl, chdr, nil
 }
 
 func anyKeyContains(rws driver.RWSet, substr string) bool {
