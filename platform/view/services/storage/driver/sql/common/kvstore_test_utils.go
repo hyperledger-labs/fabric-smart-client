@@ -14,11 +14,11 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
@@ -442,45 +442,31 @@ func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
 	wg.Wait()
 }
 
-const (
-	minUnicodeRuneValue   = 0            // U+0000
-	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
-	compositeKeyNamespace = "\x00"
-)
-
-func validateCompositeKeyAttribute(str string) error {
-	if !utf8.ValidString(str) {
-		return errors.Errorf("not a valid utf8 string: [%x]", str)
-	}
-	for index, runeValue := range str {
-		if runeValue == minUnicodeRuneValue || runeValue == maxUnicodeRuneValue {
-			return errors.Errorf(`input contain unicode %#U starting at position [%d]. %#U and %#U are not allowed in the input attribute of a composite key`,
-				runeValue, index, minUnicodeRuneValue, maxUnicodeRuneValue)
-		}
-	}
-	return nil
-}
-
-func createCompositeKey(objectType string, attributes []string) (string, error) {
-	if err := validateCompositeKeyAttribute(objectType); err != nil {
-		return "", err
-	}
-	var ck strings.Builder
-	ck.WriteString(compositeKeyNamespace + objectType + fmt.Sprint(minUnicodeRuneValue))
-	for _, att := range attributes {
-		if err := validateCompositeKeyAttribute(att); err != nil {
-			return "", err
-		}
-		ck.WriteString(att + fmt.Sprint(minUnicodeRuneValue))
-	}
-	return ck.String(), nil
-}
-
 func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	t.Helper()
 	ns := "namespace"
 	keyPrefix := "prefix"
 	defer cleanupDB(t, db, ns)
+	key := func(attrs ...string) string {
+		t.Helper()
+		k, err := compose.CreateCompositeKey(&strings.Builder{}, keyPrefix, attrs...)
+		require.NoError(t, err)
+		return k
+	}
+	read := func(attrs ...string) driver.UnversionedRead {
+		k := key(attrs...)
+		return driver.UnversionedRead{Key: k, Raw: []byte(k)}
+	}
+	scan := func(attrs ...string) []driver.UnversionedRead {
+		t.Helper()
+		startKey, endKey, err := compose.CreateRangeKeysForPartialCompositeKey(keyPrefix, attrs...)
+		require.NoError(t, err)
+		itr, err := db.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
+		require.NoError(t, err)
+		res, err := iterators.ReadAllValues(itr)
+		require.NoError(t, err)
+		return res
+	}
 
 	err := db.BeginUpdate()
 	require.NoError(t, err)
@@ -490,9 +476,9 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 		{"a", "b"},
 		{"a", "b", "3"},
 		{"a", "d"},
+		{"b"},
 	} {
-		k, err := createCompositeKey(keyPrefix, comps)
-		require.NoError(t, err)
+		k := key(comps...)
 		err = db.SetState(context.Background(), ns, k, driver.UnversionedValue(k))
 		require.NoError(t, err)
 	}
@@ -500,42 +486,18 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	err = db.Commit()
 	require.NoError(t, err)
 
-	partialCompositeKey, err := createCompositeKey(keyPrefix, []string{"a"})
-	require.NoError(t, err)
-	startKey := partialCompositeKey
-	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
-
-	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
-	require.NoError(t, err)
-
-	res, err := iterators.ReadAllValues(itr)
-	require.NoError(t, err)
-
-	require.Len(t, res, 4)
 	require.Equal(t, []driver.UnversionedRead{
-		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
-		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}},
-		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}},
-		{Key: "\x00prefix0a0d0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x64, 0x30}},
-	}, res)
+		read("a", "b"),
+		read("a", "b", "1"),
+		read("a", "b", "3"),
+		read("a", "d"),
+	}, scan("a"))
 
-	partialCompositeKey, err = createCompositeKey(keyPrefix, []string{"a", "b"})
-	require.NoError(t, err)
-	startKey = partialCompositeKey
-	endKey = partialCompositeKey + string(maxUnicodeRuneValue)
-
-	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
-	require.NoError(t, err)
-
-	res, err = iterators.ReadAllValues(itr)
-	require.NoError(t, err)
-
-	require.Len(t, res, 3)
 	require.Equal(t, []driver.UnversionedRead{
-		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
-		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}},
-		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}},
-	}, res)
+		read("a", "b"),
+		read("a", "b", "1"),
+		read("a", "b", "3"),
+	}, scan("a", "b"))
 }
 
 // Postgres doesn't like non-utf8 in TEXT fields, so we made it a BYTEA.

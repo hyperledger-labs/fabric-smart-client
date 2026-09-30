@@ -7,61 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package keys_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
 )
-
-const (
-	minUnicodeRuneValue   = 0            // U+0000
-	maxUnicodeRuneValue   = utf8.MaxRune // U+10FFFF - maximum (and unallocated) code point
-	compositeKeyNamespace = "\x00"
-)
-
-// createCompositeKey and its related functions and consts copied from core/chaincode/shim/chaincode.go
-func createCompositeKey(objectType string, attributes []string) (string, error) {
-	if err := validateCompositeKeyAttribute(objectType); err != nil {
-		return "", err
-	}
-	var ck strings.Builder
-	ck.WriteString(compositeKeyNamespace)
-	ck.WriteString(objectType)
-	fmt.Fprint(&ck, minUnicodeRuneValue)
-	for _, att := range attributes {
-		if err := validateCompositeKeyAttribute(att); err != nil {
-			return "", err
-		}
-		ck.WriteString(att)
-		fmt.Fprint(&ck, minUnicodeRuneValue)
-	}
-	return ck.String(), nil
-}
-
-func validateCompositeKeyAttribute(str string) error {
-	if !utf8.ValidString(str) {
-		return errors.Errorf("not a valid utf8 string: [%x]", str)
-	}
-	for index, runeValue := range str {
-		if runeValue == minUnicodeRuneValue || runeValue == maxUnicodeRuneValue {
-			return errors.Errorf(`input contain unicode %#U starting at position [%d]. %#U and %#U are not allowed in the input attribute of a composite key`,
-				runeValue, index, minUnicodeRuneValue, maxUnicodeRuneValue)
-		}
-	}
-	return nil
-}
 
 func TestValidateKey(t *testing.T) {
 	t.Parallel()
 	require.NoError(t, keys.ValidateKey("_key"))
 	require.NoError(t, keys.ValidateKey("1lm7v0uzXp9p+Q/K4z0LM0bRWEAEi0qun3jTg8uNYrI="))
-	key, err := createCompositeKey("token", []string{"thistype", "alice"})
+	key, err := compose.CreateCompositeKey(&strings.Builder{}, "token", "thistype", "alice")
 	require.NoError(t, err)
 	require.NoError(t, keys.ValidateKey(key))
 	require.EqualError(t, keys.ValidateKey("_key?"), "key '_key?' is invalid")

@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +46,7 @@ func TestCreateCompositeKey(t *testing.T) {
 		{
 			name:        "invalid attribute contains max rune",
 			objectType:  "asset",
-			attributes:  []string{"id", string([]rune{'a', maxUnicodeRuneValue})},
+			attributes:  []string{"id", string([]rune{'a', utf8.MaxRune})},
 			expectError: true,
 			errorMsg:    "U+10FFFF",
 		},
@@ -83,8 +83,7 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 		start, end, err := CreateRangeKeysForPartialCompositeKey("asset", []string{"type", "id"})
 		require.NoError(t, err)
 		require.Equal(t, "\x00asset\x00type\x00id\x00", start)
-		require.Greater(t, end, start)
-		require.True(t, strings.HasPrefix(end, start))
+		require.Equal(t, start+"\U0010FFFF", end)
 	})
 
 	t.Run("invalid partial key range", func(t *testing.T) {
@@ -127,56 +126,4 @@ func TestSplitCompositeKey(t *testing.T) {
 		require.Equal(t, "plain-key", objectType)
 		require.Nil(t, attrs)
 	})
-}
-
-func TestValidateCompositeKeyAttribute(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		value       string
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name:  "valid ascii",
-			value: "owner-1",
-		},
-		{
-			name:  "valid unicode",
-			value: "用户",
-		},
-		{
-			name:        "invalid utf8",
-			value:       "\xff\xfe",
-			expectError: true,
-			errorMsg:    "not a valid utf8 string",
-		},
-		{
-			name:        "invalid min rune",
-			value:       "a\x00b",
-			expectError: true,
-			errorMsg:    "U+0000",
-		},
-		{
-			name:        "invalid max rune",
-			value:       string([]rune{'a', maxUnicodeRuneValue}),
-			expectError: true,
-			errorMsg:    "U+10FFFF",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := validateCompositeKeyAttribute(tt.value)
-			if tt.expectError {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errorMsg)
-				return
-			}
-
-			require.NoError(t, err)
-		})
-	}
 }

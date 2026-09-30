@@ -85,3 +85,38 @@ func TestCreateTxTopic_WithoutTxID(t *testing.T) {
 	require.NotEmpty(t, keyNoTx)
 	require.NotEqual(t, keyNoTx, keyWithTx)
 }
+
+func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
+	t.Parallel()
+	start, end, err := CreateRangeKeysForPartialCompositeKey("ot", "1")
+	require.NoError(t, err)
+	require.Equal(t, "\x00ot\x001\x00", start)
+	require.Equal(t, start+"\U0010FFFF", end)
+
+	inside := CreateCompositeKeyOrPanic(&strings.Builder{}, "ot", "1", "zzz")
+	outside := CreateCompositeKeyOrPanic(&strings.Builder{}, "ot", "2")
+	require.True(t, start <= inside && inside < end)
+	require.False(t, start <= outside && outside < end)
+
+	_, _, err = CreateRangeKeysForPartialCompositeKey("ot\x00")
+	require.ErrorContains(t, err, "U+0000")
+}
+
+func TestSplitCompositeKey(t *testing.T) {
+	t.Parallel()
+	objectType, attrs, err := SplitCompositeKey(CreateCompositeKeyOrPanic(&strings.Builder{}, "ot", "1", "2"))
+	require.NoError(t, err)
+	require.Equal(t, "ot", objectType)
+	require.Equal(t, []string{"1", "2"}, attrs)
+
+	objectType, attrs, err = SplitCompositeKey(CreateCompositeKeyOrPanic(&strings.Builder{}, "ot"))
+	require.NoError(t, err)
+	require.Equal(t, "ot", objectType)
+	require.Empty(t, attrs)
+
+	for _, k := range []string{"", "plain", "\x00", "\x00ot"} {
+		_, _, err = SplitCompositeKey(k)
+		require.ErrorContains(t, err, "not a composite key", "key %q", k)
+		require.Equal(t, k != "" && k[0] == 0, IsCompositeKey(k), "key %q", k)
+	}
+}

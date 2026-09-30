@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -1054,10 +1055,10 @@ func (*mockDriverChannel) Close() error                                         
 func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
 	t.Parallel()
 
-	rwset := newTestRWSet()
-	key, err := CreateCompositeKey("asset", []string{"1"})
+	rws := newTestRWSet()
+	key, err := rwset.CreateCompositeKey("asset", []string{"1"})
 	require.NoError(t, err)
-	require.NoError(t, rwset.SetState("assetns", key, []byte("value")))
+	require.NoError(t, rws.SetState("assetns", key, []byte("value")))
 
 	k, err := fieldMappingKey("assetns", key)
 	require.NoError(t, err)
@@ -1071,12 +1072,12 @@ func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
 	err = p.Process(
 		&mockRequestForRWSetProcessor{},
 		&mockProcessTransactionForRWSetProcessor{channel: "ch", id: "tx-id"},
-		fabric.NewRWSet(rwset),
+		fabric.NewRWSet(rws),
 		"assetns",
 	)
 	require.NoError(t, err)
 
-	meta, err := rwset.GetStateMetadata("assetns", key)
+	meta, err := rws.GetStateMetadata("assetns", key)
 	require.NoError(t, err)
 	require.Equal(t, []byte("mapping"), meta[k])
 }
@@ -1084,10 +1085,10 @@ func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
 func TestRWSetProcessorProcessUnknownTransaction(t *testing.T) {
 	t.Parallel()
 
-	rwset := newTestRWSet()
-	key, err := CreateCompositeKey("asset", []string{"1"})
+	rws := newTestRWSet()
+	key, err := rwset.CreateCompositeKey("asset", []string{"1"})
 	require.NoError(t, err)
-	require.NoError(t, rwset.SetState("assetns", key, []byte("value")))
+	require.NoError(t, rws.SetState("assetns", key, []byte("value")))
 
 	ms := &mockDriverMetadataService{exists: false}
 	ch := fabric.NewChannel(nil, nil, &mockDriverChannel{name: "ch", metadata: ms})
@@ -1095,7 +1096,7 @@ func TestRWSetProcessorProcessUnknownTransaction(t *testing.T) {
 	err = p.Process(
 		&mockRequestForRWSetProcessor{},
 		&mockProcessTransactionForRWSetProcessor{channel: "ch", id: "tx-id"},
-		fabric.NewRWSet(rwset),
+		fabric.NewRWSet(rws),
 		"assetns",
 	)
 	require.NoError(t, err)

@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
@@ -220,32 +221,6 @@ type testStruct struct {
 	Value int    `json:"value"`
 }
 
-// mockIterator implements iterators.Iterator for testing
-type mockIterator struct {
-	items   []*driver.UnversionedRead
-	current int
-	closed  bool
-}
-
-func newMockIterator(items []*driver.UnversionedRead) *mockIterator {
-	return &mockIterator{items: items, current: -1}
-}
-
-func (m *mockIterator) Next() (*driver.UnversionedRead, error) {
-	if m.closed {
-		return nil, fmt.Errorf("iterator closed")
-	}
-	m.current++
-	if m.current >= len(m.items) {
-		return nil, nil
-	}
-	return m.items[m.current], nil
-}
-
-func (m *mockIterator) Close() {
-	m.closed = true
-}
-
 // readResult is a single (item, error) pair returned by resultIterator.Next.
 type readResult struct {
 	item *driver.UnversionedRead
@@ -253,7 +228,7 @@ type readResult struct {
 }
 
 // resultIterator replays results in order and then reports exhaustion.
-// Unlike mockIterator, it can yield errors, with or without an item.
+// It can yield errors, with or without an item.
 type resultIterator struct {
 	results []readResult
 	nexts   int
@@ -569,7 +544,7 @@ func TestKVS_Exists(t *testing.T) {
 				items := []*driver.UnversionedRead{
 					{Key: "existing_key", Raw: []byte(`{"name":"test","value":1}`)},
 				}
-				m.GetStateSetIteratorReturns(newMockIterator(items), nil)
+				m.GetStateSetIteratorReturns(iterators.Slice(items), nil)
 			},
 			expected: true,
 		},
@@ -577,7 +552,7 @@ func TestKVS_Exists(t *testing.T) {
 			name: "key does not exist",
 			id:   "nonexistent_key",
 			setupMock: func(m *mock.KeyValueStore) {
-				m.GetStateSetIteratorReturns(newMockIterator([]*driver.UnversionedRead{}), nil)
+				m.GetStateSetIteratorReturns(iterators.Slice([]*driver.UnversionedRead{}), nil)
 			},
 			expected: false,
 		},
@@ -588,7 +563,7 @@ func TestKVS_Exists(t *testing.T) {
 				items := []*driver.UnversionedRead{
 					{Key: "empty_key", Raw: []byte{}},
 				}
-				m.GetStateSetIteratorReturns(newMockIterator(items), nil)
+				m.GetStateSetIteratorReturns(iterators.Slice(items), nil)
 			},
 			expected: false,
 		},
@@ -626,7 +601,7 @@ func TestKVS_GetExisting(t *testing.T) {
 					{Key: "key2", Raw: []byte(`{"name":"test2","value":2}`)},
 					{Key: "key3", Raw: []byte(`{"name":"test3","value":3}`)},
 				}
-				m.GetStateSetIteratorReturns(newMockIterator(items), nil)
+				m.GetStateSetIteratorReturns(iterators.Slice(items), nil)
 			},
 			expected: []string{"key1", "key2", "key3"},
 		},
@@ -638,7 +613,7 @@ func TestKVS_GetExisting(t *testing.T) {
 					{Key: "key1", Raw: []byte(`{"name":"test1","value":1}`)},
 					{Key: "key3", Raw: []byte(`{"name":"test3","value":3}`)},
 				}
-				m.GetStateSetIteratorReturns(newMockIterator(items), nil)
+				m.GetStateSetIteratorReturns(iterators.Slice(items), nil)
 			},
 			expected: []string{"key1", "key3"},
 		},
@@ -646,7 +621,7 @@ func TestKVS_GetExisting(t *testing.T) {
 			name: "no keys exist",
 			ids:  []string{"key1", "key2"},
 			setupMock: func(m *mock.KeyValueStore) {
-				m.GetStateSetIteratorReturns(newMockIterator([]*driver.UnversionedRead{}), nil)
+				m.GetStateSetIteratorReturns(iterators.Slice([]*driver.UnversionedRead{}), nil)
 			},
 			expected: []string{},
 		},
@@ -658,7 +633,7 @@ func TestKVS_GetExisting(t *testing.T) {
 					{Key: "key1", Raw: []byte(`{"name":"test1","value":1}`)},
 					{Key: "key2", Raw: []byte{}},
 				}
-				m.GetStateSetIteratorReturns(newMockIterator(items), nil)
+				m.GetStateSetIteratorReturns(iterators.Slice(items), nil)
 			},
 			expected: []string{"key1"},
 		},
@@ -768,7 +743,7 @@ func TestKVS_GetByPartialCompositeID(t *testing.T) {
 					{Key: "prefix\x00attr1\x00attr2\x00key1", Raw: []byte(`{"name":"test1","value":1}`)},
 					{Key: "prefix\x00attr1\x00attr2\x00key2", Raw: []byte(`{"name":"test2","value":2}`)},
 				}
-				m.GetStateRangeScanIteratorReturns(newMockIterator(items), nil)
+				m.GetStateRangeScanIteratorReturns(iterators.Slice(items), nil)
 			},
 			wantErr: false,
 		},
@@ -787,7 +762,7 @@ func TestKVS_GetByPartialCompositeID(t *testing.T) {
 			prefix: "prefix",
 			attrs:  []string{},
 			setupMock: func(m *mock.KeyValueStore) {
-				m.GetStateRangeScanIteratorReturns(newMockIterator([]*driver.UnversionedRead{}), nil)
+				m.GetStateRangeScanIteratorReturns(iterators.Slice([]*driver.UnversionedRead{}), nil)
 			},
 			wantErr: false,
 		},
@@ -830,7 +805,7 @@ func TestKVS_Iterator(t *testing.T) {
 			{Key: "key2", Raw: []byte(`{"name":"test2","value":2}`)},
 			{Key: "key3", Raw: []byte(`{"name":"test3","value":3}`)},
 		}
-		mockStore.GetStateRangeScanIteratorReturns(newMockIterator(items), nil)
+		mockStore.GetStateRangeScanIteratorReturns(iterators.Slice(items), nil)
 
 		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
 		require.NoError(t, err)
@@ -859,7 +834,7 @@ func TestKVS_Iterator(t *testing.T) {
 		items := []*driver.UnversionedRead{
 			{Key: "key1", Raw: []byte(`{"name":"test1","value":1}`)},
 		}
-		mockStore.GetStateRangeScanIteratorReturns(newMockIterator(items), nil)
+		mockStore.GetStateRangeScanIteratorReturns(iterators.Slice(items), nil)
 
 		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
 		require.NoError(t, err)
@@ -872,34 +847,14 @@ func TestKVS_Iterator(t *testing.T) {
 	})
 }
 
-// scanIterator replays a scripted sequence of (item, error) pairs and then
+// resultIterator replays a scripted sequence of (item, error) pairs and then
 // reports exhaustion, so tests can inject read failures into a range scan.
-type scanIterator struct {
-	results []scanResult
-	nexts   int
-}
-
-type scanResult struct {
-	item *driver.UnversionedRead
-	err  error
-}
-
-func (s *scanIterator) Next() (*driver.UnversionedRead, error) {
-	s.nexts++
-	if s.nexts > len(s.results) {
-		return nil, nil
-	}
-	return s.results[s.nexts-1].item, s.results[s.nexts-1].err
-}
-
-func (*scanIterator) Close() {}
-
 func TestKVS_Iterator_Errors(t *testing.T) {
 	t.Parallel()
 	errScan := fmt.Errorf("scan error")
-	newIter := func(t *testing.T, results ...scanResult) (kvs2.Iterator, *scanIterator) {
+	newIter := func(t *testing.T, results ...readResult) (kvs2.Iterator, *resultIterator) {
 		t.Helper()
-		scan := &scanIterator{results: results}
+		scan := &resultIterator{results: results}
 		mockStore := &mock.KeyValueStore{}
 		mockStore.GetStateRangeScanIteratorReturns(scan, nil)
 		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
@@ -911,18 +866,18 @@ func TestKVS_Iterator_Errors(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		results   []scanResult
+		results   []readResult
 		wantKeys  []string
 		wantNexts int
 	}{
 		{
 			name:      "nil item with error",
-			results:   []scanResult{{err: errScan}},
+			results:   []readResult{{err: errScan}},
 			wantNexts: 1,
 		},
 		{
 			name: "non-nil item with error",
-			results: []scanResult{
+			results: []readResult{
 				{item: &driver.UnversionedRead{Key: "key1", Raw: []byte(`"v1"`)}, err: errScan},
 				{item: &driver.UnversionedRead{Key: "key2", Raw: []byte(`"v2"`)}},
 			},
@@ -930,7 +885,7 @@ func TestKVS_Iterator_Errors(t *testing.T) {
 		},
 		{
 			name: "error after some items",
-			results: []scanResult{
+			results: []readResult{
 				{item: &driver.UnversionedRead{Key: "key1", Raw: []byte(`"v1"`)}},
 				{err: errScan},
 				{item: &driver.UnversionedRead{Key: "key2", Raw: []byte(`"v2"`)}},
@@ -964,7 +919,7 @@ func TestKVS_Iterator_Errors(t *testing.T) {
 
 	t.Run("Next without a current item", func(t *testing.T) {
 		t.Parallel()
-		iter, _ := newIter(t, scanResult{item: &driver.UnversionedRead{Key: "key1", Raw: []byte(`"v1"`)}})
+		iter, _ := newIter(t, readResult{item: &driver.UnversionedRead{Key: "key1", Raw: []byte(`"v1"`)}})
 		var v string
 
 		_, err := iter.Next(&v)
@@ -983,7 +938,7 @@ func TestKVS_Iterator_Errors(t *testing.T) {
 
 	t.Run("Next after the read failure was returned", func(t *testing.T) {
 		t.Parallel()
-		iter, _ := newIter(t, scanResult{err: errScan})
+		iter, _ := newIter(t, readResult{err: errScan})
 		var v string
 
 		require.True(t, iter.HasNext())

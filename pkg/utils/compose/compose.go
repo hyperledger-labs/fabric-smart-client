@@ -47,6 +47,41 @@ func CreateCompositeKeyOrPanic(sb *strings.Builder, objectType string, attribute
 	return k
 }
 
+// CreateRangeKeysForPartialCompositeKey returns the start and end keys of a range scan
+// that covers every composite key beginning with the given objectType and attributes.
+func CreateRangeKeysForPartialCompositeKey(objectType string, attributes ...string) (startKey, endKey string, err error) {
+	startKey, err = CreateCompositeKey(&strings.Builder{}, objectType, attributes...)
+	if err != nil {
+		return "", "", err
+	}
+	return startKey, startKey + string(maxUnicodeRuneValue), nil
+}
+
+// SplitCompositeKey splits a composite key built by CreateCompositeKey into its
+// objectType and attributes. It returns an error if compositeKey is not such a key.
+func SplitCompositeKey(compositeKey string) (string, []string, error) {
+	if !IsCompositeKey(compositeKey) {
+		return "", nil, errors.Errorf("not a composite key: [%x]", compositeKey)
+	}
+	componentIndex := 1
+	var components []string
+	for i := 1; i < len(compositeKey); i++ {
+		if rune(compositeKey[i]) == minUnicodeRuneValue {
+			components = append(components, compositeKey[componentIndex:i])
+			componentIndex = i + 1
+		}
+	}
+	if len(components) == 0 {
+		return "", nil, errors.Errorf("not a composite key: [%x]", compositeKey)
+	}
+	return components[0], components[1:], nil
+}
+
+// IsCompositeKey reports whether key starts with the composite key namespace prefix.
+func IsCompositeKey(key string) bool {
+	return strings.HasPrefix(key, compositeKeyNamespace)
+}
+
 // AppendAttributes appends the attributes to the end of the given string builder.
 func AppendAttributes(sb *strings.Builder, attributes ...string) (string, error) {
 	for _, att := range attributes {
