@@ -96,6 +96,16 @@ func TestLoadLocalMSPSignerCert_InvalidDir(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestLoadLocalMSPSignerCert_EmptyDir(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, SignCerts), 0o755))
+
+	cert, err := LoadLocalMSPSignerCert(dir)
+	require.ErrorContains(t, err, "no PEM content found")
+	require.Nil(t, cert)
+}
+
 func TestGetPemMaterialFromDir(t *testing.T) {
 	t.Parallel()
 	certs, err := getPemMaterialFromDir(filepath.Join("testdata", "msp", "cacerts"))
