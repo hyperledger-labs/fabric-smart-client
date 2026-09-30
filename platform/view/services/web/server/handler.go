@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
@@ -106,16 +108,12 @@ func (*HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, 
 		return
 	}
 
-	if !isWebSocket(req.Header) {
+	// The view has taken over the connection of a websocket upgrade, so nothing is written.
+	if !websocket.IsWebSocketUpgrade(req) {
 		backToClient.Header().Set("Content-Type", "application/json")
 		backToClient.WriteHeader(http.StatusOK)
 		_, _ = backToClient.Write(response.Bytes())
 	}
-}
-
-func isWebSocket(h http.Header) bool {
-	upgrade, ok := h["Upgrade"]
-	return ok && upgrade[0] == "websocket"
 }
 
 func sendErr(resp http.ResponseWriter, code int, errToClient string, errLogged error) {

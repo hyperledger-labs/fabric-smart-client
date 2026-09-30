@@ -59,25 +59,24 @@ func byteSizeDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	}
 	re := regexp.MustCompile(`^(?P<size>[0-9]+)\s*(?i)(?P<unit>(k|m|g))b?$`)
 	if re.MatchString(raw) {
-		size, err := strconv.ParseUint(re.ReplaceAllString(raw, "${size}"), 0, 64)
+		size, err := strconv.ParseUint(re.ReplaceAllString(raw, "${size}"), 10, 64)
 		if err != nil {
 			return data, errors.Wrapf(err, "invalid byte size value '%s'", raw)
 		}
-		unit := re.ReplaceAllString(raw, "${unit}")
-		switch strings.ToLower(unit) {
-		case "g":
-			size <<= 10
-			fallthrough
-		case "m":
-			size <<= 10
-			fallthrough
+		var shift uint
+		switch strings.ToLower(re.ReplaceAllString(raw, "${unit}")) {
 		case "k":
-			size <<= 10
+			shift = 10
+		case "m":
+			shift = 20
+		case "g":
+			shift = 30
 		}
-		if size > math.MaxUint32 {
-			return size, errors.Errorf("value '%s' overflows uint32", raw)
+		// Checked before shifting: a shift that overflows uint64 would wrap silently.
+		if size > math.MaxUint32>>shift {
+			return data, errors.Errorf("value '%s' overflows uint32", raw)
 		}
-		return size, nil
+		return size << shift, nil
 	}
 	return data, nil
 }
