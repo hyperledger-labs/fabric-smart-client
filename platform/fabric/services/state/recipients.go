@@ -102,17 +102,10 @@ func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	timeout := time.NewTimer(time.Minute)
-	defer timeout.Stop()
-
 	// Wait to receive an identity
-	ch := session.Receive()
-	var payload []byte
-	select {
-	case msg := <-ch:
-		payload = msg.Payload
-	case <-timeout.C:
-		return nil, errors.New("time out reached")
+	payload, err := session2.ReadMessageWithTimeout(session, time.Minute)
+	if err != nil {
+		return nil, err
 	}
 
 	recipientData := &RecipientData{}
@@ -228,6 +221,9 @@ func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, 
 	if !ok {
 		return nil, nil, errors.Errorf("unexpected view result type [%T]", ids)
 	}
+	if len(idList) != 2 {
+		return nil, nil, errors.Errorf("expected 2 identities, got [%d]", len(idList))
+	}
 	return idList[0], idList[1], nil
 }
 
@@ -320,6 +316,9 @@ func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOpt
 	idList, ok := ids.([]view.Identity)
 	if !ok {
 		return nil, nil, errors.Errorf("unexpected view result type [%T]", ids)
+	}
+	if len(idList) != 2 {
+		return nil, nil, errors.Errorf("expected 2 identities, got [%d]", len(idList))
 	}
 	return idList[0], idList[1], nil
 }

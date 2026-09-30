@@ -278,6 +278,35 @@ func TestRequestRecipientIdentityViewBindings(t *testing.T) {
 	}
 }
 
+func TestRequestRecipientIdentityViewBadReply(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		recv    <-chan *view.Message
+		wantErr string
+	}{
+		{name: "closed reply channel", recv: newRecv(), wantErr: "session receive channel is closed"},
+		{
+			name:    "error reply",
+			recv:    newRecv(&view.Message{Status: view.ERROR, Payload: []byte(`{"Identity":"b3RoZXI="}`)}),
+			wantErr: "received error from remote",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			env := newRecipientsEnv(t, &mockSession{recv: tc.recv}, nil)
+
+			var err error
+			require.NotPanics(t, func() {
+				_, err = (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
+			})
+			require.ErrorContains(t, err, tc.wantErr)
+			require.Empty(t, env.store.bindings, "nothing may be bound on a bad reply")
+		})
+	}
+}
+
 func TestRespondRequestRecipientIdentityViewCall(t *testing.T) {
 	t.Parallel()
 
@@ -376,6 +405,16 @@ func TestRecipientWrappersErrors(t *testing.T) {
 			require.ErrorContains(t, err, "failed to compile service options")
 			require.ErrorContains(t, err, "bad option")
 			require.False(t, ran)
+		})
+
+		t.Run(w.name+" short result", func(t *testing.T) {
+			t.Parallel()
+			ctx := &mockViewContext{runViewFn: func(view.View, ...view.RunViewOption) (any, error) {
+				return []view.Identity{view.Identity("only-one")}, nil
+			}}
+			var err error
+			require.NotPanics(t, func() { err = w.call(ctx) })
+			require.EqualError(t, err, "expected 2 identities, got [1]")
 		})
 	}
 }
