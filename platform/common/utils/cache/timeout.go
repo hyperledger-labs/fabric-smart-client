@@ -101,3 +101,6 @@ func (e *timeoutEviction[K]) Push(key K) {
 	defer e.mu.Unlock()
 	e.keys = append(e.keys, timeoutEntry[K]{key: key, created: time.Now()})
 }
+
+// Touch is a no-op: entries expire on age since insertion, not since last use.
+func (*timeoutEviction[K]) Touch(K) {}
