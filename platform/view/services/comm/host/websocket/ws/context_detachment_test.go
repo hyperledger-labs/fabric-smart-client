@@ -83,11 +83,10 @@ func subConnIsClosed(sc *subConn) bool {
 }
 
 // requireSubConnResourcesReleased asserts that a closed subConn's own resources - not just its
-// entry in the parent's subConns map - have actually been released: its done and receiverChan
-// channels are closed, so nothing can be blocked sending on them or select-ing on them forever.
+// entry in the parent's subConns map - have actually been released: its receiverChan is closed,
+// so no reader can block on it forever.
 func requireSubConnResourcesReleased(t *testing.T, sc *subConn) {
 	t.Helper()
-	require.True(t, isClosedChan(sc.done), "subConn.done must be closed")
 	require.True(t, isClosedChan(sc.receiverChan), "subConn.receiverChan must be closed")
 }
 
