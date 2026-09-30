@@ -14,11 +14,16 @@ import (
 )
 
 type mockEvictionPolicy struct {
-	pushedKeys []string
+	pushedKeys  []string
+	touchedKeys []string
 }
 
 func (m *mockEvictionPolicy) Push(key string) {
 	m.pushedKeys = append(m.pushedKeys, key)
+}
+
+func (m *mockEvictionPolicy) Touch(key string) {
+	m.touchedKeys = append(m.touchedKeys, key)
 }
 
 func (*mockEvictionPolicy) String() string {
@@ -110,4 +115,28 @@ func TestLRUString(t *testing.T) {
 	require.Contains(t, s, "k1")
 	require.Contains(t, s, "Keys")
 	require.Contains(t, s, "KeySet")
+}
+
+// Get tells the policy that a key was used, so a policy whose eviction order
+// depends on reads can update it. A miss touches nothing: there is no entry
+// whose position could change.
+func TestEvictionCacheGetTouches(t *testing.T) {
+	t.Parallel()
+	policy := &mockEvictionPolicy{}
+	c := &evictionCache[string, string]{
+		m:              map[string]string{},
+		l:              &sync.RWMutex{},
+		evictionPolicy: policy,
+	}
+
+	c.Put("k1", "v1")
+	require.Empty(t, policy.touchedKeys, "Put alone must not touch")
+
+	_, ok := c.Get("k1")
+	require.True(t, ok)
+	require.Equal(t, []string{"k1"}, policy.touchedKeys)
+
+	_, ok = c.Get("absent")
+	require.False(t, ok)
+	require.Equal(t, []string{"k1"}, policy.touchedKeys, "a miss must not touch")
 }
