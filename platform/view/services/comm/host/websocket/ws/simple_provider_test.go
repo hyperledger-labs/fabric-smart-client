@@ -7,7 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,4 +101,63 @@ func TestSimpleProvider_Security(t *testing.T) { //nolint:paralleltest
 			})
 		})
 	}
+}
+
+func TestSimpleProviderStreamErrors(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	p := NewSimpleProvider()
+	require.NoError(t, p.Close())
+	requireServerStreamErrors(t, p)
+
+	serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, false)
+	errs := make(chan error, 1)
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		errs <- p.NewServerStream(w, r, func(host.P2PStream) { t.Error("unexpected stream") })
+	}))
+	srv.TLS = serverTLSConfig
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+	dial := func() *websocket.Conn {
+		conn, resp, err := (&websocket.Dialer{TLSClientConfig: clientTLSConfig}).Dial("wss://"+strings.TrimPrefix(srv.URL, "https://")+"/p2p", nil)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		return conn
+	}
+
+	// the client goes away before sending meta
+	require.NoError(t, dial().Close())
+	require.ErrorContains(t, <-errs, "failed to read meta info")
+
+	conn := dial()
+	defer func() { _ = conn.Close() }()
+	require.NoError(t, conn.WriteJSON(StreamMeta{PeerID: srcID, SpanContext: []byte("garbage")}))
+	require.ErrorContains(t, <-errs, "failed to unmarshal span context")
+	_, _, err := conn.ReadMessage()
+	require.Error(t, err, "the server must close the connection")
+
+	_, err = p.NewClientStream(host.StreamInfo{RemotePeerAddress: "127.0.0.1:1"}, t.Context(), srcID, clientTLSConfig)
+	require.Error(t, err)
+}
+
+func TestExpectedPeerID(t *testing.T) {
+	t.Parallel()
+	_, err := expectedPeerIDFromRequest(nil)
+	require.ErrorContains(t, err, "missing TLS connection state")
+	_, err = expectedPeerIDFromRequest(&http.Request{})
+	require.ErrorContains(t, err, "missing TLS connection state")
+	_, err = expectedPeerIDFromRequest(&http.Request{TLS: &tls.ConnectionState{}})
+	require.ErrorContains(t, err, "missing verified TLS peer certificate")
+
+	_, err = peerIDFromCertificate(nil)
+	require.ErrorContains(t, err, "nil certificate")
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	tpl := &x509.Certificate{SerialNumber: big.NewInt(1), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, tpl, tpl, pub, priv)
+	require.NoError(t, err)
+	cert, err := x509.ParseCertificate(der)
+	require.NoError(t, err)
+	_, err = peerIDFromCertificate(cert)
+	require.ErrorContains(t, err, "unsupported public key type [ed25519.PublicKey]")
 }
