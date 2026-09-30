@@ -39,11 +39,11 @@ func (*SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Contex
 	// because the net/http server doesn't monitor connections upgraded to WebSocket.
 	// Hence, when the connection is lost, the context will not be cancelled.
 	conn, err := web2.OpenWSClientConn(url.String(), config)
-	logger.Debugf("Successfully connected to websocket")
 	if err != nil {
-		logger.Errorf("Dial failed: %s\n", err.Error())
-		return nil, err
+		logger.Errorf("Dial failed: %s", err.Error())
+		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
+	logger.Debugf("Successfully connected to websocket")
 	spanContext := trace.SpanContextFromContext(ctx)
 	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
 	if err != nil {

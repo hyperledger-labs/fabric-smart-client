@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	errors2 "errors"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -44,6 +43,10 @@ const (
 //nolint:revive // var-naming: renaming this exported type alias is an API break; see follow-up
 type SubConnId = string
 
+// MultiplexedMessage is one frame on a multiplexed websocket. The client opens a sub-connection
+// by sending a frame for a new ID whose Msg is a JSON [StreamMeta]; later frames for that ID
+// carry stream data. A frame with Err set closes the sub-connection; the side that closes first
+// sends io.EOF, and the peer answers with its own Err frame for the same ID.
 type MultiplexedMessage struct {
 	ID  SubConnId `json:"id"`
 	Msg []byte    `json:"msg"`
@@ -140,19 +143,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		}
 	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
-	tlsEnabled := config != nil
-	if tlsEnabled {
-		config = config.Clone()
-		if len(config.ServerName) == 0 && len(info.RemotePeerAddress) != 0 {
-			host, _, err := net.SplitHostPort(info.RemotePeerAddress)
-			if err == nil {
-				config.ServerName = host
-			} else {
-				config.ServerName = info.RemotePeerAddress
-			}
-		}
-	}
-	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
+	url := url.URL{Scheme: schemes[config != nil], Host: info.RemotePeerAddress, Path: "/p2p"}
 	// We use the background context instead of passing the existing context,
 	// because the net/http server doesn't monitor connections upgraded to WebSocket.
 	// Hence, when the connection is lost, the context will not be cancelled.
@@ -288,10 +279,11 @@ func (c *multiplexedClientConn) readIncoming() {
 			logger.Debugf("dropping message: `%s`", string(mm.Msg))
 		case !ok && mm.Err != "":
 			logger.Debugf("client sub-connection does not exist mmId=%v, errored: %v", mm.ID, mm.Err)
+			c.ackClose(mm.ID)
 		case mm.Err != "":
 			logger.Debugf("client sub-connection mmId=%v errored: %v", mm.ID, mm.Err)
 			_ = sc.deliver(result{err: mm.ToError()})
-			_ = sc.Close()
+			_ = sc.shutdown(false)
 		default:
 			if !sc.deliver(result{value: mm.Msg}) {
 				logger.Warnf("failed to deliver message to sub-connection [%s], closing sub-connection", mm.ID)
@@ -343,10 +335,11 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 			c.newServerSubConn(newStreamCallback, mm)
 		case !ok && mm.Err != "":
 			logger.Debugf("server subconn errored: %v", mm.Err)
+			c.ackClose(mm.ID)
 		case mm.Err != "":
 			logger.Debugf("Server subconn [%s] errored: %v", mm.ID, mm.Err)
 			_ = sc.deliver(result{err: mm.ToError()})
-			_ = sc.Close()
+			_ = sc.shutdown(false)
 		default:
 			if !sc.deliver(result{value: mm.Msg}) {
 				logger.Warnf("failed to deliver message to sub-connection [%s], closing sub-connection", mm.ID)
@@ -358,13 +351,17 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 
 func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream host2.P2PStream), mm MultiplexedMessage) {
 	c.mu.Lock()
-	if _, ok := c.subConns[mm.ID]; ok {
+	// A data frame the client sent before it saw this side close the sub-connection.
+	if _, ok := c.closing[mm.ID]; ok {
 		c.mu.Unlock()
+		logger.Debugf("dropping frame for closed sub-connection [%s]", mm.ID)
 		return
 	}
 
 	if len(c.subConns) >= c.maxSubConns {
 		logger.Warnf("rejecting websocket sub-connection [%s], max sub-connections reached [%d]", mm.ID, c.maxSubConns)
+		// the client may already be sending data on it
+		c.closing[mm.ID] = struct{}{}
 		_ = c.write(MultiplexedMessage{
 			ID:  mm.ID,
 			Err: "max sub-connections reached",
@@ -418,9 +415,14 @@ type multiplexedBaseConn struct {
 	writeMu sync.Mutex
 	conn    *websocket.Conn
 
-	// mu protects concurrent use of our subConns
-	mu        sync.RWMutex
-	subConns  map[SubConnId]*subConn
+	// mu protects concurrent use of our subConns and closing
+	mu       sync.RWMutex
+	subConns map[SubConnId]*subConn
+	// closing holds the IDs this side has closed and the peer has not yet acknowledged with
+	// its own Err frame. Frames the peer sent before seeing the close are dropped rather than
+	// taken for a new sub-connection.
+	// ponytail: a peer that never acknowledges grows this until the connection dies.
+	closing   map[SubConnId]struct{}
 	subConnID atomic.Uint64
 
 	tracer      trace.Tracer
@@ -434,6 +436,7 @@ func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, si
 	c := &multiplexedBaseConn{
 		conn:        conn,
 		subConns:    make(map[SubConnId]*subConn),
+		closing:     make(map[SubConnId]struct{}),
 		tracer:      tracer,
 		m:           metrics,
 		side:        side,
@@ -454,12 +457,13 @@ func (c *multiplexedBaseConn) Kill() error {
 		subConns = append(subConns, sc)
 	}
 	clear(c.subConns)
+	clear(c.closing)
 	c.mu.Unlock()
 
 	// close sub conns
 	var err error
 	for _, sc := range subConns {
-		err = errors2.Join(err, sc.Close())
+		err = errors2.Join(err, sc.shutdown(false))
 	}
 
 	// close websocket
@@ -468,12 +472,18 @@ func (c *multiplexedBaseConn) Kill() error {
 	return err
 }
 
+// ackClose records the peer's acknowledgement of a sub-connection this side closed.
+func (c *multiplexedBaseConn) ackClose(id SubConnId) {
+	c.mu.Lock()
+	delete(c.closing, id)
+	c.mu.Unlock()
+}
+
 func (c *multiplexedBaseConn) newSubConn(id SubConnId) *subConn {
 	c.m.OpenedSubConns.With(sideLabel, c.side).Add(1)
 	return &subConn{
 		id:           id,
 		receiverChan: make(chan result, 100),
-		done:         make(chan struct{}),
 		parentConn:   c,
 	}
 }
@@ -490,7 +500,6 @@ func (c *multiplexedBaseConn) write(msg any) error {
 type subConn struct {
 	id           SubConnId
 	receiverChan chan result
-	done         chan struct{}
 	parentConn   *multiplexedBaseConn
 
 	mu       sync.Mutex
@@ -515,47 +524,14 @@ func (c *subConn) deliver(r result) bool {
 	}
 }
 
+// ReadMessage returns the next delivered value. Values delivered before Close are still
+// returned after it; once they are drained it returns a CloseAbnormalClosure error.
 func (c *subConn) ReadMessage() (messageType int, p []byte, err error) {
-	// Priority check
-	select {
-	case r, ok := <-c.receiverChan:
-		if !ok {
-			return websocket.TextMessage, nil, &websocket.CloseError{
-				Code: websocket.CloseAbnormalClosure,
-				Text: "Closed",
-			}
-		}
-		return websocket.TextMessage, r.value, r.err
-	default:
+	r, ok := <-c.receiverChan
+	if !ok {
+		return websocket.TextMessage, nil, &websocket.CloseError{Code: websocket.CloseAbnormalClosure, Text: "Closed"}
 	}
-
-	select {
-	case r, ok := <-c.receiverChan:
-		if !ok {
-			return websocket.TextMessage, nil, &websocket.CloseError{
-				Code: websocket.CloseAbnormalClosure,
-				Text: "Closed",
-			}
-		}
-		return websocket.TextMessage, r.value, r.err
-	case <-c.done:
-		// One last check
-		select {
-		case r, ok := <-c.receiverChan:
-			if !ok {
-				return websocket.TextMessage, nil, &websocket.CloseError{
-					Code: websocket.CloseAbnormalClosure,
-					Text: "Closed",
-				}
-			}
-			return websocket.TextMessage, r.value, r.err
-		default:
-		}
-		return websocket.TextMessage, nil, &websocket.CloseError{
-			Code: websocket.CloseAbnormalClosure,
-			Text: "Closed",
-		}
-	}
+	return websocket.TextMessage, r.value, r.err
 }
 
 func (c *subConn) WriteMessage(_ int, data []byte) error {
@@ -573,23 +549,34 @@ func (c *subConn) writeMultiplexedMessage(msg MultiplexedMessage) error {
 	return c.parentConn.write(msg)
 }
 
+// Close closes the sub-connection and tells the peer with an io.EOF Err frame. Until the peer
+// acknowledges it, frames that arrive for the ID are dropped. Close is idempotent.
 func (c *subConn) Close() error {
-	c.parentConn.mu.Lock()
-	delete(c.parentConn.subConns, c.id)
-	c.parentConn.mu.Unlock()
+	return c.shutdown(true)
+}
 
+// shutdown tears the sub-connection down. awaitAck is false when the peer closed it first, in
+// which case the Err frame sent here is the acknowledgement and nothing more will arrive.
+func (c *subConn) shutdown(awaitAck bool) error {
 	c.mu.Lock()
 	if c.isClosed {
 		c.mu.Unlock()
 		return nil
 	}
 	c.isClosed = true
-	close(c.done)
 	close(c.receiverChan)
 	c.mu.Unlock()
 
+	p := c.parentConn
+	p.mu.Lock()
+	delete(p.subConns, c.id)
+	if awaitAck {
+		p.closing[c.id] = struct{}{}
+	}
+	p.mu.Unlock()
+
 	// try to send closing handshake but ignore any error (in case connection is already closed)
-	_ = c.parentConn.write(MultiplexedMessage{ID: c.id, Err: io.EOF.Error()})
+	_ = p.write(MultiplexedMessage{ID: c.id, Err: io.EOF.Error()})
 
 	return nil
 }

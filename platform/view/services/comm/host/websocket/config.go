@@ -216,25 +216,19 @@ func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions
 		return nil, errors.Wrap(err, "failed to load client x509 certificates for p2p TLS")
 	}
 
-	var caCertPool *x509.CertPool
-	if caPoolProvider != nil && len(caPoolProvider.ExtraCAs()) > 0 {
-		caCertPool = serverRootCAPool.Clone()
-		for _, extraCA := range caPoolProvider.ExtraCAs() {
-			logger.Debugf("append extra CA [%s]", string(extraCA))
-			if !caCertPool.AppendCertsFromPEM(extraCA) {
-				return nil, errors.Errorf("failed to append extra cert")
-			}
-		}
-	} else {
-		caCertPool = serverRootCAPool
+	caCertPool, err := withExtraCAs(serverRootCAPool, caPoolProvider)
+	if err != nil {
+		return nil, err
 	}
 
 	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS13,
-		MaxVersion: tls.VersionTLS13,
-		// Certificates:       []tls.Certificate{cert},
+		MinVersion:         tls.VersionTLS13,
+		MaxVersion:         tls.VersionTLS13,
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: false,
+		// Unlike Certificates, which crypto/tls only presents when the server's AcceptableCAs
+		// list its issuer, this always presents the identity certificate and leaves the trust
+		// decision to the server.
 		GetClientCertificate: func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			logger.Debugf("Server requested %d Acceptable CAs", len(cri.AcceptableCAs))
 
@@ -270,17 +264,9 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 		return nil, errors.Wrap(err, "failed to load server x509 certificates for p2p TLS")
 	}
 
-	var caCertPool *x509.CertPool
-	if caPoolProvider != nil && len(caPoolProvider.ExtraCAs()) > 0 {
-		caCertPool = clientRootCAPool.Clone()
-		for _, extraCA := range caPoolProvider.ExtraCAs() {
-			logger.Debugf("append extra CA [%s]", string(extraCA))
-			if !caCertPool.AppendCertsFromPEM(extraCA) {
-				return nil, errors.Errorf("failed to append extra cert")
-			}
-		}
-	} else {
-		caCertPool = clientRootCAPool
+	caCertPool, err := withExtraCAs(clientRootCAPool, caPoolProvider)
+	if err != nil {
+		return nil, err
 	}
 
 	tlsConfig := &tls.Config{
@@ -288,20 +274,6 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 		MaxVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    caCertPool,
-		VerifyConnection: func(cs tls.ConnectionState) error {
-			logger.Debugf("Client provided %d certificates", len(cs.PeerCertificates))
-
-			for i, cert := range cs.PeerCertificates {
-				logger.Debugf("  Cert %d Subject: %s", i, cert.Subject.String())
-				logger.Debugf("  Cert %d Issuer:  %s", i, cert.Issuer.String())
-			}
-
-			if clientAuthRequired && len(cs.PeerCertificates) == 0 {
-				logger.Errorf("Rejecting client connection from [%s]: no client certificate provided", cs.ServerName)
-				return errors.New("custom reject: no client cert provided")
-			}
-			return nil
-		},
 	}
 
 	if !clientAuthRequired {
@@ -311,16 +283,12 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 	if caPoolProvider != nil {
 		tlsConfig.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
-			extraCAs := caPoolProvider.ExtraCAs()
-			if len(extraCAs) == 0 {
-				return tlsConfig, nil
+			pool, err := withExtraCAs(clientRootCAPool, caPoolProvider)
+			if err != nil {
+				return nil, err
 			}
-			pool := clientRootCAPool.Clone()
-			for _, extraCA := range extraCAs {
-				logger.Debugf("append extra CA [%s]", string(extraCA))
-				if !pool.AppendCertsFromPEM(extraCA) {
-					return nil, errors.Errorf("failed to append extra cert")
-				}
+			if pool == clientRootCAPool {
+				return tlsConfig, nil
 			}
 			conf := tlsConfig.Clone()
 			conf.ClientCAs = pool
@@ -329,6 +297,26 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	}
 
 	return tlsConfig, nil
+}
+
+// withExtraCAs returns pool extended with the provider's extra CAs. The configured pool is
+// never modified: it is returned as is when there are no extra CAs, and cloned otherwise.
+func withExtraCAs(pool *x509.CertPool, provider ExtraCAPoolProvider) (*x509.CertPool, error) {
+	if provider == nil {
+		return pool, nil
+	}
+	extraCAs := provider.ExtraCAs()
+	if len(extraCAs) == 0 {
+		return pool, nil
+	}
+	pool = pool.Clone()
+	for _, extraCA := range extraCAs {
+		logger.Debugf("append extra CA [%s]", string(extraCA))
+		if !pool.AppendCertsFromPEM(extraCA) {
+			return nil, errors.Errorf("failed to append extra cert")
+		}
+	}
+	return pool, nil
 }
 
 // NewRootCAPoolFromPEM builds a certificate pool from PEM material that has already been

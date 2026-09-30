@@ -156,6 +156,12 @@ func hasSubConn(c *multiplexedBaseConn, id SubConnId) bool {
 	return ok
 }
 
+func closingCount(c *multiplexedBaseConn) int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.closing)
+}
+
 func receiveStream(t *testing.T, streams <-chan host.P2PStream) host.P2PStream {
 	t.Helper()
 	select {
@@ -174,14 +180,58 @@ func TestServerRejectsSubConnsBeyondMax(t *testing.T) { //nolint:paralleltest
 	raw := dialRaw(t, url, clientTLS)
 
 	raw.sendMeta("1", clientID)
-	receiveStream(t, streams)
+	s1 := receiveStream(t, streams)
 	raw.sendMeta("2", clientID)
 	require.Equal(t, MultiplexedMessage{ID: "2", Err: "max sub-connections reached"}, raw.next())
 
-	// a duplicate meta for a live sub-connection is ignored
+	// a second meta for a live sub-connection is data for it, not a new stream
 	raw.sendMeta("1", clientID)
 	raw.sync()
 	require.Empty(t, streams)
+
+	// Data the client sent on the rejected sub-connection before seeing the rejection is
+	// dropped, even once a slot is free again.
+	raw.send(MultiplexedMessage{ID: "1", Err: "EOF"})
+	require.Equal(t, MultiplexedMessage{ID: "1", Err: "EOF"}, raw.next())
+	raw.send(MultiplexedMessage{ID: "2", Msg: []byte("late")})
+	raw.sync()
+	raw.send(MultiplexedMessage{ID: "2", Err: "EOF"})
+	raw.sync()
+	require.Equal(t, 0, closingCount(serverParent(t, s1)))
+}
+
+// Closing a sub-connection must not turn the frames the client already sent on it into a
+// new sub-connection: their payload is not a StreamMeta, so the server would take them for a
+// peer ID mismatch and kill every sub-connection on the physical connection.
+func TestServerDropsLateFramesForClosedSubConn(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	url, streams, clientTLS, clientID := startMultiplexedServer(t, 0)
+	raw := dialRaw(t, url, clientTLS)
+
+	raw.sendMeta("1", clientID)
+	s1 := receiveStream(t, streams)
+	raw.sendMeta("2", clientID)
+	s2 := receiveStream(t, streams)
+	parent := serverParent(t, s2)
+
+	require.NoError(t, s1.Close())
+	require.Equal(t, MultiplexedMessage{ID: "1", Err: "EOF"}, raw.next())
+	raw.send(MultiplexedMessage{ID: "1", Msg: []byte("late")})
+	raw.sync()
+	require.True(t, hasSubConn(parent, "2"))
+	require.Equal(t, 1, closingCount(parent))
+
+	// the client's own Err frame acknowledges the close
+	raw.send(MultiplexedMessage{ID: "1", Err: "EOF"})
+	raw.sync()
+	require.Equal(t, 0, closingCount(parent))
+
+	// a close the client starts is acknowledged, not left waiting for an answer
+	raw.send(MultiplexedMessage{ID: "2", Err: "EOF"})
+	require.Equal(t, MultiplexedMessage{ID: "2", Err: "EOF"}, raw.next())
+	raw.sync()
+	require.False(t, hasSubConn(parent, "2"))
+	require.Equal(t, 0, closingCount(parent))
 }
 
 func TestServerClosesSlowSubConn(t *testing.T) { //nolint:paralleltest
@@ -193,6 +243,9 @@ func TestServerClosesSlowSubConn(t *testing.T) { //nolint:paralleltest
 	slow := receiveStream(t, streams)
 	raw.fillUntilClosed("1")
 	require.False(t, hasSubConn(serverParent(t, slow), "1"))
+	// a sender does not stop the moment the receiver falls behind
+	raw.send(MultiplexedMessage{ID: "1", Msg: []byte("x")})
+	raw.sync()
 
 	// the physical connection still serves new sub-connections
 	raw.sendMeta("2", clientID)
@@ -249,6 +302,10 @@ func TestClientSubConnEdgeCases(t *testing.T) { //nolint:paralleltest
 
 	raw.fillUntilClosed("1")
 	require.Equal(t, 0, subConnCount(conn))
+	require.Equal(t, 1, closingCount(conn.multiplexedBaseConn))
+	raw.send(MultiplexedMessage{ID: "1", Err: "EOF"})
+	raw.sync()
+	require.Equal(t, 0, closingCount(conn.multiplexedBaseConn))
 
 	// the physical connection still serves new sub-connections
 	info.SessionID = "s2"

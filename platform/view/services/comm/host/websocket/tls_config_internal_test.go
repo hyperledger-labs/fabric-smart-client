@@ -115,7 +115,6 @@ func TestServerTLSConfigClientAuth(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, tls.NoClientCert, cfg.ClientAuth)
 		require.Nil(t, cfg.GetConfigForClient)
-		require.NoError(t, cfg.VerifyConnection(tls.ConnectionState{}))
 	})
 
 	t.Run("required", func(t *testing.T) {
@@ -125,9 +124,6 @@ func TestServerTLSConfigClientAuth(t *testing.T) {
 		cfg, err := newServerTLSConfig(base, opts(true), &provider)
 		require.NoError(t, err)
 		require.Equal(t, tls.RequireAndVerifyClientCert, cfg.ClientAuth)
-
-		// RequireAndVerifyClientCert makes this unreachable through a real handshake.
-		require.ErrorContains(t, cfg.VerifyConnection(tls.ConnectionState{}), "no client cert provided")
 
 		// The extra CAs are re-read on every handshake.
 		perHandshake, err := cfg.GetConfigForClient(&tls.ClientHelloInfo{})
