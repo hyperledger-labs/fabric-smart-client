@@ -142,10 +142,13 @@ func TestByteSizeDecodeHook(t *testing.T) {
 	_, err = byteSizeDecodeHook(reflect.String, reflect.Uint32, "99999999999999999999k")
 	require.ErrorContains(t, err, "invalid byte size value")
 
-	_, err = byteSizeDecodeHook(reflect.String, reflect.Uint32, "4g")
-	require.ErrorContains(t, err, "overflows uint32")
+	// 2^54 g wraps to 0 in uint64 when shifted, so the overflow must be caught before shifting.
+	for _, in := range []string{"4g", "4096m", "4194304k", "18014398509481984g"} {
+		_, err = byteSizeDecodeHook(reflect.String, reflect.Uint32, in)
+		require.ErrorContains(t, err, "overflows uint32", in)
+	}
 
-	for in, want := range map[string]uint64{"1k": 1 << 10, "2MB": 2 << 20, "3g": 3 << 30, "5 kb": 5 << 10} {
+	for in, want := range map[string]uint64{"1k": 1 << 10, "2MB": 2 << 20, "3g": 3 << 30, "5 kb": 5 << 10, "010k": 10 << 10, "4095m": 4095 << 20, "4194303k": 4194303 << 10} {
 		out, err := byteSizeDecodeHook(reflect.String, reflect.Uint32, in)
 		require.NoError(t, err, in)
 		assert.Equal(t, want, out, in)

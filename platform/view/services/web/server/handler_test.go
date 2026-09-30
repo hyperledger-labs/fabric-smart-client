@@ -190,19 +190,27 @@ func TestHttpHandlerAcceptedContentTypes(t *testing.T) {
 
 func TestHttpHandlerWebSocketWritesNoBody(t *testing.T) {
 	t.Parallel()
-	rh := &mock.RequestHandler{}
-	rh.HandleRequestReturns("ignored", http.StatusOK)
-	h := server.NewHttpHandler()
-	h.RegisterURI("/x", http.MethodPost, rh)
 
-	req := httptest.NewRequest(http.MethodPost, "/v1/x", strings.NewReader("{}"))
-	req.Header.Set("Upgrade", "websocket")
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
+	// Upgrade and Connection values are case-insensitive tokens (RFC 6455, RFC 9110).
+	for _, upgrade := range []string{"websocket", "WebSocket"} {
+		t.Run(upgrade, func(t *testing.T) {
+			t.Parallel()
+			rh := &mock.RequestHandler{}
+			rh.HandleRequestReturns("ignored", http.StatusOK)
+			h := server.NewHttpHandler()
+			h.RegisterURI("/x", http.MethodPost, rh)
 
-	assert.Equal(t, 1, rh.HandleRequestCallCount())
-	assert.Empty(t, rec.Body.String())
-	assert.Empty(t, rec.Header().Get("Content-Type"))
+			req := httptest.NewRequest(http.MethodPost, "/v1/x", strings.NewReader("{}"))
+			req.Header.Set("Connection", "Upgrade")
+			req.Header.Set("Upgrade", upgrade)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			assert.Equal(t, 1, rh.HandleRequestCallCount())
+			assert.Empty(t, rec.Body.String())
+			assert.Empty(t, rec.Header().Get("Content-Type"))
+		})
+	}
 }
 
 func TestHttpHandlerRouting(t *testing.T) {
