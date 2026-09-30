@@ -218,7 +218,21 @@ func TestReceiveViewCall(t *testing.T) {
 		ctx := &mockViewContext{session: &mockSession{recv: ch}}
 		rv := NewReceiveView(&struct{}{})
 		_, err := rv.Call(ctx)
-		require.EqualError(t, err, "remote error")
+		require.EqualError(t, err, "received error from remote [remote error]")
+	})
+
+	t.Run("closed channel", func(t *testing.T) {
+		t.Parallel()
+		ctx := &mockViewContext{session: &mockSession{recv: newRecv()}}
+		_, err := NewReceiveView(&struct{}{}).Call(ctx)
+		require.EqualError(t, err, "session receive channel is closed")
+	})
+
+	t.Run("nil channel", func(t *testing.T) {
+		t.Parallel()
+		ctx := &mockViewContext{session: &mockSession{}}
+		_, err := NewReceiveView(&struct{}{}).Call(ctx)
+		require.EqualError(t, err, "session receive channel is nil")
 	})
 
 	t.Run("unmarshal success", func(t *testing.T) {
@@ -248,7 +262,14 @@ func TestPayloadReceiveViewCall(t *testing.T) {
 		close(ch)
 		ctx := &mockViewContext{session: &mockSession{recv: ch}}
 		_, err := NewPayloadReceiveView().Call(ctx)
-		require.EqualError(t, err, "remote error")
+		require.EqualError(t, err, "received error from remote [remote error]")
+	})
+
+	t.Run("closed channel", func(t *testing.T) {
+		t.Parallel()
+		ctx := &mockViewContext{session: &mockSession{recv: newRecv()}}
+		_, err := NewPayloadReceiveView().Call(ctx)
+		require.EqualError(t, err, "session receive channel is closed")
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -319,7 +340,20 @@ func TestSendReceiveViewCall(t *testing.T) {
 			},
 		}
 		_, err := srv.Call(ctx)
-		require.EqualError(t, err, "remote error")
+		require.EqualError(t, err, "received error from remote [remote error]")
+	})
+
+	t.Run("closed channel", func(t *testing.T) {
+		t.Parallel()
+		srv := NewSendReceiveView("send", &struct{}{}, party)
+		srv.coded = &mockCodec{marshalRaw: []byte("send")}
+		ctx := &mockViewContext{
+			getSessionFn: func(view.View, view.Identity, ...view.View) (view.Session, error) {
+				return &mockSession{recv: newRecv()}, nil
+			},
+		}
+		_, err := srv.Call(ctx)
+		require.EqualError(t, err, "session receive channel is closed")
 	})
 
 	t.Run("unmarshal error", func(t *testing.T) {
@@ -440,7 +474,14 @@ func TestReceiveTransactionViews(t *testing.T) {
 		close(ch)
 		ctx := &mockViewContext{session: &mockSession{recv: ch}}
 		_, err := NewReceiveTransactionView().Call(ctx)
-		require.EqualError(t, err, "remote error")
+		require.EqualError(t, err, "received error from remote [remote error]")
+	})
+
+	t.Run("receiveTransactionView closed channel", func(t *testing.T) {
+		t.Parallel()
+		ctx := &mockViewContext{session: &mockSession{recv: newRecv()}}
+		_, err := NewReceiveTransactionView().Call(ctx)
+		require.EqualError(t, err, "session receive channel is closed")
 	})
 
 	t.Run("receiveTransactionFromView get session error", func(t *testing.T) {
@@ -468,7 +509,7 @@ func TestReceiveTransactionViews(t *testing.T) {
 			},
 		}
 		_, err := NewReceiveTransactionFromView(view.Identity("bob")).Call(ctx)
-		require.EqualError(t, err, "remote error")
+		require.EqualError(t, err, "received error from remote [remote error]")
 		require.Equal(t, view.Identity("bob"), party)
 	})
 }

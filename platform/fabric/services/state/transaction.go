@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -134,33 +135,22 @@ func ReceiveTransactionFrom(viewCtx view.Context, party view.Identity) (*Transac
 
 func (f *receiveTransactionView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a transaction back
-	var ch <-chan *view.Message
+	var session view.Session
 	if f.party.IsNone() {
-		ch = viewCtx.Session().Receive()
+		session = viewCtx.Session()
 	} else {
-		s, err := viewCtx.GetSession(viewCtx.Initiator(), f.party, f)
+		var err error
+		session, err = viewCtx.GetSession(viewCtx.Initiator(), f.party, f)
 		if err != nil {
 			return nil, err
 		}
-		ch = s.Receive()
 	}
 
-	timeout := time.NewTimer(time.Second * 10)
-	defer timeout.Stop()
-
-	select {
-	case msg := <-ch:
-		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
-		}
-		tx, err := NewTransactionFromBytes(viewCtx, msg.Payload)
-		if err != nil {
-			return nil, err
-		}
-		return tx, nil
-	case <-timeout.C:
-		return nil, errors.New("timeout reached")
+	payload, err := session2.ReadMessageWithTimeout(session, 10*time.Second)
+	if err != nil {
+		return nil, err
 	}
+	return NewTransactionFromBytes(viewCtx, payload)
 }
 
 type sendTransactionView struct {

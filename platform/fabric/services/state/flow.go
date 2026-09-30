@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -23,29 +24,18 @@ func NewReceiveView(state any) *receiveView {
 }
 
 func (s receiveView) Call(viewCtx view.Context) (any, error) {
-	session := viewCtx.Session()
-
 	// Wait to receive a state
-	ch := session.Receive()
-
-	timeout := time.NewTimer(time.Second * 30)
-	defer timeout.Stop()
-
-	select {
-	case msg := <-ch:
-		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
-		}
-
-		err := s.unmarshaller.Unmarshal(msg.Payload, s.state)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed setting state from bytes")
-		}
-
-		return s.state, nil
-	case <-timeout.C:
-		return nil, errors.New("timeout reading from session")
+	payload, err := session2.ReadMessageWithTimeout(viewCtx.Session(), 30*time.Second)
+	if err != nil {
+		return nil, err
 	}
+
+	err = s.unmarshaller.Unmarshal(payload, s.state)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed setting state from bytes")
+	}
+
+	return s.state, nil
 }
 
 type payloadReceiveView struct{}
@@ -56,20 +46,7 @@ func NewPayloadReceiveView() *payloadReceiveView {
 
 func (payloadReceiveView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a state
-	ch := viewCtx.Session().Receive()
-
-	timeout := time.NewTimer(time.Second * 30)
-	defer timeout.Stop()
-
-	select {
-	case msg := <-ch:
-		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
-		}
-		return msg.Payload, nil
-	case <-timeout.C:
-		return nil, errors.New("timeout reading from session")
-	}
+	return session2.ReadMessageWithTimeout(viewCtx.Session(), 30*time.Second)
 }
 
 type sendReceiveView struct {
@@ -84,8 +61,6 @@ func (s *sendReceiveView) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Wait to receive a content back
-	ch := session.Receive()
 
 	// Send a state
 	sendStateRaw, err := s.coded.Marshal(s.sendState)
@@ -97,24 +72,17 @@ func (s *sendReceiveView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	timeout := time.NewTimer(time.Second * 30)
-	defer timeout.Stop()
-
 	// Receive another state
-	select {
-	case msg := <-ch:
-		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
-		}
-
-		err = s.coded.Unmarshal(msg.Payload, s.receiveState)
-		if err != nil {
-			return nil, err
-		}
-		return s.receiveState, nil
-	case <-timeout.C:
-		return nil, errors.New("timeout reading from session")
+	payload, err := session2.ReadMessageWithTimeout(session, 30*time.Second)
+	if err != nil {
+		return nil, err
 	}
+
+	err = s.coded.Unmarshal(payload, s.receiveState)
+	if err != nil {
+		return nil, err
+	}
+	return s.receiveState, nil
 }
 
 func NewSendReceiveView(sendState, receiveState any, party view.Identity) *sendReceiveView {
