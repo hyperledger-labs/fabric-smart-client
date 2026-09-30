@@ -198,6 +198,47 @@ func TestGetProvider(t *testing.T) {
 	assert.Panics(t, func() {
 		GetProvider(&mockProvider{service: nil})
 	})
+	assert.Panics(t, func() {
+		GetProvider(&mockProvider{service: "not a provider"})
+	})
+}
+
+func TestGetPath(t *testing.T) { //nolint:paralleltest
+	p, err := NewProvider("./testdata")
+	require.NoError(t, err)
+
+	assert.Empty(t, p.GetPath("non.existent"))
+	assert.Equal(t, filepath.Join(filepath.Dir(p.ConfigFileUsed()), "file.name"), p.GetPath("path.relative"))
+}
+
+func TestInvalidYAML(t *testing.T) { //nolint:paralleltest
+	raw := []byte("a: [unclosed")
+
+	p, err := NewProvider("./testdata")
+	require.NoError(t, err)
+	require.Error(t, p.MergeConfig(raw))
+
+	_, err = p.ProvideFromRaw(raw)
+	require.ErrorContains(t, err, "failed to read configuration from raw")
+}
+
+func TestConfigPathEnv(t *testing.T) { //nolint:paralleltest
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte("fsc:\n  id: from-env\n"), 0o600))
+
+	t.Setenv("FSCNODE_CFG_PATH", dir)
+	p, err := NewProvider("")
+	require.NoError(t, err)
+	assert.Equal(t, "from-env", p.ID())
+
+	missing := filepath.Join(dir, "missing")
+	t.Setenv("FSCNODE_CFG_PATH", missing)
+	_, err = NewProvider("")
+	require.ErrorContains(t, err, "FSCNODE_CFG_PATH "+missing+" does not exist")
+
+	t.Setenv("FSCNODE_CFG_PATH", filepath.Join(dir, "core.yaml"))
+	_, err = NewProvider("")
+	require.ErrorContains(t, err, "does not exist")
 }
 
 func TestProviderMore(t *testing.T) { //nolint:paralleltest
