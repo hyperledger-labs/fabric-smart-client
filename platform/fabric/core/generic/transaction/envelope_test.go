@@ -27,87 +27,68 @@ func createValidEnvelope(tb testing.TB) *common.Envelope { //nolint:unparam
 // arguments" case a malicious peer could send.
 func createEnvelopeWithArgs(tb testing.TB, args [][]byte) *common.Envelope {
 	tb.Helper()
+	return &common.Envelope{Payload: buildEnvelopePayload(tb, func(m *envelopeMsgs) {
+		m.cis.ChaincodeSpec.Input.Args = args
+	})}
+}
 
-	channelHeader := &common.ChannelHeader{
-		Type:      int32(common.HeaderType_ENDORSER_TRANSACTION),
-		TxId:      "txid",
-		ChannelId: "channel",
-	}
-	chBytes, err := proto.Marshal(channelHeader)
-	require.NoError(tb, err)
+// envelopeMsgs holds the layers of an endorser transaction envelope payload.
+type envelopeMsgs struct {
+	chdr          *common.ChannelHeader
+	shdr          *common.SignatureHeader
+	cis           *peer.ChaincodeInvocationSpec
+	cpp           *peer.ChaincodeProposalPayload
+	ccAction      *peer.ChaincodeAction
+	prp           *peer.ProposalResponsePayload
+	actionPayload *peer.ChaincodeActionPayload
+	tx            *peer.Transaction
+	payload       *common.Payload
+}
 
-	signatureHeader := &common.SignatureHeader{
-		Creator: []byte("creator"),
-		Nonce:   []byte("nonce"),
+// buildEnvelopePayload marshals a valid envelope payload. Each layer is marshaled into
+// the byte field of its parent unless mutate already set that field, so a test can
+// replace, empty or drop a single layer.
+func buildEnvelopePayload(tb testing.TB, mutate func(*envelopeMsgs)) []byte {
+	tb.Helper()
+	m := &envelopeMsgs{
+		chdr: &common.ChannelHeader{Type: int32(common.HeaderType_ENDORSER_TRANSACTION), TxId: "txid", ChannelId: "channel"},
+		shdr: &common.SignatureHeader{Creator: []byte("creator"), Nonce: []byte("nonce")},
+		cis: &peer.ChaincodeInvocationSpec{ChaincodeSpec: &peer.ChaincodeSpec{
+			ChaincodeId: &peer.ChaincodeID{Name: "mycc", Version: "1.0"},
+			Input:       &peer.ChaincodeInput{Args: [][]byte{[]byte("invoke"), []byte("arg1")}},
+		}},
+		cpp:      &peer.ChaincodeProposalPayload{},
+		ccAction: &peer.ChaincodeAction{Results: []byte("results")},
+		prp:      &peer.ProposalResponsePayload{},
+		actionPayload: &peer.ChaincodeActionPayload{Action: &peer.ChaincodeEndorsedAction{
+			Endorsements: []*peer.Endorsement{{Endorser: []byte("endorser1"), Signature: []byte("sig1")}},
+		}},
+		tx:      &peer.Transaction{Actions: []*peer.TransactionAction{{}}},
+		payload: &common.Payload{Header: &common.Header{}},
 	}
-	shBytes, err := proto.Marshal(signatureHeader)
-	require.NoError(tb, err)
+	if mutate != nil {
+		mutate(m)
+	}
+	fillBytes(tb, &m.cpp.Input, m.cis)
+	fillBytes(tb, &m.prp.Extension, m.ccAction)
+	fillBytes(tb, &m.actionPayload.ChaincodeProposalPayload, m.cpp)
+	if m.actionPayload.Action != nil {
+		fillBytes(tb, &m.actionPayload.Action.ProposalResponsePayload, m.prp)
+	}
+	if len(m.tx.Actions) != 0 {
+		fillBytes(tb, &m.tx.Actions[0].Payload, m.actionPayload)
+	}
+	fillBytes(tb, &m.payload.Header.ChannelHeader, m.chdr)
+	fillBytes(tb, &m.payload.Header.SignatureHeader, m.shdr)
+	fillBytes(tb, &m.payload.Data, m.tx)
+	return mustMarshal(tb, m.payload)
+}
 
-	ccAction := &peer.ChaincodeAction{
-		Results: []byte("results"),
-	}
-	ccActionBytes, err := proto.Marshal(ccAction)
-	require.NoError(tb, err)
-
-	prp := &peer.ProposalResponsePayload{
-		Extension: ccActionBytes,
-	}
-	prpBytes, err := proto.Marshal(prp)
-	require.NoError(tb, err)
-
-	cis := &peer.ChaincodeInvocationSpec{
-		ChaincodeSpec: &peer.ChaincodeSpec{
-			ChaincodeId: &peer.ChaincodeID{
-				Name:    "mycc",
-				Version: "1.0",
-			},
-			Input: &peer.ChaincodeInput{
-				Args: args,
-			},
-		},
-	}
-	cisBytes, err := proto.Marshal(cis)
-	require.NoError(tb, err)
-
-	cpp := &peer.ChaincodeProposalPayload{
-		Input: cisBytes,
-	}
-	cppBytes, err := proto.Marshal(cpp)
-	require.NoError(tb, err)
-
-	actionPayload := &peer.ChaincodeActionPayload{
-		ChaincodeProposalPayload: cppBytes,
-		Action: &peer.ChaincodeEndorsedAction{
-			ProposalResponsePayload: prpBytes,
-			Endorsements: []*peer.Endorsement{
-				{Endorser: []byte("endorser1"), Signature: []byte("sig1")},
-			},
-		},
-	}
-	capBytes, err := proto.Marshal(actionPayload)
-	require.NoError(tb, err)
-
-	txAction := &peer.TransactionAction{
-		Payload: capBytes,
-	}
-	tx := &peer.Transaction{
-		Actions: []*peer.TransactionAction{txAction},
-	}
-	txBytes, err := proto.Marshal(tx)
-	require.NoError(tb, err)
-
-	payload := &common.Payload{
-		Header: &common.Header{
-			ChannelHeader:   chBytes,
-			SignatureHeader: shBytes,
-		},
-		Data: txBytes,
-	}
-	payloadBytes, err := proto.Marshal(payload)
-	require.NoError(tb, err)
-
-	return &common.Envelope{
-		Payload: payloadBytes,
+// fillBytes marshals msg into dst unless dst is already set.
+func fillBytes(tb testing.TB, dst *[]byte, msg proto.Message) {
+	tb.Helper()
+	if *dst == nil {
+		*dst = mustMarshal(tb, msg)
 	}
 }
 
@@ -261,4 +242,142 @@ func TestEnvelope_Errors(t *testing.T) {
 
 	_, err = transaction.GetChannelHeaderType([]byte("invalid bytes"))
 	require.Error(t, err)
+}
+
+func TestUnpackEnvelopePayload_MalformedInput(t *testing.T) {
+	t.Parallel()
+	malformed := []byte("invalid")
+	endorserTx := int32(common.HeaderType_ENDORSER_TRANSACTION)
+	tests := []struct {
+		name     string
+		mutate   func(*envelopeMsgs)
+		wantType int32
+		wantErr  string
+	}{
+		{
+			name:     "bad channel header",
+			mutate:   func(m *envelopeMsgs) { m.payload.Header.ChannelHeader = malformed },
+			wantType: -1,
+			wantErr:  "failed to unmarshal channel header",
+		},
+		{
+			name:     "non-endorser header type",
+			mutate:   func(m *envelopeMsgs) { m.chdr.Type = int32(common.HeaderType_CONFIG) },
+			wantType: int32(common.HeaderType_CONFIG),
+			wantErr:  "only EndorserClient Transactions are supported, provided type 1",
+		},
+		{
+			name:     "bad signature header",
+			mutate:   func(m *envelopeMsgs) { m.payload.Header.SignatureHeader = malformed },
+			wantType: endorserTx,
+			wantErr:  "failed to unmarshal signature header",
+		},
+		{
+			name:     "bad transaction",
+			mutate:   func(m *envelopeMsgs) { m.payload.Data = malformed },
+			wantType: endorserTx,
+			wantErr:  "VSCC error: GetTransaction failed",
+		},
+		{
+			name:     "no actions",
+			mutate:   func(m *envelopeMsgs) { m.tx.Actions = nil },
+			wantType: endorserTx,
+			wantErr:  "VSCC error: transaction has no actions",
+		},
+		{
+			name:     "bad action payload",
+			mutate:   func(m *envelopeMsgs) { m.tx.Actions[0].Payload = malformed },
+			wantType: endorserTx,
+			wantErr:  "VSCC error: GetChaincodeActionPayload failed",
+		},
+		{
+			name:     "bad chaincode proposal payload",
+			mutate:   func(m *envelopeMsgs) { m.actionPayload.ChaincodeProposalPayload = malformed },
+			wantType: endorserTx,
+			wantErr:  "VSCC error: GetChaincodeProposalPayload failed",
+		},
+		{
+			name:     "bad invocation spec",
+			mutate:   func(m *envelopeMsgs) { m.cpp.Input = malformed },
+			wantType: endorserTx,
+			wantErr:  "VSCC error: UnmarshalChaincodeInvocationSpec failed",
+		},
+		{
+			name:     "nil chaincode spec",
+			mutate:   func(m *envelopeMsgs) { m.cis.ChaincodeSpec = nil },
+			wantType: endorserTx,
+			wantErr:  "chaincode invocation spec did not contain chaincode spec",
+		},
+		{
+			name:     "nil input",
+			mutate:   func(m *envelopeMsgs) { m.cis.ChaincodeSpec.Input = nil },
+			wantType: endorserTx,
+			wantErr:  "chaincode input did not contain any input",
+		},
+		{
+			name:     "nil chaincode id",
+			mutate:   func(m *envelopeMsgs) { m.cis.ChaincodeSpec.ChaincodeId = nil },
+			wantType: endorserTx,
+			wantErr:  "chaincode invocation spec did not contain chaincode id",
+		},
+		{
+			name:     "nil action",
+			mutate:   func(m *envelopeMsgs) { m.actionPayload.Action = nil },
+			wantType: endorserTx,
+			wantErr:  "VSCC error: chaincode action payload has no action",
+		},
+		{
+			name:     "bad proposal response payload",
+			mutate:   func(m *envelopeMsgs) { m.actionPayload.Action.ProposalResponsePayload = malformed },
+			wantType: endorserTx,
+			wantErr:  "failed to unmarshal proposal response payload",
+		},
+		{
+			name:     "nil extension",
+			mutate:   func(m *envelopeMsgs) { m.prp.Extension = []byte{} },
+			wantType: endorserTx,
+			wantErr:  "nil pRespPayload.Extension",
+		},
+		{
+			name:     "bad chaincode action",
+			mutate:   func(m *envelopeMsgs) { m.prp.Extension = malformed },
+			wantType: endorserTx,
+			wantErr:  "failed to unmarshal chaincode action",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			payload := buildEnvelopePayload(t, tc.mutate)
+
+			var (
+				upe *transaction.UnpackedEnvelope
+				ht  int32
+				err error
+			)
+			require.NotPanics(t, func() { upe, ht, err = transaction.UnpackEnvelopePayload(payload) })
+			require.ErrorContains(t, err, tc.wantErr)
+			require.Nil(t, upe)
+			require.Equal(t, tc.wantType, ht)
+		})
+	}
+}
+
+func TestGetChannelHeaderType_MalformedInput(t *testing.T) {
+	t.Parallel()
+	malformed := []byte("invalid")
+
+	_, err := transaction.GetChannelHeaderType(mustMarshal(t, &common.Envelope{Payload: malformed}))
+	require.ErrorContains(t, err, "failed to unmarshal payload")
+
+	payload := buildEnvelopePayload(t, func(m *envelopeMsgs) { m.payload.Header.ChannelHeader = malformed })
+	_, err = transaction.GetChannelHeaderType(mustMarshal(t, &common.Envelope{Payload: payload}))
+	require.ErrorContains(t, err, "failed to unmarshal channel header")
+}
+
+func TestEnvelope_FromBytesUndecodablePayload(t *testing.T) {
+	t.Parallel()
+	e := transaction.NewEnvelope()
+	err := e.FromBytes(mustMarshal(t, &common.Envelope{Payload: []byte("invalid")}))
+	require.ErrorContains(t, err, "failed to unmarshal payload")
 }

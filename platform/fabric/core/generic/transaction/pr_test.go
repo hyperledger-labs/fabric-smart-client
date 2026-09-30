@@ -168,3 +168,29 @@ func TestProposalResponseNilEndorsementAndResponse(t *testing.T) {
 type contextError string
 
 func (e contextError) Error() string { return string(e) }
+
+func TestNewProposalResponseFromResponse_EmptyPayloadFields(t *testing.T) {
+	t.Parallel()
+	withExtension := func(t *testing.T, ext []byte) *peer.ProposalResponse {
+		t.Helper()
+		pr := createValidProposalResponse(t)
+		pr.Payload = mustMarshal(t, &peer.ProposalResponsePayload{Extension: ext})
+		return pr
+	}
+	tests := []struct {
+		name    string
+		ext     []byte
+		wantErr string
+	}{
+		{name: "no extension", ext: nil, wantErr: "empty pRespPayload.Extension"},
+		{name: "no results", ext: mustMarshal(t, &peer.ChaincodeAction{Response: &peer.Response{Status: 200}}), wantErr: "empty results"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			pr, err := transaction.NewProposalResponseFromResponse(withExtension(t, tc.ext))
+			require.EqualError(t, err, tc.wantErr)
+			require.Nil(t, pr)
+		})
+	}
+}

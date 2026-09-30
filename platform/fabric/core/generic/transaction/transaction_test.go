@@ -8,6 +8,7 @@ package transaction_test
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -18,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -748,4 +750,454 @@ func TestTransaction_ProposalHasBeenEndorsedByWithoutSignedProposal(t *testing.T
 	require.NotPanics(t, func() { err = tx.ProposalHasBeenEndorsedBy([]byte("endorser")) })
 	require.ErrorContains(t, err, "transaction [txID=txid] has no signed proposal")
 	require.Equal(t, 0, mockMembership.GetVerifierCallCount())
+}
+
+// endorsableTx is a transaction wired to mocks that let it endorse itself.
+type endorsableTx struct {
+	tx         *transaction.Transaction
+	provider   *mock.ChannelProvider
+	channel    *mock.Channel
+	vault      *mock.Vault
+	rwset      *mock.RWSet
+	metadata   *mock.MetadataService
+	chaincode  *mock.Chaincode
+	membership *mock.ChannelMembership
+	sigService *mock.SignerService
+	signer     *mock.Signer
+}
+
+func newEndorsableTx(t *testing.T) *endorsableTx {
+	t.Helper()
+	f := &endorsableTx{
+		provider:   &mock.ChannelProvider{},
+		channel:    &mock.Channel{},
+		vault:      &mock.Vault{},
+		rwset:      &mock.RWSet{},
+		metadata:   &mock.MetadataService{},
+		chaincode:  &mock.Chaincode{},
+		membership: &mock.ChannelMembership{},
+		sigService: &mock.SignerService{},
+		signer:     &mock.Signer{},
+	}
+	f.rwset.BytesReturns([]byte("rwset-bytes"), nil)
+	f.vault.NewRWSetReturns(f.rwset, nil)
+	f.vault.NewRWSetFromBytesReturns(f.rwset, nil)
+	chaincodeManager := &mock.ChaincodeManager{}
+	chaincodeManager.ChaincodeReturns(f.chaincode)
+	f.channel.VaultReturns(f.vault)
+	f.channel.MetadataServiceReturns(f.metadata)
+	f.channel.ChaincodeManagerReturns(chaincodeManager)
+	f.channel.ChannelMembershipReturns(f.membership)
+	f.provider.ChannelReturns(f.channel, nil)
+	f.signer.SignReturns([]byte("sig"), nil)
+	f.sigService.GetSignerReturns(f.signer, nil)
+
+	factory := transaction.NewEndorserTransactionFactory("network", f.provider, f.sigService)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	require.NoError(t, err)
+	f.tx = tx.(*transaction.Transaction)
+	f.tx.SetProposal("mycc", "1.0", "invoke", "a1")
+	return f
+}
+
+func TestTransaction_EndorseWithIdentitySelfEndorses(t *testing.T) {
+	t.Parallel()
+	f := newEndorsableTx(t)
+	id := view.Identity("endorser")
+	require.NoError(t, f.tx.SetRWSet())
+
+	require.NoError(t, f.tx.EndorseWithIdentity(id))
+
+	require.Len(t, f.tx.TProposalResponses, 1)
+	pr := f.tx.TProposalResponses[0]
+	require.Equal(t, []byte(id), pr.Endorsement.Endorser)
+	require.Equal(t, []byte("sig"), pr.Endorsement.Signature)
+	require.Equal(t, 2, f.signer.SignCallCount())
+	require.Equal(t, slices.Concat(pr.Payload, []byte(id)), f.signer.SignArgsForCall(1))
+	results, err := f.tx.Results()
+	require.NoError(t, err)
+	require.Equal(t, []byte("rwset-bytes"), results)
+	require.Equal(t, 1, f.rwset.DoneCallCount())
+	require.Nil(t, f.tx.RWS())
+	require.Equal(t, 1, f.metadata.StoreTransientCallCount())
+
+	// A second endorsement by the same identity is not recorded twice.
+	require.NoError(t, f.tx.EndorseWithIdentity(id))
+	require.Len(t, f.tx.TProposalResponses, 1)
+}
+
+func TestTransaction_EndorseWithIdentityReusesSignedProposal(t *testing.T) {
+	t.Parallel()
+	f := newEndorsableTx(t)
+	id := view.Identity("endorser")
+	require.NoError(t, f.tx.EndorseProposalWithIdentity(id))
+	sp := f.tx.TSignedProposal
+	require.Equal(t, 1, f.signer.SignCallCount())
+
+	require.NoError(t, f.tx.SetRWSet())
+	require.NoError(t, f.tx.EndorseWithIdentity(id))
+
+	require.Same(t, sp, f.tx.TSignedProposal)
+	require.Equal(t, 2, f.signer.SignCallCount())
+	require.Len(t, f.tx.TProposalResponses, 1)
+}
+
+func TestTransaction_EndorseErrors(t *testing.T) {
+	t.Parallel()
+	endorsers := map[string]func(f *endorsableTx) error{
+		"EndorseWithIdentity": func(f *endorsableTx) error { return f.tx.EndorseWithIdentity([]byte("endorser")) },
+		"EndorseWithSigner":   func(f *endorsableTx) error { return f.tx.EndorseWithSigner([]byte("endorser"), f.signer) },
+	}
+	tests := []struct {
+		name    string
+		mutate  func(f *endorsableTx)
+		wantErr string
+	}{
+		{
+			name: "rws cannot be loaded",
+			mutate: func(f *endorsableTx) {
+				f.tx.RWSet = []byte("rws")
+				f.vault.NewRWSetFromBytesReturns(nil, errors.New("vault down"))
+			},
+			wantErr: "failed getting proposal response",
+		},
+		{
+			name:    "proposal cannot be signed",
+			mutate:  func(f *endorsableTx) { f.signer.SignReturns(nil, errors.New("hsm down")) },
+			wantErr: "failed setting proposal",
+		},
+		{
+			name: "proposal response cannot be signed",
+			mutate: func(f *endorsableTx) {
+				f.tx.RWSet = []byte("rws")
+				f.signer.SignReturnsOnCall(1, nil, errors.New("hsm down"))
+			},
+			wantErr: "could not sign the proposal response payload",
+		},
+		{
+			name:    "transient cannot be stored",
+			mutate:  func(f *endorsableTx) { f.metadata.StoreTransientReturns(errors.New("db down")) },
+			wantErr: "failed storing transient",
+		},
+	}
+	for name, endorse := range endorsers {
+		for _, tc := range tests {
+			t.Run(name+"/"+tc.name, func(t *testing.T) {
+				t.Parallel()
+				f := newEndorsableTx(t)
+				tc.mutate(f)
+				require.ErrorContains(t, endorse(f), tc.wantErr)
+			})
+		}
+	}
+}
+
+func TestTransaction_EndorseChaincodeVersion(t *testing.T) {
+	t.Parallel()
+	endorse := func(t *testing.T, f *endorsableTx) error {
+		t.Helper()
+		require.NoError(t, f.tx.SetRWSet())
+		return f.tx.EndorseWithIdentity([]byte("endorser"))
+	}
+	version := func(t *testing.T, f *endorsableTx) string {
+		t.Helper()
+		upr, err := transaction.UnpackProposalResponse(f.tx.TProposalResponses[0])
+		require.NoError(t, err)
+		require.Equal(t, "mycc", upr.ChaincodeAction.ChaincodeId.Name)
+		return upr.ChaincodeAction.ChaincodeId.Version
+	}
+
+	t.Run("missing version is fetched from the chaincode", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		f.tx.SetProposal("mycc", "", "invoke")
+		f.chaincode.VersionReturns("2.0", nil)
+
+		require.NoError(t, endorse(t, f))
+		require.Equal(t, "2.0", version(t, f))
+		require.Equal(t, "mycc", f.channel.ChaincodeManager().(*mock.ChaincodeManager).ChaincodeArgsForCall(0))
+	})
+
+	t.Run("missing version cannot be fetched", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		f.tx.SetProposal("mycc", "", "invoke")
+		f.chaincode.VersionReturns("", errors.New("not installed"))
+
+		require.ErrorContains(t, endorse(t, f), "failed to get chaincode version, proposal didn't contain it")
+	})
+
+	t.Run("version set in the proposal", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+
+		require.NoError(t, endorse(t, f))
+		require.Equal(t, "1.0", version(t, f))
+		require.Equal(t, 0, f.chaincode.VersionCallCount())
+	})
+}
+
+func TestTransaction_EndorseProposalErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("response without a signed proposal", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		require.EqualError(t, f.tx.EndorseProposalResponseWithIdentity([]byte("endorser")), "signed proposal is nil")
+	})
+
+	t.Run("signer not found", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		signerErr := errors.New("unknown identity")
+		f.sigService.GetSignerReturns(nil, signerErr)
+		require.ErrorIs(t, f.tx.EndorseProposalWithIdentity([]byte("endorser")), signerErr)
+		require.ErrorIs(t, f.tx.EndorseProposalResponseWithIdentity([]byte("endorser")), signerErr)
+	})
+
+	t.Run("proposal cannot be signed", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		signErr := errors.New("hsm down")
+		f.signer.SignReturns(nil, signErr)
+		require.ErrorIs(t, f.tx.EndorseProposalWithIdentity([]byte("endorser")), signErr)
+		require.Nil(t, f.tx.SignedProposal())
+	})
+}
+
+func TestTransaction_EnvelopeRoundTrip(t *testing.T) {
+	t.Parallel()
+	f := newEndorsableTx(t)
+	require.NoError(t, f.tx.SetRWSet())
+	require.NoError(t, f.tx.EndorseWithIdentity([]byte("endorser")))
+
+	env, err := f.tx.Envelope()
+	require.NoError(t, err)
+	raw, err := env.Bytes()
+	require.NoError(t, err)
+
+	upe, headerType, err := transaction.UnpackEnvelopeFromBytes(raw)
+	require.NoError(t, err)
+	require.Equal(t, int32(common.HeaderType_ENDORSER_TRANSACTION), headerType)
+	require.Equal(t, "txid", upe.TxID)
+	require.Equal(t, "channel", upe.Ch)
+	require.Equal(t, "mycc", upe.ChaincodeName)
+	require.Equal(t, "1.0", upe.ChaincodeVersion)
+	require.Equal(t, "invoke", upe.Function)
+	require.Equal(t, []string{"a1"}, upe.Args)
+	require.Equal(t, []byte("rwset-bytes"), upe.Results)
+	require.Len(t, upe.ProposalResponses, 1)
+}
+
+func TestTransaction_SetRWSetSources(t *testing.T) {
+	t.Parallel()
+	vaultErr := errors.New("vault down")
+	tests := []struct {
+		name      string
+		mutate    func(t *testing.T, f *endorsableTx)
+		wantBytes []byte
+		wantErr   string
+		wantCause error
+	}{
+		{
+			name:      "from the stored rws",
+			mutate:    func(_ *testing.T, f *endorsableTx) { f.tx.RWSet = []byte("rws") },
+			wantBytes: []byte("rws"),
+		},
+		{
+			name: "stored rws cannot be loaded",
+			mutate: func(_ *testing.T, f *endorsableTx) {
+				f.tx.RWSet = []byte("rws")
+				f.vault.NewRWSetFromBytesReturns(nil, vaultErr)
+			},
+			wantErr:   "failed to populate rws from existing rws",
+			wantCause: vaultErr,
+		},
+		{
+			name: "from the proposal response",
+			mutate: func(t *testing.T, f *endorsableTx) {
+				t.Helper()
+				f.tx.RWSet = []byte("rws")
+				f.tx.TProposalResponses = []*pb.ProposalResponse{createValidProposalResponse(t)}
+			},
+			wantBytes: []byte("results"),
+		},
+		{
+			name: "proposal response rws cannot be loaded",
+			mutate: func(t *testing.T, f *endorsableTx) {
+				t.Helper()
+				f.tx.TProposalResponses = []*pb.ProposalResponse{createValidProposalResponse(t)}
+				f.vault.NewRWSetFromBytesReturns(nil, vaultErr)
+			},
+			wantErr:   "failed to populate rws from proposal response",
+			wantCause: vaultErr,
+		},
+		{
+			name: "proposal response cannot be decoded",
+			mutate: func(_ *testing.T, f *endorsableTx) {
+				f.tx.TProposalResponses = []*pb.ProposalResponse{{Payload: []byte("invalid")}}
+			},
+			wantErr: "failed to get rws from proposal response",
+		},
+		{
+			name:      "fresh rws cannot be created",
+			mutate:    func(_ *testing.T, f *endorsableTx) { f.vault.NewRWSetReturns(nil, vaultErr) },
+			wantErr:   "failed to create fresh rws",
+			wantCause: vaultErr,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := newEndorsableTx(t)
+			tc.mutate(t, f)
+
+			err := f.tx.SetRWSet()
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				if tc.wantCause != nil {
+					require.ErrorIs(t, err, tc.wantCause)
+				}
+				require.Nil(t, f.tx.RWS())
+				return
+			}
+			require.NoError(t, err)
+			require.Same(t, f.rwset, f.tx.RWS())
+			require.Equal(t, 1, f.vault.NewRWSetFromBytesCallCount())
+			_, txID, raw := f.vault.NewRWSetFromBytesArgsForCall(0)
+			require.Equal(t, "txid", txID)
+			require.Equal(t, tc.wantBytes, raw)
+		})
+	}
+}
+
+func TestTransaction_SerializeActiveRWSet(t *testing.T) {
+	t.Parallel()
+
+	t.Run("raw keeps the simulation open", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		require.NoError(t, f.tx.SetRWSet())
+
+		raw, err := f.tx.Raw()
+		require.NoError(t, err)
+		decoded := &transaction.Transaction{}
+		require.NoError(t, json.Unmarshal(raw, decoded))
+		require.Equal(t, []byte("rwset-bytes"), decoded.RWSet)
+		require.Equal(t, 0, f.rwset.DoneCallCount())
+	})
+
+	serializers := map[string]func(tx *transaction.Transaction) error{
+		"Raw":              func(tx *transaction.Transaction) error { _, err := tx.Raw(); return err },
+		"Bytes":            func(tx *transaction.Transaction) error { _, err := tx.Bytes(); return err },
+		"BytesNoTransient": func(tx *transaction.Transaction) error { _, err := tx.BytesNoTransient(); return err },
+		"Done":             func(tx *transaction.Transaction) error { return tx.Done() },
+	}
+	for name, serialize := range serializers {
+		t.Run(name+" surfaces rws marshalling errors", func(t *testing.T) {
+			t.Parallel()
+			f := newEndorsableTx(t)
+			require.NoError(t, f.tx.SetRWSet())
+			bytesErr := errors.New("marshal failed")
+			f.rwset.BytesReturns(nil, bytesErr)
+
+			require.ErrorIs(t, serialize(f.tx), bytesErr)
+		})
+	}
+}
+
+func TestTransaction_BytesNoTransient(t *testing.T) {
+	t.Parallel()
+
+	t.Run("drops the transient only", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		f.tx.TTransient = map[string][]byte{"k": []byte("v")}
+		require.NoError(t, f.tx.EndorseProposalWithIdentity([]byte("creator")))
+
+		raw, err := f.tx.BytesNoTransient()
+		require.NoError(t, err)
+		decoded := &transaction.Transaction{}
+		require.NoError(t, json.Unmarshal(raw, decoded))
+		require.Empty(t, decoded.TTransient)
+		require.True(t, proto.Equal(f.tx.TSignedProposal, decoded.TSignedProposal))
+		require.Equal(t, []byte("v"), f.tx.TTransient["k"])
+	})
+
+	t.Run("undecodable signed proposal", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		f.tx.TSignedProposal = &pb.SignedProposal{ProposalBytes: []byte("invalid")}
+
+		_, err := f.tx.BytesNoTransient()
+		require.ErrorContains(t, err, "error unmarshalling Proposal")
+	})
+}
+
+type foreignProposalResponse struct {
+	driver.ProposalResponse
+}
+
+func TestTransaction_RejectsForeignInput(t *testing.T) {
+	t.Parallel()
+
+	t.Run("From another transaction type", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		require.ErrorContains(t, f.tx.From(&mock.Transaction{}), "unexpected transaction type [*mock.Transaction]")
+	})
+
+	t.Run("From an undecodable signed proposal", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		src := &transaction.Transaction{TSignedProposal: &pb.SignedProposal{ProposalBytes: []byte("invalid")}}
+		require.ErrorContains(t, f.tx.From(src), "error unmarshalling Proposal")
+	})
+
+	t.Run("AppendProposalResponse of another type", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		err := f.tx.AppendProposalResponse(foreignProposalResponse{})
+		require.ErrorContains(t, err, "unexpected proposal response type [transaction_test.foreignProposalResponse]")
+		require.Empty(t, f.tx.TProposalResponses)
+	})
+
+	t.Run("Results of an undecodable response", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		f.tx.TProposalResponses = []*pb.ProposalResponse{{Payload: []byte("invalid")}}
+		_, err := f.tx.Results()
+		require.ErrorContains(t, err, "error unmarshalling ProposalResponsePayload")
+	})
+
+	t.Run("NewProcessedTransaction with an undecodable envelope payload", func(t *testing.T) {
+		t.Parallel()
+		raw := mustMarshal(t, &pb.ProcessedTransaction{TransactionEnvelope: &common.Envelope{Payload: []byte("invalid")}})
+		pt, err := transaction.NewProcessedTransaction(raw)
+		require.Error(t, err)
+		require.Nil(t, pt)
+	})
+}
+
+func TestTransaction_ChannelErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ProposalHasBeenEndorsedBy without a verifier", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		require.NoError(t, f.tx.EndorseProposal())
+		verifierErr := errors.New("unknown party")
+		f.membership.GetVerifierReturns(nil, verifierErr)
+
+		require.ErrorIs(t, f.tx.ProposalHasBeenEndorsedBy([]byte("endorser")), verifierErr)
+	})
+
+	t.Run("SetFromEnvelopeBytes without a channel", func(t *testing.T) {
+		t.Parallel()
+		f := newEndorsableTx(t)
+		channelErr := errors.New("unknown channel")
+		f.provider.ChannelReturns(nil, channelErr)
+
+		require.ErrorIs(t, f.tx.SetFromEnvelopeBytes(mustMarshal(t, createValidEnvelope(t))), channelErr)
+	})
 }
