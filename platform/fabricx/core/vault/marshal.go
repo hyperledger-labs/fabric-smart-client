@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -185,7 +186,7 @@ func sortedKeys[V any](m map[string]V) []string {
 // If namespaces are specified, only those namespaces will be included in the result.
 // It also returns the namespace versions carried by the serialized transaction, so a
 // reconstructed RWSet re-serializes to the versions it arrived with.
-// Returns an error if deserialization fails.
+// Returns an error if deserialization fails; see Append for what counts as malformed.
 func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.ReadWriteSet, map[driver.Namespace]driver.RawVersion, error) {
 	rws := vault.EmptyRWSet()
 	nsVersions, err := m.Append(&rws, raw, namespaces...)
@@ -204,10 +205,23 @@ func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.Re
 // transaction and re-serializes it must reuse the incoming version rather than resolve a
 // current one.
 //
-// Returns an error if deserialization fails or if adding reads/writes fails.
+// Empty input is the serialization of a transaction without namespaces and yields no
+// reads or writes. Input that decodes to fields the applicationpb.Tx schema does not
+// define, at any depth, is rejected. Protobuf would otherwise skip such fields, so the
+// bytes of an unrelated message would decode as a plausible but wrong transaction, and
+// the ReadWriteSet cannot represent them, so re-serializing it would not reproduce the
+// endorsed bytes. A foreign message whose wire form happens to match the Tx schema is
+// indistinguishable from a transaction and is accepted.
+//
+// Returns an error if deserialization fails, if the input carries unknown fields, or if
+// adding reads/writes fails.
 func (*Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) (map[driver.Namespace]driver.RawVersion, error) {
 	var txIn applicationpb.Tx
-	if err := proto.Unmarshal(raw, &txIn); err != nil {
+	err := proto.Unmarshal(raw, &txIn)
+	if err == nil {
+		err = checkNoUnknownFields(txIn.ProtoReflect())
+	}
+	if err != nil {
 		return nil, errors.Wrapf(err, "unmarshal tx from [len=%d][%s]", len(raw), logging.SHA256Base64(raw))
 	}
 
@@ -284,4 +298,26 @@ func optionalVersion(v *uint64) driver.RawVersion {
 func UnmarshalVersion(raw []byte) uint64 {
 	v, _ := protowire.ConsumeVarint(raw)
 	return v
+}
+
+// checkNoUnknownFields returns an error if m, or any message nested in it, carries fields
+// its schema does not define. Map fields are not traversed; applicationpb.Tx has none.
+func checkNoUnknownFields(m protoreflect.Message) error {
+	if len(m.GetUnknown()) > 0 {
+		return errors.Errorf("unknown fields in %s", m.Descriptor().FullName())
+	}
+	var err error
+	m.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		switch {
+		case fd.IsMap() || fd.Message() == nil:
+		case fd.IsList():
+			for i := 0; i < v.List().Len() && err == nil; i++ {
+				err = checkNoUnknownFields(v.List().Get(i).Message())
+			}
+		default:
+			err = checkNoUnknownFields(v.Message())
+		}
+		return err == nil
+	})
+	return err
 }

@@ -10,7 +10,12 @@ import (
 	"fmt"
 	"testing"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 
 	commonvault "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
@@ -92,5 +97,80 @@ func TestMarshal_Deterministic(t *testing.T) {
 						"this indicates Marshal is not deterministic (likely due to unsorted map iteration)", i, attempts)
 			}
 		})
+	}
+}
+
+// withUnknownField returns m with an unknown varint field appended to its wire form.
+func withUnknownField[M proto.Message](m M) M {
+	m.ProtoReflect().SetUnknown(protowire.AppendVarint(protowire.AppendTag(nil, 99, protowire.VarintType), 1))
+	return m
+}
+
+func TestRWSetFromBytes_RejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+	version := uint64(1)
+	tests := map[string]proto.Message{
+		// Shares no field numbers with applicationpb.Tx.
+		"foreign message": &cb.ChannelHeader{Type: int32(cb.HeaderType_MESSAGE), ChannelId: "ch", TxId: "tx1"},
+		// Field 1 is length-delimited, so the header parses as a TxNamespace; its
+		// signature header is field 2, which TxNamespace declares as a varint.
+		"foreign message with nested field": &cb.Payload{Header: &cb.Header{
+			ChannelHeader:   []byte("ch"),
+			SignatureHeader: []byte("sh"),
+		}},
+		"unknown top-level field": withUnknownField(&applicationpb.Tx{}),
+		"unknown field in a read": &applicationpb.Tx{Namespaces: []*applicationpb.TxNamespace{{
+			NsId:      "ns1",
+			ReadsOnly: []*applicationpb.Read{withUnknownField(&applicationpb.Read{Key: []byte("k"), Version: &version})},
+		}}},
+		"unknown field in an endorsement identity": &applicationpb.Tx{Endorsements: []*applicationpb.Endorsements{{
+			EndorsementsWithIdentity: []*applicationpb.EndorsementWithIdentity{{Identity: withUnknownField(&msppb.Identity{MspId: "org"})}},
+		}}},
+	}
+	for name, msg := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			raw, err := proto.Marshal(msg)
+			require.NoError(t, err)
+			_, _, err = (&vault.Marshaller{}).RWSetFromBytes(raw)
+			require.ErrorContains(t, err, "unmarshal tx from")
+			require.ErrorContains(t, err, "unknown fields in")
+		})
+	}
+}
+
+func TestRWSetFromBytes_AcceptsKnownFields(t *testing.T) {
+	t.Parallel()
+	version := uint64(3)
+	tx := &applicationpb.Tx{
+		Namespaces: []*applicationpb.TxNamespace{{
+			NsId:        "ns1",
+			NsVersion:   1,
+			ReadsOnly:   []*applicationpb.Read{{Key: []byte("r"), Version: &version}},
+			ReadWrites:  []*applicationpb.ReadWrite{{Key: []byte("rw"), Version: &version, Value: []byte("v")}},
+			BlindWrites: []*applicationpb.Write{{Key: []byte("w"), Value: []byte("v")}},
+		}},
+		Endorsements: []*applicationpb.Endorsements{{
+			EndorsementsWithIdentity: []*applicationpb.EndorsementWithIdentity{{
+				Endorsement: []byte("sig"),
+				Identity:    &msppb.Identity{MspId: "org", Creator: &msppb.Identity_Certificate{Certificate: []byte("cert")}},
+			}},
+		}},
+		Metadata: [][]byte{[]byte("meta")},
+	}
+	raw, err := proto.Marshal(tx)
+	require.NoError(t, err)
+	rws, nsVersions, err := (&vault.Marshaller{}).RWSetFromBytes(raw)
+	require.NoError(t, err)
+	require.Len(t, rws.Reads["ns1"], 2)
+	require.Len(t, rws.Writes["ns1"], 2)
+	require.Contains(t, nsVersions, "ns1")
+
+	// Empty input serializes a transaction without namespaces.
+	for _, raw := range [][]byte{nil, {}} {
+		rws, _, err := (&vault.Marshaller{}).RWSetFromBytes(raw)
+		require.NoError(t, err)
+		require.Empty(t, rws.Reads)
+		require.Empty(t, rws.Writes)
 	}
 }
