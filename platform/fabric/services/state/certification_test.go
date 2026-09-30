@@ -167,6 +167,10 @@ func TestCertificationTypeFunctions(t *testing.T) {
 	_, _, err = GetCertificationType(tsUnknown)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "not recognized")
+
+	err = SetCertificationType(&transientStore{setErr: errors.New("set transient failed")}, ChaincodeCertification, nil)
+	require.ErrorContains(t, err, "failed appending certification type")
+	require.ErrorContains(t, err, "set transient failed")
 }
 
 func TestCertificationPayloadFunctions(t *testing.T) {
@@ -187,6 +191,12 @@ func TestCertificationPayloadFunctions(t *testing.T) {
 	err = SetCertification(tsErr, key, value)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed appending certification type")
+
+	// Invalid UTF-8 cannot be part of a composite key.
+	err = SetCertification(ts, "\xff", value)
+	require.ErrorContains(t, err, "failed creating certification composite key")
+	_, err = GetCertification(ts, "\xff")
+	require.ErrorContains(t, err, "failed creating certification composite key")
 }
 
 func TestCertificationKey(t *testing.T) {
