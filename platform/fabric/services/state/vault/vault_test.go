@@ -38,24 +38,17 @@ func (f *fakeQueryExecutor) Done() error {
 	return nil
 }
 
-type fakeStorage struct {
+// fakeDriverVault also serves as the vault's storage.
+type fakeDriverVault struct {
+	fdriver.Vault
 	qe  *fakeQueryExecutor
 	err error
 }
 
-func (f *fakeStorage) NewQueryExecutor(context.Context) (driver.QueryExecutor, error) {
+func (f *fakeDriverVault) NewQueryExecutor(context.Context) (driver.QueryExecutor, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	return f.qe, nil
-}
-
-type fakeDriverVault struct {
-	fdriver.Vault
-	qe *fakeQueryExecutor
-}
-
-func (f *fakeDriverVault) NewQueryExecutor(context.Context) (driver.QueryExecutor, error) {
 	return f.qe, nil
 }
 
@@ -115,7 +108,7 @@ func TestVaultGetState(t *testing.T) {
 	t.Run("query executor error", func(t *testing.T) {
 		t.Parallel()
 		expected := errors.New("qe failed")
-		v := &vault{vaultStore: &fakeStorage{err: expected}}
+		v := &vault{vaultStore: &fakeDriverVault{err: expected}}
 		require.ErrorIs(t, v.GetState(t.Context(), "ns", "k", &asset{}), expected)
 	})
 
@@ -133,7 +126,7 @@ func TestVaultGetState(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			v := &vault{vaultStore: &fakeStorage{qe: tc.qe}}
+			v := &vault{vaultStore: &fakeDriverVault{qe: tc.qe}}
 			var got asset
 			err := v.GetState(t.Context(), "ns", "k", &got)
 			if tc.wantErr != "" {
