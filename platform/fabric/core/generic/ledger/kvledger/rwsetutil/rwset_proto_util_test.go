@@ -19,7 +19,9 @@ package rwsetutil
 import (
 	"testing"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset/kvrwset"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -278,4 +280,155 @@ func TestIsDelete(t *testing.T) {
 			require.True(t, IsKVWriteHashDelete(k))
 		}
 	})
+}
+
+func TestGetPvtDataHash(t *testing.T) {
+	t.Parallel()
+	txRwSet := sampleTxRwSet()
+	txRwSet.NsRwSets[1].CollHashedRwSets[1].PvtRwSetHash = []byte("ns-2-coll-2-hash")
+
+	tests := []struct {
+		name     string
+		txRwSet  *TxRwSet
+		ns, coll string
+		want     []byte
+	}{
+		{name: "first namespace", txRwSet: txRwSet, ns: "ns-1", coll: "coll-2", want: []byte("coll-2-pvt-rwset-hash")},
+		{name: "second namespace", txRwSet: txRwSet, ns: "ns-2", coll: "coll-2", want: []byte("ns-2-coll-2-hash")},
+		{name: "unknown namespace", txRwSet: txRwSet, ns: "ns-3", coll: "coll-1"},
+		{name: "unknown collection", txRwSet: txRwSet, ns: "ns-1", coll: "coll-3"},
+		{name: "empty rwset", txRwSet: &TxRwSet{}, ns: "ns-1", coll: "coll-1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, tc.txRwSet.GetPvtDataHash(tc.ns, tc.coll))
+		})
+	}
+}
+
+func TestTxPvtRwSetMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
+	txPvtRwSet := sampleTxPvtRwSet()
+	protoBytes, err := txPvtRwSet.ToProtoBytes()
+	require.NoError(t, err)
+	txPvtRwSet1 := &TxPvtRwSet{}
+	require.NoError(t, txPvtRwSet1.FromProtoBytes(protoBytes))
+	require.Len(t, txPvtRwSet1.NsPvtRwSet, len(txPvtRwSet.NsPvtRwSet))
+	for i, nsPvtRwSet := range txPvtRwSet.NsPvtRwSet {
+		assert.Equal(t, nsPvtRwSet.NameSpace, txPvtRwSet1.NsPvtRwSet[i].NameSpace)
+		require.Len(t, txPvtRwSet1.NsPvtRwSet[i].CollPvtRwSets, len(nsPvtRwSet.CollPvtRwSets))
+		for j, collPvtRwSet := range nsPvtRwSet.CollPvtRwSets {
+			assert.Equal(t, collPvtRwSet.CollectionName, txPvtRwSet1.NsPvtRwSet[i].CollPvtRwSets[j].CollectionName)
+			assert.True(t, proto.Equal(collPvtRwSet.KvRwSet, txPvtRwSet1.NsPvtRwSet[i].CollPvtRwSets[j].KvRwSet), "proto messages are not equal")
+		}
+	}
+}
+
+func TestFromProtoBytesEmpty(t *testing.T) {
+	t.Parallel()
+	txRwSet := &TxRwSet{NsRwSets: []*NsRwSet{{NameSpace: "sentinel"}}}
+	require.NoError(t, txRwSet.FromProtoBytes(nil))
+	assert.Empty(t, txRwSet.NsRwSets)
+
+	txPvtRwSet := &TxPvtRwSet{NsPvtRwSet: []*NsPvtRwSet{{NameSpace: "sentinel"}}}
+	require.NoError(t, txPvtRwSet.FromProtoBytes(nil))
+	assert.Empty(t, txPvtRwSet.NsPvtRwSet)
+}
+
+func TestTxRwSetFromProtoBytesError(t *testing.T) {
+	t.Parallel()
+	validRwSet := serializeTestProtoMsg(t, sampleKvRwSet())
+	tests := []struct {
+		name       string
+		protoBytes []byte
+	}{
+		{name: "invalid bytes", protoBytes: []byte{0xff}},
+		{name: "invalid namespace rwset", protoBytes: serializeTestProtoMsg(t, &rwset.TxReadWriteSet{
+			NsRwset: []*rwset.NsReadWriteSet{{Namespace: "ns", Rwset: []byte{0xff}}},
+		})},
+		{name: "invalid collection hashed rwset", protoBytes: serializeTestProtoMsg(t, &rwset.TxReadWriteSet{
+			NsRwset: []*rwset.NsReadWriteSet{{
+				Namespace:             "ns",
+				Rwset:                 validRwSet,
+				CollectionHashedRwset: []*rwset.CollectionHashedReadWriteSet{{CollectionName: "coll", HashedRwset: []byte{0xff}}},
+			}},
+		})},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			sentinel := []*NsRwSet{{NameSpace: "sentinel"}}
+			txRwSet := &TxRwSet{NsRwSets: sentinel}
+			require.ErrorContains(t, txRwSet.FromProtoBytes(tc.protoBytes), "proto:")
+			assert.Equal(t, sentinel, txRwSet.NsRwSets)
+		})
+	}
+}
+
+func TestTxPvtRwSetFromProtoBytesError(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		protoBytes []byte
+	}{
+		{name: "invalid bytes", protoBytes: []byte{0xff}},
+		{name: "invalid collection pvt rwset", protoBytes: serializeTestProtoMsg(t, &rwset.TxPvtReadWriteSet{
+			NsPvtRwset: []*rwset.NsPvtReadWriteSet{{
+				Namespace:          "ns",
+				CollectionPvtRwset: []*rwset.CollectionPvtReadWriteSet{{CollectionName: "coll", Rwset: []byte{0xff}}},
+			}},
+		})},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			sentinel := []*NsPvtRwSet{{NameSpace: "sentinel"}}
+			txPvtRwSet := &TxPvtRwSet{NsPvtRwSet: sentinel}
+			require.ErrorContains(t, txPvtRwSet.FromProtoBytes(tc.protoBytes), "proto:")
+			assert.Equal(t, sentinel, txPvtRwSet.NsPvtRwSet)
+		})
+	}
+}
+
+func TestToProtoBytesError(t *testing.T) {
+	t.Parallel()
+	invalidKvRwSet := func() *kvrwset.KVRWSet {
+		return &kvrwset.KVRWSet{Writes: []*kvrwset.KVWrite{{Key: "\xff", Value: []byte("v")}}}
+	}
+	tests := []struct {
+		name         string
+		toProtoBytes func() ([]byte, error)
+	}{
+		{name: "invalid public rwset", toProtoBytes: (&TxRwSet{
+			NsRwSets: []*NsRwSet{{NameSpace: "ns", KvRwSet: invalidKvRwSet()}},
+		}).ToProtoBytes},
+		{name: "invalid collection hashed rwset", toProtoBytes: (&TxRwSet{
+			NsRwSets: []*NsRwSet{{
+				NameSpace: "ns",
+				KvRwSet:   sampleKvRwSet(),
+				CollHashedRwSets: []*CollHashedRwSet{{
+					CollectionName: "coll",
+					HashedRwSet: &kvrwset.HashedRWSet{MetadataWrites: []*kvrwset.KVMetadataWriteHash{{
+						KeyHash: []byte("key-hash"),
+						Entries: []*kvrwset.KVMetadataEntry{{Name: "\xff"}},
+					}}},
+				}},
+			}},
+		}).ToProtoBytes},
+		{name: "invalid private rwset", toProtoBytes: (&TxPvtRwSet{
+			NsPvtRwSet: []*NsPvtRwSet{{
+				NameSpace:     "ns",
+				CollPvtRwSets: []*CollPvtRwSet{{CollectionName: "coll", KvRwSet: invalidKvRwSet()}},
+			}},
+		}).ToProtoBytes},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			protoBytes, err := tc.toProtoBytes()
+			require.ErrorContains(t, err, "invalid UTF-8")
+			assert.Nil(t, protoBytes)
+		})
+	}
 }
