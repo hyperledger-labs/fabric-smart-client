@@ -103,7 +103,9 @@ var readerCalls = map[string]func(r driver.LockedVaultReader) error{
 }
 
 // Every txVaultReader method opens the underlying reader lazily on first use.
-// When that open fails, the failure must surface from the method itself.
+// When that open fails, the failure must surface from the method itself — and
+// keep surfacing, since once.Do will not retry the open. Done must still be
+// safe to call afterwards.
 func TestTxVaultReader_LazyOpenFailurePropagates(t *testing.T) { //nolint:paralleltest
 	for name, call := range readerCalls { //nolint:paralleltest
 		t.Run(name, func(t *testing.T) {
@@ -114,6 +116,8 @@ func TestTxVaultReader_LazyOpenFailurePropagates(t *testing.T) { //nolint:parall
 			require.NoError(t, err)
 
 			require.ErrorIs(t, call(reader), errIsoMap)
+			require.ErrorIs(t, call(reader), errIsoMap, "the cached open failure must be reported again")
+			require.NoError(t, reader.Done())
 			require.NoError(t, mockDB.ExpectationsWereMet())
 		})
 	}
