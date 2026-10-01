@@ -287,11 +287,19 @@ type txVaultReader struct {
 	// err holds the outcome of the single open attempt. It must live on the
 	// struct rather than in setVaultReader: once.Do runs only once, so a local
 	// would be nil on every later call and the caller would dereference a nil vr.
+	// On failure vr and release keep their initial values, so Done stays safe.
 	err error
 }
 
 func (db *txVaultReader) setVaultReader() error {
-	db.once.Do(func() { db.vr, db.release, db.err = db.newVaultReader() })
+	db.once.Do(func() {
+		vr, release, err := db.newVaultReader()
+		if err != nil {
+			db.err = err
+			return
+		}
+		db.vr, db.release = vr, release
+	})
 	return db.err
 }
 
