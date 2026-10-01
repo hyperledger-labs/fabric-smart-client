@@ -95,3 +95,10 @@ func TestGetLocalIP(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(ip)
 }
+
+func TestAddPemToCertPoolIgnoresNonPEM(t *testing.T) {
+	t.Parallel()
+	pool := x509.NewCertPool()
+	require.NoError(t, grpc3.AddPemToCertPool([]byte("badcert"), pool))
+	require.True(t, pool.Equal(x509.NewCertPool()))
+}
