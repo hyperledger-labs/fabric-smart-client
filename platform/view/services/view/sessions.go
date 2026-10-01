@@ -100,15 +100,15 @@ func (s *Sessions) Reset() {
 	s.s = map[string]view.Session{}
 }
 
-// GetSessionIDs returns the IDs of all registered sessions.
-func (s *Sessions) GetSessionIDs() []string {
+// GetSessionInfos returns the info of all registered sessions.
+func (s *Sessions) GetSessionInfos() []view.SessionInfo {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	ids := make([]string, 0, len(s.s))
+	infos := make([]view.SessionInfo, 0, len(s.s))
 	for _, session := range s.s {
-		ids = append(ids, session.Info().ID)
+		infos = append(infos, session.Info())
 	}
-	return ids
+	return infos
 }
 
 func lookupKey(viewID string, party view.Identity) string {

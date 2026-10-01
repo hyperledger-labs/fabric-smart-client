@@ -270,7 +270,7 @@ The `WrappedContext` wraps a parent context to provide a different `context.Cont
 2. **Caching**: Sessions are cached in the context's `Sessions` manager
 3. **Reuse**: Existing open sessions are reused when `GetSession` is called
 4. **Closure**: Sessions are closed when the context is disposed
-5. **Cleanup**: Session factory deletes sessions by ID
+5. **Cleanup**: Session factory deletes each session by its ID and remote PKID
 
 ### Session Scoping
 
@@ -355,7 +355,7 @@ When a context is disposed:
 
 1. `Manager.DeleteContext` is called
 2. Calls `context.Dispose()` to release resources
-3. Deletes all sessions via `SessionFactory.DeleteSessions`
+3. Deletes each of the context's sessions via `SessionFactory.DeleteSession`, keyed by session ID and remote PKID so that no other session is closed
 4. Removes the context from the manager's map
 
 ### Panic Recovery

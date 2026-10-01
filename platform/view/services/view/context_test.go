@@ -150,9 +150,17 @@ func TestContext(t *testing.T) {
 
 	// Dispose
 	sessionFactory := &mock.SessionFactory{}
-	ctx, _ = view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, session, nil, emptyTracer, lic)
+	responderSession := &mock.Session{}
+	responderSession.InfoReturns(view.SessionInfo{ID: "s1", Caller: view.Identity("caller"), RemotePKID: []byte("pkid")})
+	ctx, _ = view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, responderSession, nil, emptyTracer, lic)
 	ctx.Dispose()
-	require.Equal(t, 2, sessionFactory.DeleteSessionsCallCount())
+	// NewContext also registers the default session for its caller, so it is deleted twice.
+	require.Equal(t, 2, sessionFactory.DeleteSessionCallCount())
+	for i := range 2 {
+		_, id, pkid := sessionFactory.DeleteSessionArgsForCall(i)
+		require.Equal(t, "s1", id)
+		require.Equal(t, []byte("pkid"), pkid)
+	}
 }
 
 func TestContextGetSession(t *testing.T) {

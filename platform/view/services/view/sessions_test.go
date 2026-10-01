@@ -38,10 +38,8 @@ func TestSessions(t *testing.T) {
 	s.PutDefault(party, sess)
 	require.Equal(t, sess, s.Get("", party))
 
-	ids := s.GetSessionIDs()
-	require.Len(t, ids, 1)
-	require.Equal(t, "s1", ids[0])
+	require.Equal(t, []view.SessionInfo{{ID: "s1"}}, s.GetSessionInfos())
 
 	s.Reset()
-	require.Empty(t, s.GetSessionIDs())
+	require.Empty(t, s.GetSessionInfos())
 }

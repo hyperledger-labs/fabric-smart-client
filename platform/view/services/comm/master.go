@@ -9,7 +9,6 @@ package comm
 import (
 	"context"
 	"encoding/base64"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -100,17 +99,22 @@ func (p *P2PNode) MasterSession() (view.Session, error) {
 	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 }
 
-func (p *P2PNode) DeleteSessions(_ context.Context, sessionID string) {
+// DeleteSession closes the session identified by sessionID and the remote party's pkid, and
+// removes it from the registry. It does nothing if no such session exists.
+//
+// The lookup uses the exact registry key: a responder session's ID is chosen by the remote
+// peer, so it must never select sessions that belong to other peers or the master session.
+func (p *P2PNode) DeleteSession(_ context.Context, sessionID string, pkid []byte) {
 	p.sessionsMutex.Lock()
 	defer p.sessionsMutex.Unlock()
 
-	for key, session := range p.sessions {
-		// if key starts with sessionID, delete it
-		if strings.HasPrefix(key, sessionID) {
-			logger.Debugf("deleting session [%s]", key)
-			session.closeInternal()
-			delete(p.sessions, key)
-		}
+	key := computeInternalSessionID(sessionID, pkid)
+	session, ok := p.sessions[key]
+	if !ok {
+		return
 	}
+	logger.Debugf("deleting session [%s]", key)
+	session.closeInternal()
+	delete(p.sessions, key)
 	p.m.Sessions.Set(float64(len(p.sessions)))
 }

@@ -77,7 +77,7 @@ type Service struct {
 	runner           Runner
 
 	// wg tracks in-flight handleMessage goroutines spawned by Start, so that shutdown
-	// (ctx.Done()) can drain them before the Start goroutine returns (Issue #7).
+	// (ctx.Done() or a closed master session) can drain them before the Start goroutine returns.
 	wg sync.WaitGroup
 }
 
@@ -98,23 +98,29 @@ func NewService(
 	}
 }
 
-// Start starts the P2P service.
+// Start starts the P2P service. It hands every message received on the master session to
+// a responder in its own goroutine, until ctx is done or the master session closes. In both
+// cases the dispatch loop waits for in-flight handlers before it returns.
 func (s *Service) Start(ctx context.Context) error {
 	session, err := s.commLayer.MasterSession()
 	if err != nil {
 		return errors.Wrap(err, "failed getting master session")
 	}
+	ch := session.Receive()
 	go func() {
+		defer s.wg.Wait()
 		for {
-			ch := session.Receive()
 			select {
-			case msg := <-ch:
+			case msg, ok := <-ch:
+				if !ok {
+					logger.ErrorfContext(ctx, "master session closed, no longer accepting incoming sessions")
+					return
+				}
 				s.wg.Go(func() {
 					s.handleMessage(ctx, msg)
 				})
 			case <-ctx.Done():
 				logger.DebugfContext(ctx, "received done signal, waiting for in-flight handlers")
-				s.wg.Wait()
 				return
 			}
 		}

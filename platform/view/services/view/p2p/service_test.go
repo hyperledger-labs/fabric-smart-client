@@ -343,3 +343,24 @@ func TestService_Start_DrainsHandlersOnShutdown(t *testing.T) { //nolint:paralle
 	// default) so the fixed Start's drain has time to complete before we return.
 	time.Sleep(20 * time.Millisecond)
 }
+
+// TestService_Start_StopsOnClosedMasterSession checks that Start's loop returns once the
+// master session's Receive channel is closed, instead of reading nil messages from it and
+// dispatching them to handlers. ctx is never cancelled, so the loop can only exit by
+// observing the closed channel; goleak reports it otherwise.
+func TestService_Start_StopsOnClosedMasterSession(t *testing.T) { //nolint:paralleltest // uses goleak.VerifyNone; must run serially
+	defer goleak.VerifyNone(t)
+
+	ch := make(chan *view.Message)
+	close(ch)
+	master := &mock.Session{}
+	master.ReceiveReturns(ch)
+	cl := &mock2.CommLayer{}
+	cl.MasterSessionReturns(master, nil)
+	vm := &viewManagerMock{ExistResponderForCallerFunc: func(string) (view.View, view.Identity, error) {
+		t.Error("no message must be dispatched from a closed master session")
+		return nil, nil, errors.New("unexpected")
+	}}
+
+	require.NoError(t, p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner()).Start(context.Background()))
+}
