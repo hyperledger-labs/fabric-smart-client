@@ -968,6 +968,7 @@ func TestTransaction_EndorseProposalErrors(t *testing.T) {
 func TestTransaction_EnvelopeRoundTrip(t *testing.T) {
 	t.Parallel()
 	f := newEndorsableTx(t)
+	f.tx.Transient()["key"] = []byte("transient")
 	require.NoError(t, f.tx.SetRWSet())
 	require.NoError(t, f.tx.EndorseWithIdentity([]byte("endorser")))
 
@@ -987,6 +988,14 @@ func TestTransaction_EnvelopeRoundTrip(t *testing.T) {
 	require.Equal(t, []string{"a1"}, upe.Args)
 	require.Equal(t, []byte("rwset-bytes"), upe.Results)
 	require.Len(t, upe.ProposalResponses, 1)
+	require.Equal(t, upe.ProposalHash, upe.EndorsedProposalHash)
+
+	// The envelope's endorsements sign its proposal, so it loads into a new transaction.
+	tx, err := transaction.NewEndorserTransactionFactory("network", f.provider, f.sigService).
+		NewTransaction(t.Context(), "channel", nil, nil, "", nil)
+	require.NoError(t, err)
+	require.NoError(t, tx.SetFromEnvelopeBytes(raw))
+	require.Equal(t, "txid", tx.ID())
 }
 
 func TestTransaction_SetRWSetSources(t *testing.T) {

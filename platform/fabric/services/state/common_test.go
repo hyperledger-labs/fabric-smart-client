@@ -34,8 +34,9 @@ type testRWSet struct {
 }
 
 type testRead struct {
-	key   cdriver.PKey
-	value cdriver.RawValue
+	key     cdriver.PKey
+	value   cdriver.RawValue
+	version cdriver.RawVersion
 }
 
 type testWrite struct {
@@ -68,9 +69,9 @@ func (t *testRWSet) Clear(ns cdriver.Namespace) error {
 	return nil
 }
 
-func (t *testRWSet) AddReadAt(ns cdriver.Namespace, key string, _ cdriver.RawVersion) error {
+func (t *testRWSet) AddReadAt(ns cdriver.Namespace, key string, version cdriver.RawVersion) error {
 	v, _ := t.GetState(ns, key)
-	t.reads[ns] = append(t.reads[ns], testRead{key: key, value: cloneRaw(v)})
+	t.reads[ns] = append(t.reads[ns], testRead{key: key, value: cloneRaw(v), version: version})
 	return nil
 }
 
@@ -133,6 +134,15 @@ func (t *testRWSet) GetReadKeyAt(ns cdriver.Namespace, i int) (cdriver.PKey, err
 		return "", fmt.Errorf("read index out of range: %d", i)
 	}
 	return t.reads[ns][i].key, nil
+}
+
+func (t *testRWSet) GetReadVersion(ns cdriver.Namespace, key cdriver.PKey) (cdriver.RawVersion, error) {
+	for _, r := range t.reads[ns] {
+		if r.key == key {
+			return r.version, nil
+		}
+	}
+	return nil, fmt.Errorf("no read of key %s", key)
 }
 
 func (t *testRWSet) GetReadAt(ns cdriver.Namespace, i int) (cdriver.PKey, cdriver.RawValue, error) {

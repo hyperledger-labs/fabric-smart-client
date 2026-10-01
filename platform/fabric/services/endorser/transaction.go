@@ -9,6 +9,7 @@ package endorser
 import (
 	"bytes"
 	"crypto/sha256"
+	"slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -146,22 +147,26 @@ func (t *Transaction) AppendProposalResponse(response *fabric.ProposalResponse) 
 	return t.Transaction.AppendProposalResponse(response)
 }
 
-// HasBeenEndorsedBy returns nil if each passed party has signed this transaction
+// HasBeenEndorsedBy returns nil if, for each passed party, a proposal response names the party
+// as endorser and carries a valid signature by it. Signatures are verified with the transaction's
+// verifier providers and the channel MSP.
 func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
 	responses, err := t.Transaction.ProposalResponses()
 	if err != nil {
 		return err
 	}
+	ch, err := t.FabricNetworkService().Channel(t.Channel())
+	if err != nil {
+		return errors.Wrapf(err, "failed getting channel [%s:%s]", t.Network(), t.Channel())
+	}
+	providers := append(slices.Clone(t.verifierProviders), &verifierProviderWrapper{m: ch.MSPManager()})
 
 	for _, party := range parties {
-		found := false
-		for _, response := range responses {
-			if bytes.Equal(response.Endorser(), party) {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.ContainsFunc(responses, func(r *fabric.ProposalResponse) bool {
+			return bytes.Equal(r.Endorser(), party) && slices.ContainsFunc(providers, func(p fabric.VerifierProvider) bool {
+				return r.VerifyEndorsement(p) == nil
+			})
+		}) {
 			return errors.Errorf("party [%s] has not signed", party)
 		}
 	}

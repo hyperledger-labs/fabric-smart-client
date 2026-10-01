@@ -172,7 +172,7 @@ func (*ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, k
 		// Check input
 		fn, params := certTx.FunctionAndParameters()
 		if fn != CertificationFnc || len(params) != 2 || params[0] != key || params[1] != n.tx.ID() {
-			return errors.Errorf("invalid certification, expected [CertificationFnc,%s,%s], got [%s,%v]", n.tx.ID(), key, fn, params)
+			return errors.Errorf("invalid certification, expected [%s,%s,%s], got [%s,%v]", CertificationFnc, key, n.tx.ID(), fn, params)
 		}
 
 		// Check endorsements
@@ -192,6 +192,18 @@ func (*ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, k
 		}
 		if k != key {
 			return errors.Errorf("invalid certification, expected key [%s], got [%s]", key, k)
+		}
+		// The certified value holds only at the version this transaction reads the key at.
+		version, err := rwSet.GetReadVersion(n.namespace(), key)
+		if err != nil {
+			return errors.Wrapf(err, "failed getting read version of [%s]", key)
+		}
+		certVersion, err := rws.GetReadVersion(n.namespace(), key)
+		if err != nil {
+			return errors.Wrapf(err, "failed getting certified read version of [%s]", key)
+		}
+		if !bytes.Equal(version, certVersion) {
+			return errors.Errorf("invalid certification, expected version [%x] for [%s], got [%x]", version, key, certVersion)
 		}
 		n.certifiedInputs[k] = v
 

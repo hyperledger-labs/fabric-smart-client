@@ -235,11 +235,16 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	return nil
 }
 
+// SetFromEnvelopeBytes populates the transaction from a marshalled endorser transaction envelope.
+// It fails if the endorsements do not sign the envelope's proposal, so the function and
+// arguments read from the envelope are covered by its endorsements.
 func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
-	// TODO: check the current payload is compatible with the content of the signed proposal
 	upe, _, err := UnpackEnvelopeFromBytes(raw)
 	if err != nil {
 		return err
+	}
+	if !bytes.Equal(upe.ProposalHash, upe.EndorsedProposalHash) {
+		return errors.Errorf("envelope proposal hash does not match the endorsed proposal hash")
 	}
 
 	t.TTxID = upe.TxID

@@ -488,6 +488,18 @@ func (r *rwSetWrapper) GetReadKeyAt(ns cdriver.Namespace, i int) (cdriver.PKey, 
 	return key, nil
 }
 
+// GetReadVersion returns the version at which the key is read in the specified namespace.
+// Returns an error if the key is not read.
+func (r *rwSetWrapper) GetReadVersion(ns cdriver.Namespace, key cdriver.PKey) (cdriver.RawVersion, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	version, ok := r.rws.ReadSet.Get(ns, key)
+	if !ok {
+		return nil, errors.Errorf("no read of key %s for namespace %s", key, ns)
+	}
+	return version, nil
+}
+
 // GetReadAt returns the i-th read (key, value) in the specified namespace.
 // The value is loaded from the QueryService. Returns an error if the index is out of bounds
 // or if the value cannot be retrieved.

@@ -280,6 +280,19 @@ func TestRWSet_GetReadAtMissAndError(t *testing.T) {
 	require.ErrorContains(t, err, "failed to get read at index 0 for namespace=ns1")
 }
 
+func TestRWSet_GetReadVersion(t *testing.T) {
+	t.Parallel()
+	rws := newTestRWSet(t, newMockQueryService(), nil)
+	require.NoError(t, rws.AddReadAt("ns1", "key1", vault.MarshalVersion(1)))
+
+	version, err := rws.GetReadVersion("ns1", "key1")
+	require.NoError(t, err)
+	require.Equal(t, vault.MarshalVersion(1), version)
+
+	_, err = rws.GetReadVersion("ns1", "key2")
+	require.ErrorContains(t, err, "no read of key key2 for namespace ns1")
+}
+
 // GetStateMetadata falls back to the field-mapping store only for a committed, non-empty
 // value; every miss along the way is reported as "no metadata" rather than as an error.
 func TestRWSet_GetStateMetadataFallback(t *testing.T) {
