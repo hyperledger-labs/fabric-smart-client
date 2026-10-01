@@ -16,10 +16,12 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -314,6 +316,46 @@ func TestCallView_Error_Returns_Descriptive_Failure(t *testing.T) {
 			require.Error(t, err)
 			require.Nil(t, result)
 			require.Contains(t, err.Error(), tc.expectedErrMsg)
+		})
+	}
+}
+
+// Verifies that failed calls reuse their connection, and that an error body too
+// large to drain costs a new connection instead of being read in full.
+func TestCallView_Error_Releases_Connection(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		size  int
+		conns int32
+	}{
+		{name: "within limit", size: maxErrorBodySize / 2, conns: 1},
+		// More than maxErrorBodySize plus the 256 KiB the transport drains on Close.
+		{name: "over limit", size: 1 << 20, conns: 5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var conns atomic.Int32
+			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write(make([]byte, tc.size))
+			}))
+			server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+				if state == http.StateNew {
+					conns.Add(1)
+				}
+			}
+			server.Start()
+			defer server.Close()
+
+			client := newTestClient(t, server)
+			for range 5 {
+				_, err := client.CallView("someView", nil)
+				require.ErrorContains(t, err, "status code [500]")
+			}
+			require.Equal(t, tc.conns, conns.Load())
 		})
 	}
 }

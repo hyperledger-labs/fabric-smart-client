@@ -29,6 +29,9 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// maxErrorBodySize bounds how much of a non-200 response body is read.
+const maxErrorBodySize = 64 << 10
+
 // Config models the configuration for the web client
 type Config struct {
 	// Host to connect to
@@ -157,6 +160,10 @@ func (c *Client) req(ctx context.Context, method, url string, in []byte) (io.Rea
 		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], no response", url, len(in))
 	}
 	if resp.StatusCode != http.StatusOK {
+		// Drain and close the body so the transport can reuse the connection.
+		// The drain is capped so a large error body cannot hold the caller; Close handles the rest.
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorBodySize))
+		_ = resp.Body.Close()
 		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], status code [%d], status [%s]", url, len(in), resp.StatusCode, resp.Status)
 	}
 	return resp.Body, nil
