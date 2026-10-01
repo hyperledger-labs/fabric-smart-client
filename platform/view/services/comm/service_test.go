@@ -103,10 +103,10 @@ func TestService_BeforeStart(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotInitialized)
 	})
 
-	t.Run("DeleteSessions is a no-op", func(t *testing.T) {
+	t.Run("DeleteSession is a no-op", func(t *testing.T) {
 		t.Parallel()
 		// Should not panic.
-		svc.DeleteSessions(t.Context(), "any")
+		svc.DeleteSession(t.Context(), "any", []byte("pk"))
 	})
 
 	t.Run("Stop is a no-op", func(t *testing.T) {
@@ -184,12 +184,12 @@ func TestService_AfterStart(t *testing.T) {
 		require.Equal(t, "ctx-resp", contextID)
 	})
 
-	t.Run("DeleteSessions removes matching sessions", func(t *testing.T) {
+	t.Run("DeleteSession removes the session", func(t *testing.T) {
 		t.Parallel()
 		_, err := svc.NewSessionWithID("del-target", "c", "e", []byte("pk-del"))
 		require.NoError(t, err)
 
-		svc.DeleteSessions(t.Context(), "del-target")
+		svc.DeleteSession(t.Context(), "del-target", []byte("pk-del"))
 
 		svc.NodeSync.RLock()
 		node := svc.Node

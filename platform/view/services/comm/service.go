@@ -132,12 +132,12 @@ func (s *Service) NewSession(caller, contextID, endpoint string, pkid []byte) (v
 	return s.Node.NewSession(caller, contextID, endpoint, pkid)
 }
 
-func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {
+func (s *Service) DeleteSession(ctx context.Context, sessionID string, pkid []byte) {
 	if err := s.init(); err != nil {
-		logger.Warnf("%s, cannot delete any session", ErrNotInitialized)
+		logger.Warnf("%s, cannot delete session", ErrNotInitialized)
 		return
 	}
-	s.Node.DeleteSessions(ctx, sessionID)
+	s.Node.DeleteSession(ctx, sessionID, pkid)
 }
 
 func (s *Service) init() error {

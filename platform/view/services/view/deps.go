@@ -22,6 +22,7 @@ type SessionFactory interface {
 	// NewSession returns a new session for the given arguments.
 	NewSession(caller, contextID, endpoint string, pkid []byte) (view.Session, error)
 
-	// DeleteSessions deletes all sessions for the given session ID.
-	DeleteSessions(ctx context.Context, sessionID string)
+	// DeleteSession closes and forgets the session with the given ID to the party
+	// identified by pkid. Other sessions with the same ID but another party are untouched.
+	DeleteSession(ctx context.Context, sessionID string, pkid []byte)
 }

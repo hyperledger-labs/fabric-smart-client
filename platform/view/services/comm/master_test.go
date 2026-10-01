@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
-	"context"
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
@@ -21,13 +23,18 @@ import (
 
 // stopNode tears a test node down completely. P2PNode.Stop() cancels the node
 // context, closes the host and closes streams, but it never walks p.sessions --
-// closeInternal is reached only from DeleteSessions and Session.Close. Without
-// the DeleteSessions call below, every session's tryStart goroutine outlives the
+// closeInternal is reached only from DeleteSession and Session.Close. Without
+// closing every session below, every session's tryStart goroutine outlives the
 // test, which the package's goleak-guarded tests would eventually trip over.
 func stopNode(t *testing.T, p *P2PNode) {
 	t.Helper()
 	t.Cleanup(func() {
-		p.DeleteSessions(context.Background(), "")
+		p.sessionsMutex.Lock()
+		for _, session := range p.sessions {
+			session.closeInternal()
+		}
+		clear(p.sessions)
+		p.sessionsMutex.Unlock()
 		p.Stop()
 	})
 }
@@ -187,7 +194,14 @@ func TestGetOrCreateSession_CallerMismatchReturnsError(t *testing.T) {
 	require.Equal(t, "ctx", contextIDOf(t, stored))
 }
 
-func TestDeleteSessions(t *testing.T) {
+// sessionKeys returns the internal keys of every session registered on p.
+func sessionKeys(p *P2PNode) []string {
+	p.sessionsMutex.Lock()
+	defer p.sessionsMutex.Unlock()
+	return slices.Collect(maps.Keys(p.sessions))
+}
+
+func TestDeleteSession(t *testing.T) {
 	t.Parallel()
 
 	h := &mockHost{}
@@ -195,35 +209,64 @@ func TestDeleteSessions(t *testing.T) {
 	require.NoError(t, err)
 	stopNode(t, p)
 
-	// Create two sessions with a shared prefix and one unrelated session.
-	_, err = p.NewSessionWithID("order-1", "ctx", "ep", []byte("pk"))
+	target, err := p.NewSessionWithID("order-1", "ctx", "ep", []byte("pk"))
 	require.NoError(t, err)
-	_, err = p.NewSessionWithID("order-2", "ctx", "ep", []byte("pk"))
+	// Same ID with another peer, and an ID that extends the target's: neither is the target.
+	_, err = p.NewSessionWithID("order-1", "ctx", "ep", []byte("pk-other"))
 	require.NoError(t, err)
-	_, err = p.NewSessionWithID("payment-1", "ctx", "ep", []byte("pk"))
+	_, err = p.NewSessionWithID("order-10", "ctx", "ep", []byte("pk"))
 	require.NoError(t, err)
 
-	p.sessionsMutex.Lock()
-	countBefore := len(p.sessions)
-	p.sessionsMutex.Unlock()
-	require.Equal(t, 3, countBefore)
+	p.DeleteSession(t.Context(), "order-1", []byte("pk"))
 
-	// Delete sessions whose internal key starts with "order-".
-	p.DeleteSessions(t.Context(), "order-")
-
-	// Only "payment-1" should remain: assert the surviving key, not just the
-	// count -- a predicate that also deleted payment-1 and kept an order-* key
-	// would still leave exactly one session behind.
-	p.sessionsMutex.Lock()
-	remaining := make([]string, 0, len(p.sessions))
-	for key := range p.sessions {
-		remaining = append(remaining, key)
-	}
-	p.sessionsMutex.Unlock()
-	require.Equal(t, []string{computeInternalSessionID("payment-1", []byte("pk"))}, remaining)
+	require.True(t, target.Info().Closed)
+	require.ElementsMatch(t, []string{
+		computeInternalSessionID("order-1", []byte("pk-other")),
+		computeInternalSessionID("order-10", []byte("pk")),
+	}, sessionKeys(p))
 }
 
-func TestDeleteSessions_NoMatchIsNoOp(t *testing.T) {
+// TestDeleteSession_PeerChosenIDLeavesOtherSessionsOpen covers a remote peer that picks the
+// SessionID of its message. The responder session for that message carries the peer's ID and
+// PKID, and disposing the responder context deletes it by both. No choice of ID may close the
+// master session or a session that belongs to another peer.
+func TestDeleteSession_PeerChosenIDLeavesOtherSessionsOpen(t *testing.T) {
+	t.Parallel()
+
+	const victimID = "Qk9CLXNlc3Npb24="
+	for _, attackerID := range []string{"", "m", masterSession, victimID} {
+		t.Run("sessionID="+attackerID, func(t *testing.T) {
+			t.Parallel()
+
+			p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
+			require.NoError(t, err)
+			stopNode(t, p)
+
+			master, err := p.MasterSession()
+			require.NoError(t, err)
+			victim, err := p.NewResponderSession(victimID, "ctx-victim", "ep-victim", []byte("pkid-victim"), view.Identity("victim"), nil)
+			require.NoError(t, err)
+
+			attackerMsg := &view.Message{SessionID: attackerID, ContextID: "ctx-attacker", Payload: []byte("x")}
+			attacker, err := p.NewResponderSession(attackerID, "ctx-attacker", "ep-attacker", []byte("pkid-attacker"), view.Identity("attacker"), attackerMsg)
+			require.NoError(t, err)
+
+			// What view.Context.Dispose does when the attacker's responder context is deleted.
+			info := attacker.Info()
+			p.DeleteSession(t.Context(), info.ID, info.RemotePKID)
+
+			assert.True(t, attacker.Info().Closed)
+			assert.False(t, master.Info().Closed, "master session must stay open")
+			assert.False(t, victim.Info().Closed, "another peer's session must stay open")
+			require.ElementsMatch(t, []string{
+				computeInternalSessionID(masterSession, []byte{}),
+				computeInternalSessionID(victimID, []byte("pkid-victim")),
+			}, sessionKeys(p))
+		})
+	}
+}
+
+func TestDeleteSession_NoMatchIsNoOp(t *testing.T) {
 	t.Parallel()
 
 	h := &mockHost{}
@@ -234,10 +277,8 @@ func TestDeleteSessions_NoMatchIsNoOp(t *testing.T) {
 	_, err = p.NewSessionWithID("keep-me", "ctx", "ep", []byte("pk"))
 	require.NoError(t, err)
 
-	p.DeleteSessions(t.Context(), "nonexistent-prefix")
+	p.DeleteSession(t.Context(), "keep-me", []byte("other-pk"))
+	p.DeleteSession(t.Context(), "nonexistent", []byte("pk"))
 
-	p.sessionsMutex.Lock()
-	count := len(p.sessions)
-	p.sessionsMutex.Unlock()
-	require.Equal(t, 1, count)
+	require.Equal(t, []string{computeInternalSessionID("keep-me", []byte("pk"))}, sessionKeys(p))
 }

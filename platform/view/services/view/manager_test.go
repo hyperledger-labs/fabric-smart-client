@@ -197,6 +197,14 @@ func TestNewSessionContext(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, isNew)
 	require.NotEqual(t, ctx, ctx3)
+
+	// Case 4: the same session ID from another party is a different session
+	session3 := &mock.Session{}
+	session3.InfoReturns(view2.SessionInfo{ID: "s2", Caller: view2.Identity("carol"), RemotePKID: []byte("pkid-carol")})
+	ctx4, isNew, err := manager.NewResponderContext(context.Background(), "c1", session3, view2.Identity("carol"), nil)
+	require.NoError(t, err)
+	require.False(t, isNew)
+	require.Same(t, session3, ctx4.Session())
 }
 
 func TestManagerOther(t *testing.T) {

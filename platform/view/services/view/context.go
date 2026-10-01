@@ -391,20 +391,21 @@ func (c *Context) Context() context.Context {
 	return c.ctx
 }
 
-// Dispose disposes all sessions created in this context.
+// Dispose deletes the context's default session and every session registered in it.
+// Each session is deleted by its ID and remote PKID, so sessions with the same ID to other
+// parties are not affected.
 func (c *Context) Dispose() {
 	logger.DebugfContext(c.Context(), "Dispose sessions")
-	// dispose all sessions
 
 	if c.session != nil {
 		info := c.session.Info()
 		logger.DebugfContext(c.Context(), "Delete one session to %s", string(info.Caller))
-		c.sessionFactory.DeleteSessions(c.Context(), info.ID)
+		c.sessionFactory.DeleteSession(c.Context(), info.ID, info.RemotePKID)
 	}
 
-	for _, id := range c.sessions.GetSessionIDs() {
-		logger.DebugfContext(c.Context(), "Delete session %s", id)
-		c.sessionFactory.DeleteSessions(c.Context(), id)
+	for _, info := range c.sessions.GetSessionInfos() {
+		logger.DebugfContext(c.Context(), "Delete session %s", info.ID)
+		c.sessionFactory.DeleteSession(c.Context(), info.ID, info.RemotePKID)
 	}
 	c.sessions.Reset()
 }

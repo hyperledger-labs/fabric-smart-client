@@ -10,11 +10,12 @@ import (
 )
 
 type SessionFactory struct {
-	DeleteSessionsStub        func(context.Context, string)
-	deleteSessionsMutex       sync.RWMutex
-	deleteSessionsArgsForCall []struct {
+	DeleteSessionStub        func(context.Context, string, []byte)
+	deleteSessionMutex       sync.RWMutex
+	deleteSessionArgsForCall []struct {
 		arg1 context.Context
 		arg2 string
+		arg3 []byte
 	}
 	NewSessionStub        func(string, string, string, []byte) (viewa.Session, error)
 	newSessionMutex       sync.RWMutex
@@ -52,37 +53,43 @@ type SessionFactory struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SessionFactory) DeleteSessions(arg1 context.Context, arg2 string) {
-	fake.deleteSessionsMutex.Lock()
-	fake.deleteSessionsArgsForCall = append(fake.deleteSessionsArgsForCall, struct {
+func (fake *SessionFactory) DeleteSession(arg1 context.Context, arg2 string, arg3 []byte) {
+	var arg3Copy []byte
+	if arg3 != nil {
+		arg3Copy = make([]byte, len(arg3))
+		copy(arg3Copy, arg3)
+	}
+	fake.deleteSessionMutex.Lock()
+	fake.deleteSessionArgsForCall = append(fake.deleteSessionArgsForCall, struct {
 		arg1 context.Context
 		arg2 string
-	}{arg1, arg2})
-	stub := fake.DeleteSessionsStub
-	fake.recordInvocation("DeleteSessions", []interface{}{arg1, arg2})
-	fake.deleteSessionsMutex.Unlock()
+		arg3 []byte
+	}{arg1, arg2, arg3Copy})
+	stub := fake.DeleteSessionStub
+	fake.recordInvocation("DeleteSession", []interface{}{arg1, arg2, arg3Copy})
+	fake.deleteSessionMutex.Unlock()
 	if stub != nil {
-		fake.DeleteSessionsStub(arg1, arg2)
+		fake.DeleteSessionStub(arg1, arg2, arg3)
 	}
 }
 
-func (fake *SessionFactory) DeleteSessionsCallCount() int {
-	fake.deleteSessionsMutex.RLock()
-	defer fake.deleteSessionsMutex.RUnlock()
-	return len(fake.deleteSessionsArgsForCall)
+func (fake *SessionFactory) DeleteSessionCallCount() int {
+	fake.deleteSessionMutex.RLock()
+	defer fake.deleteSessionMutex.RUnlock()
+	return len(fake.deleteSessionArgsForCall)
 }
 
-func (fake *SessionFactory) DeleteSessionsCalls(stub func(context.Context, string)) {
-	fake.deleteSessionsMutex.Lock()
-	defer fake.deleteSessionsMutex.Unlock()
-	fake.DeleteSessionsStub = stub
+func (fake *SessionFactory) DeleteSessionCalls(stub func(context.Context, string, []byte)) {
+	fake.deleteSessionMutex.Lock()
+	defer fake.deleteSessionMutex.Unlock()
+	fake.DeleteSessionStub = stub
 }
 
-func (fake *SessionFactory) DeleteSessionsArgsForCall(i int) (context.Context, string) {
-	fake.deleteSessionsMutex.RLock()
-	defer fake.deleteSessionsMutex.RUnlock()
-	argsForCall := fake.deleteSessionsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+func (fake *SessionFactory) DeleteSessionArgsForCall(i int) (context.Context, string, []byte) {
+	fake.deleteSessionMutex.RLock()
+	defer fake.deleteSessionMutex.RUnlock()
+	argsForCall := fake.deleteSessionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *SessionFactory) NewSession(arg1 string, arg2 string, arg3 string, arg4 []byte) (viewa.Session, error) {

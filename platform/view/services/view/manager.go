@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
+	"bytes"
 	"context"
 	"reflect"
 	"runtime/debug"
@@ -256,12 +257,15 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 		me = cm.identityProvider.DefaultIdentity()
 	}
 
-	sessionID := session.Info().ID
-	caller := session.Info().Caller
+	info := session.Info()
+	caller := info.Caller
 
-	// check if a viewContext already exists for the given contextID
+	// check if a viewContext already exists for the given contextID.
+	// A session is identified by its ID and remote PKID: the same ID from another party
+	// is a different session and must be registered, so that the context replies on it
+	// and Dispose deletes it.
 	viewContext, ok := cm.contexts[contextID]
-	if ok && viewContext.Session() != nil && viewContext.Session().Info().ID != sessionID {
+	if ok && viewContext.Session() != nil && !sameSession(viewContext.Session().Info(), info) {
 		// next we need to unwrap the actual context to store the session
 		vCtx, ok := viewContext.(ParentContext)
 		if !ok {
@@ -349,4 +353,8 @@ func (*defaultRunner) RunView(viewCtx view.Context, responder view.View) (any, e
 // NewDefaultRunner returns a new instance of the default view runner.
 func NewDefaultRunner() Runner {
 	return &defaultRunner{}
+}
+
+func sameSession(a, b view.SessionInfo) bool {
+	return a.ID == b.ID && bytes.Equal(a.RemotePKID, b.RemotePKID)
 }
