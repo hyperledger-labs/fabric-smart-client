@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -75,7 +76,7 @@ func TestService(t *testing.T) {
 	cl.MasterSessionReturns(sess, nil)
 	sess.ReceiveReturns(ch)
 
-	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner(), nil)
 	ctx := t.Context()
 
 	err := service.Start(ctx)
@@ -117,7 +118,7 @@ func TestService_MasterSessionError(t *testing.T) {
 	cl := &mock2.CommLayer{}
 	cl.MasterSessionReturns(nil, errors.New("master session error"))
 
-	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner(), nil)
 	err := service.Start(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed getting master session")
@@ -174,7 +175,7 @@ func TestService_PanicIsReturnedToRemoteCaller(t *testing.T) {
 	cl.MasterSessionReturns(masterSess, nil)
 	masterSess.ReceiveReturns(ch)
 
-	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner(), nil)
 	ctx := t.Context()
 
 	err := service.Start(ctx)
@@ -223,7 +224,7 @@ func TestService_HandleResponderError(t *testing.T) {
 	cl.MasterSessionReturns(sess, nil)
 	sess.ReceiveReturns(ch)
 
-	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner(), nil)
 	ctx := t.Context()
 
 	err := service.Start(ctx)
@@ -281,7 +282,7 @@ func (*leakTestDeps) GetIdentity(_ string, _ []byte) (view.Identity, error) {
 }
 
 // TestService_Start_DrainsHandlersOnShutdown verifies that Start's read loop does not
-// return until every in-flight handleMessage goroutine it spawned has finished (Issue #7).
+// return until every in-flight handleMessage goroutine it spawned has finished.
 //
 // msg.Ctx is deliberately set to context.Background(), a context that is never cancelled
 // during this test. That means the *only* way blockingRunner can ever unblock is if the
@@ -311,7 +312,7 @@ func TestService_Start_DrainsHandlersOnShutdown(t *testing.T) { //nolint:paralle
 	cl.MasterSessionReturns(masterSess, nil)
 	cl.NewResponderSessionReturns(&mock.Session{}, nil)
 
-	service := p2p.NewService(deps, deps, cl, deps, runner)
+	service := p2p.NewService(deps, deps, cl, deps, runner, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -362,5 +363,169 @@ func TestService_Start_StopsOnClosedMasterSession(t *testing.T) { //nolint:paral
 		return nil, nil, errors.New("unexpected")
 	}}
 
-	require.NoError(t, p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner()).Start(context.Background()))
+	require.NoError(t, p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner(), nil).Start(context.Background()))
+}
+
+type limitConfig int
+
+func (limitConfig) IsSet(key string) bool { return key == p2p.MaxRespondersPerPeerKey }
+
+func (c limitConfig) GetInt(string) int { return int(c) }
+
+// releasableRunner blocks in RunView until the test releases that view context's ID or the
+// view context is done, signalling entered on every invocation.
+type releasableRunner struct {
+	entered  chan struct{}
+	releases sync.Map // view context ID -> chan struct{}
+}
+
+// release returns the channel that, once closed, releases the responder running in the
+// view context with the given ID.
+func (r *releasableRunner) release(contextID string) chan struct{} {
+	c, _ := r.releases.LoadOrStore(contextID, make(chan struct{}))
+	return c.(chan struct{})
+}
+
+func (r *releasableRunner) RunView(viewCtx view.Context, _ view.View) (any, error) {
+	r.entered <- struct{}{}
+	select {
+	case <-r.release(viewCtx.ID()):
+	case <-viewCtx.Context().Done():
+	}
+	return nil, nil
+}
+
+// freshContextDeps hands back a new view context, bound to the ctx Service passes in, on
+// every NewResponderContext call.
+type freshContextDeps struct{ leakTestDeps }
+
+func (*freshContextDeps) NewResponderContext(ctx context.Context, contextID string, _ view.Session, _, _ view.Identity) (view.Context, bool, error) {
+	c := &mock.Context{}
+	c.ContextReturns(ctx)
+	c.IDReturns(contextID)
+	return c, true, nil
+}
+
+// limitTest wires a Service with the given per-peer limit to a fake master session.
+type limitTest struct {
+	t      *testing.T
+	runner *releasableRunner
+	cl     *mock2.CommLayer
+	ch     chan *view.Message
+}
+
+func newLimitTest(t *testing.T, cfg p2p.ConfigService, buffer int) *limitTest {
+	t.Helper()
+	lt := &limitTest{
+		t:      t,
+		runner: &releasableRunner{entered: make(chan struct{}, buffer)},
+		cl:     &mock2.CommLayer{},
+		ch:     make(chan *view.Message, buffer),
+	}
+	masterSess := &mock.Session{}
+	masterSess.ReceiveReturns(lt.ch)
+	lt.cl.MasterSessionReturns(masterSess, nil)
+	lt.cl.NewResponderSessionReturns(&mock.Session{}, nil)
+	deps := &freshContextDeps{leakTestDeps{responder: &mock.View{}}}
+	require.NoError(t, p2p.NewService(deps, deps, lt.cl, deps, lt.runner, cfg).Start(t.Context()))
+	return lt
+}
+
+// send delivers a first message with context "ctx-<id>" on session sessionID from peer.
+func (lt *limitTest) send(id, sessionID, peer string) {
+	lt.ch <- &view.Message{
+		ContextID:    "ctx-" + id,
+		SessionID:    sessionID,
+		Caller:       "caller",
+		FromEndpoint: peer,
+		FromPKID:     []byte(peer),
+		Ctx:          context.Background(),
+	}
+}
+
+func (lt *limitTest) wait(c <-chan struct{}, what string) {
+	lt.t.Helper()
+	select {
+	case <-c:
+	case <-time.After(5 * time.Second):
+		lt.t.Fatalf("timed out waiting for %s", what)
+	}
+}
+
+// TestService_LimitsRespondersPerPeer verifies that one peer cannot run more than the
+// configured number of responders: the first message over the limit is rejected with an
+// error reply, messages beyond the bound on pending rejections are dropped, other peers are
+// unaffected, a pending rejection does not use up a responder slot, and a finished
+// responder frees its slot.
+func TestService_LimitsRespondersPerPeer(t *testing.T) {
+	t.Parallel()
+	lt := newLimitTest(t, limitConfig(1), 10)
+
+	rejectSending := make(chan struct{}, 10)
+	unblockReject := make(chan struct{})
+	lt.cl.ReplyErrorStub = func(context.Context, *view.Message, []byte) error {
+		select { // non-blocking: later rejections must not wedge the test
+		case rejectSending <- struct{}{}:
+		default:
+		}
+		<-unblockReject
+		return nil
+	}
+
+	lt.send("a1", "sess-a1", "peerA")
+	lt.wait(lt.runner.entered, "a1 to run")
+	lt.send("a2", "sess-a2", "peerA")
+	lt.wait(rejectSending, "a2 to be rejected")
+	lt.send("a3", "sess-a3", "peerA") // over both bounds: dropped
+	lt.send("b1", "sess-b1", "peerB")
+	lt.wait(lt.runner.entered, "b1 to run")
+
+	// Start dispatches sequentially, so a3 was handled before b1. Had a3 been run or
+	// rejected instead of dropped, it would show up on entered or rejectSending.
+	require.Never(t, func() bool { return len(lt.runner.entered) > 0 || len(rejectSending) > 0 }, 100*time.Millisecond, 5*time.Millisecond)
+	require.Equal(t, 2, lt.cl.NewResponderSessionCallCount(), "sessions for a1 and b1")
+	require.Equal(t, 1, lt.cl.ReplyErrorCallCount(), "rejection of a2")
+	_, rejected, _ := lt.cl.ReplyErrorArgsForCall(0)
+	require.Equal(t, "sess-a2", rejected.SessionID)
+
+	// Free a1's slot while a2's rejection is still pending: peerA can run a responder again
+	// once the slot is released. Attempts before that are dropped, as the rejection bound
+	// is still full.
+	close(lt.runner.release("ctx-a1"))
+	i := 0
+	require.Eventually(t, func() bool {
+		i++
+		lt.send(fmt.Sprintf("a4-%d", i), fmt.Sprintf("sess-a4-%d", i), "peerA")
+		select {
+		case <-lt.runner.entered:
+			return true
+		case <-time.After(20 * time.Millisecond):
+			return false
+		}
+	}, 5*time.Second, time.Millisecond)
+
+	close(unblockReject)
+}
+
+func TestNewService_MaxRespondersPerPeerConfig(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		cfg  p2p.ConfigService
+		want int
+	}{
+		"unset":    {nil, p2p.DefaultMaxRespondersPerPeer},
+		"zero":     {limitConfig(0), p2p.DefaultMaxRespondersPerPeer},
+		"negative": {limitConfig(-1), p2p.DefaultMaxRespondersPerPeer},
+		"set":      {limitConfig(3), 3},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			lt := newLimitTest(t, tc.cfg, tc.want+1)
+			for i := range tc.want + 1 {
+				lt.send(fmt.Sprint(i), fmt.Sprint(i), "peer")
+			}
+			require.Eventually(t, func() bool { return len(lt.runner.entered) == tc.want }, 5*time.Second, time.Millisecond)
+			require.Never(t, func() bool { return len(lt.runner.entered) > tc.want }, 50*time.Millisecond, 5*time.Millisecond)
+		})
+	}
 }

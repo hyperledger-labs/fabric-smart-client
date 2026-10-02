@@ -10,6 +10,7 @@ import (
 	"context"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -17,6 +18,26 @@ import (
 )
 
 var logger = logging.MustGetLogger()
+
+const (
+	// MaxRespondersPerPeerKey is the configuration key that bounds the responders running
+	// concurrently on behalf of one remote peer, and separately the rejections pending for it.
+	MaxRespondersPerPeerKey = "fsc.p2p.maxRespondersPerPeer"
+	// DefaultMaxRespondersPerPeer applies when MaxRespondersPerPeerKey is unset, zero or
+	// negative. The bound cannot be disabled, so a mistyped value cannot turn it off.
+	DefaultMaxRespondersPerPeer = 1000
+
+	// rejectTimeout bounds the error reply sent to a peer whose first message is rejected.
+	rejectTimeout = 10 * time.Second
+)
+
+// ConfigService models the configuration service.
+type ConfigService interface {
+	// IsSet reports whether the given key is set.
+	IsSet(key string) bool
+	// GetInt returns the value of the given key as an int.
+	GetInt(key string) int
+}
 
 // IdentityProvider models the identity provider for P2P operations.
 type IdentityProvider interface {
@@ -42,6 +63,9 @@ type CommLayer interface {
 	MasterSession() (view.Session, error)
 	// NewResponderSession returns a new session for the given arguments.
 	NewResponderSession(caller []byte, msg *view.Message) (view.Session, error)
+	// ReplyError sends payload as an error to the sender of msg on msg's session, without
+	// registering a session, so that no session in use by a responder is affected.
+	ReplyError(ctx context.Context, msg *view.Message, payload []byte) error
 }
 
 // EndpointService models the dependency to the view-sdk's endpoint service.
@@ -76,31 +100,49 @@ type Service struct {
 	commLayer        CommLayer
 	runner           Runner
 
-	// wg tracks in-flight handleMessage goroutines spawned by Start, so that shutdown
-	// (ctx.Done() or a closed master session) can drain them before the Start goroutine returns.
+	// maxRespondersPerPeer bounds, per remote PKID, both the running responders and the
+	// pending rejections.
+	maxRespondersPerPeer int
+	// inflight holds the goroutines dispatch runs per remote PKID.
+	inflight   map[string]peerLoad
+	inflightMu sync.Mutex
+
+	// wg tracks the goroutines spawned by dispatch, so that shutdown (ctx.Done() or a
+	// closed master session) can drain them before the Start goroutine returns.
 	wg sync.WaitGroup
 }
 
-// NewService returns a new instance of the P2P service.
+// NewService returns a new instance of the P2P service. The per-peer responder limit is
+// read from MaxRespondersPerPeerKey; a nil configService selects the default.
 func NewService(
 	viewManager ViewManager,
 	identityProvider IdentityProvider,
 	commLayer CommLayer,
 	endpointService EndpointService,
 	runner Runner,
+	configService ConfigService,
 ) *Service {
+	maxRespondersPerPeer := DefaultMaxRespondersPerPeer
+	if configService != nil && configService.IsSet(MaxRespondersPerPeerKey) {
+		if v := configService.GetInt(MaxRespondersPerPeerKey); v > 0 {
+			maxRespondersPerPeer = v
+		}
+	}
 	return &Service{
-		viewManager:      viewManager,
-		identityProvider: identityProvider,
-		commLayer:        commLayer,
-		endpointService:  endpointService,
-		runner:           runner,
+		viewManager:          viewManager,
+		identityProvider:     identityProvider,
+		commLayer:            commLayer,
+		endpointService:      endpointService,
+		runner:               runner,
+		maxRespondersPerPeer: maxRespondersPerPeer,
+		inflight:             map[string]peerLoad{},
 	}
 }
 
-// Start starts the P2P service. It hands every message received on the master session to
-// a responder in its own goroutine, until ctx is done or the master session closes. In both
-// cases the dispatch loop waits for in-flight handlers before it returns.
+// Start starts the P2P service. It reads the master session, which receives every message
+// whose session the node does not know yet, and dispatches each message to its responder
+// view in a goroutine of its own, until ctx is done or the master session closes. In both
+// cases Start waits for the dispatched goroutines to finish before it returns.
 func (s *Service) Start(ctx context.Context) error {
 	session, err := s.commLayer.MasterSession()
 	if err != nil {
@@ -116,9 +158,7 @@ func (s *Service) Start(ctx context.Context) error {
 					logger.ErrorfContext(ctx, "master session closed, no longer accepting incoming sessions")
 					return
 				}
-				s.wg.Go(func() {
-					s.handleMessage(ctx, msg)
-				})
+				s.dispatch(ctx, msg)
 			case <-ctx.Done():
 				logger.DebugfContext(ctx, "received done signal, waiting for in-flight handlers")
 				return
@@ -126,6 +166,81 @@ func (s *Service) Start(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+// peerLoad counts the goroutines dispatch runs for one remote peer.
+type peerLoad struct{ responders, rejections int }
+
+// dispatch runs the responder for msg in a new goroutine, unless the sending peer
+// (msg.FromPKID, set by the comm layer from the authenticated stream) already has
+// maxRespondersPerPeer of them running. A message over the limit is rejected with an error
+// reply, so that the initiator fails fast; while maxRespondersPerPeer rejections for that
+// peer are pending, further messages are dropped. The two counts are independent, so
+// pending rejections never keep a peer from starting responders. This caps what dispatch
+// creates for one peer at maxRespondersPerPeer responders, each with its view context and
+// comm session, plus maxRespondersPerPeer rejections. A slot is freed only when its
+// goroutine returns; responders that never return keep their slot until shutdown. dispatch
+// never blocks, so a single peer cannot stall the master session for the others.
+func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
+	peer := string(msg.FromPKID)
+
+	s.inflightMu.Lock()
+	load := s.inflight[peer]
+	admit := load.responders < s.maxRespondersPerPeer
+	reject := !admit && load.rejections < s.maxRespondersPerPeer
+	switch {
+	case admit:
+		load.responders++
+	case reject:
+		load.rejections++
+	}
+	s.inflight[peer] = load
+	s.inflightMu.Unlock()
+
+	if !admit && !reject {
+		// Debug only: the peer controls how often this fires.
+		logger.Debugf("dropping first message for context [%s] from [%s]: too many pending rejections", msg.ContextID, msg.FromEndpoint)
+		return
+	}
+	s.wg.Go(func() {
+		defer s.release(peer, admit)
+		if admit {
+			s.handleMessage(ctx, msg)
+		} else {
+			s.reject(ctx, msg)
+		}
+	})
+}
+
+// release frees the responder or rejection slot dispatch took for peer.
+func (s *Service) release(peer string, responder bool) {
+	s.inflightMu.Lock()
+	defer s.inflightMu.Unlock()
+	load := s.inflight[peer]
+	if responder {
+		load.responders--
+	} else {
+		load.rejections--
+	}
+	if load == (peerLoad{}) {
+		delete(s.inflight, peer)
+		return
+	}
+	s.inflight[peer] = load
+}
+
+// reject replies to msg with an error. The reply goes out through a one-shot session that
+// is never registered, so it cannot disturb a responder that uses or is about to create a
+// session with the same ID, as with a follow-up message that reached the master session
+// before its responder registered the session. Rejections happen at a rate the peer
+// controls, so reject logs at debug level only.
+func (s *Service) reject(ctx context.Context, msg *view.Message) {
+	logger.Debugf("rejecting first message for context [%s] from [%s]: [%d] responders running for this peer", msg.ContextID, msg.FromEndpoint, s.maxRespondersPerPeer)
+	sendCtx, cancel := context.WithTimeout(ctx, rejectTimeout)
+	defer cancel()
+	if err := s.commLayer.ReplyError(sendCtx, msg, []byte("too many concurrent responders for this peer")); err != nil {
+		logger.Debugf("failed rejecting context [%s]: [%s]", msg.ContextID, err)
+	}
 }
 
 // handleMessage handles an incoming message. ctx is the Service's own lifecycle context
