@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package client
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -68,6 +70,35 @@ func TestOpenWSClientConn_Fails_When_Server_Unreachable(t *testing.T) {
 	conn, err := OpenWSClientConn(toWsURL(server.URL, ""), nil)
 	require.Error(t, err)
 	require.Nil(t, conn)
+}
+
+// Verifies that OpenWSClientConnWithTimeout times out when the server accepts TCP connections
+// but never completes the WebSocket handshake.
+func TestOpenWSClientConnWithTimeout_HandshakeTimeout(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = listener.Close() }()
+
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			defer func() { _ = conn.Close() }()
+		}
+	}()
+
+	start := time.Now()
+	conn, err := OpenWSClientConnWithTimeout("ws://"+listener.Addr().String(), nil, 100*time.Millisecond)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.Nil(t, conn)
+	assert.GreaterOrEqual(t, elapsed, 100*time.Millisecond)
+	assert.Less(t, elapsed, 2*time.Second)
 }
 
 // --- NewWSStream ---

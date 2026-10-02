@@ -53,10 +53,22 @@ type MultiplexedMessage struct {
 	Err string    `json:"err"`
 }
 
+// inFlightDial tracks an in-progress dial to a websocket URL so concurrent callers
+// share the same connection without holding the provider lock during the network dial.
+type inFlightDial struct {
+	done chan struct{}
+	conn *multiplexedClientConn
+	err  error
+}
+
 type MultiplexedProvider struct {
-	// mu protects the clients map
+	// mu protects clients, dialing, and closed. It is never held across a network dial or
+	// sub-connection meta message write: a peer that never answers or stops reading blocks
+	// for up to handshake or write timeout, and stream creation to other peers must proceed.
 	mu      sync.RWMutex
 	clients map[string]*multiplexedClientConn
+	dialing map[string]*inFlightDial
+	closed  bool
 
 	tracer      trace.Tracer
 	m           *Metrics
@@ -72,14 +84,16 @@ func (c *MultiplexedProvider) KillAll() error {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
+		c.closed = true
 		close(c.trackerDone)
 
 		for _, cl := range c.clients {
 			err = errors2.Join(err, cl.Kill())
 		}
 
-		// cleanup clients
+		// cleanup clients and in-flight map
 		clear(c.clients)
+		clear(c.dialing)
 	})
 
 	return err
@@ -95,6 +109,7 @@ func NewMultiplexedProvider(tracerProvider tracing.Provider, metricsProvider met
 	}
 	p := &MultiplexedProvider{
 		clients: make(map[string]*multiplexedClientConn),
+		dialing: make(map[string]*inFlightDial),
 		tracer: tracerProvider.Tracer("multiplexed_ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{contextIDLabel},
 		})),
@@ -135,6 +150,102 @@ func StartTracker(f func()) chan struct{} {
 	return done
 }
 
+func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, info host2.StreamInfo, src host2.PeerID, config *tls.Config) (*multiplexedClientConn, error) {
+	c.mu.RLock()
+	if c.closed {
+		c.mu.RUnlock()
+		return nil, errors.New("provider is closed")
+	}
+	conn, ok := c.clients[urlStr]
+	c.mu.RUnlock()
+	if ok {
+		return conn, nil
+	}
+
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return nil, errors.New("provider is closed")
+	}
+	if conn, ok = c.clients[urlStr]; ok {
+		c.mu.Unlock()
+		return conn, nil
+	}
+
+	if inFlight, dialing := c.dialing[urlStr]; dialing {
+		c.mu.Unlock()
+		if ctx != nil {
+			select {
+			case <-inFlight.done:
+			case <-c.trackerDone:
+				return nil, errors.New("provider is closed")
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		} else {
+			select {
+			case <-inFlight.done:
+			case <-c.trackerDone:
+				return nil, errors.New("provider is closed")
+			}
+		}
+		c.mu.RLock()
+		closed := c.closed
+		c.mu.RUnlock()
+		if closed {
+			return nil, errors.New("provider is closed")
+		}
+		if inFlight.err != nil {
+			return nil, inFlight.err
+		}
+		return inFlight.conn, nil
+	}
+
+	inFlight := &inFlightDial{done: make(chan struct{})}
+	c.dialing[urlStr] = inFlight
+	c.mu.Unlock()
+
+	wsConn, err := web2.OpenWSClientConn(urlStr, config)
+	if err != nil {
+		logger.Errorf("Failed to open websocket connection from [%s] to [%s@%s]: %s", src, info.RemotePeerID, info.RemotePeerAddress, err.Error())
+		dialErr := errors.Wrapf(err, "failed to open websocket")
+
+		c.mu.Lock()
+		delete(c.dialing, urlStr)
+		inFlight.err = dialErr
+		close(inFlight.done)
+		c.mu.Unlock()
+
+		return nil, dialErr
+	}
+
+	conn = newClientConn(wsConn, c.tracer, c.m, c.MaxSubConns, func() {
+		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if c.clients[urlStr] == conn {
+			delete(c.clients, urlStr)
+		}
+	})
+
+	c.mu.Lock()
+	if c.closed {
+		delete(c.dialing, urlStr)
+		close(inFlight.done)
+		c.mu.Unlock()
+		_ = conn.Kill()
+		return nil, errors.New("provider is closed")
+	}
+	c.clients[urlStr] = conn
+	delete(c.dialing, urlStr)
+	inFlight.conn = conn
+	close(inFlight.done)
+	c.m.OpenedWebsockets.With(sideLabel, clientSide).Add(1)
+	c.mu.Unlock()
+
+	return conn, nil
+}
+
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
 	span := trace.SpanFromContext(ctx)
 	defer func() {
@@ -144,36 +255,11 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	url := url.URL{Scheme: schemes[config != nil], Host: info.RemotePeerAddress, Path: "/p2p"}
-	// We use the background context instead of passing the existing context,
-	// because the net/http server doesn't monitor connections upgraded to WebSocket.
-	// Hence, when the connection is lost, the context will not be cancelled.
-	c.mu.RLock()
-	conn, ok := c.clients[url.String()]
-	c.mu.RUnlock()
-	if ok {
-		return conn.newClientSubConn(ctx, src, info)
-	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if conn, ok = c.clients[url.String()]; ok {
-		return conn.newClientSubConn(ctx, src, info)
-	}
-
-	wsConn, err := web2.OpenWSClientConn(url.String(), config)
+	conn, err := c.getClientConn(ctx, url.String(), info, src, config)
 	if err != nil {
-		logger.Errorf("Failed to open websocket connection from [%s] to [%s@%s]: %s", src, info.RemotePeerID, info.RemotePeerAddress, err.Error())
-		return nil, errors.Wrapf(err, "failed to open websocket")
+		return nil, err
 	}
-
-	conn = newClientConn(wsConn, c.tracer, c.m, c.MaxSubConns, func() {
-		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		delete(c.clients, url.String())
-	})
-	c.clients[url.String()] = conn
-	c.m.OpenedWebsockets.With(sideLabel, clientSide).Add(1)
 
 	return conn.newClientSubConn(ctx, src, info)
 }
