@@ -523,3 +523,262 @@ func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nol
 		})
 	}
 }
+
+// TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer checks that an unresponsive peer
+// that accepts TCP connections but hangs during the WebSocket handshake does not block stream
+// creation to healthy peers, and does not hold the provider lock while dialing (Issue #1975).
+func TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	hang, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = hang.Close() }()
+
+	go func() {
+		for {
+			c, err := hang.Accept()
+			if err != nil {
+				return
+			}
+			defer func() { _ = c.Close() }()
+		}
+	}()
+
+	healthy, _ := startRawServer(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	t.Cleanup(func() { _ = p.Close() })
+
+	hangErrCh := make(chan error, 1)
+	go func() {
+		_, err := p.NewClientStream(host.StreamInfo{RemotePeerAddress: hang.Addr().String()}, t.Context(), "client", nil)
+		hangErrCh <- err
+	}()
+
+	// Allow the hanging dial to begin and hold the in-flight dial entry for hang.
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify the provider lock is NOT held while the dial is blocked on the hanging peer.
+	require.True(t, p.mu.TryLock(), "provider lock p.mu is held while dial is hanging")
+	p.mu.Unlock()
+
+	// Stream creation to the healthy peer must succeed promptly and not be blocked by the hanging dial.
+	healthyDone := make(chan error, 1)
+	go func() {
+		_, err := p.NewClientStream(host.StreamInfo{RemotePeerAddress: healthy}, t.Context(), "client", nil)
+		healthyDone <- err
+	}()
+
+	select {
+	case err := <-healthyDone:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("healthy peer stream creation was blocked by hanging peer dial")
+	}
+}
+
+// TestNewClientStream_ConcurrentDialsShareConnection checks that concurrent callers attempting
+// to open a stream to the same address share a single physical websocket connection (Issue #1975).
+func TestNewClientStream_ConcurrentDialsShareConnection(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	addr, peers := startRawServer(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	t.Cleanup(func() { _ = p.Close() })
+
+	const concurrentCallers = 10
+	var wg sync.WaitGroup
+	errCh := make(chan error, concurrentCallers)
+
+	for i := range concurrentCallers {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			info := host.StreamInfo{
+				RemotePeerAddress: addr,
+				RemotePeerID:      "server",
+				SessionID:         fmt.Sprintf("session-%d", id),
+			}
+			_, err := p.NewClientStream(info, t.Context(), "client", nil)
+			if err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	// Exactly one physical client connection should have been established to the server.
+	select {
+	case <-peers:
+		// First peer received
+	default:
+		t.Fatal("expected at least one server connection")
+	}
+
+	select {
+	case <-peers:
+		t.Fatal("expected only one physical connection to be dialed, but received multiple")
+	default:
+		// Expected: no duplicate connection
+	}
+}
+
+// TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient verifies that an asynchronous
+// onClose callback from an earlier connection does not evict a newly registered connection
+// under the same URL (e.g. after a reconnect).
+func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	addr, _ := startRawServer(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	t.Cleanup(func() { _ = p.Close() })
+
+	urlStr := fmt.Sprintf("ws://%s/p2p", addr)
+	info := host.StreamInfo{RemotePeerAddress: addr}
+
+	// First dial establishes connA in p.clients.
+	s1, err := p.NewClientStream(info, t.Context(), "client", nil)
+	require.NoError(t, err)
+	_ = s1.Close()
+
+	p.mu.RLock()
+	connA := p.clients[urlStr]
+	p.mu.RUnlock()
+	require.NotNil(t, connA)
+
+	// Kill connA so its readIncoming exits and queues its onClose callback.
+	require.NoError(t, connA.Kill())
+
+	// Register connB under the same URL before connA's onClose finishes.
+	rawWS, resp, err := (&gwebsocket.Dialer{}).Dial("ws://"+addr+"/p2p", nil)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	connB := newClientConn(rawWS, p.tracer, p.m, 0, func() {})
+
+	p.mu.Lock()
+	p.clients[urlStr] = connB
+	p.mu.Unlock()
+
+	// Wait a moment for connA's onClose callback goroutine to execute.
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify that connB was NOT evicted by connA's onClose.
+	p.mu.RLock()
+	currentConn := p.clients[urlStr]
+	p.mu.RUnlock()
+	require.Equal(t, connB, currentConn, "stale onClose callback evicted reconnected client connB")
+}
+
+// TestNewClientStream_PostShutdownDialsRefused verifies that NewClientStream returns an error
+// and refuses to dial or register new connections after the provider has been shut down via KillAll.
+func TestNewClientStream_PostShutdownDialsRefused(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	addr, _ := startRawServer(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+
+	require.NoError(t, p.KillAll())
+
+	info := host.StreamInfo{RemotePeerAddress: addr}
+	_, err := p.NewClientStream(info, t.Context(), "client", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "provider is closed")
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	require.Empty(t, p.clients)
+	require.Empty(t, p.dialing)
+}
+
+// TestNewClientStream_KillAllDuringInFlightDial verifies that if KillAll is invoked while a dial
+// is in-flight, the completing dial detects that the provider was closed, terminates the freshly
+// opened connection, returns "provider is closed", and does not insert it into p.clients.
+func TestNewClientStream_KillAllDuringInFlightDial(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	dialing := make(chan struct{})
+	allowUpgrade := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(dialing)
+		<-allowUpgrade
+		conn, err := (&gwebsocket.Upgrader{}).Upgrade(w, r, nil)
+		if err == nil {
+			t.Cleanup(func() { _ = conn.Close() })
+		}
+	}))
+	defer srv.Close()
+
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+
+	errCh := make(chan error, 1)
+	go func() {
+		info := host.StreamInfo{RemotePeerAddress: addr}
+		_, err := p.NewClientStream(info, t.Context(), "client", nil)
+		errCh <- err
+	}()
+
+	// Wait until client has reached the server and is in-flight dialing.
+	select {
+	case <-dialing:
+	case <-time.After(2 * time.Second):
+		t.Fatal("client dial never reached server")
+	}
+
+	// Now shut down the provider while the dial is in-flight.
+	require.NoError(t, p.KillAll())
+
+	// Allow the server to complete the WebSocket upgrade.
+	close(allowUpgrade)
+
+	select {
+	case err := <-errCh:
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "provider is closed")
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for in-flight dial to return")
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	require.Empty(t, p.clients, "fresh connection leaked into p.clients after KillAll")
+}
+
+// TestNewClientStream_DialHonoursCallerContextDeadline verifies that the dialer honours
+// the caller context deadline and returns promptly rather than blocking for the full
+// handshake timeout when connecting to an unresponsive peer.
+func TestNewClientStream_DialHonoursCallerContextDeadline(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	hang, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = hang.Close() }()
+
+	go func() {
+		for {
+			c, err := hang.Accept()
+			if err != nil {
+				return
+			}
+			defer func() { _ = c.Close() }()
+		}
+	}()
+
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	t.Cleanup(func() { _ = p.Close() })
+
+	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err = p.NewClientStream(host.StreamInfo{RemotePeerAddress: hang.Addr().String()}, ctx, "client", nil)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.GreaterOrEqual(t, elapsed, 300*time.Millisecond)
+	assert.Less(t, elapsed, 2*time.Second, "dial was not bounded by caller context deadline")
+}
