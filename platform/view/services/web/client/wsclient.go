@@ -8,6 +8,7 @@ package client
 
 import (
 	"crypto/tls"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -22,10 +23,22 @@ type WSStream struct {
 	conn *websocket.Conn
 }
 
-const maxMessageSize = 10 * 1024 * 1024
+const (
+	maxMessageSize          = 10 * 1024 * 1024
+	DefaultHandshakeTimeout = 30 * time.Second
+)
 
+// OpenWSClientConn establishes a websocket connection to the given URL using DefaultHandshakeTimeout.
 func OpenWSClientConn(url string, config *tls.Config) (*websocket.Conn, error) {
-	dialer := &websocket.Dialer{TLSClientConfig: config}
+	return OpenWSClientConnWithTimeout(url, config, DefaultHandshakeTimeout)
+}
+
+// OpenWSClientConnWithTimeout establishes a websocket connection to the given URL with a custom handshake timeout.
+func OpenWSClientConnWithTimeout(url string, config *tls.Config, handshakeTimeout time.Duration) (*websocket.Conn, error) {
+	dialer := &websocket.Dialer{
+		TLSClientConfig:  config,
+		HandshakeTimeout: handshakeTimeout,
+	}
 	ws, resp, err := dialer.Dial(url, nil)
 	if err != nil {
 		logger.Errorf("Failed to establish websocket connection to [%s]: %s", url, err.Error())

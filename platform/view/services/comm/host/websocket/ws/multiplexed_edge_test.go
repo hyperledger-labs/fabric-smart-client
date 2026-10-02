@@ -523,3 +523,106 @@ func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nol
 		})
 	}
 }
+
+// TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer checks that an unresponsive peer
+// that accepts TCP connections but hangs during the WebSocket handshake does not block stream
+// creation to healthy peers, and does not hold the provider lock while dialing (Issue #1975).
+func TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	hang, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = hang.Close() }()
+
+	go func() {
+		for {
+			c, err := hang.Accept()
+			if err != nil {
+				return
+			}
+			defer func() { _ = c.Close() }()
+		}
+	}()
+
+	healthy, _ := startRawServer(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	t.Cleanup(func() { _ = p.Close() })
+
+	hangErrCh := make(chan error, 1)
+	go func() {
+		_, err := p.NewClientStream(host.StreamInfo{RemotePeerAddress: hang.Addr().String()}, t.Context(), "client", nil)
+		hangErrCh <- err
+	}()
+
+	// Allow the hanging dial to begin and hold the in-flight dial entry for hang.
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify the provider lock is NOT held while the dial is blocked on the hanging peer.
+	require.True(t, p.mu.TryLock(), "provider lock p.mu is held while dial is hanging")
+	p.mu.Unlock()
+
+	// Stream creation to the healthy peer must succeed promptly and not be blocked by the hanging dial.
+	healthyDone := make(chan error, 1)
+	go func() {
+		_, err := p.NewClientStream(host.StreamInfo{RemotePeerAddress: healthy}, t.Context(), "client", nil)
+		healthyDone <- err
+	}()
+
+	select {
+	case err := <-healthyDone:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("healthy peer stream creation was blocked by hanging peer dial")
+	}
+}
+
+// TestNewClientStream_ConcurrentDialsShareConnection checks that concurrent callers attempting
+// to open a stream to the same address share a single physical websocket connection (Issue #1975).
+func TestNewClientStream_ConcurrentDialsShareConnection(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	addr, peers := startRawServer(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	t.Cleanup(func() { _ = p.Close() })
+
+	const concurrentCallers = 10
+	var wg sync.WaitGroup
+	errCh := make(chan error, concurrentCallers)
+
+	for i := range concurrentCallers {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			info := host.StreamInfo{
+				RemotePeerAddress: addr,
+				RemotePeerID:      "server",
+				SessionID:         fmt.Sprintf("session-%d", id),
+			}
+			_, err := p.NewClientStream(info, t.Context(), "client", nil)
+			if err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	// Exactly one physical client connection should have been established to the server.
+	select {
+	case <-peers:
+		// First peer received
+	default:
+		t.Fatal("expected at least one server connection")
+	}
+
+	select {
+	case <-peers:
+		t.Fatal("expected only one physical connection to be dialed, but received multiple")
+	default:
+		// Expected: no duplicate connection
+	}
+}
