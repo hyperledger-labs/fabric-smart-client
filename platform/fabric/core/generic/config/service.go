@@ -155,19 +155,21 @@ func (s *Service) DriverName() string {
 	return s.driver
 }
 
-// ClientConnTimeout returns how long to wait when establishing a connection to this network.
+// ClientConnTimeout returns how long to wait when establishing a connection to this network,
+// read from fabric.<network>.keepalive.connectionTimeout. It defaults to 10s.
 func (s *Service) ClientConnTimeout() time.Duration {
-	if !s.Configuration.IsSet("keepalive.connectionTimeout") {
+	if !s.IsSet("keepalive.connectionTimeout") {
 		return defaultConnectionTimeout
 	}
 	return s.GetDuration("keepalive.connectionTimeout")
 }
 
-// ClientKeepAliveConfig return the client keep alive configuration.
-// It returns nil, if no configuration was set.
-// This functions loads and instance of grpc.ClientKeepAliveConfig
+// ClientKeepAliveConfig returns the gRPC client keepalive parameters read from
+// fabric.<network>.keepalive. It returns nil, which disables keepalive pings, when
+// keepalive.time is unset or not positive, or the section fails to decode. A zero time
+// must not reach grpc.WithKeepaliveParams, which raises it to a 10s ping interval.
 func (s *Service) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
-	if !s.Configuration.IsSet("keepalive.interval") {
+	if s.GetDuration("keepalive.time") <= 0 {
 		return nil
 	}
 	c := &grpc.ClientKeepAliveConfig{}
