@@ -134,7 +134,6 @@ func TestNew_NilChannelConfig(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		time.Second,
 		1,
 		nil,
 	)

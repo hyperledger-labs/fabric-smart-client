@@ -107,9 +107,8 @@ type Finality struct {
 }
 
 type Delivery struct {
-	BufferSize          int           `yaml:"BufferSize,omitempty"`
-	WaitForEventTimeout time.Duration `yaml:"WaitForEventTimeout,omitempty"`
-	SleepAfterFailure   time.Duration `yaml:"SleepAfterFailure,omitempty"`
+	BufferSize        int           `yaml:"BufferSize,omitempty"`
+	SleepAfterFailure time.Duration `yaml:"SleepAfterFailure,omitempty"`
 }
 
 type Discovery struct {

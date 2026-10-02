@@ -8,7 +8,6 @@ package delivery
 
 import (
 	"context"
-	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -55,16 +54,14 @@ type Service struct {
 	PeerManager         Services
 	Ledger              driver.Ledger
 	transactionManager  driver.TransactionManager
-	waitForEventTimeout time.Duration
 	acceptedHeaderTypes collections.Set[common.HeaderType]
 	tracerProvider      tracing.Provider
 	deliveryService     *Delivery
 }
 
 // NewService creates the delivery Service for a channel. It fails if
-// channelConfig is nil, which would otherwise panic here: the wait-for-event
-// timeout and buffer size are read off channelConfig while building the
-// arguments to New.
+// channelConfig is nil, which would otherwise panic here: the buffer size is
+// read off channelConfig while building the arguments to New.
 func NewService(
 	channel string,
 	channelConfig driver.ChannelConfig,
@@ -92,7 +89,6 @@ func NewService(
 		ledger,
 		callback,
 		vault,
-		channelConfig.CommitterWaitForEventTimeout(),
 		channelConfig.DeliveryBufferSize(),
 		tracerProvider,
 	)
@@ -108,7 +104,6 @@ func NewService(
 		ConfigService:       configService,
 		PeerManager:         peerManager,
 		Ledger:              ledger,
-		waitForEventTimeout: channelConfig.CommitterWaitForEventTimeout(),
 		deliveryService:     deliveryService,
 		transactionManager:  transactionManager,
 		tracerProvider:      tracerProvider,
@@ -142,7 +137,6 @@ func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver
 		c.Ledger,
 		callback,
 		vault,
-		c.channelConfig.CommitterWaitForEventTimeout(),
 		c.channelConfig.DeliveryBufferSize(),
 		c.tracerProvider,
 	)

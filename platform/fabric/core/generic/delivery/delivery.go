@@ -75,20 +75,19 @@ type Services interface {
 // restarted, and Run must not be called more than once. Stop may be called
 // concurrently with Run and from any number of goroutines.
 type Delivery struct {
-	channel             string
-	channelConfig       driver.ChannelConfig
-	NetworkName         string
-	LocalMembership     driver.LocalMembership
-	ConfigService       driver.ConfigService
-	Services            Services
-	Ledger              driver.Ledger
-	waitForEventTimeout time.Duration
-	callback            driver.BlockCallback
-	vault               Vault
-	client              services.PeerClient
-	tracer              trace.Tracer
-	lastBlockReceived   uint64
-	bufferSize          int
+	channel           string
+	channelConfig     driver.ChannelConfig
+	NetworkName       string
+	LocalMembership   driver.LocalMembership
+	ConfigService     driver.ConfigService
+	Services          Services
+	Ledger            driver.Ledger
+	callback          driver.BlockCallback
+	vault             Vault
+	client            services.PeerClient
+	tracer            trace.Tracer
+	lastBlockReceived uint64
+	bufferSize        int
 
 	// stop is closed exactly once, by Stop, to signal shutdown to every
 	// goroutine started by Run. It carries no value: untilStop, readBlocks and
@@ -118,7 +117,6 @@ func New(
 	ledger driver.Ledger,
 	callback driver.BlockCallback,
 	vault Vault,
-	waitForEventTimeout time.Duration,
 	bufferSize int,
 	tracerProvider tracing.Provider,
 ) (*Delivery, error) {
@@ -127,14 +125,13 @@ func New(
 	}
 
 	d := &Delivery{
-		NetworkName:         networkName,
-		channel:             channelConfig.ID(),
-		channelConfig:       channelConfig,
-		LocalMembership:     localMembership,
-		ConfigService:       configService,
-		Services:            peerManager,
-		Ledger:              ledger,
-		waitForEventTimeout: waitForEventTimeout,
+		NetworkName:     networkName,
+		channel:         channelConfig.ID(),
+		channelConfig:   channelConfig,
+		LocalMembership: localMembership,
+		ConfigService:   configService,
+		Services:        peerManager,
+		Ledger:          ledger,
 		tracer: tracerProvider.Tracer("delivery", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{messageTypeLabel},
 		})),
@@ -232,6 +229,13 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 // failure, and forwards received blocks to ch. It returns once the service is
 // stopped; it stops the service itself when ctx is cancelled. It is a no-op if
 // ctx or ch is nil.
+//
+// Recv is called without a deadline: the peer pushes blocks as they are
+// committed, so a quiet channel legitimately sends nothing for any length of
+// time. The stream is reopened only when Recv returns an error, so a dead
+// connection that yields no error must be detected by the gRPC client
+// keepalive. The new stream starts at the last block received, which is
+// therefore delivered again (see GetStartPosition).
 func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	if ctx == nil || ch == nil {
 		return
