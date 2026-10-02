@@ -12,12 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	cfg "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	sdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
@@ -102,13 +104,14 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 func TestClientKeepAliveConfig_UnmarshalError(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
-	m.IsSetStub = setsEverythingButRemovedKeys // keepalive.interval is set
+	m.GetDurationReturns(time.Minute) // keepalive.time is positive
 	m.UnmarshalKeyReturnsOnCall(0, errors.New("boom"))
 
 	svc := &cfg.Service{Configuration: m}
 	// should return nil on unmarshal error
 	k := svc.ClientKeepAliveConfig()
 	require.Nil(t, k)
+	require.Equal(t, 1, m.UnmarshalKeyCallCount())
 }
 
 func TestVaultAndMSPSettings(t *testing.T) {
@@ -500,4 +503,72 @@ func setsEverythingButRemovedKeys(key string) bool {
 		return false
 	}
 	return true
+}
+
+// The keepalive accessors read fabric.<network>.keepalive, loaded through the real
+// configuration provider so that key lookup, prefixing and decoding are all covered.
+func TestKeepAliveAccessors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		keepalive   string
+		wantConfig  *grpc.ClientKeepAliveConfig
+		wantTimeout time.Duration
+	}{
+		{
+			name:        "absent",
+			wantTimeout: 10 * time.Second,
+		},
+		{
+			name: "documented keys",
+			keepalive: `
+      time: 2m
+      timeout: 20s
+      permit-without-stream: true`,
+			wantConfig:  &grpc.ClientKeepAliveConfig{Time: 2 * time.Minute, Timeout: 20 * time.Second, PermitWithoutStream: true},
+			wantTimeout: 10 * time.Second,
+		},
+		{
+			name: "zero time, no keepalive",
+			keepalive: `
+      time: 0s
+      timeout: 20s`,
+			wantTimeout: 10 * time.Second,
+		},
+		{
+			name: "no time, no keepalive",
+			keepalive: `
+      timeout: 20s
+      permit-without-stream: true`,
+			wantTimeout: 10 * time.Second,
+		},
+		{
+			name: "connection timeout only",
+			keepalive: `
+      connectionTimeout: 7s`,
+			wantTimeout: 7 * time.Second,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			raw := `
+fabric:
+  enabled: true
+  mynet:
+    default: true`
+			if tt.keepalive != "" {
+				raw += "\n    keepalive:" + tt.keepalive
+			}
+			p, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte(raw))
+			require.NoError(t, err)
+			svc, err := cfg.NewService(p, "mynet", true)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantConfig, svc.ClientKeepAliveConfig())
+			assert.Equal(t, tt.wantTimeout, svc.ClientConnTimeout())
+		})
+	}
 }

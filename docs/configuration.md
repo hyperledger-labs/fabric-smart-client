@@ -478,11 +478,18 @@ fabric:
       minVersion: 771
       maxVersion: 772
 
-    # Client keepalive settings for GRPC.
+    # Client gRPC settings for every connection to this network's peers and orderers.
     # This section can be omitted.
     keepalive:
-      # Time: how often the client sends keepalive pings to the server.
-      # Format: Go duration string (e.g. "30s", "2m"). Zero/omitted disables.
+      # ConnectionTimeout: how long to wait when dialling this network's peers and
+      # orderers. Format: Go duration string. Default: 10s.
+      connectionTimeout: 10s
+      # Time: how often the client sends keepalive pings to the server. Zero or omitted
+      # disables keepalive; a connection that dies without an error then goes unnoticed
+      # for hours. Values below 10s are raised to 10s. Fabric peers and orderers close
+      # connections that ping more often than their configured minimum interval
+      # (default 60s), so do not set it lower than that.
+      # Format: Go duration string (e.g. "90s", "2m").
       time: "2m"
       # Timeout: how long the client waits for a keepalive ACK from the server
       # before considering the connection dead.
@@ -751,7 +758,7 @@ CORE_FSC_P2P_LISTENADDRESS=/ip4/0.0.0.0/tcp/9001
 CORE_FSC_IDENTITY_KEY_FILE=/my/private.key
 CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE=/mydb.sqlite
 CORE_FSC_TRACING_OTLP_ADDRESS=jaeger.example.com:4318
-CORE_FABRIC_MYNETWORK_KEEPALIVE_TIMEOUT=120s
+CORE_FABRIC_MYNETWORK_KEEPALIVE_TIME=120s
 ```
 
 And so on.
