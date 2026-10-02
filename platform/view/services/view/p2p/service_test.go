@@ -244,6 +244,32 @@ func TestService_HandleResponderError(t *testing.T) {
 	}
 }
 
+// TestService_DeletesSessionWithoutContext checks that a responder session no context accepts is
+// deleted, since only Context.Dispose deletes sessions otherwise.
+func TestService_DeletesSessionWithoutContext(t *testing.T) {
+	t.Parallel()
+	vm := &viewManagerMock{}
+	vm.NewSessionContextFunc = func(context.Context, string, view.Session, view.Identity) (view.Context, bool, error) {
+		return nil, false, errors.New("context [ctx1] is not a responder context")
+	}
+	cl := &mock2.CommLayer{}
+	sess := &mock.Session{}
+	ch := make(chan *view.Message, 1)
+	cl.MasterSessionReturns(sess, nil)
+	sess.ReceiveReturns(ch)
+
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
+	ctx := t.Context()
+	require.NoError(t, service.Start(ctx))
+
+	ch <- &view.Message{ContextID: "ctx1", SessionID: "sess1", FromPKID: []byte("pkid1"), Ctx: ctx}
+
+	require.Eventually(t, func() bool { return cl.DeleteSessionCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	_, id, pkid := cl.DeleteSessionArgsForCall(0)
+	require.Equal(t, "sess1", id)
+	require.Equal(t, []byte("pkid1"), pkid)
+}
+
 // blockingRunner blocks in RunView until the view context it is given is cancelled,
 // simulating a long-running responder view that must observe shutdown.
 type blockingRunner struct{ entered chan struct{} }

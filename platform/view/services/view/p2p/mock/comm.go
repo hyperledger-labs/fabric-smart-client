@@ -2,6 +2,7 @@
 package mock
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
@@ -9,6 +10,13 @@ import (
 )
 
 type CommLayer struct {
+	DeleteSessionStub        func(context.Context, string, []byte)
+	deleteSessionMutex       sync.RWMutex
+	deleteSessionArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 []byte
+	}
 	MasterSessionStub        func() (view.Session, error)
 	masterSessionMutex       sync.RWMutex
 	masterSessionArgsForCall []struct {
@@ -37,6 +45,45 @@ type CommLayer struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CommLayer) DeleteSession(arg1 context.Context, arg2 string, arg3 []byte) {
+	var arg3Copy []byte
+	if arg3 != nil {
+		arg3Copy = make([]byte, len(arg3))
+		copy(arg3Copy, arg3)
+	}
+	fake.deleteSessionMutex.Lock()
+	fake.deleteSessionArgsForCall = append(fake.deleteSessionArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 []byte
+	}{arg1, arg2, arg3Copy})
+	stub := fake.DeleteSessionStub
+	fake.recordInvocation("DeleteSession", []interface{}{arg1, arg2, arg3Copy})
+	fake.deleteSessionMutex.Unlock()
+	if stub != nil {
+		fake.DeleteSessionStub(arg1, arg2, arg3)
+	}
+}
+
+func (fake *CommLayer) DeleteSessionCallCount() int {
+	fake.deleteSessionMutex.RLock()
+	defer fake.deleteSessionMutex.RUnlock()
+	return len(fake.deleteSessionArgsForCall)
+}
+
+func (fake *CommLayer) DeleteSessionCalls(stub func(context.Context, string, []byte)) {
+	fake.deleteSessionMutex.Lock()
+	defer fake.deleteSessionMutex.Unlock()
+	fake.DeleteSessionStub = stub
+}
+
+func (fake *CommLayer) DeleteSessionArgsForCall(i int) (context.Context, string, []byte) {
+	fake.deleteSessionMutex.RLock()
+	defer fake.deleteSessionMutex.RUnlock()
+	argsForCall := fake.deleteSessionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CommLayer) MasterSession() (view.Session, error) {

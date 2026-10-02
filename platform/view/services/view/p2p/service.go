@@ -42,6 +42,8 @@ type CommLayer interface {
 	MasterSession() (view.Session, error)
 	// NewResponderSession returns a new session for the given arguments.
 	NewResponderSession(caller []byte, msg *view.Message) (view.Session, error)
+	// DeleteSession closes and removes the session with the given ID and remote PKID.
+	DeleteSession(ctx context.Context, sessionID string, pkid []byte)
 }
 
 // EndpointService models the dependency to the view-sdk's endpoint service.
@@ -230,6 +232,13 @@ func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg 
 	)
 	if err != nil {
 		cleanup()
+		// No context holds the responder session, so no Dispose would ever delete it.
+		// responderSession may be a live session: a follow-up message on a new session can reach
+		// the master session before its responder registered the session. Such a message carries
+		// the same session ID and ContextID, so NewResponderContext takes the same-session reuse
+		// path and does not fail. Deleting therefore affects only sessions keyed by the sender's
+		// own PKID that it reused with a ContextID it may not join.
+		s.commLayer.DeleteSession(ctx, msg.SessionID, msg.FromPKID)
 		return nil, false, noop, err
 	}
 

@@ -23,6 +23,11 @@ var (
 	ErrViewNotFound = errors.New("view not found")
 	// ErrSessionNotFound occurs when a communication session is not found.
 	ErrSessionNotFound = errors.New("session not found")
+	// ErrNotResponderContext occurs when an incoming session names a context that this node did
+	// not create to respond, such as an initiator context.
+	ErrNotResponderContext = errors.New("not a responder context")
+	// ErrInvalidSessionID occurs when an incoming session has an empty session ID.
+	ErrInvalidSessionID = errors.New("invalid session ID")
 	// ErrContextConversionFailed occurs when a context cannot be converted to another type.
 	ErrContextConversionFailed = errors.New("context conversion failed")
 	// ErrViewInstantiationFailed occurs when a view cannot be instantiated.
