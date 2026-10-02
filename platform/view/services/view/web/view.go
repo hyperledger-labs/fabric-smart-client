@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"go.opentelemetry.io/otel/trace"
 
@@ -25,6 +26,22 @@ import (
 const (
 	vidLabel tracing.LabelName = "vid"
 )
+
+// Option configures the view handler and client.
+type Option func(*options)
+
+type options struct {
+	timeout time.Duration
+}
+
+// WithTimeout sets the execution timeout for view invocations. A duration
+// less than or equal to zero imposes no deadline. Views must observe their
+// context (e.g. via ctx.Done()) for the timeout to take effect.
+func WithTimeout(timeout time.Duration) Option {
+	return func(o *options) {
+		o.timeout = timeout
+	}
+}
 
 type viewCallFunc func(context *server2.ReqContext, vid string, input []byte) (any, error)
 
@@ -58,8 +75,11 @@ func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, _ 
 }
 
 // InstallViewHandler installs the web view handler into the given HTTP handler.
-func InstallViewHandler(manager server.ViewManager, identityProvider server.IdentityProvider, h *server2.HttpHandler, tp tracing.Provider) {
-	fh := &viewHandler{c: newViewClient(manager, identityProvider, tp)}
+// Callers can supply options, such as WithTimeout, to configure view execution limits.
+// Views must observe their context (e.g. by selecting on ctx.Done()) for the timeout to
+// take effect and abort execution early.
+func InstallViewHandler(manager server.ViewManager, identityProvider server.IdentityProvider, h *server2.HttpHandler, tp tracing.Provider, opts ...Option) {
+	fh := &viewHandler{c: newViewClient(manager, identityProvider, tp, opts...)}
 	newDispatcher(h).WireViewCaller(viewCallFunc(fh.CallView))
 	newDispatcher(h).WireStreamViewCaller(viewCallFunc(fh.StreamCallView))
 }
@@ -74,12 +94,20 @@ type client struct {
 	viewManager      server.ViewManager
 	identityProvider server.IdentityProvider
 	tracer           trace.Tracer
+	timeout          time.Duration
 }
 
-func newViewClient(viewManager server.ViewManager, identityProvider server.IdentityProvider, tp tracing.Provider) *client {
+func newViewClient(viewManager server.ViewManager, identityProvider server.IdentityProvider, tp tracing.Provider, opts ...Option) *client {
+	var o options
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&o)
+		}
+	}
 	return &client{
 		viewManager:      viewManager,
 		identityProvider: identityProvider,
+		timeout:          o.timeout,
 		tracer: tp.Tracer("view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{vidLabel},
 		})),
@@ -88,6 +116,11 @@ func newViewClient(viewManager server.ViewManager, identityProvider server.Ident
 
 // CallView calls the view with the given ID and input.
 func (s *client) CallView(vid string, input []byte, ctx context.Context) (any, error) {
+	if s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
+	}
 	newCtx, span := s.tracer.Start(ctx, "call_view",
 		tracing.WithAttributes(tracing.String(vidLabel, vid)),
 		trace.WithSpanKind(trace.SpanKindClient))
@@ -125,10 +158,18 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	if err != nil {
 		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", vid, err)
 	}
-	viewContext, err := s.viewManager.InitiateContext(request.Context(), f)
+
+	ctx := request.Context()
+	if s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
+	}
+	viewContext, err := s.viewManager.InitiateContext(ctx, f)
 	if err != nil {
 		return errors.Wrapf(view.ErrViewExecutionFailed, "failed instantiating context for view [%s]: %v", vid, err)
 	}
+	defer s.viewManager.DeleteContext(viewContext.ID())
 
 	// register the web socket
 	mutable, ok := viewContext.(view2.MutableContext)

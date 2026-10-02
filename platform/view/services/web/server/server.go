@@ -82,10 +82,12 @@ func (s *Server) Stop() error {
 func (s *Server) initializeServer() {
 	s.mux = http.NewServeMux()
 	s.httpServer = &http.Server{
-		Addr:         s.options.ListenAddress,
-		Handler:      s.mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 2 * time.Minute,
+		Addr:              s.options.ListenAddress,
+		Handler:           s.mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
 	}
 }
 

@@ -218,6 +218,20 @@ fsc:
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})
+
+	t.Run("enabled with viewTimeout succeeds", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, `
+fsc:
+  web:
+    enabled: true
+    address: 127.0.0.1:0
+    viewTimeout: 10s
+`)
+		ws, err := NewWebServer(p, vm, ip, tp.Default)
+		require.NoError(t, err)
+		require.NotNil(t, ws)
+	})
 }
 
 func TestNewOperationsOptionsAndLogger(t *testing.T) {
