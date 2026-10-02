@@ -207,6 +207,64 @@ func TestNewSessionContext(t *testing.T) {
 	require.Same(t, session3, ctx4.Session())
 }
 
+// TestNewResponderContextRejectsInitiatorContext checks that an incoming session naming the ID
+// of a context this node initiated does not get that context. The ID travels on every message
+// of the protocol, so any counterparty can name it.
+func TestNewResponderContextRejectsInitiatorContext(t *testing.T) {
+	t.Parallel()
+	sf := &mock.SessionFactory{}
+	ip := &mock.IdentityProvider{}
+	ip.DefaultIdentityReturns(view2.Identity("me"))
+	registry := view.NewRegistry()
+	metrics := view.NewMetrics(&disabled.Provider{})
+	cf := view.NewContextFactory(&servicesmock.ServiceProvider{}, sf, &mock.EndpointService{}, ip, registry, noop.NewTracerProvider(), metrics, &mock.LocalIdentityChecker{})
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
+
+	initiatorCtx, err := manager.InitiateContext(t.Context(), &mock.View{})
+	require.NoError(t, err)
+
+	session := &mock.Session{}
+	session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("bob"), RemotePKID: []byte("pkid-bob")})
+	responderCtx, isNew, err := manager.NewResponderContext(t.Context(), initiatorCtx.ID(), session, view2.Identity("me"), view2.Identity("bob"))
+	require.ErrorContains(t, err, "is not a responder context")
+	require.Nil(t, responderCtx)
+	require.False(t, isNew)
+
+	// The initiator context is still registered, untouched.
+	c, err := manager.Context(initiatorCtx.ID())
+	require.NoError(t, err)
+	require.Same(t, initiatorCtx, c)
+	require.Nil(t, c.Session())
+}
+
+// TestNewResponderContextAttachedSessionsAreDisposed checks that every session attached to a
+// responder context, including several from the same party, is deleted when the context is.
+func TestNewResponderContextAttachedSessionsAreDisposed(t *testing.T) {
+	t.Parallel()
+	sf := &mock.SessionFactory{}
+	ip := &mock.IdentityProvider{}
+	ip.DefaultIdentityReturns(view2.Identity("me"))
+	registry := view.NewRegistry()
+	metrics := view.NewMetrics(&disabled.Provider{})
+	cf := view.NewContextFactory(&servicesmock.ServiceProvider{}, sf, &mock.EndpointService{}, ip, registry, noop.NewTracerProvider(), metrics, &mock.LocalIdentityChecker{})
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
+
+	for _, id := range []string{"s1", "s2", "s3"} {
+		session := &mock.Session{}
+		session.InfoReturns(view2.SessionInfo{ID: id, Caller: view2.Identity("bob"), RemotePKID: []byte("pkid-bob")})
+		_, _, err := manager.NewResponderContext(t.Context(), "c1", session, view2.Identity("me"), view2.Identity("bob"))
+		require.NoError(t, err)
+	}
+
+	manager.DeleteContext("c1")
+	deleted := map[string]bool{}
+	for i := range sf.DeleteSessionCallCount() {
+		_, id, _ := sf.DeleteSessionArgsForCall(i)
+		deleted[id] = true
+	}
+	require.Equal(t, map[string]bool{"s1": true, "s2": true, "s3": true}, deleted)
+}
+
 func TestManagerOther(t *testing.T) {
 	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
