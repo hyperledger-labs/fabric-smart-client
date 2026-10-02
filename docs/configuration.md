@@ -241,6 +241,11 @@ fsc:
   web:
     enabled: true
     address: 0.0.0.0:20002
+    # Execution timeout for direct/REST view invocations (PUT /Views/{View} and
+    # GET /Views/Stream/{View}). When set to a positive duration, views execute with
+    # a deadline; views must observe their context (e.g. ctx.Done()) for the timeout
+    # to take effect and terminate early. Unset or <= 0 imposes no deadline.
+    # viewTimeout: 2m
     # As with fsc.grpc, only the fields that differ from fsc.tls need to appear here.
     tls:
       # Whether TLS is enabled. Inherited from fsc.tls when absent.

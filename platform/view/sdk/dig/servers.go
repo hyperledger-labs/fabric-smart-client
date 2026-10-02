@@ -90,7 +90,8 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	h := web.NewHttpHandler()
 	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
 
-	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider)
+	viewTimeout := configProvider.GetDuration("fsc.web.viewTimeout")
+	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider, web2.WithTimeout(viewTimeout))
 
 	return webServer, nil
 }
