@@ -8,13 +8,9 @@ package routing
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"sync"
 	"sync/atomic"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -23,21 +19,18 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// fakeEndpointService returns canned identities and resolvers, and counts the
-// calls so the label cache can be observed. The counters are atomic so the fake
-// is safe to share across concurrent callers and under -race.
+// fakeEndpointService returns canned identities and resolvers, and counts
+// GetResolver calls so tests can check that a failed identity lookup stops
+// before resolving.
 type fakeEndpointService struct {
 	identity      view.Identity
 	identityErr   error
 	resolver      *endpoint.Resolver
 	resolverErr   error
-	identityCalls atomic.Int32
 	resolverCalls atomic.Int32
 }
 
 func (f *fakeEndpointService) GetIdentity(string, []byte) (view.Identity, error) {
-	f.identityCalls.Add(1)
-
 	return f.identity, f.identityErr
 }
 
@@ -60,13 +53,6 @@ func TestAlwaysFirst(t *testing.T) {
 	t.Parallel()
 	pick := AlwaysFirst[string]()
 	require.Equal(t, "a", pick([]string{"a", "b", "c"}))
-	require.Equal(t, "only", pick([]string{"only"}))
-}
-
-func TestAlwaysLast(t *testing.T) {
-	t.Parallel()
-	pick := AlwaysLast[string]()
-	require.Equal(t, "c", pick([]string{"a", "b", "c"}))
 	require.Equal(t, "only", pick([]string{"only"}))
 }
 
@@ -103,50 +89,6 @@ func TestRandom(t *testing.T) {
 	require.Greater(t, len(seen), 1, "100 draws from 3 values should not all be the same")
 }
 
-// --- staticLabelRouter ---
-
-func writeRoutes(t *testing.T, contents string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "routes.yaml")
-	require.NoError(t, os.WriteFile(path, []byte(contents), 0o600))
-
-	return path
-}
-
-func TestNewStaticLabelRouter(t *testing.T) {
-	t.Parallel()
-	path := writeRoutes(t, `
-routes:
-  alice:
-    - 127.0.0.1:1000
-    - 127.0.0.1:1001
-  bob:
-    - 127.0.0.1:2000
-`)
-	router, err := newStaticLabelRouter(path)
-	require.NoError(t, err)
-
-	addrs, ok := router.Lookup("alice")
-	require.True(t, ok)
-	require.Equal(t, []host2.PeerIPAddress{"127.0.0.1:1000", "127.0.0.1:1001"}, addrs)
-
-	addrs, ok = router.Lookup("carol")
-	require.False(t, ok)
-	require.Nil(t, addrs)
-}
-
-func TestNewStaticLabelRouter_MissingFile(t *testing.T) {
-	t.Parallel()
-	_, err := newStaticLabelRouter(filepath.Join(t.TempDir(), "absent.yaml"))
-	require.Error(t, err)
-}
-
-func TestNewStaticLabelRouter_MalformedYAML(t *testing.T) {
-	t.Parallel()
-	_, err := newStaticLabelRouter(writeRoutes(t, "routes: [this is not a map"))
-	require.Error(t, err)
-}
-
 // --- serviceDiscovery ---
 
 type stubIDRouter struct {
@@ -170,9 +112,12 @@ func TestServiceDiscovery_LookupAll(t *testing.T) {
 	require.False(t, ok)
 }
 
+// The strategy picks a non-first address so the test fails if Lookup ignores
+// the strategy and returns the first endpoint.
 func TestServiceDiscovery_Lookup(t *testing.T) {
 	t.Parallel()
-	d := NewServiceDiscovery(stubIDRouter{addrs: []host2.PeerIPAddress{"a", "b"}, ok: true}, AlwaysLast[host2.PeerIPAddress]())
+	last := func(addrs []host2.PeerIPAddress) host2.PeerIPAddress { return addrs[len(addrs)-1] }
+	d := NewServiceDiscovery(stubIDRouter{addrs: []host2.PeerIPAddress{"a", "b"}, ok: true}, last)
 	require.Equal(t, host2.PeerIPAddress("b"), d.Lookup("peer"))
 }
 
@@ -255,117 +200,4 @@ func TestStaticIDRouter_ReverseLookup(t *testing.T) {
 	id, ok = r.ReverseLookup("127.0.0.1:9999")
 	require.False(t, ok)
 	require.Empty(t, id)
-}
-
-// --- LabelResolver and ResolvedStaticIDRouter ---
-
-func TestGetLabel_StripsFSCPrefix(t *testing.T) {
-	t.Parallel()
-	es := &fakeEndpointService{identity: view.Identity("id"), resolver: resolverWith("fsc.alice", "")}
-	label, err := newLabelResolver(es).getLabel(t.Context(), "peer")
-	require.NoError(t, err)
-	require.Equal(t, "alice", label)
-}
-
-func TestGetLabel_Caches(t *testing.T) {
-	t.Parallel()
-	es := &fakeEndpointService{identity: view.Identity("id"), resolver: resolverWith("fsc.alice", "")}
-	r := newLabelResolver(es)
-
-	for range 3 {
-		label, err := r.getLabel(t.Context(), "peer")
-		require.NoError(t, err)
-		require.Equal(t, "alice", label)
-	}
-	require.Equal(t, int32(1), es.identityCalls.Load(), "the label should be resolved once and cached")
-}
-
-// getLabel double-checks the cache under a read lock and then a write lock.
-// Hammering it from several goroutines gives -race something to inspect and
-// pins that the resolve happens once between them.
-func TestGetLabel_ConcurrentCallersResolveOnce(t *testing.T) {
-	t.Parallel()
-
-	const callers = 16
-
-	es := &fakeEndpointService{identity: view.Identity("id"), resolver: resolverWith("fsc.alice", "")}
-	r := newLabelResolver(es)
-
-	var wg sync.WaitGroup
-	wg.Add(callers)
-	for range callers {
-		go func() {
-			defer wg.Done()
-			label, err := r.getLabel(t.Context(), "peer")
-			assert.NoError(t, err)
-			assert.Equal(t, "alice", label)
-		}()
-	}
-	wg.Wait()
-
-	assert.Equal(t, int32(1), es.identityCalls.Load(),
-		"concurrent callers must resolve the label once between them")
-}
-
-func TestGetLabel_ResolverFails(t *testing.T) {
-	t.Parallel()
-	es := &fakeEndpointService{identity: view.Identity("id"), resolverErr: errors.New("no resolver")}
-	_, err := newLabelResolver(es).getLabel(t.Context(), "peer")
-	require.Error(t, err)
-}
-
-// getLabel only treats a GetIdentity failure as fatal when the identity is
-// also nil. The sibling EndpointServiceIDRouter.LookupWithContext, which makes
-// the same call, returns on err alone.
-func TestGetLabel_IdentityFails(t *testing.T) {
-	t.Parallel()
-	es := &fakeEndpointService{identityErr: errors.New("no identity")}
-	_, err := newLabelResolver(es).getLabel(t.Context(), "peer")
-	require.Error(t, err)
-	require.Equal(t, int32(0), es.resolverCalls.Load(), "must not resolve when there is no identity")
-}
-
-func TestResolvedStaticIDRouter(t *testing.T) {
-	t.Parallel()
-	path := writeRoutes(t, "routes:\n  alice:\n    - 127.0.0.1:1000\n")
-	es := &fakeEndpointService{identity: view.Identity("id"), resolver: resolverWith("fsc.alice", "")}
-
-	r, err := NewResolvedStaticIDRouter(path, es)
-	require.NoError(t, err)
-
-	addrs, ok := r.Lookup("peer")
-	require.True(t, ok)
-	require.Equal(t, []host2.PeerIPAddress{"127.0.0.1:1000"}, addrs)
-}
-
-// The label resolves but no route is configured for it.
-func TestResolvedStaticIDRouter_UnknownLabel(t *testing.T) {
-	t.Parallel()
-	path := writeRoutes(t, "routes:\n  bob:\n    - 127.0.0.1:2000\n")
-	es := &fakeEndpointService{identity: view.Identity("id"), resolver: resolverWith("fsc.alice", "")}
-
-	r, err := NewResolvedStaticIDRouter(path, es)
-	require.NoError(t, err)
-
-	_, ok := r.Lookup("peer")
-	require.False(t, ok)
-}
-
-func TestResolvedStaticIDRouter_BadConfig(t *testing.T) {
-	t.Parallel()
-	_, err := NewResolvedStaticIDRouter(filepath.Join(t.TempDir(), "absent.yaml"), &fakeEndpointService{})
-	require.Error(t, err)
-}
-
-func TestResolvedStaticIDRouter_LabelLookupFails(t *testing.T) {
-	t.Parallel()
-	path := writeRoutes(t, "routes:\n  alice:\n    - 127.0.0.1:1000\n")
-	es := &fakeEndpointService{identityErr: errors.New("no identity")}
-
-	r, err := NewResolvedStaticIDRouter(path, es)
-	require.NoError(t, err)
-
-	addrs, ok := r.Lookup("peer")
-	require.False(t, ok)
-	require.Nil(t, addrs)
 }

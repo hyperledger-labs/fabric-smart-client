@@ -19,11 +19,8 @@ type ServiceDiscovery interface {
 	Lookup(id host2.PeerID) host2.PeerIPAddress
 }
 
+// IDRouter returns all known addresses of a peer. The boolean reports whether
+// the peer was found.
 type IDRouter interface {
 	Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool)
-}
-
-// LabelRouter is an interface to the service discovery based on the label of a peer
-type LabelRouter interface {
-	Lookup(label string) ([]host2.PeerIPAddress, bool)
 }
