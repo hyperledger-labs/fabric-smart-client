@@ -421,6 +421,11 @@ func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns in
 	t.Helper()
 
 	serverSide, clientSide := net.Pipe()
+	// Unblocks the upgrade goroutine if the helper fails before handing the conns over.
+	t.Cleanup(func() {
+		_ = serverSide.Close()
+		_ = clientSide.Close()
+	})
 
 	serverWSCh := make(chan *gwebsocket.Conn, 1)
 	serverErrCh := make(chan error, 1)
@@ -439,10 +444,12 @@ func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns in
 		serverWSCh <- conn
 	}()
 
+	// pipeHijacker drops the HTTP error a failed Upgrade writes, so bound the handshake.
 	dialer := gwebsocket.Dialer{
 		NetDialContext: func(context.Context, string, string) (net.Conn, error) {
 			return clientSide, nil
 		},
+		HandshakeTimeout: 2 * time.Second,
 	}
 	clientWSConn, resp, err := dialer.Dial("ws://pipe/", nil)
 	require.NoError(t, err)
