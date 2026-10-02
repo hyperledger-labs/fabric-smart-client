@@ -220,12 +220,8 @@ type mockChannelConfig struct {
 }
 
 func (*mockChannelConfig) DeliverySleepAfterFailure() time.Duration { return 10 * time.Millisecond }
-
-func (*mockChannelConfig) CommitterWaitForEventTimeout() time.Duration {
-	return 10 * time.Millisecond
-}
-func (*mockChannelConfig) DeliveryBufferSize() int { return 1 }
-func (*mockChannelConfig) ID() string              { return "testChannel" }
+func (*mockChannelConfig) DeliveryBufferSize() int                  { return 1 }
+func (*mockChannelConfig) ID() string                               { return "testChannel" }
 
 // --- Transaction mocks ---
 
