@@ -329,6 +329,37 @@ func TestNewChannel_SuccessAndClose(t *testing.T) {
 	assert.False(t, chImpl.Monitor.IsRunning())
 }
 
+// TestNewChannel_NoBlockCommitPath checks that a fabricx channel never feeds
+// delivered blocks to a committer: delivery gets no block callback and is not
+// started, and the committer is the finality-only committerService, not the
+// generic committer whose per-header-type Handlers would process transactions.
+func TestNewChannel_NoBlockCommitPath(t *testing.T) {
+	t.Parallel()
+
+	qs := &qsmock.QueryService{}
+	qs.GetConfigTransactionReturns(nil, assert.AnError)
+	p := defaultTestProvider(&stubVault{}, &stubDelivery{}, qs, &mockListenerManager{})
+	var (
+		called   bool
+		callback fdriver.BlockCallback
+	)
+	p.newDelivery = func(_ fdriver.FabricNetworkService, _ string, _ delivery.Services, _ fdriver.Ledger, _ delivery.Vault, cb fdriver.BlockCallback) (generic.DeliveryService, error) {
+		called, callback = true, cb
+		return &stubDelivery{}, nil
+	}
+
+	ch, err := p.NewChannel(newTestNetwork(), "mychannel", false)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ch.Close() })
+
+	require.True(t, called, "NewChannel must build delivery through newDelivery")
+	assert.Nil(t, callback)
+	assert.IsType(t, &noopDeliveryService{}, ch.Delivery())
+	// stubDelivery embeds a nil DeliveryService, so a forwarded Start would panic.
+	require.NoError(t, ch.Delivery().Start(t.Context()))
+	assert.IsType(t, &committerService{}, ch.Committer())
+}
+
 func TestChannel_Close_ErrorPropagation(t *testing.T) {
 	t.Parallel()
 
