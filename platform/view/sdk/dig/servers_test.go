@@ -206,13 +206,41 @@ fsc:
 		require.ErrorContains(t, err, "failed resolving fsc.web.tls")
 	})
 
-	t.Run("enabled with valid config succeeds", func(t *testing.T) {
+	t.Run("enabled with default viewTimeout succeeds", func(t *testing.T) {
 		t.Parallel()
 		p := providerFrom(t, `
 fsc:
   web:
     enabled: true
     address: 127.0.0.1:0
+`)
+		ws, err := NewWebServer(p, vm, ip, tp.Default)
+		require.NoError(t, err)
+		require.NotNil(t, ws)
+	})
+
+	t.Run("enabled with custom viewTimeout succeeds", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, `
+fsc:
+  web:
+    enabled: true
+    address: 127.0.0.1:0
+    viewTimeout: 10s
+`)
+		ws, err := NewWebServer(p, vm, ip, tp.Default)
+		require.NoError(t, err)
+		require.NotNil(t, ws)
+	})
+
+	t.Run("enabled with non-positive viewTimeout falls back to default", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, `
+fsc:
+  web:
+    enabled: true
+    address: 127.0.0.1:0
+    viewTimeout: 0s
 `)
 		ws, err := NewWebServer(p, vm, ip, tp.Default)
 		require.NoError(t, err)
