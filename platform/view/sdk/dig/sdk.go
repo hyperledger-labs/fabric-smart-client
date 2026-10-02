@@ -73,7 +73,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 		sdk.Container().Provide(func() *config.Provider { return config.GetProvider(registry) }),
 		sdk.Container().Provide(
 			digutils.Identity[*config.Provider](),
-			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint2.ConfigService), new(dbdriver.Config)),
+			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint2.ConfigService), new(dbdriver.Config), new(p2p.ConfigService)),
 		),
 	)
 	if err != nil {

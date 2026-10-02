@@ -251,7 +251,7 @@ func (*fakeHostProvider) GetNewHost() (host.P2PHost, error) {
 func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2p.CommLayer) *fakeViewService {
 	t.Helper()
 
-	p2pSvc := p2p.NewService(&fakeP2PViewManager{}, &fakeIdentityProvider{}, commMock, nil, nil)
+	p2pSvc := p2p.NewService(&fakeP2PViewManager{}, &fakeIdentityProvider{}, commMock, nil, nil, nil)
 	commSvc := &comm.Service{HostProvider: &fakeHostProvider{}}
 	viewSvc := &fakeViewService{}
 
