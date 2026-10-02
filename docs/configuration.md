@@ -646,7 +646,9 @@ fabric:
           retrySleep: 10s
         # section about the delivery service. The peer pushes blocks over a long-lived
         # Deliver stream that is read without a deadline, since a quiet channel
-        # legitimately sends nothing; the stream is reopened when it fails.
+        # legitimately sends nothing. The stream is reopened only when receiving
+        # fails, so a dead connection that reports no error must be detected by the
+        # gRPC client keepalive.
         delivery:
           bufferSize: 1 # received blocks buffered ahead of processing (default: 1)
           sleepAfterFailure: 10s # wait before reconnecting after a failed connect, a NOT_FOUND status or a malformed block (default: 10s)

@@ -232,8 +232,10 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 //
 // Recv is called without a deadline: the peer pushes blocks as they are
 // committed, so a quiet channel legitimately sends nothing for any length of
-// time. A Recv error drops the stream, which is reopened after the last block
-// received (see GetStartPosition).
+// time. The stream is reopened only when Recv returns an error, so a dead
+// connection that yields no error must be detected by the gRPC client
+// keepalive. The new stream starts at the last block received, which is
+// therefore delivered again (see GetStartPosition).
 func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	if ctx == nil || ch == nil {
 		return
