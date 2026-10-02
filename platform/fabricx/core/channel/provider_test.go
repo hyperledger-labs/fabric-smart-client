@@ -339,9 +339,12 @@ func TestNewChannel_NoBlockCommitPath(t *testing.T) {
 	qs := &qsmock.QueryService{}
 	qs.GetConfigTransactionReturns(nil, assert.AnError)
 	p := defaultTestProvider(&stubVault{}, &stubDelivery{}, qs, &mockListenerManager{})
-	var callback fdriver.BlockCallback
+	var (
+		called   bool
+		callback fdriver.BlockCallback
+	)
 	p.newDelivery = func(_ fdriver.FabricNetworkService, _ string, _ delivery.Services, _ fdriver.Ledger, _ delivery.Vault, cb fdriver.BlockCallback) (generic.DeliveryService, error) {
-		callback = cb
+		called, callback = true, cb
 		return &stubDelivery{}, nil
 	}
 
@@ -349,6 +352,7 @@ func TestNewChannel_NoBlockCommitPath(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ch.Close() })
 
+	require.True(t, called, "NewChannel must build delivery through newDelivery")
 	assert.Nil(t, callback)
 	assert.IsType(t, &noopDeliveryService{}, ch.Delivery())
 	// stubDelivery embeds a nil DeliveryService, so a forwarded Start would panic.
