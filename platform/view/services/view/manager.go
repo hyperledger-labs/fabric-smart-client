@@ -250,13 +250,19 @@ func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) erro
 // NewResponderContext returns a context to be used to respond to an incoming message on the given session.
 // It returns the context, a boolean indicating if it's new, and an error.
 //
-// contextID is chosen by the remote peer. If no context with that ID exists, a new responder
-// context is created. If a responder context with that ID exists and session is not its default
-// session, session is registered in it under its session ID, so that GetSessionByID finds it and
-// Dispose deletes it, and a child context with session as its default session replaces it.
-// This lets a node be contacted by several sessions within one protocol; any participant that
-// knows the context ID can attach this way. An initiator context (no default session) is never
-// returned, so that an incoming session cannot join a protocol this node initiated.
+// contextID and the session ID are chosen by the remote peer; a session is identified by its ID
+// and remote PKID. If no context with that ID exists, a new responder context is created and
+// returned with isNew true. If a responder context with that ID exists and its current session
+// (of the responder that created it, or that attached last) is another session, session attaches:
+// it is registered in the context, so that Dispose deletes it, and a child context with session
+// as its default session replaces the context in the manager. Any participant that knows the
+// context ID can attach. An attached context is returned with isNew false, so the caller does not
+// delete it; the context and every attached session are disposed when the context is deleted,
+// normally when the responder that created it returns.
+//
+// It returns ErrInvalidSessionID for an empty session ID, and ErrNotResponderContext if the
+// context with that ID is an initiator context (it has no default session), so that an incoming
+// session cannot join a protocol this node initiated.
 //
 // On error, no context holds session and the caller must delete it.
 func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error) {
@@ -268,11 +274,14 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 	}
 
 	info := session.Info()
+	if len(info.ID) == 0 {
+		return nil, false, errors.Wrapf(ErrInvalidSessionID, "incoming session for context [%s]", contextID)
+	}
 
 	if viewContext, ok := cm.contexts[contextID]; ok {
 		current := viewContext.Session()
 		if current == nil {
-			return nil, false, errors.Errorf("context [%s] is not a responder context", contextID)
+			return nil, false, errors.Wrapf(ErrNotResponderContext, "context [%s]", contextID)
 		}
 		// A session is identified by its ID and remote PKID: the same ID from another party
 		// is a different session and must be registered, so that the context replies on it
@@ -286,7 +295,10 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 		if !ok {
 			return nil, false, errors.Wrapf(ErrContextConversionFailed, "context [%s] is not a ParentContext", contextID)
 		}
-		if err := vCtx.PutSessionByID(info.ID, remote, session); err != nil {
+		// The key matches sameSession, so distinct sessions never share an entry. The default
+		// session and the sessions of views are keyed by identity, not PKID, so a peer-chosen
+		// session ID cannot select their entries.
+		if err := vCtx.PutSessionByID(info.ID, info.RemotePKID, session); err != nil {
 			return nil, false, errors.Wrapf(err, "failed registering session for [%s]", info.Caller)
 		}
 		c := NewChildContextFromParentAndSession(vCtx, session)

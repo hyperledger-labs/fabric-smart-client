@@ -226,7 +226,7 @@ func TestNewResponderContextRejectsInitiatorContext(t *testing.T) {
 	session := &mock.Session{}
 	session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("bob"), RemotePKID: []byte("pkid-bob")})
 	responderCtx, isNew, err := manager.NewResponderContext(t.Context(), initiatorCtx.ID(), session, view2.Identity("me"), view2.Identity("bob"))
-	require.ErrorContains(t, err, "is not a responder context")
+	require.ErrorIs(t, err, view.ErrNotResponderContext)
 	require.Nil(t, responderCtx)
 	require.False(t, isNew)
 
@@ -249,9 +249,16 @@ func TestNewResponderContextAttachedSessionsAreDisposed(t *testing.T) {
 	cf := view.NewContextFactory(&servicesmock.ServiceProvider{}, sf, &mock.EndpointService{}, ip, registry, noop.NewTracerProvider(), metrics, &mock.LocalIdentityChecker{})
 	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
 
-	for _, id := range []string{"s1", "s2", "s3"} {
+	// The same party attaches several times, also with one session ID from two of its PKIDs.
+	for _, info := range []view2.SessionInfo{
+		{ID: "s1", RemotePKID: []byte("pkid-bob-1")},
+		{ID: "s2", RemotePKID: []byte("pkid-bob-1")},
+		{ID: "s3", RemotePKID: []byte("pkid-bob-1")},
+		{ID: "s3", RemotePKID: []byte("pkid-bob-2")},
+	} {
 		session := &mock.Session{}
-		session.InfoReturns(view2.SessionInfo{ID: id, Caller: view2.Identity("bob"), RemotePKID: []byte("pkid-bob")})
+		info.Caller = view2.Identity("bob")
+		session.InfoReturns(info)
 		_, _, err := manager.NewResponderContext(t.Context(), "c1", session, view2.Identity("me"), view2.Identity("bob"))
 		require.NoError(t, err)
 	}
@@ -259,10 +266,42 @@ func TestNewResponderContextAttachedSessionsAreDisposed(t *testing.T) {
 	manager.DeleteContext("c1")
 	deleted := map[string]bool{}
 	for i := range sf.DeleteSessionCallCount() {
-		_, id, _ := sf.DeleteSessionArgsForCall(i)
-		deleted[id] = true
+		_, id, pkid := sf.DeleteSessionArgsForCall(i)
+		deleted[id+"@"+string(pkid)] = true
 	}
-	require.Equal(t, map[string]bool{"s1": true, "s2": true, "s3": true}, deleted)
+	require.Equal(t, map[string]bool{"s1@pkid-bob-1": true, "s2@pkid-bob-1": true, "s3@pkid-bob-1": true, "s3@pkid-bob-2": true}, deleted)
+}
+
+// TestNewResponderContextAttachKeepsDefaultSession checks that the peer-chosen ID of an attaching
+// session cannot replace the default session, which responders reach with GetSession(nil, party).
+func TestNewResponderContextAttachKeepsDefaultSession(t *testing.T) {
+	t.Parallel()
+	ip := &mock.IdentityProvider{}
+	ip.DefaultIdentityReturns(view2.Identity("me"))
+	registry := view.NewRegistry()
+	metrics := view.NewMetrics(&disabled.Provider{})
+	cf := view.NewContextFactory(&servicesmock.ServiceProvider{}, &mock.SessionFactory{}, &mock.EndpointService{}, ip, registry, noop.NewTracerProvider(), metrics, &mock.LocalIdentityChecker{})
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
+	bob := view2.Identity("bob")
+
+	s1 := &mock.Session{}
+	s1.InfoReturns(view2.SessionInfo{ID: "s1", Caller: bob, RemotePKID: []byte("pkid-bob")})
+	ctx, _, err := manager.NewResponderContext(t.Context(), "c1", s1, view2.Identity("me"), bob)
+	require.NoError(t, err)
+
+	empty := &mock.Session{}
+	empty.InfoReturns(view2.SessionInfo{Caller: bob, RemotePKID: []byte("pkid-bob")})
+	_, _, err = manager.NewResponderContext(t.Context(), "c1", empty, view2.Identity("me"), bob)
+	require.ErrorIs(t, err, view.ErrInvalidSessionID)
+
+	s2 := &mock.Session{}
+	s2.InfoReturns(view2.SessionInfo{ID: "s2", Caller: bob, RemotePKID: []byte("pkid-bob")})
+	_, _, err = manager.NewResponderContext(t.Context(), "c1", s2, view2.Identity("me"), bob)
+	require.NoError(t, err)
+
+	s, err := ctx.GetSession(nil, bob)
+	require.NoError(t, err)
+	require.Same(t, s1, s)
 }
 
 func TestManagerOther(t *testing.T) {
