@@ -349,6 +349,10 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 	}
 }
 
+// newServerSubConn opens a server sub-connection for the first frame of an unknown ID and
+// hands its stream to newStreamCallback. It runs on the read loop. It drops frames for IDs in
+// closing, rejects the ID with an Err frame when maxSubConns is reached, and rejects it and
+// kills the connection when the claimed PeerID does not match expectedPeerID.
 func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream host2.P2PStream), mm MultiplexedMessage) {
 	c.mu.Lock()
 	// A data frame the client sent before it saw this side close the sub-connection.
@@ -362,11 +366,11 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 		logger.Warnf("rejecting websocket sub-connection [%s], max sub-connections reached [%d]", mm.ID, c.maxSubConns)
 		// the client may already be sending data on it
 		c.closing[mm.ID] = struct{}{}
+		c.mu.Unlock()
 		_ = c.write(MultiplexedMessage{
 			ID:  mm.ID,
 			Err: "max sub-connections reached",
 		})
-		c.mu.Unlock()
 		return
 	}
 
@@ -380,11 +384,11 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	// This prevents PeerID spoofing (Issue #871, #1037).
 	if meta.PeerID != c.expectedPeerID {
 		logger.Warnf("rejecting websocket sub-connection [%s], claimed peerID [%s] does not match TLS certificate peerID [%s]", mm.ID, meta.PeerID, c.expectedPeerID)
+		c.mu.Unlock()
 		_ = c.write(MultiplexedMessage{
 			ID:  mm.ID,
 			Err: "peer identity binding failed",
 		})
-		c.mu.Unlock()
 		_ = c.Kill()
 		return
 	}
@@ -415,7 +419,8 @@ type multiplexedBaseConn struct {
 	writeMu sync.Mutex
 	conn    *websocket.Conn
 
-	// mu protects concurrent use of our subConns and closing
+	// mu protects subConns and closing. It is never held across a network write: a peer that
+	// stops reading blocks a write for up to writeTimeout, and writes serialize on writeMu.
 	mu       sync.RWMutex
 	subConns map[SubConnId]*subConn
 	// closing holds the IDs this side has closed and the peer has not yet acknowledged with

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"bufio"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -22,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
+	"go.uber.org/goleak"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
@@ -395,4 +398,128 @@ func requireServerStreamErrors(t *testing.T, p websocket.StreamProvider) {
 	req.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}}
 	err = p.NewServerStream(httptest.NewRecorder(), req, noCallback)
 	require.ErrorContains(t, err, "failed to open websocket")
+}
+
+// pipeHijacker is an http.ResponseWriter whose Hijack returns one end of a net.Pipe, so
+// gorilla/websocket's server-side Upgrade runs without a TCP socket. net.Pipe is unbuffered:
+// a Write blocks until the other end reads it, which makes a stuck write deterministic.
+type pipeHijacker struct {
+	conn net.Conn
+	br   *bufio.Reader
+}
+
+func (*pipeHijacker) Header() http.Header         { return http.Header{} }
+func (*pipeHijacker) Write(p []byte) (int, error) { return len(p), nil }
+func (*pipeHijacker) WriteHeader(int)             {}
+func (h *pipeHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return h.conn, bufio.NewReadWriter(h.br, bufio.NewWriter(h.conn)), nil
+}
+
+// newPipedServerConn runs a multiplexedServerConn on one end of a net.Pipe and returns the
+// raw websocket on the other end, so the test acts as the peer and decides when to read.
+func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns int, cb func(host.P2PStream)) (*multiplexedServerConn, *gwebsocket.Conn) {
+	t.Helper()
+
+	serverSide, clientSide := net.Pipe()
+	// Unblocks the upgrade goroutine if the helper fails before handing the conns over.
+	t.Cleanup(func() {
+		_ = serverSide.Close()
+		_ = clientSide.Close()
+	})
+
+	serverWSCh := make(chan *gwebsocket.Conn, 1)
+	serverErrCh := make(chan error, 1)
+	go func() {
+		br := bufio.NewReader(serverSide)
+		req, err := http.ReadRequest(br)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		conn, err := (&gwebsocket.Upgrader{}).Upgrade(&pipeHijacker{conn: serverSide, br: br}, req, nil)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverWSCh <- conn
+	}()
+
+	// pipeHijacker drops the HTTP error a failed Upgrade writes, so bound the handshake.
+	dialer := gwebsocket.Dialer{
+		NetDialContext: func(context.Context, string, string) (net.Conn, error) {
+			return clientSide, nil
+		},
+		HandshakeTimeout: 2 * time.Second,
+	}
+	clientWSConn, resp, err := dialer.Dial("ws://pipe/", nil)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+
+	var serverWSConn *gwebsocket.Conn
+	select {
+	case serverWSConn = <-serverWSCh:
+	case err := <-serverErrCh:
+		t.Fatalf("server-side websocket upgrade failed: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for server-side websocket upgrade")
+	}
+
+	sc := newServerConn(serverWSConn, expectedPeerID, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, cb)
+	return sc, clientWSConn
+}
+
+// TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock checks that newServerSubConn releases
+// the sub-connection map lock (mu) before writing a rejection frame. The peer does not read,
+// so the write blocks on the pipe while holding writeMu; mu must stay acquirable meanwhile.
+func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+
+	const peerID host.PeerID = "legit-peer"
+
+	tests := []struct {
+		name        string
+		maxSubConns int
+		claimedPeer host.PeerID
+		wantErr     string
+	}{
+		// The established sub-connection fills the cap, so ID 2 is rejected.
+		{name: "max sub-connections", maxSubConns: 1, claimedPeer: peerID, wantErr: "max sub-connections reached"},
+		{name: "peer identity binding", maxSubConns: 2, claimedPeer: "spoofed-peer", wantErr: "peer identity binding failed"},
+	}
+	for _, tt := range tests { //nolint:paralleltest // goleak snapshots need serial subtests
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			ignore := goleak.IgnoreCurrent()
+			t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
+
+			streams := make(chan host.P2PStream, 1)
+			sc, peer := newPipedServerConn(t, peerID, tt.maxSubConns, func(s host.P2PStream) { streams <- s })
+			t.Cleanup(func() { _ = peer.Close() })
+
+			require.NoError(t, peer.WriteJSON(MultiplexedMessage{ID: "1", Msg: mustMarshal(StreamMeta{PeerID: peerID})}))
+			select {
+			case <-streams:
+			case <-time.After(2 * time.Second):
+				t.Fatal("server never accepted the first sub-connection")
+			}
+
+			require.NoError(t, peer.WriteJSON(MultiplexedMessage{ID: "2", Msg: mustMarshal(StreamMeta{PeerID: tt.claimedPeer})}))
+
+			// The read loop is now stuck writing the rejection frame to a peer that does not read.
+			require.Eventually(t, func() bool {
+				if sc.writeMu.TryLock() {
+					sc.writeMu.Unlock()
+					return false
+				}
+				return true
+			}, 2*time.Second, 5*time.Millisecond, "rejection write never blocked")
+
+			require.True(t, sc.mu.TryLock(), "mu is held across the blocked rejection write")
+			sc.mu.Unlock()
+
+			var rejection MultiplexedMessage
+			require.NoError(t, peer.ReadJSON(&rejection))
+			require.Equal(t, "2", rejection.ID)
+			require.Equal(t, tt.wantErr, rejection.Err)
+		})
+	}
 }
