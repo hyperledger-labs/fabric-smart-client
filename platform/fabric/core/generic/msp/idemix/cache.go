@@ -25,12 +25,6 @@ type identityCacheEntry struct {
 	Audit    []byte
 }
 
-type IdentityCacheOptions struct {
-	// CacheTimeout is the max wait time for a cached identity before falling back to backend
-	// Default is 1 second if not specified
-	CacheTimeout time.Duration
-}
-
 type IdentityCache struct {
 	once   sync.Once
 	backed IdentityCacheBackendFunc
@@ -42,17 +36,12 @@ type IdentityCache struct {
 	cancel context.CancelFunc
 }
 
-func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.IdentityOptions, cacheOpts *IdentityCacheOptions) *IdentityCache {
-	cacheTimeout := 1 * time.Second // default timeout
-	if cacheOpts != nil && cacheOpts.CacheTimeout > 0 {
-		cacheTimeout = cacheOpts.CacheTimeout
-	}
-
+func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.IdentityOptions) *IdentityCache {
 	ci := &IdentityCache{
 		backed:       backed,
 		cache:        make(chan identityCacheEntry, size),
 		opts:         opts,
-		cacheTimeout: cacheTimeout,
+		cacheTimeout: 1 * time.Second,
 	}
 
 	return ci

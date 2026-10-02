@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -22,14 +23,11 @@ func TestIdentityCache(t *testing.T) { //nolint:paralleltest
 	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)
 		return []byte("hello world"), []byte("audit"), nil
-	}, 100, nil, nil)
+	}, 100, nil)
 	defer c.Close()
 
 	// fetch from backend directly +1
-	id, audit, err := c.Identity(&driver.IdentityOptions{
-		EIDExtension: true,
-		AuditInfo:    nil,
-	})
+	id, audit, err := c.Identity(&driver.IdentityOptions{})
 	require.NoError(t, err)
 	require.Equal(t, view.Identity([]byte("hello world")), id)
 	require.Equal(t, []byte("audit"), audit)
@@ -56,7 +54,7 @@ func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
 	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)
 		return []byte("hello world"), []byte("audit"), nil
-	}, 10, nil, nil)
+	}, 10, nil)
 
 	// Trigger cache initialization
 	id, audit, err := c.Identity(nil)
@@ -106,4 +104,68 @@ func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
 
 	// Cache should still be empty (no background provisioning)
 	require.Equal(t, 0, c.CacheSize(), "cache should remain empty after fetching from backend")
+}
+
+func TestIdentityCache_BackendError(t *testing.T) { //nolint:paralleltest
+	backendErr := errors.New("backend failure")
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		return nil, nil, backendErr
+	}, 10, nil)
+	defer c.Close()
+
+	// opts != nil takes the fetchIdentityFromBackend path directly.
+	id, audit, err := c.Identity(&driver.IdentityOptions{})
+	require.ErrorIs(t, err, backendErr)
+	require.Nil(t, id)
+	require.Nil(t, audit)
+}
+
+func TestIdentityCache_CacheTimeoutBackendError(t *testing.T) { //nolint:paralleltest
+	backendErr := errors.New("backend failure")
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		return nil, nil, backendErr
+	}, 0, nil)
+	c.cacheTimeout = 10 * time.Millisecond
+	defer c.Close()
+
+	// cap(cache) == 0 so no background provisioning starts; the cache read
+	// always times out and falls back to the (failing) backend.
+	id, audit, err := c.Identity(nil)
+	require.ErrorIs(t, err, backendErr)
+	require.Nil(t, id)
+	require.Nil(t, audit)
+}
+
+func TestIdentityCache_ProvisionRetriesAfterBackendError(t *testing.T) { //nolint:paralleltest
+	var calls atomic.Int32
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		n := calls.Add(1)
+		if n == 1 {
+			return nil, nil, errors.New("transient backend failure")
+		}
+		return []byte("hello world"), []byte("audit"), nil
+	}, 10, nil)
+	c.cacheTimeout = 1 * time.Millisecond
+	defer c.Close()
+
+	// Trigger cache initialization; the first backend call fails, forcing
+	// provisionIdentities to sleep and retry before it can populate the cache.
+	require.Eventually(t, func() bool {
+		id, _, err := c.Identity(nil)
+		return err == nil && string(id) == "hello world"
+	}, 3*time.Second, 5*time.Millisecond, "expected provisioning to recover after a transient backend error")
+}
+
+func TestIdentityCache_ProvisionStopsDuringRetryBackoff(t *testing.T) { //nolint:paralleltest
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		return nil, nil, errors.New("permanent backend failure")
+	}, 10, nil)
+	c.cacheTimeout = 10 * time.Millisecond
+
+	// Trigger cache initialization; the background goroutine will be stuck in
+	// its 1s retry backoff when Close is called, exercising the ctx.Done()
+	// case inside that backoff select.
+	_, _, _ = c.Identity(nil)
+	time.Sleep(10 * time.Millisecond)
+	c.Close()
 }
