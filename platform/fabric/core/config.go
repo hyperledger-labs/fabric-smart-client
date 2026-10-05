@@ -209,13 +209,15 @@ func (f NetworkConfigValidatorFunc) Validate(networkName string, configProvider 
 // Fabric networks, merges it into the live configuration tree.
 //
 // The raw configuration must be a valid `fabric` configuration snippet (e.g. `fabric.<name>.*`
-// keys). Every network name and channel name it introduces is validated against the Fabric
-// naming rules (the same rules applied to the configuration loaded at startup), and every
-// network it introduces must be new: adding a network whose name already exists is rejected, as
-// updating an existing network's configuration is not supported. A network requesting to become
-// the default (via FSNConfig.Default or the name "default") is also rejected if doing so would
-// leave more than one network marked as default. Any additional validators are run, per
-// incoming network, after the built-in checks and before anything is merged.
+// keys) whose keys stay unique once lowercased; keys that differ only in case are rejected
+// before any validation runs. Every network name and channel name it introduces is validated
+// against the Fabric naming rules (the same rules applied to the configuration loaded at
+// startup), and every network it introduces must be new: adding a network whose name already
+// exists is rejected, as updating an existing network's configuration is not supported. A
+// network requesting to become the default (via FSNConfig.Default or the name "default") is
+// also rejected if doing so would leave more than one network marked as default. Any
+// additional validators are run, per incoming network, after the built-in checks and before
+// anything is merged.
 func (c *Config) AddNetwork(raw []byte, validators ...NetworkConfigValidator) error {
 	temp, err := c.provider.ProvideFromRaw(raw)
 	if err != nil {

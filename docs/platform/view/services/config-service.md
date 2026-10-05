@@ -8,7 +8,7 @@ It follows a hierarchical structure and supports loading configuration from mult
 ## Key Features and Guarantees
 
 * **Hierarchical Structure:** Configuration is organized in a nested tree structure using dot-separated keys (e.g., `fsc.id`, `fabric.network.name`).
-* **Case Insensitivity:** Configuration keys are **case-insensitive**. Whether you use `FSC.ID`, `fsc.id`, or `Fsc.Id`, the service will correctly identify and retrieve the corresponding value.
+* **Case Insensitivity:** Configuration keys are **case-insensitive**. Whether you use `FSC.ID`, `fsc.id`, or `Fsc.Id`, the service will correctly identify and retrieve the corresponding value. Keys are lowercased on load, so a configuration with two keys at the same level that differ only in case, such as `Foo` and `foo`, is rejected.
 * **Multi-source Loading:**
 
   * **YAML Files:** By default, the service looks for a `core.yaml` file in several locations (current directory, `/etc/hyperledger-labs/fabric-smart-client-node`, or the path specified by the `FSCNODE_CFG_PATH` environment variable).

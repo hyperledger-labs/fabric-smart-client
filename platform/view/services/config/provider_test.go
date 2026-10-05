@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -314,4 +315,52 @@ env:
 	err = p.UnmarshalKey("env.map", &mapVal)
 	require.NoError(t, err)
 	require.Equal(t, "b", mapVal["a"])
+}
+
+func TestLowercaseParserRejectsCollidingKeys(t *testing.T) {
+	t.Parallel()
+	parser := LowercaseParser{Parser: koanfyaml.Parser()}
+
+	for _, tc := range []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name:    "top level",
+			yaml:    "Foo: 1\nfoo: 2\n",
+			wantErr: "configuration keys [Foo] and [foo] collide after lowercasing",
+		},
+		{
+			name:    "nested",
+			yaml:    "fabric:\n  Network1:\n    driver: a\n  network1:\n    driver: b\n",
+			wantErr: "configuration keys [fabric.Network1] and [fabric.network1] collide after lowercasing",
+		},
+		{
+			name:    "inside a list",
+			yaml:    "fabric:\n  net:\n    channels:\n      - Name: a\n        name: b\n",
+			wantErr: "configuration keys [fabric.net.channels[0].Name] and [fabric.net.channels[0].name] collide after lowercasing",
+		},
+		{
+			name:    "inside a nested list",
+			yaml:    "a:\n  - - Key: 1\n      key: 2\n",
+			wantErr: "configuration keys [a[0][0].Key] and [a[0][0].key] collide after lowercasing",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Map iteration order is random, so parse repeatedly to see both key orders.
+			for range 20 {
+				_, err := parser.Unmarshal([]byte(tc.yaml))
+				require.EqualError(t, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLowercaseParserLowercasesKeys(t *testing.T) {
+	t.Parallel()
+	m, err := LowercaseParser{Parser: koanfyaml.Parser()}.Unmarshal([]byte("Fabric:\n  Net:\n    Channels:\n      - Name: a\n"))
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"fabric": map[string]any{"net": map[string]any{"channels": []any{map[string]any{"name": "a"}}}}}, m)
 }

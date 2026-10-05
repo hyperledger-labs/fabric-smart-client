@@ -437,7 +437,8 @@ func (*MergeConfigEvent) Message() any {
 	return nil
 }
 
-// LowercaseParser wraps an existing parser to lowercase all keys
+// LowercaseParser wraps an existing parser to lowercase all keys. Keys that differ only in
+// case are rejected, as they would otherwise collapse into one key holding either value.
 type LowercaseParser struct {
 	koanf.Parser
 }
@@ -448,26 +449,42 @@ func (l LowercaseParser) Unmarshal(b []byte) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lowercaseMapKeys(m), nil
+	return lowercaseMapKeys(m, "")
 }
 
-// lowercaseMapKeys recursively converts all map keys to lowercase
-func lowercaseMapKeys(m map[string]any) map[string]any {
+// lowercaseMapKeys recursively converts all map keys to lowercase. path locates m in the
+// configuration and names the keys in the error returned when two of them collide.
+func lowercaseMapKeys(m map[string]any, path string) (map[string]any, error) {
 	out := make(map[string]any, len(m))
+	originals := make(map[string]string, len(m))
 	for key, val := range m {
 		lowerKey := strings.ToLower(key)
-		if nestedMap, ok := val.(map[string]any); ok {
-			out[lowerKey] = lowercaseMapKeys(nestedMap)
-		} else if nestedSlice, ok := val.([]any); ok {
-			for i, nested := range nestedSlice {
-				if ns, ok := nested.(map[string]any); ok {
-					nestedSlice[i] = lowercaseMapKeys(ns)
-				}
+		if other, ok := originals[lowerKey]; ok {
+			return nil, errors.Errorf("configuration keys [%s%s] and [%s%s] collide after lowercasing", path, min(key, other), path, max(key, other))
+		}
+		originals[lowerKey] = key
+		lowerVal, err := lowercaseValue(val, path+lowerKey)
+		if err != nil {
+			return nil, err
+		}
+		out[lowerKey] = lowerVal
+	}
+	return out, nil
+}
+
+// lowercaseValue lowercases the keys of every map nested in val, descending into lists.
+func lowercaseValue(val any, path string) (any, error) {
+	switch v := val.(type) {
+	case map[string]any:
+		return lowercaseMapKeys(v, path+".")
+	case []any:
+		for i, nested := range v {
+			lowerNested, err := lowercaseValue(nested, path+"["+strconv.Itoa(i)+"]")
+			if err != nil {
+				return nil, err
 			}
-			out[lowerKey] = val
-		} else {
-			out[lowerKey] = val
+			v[i] = lowerNested
 		}
 	}
-	return out
+	return val, nil
 }
