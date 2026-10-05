@@ -3,7 +3,7 @@ module tools
 go 1.27.1
 
 require (
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.13.0
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.14.0
 	github.com/onsi/ginkgo/v2 v2.33.0
 	golang.org/x/vuln v1.8.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.2
