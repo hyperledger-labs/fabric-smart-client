@@ -163,15 +163,37 @@ func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
 	providers := append(slices.Clone(t.verifierProviders), &verifierProviderWrapper{m: ch.MSPManager()})
 
 	for _, party := range parties {
-		if !slices.ContainsFunc(responses, func(r *fabric.ProposalResponse) bool {
-			return bytes.Equal(r.Endorser(), party) && bytes.Equal(r.Payload(), responses[0].Payload()) && slices.ContainsFunc(providers, func(p fabric.VerifierProvider) bool {
-				return r.VerifyEndorsement(p) == nil
-			})
-		}) {
-			return errors.Errorf("party [%s] has not signed", party)
+		if err := endorsedBy(responses, providers, party); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// endorsedBy returns nil if a response satisfies HasBeenEndorsedBy for party. Otherwise the
+// error tells which check the party's responses fail: none names it, one endorses another
+// payload, or its signature does not verify with any provider.
+func endorsedBy(responses []*fabric.ProposalResponse, providers []fabric.VerifierProvider, party view.Identity) error {
+	err := errors.Errorf("no proposal response from party [%s]", party)
+	for _, r := range responses {
+		if !bytes.Equal(r.Endorser(), party) {
+			continue
+		}
+		if !bytes.Equal(r.Payload(), responses[0].Payload()) {
+			err = errors.Errorf("proposal response of party [%s] endorses a different payload", party)
+			continue
+		}
+		var errs []error
+		for _, p := range providers {
+			verr := r.VerifyEndorsement(p)
+			if verr == nil {
+				return nil
+			}
+			errs = append(errs, verr)
+		}
+		err = errors.Wrapf(errors.Join(errs...), "signature of party [%s] does not verify", party)
+	}
+	return err
 }
 
 func (t *Transaction) GetSignatureOf(party view.Identity) ([]byte, error) {

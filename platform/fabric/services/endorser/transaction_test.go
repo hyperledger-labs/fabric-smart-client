@@ -299,32 +299,32 @@ func TestHasBeenEndorsedBy(t *testing.T) {
 			name:      "forged signature",
 			responses: []driver.ProposalResponse{signedResponse("alice", "not-a-signature")},
 			parties:   []string{"alice"},
-			wantErr:   "has not signed",
+			wantErr:   "signature of party [" + view.Identity("alice").String() + "] does not verify: invalid signature",
 		},
 		{
 			name:      "no verifier for endorser",
 			responses: []driver.ProposalResponse{signedResponse("alice", "good")},
 			mspErr:    errors.New("unknown to msp"),
 			parties:   []string{"alice"},
-			wantErr:   "has not signed",
+			wantErr:   "signature of party [" + view.Identity("alice").String() + "] does not verify: unknown to msp",
 		},
 		{
 			name:      "other endorser",
 			responses: []driver.ProposalResponse{signedResponse("alice", "good")},
 			parties:   []string{"bob"},
-			wantErr:   "has not signed",
+			wantErr:   "no proposal response from party [" + view.Identity("bob").String() + "]",
 		},
 		{
 			name:      "response replayed from another transaction",
 			responses: []driver.ProposalResponse{signedResponse("alice", "good"), replayed},
 			parties:   []string{"alice", "bob"},
-			wantErr:   "party [" + view.Identity("bob").String() + "] has not signed",
+			wantErr:   "proposal response of party [" + view.Identity("bob").String() + "] endorses a different payload",
 		},
 		{
 			name:      "one party missing",
 			responses: []driver.ProposalResponse{signedResponse("alice", "good"), signedResponse("bob", "bad")},
 			parties:   []string{"alice", "bob"},
-			wantErr:   "party [" + view.Identity("bob").String() + "] has not signed",
+			wantErr:   "signature of party [" + view.Identity("bob").String() + "] does not verify: invalid signature",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

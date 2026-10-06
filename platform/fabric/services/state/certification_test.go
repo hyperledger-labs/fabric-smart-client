@@ -554,7 +554,7 @@ func TestChaincodeCertifier_VerifyInputCertificationAt(t *testing.T) {
 		wantErr string
 	}{
 		{name: "valid", read: version},
-		{name: "forged signature", forged: true, read: version, wantErr: "party [" + view.Identity("peer").String() + "] has not signed"},
+		{name: "forged signature", forged: true, read: version, wantErr: "signature of party [" + view.Identity("peer").String() + "] does not verify"},
 		{name: "other version", read: []byte{0, 0, 0, 0, 0, 0, 0, 2}, wantErr: "invalid certification, expected version [0000000000000001] for [key], got [0000000000000002]"},
 		{name: "no read", wantErr: "failed getting certified read version of [key]"},
 	} {
