@@ -548,19 +548,26 @@ func TestChaincodeCertifier_VerifyInputCertificationAt(t *testing.T) {
 	version := []byte{0, 0, 0, 0, 0, 0, 0, 1}
 
 	for _, tc := range []struct {
-		name    string
-		forged  bool
-		read    []byte // the certification's read version of key; nil for no read
-		wantErr string
+		name        string
+		forged      bool
+		unversioned bool   // the transaction reads key with no version
+		read        []byte // the certification's read version of key; nil for no read
+		wantErr     string
 	}{
 		{name: "valid", read: version},
+		{name: "unversioned read certified at the zero version", unversioned: true, read: make([]byte, 8)},
+		{name: "unversioned read certified at another version", unversioned: true, read: version, wantErr: "invalid certification, expected version [] for [key], got [0000000000000001]"},
 		{name: "forged signature", forged: true, read: version, wantErr: "signature of party [" + view.Identity("peer").String() + "] does not verify"},
 		{name: "other version", read: []byte{0, 0, 0, 0, 0, 0, 0, 2}, wantErr: "invalid certification, expected version [0000000000000001] for [key], got [0000000000000002]"},
 		{name: "no read", wantErr: "failed getting certified read version of [key]"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			n, response, certRWS := newChaincodeCertifierNamespace(t, ns, key, version)
+			txRead := version
+			if tc.unversioned {
+				txRead = nil
+			}
+			n, response, certRWS := newChaincodeCertifierNamespace(t, ns, key, txRead)
 			if tc.forged {
 				response.VerifyEndorsementReturns(errors.New("invalid signature"))
 			}
