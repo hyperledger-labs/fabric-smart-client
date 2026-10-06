@@ -32,12 +32,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
-type P2PCommunicationType = string
-
-const (
-	WebSocket P2PCommunicationType = "websocket"
-)
-
 func NewDriver(in struct {
 	dig.In
 	ConfigProvider  config.Provider
