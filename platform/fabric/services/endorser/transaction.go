@@ -148,8 +148,9 @@ func (t *Transaction) AppendProposalResponse(response *fabric.ProposalResponse) 
 }
 
 // HasBeenEndorsedBy returns nil if, for each passed party, a proposal response names the party
-// as endorser and carries a valid signature by it. Signatures are verified with the transaction's
-// verifier providers and the channel MSP.
+// as endorser, carries a valid signature by it, and endorses the same payload as the first
+// response, the one the transaction's results are read from. Signatures are verified with the
+// transaction's verifier providers and the channel MSP.
 func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
 	responses, err := t.Transaction.ProposalResponses()
 	if err != nil {
@@ -163,7 +164,7 @@ func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
 
 	for _, party := range parties {
 		if !slices.ContainsFunc(responses, func(r *fabric.ProposalResponse) bool {
-			return bytes.Equal(r.Endorser(), party) && slices.ContainsFunc(providers, func(p fabric.VerifierProvider) bool {
+			return bytes.Equal(r.Endorser(), party) && bytes.Equal(r.Payload(), responses[0].Payload()) && slices.ContainsFunc(providers, func(p fabric.VerifierProvider) bool {
 				return r.VerifyEndorsement(p) == nil
 			})
 		}) {

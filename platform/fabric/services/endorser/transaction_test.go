@@ -270,6 +270,10 @@ func verifierAccepting(good string) *mock.Verifier {
 func TestHasBeenEndorsedBy(t *testing.T) {
 	t.Parallel()
 
+	// A genuine signature by bob over another transaction's payload.
+	replayed := signedResponse("bob", "good")
+	replayed.PayloadReturns([]byte("another transaction"))
+
 	for _, tc := range []struct {
 		name       string
 		responses  []driver.ProposalResponse
@@ -309,6 +313,12 @@ func TestHasBeenEndorsedBy(t *testing.T) {
 			responses: []driver.ProposalResponse{signedResponse("alice", "good")},
 			parties:   []string{"bob"},
 			wantErr:   "has not signed",
+		},
+		{
+			name:      "response replayed from another transaction",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good"), replayed},
+			parties:   []string{"alice", "bob"},
+			wantErr:   "party [" + view.Identity("bob").String() + "] has not signed",
 		},
 		{
 			name:      "one party missing",
