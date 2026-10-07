@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package web
 
 import (
+	"context"
+	"net/http"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
@@ -52,6 +55,9 @@ func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response any, st
 
 	res, err := rd.vc.CallView(reqctx, escapedViewID, query)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return &server.ResponseErr{Reason: "view execution timed out"}, http.StatusGatewayTimeout
+		}
 		return &server.ResponseErr{Reason: err.Error()}, 500
 	}
 

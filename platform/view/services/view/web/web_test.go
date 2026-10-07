@@ -54,6 +54,12 @@ func TestDispatcher(t *testing.T) {
 	require.Equal(t, 500, code)
 	require.Contains(t, resp.(*server2.ResponseErr).Reason, "caller error")
 
+	// timeout error
+	vc.err = context.DeadlineExceeded
+	resp, code = d.HandleRequest(reqctx)
+	require.Equal(t, http.StatusGatewayTimeout, code)
+	require.Equal(t, "view execution timed out", resp.(*server2.ResponseErr).Reason)
+
 	// ParsePayload
 	p, err := d.ParsePayload([]byte("data"))
 	require.NoError(t, err)

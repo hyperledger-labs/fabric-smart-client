@@ -10,6 +10,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -31,6 +32,9 @@ import (
 
 const (
 	KeepAliveConfigKey = "fsc.grpc.keepalive"
+	// DefaultViewTimeout is the default execution timeout for REST view invocations.
+	DefaultViewTimeout = 2 * time.Minute
+	ViewTimeoutKey     = "fsc.web.viewTimeout"
 )
 
 // Server is a listener the SDK starts and stops as part of the node lifecycle.
@@ -90,7 +94,13 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	h := web.NewHttpHandler()
 	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
 
-	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider)
+	viewTimeout := DefaultViewTimeout
+	if configProvider.IsSet(ViewTimeoutKey) {
+		if d := configProvider.GetDuration(ViewTimeoutKey); d > 0 {
+			viewTimeout = d
+		}
+	}
+	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider, web2.WithTimeout(viewTimeout))
 
 	return webServer, nil
 }
