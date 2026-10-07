@@ -41,7 +41,7 @@ func validMessageEnvelope(t *testing.T, txID string) []byte {
 }
 
 // TestGetBlockNumberByTxIDNilHeaderReturnsError proves the fix: a compromised
-// or buggy remote BlockQueryServiceClient (the gRPC connection to the
+// or buggy remote SidecarServiceClient (the gRPC connection to the
 // committer) can return err == nil together with a *committerpb.Block whose
 // Header field is unset -- a perfectly valid, zero-value protobuf message.
 // GetBlockNumberByTxID must now return a wrapped error instead of panicking
@@ -49,7 +49,7 @@ func validMessageEnvelope(t *testing.T, txID string) []byte {
 func TestGetBlockNumberByTxIDNilHeaderReturnsError(t *testing.T) {
 	t.Parallel()
 
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	l := ledger.New(fakeBlockClient, fakeQueryService, context.Background())
 
@@ -72,7 +72,7 @@ func TestGetBlockNumberByTxIDNilHeaderReturnsError(t *testing.T) {
 func TestBlockProcessedTransactionShortTransactionsFilterReturnsError(t *testing.T) {
 	t.Parallel()
 
-	fakeBlockClient := &mock.BlockQueryServiceClient{}
+	fakeBlockClient := &mock.SidecarServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	l := ledger.New(fakeBlockClient, fakeQueryService, context.Background())
 

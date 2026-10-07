@@ -338,13 +338,13 @@ func (s *service) RegisterIdemixMSP(id, path, mspID string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", path)
 	}
-	provider, err := idemix.NewProviderWithAnyPolicy(conf, s.KVS, s.signerService)
+	provider, err := idemix.NewProvider(conf, s.KVS, s.signerService)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
 
 	s.deserializerManager.AddDeserializer(provider)
-	if err := s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil, nil).Identity); err != nil {
+	if err := s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity); err != nil {
 		return errors.Wrapf(err, "failed adding idemix msp [%s] to [%s]", id, path)
 	}
 	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)

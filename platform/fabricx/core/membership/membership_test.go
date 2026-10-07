@@ -748,7 +748,7 @@ func TestService_CheckACL_IdemixSignedProposal(t *testing.T) { //nolint:parallel
 
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
-	provider, err := idemix2.NewProviderWithAnyPolicy(mspConf, kvss, sigService)
+	provider, err := idemix2.NewProvider(mspConf, kvss, sigService)
 	require.NoError(t, err)
 
 	identityBytes, _, err := provider.Identity(nil)

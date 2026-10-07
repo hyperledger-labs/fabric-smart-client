@@ -201,8 +201,8 @@ func newNotificationManagerWithGRPC(network string, grpcClientProvider GRPCClien
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
 	}
 
-	// Create the gRPC client stub for the Notifier service
-	notifyClient := committerpb.NewNotifierClient(cc)
+	// Create the gRPC client stub for the SidecarService
+	notifyClient := committerpb.NewSidecarServiceClient(cc)
 
 	nlm := &notificationListenerManager{
 		notifyClient:     notifyClient,

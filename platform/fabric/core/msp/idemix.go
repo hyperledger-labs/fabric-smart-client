@@ -10,19 +10,16 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 type idemixSigningIdentityWrapper struct {
-	*msp2.IdemixSigningIdentity
+	msp2.SigningIdentity
 }
 
 func (i *idemixSigningIdentityWrapper) GetPublicVersion() Identity {
-	pv := i.IdemixSigningIdentity.GetPublicVersion()
-	pub, ok := pv.(*msp2.Idemixidentity)
-	if !ok {
-		panic(errors.Errorf("unexpected public identity type [%T]", pv))
-	}
-	return &idemixIdentityWrapper{Idemixidentity: pub}
+	pv := i.SigningIdentity.GetPublicVersion()
+	return &idemixIdentityWrapper{pv}
 }
 
 func (i *idemixSigningIdentityWrapper) GetIdentifier() *IdentityIdentifier {
@@ -34,11 +31,11 @@ func (i *idemixSigningIdentityWrapper) GetOrganizationalUnits() []*OUIdentifier 
 }
 
 type idemixIdentityWrapper struct {
-	*msp2.Idemixidentity
+	msp2.Identity
 }
 
 func (i *idemixIdentityWrapper) GetIdentifier() *IdentityIdentifier {
-	id := i.Idemixidentity.GetIdentifier()
+	id := i.Identity.GetIdentifier()
 
 	return &IdentityIdentifier{
 		Mspid: id.Mspid,
@@ -47,7 +44,7 @@ func (i *idemixIdentityWrapper) GetIdentifier() *IdentityIdentifier {
 }
 
 func (i *idemixIdentityWrapper) GetOrganizationalUnits() []*OUIdentifier {
-	ous := i.Idemixidentity.GetOrganizationalUnits()
+	ous := i.Identity.GetOrganizationalUnits()
 	wous := []*OUIdentifier{}
 	for _, ou := range ous {
 		wous = append(wous, &OUIdentifier{
@@ -60,54 +57,52 @@ func (i *idemixIdentityWrapper) GetOrganizationalUnits() []*OUIdentifier {
 }
 
 type idemixMSPWrapper struct {
-	*msp2.Idemixmsp
+	*msp2.MSP
 }
 
+// deserializeIdentityInternal deserializes an identity given only the idemix-specific
+// payload (the IdBytes of a SerializedIdentity), skipping the outer MSP-id check the
+// caller already performed. msp2.MSP does not expose this shortcut, so it is
+// reconstructed by re-wrapping the payload into a SerializedIdentity and going through
+// the public DeserializeIdentity path.
 func (i *idemixMSPWrapper) deserializeIdentityInternal(serializedIdentity []byte) (Identity, error) {
-	id, err := i.DeserializeIdentityInternal(serializedIdentity)
+	mspID, err := i.GetIdentifier()
 	if err != nil {
 		return nil, err
 	}
-
-	idemixID, ok := id.(*msp2.Idemixidentity)
-	if !ok {
-		return nil, errors.Errorf("unexpected identity type [%T]", id)
+	raw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: mspID, IdBytes: serializedIdentity})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed marshalling serialized identity")
 	}
-	return &idemixIdentityWrapper{idemixID}, nil
+	id, err := i.MSP.DeserializeIdentity(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &idemixIdentityWrapper{id}, nil
 }
 
 func (i *idemixMSPWrapper) DeserializeIdentity(serializedIdentity []byte) (Identity, error) {
-	id, err := i.Idemixmsp.DeserializeIdentity(serializedIdentity)
+	id, err := i.MSP.DeserializeIdentity(serializedIdentity)
 	if err != nil {
 		return nil, err
 	}
-
-	idemixID, ok := id.(*msp2.Idemixidentity)
-	if !ok {
-		return nil, errors.Errorf("unexpected identity type [%T]", id)
-	}
-	return &idemixIdentityWrapper{idemixID}, nil
+	return &idemixIdentityWrapper{id}, nil
 }
 
 func (i *idemixMSPWrapper) GetVersion() MSPVersion {
-	return MSPVersion(i.Idemixmsp.GetVersion())
+	return MSPVersion(i.MSP.GetVersion())
 }
 
 func (i *idemixMSPWrapper) GetType() ProviderType {
-	return ProviderType(i.Idemixmsp.GetType())
+	return ProviderType(i.MSP.GetType())
 }
 
 func (i *idemixMSPWrapper) GetDefaultSigningIdentity() (SigningIdentity, error) {
-	id, err := i.Idemixmsp.GetDefaultSigningIdentity()
+	id, err := i.MSP.GetDefaultSigningIdentity()
 	if err != nil {
 		return nil, err
 	}
-
-	signingID, ok := id.(*msp2.IdemixSigningIdentity)
-	if !ok {
-		return nil, errors.Errorf("unexpected signing identity type [%T]", id)
-	}
-	return &idemixSigningIdentityWrapper{signingID}, nil
+	return &idemixSigningIdentityWrapper{id}, nil
 }
 
 func (i *idemixMSPWrapper) Validate(id Identity) error {
@@ -115,7 +110,7 @@ func (i *idemixMSPWrapper) Validate(id Identity) error {
 	if !ok {
 		return errors.Errorf("unexpected identity type [%T]", id)
 	}
-	return i.Idemixmsp.Validate(wrapped.Idemixidentity)
+	return i.MSP.Validate(wrapped.Identity)
 }
 
 func (i *idemixMSPWrapper) SatisfiesPrincipal(id Identity, principal *msp.MSPPrincipal) error {
@@ -123,5 +118,5 @@ func (i *idemixMSPWrapper) SatisfiesPrincipal(id Identity, principal *msp.MSPPri
 	if !ok {
 		return errors.Errorf("unexpected identity type [%T]", id)
 	}
-	return i.Idemixmsp.SatisfiesPrincipal(wrapped.Idemixidentity, principal)
+	return i.MSP.SatisfiesPrincipal(wrapped.Identity, principal)
 }
