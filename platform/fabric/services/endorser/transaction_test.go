@@ -321,6 +321,11 @@ func TestHasBeenEndorsedBy(t *testing.T) {
 			wantErr:   "proposal response of party [" + view.Identity("bob").String() + "] endorses a different payload",
 		},
 		{
+			name:      "no parties",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good")},
+			wantErr:   "no parties to verify endorsements against",
+		},
+		{
 			name:      "one party missing",
 			responses: []driver.ProposalResponse{signedResponse("alice", "good"), signedResponse("bob", "bad")},
 			parties:   []string{"alice", "bob"},
@@ -357,6 +362,12 @@ func TestHasBeenEndorsedBy(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+
+	t.Run("no verifier provider", func(t *testing.T) {
+		t.Parallel()
+		responses := []*fabric.ProposalResponse{fabric.NewProposalResponse(signedResponse("alice", "good"))}
+		require.ErrorContains(t, endorsedBy(responses, nil, view.Identity("alice")), "no verifier provider")
+	})
 
 	t.Run("proposal responses error", func(t *testing.T) {
 		t.Parallel()

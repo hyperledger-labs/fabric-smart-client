@@ -150,8 +150,12 @@ func (t *Transaction) AppendProposalResponse(response *fabric.ProposalResponse) 
 // HasBeenEndorsedBy returns nil if, for each passed party, a proposal response names the party
 // as endorser, carries a valid signature by it, and endorses the same payload as the first
 // response, the one the transaction's results are read from. Signatures are verified with the
-// transaction's verifier providers and the channel MSP.
+// transaction's verifier providers, registered with AppendVerifierProvider, and the channel
+// MSP. It returns an error when no party is passed.
 func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
+	if len(parties) == 0 {
+		return errors.New("no parties to verify endorsements against")
+	}
 	responses, err := t.Transaction.ProposalResponses()
 	if err != nil {
 		return err
@@ -174,6 +178,9 @@ func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
 // error tells which check the party's responses fail: none names it, one endorses another
 // payload, or its signature does not verify with any provider.
 func endorsedBy(responses []*fabric.ProposalResponse, providers []fabric.VerifierProvider, party view.Identity) error {
+	if len(providers) == 0 {
+		return errors.Errorf("no verifier provider to check the endorsement of party [%s]", party)
+	}
 	err := errors.Errorf("no proposal response from party [%s]", party)
 	for _, r := range responses {
 		if !bytes.Equal(r.Endorser(), party) {
