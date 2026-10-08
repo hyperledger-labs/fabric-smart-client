@@ -174,6 +174,9 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 	return c.tx, nil
 }
 
+// SetVerifierProviders sets additional providers used to verify the collected endorsements.
+// They apply to the collection only; Transaction.HasBeenEndorsedBy consults the providers
+// registered with Transaction.AppendVerifierProvider.
 func (c *collectEndorsementsView) SetVerifierProviders(p []fabric.VerifierProvider) *collectEndorsementsView {
 	c.verifierProviders = p
 	return c

@@ -18,6 +18,9 @@ import (
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	tmock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	emock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -487,4 +490,100 @@ func TestCertificationViewCall(t *testing.T) {
 		require.Equal(t, "fns", vs.networkCalled)
 		require.Equal(t, "custom-channel", vs.channelCalled)
 	})
+}
+
+type testDiscover struct{ peers []fdriver.DiscoveredPeer }
+
+func (d *testDiscover) Call() ([]fdriver.DiscoveredPeer, error)                { return d.peers, nil }
+func (d *testDiscover) WithFilterByMSPIDs(...string) fdriver.ChaincodeDiscover { return d }
+func (d *testDiscover) WithImplicitCollections(...string) fdriver.ChaincodeDiscover {
+	return d
+}
+
+// newChaincodeCertifierNamespace builds a Namespace whose input at index 0 reads key at version
+// and is certified by an envelope whose single proposal response names the one endorser the
+// channel discovers, "peer". It returns that response and the certification's rwset.
+func newChaincodeCertifierNamespace(t *testing.T, ns, key string, version []byte) (*Namespace, *emock.ProposalResponse, *testRWSet) {
+	t.Helper()
+	tx, rws, _ := newTestStateTransaction(ns)
+	require.NoError(t, rws.AddReadAt(ns, key, version))
+	require.NoError(t, SetCertificationType(tx, ChaincodeCertification, nil))
+	require.NoError(t, SetCertification(tx, key, []byte("envelope")))
+
+	certRWS := newTestRWSet()
+	response := &emock.ProposalResponse{}
+	response.EndorserReturns(view.Identity("peer"))
+	certTx := &emock.Transaction{}
+	certTx.ChannelReturns("ch")
+	certTx.FunctionReturns(CertificationFnc)
+	certTx.ParametersReturns([][]byte{[]byte(key), []byte(tx.ID())})
+	certTx.ProposalResponsesReturns([]fdriver.ProposalResponse{response}, nil)
+	certTx.GetRWSetReturns(certRWS, nil)
+
+	chaincode := &tmock.Chaincode{}
+	chaincode.NewDiscoverReturns(&testDiscover{peers: []fdriver.DiscoveredPeer{{Identity: view.Identity("peer")}}})
+	chaincodes := &tmock.ChaincodeManager{}
+	chaincodes.ChaincodeReturns(chaincode)
+	ch := &emock.Channel{}
+	ch.NameReturns("ch")
+	ch.ChaincodeManagerReturns(chaincodes)
+	ch.ChannelMembershipReturns(&emock.ChannelMembership{})
+	tm := &emock.TransactionManager{}
+	tm.NewTransactionFromEnvelopeBytesReturns(certTx, nil)
+	fns := &emock.FabricNetworkService{}
+	fns.NameReturns("net")
+	fns.ChannelReturns(ch, nil)
+	fns.TransactionManagerReturns(tm)
+	fns.LocalMembershipReturns(&emock.LocalMembership{})
+	fnsp := &emock.FabricNetworkServiceProvider{}
+	fnsp.FabricNetworkServiceReturns(fns, nil)
+	tx.Provider = helpersProvider(nil, fabric.NewNetworkServiceProvider(fnsp, nil))
+
+	return tx.Namespace, response, certRWS
+}
+
+func TestChaincodeCertifier_VerifyInputCertificationAt(t *testing.T) {
+	t.Parallel()
+	const ns, key = "ns", "key"
+	version := []byte{0, 0, 0, 0, 0, 0, 0, 1}
+
+	for _, tc := range []struct {
+		name        string
+		forged      bool
+		unversioned bool   // the transaction reads key with no version
+		read        []byte // the certification's read version of key; nil for no read
+		wantErr     string
+	}{
+		{name: "valid", read: version},
+		{name: "unversioned read certified at the zero version", unversioned: true, read: make([]byte, 8)},
+		{name: "unversioned read certified at another version", unversioned: true, read: version, wantErr: "invalid certification, expected version [] for [key], got [0000000000000001]"},
+		{name: "forged signature", forged: true, read: version, wantErr: "signature of party [" + view.Identity("peer").String() + "] does not verify"},
+		{name: "other version", read: []byte{0, 0, 0, 0, 0, 0, 0, 2}, wantErr: "invalid certification, expected version [0000000000000001] for [key], got [0000000000000002]"},
+		{name: "no read", wantErr: "failed getting certified read version of [key]"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			txRead := version
+			if tc.unversioned {
+				txRead = nil
+			}
+			n, response, certRWS := newChaincodeCertifierNamespace(t, ns, key, txRead)
+			if tc.forged {
+				response.VerifyEndorsementReturns(errors.New("invalid signature"))
+			}
+			if tc.read != nil {
+				require.NoError(t, certRWS.AddReadAt(ns, key, tc.read))
+			}
+			require.NoError(t, certRWS.SetState(ns, key, []byte("value")))
+
+			err := (&ChaincodeCertifier{}).VerifyInputCertificationAt(n, 0, key)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.Empty(t, n.certifiedInputs)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, map[string][]byte{key: []byte("value")}, n.certifiedInputs)
+		})
+	}
 }

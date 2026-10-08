@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -98,6 +99,11 @@ type UnpackedEnvelope struct {
 	SignatureHeader   *common.SignatureHeader
 	ProposalResponses []*peer.ProposalResponse
 	Envelope          []byte
+	// ProposalHash is the hash of the proposal the envelope carries: its channel header,
+	// signature header and chaincode proposal payload.
+	ProposalHash []byte
+	// EndorsedProposalHash is the proposal hash the endorsements sign.
+	EndorsedProposalHash []byte
 }
 
 func UnpackEnvelopeFromBytes(raw []byte) (*UnpackedEnvelope, int32, error) {
@@ -232,6 +238,11 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		args = append(args, string(cis.ChaincodeSpec.Input.Args[i]))
 	}
 
+	propHash := sha256.New()
+	propHash.Write(payl.Header.ChannelHeader)
+	propHash.Write(payl.Header.SignatureHeader)
+	propHash.Write(actionPayload.ChaincodeProposalPayload)
+
 	var proposalResponses []*peer.ProposalResponse
 	for _, endorsement := range actionPayload.Action.Endorsements {
 		proposalResponses = append(proposalResponses,
@@ -255,6 +266,9 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		ChannelHeader:     chdr,
 		SignatureHeader:   sdr,
 		ProposalResponses: proposalResponses,
+
+		ProposalHash:         propHash.Sum(nil),
+		EndorsedProposalHash: pRespPayload.ProposalHash,
 	}, chdr.Type, nil
 }
 

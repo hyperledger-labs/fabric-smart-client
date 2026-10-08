@@ -1652,8 +1652,9 @@ func TestGetProposalResponseErrors(t *testing.T) {
 }
 
 // mustEndorserEnvelope builds a signed HeaderType_ENDORSER_TRANSACTION envelope with a
-// single proposal response, as produced by a Fabric peer.
-func mustEndorserEnvelope(t *testing.T, creator []byte) []byte {
+// single proposal response, as produced by a Fabric peer. With endorsedParams, the response
+// endorses a proposal carrying those parameters instead of the envelope's own.
+func mustEndorserEnvelope(t *testing.T, creator []byte, endorsedParams ...[]byte) []byte {
 	t.Helper()
 
 	signer := &testSerializableSigner{creator: creator, signRes: []byte("sig")}
@@ -1668,9 +1669,16 @@ func mustEndorserEnvelope(t *testing.T, creator []byte) []byte {
 		TParameters:       [][]byte{[]byte("a"), []byte("b")},
 	}
 	require.NoError(t, src.generateProposal(signer))
+	endorsed := src.TProposal
+	if endorsedParams != nil {
+		other := *src
+		other.TParameters = endorsedParams
+		require.NoError(t, other.generateProposal(signer))
+		endorsed = other.TProposal
+	}
 
 	resp, err := protoutil.CreateProposalResponse(
-		src.TProposal.Header, src.TProposal.Payload,
+		endorsed.Header, endorsed.Payload,
 		&peer.Response{Status: 200}, []byte("results"), nil,
 		&peer.ChaincodeID{Name: "cc", Version: "v1"}, signer,
 	)
@@ -1718,6 +1726,13 @@ func TestTransactionSetFromEnvelopeBytesEndorserTransaction(t *testing.T) {
 		tx := &Transaction{fns: fakeFNS, TCreator: view.Identity("existing")}
 		require.NoError(t, tx.SetFromEnvelopeBytes(raw))
 		require.Equal(t, view.Identity("existing"), tx.Creator())
+	})
+
+	t.Run("rejects arguments the endorsement does not cover", func(t *testing.T) {
+		t.Parallel()
+		tx := &Transaction{fns: &mock.FabricNetworkService{}}
+		err := tx.SetFromEnvelopeBytes(mustEndorserEnvelope(t, creator, []byte("other")))
+		require.ErrorContains(t, err, "envelope proposal hash does not match the endorsed proposal hash")
 	})
 
 	t.Run("wraps channel lookup failure", func(t *testing.T) {

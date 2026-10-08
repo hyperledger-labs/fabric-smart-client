@@ -192,6 +192,10 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 	return err
 }
 
+// SetFromBytes populates the transaction from its JSON encoding. When the transaction carries
+// a signed proposal, function and arguments are read from it, and SetFromBytes fails if a
+// proposal response endorses a different proposal, so the endorsements cover what the
+// transaction declares.
 func (t *Transaction) SetFromBytes(raw []byte) error {
 	err := json.Unmarshal(raw, t)
 	if err != nil {
@@ -200,10 +204,18 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	logger.Debugf("set transient [%s]", logging.Keys(t.TTransient))
 
 	if t.TSignedProposal != nil {
-		// TODO: check the current payload is compatible with the content of the signed proposal
 		up, err := UnpackSignedProposal(t.TSignedProposal)
 		if err != nil {
 			return errors.Wrapf(err, "SetFromBytes: failed unpacking proposal [%s]", string(raw))
+		}
+		for _, r := range t.TProposalResponses {
+			prp, err := protoutil.UnmarshalProposalResponsePayload(r.GetPayload())
+			if err != nil {
+				return errors.Wrap(err, "SetFromBytes: failed unpacking proposal response")
+			}
+			if !bytes.Equal(prp.ProposalHash, up.ProposalHash) {
+				return errors.Errorf("SetFromBytes: proposal response does not endorse the signed proposal")
+			}
 		}
 		t.TTxID = up.TxID()
 		t.TNonce = up.Nonce()
@@ -235,11 +247,16 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	return nil
 }
 
+// SetFromEnvelopeBytes populates the transaction from a marshalled endorser transaction envelope.
+// It fails if the endorsements do not sign the envelope's proposal, so the function and
+// arguments read from the envelope are covered by its endorsements.
 func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
-	// TODO: check the current payload is compatible with the content of the signed proposal
 	upe, _, err := UnpackEnvelopeFromBytes(raw)
 	if err != nil {
 		return err
+	}
+	if !bytes.Equal(upe.ProposalHash, upe.EndorsedProposalHash) {
+		return errors.Errorf("envelope proposal hash does not match the endorsed proposal hash")
 	}
 
 	t.TTxID = upe.TxID

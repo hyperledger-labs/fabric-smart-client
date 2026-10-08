@@ -273,6 +273,55 @@ func TestTransaction_SetFromBytes(t *testing.T) {
 	require.ErrorContains(t, err, "channel fail")
 }
 
+// TestTransaction_SetFromBytesBindsResponsesToSignedProposal checks that a received
+// transaction is rejected when a proposal response endorses another proposal than the one
+// its function and arguments are read from.
+func TestTransaction_SetFromBytesBindsResponsesToSignedProposal(t *testing.T) {
+	t.Parallel()
+	sp := createSignedProposalWithArgs(t, [][]byte{[]byte("invoke"), []byte("arg1")})
+	up, err := transaction.UnpackSignedProposal(sp)
+	require.NoError(t, err)
+	response := func(hash []byte) *pb.ProposalResponse {
+		return &pb.ProposalResponse{Payload: mustMarshal(t, &pb.ProposalResponsePayload{ProposalHash: hash})}
+	}
+
+	for _, tc := range []struct {
+		name      string
+		responses []*pb.ProposalResponse
+		wantErr   string
+	}{
+		{name: "endorses the signed proposal", responses: []*pb.ProposalResponse{response(up.ProposalHash), response(up.ProposalHash)}},
+		{
+			name:      "endorses another proposal",
+			responses: []*pb.ProposalResponse{response(up.ProposalHash), response([]byte("other proposal"))},
+			wantErr:   "proposal response does not endorse the signed proposal",
+		},
+		{
+			name:      "undecodable response",
+			responses: []*pb.ProposalResponse{{Payload: []byte("not a payload")}},
+			wantErr:   "failed unpacking proposal response",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			channelProvider := &mock.ChannelProvider{}
+			channelProvider.ChannelReturns(&mock.Channel{}, nil)
+			tx, err := transaction.NewEndorserTransactionFactory("network", channelProvider, &mock.SignerService{}).
+				NewTransaction(t.Context(), "channel", nil, nil, "", nil)
+			require.NoError(t, err)
+
+			raw, err := json.Marshal(&transaction.Transaction{TSignedProposal: sp, TProposalResponses: tc.responses})
+			require.NoError(t, err)
+			err = tx.SetFromBytes(raw)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 // TestTransaction_SetFromBytesReturnsErrorOnEmptyChaincodeArgs demonstrates that
 // Transaction.SetFromBytes now rejects a TSignedProposal whose ChaincodeInput.Args is
 // empty with an error, instead of indexing Args[0] and panicking with an
@@ -968,6 +1017,7 @@ func TestTransaction_EndorseProposalErrors(t *testing.T) {
 func TestTransaction_EnvelopeRoundTrip(t *testing.T) {
 	t.Parallel()
 	f := newEndorsableTx(t)
+	f.tx.Transient()["key"] = []byte("transient")
 	require.NoError(t, f.tx.SetRWSet())
 	require.NoError(t, f.tx.EndorseWithIdentity([]byte("endorser")))
 
@@ -987,6 +1037,14 @@ func TestTransaction_EnvelopeRoundTrip(t *testing.T) {
 	require.Equal(t, []string{"a1"}, upe.Args)
 	require.Equal(t, []byte("rwset-bytes"), upe.Results)
 	require.Len(t, upe.ProposalResponses, 1)
+	require.Equal(t, upe.ProposalHash, upe.EndorsedProposalHash)
+
+	// The envelope's endorsements sign its proposal, so it loads into a new transaction.
+	tx, err := transaction.NewEndorserTransactionFactory("network", f.provider, f.sigService).
+		NewTransaction(t.Context(), "channel", nil, nil, "", nil)
+	require.NoError(t, err)
+	require.NoError(t, tx.SetFromEnvelopeBytes(raw))
+	require.Equal(t, "txid", tx.ID())
 }
 
 func TestTransaction_SetRWSetSources(t *testing.T) {

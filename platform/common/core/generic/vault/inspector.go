@@ -63,6 +63,14 @@ func (i *Inspector) GetReadKeyAt(ns driver.Namespace, pos int) (driver.PKey, err
 	return key, nil
 }
 
+func (i *Inspector) GetReadVersion(ns driver.Namespace, key driver.PKey) (driver.RawVersion, error) {
+	version, in := i.Rws.ReadSet.Get(ns, key)
+	if !in {
+		return nil, errors.Errorf("no read of key %s for namespace %s", key, ns)
+	}
+	return version, nil
+}
+
 func (i *Inspector) GetReadAt(ns driver.Namespace, pos int) (driver.PKey, driver.RawValue, error) {
 	key, in := i.Rws.ReadSet.GetAt(ns, pos)
 	if !in {
