@@ -256,6 +256,55 @@ func TestDeleteSession(t *testing.T) {
 	}, sessionKeys(p))
 }
 
+func TestDeleteSessionDoesNotStallDispatcher(t *testing.T) { //nolint:paralleltest
+	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
+	require.NoError(t, err)
+	stopNode(t, p)
+	p.Start(t.Context())
+
+	// Nobody reads slow, so closing it waits out the drain timeouts.
+	slow := &NetworkStreamSession{
+		node:      p,
+		sessionID: "slow",
+		incoming:  make(chan *view.Message),
+		streams:   make(map[*streamHandler]struct{}),
+		middleCh:  make(chan *view.Message, 1),
+		closing:   make(chan struct{}),
+		closed:    make(chan struct{}),
+	}
+	require.True(t, slow.enqueue(&view.Message{Payload: []byte("held")}))
+	require.Eventually(t, func() bool { return len(slow.middleCh) == 0 }, time.Second, time.Millisecond)
+	slow.middleCh <- &view.Message{Payload: []byte("queued")}
+	p.sessionsMutex.Lock()
+	p.sessions[computeInternalSessionID("slow", []byte("pk"))] = slow
+	p.sessionsMutex.Unlock()
+
+	fast, err := p.NewSessionWithID("fast", "ctx", "ep", []byte("pk"))
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		p.DeleteSession(t.Context(), "slow", []byte("pk"))
+		close(done)
+	}()
+	require.Eventually(t, slow.isClosing.Load, time.Second, time.Millisecond)
+
+	start := time.Now()
+	p.incomingMessages <- &messageWithStream{
+		message: &view.Message{SessionID: "fast", FromPKID: []byte("pk"), Payload: []byte("fast-msg")},
+		stream:  &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p},
+	}
+	select {
+	case msg := <-fast.Receive():
+		assert.Equal(t, "fast-msg", string(msg.Payload))
+		assert.Less(t, time.Since(start), 300*time.Millisecond, "dispatcher waited for DeleteSession")
+	case <-time.After(3 * time.Second):
+		t.Fatal("fast message not delivered")
+	}
+	<-done
+	assert.True(t, slow.isClosed())
+}
+
 // TestDeleteSession_PeerChosenIDLeavesOtherSessionsOpen covers a remote peer that picks the
 // SessionID of its message. The responder session for that message carries the peer's ID and
 // PKID, and disposing the responder context deletes it by both. No choice of ID may close the

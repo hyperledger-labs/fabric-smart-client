@@ -83,12 +83,11 @@ The Comm layer uses an **atomic lease mechanism** to prevent race conditions bet
 
 This prevents the race condition where a message appears to send successfully but the stream is closed immediately after, causing the remote peer to receive an EOF and drop the message.
 
-### Reliable Delivery and Backpressure
-The Comm layer uses a **blocking-with-timeout** strategy to ensure reliable delivery while preventing slow consumers from deadlocking the node.
+### Delivery and Slow Consumers
+A single dispatcher goroutine delivers incoming messages to every session, which keeps each session's messages in arrival order. It never waits for a session's consumer, so a consumer that stops reading cannot hold up the others.
 
-- **Internal Buffering**: Each session and stream has an internal message queue (default size: 4096).
-- **Backpressure Handling**: If a consumer is slow and the internal buffer fills up, the producer will block for a maximum of **1 minute**.
-- **Fail-Safe Closure**: If the buffer remains full after the timeout, the Comm layer logs an error and **closes the session/stream**.
+- **Internal Buffering**: Each session queues up to 2048 unread messages (two channels of 1024).
+- **Full Queue**: A message for a full session is dropped and counted in `dropped_messages`, and the session is closed, so the consumer never receives a message that follows a dropped one. The master session is never closed this way: closing it would stop the node accepting new sessions. A closed session stays registered until its view context is disposed, so later messages for it do not open a new session.
 
 ## Reliability and Stability
 
@@ -96,7 +95,7 @@ The Comm layer uses a **blocking-with-timeout** strategy to ensure reliable deli
 - **Synchronized Stream Operations**: The `streamHandler.close()` method acquires the stream lock to synchronize with concurrent `send()` operations, preventing corruption of in-flight messages.
 - **Automatic Resource Pruning**: Long-lived sessions periodically prune references to closed network streams (every 5 minutes), preventing memory bloat from accumulating dead stream references.
 - **Stream Lifecycle Protection**: Streams are marked as "dead" immediately upon read errors, preventing new leases while allowing existing operations to complete gracefully.
-- **Deadlock Prevention**: The session shutdown process is hardened to prevent hangs. When a session is closed, it attempts to drain remaining messages to the consumer with a **500ms timeout per message**. This ensures that the global dispatcher (which waits for sessions to close) is never permanently blocked by an unresponsive consumer.
+- **Deadlock Prevention**: The session shutdown process is hardened to prevent hangs. When a session is closed, it attempts to drain remaining messages to the consumer with a **500ms timeout per message**. This ensures that closing a session is never permanently blocked by an unresponsive consumer.
 
 ## Usage
 

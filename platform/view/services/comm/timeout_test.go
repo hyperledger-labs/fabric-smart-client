@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
@@ -21,10 +22,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func TestEnqueueTimeoutBehavior(t *testing.T) { //nolint:paralleltest
+func TestEnqueueFullQueue(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	// Test that enqueueWithTimeout respects the timeout value and logs appropriately
+	// enqueue drops a message for a full queue without blocking, and leaves closing to the dispatcher.
 	s := &NetworkStreamSession{
 		node:            &mockSenderTimeout{},
 		endpointID:      []byte("endpointID"),
@@ -56,67 +57,59 @@ func TestEnqueueTimeoutBehavior(t *testing.T) { //nolint:paralleltest
 	case <-time.After(50 * time.Millisecond):
 	}
 
-	// Now enqueue with a short timeout - should timeout
-	msg2 := &view.Message{Payload: []byte("msg2")}
-	ok := s.enqueueWithTimeout(msg2, 50*time.Millisecond)
-	require.False(t, ok, "Enqueue should timeout")
+	start := time.Now()
+	require.False(t, s.enqueue(&view.Message{Payload: []byte("msg2")}), "Enqueue on a full queue should fail")
+	require.Less(t, time.Since(start), 500*time.Millisecond, "Enqueue should not block")
+	require.False(t, s.isClosed(), "Enqueue should not close the session")
 
-	// The session should be closed due to the timeout in enqueueWithTimeout.
-	require.True(t, s.isClosed(), "Session should be closed after enqueue timeout")
-
-	// Verify that we cannot enqueue any more messages.
+	sess.Close()
 	require.False(t, s.enqueue(&view.Message{Payload: []byte("msg3")}), "Enqueue on closed session should return false")
-	_ = sess
 }
 
-func TestDefaultEnqueueTimeout(t *testing.T) { //nolint:paralleltest
+func TestCloseAsyncRefusesLaterMessages(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	// Test that the default timeout (1 minute) is used when not set
 	s := &NetworkStreamSession{
-		node:            &mockSenderTimeout{},
-		endpointID:      []byte("endpointID"),
-		endpointAddress: "endpointAddress",
-		contextID:       "contextID",
-		sessionID:       "sessionID",
-		caller:          []byte("caller"),
-		callerViewID:    "callerViewID",
-		incoming:        make(chan *view.Message), // unbuffered
-		streams:         make(map[*streamHandler]struct{}),
-		middleCh:        make(chan *view.Message, 1), // buffered size 1
-		closing:         make(chan struct{}),
-		closed:          make(chan struct{}),
-	}
-	var sess view.Session = s
-
-	// Start the session
-	msg1 := &view.Message{Payload: []byte("msg1")}
-	require.True(t, s.enqueue(msg1), "First enqueue should succeed")
-
-	// Block the goroutine
-	done := make(chan struct{})
-	go func() {
-		s.middleCh <- &view.Message{Payload: []byte("blocker")}
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(50 * time.Millisecond):
+		node:     &mockSenderTimeout{},
+		incoming: make(chan *view.Message, 1),
+		streams:  make(map[*streamHandler]struct{}),
+		middleCh: make(chan *view.Message, 1),
+		closing:  make(chan struct{}),
+		closed:   make(chan struct{}),
 	}
 
-	// Enqueue without setting timeout - should use DefaultEnqueueTimeout (1 minute)
-	// We'll use a much shorter test timeout to avoid waiting a full minute
-	s.SetEnqueueTimeout(100 * time.Millisecond) // Override to make test fast
-	msg2 := &view.Message{Payload: []byte("msg2")}
-	ok := s.enqueueWithTimeout(msg2, 100*time.Millisecond)
-	require.False(t, ok, "Enqueue should timeout with custom timeout")
+	// The queue has room, so only the closing mark can refuse the message.
+	s.closeAsync()
+	require.False(t, s.enqueue(&view.Message{Payload: []byte("msg")}), "Enqueue after closeAsync should fail")
+	require.Eventually(t, s.isClosed, time.Second, time.Millisecond)
+}
 
-	// The session should be closed due to the timeout in enqueueWithTimeout.
-	require.True(t, s.isClosed(), "Session should be closed after timeout")
+func TestCloseWaitsForCloseAsync(t *testing.T) { //nolint:paralleltest
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	// Verify that we cannot enqueue any more messages.
-	require.False(t, s.enqueue(&view.Message{Payload: []byte("msg3")}), "Enqueue on closed session should return false")
-	_ = sess
+	p, err := NewNode(context.Background(), &mockHost{}, &disabled.Provider{})
+	require.NoError(t, err)
+	s := &NetworkStreamSession{
+		node:     p,
+		incoming: make(chan *view.Message), // unbuffered, never read
+		streams:  make(map[*streamHandler]struct{}),
+		middleCh: make(chan *view.Message, 1),
+		closing:  make(chan struct{}),
+		closed:   make(chan struct{}),
+	}
+	sh := &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p}
+	require.True(t, sh.tryLease())
+	s.streams[sh] = struct{}{}
+
+	// Undelivered messages keep the background close draining.
+	require.True(t, s.enqueue(&view.Message{Payload: []byte("msg1")}))
+	require.Eventually(t, func() bool { return len(s.middleCh) == 0 }, time.Second, time.Millisecond)
+	require.True(t, s.enqueue(&view.Message{Payload: []byte("msg2")}))
+	s.closeAsync()
+	s.Close()
+
+	require.True(t, s.isClosed())
+	assert.Zero(t, sh.refCtr.Load(), "Close returned before the streams were released")
 }
 
 func TestDrainTimeoutOnClose(t *testing.T) { //nolint:paralleltest
