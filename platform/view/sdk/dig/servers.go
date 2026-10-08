@@ -8,7 +8,9 @@ package sdk
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -49,7 +51,8 @@ func resolveWebTLS(configProvider driver.ConfigService) (grpc2.SecureOptions, er
 	return tlsconfig.ResolveServer(configProvider, "fsc.tls", "fsc.web.tls")
 }
 
-// CheckTLSConfig resolves and validates the TLS of every enabled fsc listener and rejects
+// CheckTLSConfig resolves and validates the TLS of every enabled fsc listener, including
+// the operations one, and the operations endpoints' client authentication, and rejects
 // removed configuration keys, without binding any address. It returns an error naming the
 // offending key, which makes a core.yaml checkable without starting a node.
 func CheckTLSConfig(configProvider driver.ConfigService) error {
@@ -68,7 +71,11 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 			return errors.WithMessage(err, "invalid fsc.web TLS configuration")
 		}
 	}
-	return nil
+	if _, _, err := resolveOperationsTLS(configProvider); err != nil {
+		return errors.WithMessage(err, "invalid fsc.metrics configuration")
+	}
+	_, _, err := operationsClientAuth(configProvider)
+	return err
 }
 
 // NewWebServer returns the node's REST listener, configured from fsc.web. It returns a
@@ -124,20 +131,12 @@ type OperationsServer struct {
 // then an error rather than a warning, because the shared listener cannot honour it and the
 // configuration would be claiming transport security it does not have.
 func NewOperationsServer(configProvider driver.ConfigService, webServer Server) (OperationsServer, error) {
-	addr := configProvider.GetString("fsc.metrics.address")
-	if addr == "" {
-		if _, ok := configProvider.RawSubtree("fsc.metrics.tls"); ok {
-			return OperationsServer{}, errors.New(
-				"fsc.metrics.tls has no effect without fsc.metrics.address: the operations " +
-					"endpoints share the fsc.web listener and its TLS. Set fsc.metrics.address " +
-					"to give them a listener of their own, or remove fsc.metrics.tls")
-		}
-		return OperationsServer{Server: webServer}, nil
-	}
-
-	tlsOpts, err := tlsconfig.ResolveServer(configProvider, "fsc.tls", "fsc.metrics.tls")
+	addr, tlsOpts, err := resolveOperationsTLS(configProvider)
 	if err != nil {
-		return OperationsServer{}, errors.WithMessage(err, "failed resolving fsc.metrics.tls")
+		return OperationsServer{}, err
+	}
+	if addr == "" {
+		return OperationsServer{Server: webServer}, nil
 	}
 	logger.Infof("metrics listener on [%s] TLS: enabled=%v clientAuth=%v",
 		addr, tlsOpts.UseTLS, tlsOpts.RequireClientCert)
@@ -146,19 +145,113 @@ func NewOperationsServer(configProvider driver.ConfigService, webServer Server) 
 	return OperationsServer{Server: own, Own: own}, nil
 }
 
+// resolveOperationsTLS returns fsc.metrics.address and the resolved fsc.metrics.tls, or an
+// empty address when the operations endpoints share the fsc.web listener.
+func resolveOperationsTLS(configProvider driver.ConfigService) (string, grpc2.SecureOptions, error) {
+	addr := configProvider.GetString("fsc.metrics.address")
+	if addr == "" {
+		if _, ok := configProvider.RawSubtree("fsc.metrics.tls"); ok {
+			return "", grpc2.SecureOptions{}, errors.New(
+				"fsc.metrics.tls has no effect without fsc.metrics.address: the operations " +
+					"endpoints share the fsc.web listener and its TLS. Set fsc.metrics.address " +
+					"to give them a listener of their own, or remove fsc.metrics.tls")
+		}
+		return "", grpc2.SecureOptions{}, nil
+	}
+	tlsOpts, err := tlsconfig.ResolveServer(configProvider, "fsc.tls", "fsc.metrics.tls")
+	if err != nil {
+		return "", grpc2.SecureOptions{}, errors.WithMessage(err, "failed resolving fsc.metrics.tls")
+	}
+	return addr, tlsOpts, nil
+}
+
 // NewOperationsOptions returns the options for the operations system.
 //
 // fsc.metrics.clientAuthRequired is deliberately separate from any listener's TLS: it demands
 // a verified client certificate on /metrics and /logspec specifically, which is stricter than
 // the listener may be. NWO relies on exactly that — its web listener verifies a client
-// certificate only if one is offered, while scraping metrics requires one.
+// certificate only if one is offered, while scraping metrics requires one. The key defaults
+// to true, because /logspec changes the process-wide log spec; only an explicit false
+// serves the endpoints without a certificate. See operationsClientAuth for the errors.
 func NewOperationsOptions(configProvider driver.ConfigService) (*operations.Options, error) {
+	requireClientCert, warning, err := operationsClientAuth(configProvider)
+	if err != nil {
+		return nil, err
+	}
+	if warning != "" {
+		logger.Warn(warning)
+	}
 	return &operations.Options{
 		Metrics:           operations.MetricsOptions{Provider: configProvider.GetString("fsc.metrics.provider")},
 		Version:           "1.0.0", // unchanged from servers.go:90
 		Logger:            logging.MustGetLogger().With("server", "MetricsServer"),
-		RequireClientCert: configProvider.GetBool("fsc.metrics.clientAuthRequired"),
+		RequireClientCert: requireClientCert,
 	}, nil
+}
+
+// OperationsClientAuthWarning returns the warning NewOperationsOptions logs for the
+// configuration, or an empty string when there is none or the configuration is invalid.
+func OperationsClientAuthWarning(configProvider driver.ConfigService) string {
+	_, warning, _ := operationsClientAuth(configProvider)
+	return warning
+}
+
+// operationsClientAuth resolves fsc.metrics.clientAuthRequired, true when absent. A value
+// strconv.ParseBool rejects, including null, is an error, so a typo cannot disable the check.
+// When the listener serving the operations endpoints never requests a client certificate,
+// they reject every request: an explicit true is then an error, and a defaulted one is
+// returned as a warning so the node still starts with the endpoints closed.
+func operationsClientAuth(configProvider driver.ConfigService) (bool, string, error) {
+	const clientAuthKey = "fsc.metrics.clientAuthRequired"
+	explicit := configProvider.IsSet(clientAuthKey)
+	if explicit {
+		require, err := strconv.ParseBool(configProvider.GetString(clientAuthKey))
+		if err != nil {
+			return false, "", errors.Wrapf(err, "invalid %s", clientAuthKey)
+		}
+		if !require {
+			return false, "", nil
+		}
+	}
+	key, asks, err := operationsListenerAsksForCert(configProvider)
+	if err != nil || asks {
+		return true, "", err
+	}
+	endpoints := "/logspec"
+	if configProvider.GetString("fsc.metrics.provider") == "prometheus" {
+		endpoints = "/metrics and /logspec"
+	}
+	const remedy = "Enable TLS with clientRootCAs on it, or set " + clientAuthKey + " to false"
+	if explicit {
+		return false, "", errors.Errorf("%s is true, but the %s listener never requests a client "+
+			"certificate, so %s would reject every request. %s", clientAuthKey, key, endpoints, remedy)
+	}
+	return true, fmt.Sprintf("%s defaults to true, but the %s listener never requests a client "+
+		"certificate, so %s reject every request. %s", clientAuthKey, key, endpoints, remedy), nil
+}
+
+// operationsListenerAsksForCert reports whether the listener serving the operations
+// endpoints requests a client certificate, and names its TLS key. That listener is the one
+// of fsc.metrics.address when set, the fsc.web listener otherwise; with neither, no listener
+// serves the endpoints and there is nothing to report.
+func operationsListenerAsksForCert(configProvider driver.ConfigService) (string, bool, error) {
+	addr, tlsOpts, err := resolveOperationsTLS(configProvider)
+	if err != nil {
+		return "", false, err
+	}
+	key := "fsc.metrics.tls"
+	if addr == "" {
+		if !configProvider.GetBool("fsc.web.enabled") {
+			return "", true, nil
+		}
+		key = "fsc.web.tls"
+		if tlsOpts, err = resolveWebTLS(configProvider); err != nil {
+			return "", false, errors.WithMessagef(err, "failed resolving %s", key)
+		}
+	}
+	// Client root CAs are what make the listener request a certificate; clientAuthRequired
+	// without them is already rejected when the TLS block is resolved.
+	return key, tlsOpts.UseTLS && len(tlsOpts.ClientRootCAs) > 0, nil
 }
 
 // NewOperationsLogger returns the logger the operations system writes to.

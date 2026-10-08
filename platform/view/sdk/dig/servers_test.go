@@ -7,19 +7,24 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -148,9 +153,30 @@ fsc:
   web:
     enabled: true
     address: 127.0.0.1:0
+    tls:
+      clientRootCAs:
+        files:
+          - ca.crt
 `)
 		require.NoError(t, CheckTLSConfig(p))
 	})
+
+	for _, tc := range []struct{ name, metrics, wantErr string }{
+		{name: "explicit operations client auth the listener cannot verify fails", metrics: "    clientAuthRequired: true\n", wantErr: "fsc.web.tls listener never requests a client certificate"},
+		{name: "defaulted operations client auth the listener cannot verify succeeds"},
+		{name: "unresolvable metrics tls fails", metrics: "    clientAuthRequired: false\n    address: 127.0.0.1:0\n    tls:\n      enabled: true\n      cert:\n        file: missing.crt\n      key:\n        file: missing.key\n", wantErr: "invalid fsc.metrics configuration: failed resolving fsc.metrics.tls"},
+		{name: "metrics tls without an address fails", metrics: "    clientAuthRequired: false\n    tls:\n      enabled: false\n", wantErr: "fsc.metrics.tls has no effect without fsc.metrics.address"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := providerFrom(t, "fsc:\n  web:\n    enabled: true\n    address: 127.0.0.1:0\n  metrics:\n"+tc.metrics)
+			if tc.wantErr == "" {
+				require.NoError(t, CheckTLSConfig(p))
+				return
+			}
+			require.ErrorContains(t, CheckTLSConfig(p), tc.wantErr)
+		})
+	}
 }
 
 type fakeViewManager struct{}
@@ -251,21 +277,183 @@ fsc:
 func TestNewOperationsOptionsAndLogger(t *testing.T) {
 	t.Parallel()
 
-	p := providerFrom(t, `
-fsc:
-  metrics:
-    provider: prometheus
-    clientAuthRequired: true
-`)
-	opts, err := NewOperationsOptions(p)
-	require.NoError(t, err)
-	require.NotNil(t, opts)
-	require.Equal(t, "prometheus", opts.Metrics.Provider)
-	require.Equal(t, "1.0.0", opts.Version)
-	require.True(t, opts.RequireClientCert)
+	for _, tc := range []struct {
+		name       string
+		clientAuth string
+		want       bool
+	}{
+		{name: "absent requires a client certificate", want: true},
+		{name: "explicit true", clientAuth: "\n    clientAuthRequired: true", want: true},
+		{name: "explicit false opts out", clientAuth: "\n    clientAuthRequired: false", want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := providerFrom(t, "fsc:\n  metrics:\n    provider: prometheus"+tc.clientAuth+"\n")
+			opts, err := NewOperationsOptions(p)
+			require.NoError(t, err)
+			require.NotNil(t, opts)
+			require.Equal(t, "prometheus", opts.Metrics.Provider)
+			require.Equal(t, "1.0.0", opts.Version)
+			require.Equal(t, tc.want, opts.RequireClientCert)
+			require.NotNil(t, NewOperationsLogger(opts))
+		})
+	}
+}
 
-	opsLogger := NewOperationsLogger(opts)
-	require.NotNil(t, opsLogger)
+// A value that is not a boolean must not disable the check: null, an empty string and
+// YAML 1.1 words like yes/on all read as false through GetBool.
+func TestNewOperationsOptionsRejectsNonBoolClientAuth(t *testing.T) {
+	t.Parallel()
+
+	for _, v := range []string{"", "null", "~", `""`, "yes", "on", "ture", "[true]"} {
+		t.Run(v, func(t *testing.T) {
+			t.Parallel()
+			p := providerFrom(t, "fsc:\n  metrics:\n    clientAuthRequired: "+v+"\n")
+			_, err := NewOperationsOptions(p)
+			require.ErrorContains(t, err, "invalid fsc.metrics.clientAuthRequired")
+		})
+	}
+}
+
+// A listener that never requests a client certificate makes a required one unsatisfiable:
+// an explicit true is an error, a defaulted one a warning naming the endpoints it closes.
+func TestOperationsClientAuthOnListener(t *testing.T) {
+	t.Parallel()
+
+	const (
+		tlsOn   = "  tls:\n    enabled: true\n    cert:\n      file: server.crt\n    key:\n      file: server.key\n"
+		webOn   = "  web:\n    enabled: true\n    address: 127.0.0.1:0\n"
+		rootCAs = "    tls:\n      clientRootCAs:\n        files:\n          - ca.crt\n"
+		on      = "  metrics:\n    clientAuthRequired: true\n"
+	)
+	for _, tc := range []struct {
+		name, yaml, wantWarn, wantErr string
+		want                          bool
+	}{
+		{name: "plaintext web listener", yaml: webOn, want: true, wantWarn: "defaults to true, but the fsc.web.tls listener never requests a client certificate, so /logspec reject"},
+		{name: "plaintext web listener, prometheus", yaml: webOn + "  metrics:\n    provider: prometheus\n", want: true, wantWarn: "so /metrics and /logspec reject"},
+		{name: "plaintext web listener with client root CAs", yaml: webOn + "    tls:\n      enabled: false\n      clientRootCAs:\n        files:\n          - ca.crt\n", want: true, wantWarn: "fsc.web.tls listener never requests"},
+		{name: "tls web listener without client root CAs", yaml: tlsOn + webOn, want: true, wantWarn: "fsc.web.tls listener never requests"},
+		{name: "plaintext web listener, explicit true", yaml: webOn + on, wantErr: "fsc.metrics.clientAuthRequired is true, but the fsc.web.tls listener never requests a client certificate, so /logspec would reject"},
+		{name: "tls web listener without client root CAs, explicit true", yaml: tlsOn + webOn + on, wantErr: "fsc.web.tls listener never requests"},
+		{name: "tls web listener with client root CAs", yaml: tlsOn + webOn + rootCAs, want: true},
+		{name: "tls web listener with client root CAs, explicit true", yaml: tlsOn + webOn + rootCAs + on, want: true},
+		{name: "plaintext web listener, explicit false", yaml: webOn + "  metrics:\n    clientAuthRequired: false\n"},
+		{name: "no listener", yaml: "  web:\n    enabled: false\n", want: true},
+		{name: "plaintext metrics listener", yaml: tlsOn + webOn + rootCAs + "  metrics:\n    address: 127.0.0.1:0\n    tls:\n      enabled: false\n", want: true, wantWarn: "fsc.metrics.tls listener never requests"},
+		{name: "plaintext metrics listener, explicit true", yaml: tlsOn + webOn + rootCAs + on + "    address: 127.0.0.1:0\n    tls:\n      enabled: false\n", wantErr: "fsc.metrics.tls listener never requests"},
+		{name: "metrics listener with client root CAs", yaml: tlsOn + "  metrics:\n    address: 127.0.0.1:0\n" + rootCAs, want: true},
+		{name: "unresolvable listener TLS", yaml: "  tls:\n    enabled: true\n" + webOn, wantErr: "failed resolving fsc.web.tls"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := providerFrom(t, "fsc:\n"+tc.yaml)
+			got, warning, err := operationsClientAuth(p)
+			opts, optsErr := NewOperationsOptions(p)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.ErrorContains(t, optsErr, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, optsErr)
+			require.Equal(t, tc.want, got)
+			require.Equal(t, tc.want, opts.RequireClientCert)
+			if tc.wantWarn == "" {
+				require.Empty(t, warning)
+			} else {
+				require.Contains(t, warning, tc.wantWarn)
+			}
+		})
+	}
+}
+
+// mtlsWeb is a web listener that requests client certificates signed by ca.crt.
+const mtlsWeb = "  web:\n    enabled: true\n    tls:\n      enabled: true\n      cert:\n        file: server.crt\n      key:\n        file: server.key\n      clientRootCAs:\n        files:\n          - ca.crt\n"
+
+// TestOperationsLogspecClientAuth sends a PUT /logspec to an operations system wired from
+// configuration: without a client certificate it is rejected unless
+// fsc.metrics.clientAuthRequired is explicitly false.
+func TestOperationsLogspecClientAuth(t *testing.T) { //nolint:paralleltest // mutates the process-wide flogging.Global spec
+	original := flogging.Global.Spec()
+	t.Cleanup(func() { _ = flogging.Global.ActivateSpec(original) })
+	const injected = "fatal"
+
+	for _, tc := range []struct { //nolint:paralleltest // subtests share flogging.Global
+		name        string
+		config      string
+		clientCert  bool
+		wantStatus  int
+		wantApplied bool
+	}{
+		{
+			name:       "absent, on a listener that requests client certificates",
+			config:     mtlsWeb,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:        "absent, client presents a certificate",
+			config:      mtlsWeb,
+			clientCert:  true,
+			wantStatus:  http.StatusNoContent,
+			wantApplied: true,
+		},
+		{
+			name:       "absent, on a plaintext listener",
+			config:     "  web:\n    enabled: true\n",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:        "explicit false, on a plaintext listener",
+			config:      "  web:\n    enabled: true\n  metrics:\n    clientAuthRequired: false\n",
+			wantStatus:  http.StatusNoContent,
+			wantApplied: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, ca := providerWithCA(t, "fsc:\n"+tc.config)
+			// The baseline is taken after providerFrom, whose logging.Init resets the spec.
+			baseline := flogging.Global.Spec()
+			require.NotEqual(t, injected, baseline)
+			opts, err := NewOperationsOptions(p)
+			require.NoError(t, err)
+			tlsOpts, err := resolveWebTLS(p)
+			require.NoError(t, err)
+			srv := web.NewServer(web.Options{ListenAddress: "127.0.0.1:0", TLS: tlsOpts})
+			require.NoError(t, srv.Start())
+			t.Cleanup(func() { _ = srv.Stop() })
+			_, err = operations.NewOperationSystem(srv, NewOperationsLogger(opts), &disabled.Provider{}, opts)
+			require.NoError(t, err)
+
+			// The client trusts the server and presents a certificate only when clientCert is set.
+			scheme, client := "http", http.DefaultClient
+			if tlsOpts.UseTLS {
+				roots := x509.NewCertPool()
+				require.True(t, roots.AppendCertsFromPEM(tlsOpts.ClientRootCAs[0]), "ca.crt signs the server certificate too")
+				cfg := &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
+				if tc.clientCert {
+					kp, err := ca.NewClientCertKeyPair()
+					require.NoError(t, err)
+					cert, err := tls.X509KeyPair(kp.Cert, kp.Key)
+					require.NoError(t, err)
+					cfg.Certificates = []tls.Certificate{cert}
+				}
+				scheme = "https"
+				client = &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}}
+			}
+			req, err := http.NewRequest(http.MethodPut, scheme+"://"+srv.Addr()+"/logspec", bytes.NewBufferString(`{"spec":"`+injected+`"}`))
+			require.NoError(t, err)
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, tc.wantStatus, resp.StatusCode)
+			want := baseline
+			if tc.wantApplied {
+				want = injected
+			}
+			require.Equal(t, want, flogging.Global.Spec())
+		})
+	}
 }
 
 func TestNewGRPCServer(t *testing.T) {

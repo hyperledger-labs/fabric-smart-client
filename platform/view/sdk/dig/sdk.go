@@ -16,7 +16,6 @@ import (
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig/support/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
@@ -83,6 +82,14 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 }
 
 func (p *SDK) Install() error {
+	// Check the listener configuration before anything is constructed: registering the
+	// services below builds the operations options, and Start binds the gRPC listener. A
+	// configuration that does not mean what it says must fail with nothing listening, with
+	// the check's own error rather than a dependency-injection chain around it.
+	if err := p.Container().Invoke(CheckTLSConfig); err != nil {
+		return err
+	}
+
 	err := errors.Join(
 		// Events
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
@@ -207,21 +214,6 @@ func (p *SDK) Install() error {
 }
 
 func (p *SDK) Start(ctx context.Context) error {
-	// Reject removed configuration keys before anything else, in its own Invoke so only
-	// the config service is constructed. NewGRPCServer binds its listener during
-	// construction (grpc/server.go:55), so folding this into the Invoke below would open
-	// the port before the check ran. A configuration that does not mean what it says must
-	// fail with nothing listening.
-	//
-	// The resolvable half needs no separate pass: dig builds GRPCServer and WebServer
-	// through tlsconfig, so a bad tls: block already fails construction. Removed keys sit
-	// outside any tls: subtree, which is why they need naming explicitly.
-	if err := p.Container().Invoke(func(configService driver.ConfigService) error {
-		return tlsconfig.CheckRemovedKeys(configService, "fsc")
-	}); err != nil {
-		return err
-	}
-
 	if err := p.SDK.Start(ctx); err != nil {
 		return err
 	}

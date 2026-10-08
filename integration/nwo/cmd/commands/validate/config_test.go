@@ -27,6 +27,25 @@ func TestValidateConfig_Success(t *testing.T) {
 	require.Contains(t, report.String(), "validated fsc.grpc server configuration")
 	require.Contains(t, report.String(), "validated fsc.web server configuration")
 	require.Contains(t, report.String(), "validated fabric networks [default]")
+	require.NotContains(t, report.String(), "warning")
+}
+
+func TestValidateConfig_OperationsClientAuthWarning(t *testing.T) {
+	t.Parallel()
+
+	confPath := t.TempDir()
+	// The web listener never requests a client certificate, so the defaulted
+	// fsc.metrics.clientAuthRequired makes the operations endpoints reject every request.
+	head, tail, found := strings.Cut(validConfigYAML(t), "      clientRootCAs:\n")
+	require.True(t, found)
+	_, tail, found = strings.Cut(tail, "fabric:\n")
+	require.True(t, found)
+	raw := head + "fabric:\n" + tail
+	require.NoError(t, os.WriteFile(filepath.Join(confPath, "core.yaml"), []byte(raw), 0o600))
+
+	report, err := ValidateConfig(confPath)
+	require.NoError(t, err)
+	require.Contains(t, report.String(), "- warning: fsc.metrics.clientAuthRequired defaults to true, but the fsc.web.tls listener never requests a client certificate")
 }
 
 func TestValidateConfig_MissingGRPCAddress(t *testing.T) {

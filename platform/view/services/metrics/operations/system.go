@@ -35,9 +35,11 @@ type Options struct {
 	Metrics MetricsOptions
 	Version string
 	Logger  Logger
-	// RequireClientCert makes the operations endpoints demand a verified client certificate.
-	// It follows the listener's own client authentication rather than being configured
-	// separately: an endpoint cannot require a certificate a listener never asks for.
+	// RequireClientCert makes the operations endpoints (/metrics, /logspec) demand a verified
+	// client certificate, even when the listener itself only verifies one if offered. Requests
+	// without one are rejected with 401. An endpoint cannot require a certificate the listener
+	// never asks for, so the listener must request client certificates (TLS with client root
+	// CAs); otherwise every request is rejected.
 	RequireClientCert bool
 }
 
