@@ -137,10 +137,10 @@ Operational notes:
 - `stream_hashes` tracks distinct cache buckets, not individual streams.
 - `opened_streams` is incremented only when FSC creates a fresh outbound stream because the cache could not be reused.
 - `dropped_messages` is incremented in two main failure modes:
-  - the dispatcher cannot deliver to a closed session
-  - a session enqueue times out because the internal queue is full, which also closes the session
+  - the dispatcher cannot deliver to a closed or closing session
+  - the session's queue is full, which also closes the session unless it is the master session
 
-Primary implementation: `platform/view/services/comm/metrics.go`, with updates in `platform/view/services/comm/master.go`, `platform/view/services/comm/p2p.go`, and `platform/view/services/comm/session.go`.
+Primary implementation: `platform/view/services/comm/metrics.go`, with updates in `platform/view/services/comm/master.go` and `platform/view/services/comm/p2p.go`.
 
 ### Libp2p Transport
 

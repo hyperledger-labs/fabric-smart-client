@@ -64,17 +64,15 @@ func TestSessionDeadlockDueToSlowReceiver(t *testing.T) { //nolint:paralleltest
 	case <-time.After(50 * time.Millisecond):
 	}
 
-	// Now, try to enqueue one more message. This should block on sending to middleCh
-	// because the goroutine is not reading from middleCh (it's blocked on sending to incoming)
-	// and middleCh is full (has the msg2 from the goroutine above).
+	// Now, try to enqueue one more message. It must fail without blocking: the goroutine is
+	// not reading from middleCh (it's blocked on sending to incoming) and middleCh is full.
 	msg := &view.Message{Payload: []byte("msg")}
-	ok = s.enqueueWithTimeout(msg, 100*time.Millisecond)
-	require.False(t, ok, "Enqueue should timeout due to full middleCh and blocked goroutine")
+	ok = s.enqueue(msg)
+	require.False(t, ok, "Enqueue should fail due to full middleCh and blocked goroutine")
+	require.False(t, s.isClosed(), "Enqueue should not close the session")
 
-	// The session should be closed due to the timeout in enqueueWithTimeout.
-	require.True(t, s.isClosed(), "Session should be closed after enqueue timeout")
-
-	// Verify that we cannot enqueue any more messages.
+	// Closing does not deadlock on the blocked goroutine.
+	sess.Close()
 	require.False(t, s.enqueue(&view.Message{Payload: []byte("msg3")}), "Enqueue on closed session should return false")
 	_ = sess
 }
@@ -125,17 +123,15 @@ func TestSessionDeadlockDueToMiddlewareChannelFull(t *testing.T) { //nolint:para
 
 	// Now, the middleCh is full (has msg2) and the goroutine is blocked on sending to incoming.
 
-	// Now, we try to enqueue one more message. This should block on sending to middleCh
-	// because the goroutine is not reading from middleCh (it's blocked on sending to incoming)
-	// and middleCh is full.
+	// Now, we try to enqueue one more message. It must fail without blocking: the goroutine is
+	// not reading from middleCh (it's blocked on sending to incoming) and middleCh is full.
 	msg := &view.Message{Payload: []byte("msg")}
-	ok = s.enqueueWithTimeout(msg, 100*time.Millisecond)
-	require.False(t, ok, "Enqueue should timeout due to full middleCh and blocked goroutine")
+	ok = s.enqueue(msg)
+	require.False(t, ok, "Enqueue should fail due to full middleCh and blocked goroutine")
+	require.False(t, s.isClosed(), "Enqueue should not close the session")
 
-	// The session should be closed due to the timeout in enqueueWithTimeout.
-	require.True(t, s.isClosed(), "Session should be closed after enqueue timeout")
-
-	// Verify that we cannot enqueue any more messages.
+	// Closing does not deadlock on the blocked goroutine.
+	sess.Close()
 	require.False(t, s.enqueue(&view.Message{Payload: []byte("msg3")}), "Enqueue on closed session should return false")
 	_ = sess
 }

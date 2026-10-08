@@ -23,10 +23,7 @@ import (
 // ErrSessionClosed is returned when a message is sent when the session is closed.
 var ErrSessionClosed = errors.New("session closed")
 
-const (
-	DefaultDrainTimeout   = 500 * time.Millisecond
-	DefaultEnqueueTimeout = 1 * time.Minute
-)
+const DefaultDrainTimeout = 500 * time.Millisecond
 
 type sender interface {
 	sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error
@@ -51,12 +48,6 @@ type NetworkStreamSession struct {
 	closing   chan struct{}
 	closed    chan struct{}
 	isClosing atomic.Bool
-
-	enqueueTimeout time.Duration
-}
-
-func (n *NetworkStreamSession) SetEnqueueTimeout(timeout time.Duration) {
-	n.enqueueTimeout = timeout
 }
 
 func (n *NetworkStreamSession) tryStart() {
@@ -156,29 +147,16 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 	return n.incoming
 }
 
-// enqueue enqueues a message into the session's incoming channel.
-// If the session is closed, the message will be dropped and false returned, otherwise true is returned.
+// enqueue hands msg to the session's forwarder without blocking, so that one session whose
+// consumer stopped draining cannot hold up the node's dispatcher, which serves every session.
+// It returns false, dropping msg, when the session is closing or closed, or when its queue is
+// full. It does not close the session.
 func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
-	logger.Debugf("enqueue called for session [%s] with message len %d", n.sessionID, len(msg.Payload))
-	timeout := n.enqueueTimeout
-	if timeout == 0 {
-		timeout = DefaultEnqueueTimeout
-	}
-	return n.enqueueWithTimeout(msg, timeout)
-}
-
-// enqueueWithTimeout enqueues a message into the session's incoming channel with a custom timeout.
-func (n *NetworkStreamSession) enqueueWithTimeout(msg *view.Message, timeout time.Duration) bool {
 	if msg == nil {
 		logger.Debugf("nil message provided for session [%s]", n.sessionID)
 		return false
 	}
-	logger.Debugf(
-		"enqueueWithTimeout called for session [%s] with message len %d, timeout %v",
-		n.sessionID,
-		len(msg.Payload),
-		timeout,
-	)
+	logger.Debugf("enqueue called for session [%s] with message len %d", n.sessionID, len(msg.Payload))
 
 	if n.isClosing.Load() {
 		logger.Debugf("session [%s] is closing, refusing to enqueue message", n.sessionID)
@@ -195,13 +173,8 @@ func (n *NetworkStreamSession) enqueueWithTimeout(msg *view.Message, timeout tim
 	case n.middleCh <- msg:
 		logger.Debugf("Successfully enqueued message for session [%s] via middleCh", n.sessionID)
 		return true
-	case <-time.After(timeout):
-		logger.Debugf("Timeout enqueuing message for session [%s] after %v", n.sessionID, timeout)
-		if p, ok := n.node.(*P2PNode); ok {
-			p.m.DroppedMessages.Add(1)
-		}
-		logger.Errorf("dropping message for session [%s] after %s timeout, queue full, closing session", n.sessionID, timeout)
-		n.Close()
+	default:
+		logger.Debugf("session [%s] queue full, refusing to enqueue message", n.sessionID)
 		return false
 	}
 }
@@ -213,36 +186,54 @@ func (n *NetworkStreamSession) Close() {
 
 func (n *NetworkStreamSession) closeInternal() {
 	if n.isClosing.Swap(true) {
+		// Another close is in progress: wait for it, so that the session's streams are released
+		// when this returns.
+		<-n.closed
+		n.closeStreams()
 		return
 	}
+	n.finishClose()
+}
 
+// closeAsync marks the session closing before it returns, so the session refuses every later
+// message, and finishes closing in the background, because that waits for the forwarder to drain.
+func (n *NetworkStreamSession) closeAsync() {
+	if n.isClosing.Swap(true) {
+		return
+	}
+	go n.finishClose()
+}
+
+func (n *NetworkStreamSession) finishClose() {
 	// ensure the session is started so that the closing channel has a listener
 	n.tryStart()
-
-	closeStreams := func() {
-		n.mutex.Lock()
-		defer n.mutex.Unlock()
-
-		logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
-		for stream := range n.streams {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr.Load())
-			}
-			stream.release()
-		}
-
-		logger.Debugf("closing session [%s]'s streams done", n.sessionID)
-		clear(n.streams)
-	}
 
 	select {
 	case n.closing <- struct{}{}:
 		<-n.closed
-		closeStreams()
+		n.closeStreams()
 		logger.Debugf("closing session [%s] done", n.sessionID)
 	case <-n.closed:
-		closeStreams()
+		n.closeStreams()
 	}
+}
+
+// closeStreams releases the session's stream leases. It is idempotent: the released streams
+// are removed, and a closing session takes no new leases.
+func (n *NetworkStreamSession) closeStreams() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
+	for stream := range n.streams {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr.Load())
+		}
+		stream.release()
+	}
+
+	logger.Debugf("closing session [%s]'s streams done", n.sessionID)
+	clear(n.streams)
 }
 
 func (n *NetworkStreamSession) isClosed() bool {

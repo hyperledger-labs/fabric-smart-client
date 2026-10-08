@@ -140,8 +140,9 @@ fsc:
     # listen address see https://github.com/libp2p/specs/blob/master/addressing/README.md
     # for information on the format
     listenAddress: /dns4/myhostname/tcp/20001
-    # Buffer size for the incoming messages channel. Default: 4096
-    # This controls how many messages can be queued before blocking message dispatch.
+    # Buffer size for the incoming messages channel. Default: 1024
+    # This controls how many messages received from all streams can wait for the dispatcher
+    # before the stream readers block. Each session has its own fixed-size queue.
     # Larger values can improve throughput for high-volume message processing
     # but will consume more memory.
     incomingMessagesBufferSize: 4096

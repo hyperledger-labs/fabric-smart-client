@@ -53,7 +53,6 @@ func runLargeMessageTest(t *testing.T, p *P2PNode, size int) {
 
 	session, err := p.getOrCreateSession("large-sess", "addr", "ctx", "view", nil, []byte("large-peer"), nil)
 	require.NoError(t, err)
-	session.SetEnqueueTimeout(200 * time.Millisecond)
 
 	err = session.Send(t.Context(), payload)
 	assert.NoError(t, err)
@@ -104,7 +103,7 @@ func TestDroppedMessagesMetricValidation(t *testing.T) { //nolint:paralleltest
 		return metricsProvider.counter.val.Load() > startDrops
 	}, 2*time.Second, 10*time.Millisecond, "DroppedMessages metric did not increment in dispatcher")
 
-	// 2. Test drop in enqueueWithTimeout (session full)
+	// 2. Test drop in dispatchMessages (session full)
 	session := &NetworkStreamSession{
 		node:            p,
 		endpointID:      []byte("peer2"),
@@ -124,25 +123,21 @@ func TestDroppedMessagesMetricValidation(t *testing.T) { //nolint:paralleltest
 	// Start tryStart - it will immediately block trying to move messages from middleCh to incoming
 	session.tryStart()
 
-	// Fill middleCh (size 1) AND the tryStart's internal state
+	// Fill middleCh (size 1) once tryStart holds clog-1, blocked on session.incoming
 	session.middleCh <- &view.Message{Payload: []byte("clog-1")}
-	// This second send will block session.middleCh since tryStart is blocked on session.incoming
-	go func() {
-		session.middleCh <- &view.Message{Payload: []byte("clog-2")}
-	}()
-	// Small wait to ensure goroutine runs
-	time.Sleep(50 * time.Millisecond)
+	require.Eventually(t, func() bool { return len(session.middleCh) == 0 }, time.Second, time.Millisecond)
+	session.middleCh <- &view.Message{Payload: []byte("clog-2")}
 
 	startDrops = metricsProvider.counter.val.Load()
-	msg := &view.Message{Payload: []byte("msg")}
-
-	// Now enqueueWithTimeout should block because middleCh is full AND tryStart is blocked on incoming
-	success := session.enqueueWithTimeout(msg, 10*time.Millisecond)
-	assert.False(t, success)
+	p.incomingMessages <- &messageWithStream{
+		message: &view.Message{SessionID: "drop-test-2", FromPKID: []byte("peer2"), Payload: []byte("msg")},
+		stream:  &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p},
+	}
 
 	assert.Eventually(t, func() bool {
-		return metricsProvider.counter.val.Load() > startDrops
-	}, 2*time.Second, 10*time.Millisecond, "DroppedMessages metric did not increment in session")
+		return metricsProvider.counter.val.Load() == startDrops+1
+	}, 2*time.Second, 10*time.Millisecond, "DroppedMessages metric did not increment once in dispatcher")
+	assert.Eventually(t, session.isClosed, 3*time.Second, 10*time.Millisecond, "full session not closed")
 }
 
 // TestConcurrentSendAndClose ensures no panics occur when closing a session
@@ -156,7 +151,6 @@ func TestConcurrentSendAndClose(t *testing.T) { //nolint:paralleltest
 
 	session, err := p.getOrCreateSession("stress-sess", "addr", "ctx", "view", nil, []byte("stress-peer"), nil)
 	require.NoError(t, err)
-	session.SetEnqueueTimeout(200 * time.Millisecond)
 
 	numSenders := 20
 	msgsPerSender := 100

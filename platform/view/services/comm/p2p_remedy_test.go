@@ -92,10 +92,9 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 		}
 	}
 
+	// sessionSlow's consumer never drains it.
 	sessionSlow := createSession("slow", []byte("slow-peer"))
-	sessionSlow.SetEnqueueTimeout(200 * time.Millisecond)
 	sessionFast := createSession("fast", []byte("fast-peer"))
-	sessionFast.SetEnqueueTimeout(200 * time.Millisecond)
 
 	p.sessionsMutex.Lock()
 	p.sessions[computeInternalSessionID("slow", []byte("slow-peer"))] = sessionSlow
@@ -106,13 +105,8 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 	sessionSlow.tryStart()
 	sessionFast.tryStart()
 
-	sh := &streamHandler{}
-	ctx := t.Context()
-	numWorkers := 10
-	for range numWorkers {
-		p.dispatchWg.Add(1)
-		go p.dispatchMessages(ctx)
-	}
+	sh := &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p}
+	p.Start(t.Context())
 
 	capacity := smallBuffer + 1 + smallBuffer
 	for i := 0; i < capacity+1; i++ {
@@ -135,12 +129,16 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 		stream: sh,
 	}
 
+	start := time.Now()
 	select {
 	case msg := <-sessionFast.Receive():
 		assert.Equal(t, "fast-msg", string(msg.Payload))
+		assert.Less(t, time.Since(start), 500*time.Millisecond, "fast session held up by slow session")
 	case <-time.After(2 * time.Second):
 		t.Fatal("TIMED OUT: Fast session blocked by slow session!")
 	}
+	// The overflow closes the slow session.
+	assert.Eventually(t, sessionSlow.isClosed, 3*time.Second, 10*time.Millisecond)
 }
 
 func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
@@ -195,16 +193,11 @@ func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 	masterSess.middleCh <- &view.Message{Payload: []byte("clogger-2")}
 	masterSess.middleCh <- &view.Message{Payload: []byte("clogger-3")} // Master is now full (incoming=1, tryStart blocked, middleCh=1)
 
-	sh := &streamHandler{}
-	ctx := t.Context()
-	numWorkers := 10
-	for range numWorkers {
-		p.dispatchWg.Add(1)
-		go p.dispatchMessages(ctx)
-	}
+	sh := &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p}
+	p.Start(t.Context())
 
-	// Attacker sends 10 messages for unknown sessions, clogging all 10 workers
-	for i := range numWorkers {
+	// Attacker sends messages for unknown sessions to the full master session.
+	for i := range 10 {
 		p.incomingMessages <- &messageWithStream{
 			message: &view.Message{
 				SessionID: fmt.Sprintf("unknown-%d", i),
@@ -214,10 +207,6 @@ func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 			stream: sh,
 		}
 	}
-
-	// Now wait a bit for all workers to get stuck on the master session
-	// They should each block for 5 seconds.
-	time.Sleep(500 * time.Millisecond)
 
 	// SEND a legitimate message.
 	start := time.Now()
@@ -233,13 +222,12 @@ func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 	select {
 	case msg := <-sessionFast.Receive():
 		assert.Equal(t, "fast-msg", string(msg.Payload))
-		elapsed := time.Since(start)
-		// It should take ~ DefaultDispatcherTimeout for a worker to free up
-		assert.Greater(t, elapsed, DefaultDispatcherTimeout-1*time.Second, "Should have waited for worker to unblock")
-		assert.Less(t, elapsed, DefaultDispatcherTimeout+5*time.Second, "Should have received message within worker timeout")
-	case <-time.After(DefaultDispatcherTimeout + 10*time.Second):
+		assert.Less(t, time.Since(start), 500*time.Millisecond, "fast session held up by the full master session")
+	case <-time.After(2 * time.Second):
 		t.Fatal("TIMED OUT: Fast session still blocked by clogged master session!")
 	}
+	// Closing the master session would stop the node accepting new sessions.
+	assert.False(t, masterSess.isClosing.Load(), "master session closed on overflow")
 }
 
 func TestStreamLeak(t *testing.T) { //nolint:paralleltest
@@ -270,4 +258,62 @@ func TestStreamLeak(t *testing.T) { //nolint:paralleltest
 
 	session.Close()
 	assert.Equal(t, int64(0), sh.refCtr.Load(), "refCtr should be 0 after session close")
+}
+
+func TestDispatcherSkipsLeaseOnClosingSession(t *testing.T) { //nolint:paralleltest
+	metricsProvider := &mockMetricsProvider{counter: &mockCounter{}}
+	p, err := NewNode(context.Background(), &mockHost{}, metricsProvider)
+	require.NoError(t, err)
+
+	// A closing session has already released its streams, so a lease taken now would leak.
+	session := &NetworkStreamSession{
+		node:      p,
+		sessionID: "closing",
+		incoming:  make(chan *view.Message, 1),
+		streams:   make(map[*streamHandler]struct{}),
+		middleCh:  make(chan *view.Message, 1),
+		closing:   make(chan struct{}),
+		closed:    make(chan struct{}),
+	}
+	session.isClosing.Store(true)
+	p.sessionsMutex.Lock()
+	p.sessions[computeInternalSessionID("closing", []byte("peer"))] = session
+	p.sessionsMutex.Unlock()
+
+	sh := &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p}
+	p.Start(t.Context())
+	p.incomingMessages <- &messageWithStream{
+		message: &view.Message{SessionID: "closing", FromPKID: []byte("peer"), Payload: []byte("msg")},
+		stream:  sh,
+	}
+
+	// The drop shows the dispatcher has handled the message.
+	require.Eventually(t, func() bool { return metricsProvider.counter.val.Load() == 1 }, time.Second, time.Millisecond)
+	session.mutex.Lock()
+	defer session.mutex.Unlock()
+	assert.Empty(t, session.streams)
+	assert.Zero(t, sh.refCtr.Load())
+}
+
+func TestSendSkipsLeaseOnClosingSession(t *testing.T) { //nolint:paralleltest
+	p, err := NewNode(context.Background(), &mockHost{}, &disabled.Provider{})
+	require.NoError(t, err)
+	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
+	require.NoError(t, err)
+
+	// A closing session has already released its streams, so a lease taken now would leak.
+	session.isClosing.Store(true)
+	info := host2.StreamInfo{SessionID: "sess1"}
+	// The first send opens a stream, the second reuses it.
+	require.NoError(t, p.sendTo(t.Context(), info, &ViewPacket{}, session))
+	require.NoError(t, p.sendTo(t.Context(), info, &ViewPacket{}, session))
+
+	p.streamsMutex.RLock()
+	require.Len(t, p.streams["hash"], 1)
+	sh := p.streams["hash"][0]
+	p.streamsMutex.RUnlock()
+	session.mutex.RLock()
+	defer session.mutex.RUnlock()
+	assert.Empty(t, session.streams)
+	assert.Zero(t, sh.refCtr.Load())
 }

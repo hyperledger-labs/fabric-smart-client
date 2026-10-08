@@ -119,17 +119,21 @@ func (p *P2PNode) MasterSession() (view.Session, error) {
 //
 // The lookup uses the exact registry key: a responder session's ID is chosen by the remote
 // peer, so it must never select sessions that belong to other peers or the master session.
+//
+// The session is closed after the registry lock is released: closing waits for the session's
+// consumer, and the dispatcher takes the lock for every incoming message.
 func (p *P2PNode) DeleteSession(_ context.Context, sessionID string, pkid []byte) {
 	p.sessionsMutex.Lock()
-	defer p.sessionsMutex.Unlock()
-
 	key := computeInternalSessionID(sessionID, pkid)
 	session, ok := p.sessions[key]
+	if ok {
+		delete(p.sessions, key)
+		p.m.Sessions.Set(float64(len(p.sessions)))
+	}
+	p.sessionsMutex.Unlock()
 	if !ok {
 		return
 	}
 	logger.Debugf("deleting session [%s]", key)
 	session.closeInternal()
-	delete(p.sessions, key)
-	p.m.Sessions.Set(float64(len(p.sessions)))
 }

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"go.uber.org/zap/zapcore"
 
@@ -31,8 +30,9 @@ const (
 	contextIDLabel tracing.LabelName = "context_id"
 	sessionIDLabel tracing.LabelName = "session_id"
 
+	// DefaultDispatcherWorkers is the number of dispatcher goroutines. A single one keeps the
+	// messages of each session in arrival order.
 	DefaultDispatcherWorkers = 1
-	DefaultDispatcherTimeout = 5 * time.Second
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -185,7 +185,8 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			// here we know that msg.stream is used for session:
 			// 1) increment the used counter for msg.stream
 			session.mutex.Lock()
-			if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready {
+			// A closing session releases its streams once, so a lease taken now would never be released.
+			if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready && !session.isClosing.Load() {
 				if msg.stream.tryLease() {
 					// 2) add msg.stream to the list of streams used by session
 					session.streams[msg.stream] = struct{}{}
@@ -194,19 +195,19 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			session.mutex.Unlock()
 
 			logger.Debugf("Attempting to enqueue message for session [%s] (internal session exists: %v)", internalSessionID, in)
-			var delivered bool
-			if !in {
-				delivered = session.enqueueWithTimeout(msg.message, DefaultDispatcherTimeout)
-				logger.Debugf("Enqueue with timeout result for session [%s]: %v", internalSessionID, delivered)
-			} else {
-				delivered = session.enqueue(msg.message)
-				logger.Debugf("Enqueue result for session [%s]: %v", internalSessionID, delivered)
-			}
+			delivered := session.enqueue(msg.message)
+			logger.Debugf("Enqueue result for session [%s]: %v", internalSessionID, delivered)
 			if delivered {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			} else {
 				p.m.DroppedMessages.Add(1)
-				logger.Warnf("dropping message from %s for closed session [%s]", msg.message.Caller, msg.message.SessionID)
+				logger.Warnf("dropping message from %s for session [%s]: session closed or queue full", msg.message.Caller, msg.message.SessionID)
+				// A full queue means the consumer stopped draining. Marking the session closing
+				// here keeps a later message from being delivered after the dropped one. The
+				// master session stays open: closing it would stop the node accepting new sessions.
+				if in {
+					session.closeAsync()
+				}
 			}
 
 		case <-ctx.Done():
@@ -241,7 +242,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 			logger.Debugf("sent msg with stream [%s]", stream.stream.Hash())
 			if session != nil {
 				session.mutex.Lock()
-				if _, streamRegisteredAlready := session.streams[stream]; !streamRegisteredAlready {
+				if _, streamRegisteredAlready := session.streams[stream]; !streamRegisteredAlready && !session.isClosing.Load() {
 					if stream.tryLease() {
 						session.streams[stream] = struct{}{}
 					}
@@ -281,7 +282,7 @@ func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.M
 	if session != nil {
 		logger.Debugf("register handle [%s]", info.SessionID)
 		session.mutex.Lock()
-		if _, streamRegisteredAlready := session.streams[sh]; !streamRegisteredAlready {
+		if _, streamRegisteredAlready := session.streams[sh]; !streamRegisteredAlready && !session.isClosing.Load() {
 			if sh.tryLease() {
 				session.streams[sh] = struct{}{}
 			}
