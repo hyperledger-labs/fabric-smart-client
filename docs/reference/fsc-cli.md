@@ -252,6 +252,7 @@ fsccli validate config --path ./testdata/fsc/nodes/default
 - Fabric network configuration (when present)
 - gRPC server configuration (when enabled)
 - web server and TLS configuration (when enabled)
+- operations endpoints: the `fsc.metrics` listener TLS and `fsc.metrics.clientAuthRequired`
 - tracing configuration (when present)
 
 **Output:**
@@ -264,6 +265,8 @@ configuration is valid
 - validated fabric networks [default]
 - validated fsc.grpc server configuration
 ```
+
+A configuration that is valid but leaves the operations endpoints rejecting every request, because `fsc.metrics.clientAuthRequired` defaults to true on a listener that never requests a client certificate, adds a `- warning:` line naming the remedies.
 
 **Authentication:**
 - `-r, --userCert <file>` - User certificate for message authentication

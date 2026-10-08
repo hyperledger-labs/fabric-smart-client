@@ -77,6 +77,9 @@ func ValidateConfig(confPath string) (Report, error) {
 			report.Checks = append(report.Checks, fmt.Sprintf("validated %s server configuration", surface))
 		}
 	}
+	if warning := sdk.OperationsClientAuthWarning(configService); warning != "" {
+		report.Checks = append(report.Checks, "warning: "+warning)
+	}
 
 	if configService.IsSet("fsc.tracing") {
 		var tracingConfig tracing.Config

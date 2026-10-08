@@ -307,27 +307,37 @@ fsc:
     # provider can be prometheus, none or disabled
     provider: prometheus
 
-    # Require a verified client certificate on /metrics and /logspec.
+    # Require a verified client certificate on /metrics and /logspec. Defaults to true when
+    # absent, because /logspec changes the node's log spec; set false explicitly to serve the
+    # endpoints without a certificate, e.g. on a network-restricted fsc.metrics.address.
+    # A value that is not a boolean is a startup error. On a listener that never requests a
+    # client certificate (TLS disabled, or no clientRootCAs), an explicit true is a startup
+    # error too; when the key is absent, the node starts and logs a warning, and the
+    # endpoints reject every request.
     #
     # This is NOT transport TLS, and is deliberately separate from any listener's tls block:
     # it can be stricter than the listener. A common shape is a web listener that verifies a
     # client certificate only if one is offered, while scraping metrics requires one.
     # Replaces fsc.metrics.prometheus.tls, which meant this despite its name.
-    clientAuthRequired: false
+    # clientAuthRequired: true
 
     # Serve the operations endpoints (/metrics, /logspec) on a listener of their own.
     #
-    # Without an address they are served on the fsc.web listener and share its TLS, which is
-    # the historical behaviour. With one, they get their own listener and fsc.metrics.tls
-    # applies to it, inheriting from fsc.tls field by field like any other listener — so a
-    # plaintext metrics endpoint behind a TLS web listener becomes expressible.
+    # Without an address they are served on the fsc.web listener and share its TLS. With one,
+    # they get their own listener and fsc.metrics.tls applies to it, inheriting from fsc.tls
+    # field by field like any other listener — so a plaintext metrics endpoint behind a TLS
+    # web listener becomes expressible.
     #
     # fsc.metrics.tls without fsc.metrics.address is a startup error: the shared listener
     # cannot honour it, and the configuration would be claiming transport security it does
     # not have.
+    #
+    # A plaintext listener cannot verify a client certificate, so it also needs
+    # clientAuthRequired: false, replacing the clientAuthRequired line above.
     # address: 0.0.0.0:20003
     # tls:
     #   enabled: false
+    # clientAuthRequired: false
 
     
   # ------------------- FSC Node endpoint resolvers -------------------------
