@@ -7,9 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -249,15 +252,20 @@ func (p *Provider) loadFromPath(path string) error {
 	var loadErr error
 	for _, pth := range paths {
 		fullPath := filepath.Join(pth, CmdRoot+".yaml")
-		if loadErr = p.Backend.Load(koanffile.Provider(fullPath), LowercaseParser{Parser: koanfyaml.Parser()}); loadErr == nil {
-			// found and loaded successfully
-			fp, err := filepath.Abs(fullPath)
-			if err != nil {
-				return err
-			}
-			p.fullPath = fp
-			break
+		loadErr = p.Backend.Load(koanffile.Provider(fullPath), LowercaseParser{Parser: koanfyaml.Parser()})
+		if errors.Is(loadErr, fs.ErrNotExist) {
+			continue
 		}
+		if loadErr != nil {
+			// A broken file must not fall through to the next path, which would load a different configuration.
+			return errors.Wrapf(loadErr, "failed loading configuration from [%s]", fullPath)
+		}
+		fp, err := filepath.Abs(fullPath)
+		if err != nil {
+			return err
+		}
+		p.fullPath = fp
+		break
 	}
 	if loadErr != nil {
 		return errors.Errorf("Could not find config file. "+
@@ -437,7 +445,9 @@ func (*MergeConfigEvent) Message() any {
 	return nil
 }
 
-// LowercaseParser wraps an existing parser to lowercase all keys
+// LowercaseParser wraps an existing parser to lowercase all keys. Keys that differ only in
+// case, and keys that koanf flattens onto the same path, are rejected, as they would otherwise
+// collapse into one key holding either value.
 type LowercaseParser struct {
 	koanf.Parser
 }
@@ -448,26 +458,85 @@ func (l LowercaseParser) Unmarshal(b []byte) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return lowercaseMapKeys(m), nil
+	out, err := lowercaseMapKeys(m, "")
+	if err != nil {
+		return nil, err
+	}
+	if err := checkFlatPaths(m); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-// lowercaseMapKeys recursively converts all map keys to lowercase
-func lowercaseMapKeys(m map[string]any) map[string]any {
-	out := make(map[string]any, len(m))
-	for key, val := range m {
-		lowerKey := strings.ToLower(key)
-		if nestedMap, ok := val.(map[string]any); ok {
-			out[lowerKey] = lowercaseMapKeys(nestedMap)
-		} else if nestedSlice, ok := val.([]any); ok {
-			for i, nested := range nestedSlice {
-				if ns, ok := nested.(map[string]any); ok {
-					nestedSlice[i] = lowercaseMapKeys(ns)
-				}
+// checkFlatPaths rejects keys that koanf, which joins nesting levels with ".", flattens onto
+// the same path, such as `fsc.id: a` next to `fsc: {id: b}`, or onto a path and a path nested
+// under it, such as `a.b: 1` next to `a: {b: {c: 2}}`. Lists are not flattened, so their
+// elements are not checked.
+func checkFlatPaths(m map[string]any) error {
+	written := map[string][]string{} // lowercased flattened path -> paths as written
+	collectFlatPaths(m, "", "", written)
+	for _, path := range slices.Sorted(maps.Keys(written)) {
+		if w := written[path]; len(w) > 1 {
+			slices.Sort(w)
+			return errors.Errorf("configuration keys [%s] and [%s] collide after flattening", w[0], w[1])
+		}
+		for i := range len(path) {
+			if path[i] != '.' {
+				continue
 			}
-			out[lowerKey] = val
-		} else {
-			out[lowerKey] = val
+			if parent, ok := written[path[:i]]; ok {
+				return errors.Errorf("configuration keys [%s] and [%s] collide after flattening", parent[0], written[path][0])
+			}
 		}
 	}
-	return out
+	return nil
+}
+
+// collectFlatPaths records the flattened path of every value in m, as koanf.Flatten computes it.
+func collectFlatPaths(m map[string]any, lowerPrefix, prefix string, written map[string][]string) {
+	for key, val := range m {
+		if nested, ok := val.(map[string]any); ok && len(nested) > 0 {
+			collectFlatPaths(nested, lowerPrefix+strings.ToLower(key)+".", prefix+key+".", written)
+			continue
+		}
+		path := lowerPrefix + strings.ToLower(key)
+		written[path] = append(written[path], prefix+key)
+	}
+}
+
+// lowercaseMapKeys recursively converts all map keys to lowercase. path locates m in the
+// configuration, as written, and names the keys in the error returned when two of them collide.
+func lowercaseMapKeys(m map[string]any, path string) (map[string]any, error) {
+	out := make(map[string]any, len(m))
+	originals := make(map[string]string, len(m))
+	for key, val := range m {
+		lowerKey := strings.ToLower(key)
+		if other, ok := originals[lowerKey]; ok {
+			return nil, errors.Errorf("configuration keys [%s%s] and [%s%s] collide after lowercasing", path, min(key, other), path, max(key, other))
+		}
+		originals[lowerKey] = key
+		lowerVal, err := lowercaseValue(val, path+key)
+		if err != nil {
+			return nil, err
+		}
+		out[lowerKey] = lowerVal
+	}
+	return out, nil
+}
+
+// lowercaseValue lowercases the keys of every map nested in val, descending into lists.
+func lowercaseValue(val any, path string) (any, error) {
+	switch v := val.(type) {
+	case map[string]any:
+		return lowercaseMapKeys(v, path+".")
+	case []any:
+		for i, nested := range v {
+			lowerNested, err := lowercaseValue(nested, path+"["+strconv.Itoa(i)+"]")
+			if err != nil {
+				return nil, err
+			}
+			v[i] = lowerNested
+		}
+	}
+	return val, nil
 }

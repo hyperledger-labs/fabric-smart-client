@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -241,6 +242,19 @@ func TestConfigPathEnv(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "does not exist")
 }
 
+func TestConfigFileWithCollidingKeys(t *testing.T) { //nolint:paralleltest
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte("fsc:\n  Id: a\n  id: b\n"), 0o600))
+
+	// The broken file must be reported, not skipped in favour of the valid one in the working directory.
+	good := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(good, "core.yaml"), []byte("fsc:\n  id: from-good\n"), 0o600))
+	t.Chdir(good)
+	t.Setenv("FSCNODE_CFG_PATH", "")
+	_, err := NewProvider(dir)
+	require.ErrorContains(t, err, "configuration keys [fsc.Id] and [fsc.id] collide after lowercasing")
+}
+
 func TestProviderMore(t *testing.T) { //nolint:paralleltest
 	t.Setenv("CORE_FSC_ID", "node1")
 	p, err := NewProvider("./testdata")
@@ -314,4 +328,102 @@ env:
 	err = p.UnmarshalKey("env.map", &mapVal)
 	require.NoError(t, err)
 	require.Equal(t, "b", mapVal["a"])
+}
+
+func TestLowercaseParserRejectsCollidingKeys(t *testing.T) {
+	t.Parallel()
+	parser := LowercaseParser{Parser: koanfyaml.Parser()}
+
+	for _, tc := range []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name:    "top level",
+			yaml:    "Foo: 1\nfoo: 2\n",
+			wantErr: "configuration keys [Foo] and [foo] collide after lowercasing",
+		},
+		{
+			name:    "nested",
+			yaml:    "fabric:\n  Network1:\n    driver: a\n  network1:\n    driver: b\n",
+			wantErr: "configuration keys [fabric.Network1] and [fabric.network1] collide after lowercasing",
+		},
+		{
+			name:    "mixed-case ancestor",
+			yaml:    "Fabric:\n  Network1:\n    driver: a\n  network1:\n    driver: b\n",
+			wantErr: "configuration keys [Fabric.Network1] and [Fabric.network1] collide after lowercasing",
+		},
+		{
+			name:    "inside a list",
+			yaml:    "fabric:\n  net:\n    channels:\n      - Name: a\n        name: b\n",
+			wantErr: "configuration keys [fabric.net.channels[0].Name] and [fabric.net.channels[0].name] collide after lowercasing",
+		},
+		{
+			name:    "inside a nested list",
+			yaml:    "a:\n  - - Key: 1\n      key: 2\n",
+			wantErr: "configuration keys [a[0][0].Key] and [a[0][0].key] collide after lowercasing",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Map iteration order is random, so parse repeatedly to see both key orders.
+			for range 20 {
+				_, err := parser.Unmarshal([]byte(tc.yaml))
+				require.EqualError(t, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLowercaseParserRejectsFlattenedCollisions(t *testing.T) {
+	t.Parallel()
+	parser := LowercaseParser{Parser: koanfyaml.Parser()}
+
+	for _, tc := range []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name:    "dotted and nested",
+			yaml:    "fsc.id: a\nfsc:\n  id: b\n",
+			wantErr: "configuration keys [fsc.id] and [fsc.id] collide after flattening",
+		},
+		{
+			name:    "dotted and nested, mixed case",
+			yaml:    "FSC.ID: a\nfsc:\n  id: b\n",
+			wantErr: "configuration keys [FSC.ID] and [fsc.id] collide after flattening",
+		},
+		{
+			name:    "value and nested keys",
+			yaml:    "a.b: 1\na:\n  b:\n    c: 2\n",
+			wantErr: "configuration keys [a.b] and [a.b.c] collide after flattening",
+		},
+		{
+			name:    "empty map and dotted key",
+			yaml:    "a.b: 1\na: {}\n",
+			wantErr: "configuration keys [a] and [a.b] collide after flattening",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Map iteration order is random, so parse repeatedly to see both key orders.
+			for range 20 {
+				_, err := parser.Unmarshal([]byte(tc.yaml))
+				require.EqualError(t, err, tc.wantErr)
+			}
+		})
+	}
+
+	// Dotted keys alone, and dotted keys inside lists, which koanf does not flatten, are accepted.
+	_, err := parser.Unmarshal([]byte("fsc.id: a\nfsc.name: b\nl:\n  - x.y: 1\n    x:\n      y: 2\n"))
+	require.NoError(t, err)
+}
+
+func TestLowercaseParserLowercasesKeys(t *testing.T) {
+	t.Parallel()
+	m, err := LowercaseParser{Parser: koanfyaml.Parser()}.Unmarshal([]byte("Fabric:\n  Net:\n    Channels:\n      - Name: a\n"))
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"fabric": map[string]any{"net": map[string]any{"channels": []any{map[string]any{"name": "a"}}}}}, m)
 }
