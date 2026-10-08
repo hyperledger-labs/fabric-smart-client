@@ -42,21 +42,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		return session, nil
 	}
 
-	s := &NetworkStreamSession{
-		node:            p,
-		endpointID:      endpointID,
-		localPKID:       []byte(p.host.PeerID()),
-		endpointAddress: endpointAddress,
-		contextID:       contextID,
-		sessionID:       sessionID,
-		caller:          caller,
-		callerViewID:    callerViewID,
-		incoming:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
-		streams:         make(map[*streamHandler]struct{}),
-		middleCh:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
-		closing:         make(chan struct{}),
-		closed:          make(chan struct{}),
-	}
+	s := p.newNetworkStreamSession(sessionID, endpointAddress, contextID, callerViewID, caller, endpointID)
 
 	if msg != nil {
 		logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
@@ -75,6 +61,35 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 
 	logger.Debugf("session [%s] as internal session [%s] ready", sessionID, internalSessionID)
 	return s, nil
+}
+
+// newNetworkStreamSession returns a session that is neither registered nor started.
+func (p *P2PNode) newNetworkStreamSession(sessionID, endpointAddress, contextID, callerViewID string, caller view.Identity, endpointID []byte) *NetworkStreamSession {
+	return &NetworkStreamSession{
+		node:            p,
+		endpointID:      endpointID,
+		localPKID:       []byte(p.host.PeerID()),
+		endpointAddress: endpointAddress,
+		contextID:       contextID,
+		sessionID:       sessionID,
+		caller:          caller,
+		callerViewID:    callerViewID,
+		incoming:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
+		streams:         make(map[*streamHandler]struct{}),
+		middleCh:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
+		closing:         make(chan struct{}),
+		closed:          make(chan struct{}),
+	}
+}
+
+// ReplyError sends payload as an error to the party with the given pkid on the session with
+// sessionID, through a one-shot session that is never registered. Messages for sessionID are
+// therefore not routed to it, and a registered session with that ID, such as one a responder
+// is about to create or already uses, is not touched.
+func (p *P2PNode) ReplyError(ctx context.Context, sessionID, contextID, endpoint string, pkid, payload []byte) error {
+	s := p.newNetworkStreamSession(sessionID, endpoint, contextID, "", nil, pkid)
+	defer s.Close()
+	return s.SendError(ctx, payload)
 }
 
 func (p *P2PNode) NewSession(callerViewID, contextID, endpoint string, pkid []byte) (view.Session, error) {

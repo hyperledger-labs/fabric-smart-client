@@ -157,6 +157,13 @@ fsc:
     # Maximum allowed size (in bytes) for outgoing P2P messages. Default: 10485760 (10 MiB)
     # The limit cannot be disabled: zero or negative values fall back to the default.
     maxSendMsgSize: 10485760
+    # Maximum number of responder views running concurrently for one remote peer. Default: 1000
+    # A first message over the limit is rejected with an error to the initiator; once as many
+    # rejections are pending for that peer, further first messages are dropped silently. This
+    # bounds the goroutines, view contexts and sessions a single peer can make the node hold.
+    # The same number separately bounds the rejections pending for one peer.
+    # The limit cannot be disabled: zero or negative values fall back to the default.
+    maxRespondersPerPeer: 1000
     opts:
       # ------------------- libp2p specific options -------------------------
       # Only needed when type == libp2p

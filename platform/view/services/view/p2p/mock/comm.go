@@ -2,6 +2,7 @@
 package mock
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
@@ -34,6 +35,19 @@ type CommLayer struct {
 	newResponderSessionReturnsOnCall map[int]struct {
 		result1 view.Session
 		result2 error
+	}
+	ReplyErrorStub        func(context.Context, *view.Message, []byte) error
+	replyErrorMutex       sync.RWMutex
+	replyErrorArgsForCall []struct {
+		arg1 context.Context
+		arg2 *view.Message
+		arg3 []byte
+	}
+	replyErrorReturns struct {
+		result1 error
+	}
+	replyErrorReturnsOnCall map[int]struct {
+		result1 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -163,6 +177,74 @@ func (fake *CommLayer) NewResponderSessionReturnsOnCall(i int, result1 view.Sess
 		result1 view.Session
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *CommLayer) ReplyError(arg1 context.Context, arg2 *view.Message, arg3 []byte) error {
+	var arg3Copy []byte
+	if arg3 != nil {
+		arg3Copy = make([]byte, len(arg3))
+		copy(arg3Copy, arg3)
+	}
+	fake.replyErrorMutex.Lock()
+	ret, specificReturn := fake.replyErrorReturnsOnCall[len(fake.replyErrorArgsForCall)]
+	fake.replyErrorArgsForCall = append(fake.replyErrorArgsForCall, struct {
+		arg1 context.Context
+		arg2 *view.Message
+		arg3 []byte
+	}{arg1, arg2, arg3Copy})
+	stub := fake.ReplyErrorStub
+	fakeReturns := fake.replyErrorReturns
+	fake.recordInvocation("ReplyError", []interface{}{arg1, arg2, arg3Copy})
+	fake.replyErrorMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CommLayer) ReplyErrorCallCount() int {
+	fake.replyErrorMutex.RLock()
+	defer fake.replyErrorMutex.RUnlock()
+	return len(fake.replyErrorArgsForCall)
+}
+
+func (fake *CommLayer) ReplyErrorCalls(stub func(context.Context, *view.Message, []byte) error) {
+	fake.replyErrorMutex.Lock()
+	defer fake.replyErrorMutex.Unlock()
+	fake.ReplyErrorStub = stub
+}
+
+func (fake *CommLayer) ReplyErrorArgsForCall(i int) (context.Context, *view.Message, []byte) {
+	fake.replyErrorMutex.RLock()
+	defer fake.replyErrorMutex.RUnlock()
+	argsForCall := fake.replyErrorArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CommLayer) ReplyErrorReturns(result1 error) {
+	fake.replyErrorMutex.Lock()
+	defer fake.replyErrorMutex.Unlock()
+	fake.ReplyErrorStub = nil
+	fake.replyErrorReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CommLayer) ReplyErrorReturnsOnCall(i int, result1 error) {
+	fake.replyErrorMutex.Lock()
+	defer fake.replyErrorMutex.Unlock()
+	fake.ReplyErrorStub = nil
+	if fake.replyErrorReturnsOnCall == nil {
+		fake.replyErrorReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.replyErrorReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *CommLayer) Invocations() map[string][][]interface{} {

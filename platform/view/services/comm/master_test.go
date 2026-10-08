@@ -107,6 +107,36 @@ func TestNewResponderSession(t *testing.T) {
 	}
 }
 
+// TestReplyError checks that ReplyError neither registers a session nor touches a
+// registered one with the same ID, so that a rejection cannot disturb a responder that owns
+// or is about to create that session.
+func TestReplyError(t *testing.T) {
+	t.Parallel()
+
+	h := &mockHost{}
+	p, err := NewNode(t.Context(), h, &disabled.Provider{})
+	require.NoError(t, err)
+	stopNode(t, p)
+
+	owned, err := p.NewResponderSession("sess", "ctx", "ep", []byte("pkid"), view.Identity("alice"), nil)
+	require.NoError(t, err)
+	sessions := func() int {
+		p.sessionsMutex.Lock()
+		defer p.sessionsMutex.Unlock()
+		return len(p.sessions)
+	}
+	before := sessions()
+
+	require.NoError(t, p.ReplyError(t.Context(), "sess", "ctx", "ep", []byte("pkid"), []byte("rejected")))
+	require.NoError(t, p.ReplyError(t.Context(), "fresh", "ctx", "ep", []byte("pkid"), []byte("rejected")))
+
+	require.Equal(t, before, sessions())
+	require.False(t, owned.Info().Closed)
+	again, err := p.NewResponderSession("sess", "ctx", "ep", []byte("pkid"), view.Identity("alice"), nil)
+	require.NoError(t, err)
+	require.Same(t, owned, again)
+}
+
 func TestNewSession(t *testing.T) {
 	t.Parallel()
 
