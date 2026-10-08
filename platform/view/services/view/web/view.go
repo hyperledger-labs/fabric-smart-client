@@ -108,7 +108,9 @@ func (s *client) CallView(vid string, input []byte, ctx context.Context) (any, e
 }
 
 // StreamCallView calls the view with the given ID and input, and streams the communication over a web socket.
-func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request *http.Request) error {
+// A failed call closes the web socket with its error. Closing reads from the web socket, so the
+// view must not use the stream, including from goroutines it started, once RunView returns.
+func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request *http.Request) (err error) {
 	logger.Debugf("Call view [%s]", vid)
 
 	// we need to retrieve the input to the factory from the web socket
@@ -116,6 +118,8 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	if err != nil {
 		return errors.Wrapf(err, "failed to create web socket")
 	}
+	// The upgrade hijacks the connection, so net/http does not close it when the handler returns.
+	defer func() { _ = stream.CloseWithError(err) }()
 	input, err := stream.ReadInput()
 	if err != nil {
 		return errors.Wrapf(err, "failed to read input")
@@ -129,6 +133,7 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	if err != nil {
 		return errors.Wrapf(view.ErrViewExecutionFailed, "failed instantiating context for view [%s]: %v", vid, err)
 	}
+	defer s.viewManager.DeleteContext(viewContext.ID())
 
 	// register the web socket
 	mutable, ok := viewContext.(view2.MutableContext)

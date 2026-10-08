@@ -13,14 +13,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	servicesmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -129,166 +133,125 @@ func TestClientCallView(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestClientStreamCallView(t *testing.T) {
-	t.Parallel()
-	vm := &fakeViewManager{}
-	ip := &fakeIdentityProvider{}
-	tp := noop.NewTracerProvider()
-	c := newViewClient(vm, ip, tp)
-
-	// Setup valid websocket scenario
+// streamCall runs one streamed call of view vid through c. It returns the Output the
+// client received, if any, the error of StreamCallView, and the error that ended the
+// client's reads once StreamCallView has returned.
+func streamCall(t *testing.T, c *client, vid string) (out []byte, callErr, readErr error) {
+	t.Helper()
+	errc := make(chan error, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = c.StreamCallView("fid", w, r)
+		errc <- c.StreamCallView(vid, w, r)
 	}))
 	t.Cleanup(ts.Close)
-
-	wsURL := "ws" + ts.URL[4:]
-	ws, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	ws, resp, err := websocket.DefaultDialer.Dial("ws"+ts.URL[4:], nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = resp.Body.Close() })
 	t.Cleanup(func() { _ = ws.Close() })
-
-	// Send input payload conforming to server.Input format
-	inputMsg, _ := json.Marshal(server2.Input{Raw: []byte("input")})
-	err = ws.WriteMessage(websocket.TextMessage, inputMsg)
+	in, err := json.Marshal(server2.Input{Raw: []byte("input")})
 	require.NoError(t, err)
+	require.NoError(t, ws.WriteMessage(websocket.TextMessage, in))
 
-	// Read output response conforming to server.Output format
-	_, msg, err := ws.ReadMessage()
-	require.NoError(t, err)
-	var out server2.Output
-	err = json.Unmarshal(msg, &out)
-	require.NoError(t, err)
-	require.Equal(t, []byte("result"), out.Raw)
+	// Read to the close before waiting for the handler: answering the close frame ends the
+	// server's drain.
+	require.NoError(t, ws.SetReadDeadline(time.Now().Add(5*time.Second)))
+	for {
+		_, msg, err := ws.ReadMessage()
+		if err != nil {
+			return out, <-errc, err
+		}
+		var o server2.Output
+		require.NoError(t, json.Unmarshal(msg, &o))
+		out = o.Raw
+	}
+}
 
-	// Test stream failures using custom http server handlers
-	t.Run("NewView failure", func(t *testing.T) {
-		t.Parallel()
-		vmErr := &fakeViewManager{err: fmt.Errorf("new view error")}
-		cErr := newViewClient(vmErr, ip, tp)
-		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err := cErr.StreamCallView("fid", w, r)
-			// require.FailNow is unsafe from an http.Handler goroutine; this
-			// is the handler's last statement, so assert changes nothing.
-			assert.ErrorContains(t, err, "new view error")
-		}))
-		t.Cleanup(tsErr.Close)
-		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
-		if resp != nil {
-			t.Cleanup(func() { _ = resp.Body.Close() })
-		}
-		if wsErr != nil {
-			t.Cleanup(func() { _ = wsErr.Close() })
-			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
-		}
-	})
+func TestClientStreamCallView(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		vm      *fakeViewManager
+		wantOut string
+		wantErr string
+		deleted []string
+	}{
+		{name: "success", vm: &fakeViewManager{}, wantOut: "result", deleted: []string{"ctx-id"}},
+		{name: "non-byte result", vm: &fakeViewManager{ctxResult: map[string]string{"status": "ok"}}, wantOut: `{"status":"ok"}`, deleted: []string{"ctx-id"}},
+		{name: "RunView failure", vm: &fakeViewManager{ctxRunErr: fmt.Errorf("run view error")}, wantErr: "run view error", deleted: []string{"ctx-id"}},
+		{name: "PutService failure", vm: &fakeViewManager{putServiceErr: fmt.Errorf("put service error")}, wantErr: "registering stream command server", deleted: []string{"ctx-id"}},
+		{name: "non-mutable context", vm: &fakeViewManager{nonMutableCtx: true}, wantErr: "expected a mutable context", deleted: []string{"ctx-id"}},
+		{name: "NewView failure", vm: &fakeViewManager{err: fmt.Errorf("new view error")}, wantErr: "new view error"},
+		{name: "InitiateContext failure", vm: &fakeViewManager{initCtxErr: fmt.Errorf("init context error")}, wantErr: "init context error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			out, err, readErr := streamCall(t, newViewClient(tc.vm, &fakeIdentityProvider{}, noop.NewTracerProvider()), "fid")
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				// The close frame carries the failure to the client.
+				require.True(t, websocket.IsCloseError(readErr, websocket.CloseInternalServerErr), "websocket not closed: %v", readErr)
+				require.ErrorContains(t, readErr, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+				require.True(t, websocket.IsCloseError(readErr, websocket.CloseNormalClosure), "websocket not closed: %v", readErr)
+			}
+			require.Equal(t, tc.wantOut, string(out))
+			require.Equal(t, tc.deleted, tc.vm.deleted)
+		})
+	}
+}
 
-	t.Run("InitiateContext failure", func(t *testing.T) {
-		t.Parallel()
-		vmErr := &fakeViewManager{initCtxErr: fmt.Errorf("init context error")}
-		cErr := newViewClient(vmErr, ip, tp)
-		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err := cErr.StreamCallView("fid", w, r)
-			// require.FailNow is unsafe from an http.Handler goroutine; this
-			// is the handler's last statement, so assert changes nothing.
-			assert.ErrorContains(t, err, "init context error")
-		}))
-		t.Cleanup(tsErr.Close)
-		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
-		if resp != nil {
-			t.Cleanup(func() { _ = resp.Body.Close() })
-		}
-		if wsErr != nil {
-			t.Cleanup(func() { _ = wsErr.Close() })
-			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
-		}
-	})
+// recordingView records the ID of the context it runs in and fails with err.
+type recordingView struct {
+	id  string
+	err error
+}
 
-	t.Run("RunView failure", func(t *testing.T) {
-		t.Parallel()
-		vmErr := &fakeViewManager{ctxRunErr: fmt.Errorf("run view error")}
-		cErr := newViewClient(vmErr, ip, tp)
-		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err := cErr.StreamCallView("fid", w, r)
-			// require.FailNow is unsafe from an http.Handler goroutine; this
-			// is the handler's last statement, so assert changes nothing.
-			assert.ErrorContains(t, err, "run view error")
-		}))
-		t.Cleanup(tsErr.Close)
-		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
-		if resp != nil {
-			t.Cleanup(func() { _ = resp.Body.Close() })
-		}
-		if wsErr != nil {
-			t.Cleanup(func() { _ = wsErr.Close() })
-			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
-		}
-	})
+func (v *recordingView) Call(ctx view2.Context) (any, error) {
+	v.id = ctx.ID()
+	return nil, v.err
+}
 
-	t.Run("PutService failure", func(t *testing.T) {
-		t.Parallel()
-		vmErr := &fakeViewManager{putServiceErr: fmt.Errorf("put service error")}
-		cErr := newViewClient(vmErr, ip, tp)
-		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err := cErr.StreamCallView("fid", w, r)
-			// require.FailNow is unsafe from an http.Handler goroutine; this
-			// is the handler's last statement, so assert changes nothing.
-			assert.ErrorContains(t, err, "registering stream command server")
-		}))
-		t.Cleanup(tsErr.Close)
-		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
-		if resp != nil {
-			t.Cleanup(func() { _ = resp.Body.Close() })
-		}
-		if wsErr != nil {
-			t.Cleanup(func() { _ = wsErr.Close() })
-			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
-		}
-	})
+type recordingViewFactory struct{ v *recordingView }
 
-	t.Run("Non-byte RunView result marshaling", func(t *testing.T) {
-		t.Parallel()
-		vmStruct := &fakeViewManager{ctxResult: map[string]string{"status": "ok"}}
-		cStruct := newViewClient(vmStruct, ip, tp)
-		tsStruct := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_ = cStruct.StreamCallView("fid", w, r)
-		}))
-		t.Cleanup(tsStruct.Close)
-		wsStruct, resp, _ := websocket.DefaultDialer.Dial("ws"+tsStruct.URL[4:], nil)
-		if resp != nil {
-			t.Cleanup(func() { _ = resp.Body.Close() })
-		}
-		require.NotNil(t, wsStruct)
-		t.Cleanup(func() { _ = wsStruct.Close() })
-		_ = wsStruct.WriteMessage(websocket.TextMessage, inputMsg)
-		_, respMsg, err := wsStruct.ReadMessage()
-		require.NoError(t, err)
-		var outStruct server2.Output
-		_ = json.Unmarshal(respMsg, &outStruct)
-		expectedJSON, _ := json.Marshal(map[string]string{"status": "ok"})
-		require.JSONEq(t, string(expectedJSON), string(outStruct.Raw))
-	})
+func (f *recordingViewFactory) NewView([]byte) (view2.View, error) { return f.v, nil }
 
-	t.Run("Non-mutable context error", func(t *testing.T) {
-		t.Parallel()
-		vmNonMutable := &fakeViewManager{nonMutableCtx: true}
-		cNonMutable := newViewClient(vmNonMutable, ip, tp)
-		tsNonMutable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err := cNonMutable.StreamCallView("fid", w, r)
-			// require.FailNow is unsafe from an http.Handler goroutine; this
-			// is the handler's last statement, so assert changes nothing.
-			assert.ErrorContains(t, err, "expected a mutable context")
-		}))
-		t.Cleanup(tsNonMutable.Close)
-		wsNM, resp, _ := websocket.DefaultDialer.Dial("ws"+tsNonMutable.URL[4:], nil)
-		if resp != nil {
-			t.Cleanup(func() { _ = resp.Body.Close() })
-		}
-		if wsNM != nil {
-			t.Cleanup(func() { _ = wsNM.Close() })
-			_ = wsNM.WriteMessage(websocket.TextMessage, inputMsg)
-		}
-	})
+func TestClientStreamCallViewReleasesManagerContext(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		err     error
+		wantErr string
+	}{
+		{name: "success"},
+		{name: "view failure", err: fmt.Errorf("view error"), wantErr: "view error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ip := &mock.IdentityProvider{}
+			ip.DefaultIdentityReturns(view2.Identity("me"))
+			registry := view.NewRegistry()
+			metrics := view.NewMetrics(&disabled.Provider{})
+			cf := view.NewContextFactory(&servicesmock.ServiceProvider{}, &mock.SessionFactory{}, &mock.EndpointService{}, ip, registry, noop.NewTracerProvider(), metrics, &mock.LocalIdentityChecker{})
+			manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
+			v := &recordingView{err: tc.err}
+			require.NoError(t, manager.RegisterFactory("recording", &recordingViewFactory{v: v}))
+			c := newViewClient(manager, &fakeIdentityProvider{}, noop.NewTracerProvider())
+
+			_, err, readErr := streamCall(t, c, "recording")
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				// The close frame carries the failure to the client.
+				require.True(t, websocket.IsCloseError(readErr, websocket.CloseInternalServerErr), "websocket not closed: %v", readErr)
+				require.ErrorContains(t, readErr, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+				require.True(t, websocket.IsCloseError(readErr, websocket.CloseNormalClosure), "websocket not closed: %v", readErr)
+			}
+			require.NotEmpty(t, v.id)
+			_, err = manager.Context(v.id)
+			require.ErrorIs(t, err, view.ErrContextNotFound)
+		})
+	}
 }
 
 func TestViewCallFunc(t *testing.T) {
@@ -321,6 +284,7 @@ type fakeViewManager struct {
 	result        any
 	ctxResult     any
 	nonMutableCtx bool
+	deleted       []string
 }
 
 func (f *fakeViewManager) NewView(_ string, _ []byte) (view2.View, error) {
@@ -354,7 +318,9 @@ func (f *fakeViewManager) InitiateContext(_ context.Context, _ view2.View) (view
 	return &fakeViewContext{runErr: f.ctxRunErr, putServiceErr: f.putServiceErr, result: res}, nil
 }
 
-func (*fakeViewManager) DeleteContext(_ string) {}
+func (f *fakeViewManager) DeleteContext(contextID string) {
+	f.deleted = append(f.deleted, contextID)
+}
 
 type fakeView struct{}
 
