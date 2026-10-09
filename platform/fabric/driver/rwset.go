@@ -15,7 +15,6 @@ import (
 )
 
 type (
-	GetStateOpt                 = driver.GetStateOpt
 	RWSet                       = driver.RWSet
 	RWSetPayloadHandlerProvider = func(network, channel string, v RWSetInspector) RWSetPayloadHandler
 )
