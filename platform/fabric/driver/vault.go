@@ -13,12 +13,9 @@ import (
 )
 
 type (
-	TxValidationStatus = driver.TxValidationStatus[ValidationCode]
-	QueryExecutor      = driver.QueryExecutor
-	BlockNum           = driver.BlockNum
-	TxID               = driver.TxID
-	TxNum              = driver.TxNum
-	TxStatus           = driver.TxStatus
+	BlockNum = driver.BlockNum
+	TxID     = driver.TxID
+	TxNum    = driver.TxNum
 )
 
 type Vault interface {
