@@ -6,13 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import (
-	"reflect"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-)
-
 // FabricNetworkService gives access to a Fabric network components
 type FabricNetworkService interface {
 	Name() string
@@ -47,16 +40,4 @@ type FabricNetworkServiceProvider interface {
 	DefaultName() string
 	// FabricNetworkService returns a FabricNetworkService instance for the passed parameters
 	FabricNetworkService(id string) (FabricNetworkService, error)
-}
-
-func GetFabricManagementService(ctx services.Provider) FabricNetworkServiceProvider {
-	s, err := ctx.GetService(reflect.TypeFor[*FabricNetworkServiceProvider]())
-	if err != nil {
-		panic(err)
-	}
-	provider, ok := s.(FabricNetworkServiceProvider)
-	if !ok {
-		panic(errors.Errorf("unexpected service type [%T] for fabric network service provider", s))
-	}
-	return provider
 }
