@@ -1,6 +1,6 @@
 module tools
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.14.0
@@ -18,6 +18,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	golang.org/x/mod v0.41.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260908163034-4bcc4b2ee518 // indirect

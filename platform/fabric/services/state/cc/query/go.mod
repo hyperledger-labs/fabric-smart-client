@@ -1,6 +1,6 @@
 module github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/hyperledger/fabric-chaincode-go/v2 v2.3.0
@@ -9,8 +9,8 @@ require (
 
 require (
 	github.com/stretchr/testify v1.12.1 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/grpc v1.84.0 // indirect
