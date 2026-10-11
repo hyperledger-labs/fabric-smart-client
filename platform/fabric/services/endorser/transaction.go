@@ -9,6 +9,7 @@ package endorser
 import (
 	"bytes"
 	"crypto/sha256"
+	"slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -146,26 +147,60 @@ func (t *Transaction) AppendProposalResponse(response *fabric.ProposalResponse) 
 	return t.Transaction.AppendProposalResponse(response)
 }
 
-// HasBeenEndorsedBy returns nil if each passed party has signed this transaction
+// HasBeenEndorsedBy returns nil if, for each passed party, a proposal response names the party
+// as endorser, carries a valid signature by it, and endorses the same payload as the first
+// response, the one the transaction's results are read from. Signatures are verified with the
+// transaction's verifier providers, registered with AppendVerifierProvider, and the channel
+// MSP. It returns an error when no party is passed.
 func (t *Transaction) HasBeenEndorsedBy(parties ...view.Identity) error {
+	if len(parties) == 0 {
+		return errors.New("no parties to verify endorsements against")
+	}
 	responses, err := t.Transaction.ProposalResponses()
 	if err != nil {
 		return err
 	}
+	ch, err := t.FabricNetworkService().Channel(t.Channel())
+	if err != nil {
+		return errors.Wrapf(err, "failed getting channel [%s:%s]", t.Network(), t.Channel())
+	}
+	providers := append(slices.Clone(t.verifierProviders), &verifierProviderWrapper{m: ch.MSPManager()})
 
 	for _, party := range parties {
-		found := false
-		for _, response := range responses {
-			if bytes.Equal(response.Endorser(), party) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return errors.Errorf("party [%s] has not signed", party)
+		if err := endorsedBy(responses, providers, party); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// endorsedBy returns nil if a response satisfies HasBeenEndorsedBy for party. Otherwise the
+// error tells which check the party's responses fail: none names it, one endorses another
+// payload, or its signature does not verify with any provider.
+func endorsedBy(responses []*fabric.ProposalResponse, providers []fabric.VerifierProvider, party view.Identity) error {
+	if len(providers) == 0 {
+		return errors.Errorf("no verifier provider to check the endorsement of party [%s]", party)
+	}
+	err := errors.Errorf("no proposal response from party [%s]", party)
+	for _, r := range responses {
+		if !bytes.Equal(r.Endorser(), party) {
+			continue
+		}
+		if !bytes.Equal(r.Payload(), responses[0].Payload()) {
+			err = errors.Errorf("proposal response of party [%s] endorses a different payload", party)
+			continue
+		}
+		var errs []error
+		for _, p := range providers {
+			verr := r.VerifyEndorsement(p)
+			if verr == nil {
+				return nil
+			}
+			errs = append(errs, verr)
+		}
+		err = errors.Wrapf(errors.Join(errs...), "signature of party [%s] does not verify", party)
+	}
+	return err
 }
 
 func (t *Transaction) GetSignatureOf(party view.Identity) ([]byte, error) {

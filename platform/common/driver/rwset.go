@@ -49,6 +49,10 @@ type RWSet interface {
 
 	GetReadKeyAt(ns Namespace, i int) (PKey, error)
 
+	// GetReadVersion returns the version at which this rwset reads the key in the namespace ns.
+	// It returns an error if this rwset holds no read of the key.
+	GetReadVersion(ns Namespace, key PKey) (RawVersion, error)
+
 	// GetReadAt returns the i-th read (key, value) in the namespace ns  of this rwset.
 	// The value is loaded from the ledger, if present. If the key's version in the ledger
 	// does not match the key's version in the read, then it returns an error.
