@@ -511,22 +511,24 @@ type multiplexedBaseConn struct {
 	closing   map[SubConnId]struct{}
 	subConnID atomic.Uint64
 
-	tracer      trace.Tracer
-	m           *Metrics
-	side        string
-	maxSubConns int
-	closed      atomic.Bool
+	tracer       trace.Tracer
+	m            *Metrics
+	side         string
+	maxSubConns  int
+	closed       atomic.Bool
+	writeTimeout time.Duration
 }
 
 func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, side string, maxSubConns int) *multiplexedBaseConn {
 	c := &multiplexedBaseConn{
-		conn:        conn,
-		subConns:    make(map[SubConnId]*subConn),
-		closing:     make(map[SubConnId]struct{}),
-		tracer:      tracer,
-		m:           metrics,
-		side:        side,
-		maxSubConns: maxSubConns,
+		conn:         conn,
+		subConns:     make(map[SubConnId]*subConn),
+		closing:      make(map[SubConnId]struct{}),
+		tracer:       tracer,
+		m:            metrics,
+		side:         side,
+		maxSubConns:  maxSubConns,
+		writeTimeout: writeTimeout,
 	}
 	return c
 }
@@ -576,9 +578,18 @@ func (c *multiplexedBaseConn) newSubConn(id SubConnId) *subConn {
 
 func (c *multiplexedBaseConn) write(msg any) error {
 	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
-	_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	return c.conn.WriteJSON(msg)
+	timeout := c.writeTimeout
+	if timeout <= 0 {
+		timeout = writeTimeout
+	}
+	_ = c.conn.SetWriteDeadline(time.Now().Add(timeout))
+	err := c.conn.WriteJSON(msg)
+	c.writeMu.Unlock()
+	if err != nil {
+		_ = c.Kill()
+		return err
+	}
+	return nil
 }
 
 // Sub connection
@@ -626,9 +637,10 @@ func (c *subConn) WriteMessage(_ int, data []byte) error {
 
 func (c *subConn) writeMultiplexedMessage(msg MultiplexedMessage) error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	closed := c.isClosed
+	c.mu.Unlock()
 
-	if c.isClosed {
+	if closed {
 		return websocket.ErrCloseSent
 	}
 

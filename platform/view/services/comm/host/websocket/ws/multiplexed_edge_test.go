@@ -415,9 +415,7 @@ func (h *pipeHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return h.conn, bufio.NewReadWriter(h.br, bufio.NewWriter(h.conn)), nil
 }
 
-// newPipedServerConn runs a multiplexedServerConn on one end of a net.Pipe and returns the
-// raw websocket on the other end, so the test acts as the peer and decides when to read.
-func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns int, cb func(host.P2PStream)) (*multiplexedServerConn, *gwebsocket.Conn) {
+func newPipedWebsocketPair(t *testing.T) (serverConn, clientConn *gwebsocket.Conn) {
 	t.Helper()
 
 	serverSide, clientSide := net.Pipe()
@@ -464,8 +462,25 @@ func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns in
 		t.Fatal("timed out waiting for server-side websocket upgrade")
 	}
 
+	return serverWSConn, clientWSConn
+}
+
+// newPipedServerConn runs a multiplexedServerConn on one end of a net.Pipe and returns the
+// raw websocket on the other end, so the test acts as the peer and decides when to read.
+func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns int, cb func(host.P2PStream)) (*multiplexedServerConn, *gwebsocket.Conn) {
+	t.Helper()
+	serverWSConn, clientWSConn := newPipedWebsocketPair(t)
 	sc := newServerConn(serverWSConn, expectedPeerID, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, cb)
 	return sc, clientWSConn
+}
+
+// newPipedClientConn runs a multiplexedClientConn on one end of a net.Pipe and returns the
+// raw websocket on the other end, so the test acts as the peer and decides when to read.
+func newPipedClientConn(t *testing.T, maxSubConns int, onClose func()) (*multiplexedClientConn, *gwebsocket.Conn) {
+	t.Helper()
+	serverWSConn, clientWSConn := newPipedWebsocketPair(t)
+	cc := newClientConn(clientWSConn, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, onClose)
+	return cc, serverWSConn
 }
 
 // TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock checks that newServerSubConn releases
@@ -522,6 +537,141 @@ func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nol
 			require.Equal(t, tt.wantErr, rejection.Err)
 		})
 	}
+}
+
+// TestFailedWriteKillsConnection_Server verifies that when a write on a server multiplexed
+// connection fails (e.g. write deadline times out on an unresponsive peer), the connection
+// is killed, sub-connections are shut down, and the read loop exits.
+func TestFailedWriteKillsConnection_Server(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	ignore := goleak.IgnoreCurrent()
+	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
+
+	const peerID host.PeerID = "legit-peer"
+	streams := make(chan host.P2PStream, 1)
+	sc, peer := newPipedServerConn(t, peerID, 1, func(s host.P2PStream) { streams <- s })
+	t.Cleanup(func() { _ = peer.Close() })
+
+	sc.writeTimeout = 50 * time.Millisecond
+
+	// Open the first sub-connection, filling maxSubConns=1.
+	require.NoError(t, peer.WriteJSON(MultiplexedMessage{ID: "1", Msg: mustMarshal(StreamMeta{PeerID: peerID})}))
+	var s host.P2PStream
+	select {
+	case s = <-streams:
+	case <-time.After(2 * time.Second):
+		t.Fatal("server never accepted the first sub-connection")
+	}
+
+	sc.mu.RLock()
+	require.Len(t, sc.subConns, 1, "first sub-connection should be registered")
+	sc.mu.RUnlock()
+
+	// Trigger a rejection write by attempting to open a second sub-connection.
+	require.NoError(t, peer.WriteJSON(MultiplexedMessage{ID: "2", Msg: mustMarshal(StreamMeta{PeerID: peerID})}))
+
+	// Peer intentionally does not read the rejection frame.
+	// The server's write will block on the unbuffered pipe until sc.writeTimeout expires.
+	require.Eventually(t, func() bool {
+		return sc.closed.Load()
+	}, 2*time.Second, 10*time.Millisecond, "server connection was not killed after write timeout")
+
+	// Verify all sub-connections were cleared.
+	sc.mu.RLock()
+	assert.Empty(t, sc.subConns, "subConns map should be empty after connection is killed")
+	sc.mu.RUnlock()
+
+	// Verify the established sub-connection stream was shut down.
+	buf := make([]byte, 10)
+	_, err := s.Read(buf)
+	require.Error(t, err, "reading from shut-down stream should return an error")
+}
+
+// TestFailedWriteKillsConnection_Client verifies that when a write on a client multiplexed
+// connection fails (e.g. write deadline times out on an unresponsive peer), the connection
+// is killed, sub-connections are shut down, and the onClose hook evicts it.
+func TestFailedWriteKillsConnection_Client(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	ignore := goleak.IgnoreCurrent()
+	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
+
+	closedCalled := make(chan struct{})
+	cc, peer := newPipedClientConn(t, 10, func() { close(closedCalled) })
+	t.Cleanup(func() { _ = peer.Close() })
+
+	cc.writeTimeout = 50 * time.Millisecond
+
+	// Open a sub-connection. newClientSubConn writes the initial meta frame.
+	streamCh := make(chan host.P2PStream, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		s, err := cc.newClientSubConn(t.Context(), "client-peer", host.StreamInfo{
+			RemotePeerID:      "server-peer",
+			RemotePeerAddress: "pipe",
+			ContextID:         "c1",
+			SessionID:         "s1",
+		})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		streamCh <- s
+	}()
+
+	// Peer reads the meta frame to complete sub-connection establishment.
+	var meta MultiplexedMessage
+	require.NoError(t, peer.ReadJSON(&meta))
+
+	var s host.P2PStream
+	select {
+	case s = <-streamCh:
+	case err := <-errCh:
+		t.Fatalf("newClientSubConn failed: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for newClientSubConn")
+	}
+
+	cc.mu.RLock()
+	require.Len(t, cc.subConns, 1, "sub-connection should be registered")
+	cc.mu.RUnlock()
+
+	// Peer now stops reading.
+	// Client attempts to write a message on the stream.
+	writeErrCh := make(chan error, 1)
+	go func() {
+		err := sendMsg(s, []byte("payload"))
+		writeErrCh <- err
+	}()
+
+	// The write should fail due to the write deadline expiring.
+	select {
+	case err := <-writeErrCh:
+		require.Error(t, err, "write on unresponsive pipe should fail")
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for write to fail")
+	}
+
+	// Verify client connection was killed.
+	require.Eventually(t, func() bool {
+		return cc.closed.Load()
+	}, 2*time.Second, 10*time.Millisecond, "client connection was not killed after write timeout")
+
+	// Verify all sub-connections were cleared.
+	cc.mu.RLock()
+	assert.Empty(t, cc.subConns, "client subConns map should be empty after connection is killed")
+	cc.mu.RUnlock()
+
+	// Verify onClose callback was invoked (which evicts connection from provider cache).
+	select {
+	case <-closedCalled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("onClose callback was not invoked")
+	}
+
+	// Verify reading from stream returns error.
+	buf := make([]byte, 10)
+	_, err := s.Read(buf)
+	require.Error(t, err, "reading from shut-down client stream should return an error")
 }
 
 // TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer checks that an unresponsive peer
