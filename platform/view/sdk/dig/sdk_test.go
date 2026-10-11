@@ -167,7 +167,7 @@ func TestSDK_Install_RegistrationError(t *testing.T) {
 	require.ErrorContains(t, err, "failed registering type")
 }
 
-func TestSDK_Start_RemovedKeys(t *testing.T) {
+func TestSDK_Install_RemovedKeys(t *testing.T) {
 	t.Parallel()
 
 	c := NewContainer()
@@ -183,8 +183,26 @@ fsc:
 	baseSDK := dig2.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(baseSDK, registry)
 
-	err := s.Start(t.Context())
+	err := s.Install()
 	require.ErrorContains(t, err, "configuration key [fsc.metrics.prometheus.tls] has been removed")
+	require.NotContains(t, err.Error(), "could not build arguments")
+}
+
+// The check runs before registration builds the operations options, so the error is the
+// check's own rather than wrapped in the dependency-injection chain.
+func TestSDK_Install_UnverifiableOperationsClientAuth(t *testing.T) {
+	t.Parallel()
+
+	c := NewContainer()
+	registry := view.NewServiceProvider()
+	cfg := providerFrom(t, "fsc:\n  web:\n    enabled: true\n  metrics:\n    clientAuthRequired: true\n")
+	require.NoError(t, registry.RegisterService(cfg))
+
+	s := NewSDKFrom(dig2.NewBaseSDK(c, cfg), registry)
+
+	err := s.Install()
+	require.ErrorContains(t, err, "fsc.web.tls listener never requests a client certificate")
+	require.NotContains(t, err.Error(), "could not build arguments")
 }
 
 func TestSDK_Start_ParentError(t *testing.T) {

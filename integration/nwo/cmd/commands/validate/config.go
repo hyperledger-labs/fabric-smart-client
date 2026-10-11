@@ -68,7 +68,7 @@ func ValidateConfig(confPath string) (Report, error) {
 	// through exactly the code the node runs at startup. This used to hand-roll the web
 	// half, which is how the two drifted apart.
 	if err := sdk.CheckTLSConfig(configService); err != nil {
-		return report, errors.Wrap(err, "invalid TLS configuration")
+		return report, errors.Wrap(err, "invalid fsc listener configuration")
 	}
 	// Reported per surface, not as one line: a disabled listener was not validated, and a
 	// report that claims otherwise is worse than no report.
@@ -76,6 +76,13 @@ func ValidateConfig(confPath string) (Report, error) {
 		if configService.GetBool(surface + ".enabled") {
 			report.Checks = append(report.Checks, fmt.Sprintf("validated %s server configuration", surface))
 		}
+	}
+	warning, err := sdk.OperationsClientAuthWarning(configService)
+	if err != nil {
+		return report, errors.Wrap(err, "invalid fsc.metrics configuration")
+	}
+	if warning != "" {
+		report.Checks = append(report.Checks, "warning: "+warning)
 	}
 
 	if configService.IsSet("fsc.tracing") {
