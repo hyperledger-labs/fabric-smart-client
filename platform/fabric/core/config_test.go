@@ -169,6 +169,31 @@ fabric:
 	assert.Equal(t, "generic", fsnConfig.Driver)
 }
 
+// TestAddNetwork_RejectsCaseCollidingNetworks checks that network names differing only in case
+// are rejected before any validator runs, so a validator never approves one variant while the
+// other is merged.
+func TestAddNetwork_RejectsCaseCollidingNetworks(t *testing.T) {
+	t.Parallel()
+	p := newTestProvider(t, baseYAML)
+	cfg, err := NewConfig(p)
+	require.NoError(t, err)
+
+	validator := NetworkConfigValidatorFunc(func(string, ConfigProvider) error {
+		t.Error("validator must not run for a payload with colliding keys")
+		return nil
+	})
+	err = cfg.AddNetwork([]byte(`
+fabric:
+  Network1:
+    driver: driver-from-Network1
+  network1:
+    driver: driver-from-network1
+`), validator)
+	require.ErrorContains(t, err, "configuration keys [fabric.Network1] and [fabric.network1] collide after lowercasing")
+	assert.ElementsMatch(t, []string{"default"}, cfg.Names())
+	assert.False(t, p.IsSet("fabric.network1"))
+}
+
 func TestAddNetwork_RejectsExistingNetwork(t *testing.T) {
 	t.Parallel()
 	p := newTestProvider(t, baseYAML)
