@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package services
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 
@@ -181,7 +182,10 @@ func (c *GRPCClientFactory) NewOrdererClient(cc grpc.ConnectionConfig) (OrdererC
 func (c *GRPCClientFactory) newClient(cc grpc.ConnectionConfig) (*GRPCClient, error) {
 	logger.Debugf("Creating new peer GRPCClient for address [%s]", cc.Address)
 
-	timeout := c.ConfigService.ClientConnTimeout()
+	// An entry's connectionTimeout overrides the network keepalive value. Zero means
+	// the entry set none, so the network timeout applies. A non-positive result
+	// still falls back to the package default.
+	timeout := cmp.Or(cc.ConnectionTimeout, c.ConfigService.ClientConnTimeout())
 	if timeout <= 0 {
 		timeout = grpc.DefaultConnectionTimeout
 	}
