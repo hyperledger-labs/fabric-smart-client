@@ -275,6 +275,7 @@ func TestStreamCallView_TimeoutCancelsViewExecution(t *testing.T) {
 	}
 	elapsed := time.Since(start)
 
+	require.NoError(t, ws.SetReadDeadline(time.Now().Add(5*time.Second)))
 	_, _, err = ws.ReadMessage()
 	require.NoError(t, err)
 
@@ -328,6 +329,7 @@ func TestStreamCallView_NoTimeoutRunsFullDuration(t *testing.T) {
 	}
 	elapsed := time.Since(start)
 
+	require.NoError(t, ws.SetReadDeadline(time.Now().Add(5*time.Second)))
 	_, _, err = ws.ReadMessage()
 	require.NoError(t, err)
 
