@@ -16,11 +16,13 @@ import (
 	"strings"
 	"testing"
 	"testing/iotest"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/mock"
 )
@@ -299,10 +301,123 @@ func TestWSStreamRoundTrip(t *testing.T) {
 	var out server.Output
 	require.NoError(t, conn.ReadJSON(&out))
 	assert.Equal(t, server.Output{Raw: []byte("hi")}, out)
+	_, _, err = conn.ReadMessage()
+	assert.True(t, websocket.IsCloseError(err, websocket.CloseNormalClosure), "got %v", err)
 
 	r := <-done
 	require.NoError(t, r.err)
 	require.NoError(t, r.closeErr)
+}
+
+// Input the server never read must not turn its close into a TCP reset, which would discard
+// output still in flight.
+func TestWSStreamCloseDrainsUnreadInput(t *testing.T) {
+	t.Parallel()
+
+	done := make(chan error, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		stream, err := server.NewWSStream(w, r)
+		if err != nil {
+			done <- err
+			return
+		}
+		_, err = stream.ReadInput()
+		if err == nil {
+			err = stream.WriteResult([]byte("hi"))
+		}
+		done <- errors.Join(err, stream.Close())
+	}))
+	defer srv.Close()
+
+	conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = conn.Close() }()
+
+	require.NoError(t, conn.WriteMessage(websocket.TextMessage, []byte(`{"Raw":"aGk="}`)))
+	// Larger than the server's read buffer, so it stays queued in the kernel.
+	require.NoError(t, conn.WriteMessage(websocket.TextMessage, make([]byte, 64*1024)))
+	var out server.Output
+	require.NoError(t, conn.ReadJSON(&out))
+	_, _, err = conn.ReadMessage()
+	require.True(t, websocket.IsCloseError(err, websocket.CloseNormalClosure), "got %v", err)
+
+	// FIN, not RST.
+	_, err = conn.NetConn().Read(make([]byte, 1))
+	require.ErrorIs(t, err, io.EOF)
+	require.NoError(t, <-done)
+}
+
+// A client that keeps the stream open after reading the result never answers the close frame,
+// so Close must give up on the drain quickly.
+func TestWSStreamCloseBoundsDrain(t *testing.T) {
+	t.Parallel()
+
+	done := make(chan time.Duration, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		stream, err := server.NewWSStream(w, r)
+		if !assert.NoError(t, err) {
+			return
+		}
+		raw, err := stream.ReadInput()
+		assert.NoError(t, err)
+		assert.NoError(t, stream.WriteResult(raw))
+		start := time.Now()
+		assert.NoError(t, stream.Close())
+		done <- time.Since(start)
+	}))
+	defer srv.Close()
+
+	c, err := client.NewWSStream("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	require.NoError(t, err)
+	defer func() { _ = c.Close() }()
+	require.NoError(t, c.SendInput([]byte("hi")))
+	res, err := c.Result()
+	require.NoError(t, err)
+	assert.Equal(t, []byte("hi"), res)
+	assert.Less(t, <-done, 500*time.Millisecond)
+}
+
+func TestWSStreamCloseWithError(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, cause, reason string
+	}{
+		{name: "short", cause: "view failed", reason: "view failed"},
+		// 200 bytes of 2-byte runes: cut to 122 bytes, the last rune boundary within 123.
+		{name: "truncated on rune boundary", cause: strings.Repeat("é", 100), reason: strings.Repeat("é", 61)},
+		// A view id from the request path can carry bytes that are not UTF-8; they are dropped.
+		{name: "invalid utf8", cause: "failed instantiating view [\xff\xfe]: boom", reason: "failed instantiating view []: boom"},
+		{name: "invalid utf8 truncated", cause: "view [v\xff" + strings.Repeat("a", 200), reason: "view [v" + strings.Repeat("a", 116)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			done := make(chan error, 1)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				stream, err := server.NewWSStream(w, r)
+				if err != nil {
+					done <- err
+					return
+				}
+				done <- stream.CloseWithError(errors.New(tc.cause))
+			}))
+			defer srv.Close()
+
+			conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+			defer func() { _ = conn.Close() }()
+
+			_, _, err = conn.ReadMessage()
+			var closeErr *websocket.CloseError
+			require.ErrorAs(t, err, &closeErr)
+			assert.Equal(t, websocket.CloseInternalServerErr, closeErr.Code)
+			assert.Equal(t, tc.reason, closeErr.Text)
+			require.NoError(t, <-done)
+		})
+	}
 }
 
 func TestWSStreamReadReportsClosedConnection(t *testing.T) {
