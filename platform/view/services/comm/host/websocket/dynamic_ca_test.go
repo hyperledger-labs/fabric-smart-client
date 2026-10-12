@@ -215,3 +215,71 @@ func mustLoadKeyPair(certFile, keyFile string) tls.Certificate {
 	}
 	return cert
 }
+
+// syncExtraCAs is an ExtraCAPoolProvider whose anchors can change while hosts use it.
+type syncExtraCAs struct {
+	mu  sync.Mutex
+	cas [][]byte
+}
+
+func (s *syncExtraCAs) ExtraCAs() [][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cas
+}
+
+func (s *syncExtraCAs) set(cas ...[]byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cas = cas
+}
+
+// An outbound dial trusts a peer whose anchor the provider learns after the host started,
+// even when the provider also holds entries that are not certificates.
+func TestDynamicCAOutbound(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	newNode := func(name string) (cfg websocket.Config, certPEM []byte) {
+		certPEM, keyPEM, err := websocket.GenerateTestCert(name)
+		require.NoError(t, err)
+		certFile, keyFile := filepath.Join(tempDir, name+".crt"), filepath.Join(tempDir, name+".key")
+		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+		cfg, err = websocket.NewConfigFromProperties("127.0.0.1:0", keyFile, certFile, nil, nil, true, 100, nil)
+		require.NoError(t, err)
+		return cfg, certPEM
+	}
+	newStreamProvider := func() websocket.StreamProvider {
+		return ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	}
+
+	aliceCfg, aliceCert := newNode("alice")
+	bobCfg, bobCert := newNode("bob")
+
+	// Bob knows Alice from the start, so only Alice's outbound trust is under test.
+	bob, err := websocket.NewHost("bob", nil, newStreamProvider(), bobCfg, &syncExtraCAs{cas: [][]byte{aliceCert}})
+	require.NoError(t, err)
+	require.NoError(t, bob.Start(func(stream host.P2PStream) { _ = stream.Close() }))
+	t.Cleanup(func() { _ = bob.Close() })
+
+	aliceCAs := &syncExtraCAs{}
+	router := routing.StaticIDRouter{"bob": {bob.Addr()}}
+	alice, err := websocket.NewHost("alice",
+		routing.NewServiceDiscovery(router, routing.AlwaysFirst[host.PeerIPAddress]()),
+		newStreamProvider(), aliceCfg, aliceCAs)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = alice.Close() })
+
+	dial := func() error {
+		s, err := alice.NewStream(t.Context(), host.StreamInfo{RemotePeerID: "bob", ContextID: "ctx", SessionID: "s"})
+		if err == nil {
+			_ = s.Close()
+		}
+		return err
+	}
+
+	require.ErrorContains(t, dial(), "certificate signed by unknown authority")
+
+	aliceCAs.set([]byte("alice"), bobCert) // Alice's own non-PEM resolver ID, then Bob
+	require.NoError(t, dial())
+}

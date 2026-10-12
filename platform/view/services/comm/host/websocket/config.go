@@ -52,7 +52,9 @@ type Config interface {
 
 // ExtraCAPoolProvider supplies trust anchors discovered at runtime rather than configured.
 // The websocket host uses it to trust the identity certificates of known peers, so an empty
-// configured CA pool is normal for this surface.
+// configured CA pool is normal for this surface. Entries that are not PEM certificates are
+// ignored. ExtraCAs is called for every inbound handshake and every outbound stream, so it
+// must be safe for concurrent use.
 type ExtraCAPoolProvider interface {
 	ExtraCAs() [][]byte
 }
@@ -216,15 +218,10 @@ func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions
 		return nil, errors.Wrap(err, "failed to load client x509 certificates for p2p TLS")
 	}
 
-	caCertPool, err := withExtraCAs(serverRootCAPool, caPoolProvider)
-	if err != nil {
-		return nil, err
-	}
-
 	tlsConfig := &tls.Config{
 		MinVersion:         tls.VersionTLS13,
 		MaxVersion:         tls.VersionTLS13,
-		RootCAs:            caCertPool,
+		RootCAs:            withExtraCAs(serverRootCAPool, extraCAsOf(caPoolProvider)),
 		InsecureSkipVerify: false,
 		// Unlike Certificates, which crypto/tls only presents when the server's AcceptableCAs
 		// list its issuer, this always presents the identity certificate and leaves the trust
@@ -264,16 +261,11 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 		return nil, errors.Wrap(err, "failed to load server x509 certificates for p2p TLS")
 	}
 
-	caCertPool, err := withExtraCAs(clientRootCAPool, caPoolProvider)
-	if err != nil {
-		return nil, err
-	}
-
 	tlsConfig := &tls.Config{
 		MinVersion:   tls.VersionTLS13,
 		MaxVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{cert},
-		ClientCAs:    caCertPool,
+		ClientCAs:    withExtraCAs(clientRootCAPool, extraCAsOf(caPoolProvider)),
 	}
 
 	if !clientAuthRequired {
@@ -283,10 +275,7 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 	if caPoolProvider != nil {
 		tlsConfig.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
-			pool, err := withExtraCAs(clientRootCAPool, caPoolProvider)
-			if err != nil {
-				return nil, err
-			}
+			pool := withExtraCAs(clientRootCAPool, caPoolProvider.ExtraCAs())
 			if pool == clientRootCAPool {
 				return tlsConfig, nil
 			}
@@ -299,24 +288,32 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	return tlsConfig, nil
 }
 
-// withExtraCAs returns pool extended with the provider's extra CAs. The configured pool is
-// never modified: it is returned as is when there are no extra CAs, and cloned otherwise.
-func withExtraCAs(pool *x509.CertPool, provider ExtraCAPoolProvider) (*x509.CertPool, error) {
+// extraCAsOf returns the extra CAs the provider currently supplies, or nil for a nil provider.
+func extraCAsOf(provider ExtraCAPoolProvider) [][]byte {
 	if provider == nil {
-		return pool, nil
+		return nil
 	}
-	extraCAs := provider.ExtraCAs()
+	return provider.ExtraCAs()
+}
+
+// withExtraCAs returns pool extended with extraCAs. The configured pool is never modified: it
+// is returned as is when there are no extra CAs, and cloned otherwise.
+//
+// Entries that are not PEM certificates are skipped. The extra CAs come from the endpoint
+// service, whose resolver IDs are not all certificates (a node registers itself under its own
+// ID, for example), and one such entry must not withdraw trust from every other peer. Skipping
+// an entry never adds trust.
+func withExtraCAs(pool *x509.CertPool, extraCAs [][]byte) *x509.CertPool {
 	if len(extraCAs) == 0 {
-		return pool, nil
+		return pool
 	}
 	pool = pool.Clone()
 	for _, extraCA := range extraCAs {
-		logger.Debugf("append extra CA [%s]", string(extraCA))
 		if !pool.AppendCertsFromPEM(extraCA) {
-			return nil, errors.Errorf("failed to append extra cert")
+			logger.Debugf("skipping extra CA that is not a PEM certificate")
 		}
 	}
-	return pool, nil
+	return pool
 }
 
 // NewRootCAPoolFromPEM builds a certificate pool from PEM material that has already been

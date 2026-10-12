@@ -37,11 +37,14 @@ type StreamProvider interface {
 }
 
 // NewHost builds a websocket P2P host, resolving its client and server TLS configuration
-// from config. The client configuration is rebuilt for every outbound connection, so peers
-// whose anchors caPoolProvider discovers later can be dialed. It returns an error if either
-// TLS configuration cannot be built (invalid root CAs or an invalid keypair).
+// from config. The client reads caPoolProvider on every outbound stream, and the server on
+// every handshake when mutual TLS is required, so peers whose anchors it discovers later can
+// be dialed and can connect. It returns an error if either TLS configuration cannot be built
+// (invalid root CAs or an invalid keypair).
 func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) (*host, error) {
-	clientConfig, err := config.ClientTLSConfig(caPoolProvider)
+	// The client trusts only the configured root CAs here; it adds the provider's extra CAs per
+	// stream.
+	clientConfig, err := config.ClientTLSConfig(nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build client TLS config")
 	}
@@ -66,9 +69,8 @@ func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvi
 			corsAllowedOrigins: config.CORSAllowedOrigins(),
 		},
 		client: &client{
-			tlsConfig: func() (*tls.Config, error) {
-				return config.ClientTLSConfig(caPoolProvider)
-			},
+			tlsConfig:      clientConfig,
+			caPoolProvider: caPoolProvider,
 			nodeID:         nodeID,
 			streamProvider: streamProvider,
 		},

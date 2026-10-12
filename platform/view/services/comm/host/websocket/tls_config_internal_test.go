@@ -27,7 +27,7 @@ type extraCAs [][]byte
 
 func (e extraCAs) ExtraCAs() [][]byte { return e }
 
-// Both builders apply the same rejection rules to their keypair and extra CAs.
+// Both builders apply the same rules to their keypair and extra CAs.
 func TestTLSConfigBuildersRejectBadMaterial(t *testing.T) {
 	t.Parallel()
 	cert, key, err := GenerateTestCert("node")
@@ -60,8 +60,6 @@ func TestTLSConfigBuildersRejectBadMaterial(t *testing.T) {
 			require.ErrorContains(t, err, "failed to load "+name+" x509 certificates")
 
 			opts := grpc.SecureOptions{Certificate: cert, Key: key, RequireClientCert: true}
-			_, err = build(x509.NewCertPool(), opts, extraCAs{[]byte("not a pem")})
-			require.ErrorContains(t, err, "failed to append extra cert")
 
 			// A valid extra CA lands in a clone; the configured pool is never mutated.
 			base := x509.NewCertPool()
@@ -70,6 +68,13 @@ func TestTLSConfigBuildersRejectBadMaterial(t *testing.T) {
 			require.NotSame(t, base, pool(cfg))
 			require.False(t, base.Equal(pool(cfg)))
 			require.True(t, base.Equal(x509.NewCertPool()))
+			withOther := pool(cfg)
+
+			// An extra CA that is not a PEM certificate is skipped, not fatal, and does not
+			// keep the valid ones out.
+			cfg, err = build(base, opts, extraCAs{[]byte("not a pem"), otherCA})
+			require.NoError(t, err)
+			require.True(t, withOther.Equal(pool(cfg)))
 
 			// Without extra CAs the configured pool is used as is.
 			cfg, err = build(base, opts, extraCAs{})
@@ -137,9 +142,13 @@ func TestServerTLSConfigClientAuth(t *testing.T) {
 		require.False(t, base.Equal(perHandshake.ClientCAs))
 		require.True(t, base.Equal(x509.NewCertPool()), "the configured pool must not be mutated")
 
-		provider = extraCAs{[]byte("not a pem")}
-		_, err = cfg.GetConfigForClient(&tls.ClientHelloInfo{})
-		require.ErrorContains(t, err, "failed to append extra cert")
+		// A resolver ID that is not a certificate does not fail the handshake or drop the
+		// valid extra CAs.
+		withOther := perHandshake.ClientCAs
+		provider = extraCAs{[]byte("not a pem"), otherCA}
+		perHandshake, err = cfg.GetConfigForClient(&tls.ClientHelloInfo{})
+		require.NoError(t, err)
+		require.True(t, withOther.Equal(perHandshake.ClientCAs))
 	})
 }
 
