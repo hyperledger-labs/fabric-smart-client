@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
@@ -21,13 +22,18 @@ type clientStreamProvider interface {
 }
 
 type client struct {
-	tlsConfig      *tls.Config
+	// tlsConfig builds the TLS configuration for one outbound connection, so trust anchors
+	// discovered after startup are honoured. It returns nil when TLS is disabled.
+	tlsConfig      func() (*tls.Config, error)
 	nodeID         host2.PeerID
 	streamProvider clientStreamProvider
 }
 
 func (c *client) OpenStream(info host2.StreamInfo, ctx context.Context) (host2.P2PStream, error) {
-	tlsConfig := c.tlsConfig
+	tlsConfig, err := c.tlsConfig()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build client TLS config")
+	}
 	if tlsConfig != nil {
 		tlsConfig = tlsConfig.Clone()
 		if len(tlsConfig.ServerName) == 0 && len(info.RemotePeerAddress) != 0 {
