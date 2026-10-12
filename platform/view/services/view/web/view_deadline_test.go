@@ -248,11 +248,7 @@ func TestStreamCallView_TimeoutCancelsViewExecution(t *testing.T) {
 	tp := noop.NewTracerProvider()
 	c := newViewClient(vm, ip, tp, WithTimeout(viewTimeout))
 
-	// StreamCallView calls DeleteContext after writing the result, so the client can read
-	// the result first; handlerDone lets the test wait for StreamCallView to return.
-	handlerDone := make(chan struct{})
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer close(handlerDone)
 		_ = c.StreamCallView("fid", w, r)
 	}))
 	t.Cleanup(ts.Close)
@@ -288,12 +284,8 @@ func TestStreamCallView_TimeoutCancelsViewExecution(t *testing.T) {
 		"the view's context should have been cancelled by the configured timeout")
 	assert.False(t, bvc.hasRanFullDur(),
 		"the view should not have run for its full blocking duration")
-	select {
-	case <-handlerDone:
-	case <-time.After(5 * time.Second):
-		t.Fatal("StreamCallView never returned")
-	}
-	assert.Equal(t, "ctx-id", vm.getDeletedCtxID(),
+	// StreamCallView deletes the context after writing the result, so the client can read it first.
+	assert.Eventually(t, func() bool { return vm.getDeletedCtxID() == "ctx-id" }, 5*time.Second, 10*time.Millisecond,
 		"DeleteContext should be called on the view manager after StreamCallView returns")
 }
 
@@ -309,11 +301,7 @@ func TestStreamCallView_NoTimeoutRunsFullDuration(t *testing.T) {
 	tp := noop.NewTracerProvider()
 	c := newViewClient(vm, ip, tp)
 
-	// StreamCallView calls DeleteContext after writing the result, so the client can read
-	// the result first; handlerDone lets the test wait for StreamCallView to return.
-	handlerDone := make(chan struct{})
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer close(handlerDone)
 		_ = c.StreamCallView("fid", w, r)
 	}))
 	t.Cleanup(ts.Close)
@@ -349,12 +337,8 @@ func TestStreamCallView_NoTimeoutRunsFullDuration(t *testing.T) {
 		"without timeout, the stream view context should not be cancelled")
 	assert.True(t, bvc.hasRanFullDur(),
 		"without timeout, the stream view should run for its full duration")
-	select {
-	case <-handlerDone:
-	case <-time.After(5 * time.Second):
-		t.Fatal("StreamCallView never returned")
-	}
-	assert.Equal(t, "ctx-id", vm.getDeletedCtxID(),
+	// StreamCallView deletes the context after writing the result, so the client can read it first.
+	assert.Eventually(t, func() bool { return vm.getDeletedCtxID() == "ctx-id" }, 5*time.Second, 10*time.Millisecond,
 		"DeleteContext should be called on the view manager after StreamCallView returns")
 }
 
