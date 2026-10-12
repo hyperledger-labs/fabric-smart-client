@@ -212,9 +212,9 @@ func TestAddNetwork_RejectsKeysOutsideNetworks(t *testing.T) {
 			wantErr: "key [fabric.default.driver] is not a fabric network section",
 		},
 		{
-			name:    "fabric.enabled",
+			name:    "fabric.enabled changed",
 			payload: "fabric:\n  enabled: false\n  newnet:\n    driver: generic\n",
-			wantErr: "key [fabric.enabled] is not a fabric network section",
+			wantErr: "key [fabric.enabled] cannot change from [true]",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -234,6 +234,16 @@ func TestAddNetwork_RejectsKeysOutsideNetworks(t *testing.T) {
 			assert.True(t, p.GetBool("fabric.enabled"))
 		})
 	}
+}
+
+func TestAddNetwork_AcceptsUnchangedEnabled(t *testing.T) {
+	t.Parallel()
+	p := newTestProvider(t, baseYAML)
+	cfg, err := NewConfig(p)
+	require.NoError(t, err)
+
+	require.NoError(t, cfg.AddNetwork([]byte("fabric:\n  enabled: true\n  newnet:\n    driver: generic\n")))
+	assert.ElementsMatch(t, []string{"default", "newnet"}, cfg.Names())
 }
 
 func TestNewConfig_RejectsNestedNetworks(t *testing.T) {
