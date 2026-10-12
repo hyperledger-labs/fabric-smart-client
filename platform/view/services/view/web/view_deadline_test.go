@@ -248,8 +248,9 @@ func TestStreamCallView_TimeoutCancelsViewExecution(t *testing.T) {
 	tp := noop.NewTracerProvider()
 	c := newViewClient(vm, ip, tp, WithTimeout(viewTimeout))
 
+	handlerErr := make(chan error, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = c.StreamCallView("fid", w, r)
+		handlerErr <- c.StreamCallView("fid", w, r)
 	}))
 	t.Cleanup(ts.Close)
 
@@ -288,6 +289,7 @@ func TestStreamCallView_TimeoutCancelsViewExecution(t *testing.T) {
 	// StreamCallView deletes the context after writing the result, so the client can read it first.
 	assert.Eventually(t, func() bool { return vm.getDeletedCtxID() == "ctx-id" }, 5*time.Second, 10*time.Millisecond,
 		"DeleteContext should be called on the view manager after StreamCallView returns")
+	require.NoError(t, <-handlerErr)
 }
 
 func TestStreamCallView_NoTimeoutRunsFullDuration(t *testing.T) {
@@ -302,8 +304,9 @@ func TestStreamCallView_NoTimeoutRunsFullDuration(t *testing.T) {
 	tp := noop.NewTracerProvider()
 	c := newViewClient(vm, ip, tp)
 
+	handlerErr := make(chan error, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = c.StreamCallView("fid", w, r)
+		handlerErr <- c.StreamCallView("fid", w, r)
 	}))
 	t.Cleanup(ts.Close)
 
@@ -342,6 +345,7 @@ func TestStreamCallView_NoTimeoutRunsFullDuration(t *testing.T) {
 	// StreamCallView deletes the context after writing the result, so the client can read it first.
 	assert.Eventually(t, func() bool { return vm.getDeletedCtxID() == "ctx-id" }, 5*time.Second, 10*time.Millisecond,
 		"DeleteContext should be called on the view manager after StreamCallView returns")
+	require.NoError(t, <-handlerErr)
 }
 
 func TestInstallViewHandler_WithOptions(t *testing.T) {
