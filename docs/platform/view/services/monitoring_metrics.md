@@ -39,7 +39,7 @@ fsc:
     provider: prometheus
 ```
 
-The exporter is exposed through the FSC web server on `/metrics`. When the metrics provider is disabled, FSC still instantiates the metric objects, but they are backed by a no-op provider and no data is exported.
+The exporter is exposed on `/metrics`, served on `fsc.metrics.address` when set and on the FSC web server otherwise. It requires a verified client certificate unless `fsc.metrics.clientAuthRequired` is `false` (see the [configuration reference](../../../configuration.md)). When the metrics provider is disabled, FSC still instantiates the metric objects, but they are backed by a no-op provider and no data is exported.
 
 ### Metric Families vs. Time Series
 
@@ -88,7 +88,7 @@ When validating the catalog from an FSC node's `/metrics` endpoint, those two ca
 
 ### Operator Summary
 
-For node-level monitoring, the quickest way to interpret the FSC metrics surface is:
+For node-level monitoring, the quickest way to interpret the FSC metrics surface is below. Unless `fsc.metrics.clientAuthRequired` is `false`, the scraper must present a client certificate.
 
 - if the node is up and metrics are enabled, expect `fsc_view_services_metrics_operations_fsc_version` on `/metrics`
 - if the node is serving views, expect `fsc_view_services_view_contexts`, `fsc_view_services_view_calls_*`, and one or both of `fsc_view_services_view_grpc_server_requests_*` and `fsc_view_services_view_web_view_client_*`, depending on whether callers use gRPC, the web endpoint, or both

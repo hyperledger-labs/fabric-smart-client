@@ -22,6 +22,14 @@ import (
 // resolution path under test is the real one: lowercased keys, TranslatePath, file reads.
 func providerFrom(t *testing.T, body string) *config.Provider {
 	t.Helper()
+	p, _ := providerWithCA(t, body)
+	return p
+}
+
+// providerWithCA is providerFrom that also returns the CA, so a test can mint client
+// certificates the listener's clientRootCAs (ca.crt) verify.
+func providerWithCA(t *testing.T, body string) (*config.Provider, tlsgen.CA) {
+	t.Helper()
 	dir := t.TempDir()
 
 	ca, err := tlsgen.NewCA()
@@ -35,7 +43,7 @@ func providerFrom(t *testing.T, body string) *config.Provider {
 
 	p, err := config.NewProvider(dir)
 	require.NoError(t, err)
-	return p
+	return p, ca
 }
 
 // fsc.grpc.tls inherits enabled, cert and key from fsc.tls and overrides only the mTLS
