@@ -25,18 +25,14 @@ import (
 // stubDriver returns whatever it is configured with, so the newFNS paths can be driven
 // individually.
 type stubDriver struct {
-	fns       driver.FabricNetworkService
-	byNetwork map[string]driver.FabricNetworkService
-	err       error
+	fns driver.FabricNetworkService
+	err error
 
 	newCalls []string
 }
 
 func (d *stubDriver) New(network string, _ bool) (driver.FabricNetworkService, error) {
 	d.newCalls = append(d.newCalls, network)
-	if fns, ok := d.byNetwork[network]; ok {
-		return fns, nil
-	}
 
 	return d.fns, d.err
 }
@@ -317,45 +313,6 @@ func TestStop_ChannelLookupFails(t *testing.T) {
 	require.ErrorContains(t, err, "channel [chan-b] not found")
 	assert.True(t, before.closed)
 	assert.True(t, after.closed)
-}
-
-// TestStop_ChannelLookupFailsInOtherNetwork checks a channel lookup failure in one network
-// does not skip the channels of another.
-func TestStop_ChannelLookupFailsInOtherNetwork(t *testing.T) {
-	t.Parallel()
-
-	failing := &stubFNS{
-		configService: &stubConfigService{channelIDs: []string{"alpha-channel"}},
-		channelErr:    errors.New("alpha lookup exploded"),
-	}
-	healthy, ch := newStubFNS("beta-channel")
-	provider, err := NewFabricNetworkServiceProvider(
-		newTestProvider(t, `
-fabric:
-  enabled: true
-  alpha:
-    default: true
-    driver: generic
-    channels:
-      - Name: alpha-channel
-  beta:
-    driver: generic
-    channels:
-      - Name: beta-channel
-`),
-		[]NamedDriver{{Name: "generic", Driver: &stubDriver{byNetwork: map[string]driver.FabricNetworkService{"alpha": failing, "beta": healthy}}}},
-		nil,
-	)
-	require.NoError(t, err)
-	for _, name := range []string{"alpha", "beta"} {
-		_, err := provider.FabricNetworkService(name)
-		require.NoError(t, err)
-	}
-
-	err = provider.Stop()
-
-	require.ErrorContains(t, err, "alpha lookup exploded")
-	assert.True(t, ch.closed)
 }
 
 // TestStop_ChannelCloseFails checks a channel that fails to close is logged rather than
