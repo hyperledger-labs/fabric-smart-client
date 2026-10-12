@@ -40,6 +40,8 @@ type otelLogger interface {
 //
 // Span events are the only OTel signal produced here: the traces are the destination, so no
 // log-signal LoggerProvider is involved.
+//
+//nolint:revive // unexported-return: otelLogger is the context half of Logger, kept out of the public API
 func NewOtelLogger(zapLogger *zap.Logger) otelLogger {
 	return ctxFieldLogger{
 		SugaredLogger: zapLogger.Sugar(),
