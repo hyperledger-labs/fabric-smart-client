@@ -9,6 +9,7 @@ package secondcache
 import (
 	"crypto/rand"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -272,4 +273,35 @@ func TestSecondChanceCacheGetOrLoadSizeOne(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, loaded)
 	require.Equal(t, "v1", v)
+}
+
+// Once the typed cache is full, every Add runs a victim scan. Each entry in the
+// table must occupy exactly one slot: an entry without a slot is never reached
+// by the scan and so is never evicted, and an item in several slots is evicted
+// once per slot.
+func TestSecondChanceCacheVictimScanKeepsEntriesEvictable(t *testing.T) {
+	t.Parallel()
+
+	const size = 6
+	cache := NewTyped[int](size)
+	for i := range 100 {
+		cache.Add(strconv.Itoa(i), i)
+
+		slots := map[*cacheItem[int]]int{}
+		for _, item := range cache.items {
+			if item != nil {
+				slots[item]++
+			}
+		}
+		require.Lenf(t, slots, len(cache.table), "after adding %d: slots and table disagree", i)
+		for key, item := range cache.table {
+			require.Equalf(t, 1, slots[item], "after adding %d: entry %q occupies %d slots", i, key, slots[item])
+		}
+	}
+
+	// No entry was read, so after this much churn none of the first ones survives.
+	for i := range size {
+		_, ok := cache.Get(strconv.Itoa(i))
+		require.Falsef(t, ok, "entry %d was never evicted", i)
+	}
 }

@@ -61,7 +61,12 @@ func TestSecondChanceHoldsSizeUnderChurn(t *testing.T) {
 
 	for i := range 200 {
 		c.Put(i, i)
-		assert.LessOrEqual(t, c.Len(), size, "cache exceeded its size bound at insertion %d", i)
+		// Reading every entry makes scans spend second chances and wrap around
+		// the ring, passing slots they already freed. A scan must skip those: a
+		// slot freed twice is handed to two keys, one of which then occupies no
+		// slot and is never evicted.
+		c.Get(i)
+		require.LessOrEqual(t, c.Len(), size, "cache exceeded its size bound at insertion %d", i)
 	}
 }
 
@@ -157,8 +162,26 @@ func TestSecondChanceConcurrent(t *testing.T) {
 				}
 				c.Get("shared")
 				c.Put("shared", "shared")
+				if j%100 == 0 {
+					_ = c.String()
+				}
 			}
 		}()
 	}
 	wg.Wait()
+}
+
+// Get on a warm cache, where every call is a hit and so runs Touch.
+func BenchmarkSecondChanceParallelGet(b *testing.B) {
+	const size = 1024
+	c := NewSecondChanceCache[int, int](size, 1, nil)
+	for i := range size {
+		c.Put(i, i)
+	}
+
+	b.RunParallel(func(pb *testing.PB) {
+		for i := 0; pb.Next(); i++ {
+			c.Get(i % size)
+		}
+	})
 }

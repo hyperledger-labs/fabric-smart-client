@@ -15,7 +15,7 @@ func evict[K comparable, V any](keys []K, m map[K]V, onEvict func(map[K]V)) {
 			evicted[k] = v
 			delete(m, k)
 		} else {
-			logger.Debugf("No need to evict [%k]. Was already deleted.")
+			logger.Debugf("No need to evict [%v]. Was already deleted.", k)
 		}
 	}
 	if onEvict != nil {
@@ -30,15 +30,20 @@ type evictionCache[K comparable, V any] struct {
 }
 
 func (c *evictionCache[K, V]) String() string {
+	c.l.RLock()
+	defer c.l.RUnlock()
 	return fmt.Sprintf("Content: [%v], Eviction policy: [%v]", c.m, c.evictionPolicy)
 }
 
+// EvictionPolicy decides which keys an evictionCache evicts. The cache calls
+// Push under its write lock, and calls Touch and formats the policy (String)
+// under its read lock, so Push never runs concurrently with either or itself.
 type EvictionPolicy[K comparable] interface {
 	// Push adds a key and must be invoked under write-lock
 	Push(K)
 	// Touch marks an existing key as recently used. It is invoked from Get,
 	// which holds only a read lock, so unlike Push it may run concurrently
-	// with itself and must do its own locking. Policies whose eviction order
+	// with itself and must be safe for that. Policies whose eviction order
 	// does not depend on reads implement it as a no-op.
 	Touch(K)
 }
