@@ -51,12 +51,17 @@ func (f *stubFNS) Channel(name string) (driver.Channel, error) {
 	if f.channelErr != nil {
 		return nil, f.channelErr
 	}
-	ch, ok := f.channels[name]
-	if !ok {
-		return nil, errors.Errorf("channel [%s] not found", name)
+
+	return f.channels[name], nil
+}
+
+func (f *stubFNS) Close() error {
+	var errs []error
+	for _, ch := range f.channels {
+		errs = append(errs, ch.Close())
 	}
 
-	return ch, nil
+	return errors.Join(errs...)
 }
 
 type stubConfigService struct {
@@ -293,30 +298,7 @@ func TestStop(t *testing.T) {
 	assert.True(t, ch.closed)
 }
 
-// TestStop_ChannelLookupFails checks a channel that cannot be looked up is reported without
-// skipping the channels after it.
-func TestStop_ChannelLookupFails(t *testing.T) {
-	t.Parallel()
-
-	before := &stubChannel{}
-	after := &stubChannel{}
-	fns := &stubFNS{
-		configService: &stubConfigService{channelIDs: []string{"chan-a", "chan-b", "chan-c"}},
-		channels:      map[string]driver.Channel{"chan-a": before, "chan-c": after},
-	}
-	provider := newProviderWithDriver(t, &stubDriver{fns: fns})
-	_, err := provider.FabricNetworkService("")
-	require.NoError(t, err)
-
-	err = provider.Stop()
-
-	require.ErrorContains(t, err, "channel [chan-b] not found")
-	assert.True(t, before.closed)
-	assert.True(t, after.closed)
-}
-
-// TestStop_ChannelCloseFails checks a channel that fails to close is logged rather than
-// aborting the rest of the shutdown.
+// TestStop_ChannelCloseFails checks a channel that fails to close is reported by Stop.
 func TestStop_ChannelCloseFails(t *testing.T) {
 	t.Parallel()
 
@@ -325,8 +307,7 @@ func TestStop_ChannelCloseFails(t *testing.T) {
 	provider := newProviderWithDriver(t, &stubDriver{fns: fns})
 	require.NoError(t, provider.Start(t.Context()))
 
-	require.NoError(t, provider.Stop())
-
+	require.ErrorContains(t, provider.Stop(), "close exploded")
 	assert.True(t, ch.closed)
 }
 
