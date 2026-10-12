@@ -116,12 +116,3 @@ type ConfigService interface {
 	NetworkClientTLS() grpc.SecureOptions
 	NewDefaultChannelConfig(name string) ChannelConfig
 }
-
-type MSP interface {
-	ID() string
-	MSPType() string
-	MSPID() string
-	Path() string
-	CacheSize() int
-	Opts() map[string]any
-}
