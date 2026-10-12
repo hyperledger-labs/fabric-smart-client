@@ -249,6 +249,22 @@ func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) erro
 
 // NewResponderContext returns a context to be used to respond to an incoming message on the given session.
 // It returns the context, a boolean indicating if it's new, and an error.
+//
+// contextID and the session ID are chosen by the remote peer; a session is identified by its ID
+// and remote PKID. If no context with that ID exists, a new responder context is created and
+// returned with isNew true. If a responder context with that ID exists and its current session
+// (of the responder that created it, or that attached last) is another session, session attaches:
+// it is registered in the context, so that Dispose deletes it, and a child context with session
+// as its default session replaces the context in the manager. Any participant that knows the
+// context ID can attach. An attached context is returned with isNew false, so the caller does not
+// delete it; the context and every attached session are disposed when the context is deleted,
+// normally when the responder that created it returns.
+//
+// It returns ErrInvalidSessionID for an empty session ID, and ErrNotResponderContext if the
+// context with that ID is an initiator context (it has no default session), so that an incoming
+// session cannot join a protocol this node initiated.
+//
+// On error, no context holds session and the caller must delete it.
 func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error) {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
@@ -258,35 +274,38 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 	}
 
 	info := session.Info()
-	caller := info.Caller
+	if len(info.ID) == 0 {
+		return nil, false, errors.Wrapf(ErrInvalidSessionID, "incoming session for context [%s]", contextID)
+	}
 
-	// check if a viewContext already exists for the given contextID.
-	// A session is identified by its ID and remote PKID: the same ID from another party
-	// is a different session and must be registered, so that the context replies on it
-	// and Dispose deletes it.
-	viewContext, ok := cm.contexts[contextID]
-	if ok && viewContext.Session() != nil && !sameSession(viewContext.Session().Info(), info) {
-		// next we need to unwrap the actual context to store the session
+	if viewContext, ok := cm.contexts[contextID]; ok {
+		current := viewContext.Session()
+		if current == nil {
+			return nil, false, errors.Wrapf(ErrNotResponderContext, "context [%s]", contextID)
+		}
+		// A session is identified by its ID and remote PKID: the same ID from another party
+		// is a different session and must be registered, so that the context replies on it
+		// and Dispose deletes it.
+		if sameSession(current.Info(), info) {
+			logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", me, contextID) //nolint:contextcheck // deliberately logging against the reused, longer-lived viewContext being returned, not this call's transient ctx
+			return viewContext, false, nil
+		}
+
 		vCtx, ok := viewContext.(ParentContext)
 		if !ok {
-			panic("Not a ParentContext!")
+			return nil, false, errors.Wrapf(ErrContextConversionFailed, "context [%s] is not a ParentContext", contextID)
 		}
-
-		// TODO: replace this with `vCtx.PutSession`, however, that method requires a view as input but we only have the viewID
-		if err := vCtx.PutSessionByID(string(caller), remote, session); err != nil {
-			return nil, false, errors.Wrapf(err, "failed registering session for [%s]", caller)
+		// The key matches sameSession, so distinct sessions never share an entry. The default
+		// session and the sessions of views are keyed by identity, not PKID, so a peer-chosen
+		// session ID cannot select their entries.
+		if err := vCtx.PutSessionByID(info.ID, info.RemotePKID, session); err != nil {
+			return nil, false, errors.Wrapf(err, "failed registering session for [%s]", info.Caller)
 		}
-
-		// we wrap our context and set our new session as the default session
 		c := NewChildContextFromParentAndSession(vCtx, session)
 		cm.contexts[contextID] = c
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 
 		return c, false, nil
-	}
-	if ok {
-		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", me, contextID) //nolint:contextcheck // deliberately logging against the reused, longer-lived viewContext being returned, not this call's transient ctx
-		return viewContext, false, nil
 	}
 
 	// next we continue with creating a new context
