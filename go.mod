@@ -18,6 +18,7 @@ require (
 	github.com/hyperledger/fabric-x-common v0.2.8
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jackc/pgxlisten v0.0.0-20250802141604-12b92425684c
+	github.com/knadh/koanf/maps v0.1.2
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/env/v2 v2.0.2
 	github.com/knadh/koanf/providers/file v1.2.1
@@ -85,7 +86,6 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
-	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

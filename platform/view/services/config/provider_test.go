@@ -255,6 +255,42 @@ func TestConfigFileWithCollidingKeys(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "configuration keys [fsc.Id] and [fsc.id] collide after lowercasing")
 }
 
+func TestEnvCollidingWithDottedKey(t *testing.T) { //nolint:paralleltest
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte("fsc.id: a\n"), 0o600))
+	t.Setenv("CORE_FSC_ID", "b")
+	_, err := NewProvider(dir)
+	require.ErrorContains(t, err, `configuration keys ["fsc.id"] and [fsc.id] collide after flattening`)
+}
+
+func TestMergeConfigRejectsCollisionWithLoadedKeys(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, loaded, merged, wantErr string
+	}{
+		{
+			name:    "dotted merged over nested",
+			loaded:  "fsc:\n  id: a\n",
+			merged:  "fsc.id: b\n",
+			wantErr: `configuration keys ["fsc.id"] and [fsc.id] collide after flattening`,
+		},
+		{
+			name:    "nested merged over dotted",
+			loaded:  "fsc.id: a\n",
+			merged:  "fsc:\n  id: b\n",
+			wantErr: `configuration keys ["fsc.id"] and [fsc.id] collide after flattening`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p, err := (&Provider{}).ProvideFromRaw([]byte(tc.loaded))
+			require.NoError(t, err)
+			require.EqualError(t, p.MergeConfig([]byte(tc.merged)), tc.wantErr)
+			assert.Equal(t, "a", p.GetString("fsc.id"))
+		})
+	}
+}
+
 func TestProviderMore(t *testing.T) { //nolint:paralleltest
 	t.Setenv("CORE_FSC_ID", "node1")
 	p, err := NewProvider("./testdata")
@@ -364,6 +400,11 @@ func TestLowercaseParserRejectsCollidingKeys(t *testing.T) {
 			yaml:    "a:\n  - - Key: 1\n      key: 2\n",
 			wantErr: "configuration keys [a[0][0].Key] and [a[0][0].key] collide after lowercasing",
 		},
+		{
+			name:    "map with a non-string key",
+			yaml:    "o:\n  1: x\n  Name: a\n  name: b\n",
+			wantErr: "configuration keys [o.Name] and [o.name] collide after lowercasing",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -388,27 +429,27 @@ func TestLowercaseParserRejectsFlattenedCollisions(t *testing.T) {
 		{
 			name:    "dotted and nested",
 			yaml:    "fsc.id: a\nfsc:\n  id: b\n",
-			wantErr: "configuration keys [fsc.id] and [fsc.id] collide after flattening",
+			wantErr: `configuration keys ["fsc.id"] and [fsc.id] collide after flattening`,
 		},
 		{
 			name:    "dotted and nested, mixed case",
 			yaml:    "FSC.ID: a\nfsc:\n  id: b\n",
-			wantErr: "configuration keys [FSC.ID] and [fsc.id] collide after flattening",
+			wantErr: `configuration keys ["FSC.ID"] and [fsc.id] collide after flattening`,
 		},
 		{
 			name:    "value and nested keys",
 			yaml:    "a.b: 1\na:\n  b:\n    c: 2\n",
-			wantErr: "configuration keys [a.b] and [a.b.c] collide after flattening",
+			wantErr: `configuration keys ["a.b"] and [a.b.c] collide after flattening`,
 		},
 		{
 			name:    "empty map and dotted key",
 			yaml:    "a.b: 1\na: {}\n",
-			wantErr: "configuration keys [a] and [a.b] collide after flattening",
+			wantErr: `configuration keys [a] and ["a.b"] collide after flattening`,
 		},
 		{
 			name:    "dotted and nested maps",
 			yaml:    "fabric:\n  mynet:\n    driver: generic\nFabric.MyNet:\n  defaultChannel: ch1\n",
-			wantErr: "configuration keys [Fabric.MyNet] and [fabric.mynet] collide after flattening",
+			wantErr: `configuration keys ["Fabric.MyNet"] and [fabric.mynet] collide after flattening`,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

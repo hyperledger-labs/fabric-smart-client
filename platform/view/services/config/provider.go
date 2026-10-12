@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	koanfmaps "github.com/knadh/koanf/maps"
 	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env/v2"
 	koanffile "github.com/knadh/koanf/providers/file"
@@ -192,7 +193,9 @@ func (p *Provider) ConfigFileUsed() string {
 	return p.fullPath
 }
 
-// MergeConfig merges the given raw configuration into the current configuration.
+// MergeConfig merges the given raw configuration into the current configuration. It
+// returns an error, and leaves the configuration unchanged, if a key of the raw configuration
+// and a key already loaded flatten onto the same path, such as `fsc.id` and `fsc: {id: ...}`.
 func (p *Provider) MergeConfig(raw []byte) error {
 	// only one writer at the time
 	p.mergeConfigMutex.Lock()
@@ -201,6 +204,12 @@ func (p *Provider) MergeConfig(raw []byte) error {
 	// Load the raw config into a temporary koanf
 	tmp := koanf.New(".")
 	if err := tmp.Load(koanfbytes.Provider(raw), LowercaseParser{Parser: koanfyaml.Parser()}); err != nil {
+		return err
+	}
+	// The parser checks raw on its own; a dotted key can still collide with a loaded one.
+	merged := p.Backend.Raw()
+	koanfmaps.Merge(tmp.Raw(), merged)
+	if err := checkFlatPaths(merged); err != nil {
 		return err
 	}
 	// Load the merged map into p.Backend
@@ -350,6 +359,10 @@ func (p *Provider) setupEnv() error {
 	}), nil); err != nil {
 		return err
 	}
+	// The environment is loaded on top of the file, so a variable can collide with a dotted key in it.
+	if err := checkFlatPaths(p.Backend.Raw()); err != nil {
+		return errors.WithMessagef(err, "failed applying %s environment variables", EnvCorePrefix)
+	}
 	return nil
 }
 
@@ -458,6 +471,8 @@ func (l LowercaseParser) Unmarshal(b []byte) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A map with any non-string key decodes as map[any]any, which koanf converts later.
+	koanfmaps.IntfaceKeysToStrings(m)
 	out, err := lowercaseMapKeys(m, "")
 	if err != nil {
 		return nil, err
@@ -502,16 +517,21 @@ func checkFlatPaths(m map[string]any) error {
 }
 
 // collectFlatPaths records the flattened path of every value in m, as koanf.Flatten computes it,
-// in written, and of every non-empty map in parents.
+// in written, and of every non-empty map in parents. Paths as written quote dotted keys, so
+// `fsc.id: a` is recorded as `"fsc.id"` and `fsc: {id: b}` as `fsc.id`.
 func collectFlatPaths(m map[string]any, lowerPrefix, prefix string, written, parents map[string][]string) {
 	for key, val := range m {
 		path := lowerPrefix + strings.ToLower(key)
+		asWritten := prefix + key
+		if strings.Contains(key, ".") {
+			asWritten = prefix + strconv.Quote(key)
+		}
 		if nested, ok := val.(map[string]any); ok && len(nested) > 0 {
-			parents[path] = append(parents[path], prefix+key)
-			collectFlatPaths(nested, path+".", prefix+key+".", written, parents)
+			parents[path] = append(parents[path], asWritten)
+			collectFlatPaths(nested, path+".", asWritten+".", written, parents)
 			continue
 		}
-		written[path] = append(written[path], prefix+key)
+		written[path] = append(written[path], asWritten)
 	}
 }
 

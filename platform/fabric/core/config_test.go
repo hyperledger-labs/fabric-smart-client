@@ -194,6 +194,88 @@ fabric:
 	assert.False(t, p.IsSet("fabric.network1"))
 }
 
+// TestAddNetwork_RejectsKeysOutsideNetworks checks that a payload cannot change keys the
+// network checks and validators do not see.
+func TestAddNetwork_RejectsKeysOutsideNetworks(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, payload, wantErr string
+	}{
+		{
+			name:    "other section",
+			payload: "fsc:\n  id: evil\nfabric:\n  newnet:\n    driver: generic\n",
+			wantErr: "key [fsc] is not a fabric network section",
+		},
+		{
+			name:    "dotted key into an existing network",
+			payload: "fabric:\n  newnet:\n    driver: generic\nfabric.default.driver: evil\n",
+			wantErr: "key [fabric.default.driver] is not a fabric network section",
+		},
+		{
+			name:    "fabric.enabled",
+			payload: "fabric:\n  enabled: false\n  newnet:\n    driver: generic\n",
+			wantErr: "key [fabric.enabled] is not a fabric network section",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := newTestProvider(t, "fsc:\n  id: alice\n"+baseYAML)
+			cfg, err := NewConfig(p)
+			require.NoError(t, err)
+
+			validator := NetworkConfigValidatorFunc(func(string, ConfigProvider) error {
+				t.Error("validator must not run for a payload with keys outside its networks")
+				return nil
+			})
+			require.EqualError(t, cfg.AddNetwork([]byte(tc.payload), validator), tc.wantErr)
+			assert.ElementsMatch(t, []string{"default"}, cfg.Names())
+			assert.Equal(t, "alice", p.GetString("fsc.id"))
+			assert.Equal(t, "generic", p.GetString("fabric.default.driver"))
+			assert.True(t, p.GetBool("fabric.enabled"))
+		})
+	}
+}
+
+func TestNewConfig_RejectsNestedNetworks(t *testing.T) {
+	t.Parallel()
+	p := newTestProvider(t, "fabric:\n  net:\n    driver: generic\n  net.tls:\n    driver: generic\n")
+	_, err := NewConfig(p)
+	require.EqualError(t, err, "fabric network [net.tls] is nested under fabric network [net]")
+}
+
+// TestAddNetwork_RejectsNestedNetworks checks that a network whose name extends another one
+// with a dotted suffix cannot add keys to it.
+func TestAddNetwork_RejectsNestedNetworks(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, live, payload, wantErr string
+	}{
+		{
+			name:    "under an existing network",
+			live:    baseYAML,
+			payload: "fabric:\n  default.tls:\n    driver: generic\n",
+			wantErr: "fabric network [default.tls] is nested under fabric network [default]",
+		},
+		{
+			name:    "within the payload",
+			live:    baseYAML,
+			payload: "fabric:\n  net:\n    driver: generic\n  net.tls:\n    driver: generic\n",
+			wantErr: "fabric network [net.tls] is nested under fabric network [net]",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := newTestProvider(t, tc.live)
+			cfg, err := NewConfig(p)
+			require.NoError(t, err)
+
+			require.ErrorContains(t, cfg.AddNetwork([]byte(tc.payload)), tc.wantErr)
+			assert.ElementsMatch(t, []string{"default"}, cfg.Names())
+			assert.False(t, p.IsSet("fabric.default.tls.driver"))
+		})
+	}
+}
+
 func TestAddNetwork_RejectsExistingNetwork(t *testing.T) {
 	t.Parallel()
 	p := newTestProvider(t, baseYAML)
