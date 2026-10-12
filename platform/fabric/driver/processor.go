@@ -12,10 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-type RWSExtractor interface {
-	Extract(tx []byte) (ProcessTransaction, RWSet, error)
-}
-
 type ProcessTransaction interface {
 	Network() string
 	Channel() string

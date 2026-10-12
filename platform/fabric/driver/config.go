@@ -116,25 +116,3 @@ type ConfigService interface {
 	NetworkClientTLS() grpc.SecureOptions
 	NewDefaultChannelConfig(name string) ChannelConfig
 }
-
-type Resolver interface {
-	// Name of the resolver
-	Name() string
-	// Domain is option
-	Domain() string
-	// Identity specifies an MSP Identity
-	Identity() MSP
-	// Addresses where to reach this identity
-	Addresses() map[string]string
-	// Aliases is a list of alias for this resolver
-	Aliases() []string
-}
-
-type MSP interface {
-	ID() string
-	MSPType() string
-	MSPID() string
-	Path() string
-	CacheSize() int
-	Opts() map[string]any
-}
