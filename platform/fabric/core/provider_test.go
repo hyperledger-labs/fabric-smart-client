@@ -55,6 +55,15 @@ func (f *stubFNS) Channel(name string) (driver.Channel, error) {
 	return f.channels[name], nil
 }
 
+func (f *stubFNS) Close() error {
+	var errs []error
+	for _, ch := range f.channels {
+		errs = append(errs, ch.Close())
+	}
+
+	return errors.Join(errs...)
+}
+
 type stubConfigService struct {
 	driver.ConfigService
 
@@ -281,35 +290,36 @@ func TestStop(t *testing.T) {
 	t.Parallel()
 
 	fns, ch := newStubFNS("default-channel")
+	provider := newProviderWithDriver(t, &stubDriver{fns: fns})
+	require.NoError(t, provider.Start(t.Context()))
 
-	require.NoError(t, newProviderWithDriver(t, &stubDriver{fns: fns}).Stop())
+	require.NoError(t, provider.Stop())
 
 	assert.True(t, ch.closed)
 }
 
-// TestStop_ChannelCloseFails checks a channel that fails to close is logged rather than
-// aborting the rest of the shutdown.
+// TestStop_ChannelCloseFails checks a channel that fails to close is reported by Stop.
 func TestStop_ChannelCloseFails(t *testing.T) {
 	t.Parallel()
 
 	fns, ch := newStubFNS("default-channel")
 	ch.closeErr = errors.New("close exploded")
+	provider := newProviderWithDriver(t, &stubDriver{fns: fns})
+	require.NoError(t, provider.Start(t.Context()))
 
-	require.NoError(t, newProviderWithDriver(t, &stubDriver{fns: fns}).Stop())
-
+	require.ErrorContains(t, provider.Stop(), "close exploded")
 	assert.True(t, ch.closed)
 }
 
-// TestStop_NetworkFails checks a network that cannot be instantiated aborts the shutdown.
-func TestStop_NetworkFails(t *testing.T) {
+// TestStop_NetworkNotInstantiated checks Stop does not instantiate a network just to close it.
+func TestStop_NetworkNotInstantiated(t *testing.T) {
 	t.Parallel()
 
 	d := &stubDriver{err: errors.New("driver exploded")}
 
-	err := newProviderWithDriver(t, d).Stop()
+	require.NoError(t, newProviderWithDriver(t, d).Stop())
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "driver exploded")
+	assert.Empty(t, d.newCalls)
 }
 
 // stubServiceProvider returns whatever it is configured with, for the service-lookup paths.

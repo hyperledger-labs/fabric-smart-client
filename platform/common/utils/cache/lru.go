@@ -71,6 +71,10 @@ func (c *lruEviction[K]) Push(key K) {
 	c.keys = c.keys[c.cap-c.size+1:]
 }
 
+// Touch is a no-op: LRU eviction order here is set at insertion, not on read.
+// See the note in evictionCache.Put about values being assumed new.
+func (*lruEviction[K]) Touch(K) {}
+
 func (c *lruEviction[K]) String() string {
 	return fmt.Sprintf("Keys: [%v], KeySet: [%v]", c.keys, collections.Keys(c.keySet))
 }

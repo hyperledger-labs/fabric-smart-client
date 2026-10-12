@@ -124,6 +124,11 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 	return nil
 }
 
+// Timeout is how long NewConnection blocks while dialling.
+func (client *Client) Timeout() time.Duration {
+	return client.timeout
+}
+
 // Certificate returns the tls.Certificate used to make TLS connections
 // when client certificates are required by the server
 func (client *Client) Certificate() tls.Certificate {

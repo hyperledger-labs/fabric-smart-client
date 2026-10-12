@@ -150,16 +150,27 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 	return err
 }
 
+// SetFromBytes populates the transaction from its JSON encoding. When the transaction carries
+// a signed proposal, function and arguments are read from it. SetFromBytes fails if a proposal
+// response endorses a different transaction ID, or if the transaction carries proposal responses
+// without a signed proposal.
 func (t *Transaction) SetFromBytes(raw []byte) error {
 	if err := json.Unmarshal(raw, t); err != nil {
 		return errors.Wrapf(err, "json unmarshal from bytes")
 	}
 
+	if t.TSignedProposal == nil && len(t.TProposalResponses) > 0 {
+		return errors.Errorf("proposal responses without a signed proposal")
+	}
 	if t.TSignedProposal != nil {
-		// TODO: check the current payload is compatible with the content of the signed proposal
 		up, err := transaction.UnpackSignedProposal(t.TSignedProposal)
 		if err != nil {
 			return errors.Wrapf(err, "unpacking proposal")
+		}
+		for _, r := range t.TProposalResponses {
+			if string(r.GetResponse().GetPayload()) != up.TxID() {
+				return errors.Errorf("proposal response does not endorse transaction [%s]", up.TxID())
+			}
 		}
 		t.TTxID = up.TxID()
 		t.TNonce = up.Nonce()
@@ -193,12 +204,16 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 
 // SetFromEnvelopeBytes populates the transaction from a marshaled Fabric endorser
 // transaction envelope (HeaderType_ENDORSER_TRANSACTION). It returns an error for any
-// other header type, including the HeaderType_MESSAGE envelopes produced by Envelope.
+// other header type, including the HeaderType_MESSAGE envelopes produced by Envelope. It fails
+// if the endorsements do not sign the envelope's proposal, so the function and arguments read
+// from the envelope are covered by its endorsements.
 func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
-	// TODO: check the current payload is compatible with the content of the signed proposal
 	upe, _, err := transaction.UnpackEnvelopeFromBytes(raw)
 	if err != nil {
 		return errors.Wrap(err, "unpack envelope from bytes")
+	}
+	if !bytes.Equal(upe.ProposalHash, upe.EndorsedProposalHash) {
+		return errors.Errorf("envelope proposal hash does not match the endorsed proposal hash")
 	}
 
 	t.TTxID = upe.TxID

@@ -321,27 +321,37 @@ fsc:
     # provider can be prometheus, none or disabled
     provider: prometheus
 
-    # Require a verified client certificate on /metrics and /logspec.
+    # Require a verified client certificate on /metrics and /logspec. Defaults to true when
+    # absent, because /logspec changes the node's log spec; set false explicitly to serve the
+    # endpoints without a certificate, e.g. on a network-restricted fsc.metrics.address.
+    # A value that is not a boolean is a startup error. On a listener that never requests a
+    # client certificate (TLS disabled, or no clientRootCAs), an explicit true is a startup
+    # error too; when the key is absent, the node starts and logs a warning, and the
+    # endpoints reject every request.
     #
     # This is NOT transport TLS, and is deliberately separate from any listener's tls block:
     # it can be stricter than the listener. A common shape is a web listener that verifies a
     # client certificate only if one is offered, while scraping metrics requires one.
     # Replaces fsc.metrics.prometheus.tls, which meant this despite its name.
-    clientAuthRequired: false
+    # clientAuthRequired: true
 
     # Serve the operations endpoints (/metrics, /logspec) on a listener of their own.
     #
-    # Without an address they are served on the fsc.web listener and share its TLS, which is
-    # the historical behaviour. With one, they get their own listener and fsc.metrics.tls
-    # applies to it, inheriting from fsc.tls field by field like any other listener — so a
-    # plaintext metrics endpoint behind a TLS web listener becomes expressible.
+    # Without an address they are served on the fsc.web listener and share its TLS. With one,
+    # they get their own listener and fsc.metrics.tls applies to it, inheriting from fsc.tls
+    # field by field like any other listener — so a plaintext metrics endpoint behind a TLS
+    # web listener becomes expressible.
     #
     # fsc.metrics.tls without fsc.metrics.address is a startup error: the shared listener
     # cannot honour it, and the configuration would be claiming transport security it does
     # not have.
+    #
+    # A plaintext listener cannot verify a client certificate, so it also needs
+    # clientAuthRequired: false, replacing the clientAuthRequired line above.
     # address: 0.0.0.0:20003
     # tls:
     #   enabled: false
+    # clientAuthRequired: false
 
     
   # ------------------- FSC Node endpoint resolvers -------------------------
@@ -495,8 +505,9 @@ fabric:
     # Client gRPC settings for every connection to this network's peers and orderers.
     # This section can be omitted.
     keepalive:
-      # ConnectionTimeout: how long to wait when dialling this network's peers and
-      # orderers. Format: Go duration string. Default: 10s.
+      # ConnectionTimeout: how long to wait when dialling a peer or orderer that does
+      # not set its own connectionTimeout. An entry under orderers or peers overrides
+      # this. Format: Go duration string. Default: 10s.
       connectionTimeout: 10s
       # Time: how often the client sends keepalive pings to the server. Zero or omitted
       # disables keepalive; a connection that dies without an error then goes unnoticed
@@ -532,7 +543,8 @@ fabric:
     orderers:
         # address of orderer
       - address: 'orderer0:7050'
-        # connection timeout
+        # Connection timeout for this orderer. Overrides keepalive.connectionTimeout.
+        # Omit or set to 0 to use the network keepalive value.
         connectionTimeout: 10s
         # The largest message in bytes to send to and accept from this endpoint. Omit or
         # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero
@@ -560,7 +572,8 @@ fabric:
     peers:
         # address of peer
       - address: 'peer2:7051'
-        # connection timeout
+        # Connection timeout for this peer. Overrides keepalive.connectionTimeout.
+        # Omit or set to 0 to use the network keepalive value.
         connectionTimeout: 10s
         # The largest message in bytes to send to and accept from this endpoint. Omit or
         # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero

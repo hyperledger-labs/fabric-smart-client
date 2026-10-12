@@ -30,10 +30,6 @@ func NewNamedDriver(config driver.Config, dbProvider postgres2.DbProvider) drive
 	}
 }
 
-func NewDriver(config driver.Config) *Driver {
-	return NewDriverWithDbProvider(config, postgres2.NewDbProvider())
-}
-
 func NewDriverWithDbProvider(config driver.Config, dbProvider postgres2.DbProvider) *Driver {
 	return &Driver{
 		cp:         postgres2.NewConfigProvider(common2.NewConfig(config)),

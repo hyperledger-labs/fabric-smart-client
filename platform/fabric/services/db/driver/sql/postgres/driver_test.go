@@ -88,15 +88,6 @@ func TestNewNamedDriver(t *testing.T) {
 	require.NotNil(t, nd.Driver)
 }
 
-func TestNewDriver(t *testing.T) {
-	t.Parallel()
-
-	d := NewDriver(validConfig())
-	require.NotNil(t, d)
-	require.NotNil(t, d.cp)
-	require.NotNil(t, d.dbProvider)
-}
-
 func TestNewDriverWithDbProvider(t *testing.T) {
 	t.Parallel()
 

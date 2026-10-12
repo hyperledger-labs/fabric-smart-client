@@ -30,10 +30,6 @@ func NewNamedDriver(config driver.Config, dbProvider sqlite2.DbProvider) driver3
 	}
 }
 
-func NewDriver(config driver.Config) *Driver {
-	return NewDriverWithDbProvider(config, sqlite2.NewDbProvider())
-}
-
 func NewDriverWithDbProvider(config driver.Config, dbProvider sqlite2.DbProvider) *Driver {
 	return &Driver{
 		cp:         sqlite2.NewConfigProvider(common2.NewConfig(config)),

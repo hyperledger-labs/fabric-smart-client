@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction_test
 
 import (
+	"crypto/sha256"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
 )
 
 func createValidEnvelope(tb testing.TB) *common.Envelope { //nolint:unparam
@@ -47,7 +49,8 @@ type envelopeMsgs struct {
 
 // buildEnvelopePayload marshals a valid envelope payload. Each layer is marshaled into
 // the byte field of its parent unless mutate already set that field, so a test can
-// replace, empty or drop a single layer.
+// replace, empty or drop a single layer. The response's proposal hash covers the
+// envelope's proposal unless mutate set it.
 func buildEnvelopePayload(tb testing.TB, mutate func(*envelopeMsgs)) []byte {
 	tb.Helper()
 	m := &envelopeMsgs{
@@ -70,16 +73,23 @@ func buildEnvelopePayload(tb testing.TB, mutate func(*envelopeMsgs)) []byte {
 		mutate(m)
 	}
 	fillBytes(tb, &m.cpp.Input, m.cis)
-	fillBytes(tb, &m.prp.Extension, m.ccAction)
 	fillBytes(tb, &m.actionPayload.ChaincodeProposalPayload, m.cpp)
+	fillBytes(tb, &m.payload.Header.ChannelHeader, m.chdr)
+	fillBytes(tb, &m.payload.Header.SignatureHeader, m.shdr)
+	if m.prp.ProposalHash == nil {
+		h := sha256.New()
+		h.Write(m.payload.Header.ChannelHeader)
+		h.Write(m.payload.Header.SignatureHeader)
+		h.Write(m.actionPayload.ChaincodeProposalPayload)
+		m.prp.ProposalHash = h.Sum(nil)
+	}
+	fillBytes(tb, &m.prp.Extension, m.ccAction)
 	if m.actionPayload.Action != nil {
 		fillBytes(tb, &m.actionPayload.Action.ProposalResponsePayload, m.prp)
 	}
 	if len(m.tx.Actions) != 0 {
 		fillBytes(tb, &m.tx.Actions[0].Payload, m.actionPayload)
 	}
-	fillBytes(tb, &m.payload.Header.ChannelHeader, m.chdr)
-	fillBytes(tb, &m.payload.Header.SignatureHeader, m.shdr)
 	fillBytes(tb, &m.payload.Data, m.tx)
 	return mustMarshal(tb, m.payload)
 }
@@ -380,4 +390,43 @@ func TestEnvelope_FromBytesUndecodablePayload(t *testing.T) {
 	e := transaction.NewEnvelope()
 	err := e.FromBytes(mustMarshal(t, &common.Envelope{Payload: []byte("invalid")}))
 	require.ErrorContains(t, err, "failed to unmarshal payload")
+}
+
+// TestTransaction_SetFromEnvelopeBytesRejectsUnendorsedProposal checks that an envelope
+// whose proposal is not the one its endorsements sign is rejected, so the function and
+// arguments read from it cannot be rewritten.
+func TestTransaction_SetFromEnvelopeBytesRejectsUnendorsedProposal(t *testing.T) {
+	t.Parallel()
+
+	upe, _, err := transaction.UnpackEnvelope(createValidEnvelope(t))
+	require.NoError(t, err)
+	endorsed := upe.EndorsedProposalHash
+	require.Equal(t, upe.ProposalHash, endorsed)
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(*envelopeMsgs)
+	}{
+		{name: "rewritten arguments", mutate: func(m *envelopeMsgs) {
+			m.cis.ChaincodeSpec.Input.Args = [][]byte{[]byte("invoke"), []byte("other-arg")}
+			m.prp.ProposalHash = endorsed
+		}},
+		{name: "rewritten tx id", mutate: func(m *envelopeMsgs) {
+			m.chdr.TxId = "other-txid"
+			m.prp.ProposalHash = endorsed
+		}},
+		{name: "wrong proposal hash", mutate: func(m *envelopeMsgs) { m.prp.ProposalHash = []byte("other") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			channelProvider := &mock.ChannelProvider{}
+			channelProvider.ChannelReturns(&mock.Channel{}, nil)
+			tx, err := transaction.NewEndorserTransactionFactory("network", channelProvider, &mock.SignerService{}).
+				NewTransaction(t.Context(), "channel", nil, nil, "", nil)
+			require.NoError(t, err)
+
+			raw := mustMarshal(t, &common.Envelope{Payload: buildEnvelopePayload(t, tc.mutate)})
+			require.ErrorContains(t, tx.SetFromEnvelopeBytes(raw), "envelope proposal hash does not match the endorsed proposal hash")
+		})
+	}
 }
