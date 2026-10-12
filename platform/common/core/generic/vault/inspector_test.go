@@ -114,6 +114,20 @@ func TestInspectorGetReadKeyAt(t *testing.T) {
 	require.ErrorContains(t, err, "no read at position 0 for namespace absent")
 }
 
+func TestInspectorGetReadVersion(t *testing.T) {
+	t.Parallel()
+
+	i := newTestInspector()
+	i.Rws.ReadSet.Add("ns", "k1", []byte("v1"))
+
+	version, err := i.GetReadVersion("ns", "k1")
+	require.NoError(t, err)
+	require.Equal(t, driver.RawVersion("v1"), version)
+
+	_, err = i.GetReadVersion("ns", "k2")
+	require.ErrorContains(t, err, "no read of key k2 for namespace ns")
+}
+
 // TestInspectorGetReadAt covers the out-of-range branch alongside the hit,
 // which the conformance suite does not reach.
 func TestInspectorGetReadAt(t *testing.T) {

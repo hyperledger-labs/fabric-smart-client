@@ -8,6 +8,7 @@ package endorser
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 //go:generate counterfeiter -o mock/binding_store.go -fake-name BindingStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.BindingStore
@@ -163,17 +165,7 @@ func TestTransaction(t *testing.T) {
 	require.Error(t, err)
 	fakeTx.ProposalResponsesReturns([]driver.ProposalResponse{fakePR}, nil)
 
-	// Test HasBeenEndorsedBy
-	fakePR.EndorserReturns([]byte("alice"))
-	require.NoError(t, et.HasBeenEndorsedBy([]byte("alice")))
-	require.Error(t, et.HasBeenEndorsedBy([]byte("bob")))
-
-	// HasBeenEndorsedBy Error paths
-	fakeTx.ProposalResponsesReturns(nil, fmt.Errorf("err"))
-	require.Error(t, et.HasBeenEndorsedBy([]byte("alice")))
-
 	// Test Signature & Namespaces
-	fakeTx.ProposalResponsesReturns([]driver.ProposalResponse{fakePR}, nil)
 	fakePR.EndorserReturns([]byte("alice"))
 	fakePR.EndorserSignatureReturns([]byte("sig1"))
 
@@ -244,6 +236,156 @@ func TestTransaction(t *testing.T) {
 
 	et.Close()
 	require.Equal(t, 1, fakeTx.CloseCallCount())
+}
+
+// signedResponse returns a proposal response by endorser whose signature is sig.
+// VerifyEndorsement resolves the endorser's verifier through the passed provider,
+// as the real implementation does.
+func signedResponse(endorser, sig string) *mock.ProposalResponse {
+	pr := &mock.ProposalResponse{}
+	pr.EndorserReturns([]byte(endorser))
+	pr.EndorserSignatureReturns([]byte(sig))
+	pr.VerifyEndorsementCalls(func(p driver.VerifierProvider) error {
+		v, err := p.GetVerifier([]byte(endorser))
+		if err != nil {
+			return err
+		}
+		return v.Verify(nil, []byte(sig))
+	})
+	return pr
+}
+
+// verifierAccepting returns a verifier that accepts only the signature good.
+func verifierAccepting(good string) *mock.Verifier {
+	v := &mock.Verifier{}
+	v.VerifyCalls(func(_, sig []byte) error {
+		if string(sig) != good {
+			return errors.New("invalid signature")
+		}
+		return nil
+	})
+	return v
+}
+
+func TestHasBeenEndorsedBy(t *testing.T) {
+	t.Parallel()
+
+	// A genuine signature by bob over another transaction's payload.
+	replayed := signedResponse("bob", "good")
+	replayed.PayloadReturns([]byte("another transaction"))
+
+	for _, tc := range []struct {
+		name       string
+		responses  []driver.ProposalResponse
+		mspErr     error
+		txProvider bool
+		parties    []string
+		wantErr    string
+	}{
+		{name: "signed", responses: []driver.ProposalResponse{signedResponse("alice", "good")}, parties: []string{"alice"}},
+		{
+			name:      "all parties signed",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good"), signedResponse("bob", "good")},
+			parties:   []string{"alice", "bob"},
+		},
+		{
+			name:       "signed, verified by the transaction's provider",
+			responses:  []driver.ProposalResponse{signedResponse("alice", "good")},
+			mspErr:     errors.New("unknown to msp"),
+			txProvider: true,
+			parties:    []string{"alice"},
+		},
+		{
+			name:      "forged signature",
+			responses: []driver.ProposalResponse{signedResponse("alice", "not-a-signature")},
+			parties:   []string{"alice"},
+			wantErr:   "signature of party [" + view.Identity("alice").String() + "] does not verify: invalid signature",
+		},
+		{
+			name:      "no verifier for endorser",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good")},
+			mspErr:    errors.New("unknown to msp"),
+			parties:   []string{"alice"},
+			wantErr:   "signature of party [" + view.Identity("alice").String() + "] does not verify: unknown to msp",
+		},
+		{
+			name:      "other endorser",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good")},
+			parties:   []string{"bob"},
+			wantErr:   "no proposal response from party [" + view.Identity("bob").String() + "]",
+		},
+		{
+			name:      "response replayed from another transaction",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good"), replayed},
+			parties:   []string{"alice", "bob"},
+			wantErr:   "proposal response of party [" + view.Identity("bob").String() + "] endorses a different payload",
+		},
+		{
+			name:      "no parties",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good")},
+			wantErr:   "no parties to verify endorsements against",
+		},
+		{
+			name:      "one party missing",
+			responses: []driver.ProposalResponse{signedResponse("alice", "good"), signedResponse("bob", "bad")},
+			parties:   []string{"alice", "bob"},
+			wantErr:   "signature of party [" + view.Identity("bob").String() + "] does not verify: invalid signature",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fakeCM := &mock.ChannelMembership{}
+			fakeCM.GetVerifierReturns(verifierAccepting("good"), tc.mspErr)
+			fakeCH := &mock.Channel{}
+			fakeCH.ChannelMembershipReturns(fakeCM)
+			fakeFNS := &mock.FabricNetworkService{}
+			fakeFNS.ChannelReturns(fakeCH, nil)
+			fakeTx := &mock.Transaction{}
+			fakeTx.ChannelReturns("ch1")
+			fakeTx.ProposalResponsesReturns(tc.responses, nil)
+			et := &Transaction{Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx)}
+			if tc.txProvider {
+				vp := &mock.ChannelMembership{}
+				vp.GetVerifierReturns(verifierAccepting("good"), nil)
+				et.AppendVerifierProvider(vp)
+			}
+
+			parties := make([]view.Identity, len(tc.parties))
+			for i, p := range tc.parties {
+				parties[i] = view.Identity(p)
+			}
+			err := et.HasBeenEndorsedBy(parties...)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+
+	t.Run("no verifier provider", func(t *testing.T) {
+		t.Parallel()
+		responses := []*fabric.ProposalResponse{fabric.NewProposalResponse(signedResponse("alice", "good"))}
+		require.ErrorContains(t, endorsedBy(responses, nil, view.Identity("alice")), "no verifier provider")
+	})
+
+	t.Run("proposal responses error", func(t *testing.T) {
+		t.Parallel()
+		fakeTx := &mock.Transaction{}
+		fakeTx.ProposalResponsesReturns(nil, errors.New("no responses"))
+		et := &Transaction{Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, &mock.FabricNetworkService{}, "net1"), fakeTx)}
+		require.ErrorContains(t, et.HasBeenEndorsedBy([]byte("alice")), "no responses")
+	})
+
+	t.Run("channel error", func(t *testing.T) {
+		t.Parallel()
+		fakeFNS := &mock.FabricNetworkService{}
+		fakeFNS.ChannelReturns(nil, errors.New("no channel"))
+		fakeTx := &mock.Transaction{}
+		fakeTx.ChannelReturns("ch1")
+		et := &Transaction{Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx)}
+		require.ErrorContains(t, et.HasBeenEndorsedBy([]byte("alice")), "no channel")
+	})
 }
 
 func TestBuilder(t *testing.T) {

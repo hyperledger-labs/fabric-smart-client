@@ -125,6 +125,19 @@ func (i *Interceptor[V]) GetReadKeyAt(ns string, pos int) (string, error) {
 	return key, nil
 }
 
+func (i *Interceptor[V]) GetReadVersion(ns driver.Namespace, key driver.PKey) (driver.RawVersion, error) {
+	if i.IsClosed() {
+		return nil, errors.New("this instance was closed")
+	}
+
+	version, in := i.rws.ReadSet.Get(ns, key)
+	if !in {
+		return nil, errors.Errorf("no read of key %s for namespace %s", key, ns)
+	}
+
+	return version, nil
+}
+
 func (i *Interceptor[V]) GetReadAt(ns string, pos int) (string, []byte, error) {
 	if i.IsClosed() {
 		return "", nil, errors.New("this instance was closed")

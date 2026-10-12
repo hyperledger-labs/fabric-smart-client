@@ -152,6 +152,9 @@ func TestInterceptorClosedRejectsCalls(t *testing.T) {
 	_, err := i.GetReadKeyAt("ns", 0)
 	require.ErrorContains(t, err, "this instance was closed")
 
+	_, err = i.GetReadVersion("ns", "k1")
+	require.ErrorContains(t, err, "this instance was closed")
+
 	_, _, err = i.GetReadAt("ns", 0)
 	require.ErrorContains(t, err, "this instance was closed")
 
@@ -194,6 +197,20 @@ func TestInterceptorGetReadKeyAt(t *testing.T) {
 
 	_, err = i.GetReadKeyAt("ns", 1)
 	require.ErrorContains(t, err, "no read at position 1 for namespace ns")
+}
+
+func TestInterceptorGetReadVersion(t *testing.T) {
+	t.Parallel()
+
+	i := newTestInterceptor(fake.NewQE())
+	require.NoError(t, i.AddReadAt("ns", "k1", []byte("v1")))
+
+	version, err := i.GetReadVersion("ns", "k1")
+	require.NoError(t, err)
+	require.Equal(t, driver.RawVersion("v1"), version)
+
+	_, err = i.GetReadVersion("ns", "k2")
+	require.ErrorContains(t, err, "no read of key k2 for namespace ns")
 }
 
 // TestInterceptorSetStateMetadatas applies every entry and reports no errors

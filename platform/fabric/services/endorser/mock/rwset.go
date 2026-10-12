@@ -129,6 +129,20 @@ type RWSet struct {
 		result1 drivera.PKey
 		result2 error
 	}
+	GetReadVersionStub        func(drivera.Namespace, drivera.PKey) (drivera.RawVersion, error)
+	getReadVersionMutex       sync.RWMutex
+	getReadVersionArgsForCall []struct {
+		arg1 drivera.Namespace
+		arg2 drivera.PKey
+	}
+	getReadVersionReturns struct {
+		result1 drivera.RawVersion
+		result2 error
+	}
+	getReadVersionReturnsOnCall map[int]struct {
+		result1 drivera.RawVersion
+		result2 error
+	}
 	GetStateStub        func(drivera.Namespace, drivera.PKey, ...drivera.GetStateOpt) (drivera.RawValue, error)
 	getStateMutex       sync.RWMutex
 	getStateArgsForCall []struct {
@@ -258,16 +272,21 @@ type RWSet struct {
 }
 
 func (fake *RWSet) AddReadAt(arg1 drivera.Namespace, arg2 string, arg3 drivera.RawVersion) error {
+	var arg3Copy drivera.RawVersion
+	if arg3 != nil {
+		arg3Copy = make(drivera.RawVersion, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.addReadAtMutex.Lock()
 	ret, specificReturn := fake.addReadAtReturnsOnCall[len(fake.addReadAtArgsForCall)]
 	fake.addReadAtArgsForCall = append(fake.addReadAtArgsForCall, struct {
 		arg1 drivera.Namespace
 		arg2 string
 		arg3 drivera.RawVersion
-	}{arg1, arg2, arg3})
+	}{arg1, arg2, arg3Copy})
 	stub := fake.AddReadAtStub
 	fakeReturns := fake.addReadAtReturns
-	fake.recordInvocation("AddReadAt", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("AddReadAt", []interface{}{arg1, arg2, arg3Copy})
 	fake.addReadAtMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -326,15 +345,20 @@ func (fake *RWSet) AppendRWSet(arg1 []byte, arg2 ...drivera.Namespace) error {
 		arg1Copy = make([]byte, len(arg1))
 		copy(arg1Copy, arg1)
 	}
+	var arg2Copy []drivera.Namespace
+	if arg2 != nil {
+		arg2Copy = make([]drivera.Namespace, len(arg2))
+		copy(arg2Copy, arg2)
+	}
 	fake.appendRWSetMutex.Lock()
 	ret, specificReturn := fake.appendRWSetReturnsOnCall[len(fake.appendRWSetArgsForCall)]
 	fake.appendRWSetArgsForCall = append(fake.appendRWSetArgsForCall, struct {
 		arg1 []byte
 		arg2 []drivera.Namespace
-	}{arg1Copy, arg2})
+	}{arg1Copy, arg2Copy})
 	stub := fake.AppendRWSetStub
 	fakeReturns := fake.appendRWSetReturns
-	fake.recordInvocation("AppendRWSet", []interface{}{arg1Copy, arg2})
+	fake.recordInvocation("AppendRWSet", []interface{}{arg1Copy, arg2Copy})
 	fake.appendRWSetMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2...)
@@ -591,15 +615,20 @@ func (fake *RWSet) DoneCalls(stub func()) {
 }
 
 func (fake *RWSet) Equals(arg1 any, arg2 ...drivera.Namespace) error {
+	var arg2Copy []drivera.Namespace
+	if arg2 != nil {
+		arg2Copy = make([]drivera.Namespace, len(arg2))
+		copy(arg2Copy, arg2)
+	}
 	fake.equalsMutex.Lock()
 	ret, specificReturn := fake.equalsReturnsOnCall[len(fake.equalsArgsForCall)]
 	fake.equalsArgsForCall = append(fake.equalsArgsForCall, struct {
 		arg1 any
 		arg2 []drivera.Namespace
-	}{arg1, arg2})
+	}{arg1, arg2Copy})
 	stub := fake.EqualsStub
 	fakeReturns := fake.equalsReturns
-	fake.recordInvocation("Equals", []interface{}{arg1, arg2})
+	fake.recordInvocation("Equals", []interface{}{arg1, arg2Copy})
 	fake.equalsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2...)
@@ -850,17 +879,87 @@ func (fake *RWSet) GetReadKeyAtReturnsOnCall(i int, result1 drivera.PKey, result
 	}{result1, result2}
 }
 
+func (fake *RWSet) GetReadVersion(arg1 drivera.Namespace, arg2 drivera.PKey) (drivera.RawVersion, error) {
+	fake.getReadVersionMutex.Lock()
+	ret, specificReturn := fake.getReadVersionReturnsOnCall[len(fake.getReadVersionArgsForCall)]
+	fake.getReadVersionArgsForCall = append(fake.getReadVersionArgsForCall, struct {
+		arg1 drivera.Namespace
+		arg2 drivera.PKey
+	}{arg1, arg2})
+	stub := fake.GetReadVersionStub
+	fakeReturns := fake.getReadVersionReturns
+	fake.recordInvocation("GetReadVersion", []interface{}{arg1, arg2})
+	fake.getReadVersionMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *RWSet) GetReadVersionCallCount() int {
+	fake.getReadVersionMutex.RLock()
+	defer fake.getReadVersionMutex.RUnlock()
+	return len(fake.getReadVersionArgsForCall)
+}
+
+func (fake *RWSet) GetReadVersionCalls(stub func(drivera.Namespace, drivera.PKey) (drivera.RawVersion, error)) {
+	fake.getReadVersionMutex.Lock()
+	defer fake.getReadVersionMutex.Unlock()
+	fake.GetReadVersionStub = stub
+}
+
+func (fake *RWSet) GetReadVersionArgsForCall(i int) (drivera.Namespace, drivera.PKey) {
+	fake.getReadVersionMutex.RLock()
+	defer fake.getReadVersionMutex.RUnlock()
+	argsForCall := fake.getReadVersionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *RWSet) GetReadVersionReturns(result1 drivera.RawVersion, result2 error) {
+	fake.getReadVersionMutex.Lock()
+	defer fake.getReadVersionMutex.Unlock()
+	fake.GetReadVersionStub = nil
+	fake.getReadVersionReturns = struct {
+		result1 drivera.RawVersion
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *RWSet) GetReadVersionReturnsOnCall(i int, result1 drivera.RawVersion, result2 error) {
+	fake.getReadVersionMutex.Lock()
+	defer fake.getReadVersionMutex.Unlock()
+	fake.GetReadVersionStub = nil
+	if fake.getReadVersionReturnsOnCall == nil {
+		fake.getReadVersionReturnsOnCall = make(map[int]struct {
+			result1 drivera.RawVersion
+			result2 error
+		})
+	}
+	fake.getReadVersionReturnsOnCall[i] = struct {
+		result1 drivera.RawVersion
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *RWSet) GetState(arg1 drivera.Namespace, arg2 drivera.PKey, arg3 ...drivera.GetStateOpt) (drivera.RawValue, error) {
+	var arg3Copy []drivera.GetStateOpt
+	if arg3 != nil {
+		arg3Copy = make([]drivera.GetStateOpt, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.getStateMutex.Lock()
 	ret, specificReturn := fake.getStateReturnsOnCall[len(fake.getStateArgsForCall)]
 	fake.getStateArgsForCall = append(fake.getStateArgsForCall, struct {
 		arg1 drivera.Namespace
 		arg2 drivera.PKey
 		arg3 []drivera.GetStateOpt
-	}{arg1, arg2, arg3})
+	}{arg1, arg2, arg3Copy})
 	stub := fake.GetStateStub
 	fakeReturns := fake.getStateReturns
-	fake.recordInvocation("GetState", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("GetState", []interface{}{arg1, arg2, arg3Copy})
 	fake.getStateMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3...)
@@ -917,16 +1016,21 @@ func (fake *RWSet) GetStateReturnsOnCall(i int, result1 drivera.RawValue, result
 }
 
 func (fake *RWSet) GetStateMetadata(arg1 drivera.Namespace, arg2 drivera.PKey, arg3 ...drivera.GetStateOpt) (drivera.Metadata, error) {
+	var arg3Copy []drivera.GetStateOpt
+	if arg3 != nil {
+		arg3Copy = make([]drivera.GetStateOpt, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.getStateMetadataMutex.Lock()
 	ret, specificReturn := fake.getStateMetadataReturnsOnCall[len(fake.getStateMetadataArgsForCall)]
 	fake.getStateMetadataArgsForCall = append(fake.getStateMetadataArgsForCall, struct {
 		arg1 drivera.Namespace
 		arg2 drivera.PKey
 		arg3 []drivera.GetStateOpt
-	}{arg1, arg2, arg3})
+	}{arg1, arg2, arg3Copy})
 	stub := fake.GetStateMetadataStub
 	fakeReturns := fake.getStateMetadataReturns
-	fake.recordInvocation("GetStateMetadata", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("GetStateMetadata", []interface{}{arg1, arg2, arg3Copy})
 	fake.getStateMetadataMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3...)
@@ -1332,16 +1436,21 @@ func (fake *RWSet) NumWritesReturnsOnCall(i int, result1 int) {
 }
 
 func (fake *RWSet) SetState(arg1 drivera.Namespace, arg2 drivera.PKey, arg3 drivera.RawValue) error {
+	var arg3Copy drivera.RawValue
+	if arg3 != nil {
+		arg3Copy = make(drivera.RawValue, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.setStateMutex.Lock()
 	ret, specificReturn := fake.setStateReturnsOnCall[len(fake.setStateArgsForCall)]
 	fake.setStateArgsForCall = append(fake.setStateArgsForCall, struct {
 		arg1 drivera.Namespace
 		arg2 drivera.PKey
 		arg3 drivera.RawValue
-	}{arg1, arg2, arg3})
+	}{arg1, arg2, arg3Copy})
 	stub := fake.SetStateStub
 	fakeReturns := fake.setStateReturns
-	fake.recordInvocation("SetState", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("SetState", []interface{}{arg1, arg2, arg3Copy})
 	fake.setStateMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
