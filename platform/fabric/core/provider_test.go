@@ -25,14 +25,18 @@ import (
 // stubDriver returns whatever it is configured with, so the newFNS paths can be driven
 // individually.
 type stubDriver struct {
-	fns driver.FabricNetworkService
-	err error
+	fns       driver.FabricNetworkService
+	byNetwork map[string]driver.FabricNetworkService
+	err       error
 
 	newCalls []string
 }
 
 func (d *stubDriver) New(network string, _ bool) (driver.FabricNetworkService, error) {
 	d.newCalls = append(d.newCalls, network)
+	if fns, ok := d.byNetwork[network]; ok {
+		return fns, nil
+	}
 
 	return d.fns, d.err
 }
@@ -51,8 +55,12 @@ func (f *stubFNS) Channel(name string) (driver.Channel, error) {
 	if f.channelErr != nil {
 		return nil, f.channelErr
 	}
+	ch, ok := f.channels[name]
+	if !ok {
+		return nil, errors.Errorf("channel [%s] not found", name)
+	}
 
-	return f.channels[name], nil
+	return ch, nil
 }
 
 type stubConfigService struct {
@@ -281,9 +289,72 @@ func TestStop(t *testing.T) {
 	t.Parallel()
 
 	fns, ch := newStubFNS("default-channel")
+	provider := newProviderWithDriver(t, &stubDriver{fns: fns})
+	require.NoError(t, provider.Start(t.Context()))
 
-	require.NoError(t, newProviderWithDriver(t, &stubDriver{fns: fns}).Stop())
+	require.NoError(t, provider.Stop())
 
+	assert.True(t, ch.closed)
+}
+
+// TestStop_ChannelLookupFails checks a channel that cannot be looked up is reported without
+// skipping the channels after it.
+func TestStop_ChannelLookupFails(t *testing.T) {
+	t.Parallel()
+
+	before := &stubChannel{}
+	after := &stubChannel{}
+	fns := &stubFNS{
+		configService: &stubConfigService{channelIDs: []string{"chan-a", "chan-b", "chan-c"}},
+		channels:      map[string]driver.Channel{"chan-a": before, "chan-c": after},
+	}
+	provider := newProviderWithDriver(t, &stubDriver{fns: fns})
+	_, err := provider.FabricNetworkService("")
+	require.NoError(t, err)
+
+	err = provider.Stop()
+
+	require.ErrorContains(t, err, "channel [chan-b] not found")
+	assert.True(t, before.closed)
+	assert.True(t, after.closed)
+}
+
+// TestStop_ChannelLookupFailsInOtherNetwork checks a channel lookup failure in one network
+// does not skip the channels of another.
+func TestStop_ChannelLookupFailsInOtherNetwork(t *testing.T) {
+	t.Parallel()
+
+	failing := &stubFNS{
+		configService: &stubConfigService{channelIDs: []string{"alpha-channel"}},
+		channelErr:    errors.New("alpha lookup exploded"),
+	}
+	healthy, ch := newStubFNS("beta-channel")
+	provider, err := NewFabricNetworkServiceProvider(
+		newTestProvider(t, `
+fabric:
+  enabled: true
+  alpha:
+    default: true
+    driver: generic
+    channels:
+      - Name: alpha-channel
+  beta:
+    driver: generic
+    channels:
+      - Name: beta-channel
+`),
+		[]NamedDriver{{Name: "generic", Driver: &stubDriver{byNetwork: map[string]driver.FabricNetworkService{"alpha": failing, "beta": healthy}}}},
+		nil,
+	)
+	require.NoError(t, err)
+	for _, name := range []string{"alpha", "beta"} {
+		_, err := provider.FabricNetworkService(name)
+		require.NoError(t, err)
+	}
+
+	err = provider.Stop()
+
+	require.ErrorContains(t, err, "alpha lookup exploded")
 	assert.True(t, ch.closed)
 }
 
@@ -294,22 +365,23 @@ func TestStop_ChannelCloseFails(t *testing.T) {
 
 	fns, ch := newStubFNS("default-channel")
 	ch.closeErr = errors.New("close exploded")
+	provider := newProviderWithDriver(t, &stubDriver{fns: fns})
+	require.NoError(t, provider.Start(t.Context()))
 
-	require.NoError(t, newProviderWithDriver(t, &stubDriver{fns: fns}).Stop())
+	require.NoError(t, provider.Stop())
 
 	assert.True(t, ch.closed)
 }
 
-// TestStop_NetworkFails checks a network that cannot be instantiated aborts the shutdown.
-func TestStop_NetworkFails(t *testing.T) {
+// TestStop_NetworkNotInstantiated checks Stop does not instantiate a network just to close it.
+func TestStop_NetworkNotInstantiated(t *testing.T) {
 	t.Parallel()
 
 	d := &stubDriver{err: errors.New("driver exploded")}
 
-	err := newProviderWithDriver(t, d).Stop()
+	require.NoError(t, newProviderWithDriver(t, d).Stop())
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "driver exploded")
+	assert.Empty(t, d.newCalls)
 }
 
 // stubServiceProvider returns whatever it is configured with, for the service-lookup paths.

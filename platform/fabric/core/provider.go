@@ -114,24 +114,28 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 }
 
 // Stop closes every channel of every Fabric network that has been instantiated so far (i.e.
-// every network for which FabricNetworkService has been called at least once).
+// every network for which FabricNetworkService has been called at least once). A failure on
+// one network or channel does not prevent closing the others: channel lookup failures are
+// returned joined, and close failures are logged.
 func (p *FSNProvider) Stop() error {
-	for _, networkName := range p.config.Names() {
-		fns, err := p.FabricNetworkService(networkName)
-		if err != nil {
-			return err
-		}
+	p.networksMutex.Lock()
+	networks := maps.Clone(p.networks)
+	p.networksMutex.Unlock()
+
+	var errs []error
+	for networkName, fns := range networks {
 		for _, channelName := range fns.ConfigService().ChannelIDs() {
 			ch, err := fns.Channel(channelName)
 			if err != nil {
-				return err
+				errs = append(errs, errors.Wrapf(err, "failed getting channel [%s:%s]", networkName, channelName))
+				continue
 			}
 			if err := ch.Close(); err != nil {
 				logger.Errorf("failed closing channel [%s:%s]: [%s]", networkName, channelName, err)
 			}
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // Names returns the names of every currently configured Fabric network, including any added
