@@ -21,6 +21,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
@@ -128,15 +129,46 @@ func TestSimpleProviderStreamErrors(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, dial().Close())
 	require.ErrorContains(t, <-errs, "failed to read meta info")
 
-	conn := dial()
-	defer func() { _ = conn.Close() }()
-	require.NoError(t, conn.WriteJSON(StreamMeta{PeerID: srcID, SpanContext: []byte("garbage")}))
-	require.ErrorContains(t, <-errs, "failed to unmarshal span context")
-	_, _, err := conn.ReadMessage()
-	require.Error(t, err, "the server must close the connection")
-
-	_, err = p.NewClientStream(host.StreamInfo{RemotePeerAddress: "127.0.0.1:1"}, t.Context(), srcID, clientTLSConfig)
+	_, err := p.NewClientStream(host.StreamInfo{RemotePeerAddress: "127.0.0.1:1"}, t.Context(), srcID, clientTLSConfig)
 	require.Error(t, err)
+}
+
+// Both providers accept a stream whose span context does not decode and give it an empty
+// parent span: tracing is best effort and must not decide whether a peer can connect.
+func TestServerAcceptsMalformedSpanContext(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	meta := func(peerID host.PeerID) StreamMeta {
+		return StreamMeta{PeerID: peerID, SpanContext: []byte("garbage")}
+	}
+	requireAccepted := func(t *testing.T, s host.P2PStream, peerID host.PeerID) {
+		t.Helper()
+		require.Equal(t, peerID, s.RemotePeerID())
+		// The multiplexed stream carries the span its provider starts; the noop tracer of
+		// these tests passes the (empty) remote parent through unchanged.
+		require.False(t, trace.SpanContextFromContext(s.Context()).IsValid())
+	}
+
+	t.Run("simple", func(t *testing.T) { //nolint:paralleltest
+		serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
+		streams := make(chan host.P2PStream, 1)
+		srv := startTestServer(t, NewSimpleProvider(), serverTLS, func(s host.P2PStream) { streams <- s })
+		t.Cleanup(srv.Close)
+		conn, resp, err := (&websocket.Dialer{TLSClientConfig: clientTLS}).Dial("wss://"+strings.TrimPrefix(srv.URL, "https://")+"/p2p", nil)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		t.Cleanup(func() { _ = conn.Close() })
+
+		require.NoError(t, conn.WriteJSON(meta(clientID)))
+		requireAccepted(t, receiveStream(t, streams), clientID)
+	})
+
+	t.Run("multiplexed", func(t *testing.T) { //nolint:paralleltest
+		url, streams, clientTLS, clientID := startMultiplexedServer(t, 0)
+		raw := dialRaw(t, url, clientTLS)
+
+		raw.send(MultiplexedMessage{ID: "1", Msg: mustMarshal(meta(clientID))})
+		requireAccepted(t, receiveStream(t, streams), clientID)
+	})
 }
 
 func TestExpectedPeerID(t *testing.T) {

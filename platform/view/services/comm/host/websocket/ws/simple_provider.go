@@ -103,12 +103,9 @@ func (*SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http
 		return errors.Errorf("peer identity binding failed: claimed [%s], tls [%s]", meta.PeerID, expectedPeerID)
 	}
 	logger.Debugf("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, meta.SpanContext)
-	// Propagating the request context will not make a difference (see comment in newClientStream)
-	spanContext, err := tracing.UnmarshalContext(meta.SpanContext)
-	if err != nil {
-		return errors.Wrapf(err, "failed to unmarshal span context")
-	}
-	logger.Debugf("Received response with context: %v", spanContext)
+	// Propagating the request context will not make a difference (see comment in SimpleProvider.NewClientStream)
+	spanContext := remoteSpanContext(&meta)
+	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
 	newStreamCallback(NewWSStream(conn, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: request.RemoteAddr,
