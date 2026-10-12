@@ -39,8 +39,12 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	if c.CacheSize > 0 {
 		cacheSize = c.CacheSize
 	}
-	if err := manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize, nil, nil).Identity); err != nil {
+	cache := NewIdentityCache(provider.Identity, cacheSize, nil, nil)
+	if err := manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), cache.Identity); err != nil {
 		return errors.Wrapf(err, "failed adding idemix msp [%s]", manager.Config().TranslatePath(c.Path))
+	}
+	if reg, ok := manager.(driver.CloserRegistry); ok {
+		reg.RegisterCloser(cache.Close)
 	}
 	logger.Debugf("added %s msp for id %s with cache of size %d", c.MSPType, c.ID+"@"+provider.EnrollmentID(), cacheSize)
 

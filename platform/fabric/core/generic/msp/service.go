@@ -103,6 +103,9 @@ type service struct {
 	mspsByTypeAndName   map[string]*driver.MSP
 	bccspMspsByIdentity map[string]*driver.MSP
 	cacheSize           int
+	// closers stop background goroutines owned by the MSPs currently loaded.
+	// Refresh runs them before loadLocalMSPs builds the replacements.
+	closers []func()
 }
 
 func NewLocalMSPManager(
@@ -344,9 +347,11 @@ func (s *service) RegisterIdemixMSP(id, path, mspID string) error {
 	}
 
 	s.deserializerManager.AddDeserializer(provider)
-	if err := s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil, nil).Identity); err != nil {
+	cache := idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil, nil)
+	if err := s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), cache.Identity); err != nil {
 		return errors.Wrapf(err, "failed adding idemix msp [%s] to [%s]", id, path)
 	}
+	s.RegisterCloser(cache.Close)
 	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
 	return nil
 }
@@ -380,6 +385,8 @@ func (s *service) Refresh() error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
+	s.closeIdentityCaches()
+
 	// clean caches
 	s.msps = nil
 	s.mspsByTypeAndName = map[string]*driver.MSP{}
@@ -389,6 +396,24 @@ func (s *service) Refresh() error {
 	s.defaults.Reset()
 
 	return s.loadLocalMSPs()
+}
+
+// RegisterCloser records a stop function for a background goroutine owned by an
+// MSP that was just added. The caller already holds mspsMutex: loaders invoke
+// this from inside loadLocalMSPs, and RegisterIdemixMSP holds the same lock.
+func (s *service) RegisterCloser(close func()) {
+	if close == nil {
+		return
+	}
+	s.closers = append(s.closers, close)
+}
+
+func (s *service) closeIdentityCaches() {
+	closers := s.closers
+	s.closers = nil
+	for _, close := range closers {
+		close()
+	}
 }
 
 func (s *service) AddMSP(name, mspType, enrollmentID string, identityGetter fdriver.GetIdentityFunc) error {

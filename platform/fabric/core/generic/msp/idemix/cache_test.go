@@ -64,10 +64,21 @@ func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, view.Identity([]byte("hello world")), id)
 	require.Equal(t, []byte("audit"), audit)
 
-	// Wait for cache to fill up
+	// Wait until the cache is full and the background generator is blocked on
+	// send, so the counter is not mid-increment when Close is called.
+	var seen int32
 	require.Eventually(t, func() bool {
-		return c.CacheSize() >= 10
-	}, 2*time.Second, 10*time.Millisecond, "cache should fill up to capacity")
+		if c.CacheSize() < 10 {
+			seen = 0
+			return false
+		}
+		now := counter.Load()
+		if seen != 0 && now == seen {
+			return true
+		}
+		seen = now
+		return false
+	}, 2*time.Second, 20*time.Millisecond, "cache should fill up to capacity")
 
 	initialCacheSize := c.CacheSize()
 	initialCounter := counter.Load()

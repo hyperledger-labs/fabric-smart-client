@@ -68,6 +68,13 @@ type IdentityLoader interface {
 	Load(manager Manager, config config.MSP) error
 }
 
+// CloserRegistry is implemented by the MSP service. A loader that starts a
+// background goroutine registers its stop function here so Refresh can stop
+// the previous goroutine before it builds the replacement MSP.
+type CloserRegistry interface {
+	RegisterCloser(close func())
+}
+
 // Identity refers to the creator of a tx;
 type Identity interface {
 	Serialize() ([]byte, error)

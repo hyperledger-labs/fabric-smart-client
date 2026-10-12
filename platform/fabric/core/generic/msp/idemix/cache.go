@@ -58,8 +58,9 @@ func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.Id
 	return ci
 }
 
-// Close cancels the background identity provisioning goroutine.
-// It should be called when the IdentityCache is no longer needed to prevent goroutine leaks.
+// Close stops the background provisioning goroutine.
+// The MSP service that created the cache calls Close when that MSP is
+// discarded. Refresh does this before the replacement caches are built.
 func (c *IdentityCache) Close() {
 	if c.cancel != nil {
 		c.cancel()
