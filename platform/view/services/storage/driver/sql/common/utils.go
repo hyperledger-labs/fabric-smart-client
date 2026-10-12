@@ -77,10 +77,6 @@ func InitSchema(db WriteDB, schemas ...string) (err error) {
 	return err
 }
 
-func QueryUnique[T any](db *sql.DB, query string, args ...any) (T, error) {
-	return QueryUniqueContext[T](context.Background(), db, query, args...)
-}
-
 func QueryUniqueContext[T any](ctx context.Context, db *sql.DB, query string, args ...any) (T, error) {
 	logger.Debug(query, args)
 	row := db.QueryRowContext(ctx, query, args...)

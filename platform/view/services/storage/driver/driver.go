@@ -26,8 +26,6 @@ var (
 	SqlBusy = errors.New("sql is busy")
 )
 
-type SQLError = error
-
 type UnversionedRead = driver.UnversionedRead
 
 type UnversionedValue = driver.UnversionedValue
@@ -36,7 +34,7 @@ type QueryExecutor = driver.QueryExecutor
 
 //go:generate counterfeiter -o mock/error_wrapper.go -fake-name SQLErrorWrapper . SQLErrorWrapper
 
-// SQLErrorWrapper transforms the different errors returned by various SQL implementations into an SQLError that is common
+// SQLErrorWrapper wraps driver-specific SQL errors into the common errors defined in this package.
 type SQLErrorWrapper interface {
 	WrapError(error) error
 }
@@ -77,20 +75,6 @@ type KeyValueStore interface {
 	Discard() error
 	// Stats returns driver specific statistics of the datastore
 	Stats() any
-}
-
-// VersionedPersistence models a versioned key-value storage place
-type VersionedPersistence = KeyValueStore
-
-type UnversionedWriteTransaction interface {
-	// SetState sets the given value for the given namespace, key
-	SetState(namespace driver.Namespace, key driver.PKey, value UnversionedValue) error
-	// DeleteState deletes the given namespace and key
-	DeleteState(namespace driver.Namespace, key driver.PKey) error
-	// Commit commits the changes since BeginUpdate
-	Commit() error
-	// Discard discards the changes since BeginUpdate
-	Discard() error
 }
 
 // PersistenceName is the key of a persistence configuration in the core.yaml under fsc.persistences
