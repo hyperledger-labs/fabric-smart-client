@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"maps"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -112,6 +113,23 @@ func (f *Network) Channel(name string) (driver.Channel, error) {
 
 	logger.Debugf("Returning Channel for [%s]", name)
 	return ch, nil
+}
+
+// Close closes every channel this network has opened so far. Channels that were configured
+// but never opened are not created. A failure to close one channel does not prevent closing
+// the others; the failures are returned joined.
+func (f *Network) Close() error {
+	f.ChannelMutex.RLock()
+	channels := maps.Clone(f.ChannelMap)
+	f.ChannelMutex.RUnlock()
+
+	var errs []error
+	for name, ch := range channels {
+		if err := ch.Close(); err != nil {
+			errs = append(errs, errors.Wrapf(err, "failed closing channel [%s:%s]", f.name, name))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (f *Network) Ledger(name string) (driver.Ledger, error) {

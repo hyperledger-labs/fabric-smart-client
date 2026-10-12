@@ -8,6 +8,7 @@ package core
 
 import (
 	"context"
+	"io"
 	"maps"
 	"os"
 	"reflect"
@@ -113,25 +114,27 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop closes every channel of every Fabric network that has been instantiated so far (i.e.
-// every network for which FabricNetworkService has been called at least once).
+// Stop closes every channel that has been opened on every Fabric network instantiated so far
+// (i.e. every network for which FabricNetworkService has been called at least once). Networks
+// and channels that were never opened are not created. A network service is closed only if it
+// implements io.Closer. A failure on one network does not prevent closing the others; the
+// failures are returned joined.
 func (p *FSNProvider) Stop() error {
-	for _, networkName := range p.config.Names() {
-		fns, err := p.FabricNetworkService(networkName)
-		if err != nil {
-			return err
+	p.networksMutex.Lock()
+	networks := maps.Clone(p.networks)
+	p.networksMutex.Unlock()
+
+	var errs []error
+	for _, name := range p.config.Names() {
+		closer, ok := networks[name].(io.Closer)
+		if !ok {
+			continue
 		}
-		for _, channelName := range fns.ConfigService().ChannelIDs() {
-			ch, err := fns.Channel(channelName)
-			if err != nil {
-				return err
-			}
-			if err := ch.Close(); err != nil {
-				logger.Errorf("failed closing channel [%s:%s]: [%s]", networkName, channelName, err)
-			}
+		if err := closer.Close(); err != nil {
+			errs = append(errs, errors.WithMessagef(err, "failed stopping network [%s]", name))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // Names returns the names of every currently configured Fabric network, including any added
