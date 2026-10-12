@@ -495,8 +495,9 @@ fabric:
     # Client gRPC settings for every connection to this network's peers and orderers.
     # This section can be omitted.
     keepalive:
-      # ConnectionTimeout: how long to wait when dialling this network's peers and
-      # orderers. Format: Go duration string. Default: 10s.
+      # ConnectionTimeout: how long to wait when dialling a peer or orderer that does
+      # not set its own connectionTimeout. An entry under orderers or peers overrides
+      # this. Format: Go duration string. Default: 10s.
       connectionTimeout: 10s
       # Time: how often the client sends keepalive pings to the server. Zero or omitted
       # disables keepalive; a connection that dies without an error then goes unnoticed
@@ -532,7 +533,8 @@ fabric:
     orderers:
         # address of orderer
       - address: 'orderer0:7050'
-        # connection timeout
+        # Connection timeout for this orderer. Overrides keepalive.connectionTimeout.
+        # Omit or set to 0 to use the network keepalive value.
         connectionTimeout: 10s
         # The largest message in bytes to send to and accept from this endpoint. Omit or
         # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero
@@ -560,7 +562,8 @@ fabric:
     peers:
         # address of peer
       - address: 'peer2:7051'
-        # connection timeout
+        # Connection timeout for this peer. Overrides keepalive.connectionTimeout.
+        # Omit or set to 0 to use the network keepalive value.
         connectionTimeout: 10s
         # The largest message in bytes to send to and accept from this endpoint. Omit or
         # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero

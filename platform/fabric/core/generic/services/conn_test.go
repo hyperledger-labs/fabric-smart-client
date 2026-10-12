@@ -350,3 +350,34 @@ func TestClientFactory(t *testing.T) {
 	_, err = f.NewOrdererClient(badTLS)
 	require.ErrorContains(t, err, "failed to create Client from config")
 }
+
+func TestPerEntryConnectionTimeout(t *testing.T) {
+	t.Parallel()
+
+	f := newFactory(&fakeConfigService{timeout: 10 * time.Second}, fakeSigner{})
+
+	peer, err := f.NewPeerClient(grpc.ConnectionConfig{
+		Address:           "peer0:7051",
+		ConnectionTimeout: time.Minute,
+	})
+	require.NoError(t, err)
+	require.Equal(t, time.Minute, clientTimeout(t, peer))
+
+	orderer, err := f.NewOrdererClient(grpc.ConnectionConfig{Address: "orderer:7050"})
+	require.NoError(t, err)
+	require.Equal(t, 10*time.Second, clientTimeout(t, orderer))
+
+	fallback := newFactory(&fakeConfigService{}, fakeSigner{})
+	unset, err := fallback.NewPeerClient(grpc.ConnectionConfig{Address: "peer1:7051"})
+	require.NoError(t, err)
+	require.Equal(t, grpc.DefaultConnectionTimeout, clientTimeout(t, unset))
+}
+
+func clientTimeout(t *testing.T, c any) time.Duration {
+	t.Helper()
+	wrapper, ok := c.(*ClientWrapper)
+	require.True(t, ok)
+	lazy, ok := wrapper.client.(*lazyGRPCClient)
+	require.True(t, ok)
+	return lazy.Client.Timeout()
+}
