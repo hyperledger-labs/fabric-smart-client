@@ -46,7 +46,7 @@ func TestOversizedMessageRejection(t *testing.T) {
 	defer cancel()
 
 	info := host.StreamInfo{
-		RemotePeerID:      "serverID",
+		RemotePeerID:      serverPeerID(t, serverTLSConfig),
 		RemotePeerAddress: srvEndpoint,
 		ContextID:         "large-ctx",
 		SessionID:         "large-sess",

@@ -66,6 +66,7 @@ func TestConnections(t *testing.T) { //nolint:tparallel,paralleltest
 			t.Parallel()
 			p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 			serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, insecureSkipVerify)
+			dst := serverPeerID(t, serverTLSConfig)
 
 			var wg sync.WaitGroup
 
@@ -115,7 +116,7 @@ func TestConnections(t *testing.T) { //nolint:tparallel,paralleltest
 
 				// creating this client should fail
 				infoWithInvalidHostAddress := host.StreamInfo{
-					RemotePeerID:      "serverID",
+					RemotePeerID:      serverPeerID(t, serverTLSConfig),
 					RemotePeerAddress: "localhost:1234", // some wrong server address
 					ContextID:         "someContextID",
 					SessionID:         "testSessionID",
@@ -133,7 +134,7 @@ func TestConnections(t *testing.T) { //nolint:tparallel,paralleltest
 
 			t.Run("many clients connect sequentially", func(t *testing.T) { //nolint:paralleltest
 				for i := range numStreams {
-					testClientRun(t, p, srvEndpoint, fmt.Sprintf("session-%d", i), srcID, clientTLSConfig)
+					testClientRun(t, p, srvEndpoint, dst, fmt.Sprintf("session-%d", i), srcID, clientTLSConfig)
 				}
 			})
 
@@ -144,7 +145,7 @@ func TestConnections(t *testing.T) { //nolint:tparallel,paralleltest
 					wg.Add(1)
 					go func(i int) {
 						defer wg.Done()
-						clientRun(p, srvEndpoint, fmt.Sprintf("session-%d", i), srcID, clientTLSConfig, errCh)
+						clientRun(p, srvEndpoint, dst, fmt.Sprintf("session-%d", i), srcID, clientTLSConfig, errCh)
 					}(i)
 				}
 				wg.Wait()
@@ -228,7 +229,7 @@ func TestSendingOnClosedSubConnections(t *testing.T) { //nolint:paralleltest,tpa
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			info := host.StreamInfo{
-				RemotePeerID:      "serverID",
+				RemotePeerID:      serverPeerID(t, serverTLSConfig),
 				RemotePeerAddress: srvEndpoint,
 				ContextID:         "someContextID",
 				SessionID:         "someSessionID",
@@ -293,7 +294,7 @@ func TestRejectsPeerIDMismatch(t *testing.T) { //nolint:paralleltest,tparallel
 
 			srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 			info := host.StreamInfo{
-				RemotePeerID:      "serverID",
+				RemotePeerID:      serverPeerID(t, serverTLSConfig),
 				RemotePeerAddress: srvEndpoint,
 				ContextID:         "ctx",
 				SessionID:         "sess",
@@ -351,7 +352,7 @@ func TestRejectsTLS12ClientHandshake(t *testing.T) { //nolint:paralleltest
 	tls12ClientConfig.MaxVersion = tls.VersionTLS12
 
 	info := host.StreamInfo{
-		RemotePeerID:      "serverID",
+		RemotePeerID:      serverPeerID(t, serverTLSConfig),
 		RemotePeerAddress: srvEndpoint,
 		ContextID:         "ctx",
 		SessionID:         "sess",
@@ -387,10 +388,10 @@ func testSetup(_ *testing.T) {
 
 // testClientRun creates a new client, sends ping messages, and asserts in the test goroutine.
 // Use clientRun when calling from a spawned goroutine.
-func testClientRun(t *testing.T, p *MultiplexedProvider, srvEndpoint, sessionID string, src host.PeerID, config *tls.Config) {
+func testClientRun(t *testing.T, p *MultiplexedProvider, srvEndpoint string, dst host.PeerID, sessionID string, src host.PeerID, config *tls.Config) {
 	t.Helper()
 	errCh := make(chan error, totalMsg*2+2)
-	clientRun(p, srvEndpoint, sessionID, src, config, errCh)
+	clientRun(p, srvEndpoint, dst, sessionID, src, config, errCh)
 	close(errCh)
 	for err := range errCh {
 		require.NoError(t, err)
@@ -403,11 +404,11 @@ func testClientRun(t *testing.T, p *MultiplexedProvider, srvEndpoint, sessionID 
 
 // clientRun creates a new client and sends ping messages, collecting errors into errCh.
 // Safe to call from goroutines: no testify assertions are made directly.
-func clientRun(p *MultiplexedProvider, srvEndpoint, sessionID string, src host.PeerID, config *tls.Config, errCh chan<- error) {
+func clientRun(p *MultiplexedProvider, srvEndpoint string, dst host.PeerID, sessionID string, src host.PeerID, config *tls.Config, errCh chan<- error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	info := host.StreamInfo{
-		RemotePeerID:      "serverID",
+		RemotePeerID:      dst,
 		RemotePeerAddress: srvEndpoint,
 		ContextID:         "someContextID",
 		SessionID:         sessionID,
@@ -439,6 +440,17 @@ func clientRun(p *MultiplexedProvider, srvEndpoint, sessionID string, src host.P
 	if err = client.Close(); err != nil {
 		errCh <- err
 	}
+}
+
+// serverPeerID returns the peer ID of the certificate serverConfig presents, which a client
+// must dial for the stream to open.
+func serverPeerID(t *testing.T, serverConfig *tls.Config) host.PeerID {
+	t.Helper()
+	cert, err := x509.ParseCertificate(serverConfig.Certificates[0].Certificate[0])
+	require.NoError(t, err)
+	id, err := peerIDFromCertificate(cert)
+	require.NoError(t, err)
+	return id
 }
 
 func testMutualTLSConfigs(t *testing.T, insecureSkipVerify bool) (serverConfig, clientConfig *tls.Config, clientID host.PeerID) {

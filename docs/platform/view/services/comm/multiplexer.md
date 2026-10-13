@@ -51,7 +51,7 @@ type MultiplexedMessage struct {
 
 ### Handshake & Stream Establishment
 
-1.  **Physical Connection**: Established via standard HTTP/HTTPS upgrade to WebSocket.
+1.  **Physical Connection**: Established via standard HTTP/HTTPS upgrade to WebSocket. With TLS, the client keeps the connection only if the server's verified certificate belongs to the dialed `PeerID`, and caches it under the address and that `PeerID`.
 2.  **Logical Stream Creation (Client)**:
     -   Allocates a new unique `ID`.
     -   Sends a `MultiplexedMessage` with `ID` and `Msg` containing the `StreamMeta` (JSON).

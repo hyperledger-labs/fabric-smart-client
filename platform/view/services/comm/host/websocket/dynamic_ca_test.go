@@ -262,17 +262,18 @@ func newTestStreamProvider() websocket.StreamProvider {
 	return ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 }
 
-// dialTestHost opens and closes one stream from a fresh host named name to the host at addr,
-// so no connection is reused between calls.
-func dialTestHost(t *testing.T, name string, cfg websocket.Config, cas websocket.ExtraCAPoolProvider, addr string) error {
+// dialTestHost opens and closes one stream from a fresh host named name to the host with
+// remoteCfg at addr, so no connection is reused between calls.
+func dialTestHost(t *testing.T, name string, cfg websocket.Config, cas websocket.ExtraCAPoolProvider, remoteCfg websocket.Config, addr string) error {
 	t.Helper()
-	router := routing.StaticIDRouter{"remote": {addr}}
+	remote := mustPeerIDFromCert(t, remoteCfg.CertPath())
+	router := routing.StaticIDRouter{remote: {addr}}
 	h, err := websocket.NewHost(name,
 		routing.NewServiceDiscovery(router, routing.AlwaysFirst[host.PeerIPAddress]()),
 		newTestStreamProvider(), cfg, cas)
 	require.NoError(t, err)
 	defer func() { _ = h.Close() }()
-	s, err := h.NewStream(t.Context(), host.StreamInfo{RemotePeerID: "remote", ContextID: "ctx", SessionID: "s"})
+	s, err := h.NewStream(t.Context(), host.StreamInfo{RemotePeerID: remote, ContextID: "ctx", SessionID: "s"})
 	if err == nil {
 		_ = s.Close()
 	}
@@ -290,10 +291,10 @@ func TestDynamicCAOutbound(t *testing.T) {
 	bob := startTestHost(t, "bob", bobCfg, &syncExtraCAs{cas: [][]byte{aliceCert}})
 
 	aliceCAs := &syncExtraCAs{}
-	require.ErrorContains(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()), "certificate signed by unknown authority")
+	require.ErrorContains(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bobCfg, bob.Addr()), "certificate signed by unknown authority")
 
 	aliceCAs.set([]byte("alice"), bobCert) // Alice's own non-PEM resolver ID, then Bob
-	require.NoError(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()))
+	require.NoError(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bobCfg, bob.Addr()))
 }
 
 // A server stops accepting a peer once the provider withdraws its anchor, including an
@@ -306,8 +307,8 @@ func TestDynamicCAInboundWithdrawal(t *testing.T) {
 	bobCAs := &syncExtraCAs{cas: [][]byte{aliceCert}}
 	bob := startTestHost(t, "bob", bobCfg, bobCAs)
 	aliceCAs := &syncExtraCAs{cas: [][]byte{bobCert}}
-	require.NoError(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()))
+	require.NoError(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bobCfg, bob.Addr()))
 
 	bobCAs.set()
-	require.ErrorContains(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()), "unknown certificate authority")
+	require.ErrorContains(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bobCfg, bob.Addr()), "unknown certificate authority")
 }

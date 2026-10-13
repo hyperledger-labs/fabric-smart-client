@@ -324,7 +324,7 @@ func TestMultiplexedProviderClose(t *testing.T) { //nolint:paralleltest
 	serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
 	srv := startTestServer(t, NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0), serverTLS, func(host.P2PStream) {})
 	t.Cleanup(srv.Close)
-	info := host.StreamInfo{RemotePeerID: "server", RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
+	info := host.StreamInfo{RemotePeerID: serverPeerID(t, serverTLS), RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
 
 	// Concurrent stream creation and Close exercise the provider and connection locks.
 	var wg sync.WaitGroup
@@ -421,7 +421,7 @@ func TestMultiplexedProviderCloseAfterPeerReset(t *testing.T) { //nolint:paralle
 	streams := make(chan host.P2PStream, 1)
 	srv := startTestServer(t, p, serverTLS, func(s host.P2PStream) { streams <- s })
 	t.Cleanup(srv.Close)
-	info := host.StreamInfo{RemotePeerID: "server", RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
+	info := host.StreamInfo{RemotePeerID: serverPeerID(t, serverTLS), RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
 	_, err := p.NewClientStream(info, t.Context(), clientID, clientTLS)
 	require.NoError(t, err)
 	receiveStream(t, streams)
@@ -849,7 +849,7 @@ func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	t.Cleanup(func() { _ = p.Close() })
 
-	urlStr := fmt.Sprintf("ws://%s/p2p", addr)
+	key := clientKey{url: fmt.Sprintf("ws://%s/p2p", addr)}
 	info := host.StreamInfo{RemotePeerAddress: addr}
 
 	// First dial establishes connA in p.clients.
@@ -858,7 +858,7 @@ func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T)
 	_ = s1.Close()
 
 	p.mu.RLock()
-	connA := p.clients[urlStr]
+	connA := p.clients[key]
 	p.mu.RUnlock()
 	require.NotNil(t, connA)
 
@@ -872,7 +872,7 @@ func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T)
 	connB := newClientConn(rawWS, p.tracer, p.m, 0, func() {})
 
 	p.mu.Lock()
-	p.clients[urlStr] = connB
+	p.clients[key] = connB
 	p.mu.Unlock()
 
 	// Wait a moment for connA's onClose callback goroutine to execute.
@@ -880,7 +880,7 @@ func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T)
 
 	// Verify that connB was NOT evicted by connA's onClose.
 	p.mu.RLock()
-	currentConn := p.clients[urlStr]
+	currentConn := p.clients[key]
 	p.mu.RUnlock()
 	require.Equal(t, connB, currentConn, "stale onClose callback evicted reconnected client connB")
 }

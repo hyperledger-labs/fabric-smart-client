@@ -147,7 +147,7 @@ func TestMultiplexedClientSubConnSurvivesCallerContextCancellation(t *testing.T)
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 	info := host.StreamInfo{
-		RemotePeerID:      "serverID",
+		RemotePeerID:      serverPeerID(t, serverTLSConfig),
 		RemotePeerAddress: srvEndpoint,
 		ContextID:         "detach-ctx",
 		SessionID:         "detach-sess",
@@ -228,7 +228,7 @@ func TestMultiplexedClientSubConnCleanupViaKillAllAfterCallerContextCancellation
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 	info := host.StreamInfo{
-		RemotePeerID:      "serverID",
+		RemotePeerID:      serverPeerID(t, serverTLSConfig),
 		RemotePeerAddress: srvEndpoint,
 		ContextID:         "detach-killall-ctx",
 		SessionID:         "detach-killall-sess",
@@ -288,7 +288,7 @@ func TestSimpleProviderClientStreamSurvivesCallerContextCancellation(t *testing.
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 	info := host.StreamInfo{
-		RemotePeerID:      "serverID",
+		RemotePeerID:      serverPeerID(t, serverTLSConfig),
 		RemotePeerAddress: srvEndpoint,
 		ContextID:         "simple-detach-ctx",
 		SessionID:         "simple-detach-sess",

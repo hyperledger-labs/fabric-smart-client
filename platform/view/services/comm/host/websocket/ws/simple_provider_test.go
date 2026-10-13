@@ -50,7 +50,7 @@ func TestSimpleProvider_Security(t *testing.T) { //nolint:paralleltest
 
 			t.Run("successful connection and verified RemotePeerID", func(t *testing.T) { //nolint:paralleltest
 				info := host.StreamInfo{
-					RemotePeerID:      "serverID",
+					RemotePeerID:      serverPeerID(t, serverTLSConfig),
 					RemotePeerAddress: srvEndpoint,
 					ContextID:         "ctx",
 					SessionID:         "sess",
@@ -190,7 +190,7 @@ func TestSimpleProviderClose(t *testing.T) { //nolint:paralleltest
 	srv.TLS = serverTLS
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
-	info := host.StreamInfo{RemotePeerID: "server", RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
+	info := host.StreamInfo{RemotePeerID: serverPeerID(t, serverTLS), RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
 	open := func(p *SimpleProvider) host.P2PStream {
 		t.Helper()
 		c, err := p.NewClientStream(info, t.Context(), clientID, clientTLS)
