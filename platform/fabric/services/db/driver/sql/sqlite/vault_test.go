@@ -29,13 +29,13 @@ func TestVaultStoreRangeIsSorted(t *testing.T) {
 	}))
 	store, err := NewPersistenceWithOpts(cp, sqlite2.NewDbProvider(), "", NewVaultStore)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
 	ctx := t.Context()
-	require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {
-		"k3":   {Raw: []byte("k3"), Version: []byte("v")},
-		"k2":   {Raw: []byte("k2"), Version: []byte("v")},
-		"k111": {Raw: []byte("k111"), Version: []byte("v")},
-		"k1":   {Raw: []byte("k1"), Version: []byte("v")},
-	}}, nil))
+	// One Store per key, in key order, so rowid and index order agree and the
+	// reversed scan is unsorted whichever the planner picks.
+	for _, k := range []driver.PKey{"k1", "k111", "k2", "k3"} {
+		require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}, nil))
+	}
 
 	it, err := store.GetStateRange(ctx, "ns", "k1", "k3")
 	require.NoError(t, err)

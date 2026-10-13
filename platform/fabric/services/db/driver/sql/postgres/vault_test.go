@@ -48,6 +48,7 @@ func newPostgresVaultStoreWithParams(tb testing.TB, params string) *VaultStore {
 	}))
 	store, err := NewPersistenceWithOpts(cp, postgres2.NewDbProvider(), "", NewVaultStore)
 	require.NoError(tb, err)
+	tb.Cleanup(func() { _ = store.Close() })
 
 	return store
 }

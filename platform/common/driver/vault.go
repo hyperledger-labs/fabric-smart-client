@@ -126,7 +126,7 @@ type VaultReader interface {
 	// GetStates returns the states for the given specific namespace - key pairs
 	GetStates(ctx context.Context, namespace Namespace, keys ...PKey) (TxStateIterator, error)
 
-	// GetStateRange returns the states for the given specific namespace - key range,
+	// GetStateRange returns the states of namespace with keys in [startKey, endKey),
 	// sorted by key in byte order.
 	GetStateRange(ctx context.Context, namespace Namespace, startKey, endKey PKey) (TxStateIterator, error)
 

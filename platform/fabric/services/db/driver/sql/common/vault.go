@@ -372,15 +372,26 @@ func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace
 	for i, k := range keys {
 		encoded[i] = db.encodeKey(k)
 	}
-	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.In("pkey", encoded...)), "")
+	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.In("pkey", encoded...)))
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), betweenKeys("pkey", startKey, endKey, db.encodeKey)), " ORDER BY pkey ASC")
+	query, params := sqlbuild.New().
+		WriteString("SELECT pkey, kversion, val FROM " + db.tables.StateTable).
+		WriteWhere(sqlbuild.And(sqlbuild.Eq("ns", namespace), betweenKeys("pkey", startKey, endKey, db.encodeKey))).
+		WriteString(" ORDER BY pkey ASC").
+		Build()
+
+	logger.Debug(query, params)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
+	if err != nil {
+		return nil, err
+	}
+	return common3.NewIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }), nil
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sqlbuild.Eq("ns", namespace), "")
+	return db.queryState(ctx, sqlbuild.Eq("ns", namespace))
 }
 
 // betweenKeys returns a condition matching rows where col falls in the
@@ -398,13 +409,12 @@ func betweenKeys(col string, start, end driver.PKey, encode KeyEncoder) sqlbuild
 	return sqlbuild.And(parts...)
 }
 
-// queryState runs a SELECT on the state table filtered by where, followed by
-// suffix, and returns an iterator over the matching rows.
-func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition, suffix string) (driver.TxStateIterator, error) {
+// queryState runs a SELECT on the state table filtered by where and returns
+// an iterator over the matching rows.
+func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition) (driver.TxStateIterator, error) {
 	query, params := sqlbuild.New().
 		WriteString("SELECT pkey, kversion, val FROM " + db.tables.StateTable).
 		WriteWhere(where).
-		WriteString(suffix).
 		Build()
 
 	logger.Debug(query, params)
