@@ -33,8 +33,6 @@ import (
 //go:generate counterfeiter -o mock/key_value_store.go -fake-name KeyValueStore github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver.KeyValueStore
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
 
-var sanitizer = postgres2.NewSanitizer()
-
 type stuff struct {
 	S string `json:"s"`
 	I int    `json:"i"`
@@ -48,9 +46,9 @@ func testRound(t *testing.T, drv driver2.Driver) {
 	require.NoError(t, err)
 	defer kvstore.Stop()
 
-	k1, err := createCompositeKey("k", []string{"1"})
+	k1, err := kvs2.CreateCompositeKey("k", []string{"1"})
 	require.NoError(t, err)
-	k2, err := createCompositeKey("k", []string{"2"})
+	k2, err := kvs2.CreateCompositeKey("k", []string{"2"})
 	require.NoError(t, err)
 
 	err = kvstore.Put(context.Background(), k1, &stuff{"santa", 1})
@@ -112,8 +110,7 @@ func testRound(t *testing.T, drv driver2.Driver) {
 		I: 100,
 	}
 	h := sha256.Sum256([]byte("Hello World"))
-	k, err := sanitizer.Encode(string(h[:]))
-	require.NoError(t, err)
+	k := string(h[:])
 	require.NoError(t, kvstore.Put(context.Background(), k, val))
 	require.True(t, kvstore.Exists(context.Background(), k))
 	val2 := &stuff{}
@@ -121,14 +118,6 @@ func testRound(t *testing.T, drv driver2.Driver) {
 	require.Equal(t, val, val2)
 	require.NoError(t, kvstore.Delete(context.Background(), k))
 	require.False(t, kvstore.Exists(context.Background(), k))
-}
-
-func createCompositeKey(objectType string, attributes []string) (string, error) {
-	k, err := kvs2.CreateCompositeKey(objectType, attributes)
-	if err != nil {
-		return "", err
-	}
-	return sanitizer.Encode(k)
 }
 
 func testParallelWrites(t *testing.T, drv driver2.Driver) {
@@ -145,7 +134,7 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	wg.Add(n)
 	for i := range n {
 		go func(i int) {
-			k1, err := createCompositeKey("parallel_key_1_", []string{fmt.Sprintf("%d", i)})
+			k1, err := kvs2.CreateCompositeKey("parallel_key_1_", []string{fmt.Sprintf("%d", i)})
 			assert.NoError(t, err) // assert: in goroutine, require would only stop goroutine not test
 			err = kvstore.Put(context.Background(), k1, &stuff{"santa", i})
 			assert.NoError(t, err) // assert: in goroutine
@@ -157,7 +146,7 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	// same key
 	wg = sync.WaitGroup{}
 	wg.Add(n)
-	k1, err := createCompositeKey("parallel_key_2_", []string{"1"})
+	k1, err := kvs2.CreateCompositeKey("parallel_key_2_", []string{"1"})
 	require.NoError(t, err)
 	for i := range n {
 		go func(_ int) {

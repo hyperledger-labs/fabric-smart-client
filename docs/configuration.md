@@ -902,6 +902,36 @@ persistence:
 > internal/self-signed CA (the common case for Postgres) will therefore fail to
 > verify unless you point `root_cert_path` at that CA.
 
+Postgres stores KVS and vault keys in `BYTEA` columns. Composite keys contain U+0000, which `TEXT` cannot hold, and range scans
+need keys ordered bytewise, as Fabric orders them, whatever the database collation.
+
+On startup the vault checks the `pkey` column of its state table (the table whose name ends in `vstate`):
+
+- `BYTEA`: nothing to do.
+- `TEXT`: the vault converts the column to `BYTEA` in place. A `TEXT` column stores U+0000 as `?0?` and U+10FFFF as `?1?`; the
+  conversion turns both back into their UTF-8 bytes, so every key reads back as before. A key that contains a literal `?0?` or
+  `?1?` cannot be told apart from an escape and is converted too; where the two overlap, as in `?0?1?`, `?0?` is converted
+  first. The conversion rewrites the table and its primary-key index under an exclusive lock. On a large vault the first
+  start takes longer. Only the replica that gets the lock first converts the table.
+- any other type: the vault refuses to start.
+
+The conversion needs a database user that owns the state table. Without that privilege the vault fails to start and the table
+is left unchanged.
+
+> [!WARNING]
+> An FSC version that stores `pkey` as `TEXT` still starts against a converted table, but it writes escaped keys that this
+> version never reads, so the two silently diverge. Stop every replica before the first upgraded one starts, never run an
+> older version against a converted database, and back up the database before upgrading: downgrading means restoring the
+> backup.
+
+With `skipCreateTable: true` neither the check nor the conversion runs, so a schema managed outside FSC must declare `pkey` as
+`BYTEA`. To convert an existing `TEXT` column by hand, run:
+
+```sql
+ALTER TABLE <prefix>_vstate ALTER COLUMN pkey TYPE BYTEA USING
+  decode(replace(replace(encode(convert_to(pkey, 'UTF8'), 'hex'), '3f303f', '00'), '3f313f', 'f48fbfbf'), 'hex');
+```
+
 For more info about managing connections, see https://go.dev/doc/database/manage-connections. Keep in mind that Fabric Smart Client
 maintains two independent database instances: one for KVS and one for the Vault. The combined maxOpenConns should not exceed the
 configured max_connections in the postgres server (100 by default).

@@ -20,12 +20,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 )
 
-// identity sanitizer: encodes and decodes to itself, so the asserted args are
-// the raw values.
-type idSanitizer struct{}
-
-func (idSanitizer) Encode(s string) (string, error) { return s, nil }
-func (idSanitizer) Decode(s string) (string, error) { return s, nil }
+// idKey binds keys unchanged, so the asserted args are the raw values.
+func idKey(k driver.PKey) any { return k }
 
 // isoMapper maps every isolation level to the default one. Only
 // NewTxLockVaultReader's lazy reader would use it, and these tests never
@@ -47,7 +43,7 @@ func newVaultMock(t *testing.T) (*common2.VaultStore, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
-	store := common2.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idSanitizer{}, isoMapper{})
+	store := common2.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, isoMapper{})
 	return store, mockDB
 }
 

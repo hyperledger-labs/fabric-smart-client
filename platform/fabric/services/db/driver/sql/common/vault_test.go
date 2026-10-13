@@ -14,34 +14,36 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 )
 
+func identity(k string) any { return k }
+
 func renderCondition(c sqlbuild.Condition) (string, []sqlbuild.Param) {
 	b := sqlbuild.New()
 	c.WriteTo(b)
 	return b.Build()
 }
 
-func TestBetweenStrings_BothBounds(t *testing.T) { //nolint:paralleltest
-	sql, args := renderCondition(betweenStrings("pkey", "a", "z"))
+func TestBetweenKeys_BothBounds(t *testing.T) { //nolint:paralleltest
+	sql, args := renderCondition(betweenKeys("pkey", "a", "z", identity))
 	require.Equal(t, "(pkey >= $1 AND pkey < $2)", sql)
 	require.Equal(t, []sqlbuild.Param{"a", "z"}, args)
 }
 
-func TestBetweenStrings_OnlyStart(t *testing.T) { //nolint:paralleltest
-	sql, args := renderCondition(betweenStrings("pkey", "a", ""))
+func TestBetweenKeys_OnlyStart(t *testing.T) { //nolint:paralleltest
+	sql, args := renderCondition(betweenKeys("pkey", "a", "", identity))
 	require.Equal(t, "(pkey >= $1)", sql)
 	require.Equal(t, []sqlbuild.Param{"a"}, args)
 }
 
-func TestBetweenStrings_OnlyEnd(t *testing.T) { //nolint:paralleltest
-	sql, args := renderCondition(betweenStrings("pkey", "", "z"))
+func TestBetweenKeys_OnlyEnd(t *testing.T) { //nolint:paralleltest
+	sql, args := renderCondition(betweenKeys("pkey", "", "z", identity))
 	require.Equal(t, "(pkey < $1)", sql)
 	require.Equal(t, []sqlbuild.Param{"z"}, args)
 }
 
 // GetStateRange(ctx, ns, "", "") relies on this rendering as a tautology
 // rather than as an empty string.
-func TestBetweenStrings_NoBounds(t *testing.T) { //nolint:paralleltest
-	sql, args := renderCondition(betweenStrings("pkey", "", ""))
+func TestBetweenKeys_NoBounds(t *testing.T) { //nolint:paralleltest
+	sql, args := renderCondition(betweenKeys("pkey", "", "", identity))
 	require.Equal(t, "(1=1)", sql)
 	require.Nil(t, args)
 }

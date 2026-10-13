@@ -236,6 +236,9 @@ The logical layout is the same across supported SQL backends, but some physical 
 | --- | --- | --- |
 | Vault `pos` column | `INTEGER PRIMARY KEY` | `SERIAL PRIMARY KEY` |
 | Vault byte columns | `val`, `kversion`, and `metadata` default to empty byte values | stored as `BYTEA` without SQLite-style empty defaults |
-| String handling | uses a no-op sanitizer for vault namespace and key text | sanitizes vault namespace and key strings before persistence |
+| Vault `pkey` column | `TEXT`, keys stored verbatim | `BYTEA`, keys stored verbatim (inspect with `encode(pkey, 'escape')`) |
 
 These differences do not change the logical meaning of the data, but they matter when directly inspecting tables or writing backend-specific SQL.
+
+On Postgres, the vault converts a state table whose `pkey` column is `TEXT` to `BYTEA` on startup; see
+[Persistence: sqlite/postgres](../../../configuration.md#persistence-sqlitepostgres).

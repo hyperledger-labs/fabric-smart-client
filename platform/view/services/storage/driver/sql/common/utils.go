@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
-	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
 )
 
 type WriteDB interface {
@@ -22,34 +21,6 @@ type WriteDB interface {
 	Exec(query string, args ...any) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	Close() error
-}
-
-func NewSanitizer(s sql2.Sanitizer) *sanitizer {
-	return &sanitizer{Sanitizer: s}
-}
-
-type sanitizer struct {
-	sql2.Sanitizer
-}
-
-func (s *sanitizer) EncodeAll(params []any) ([]any, error) {
-	encoded := make([]any, len(params))
-	for i, param := range params {
-		encoded[i] = param
-		if param == nil {
-			continue
-		}
-		p, ok := param.(string)
-		if !ok {
-			continue
-		}
-		p, err := s.Encode(p)
-		if err != nil {
-			return nil, err
-		}
-		encoded[i] = p
-	}
-	return encoded, nil
 }
 
 func InitSchema(db WriteDB, schemas ...string) (err error) {
