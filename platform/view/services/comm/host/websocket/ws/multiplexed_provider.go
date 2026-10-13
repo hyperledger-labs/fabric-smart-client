@@ -481,11 +481,8 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 		return
 	}
 	logger.Debugf("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, meta.SpanContext)
-	// Propagating the request context will not make a difference (see comment in newClientStream)
-	spanContext, err := tracing.UnmarshalContext(meta.SpanContext)
-	if err != nil {
-		logger.Debugf("failed to unmarshal span context: %v", err)
-	}
+	// Propagating the request context will not make a difference (see comment in SimpleProvider.NewClientStream)
+	spanContext := remoteSpanContext(&meta)
 	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "IncomingViewInvocation", tracing.WithAttributes( //nolint:spancheck // span is handed off to subConnWithSpan, whose Close() ends it (see below)
 		tracing.String(contextIDLabel, defaultContextIDLabel)))
 
@@ -494,7 +491,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	c.mu.Unlock()
 	logger.Debugf("Created server subconn with id [%s]", sc.id)
 
-	logger.Debugf("Received response with context: %v", spanContext)
+	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
 	newStreamCallback(NewWSStream(&subConnWithSpan{subConn: sc, span: span}, ctx, host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: c.conn.RemoteAddr().String(),
