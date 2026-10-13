@@ -415,6 +415,8 @@ func (h *pipeHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return h.conn, bufio.NewReadWriter(h.br, bufio.NewWriter(h.conn)), nil
 }
 
+// newPipedWebsocketPair upgrades a net.Pipe to a websocket and returns both ends: serverConn
+// is the hijacked server side of the upgrade, clientConn the dialer side.
 func newPipedWebsocketPair(t *testing.T) (serverConn, clientConn *gwebsocket.Conn) {
 	t.Helper()
 
@@ -572,14 +574,12 @@ func TestFailedWriteKillsConnection_Server(t *testing.T) { //nolint:paralleltest
 
 	// Peer intentionally does not read the rejection frame.
 	// The server's write will block on the unbuffered pipe until sc.writeTimeout expires.
+	// Kill sets closed before it clears subConns, so wait for both.
 	require.Eventually(t, func() bool {
-		return sc.closed.Load()
+		sc.mu.RLock()
+		defer sc.mu.RUnlock()
+		return sc.closed.Load() && len(sc.subConns) == 0
 	}, 2*time.Second, 10*time.Millisecond, "server connection was not killed after write timeout")
-
-	// Verify all sub-connections were cleared.
-	sc.mu.RLock()
-	assert.Empty(t, sc.subConns, "subConns map should be empty after connection is killed")
-	sc.mu.RUnlock()
 
 	// Verify the established sub-connection stream was shut down.
 	buf := make([]byte, 10)
@@ -635,31 +635,15 @@ func TestFailedWriteKillsConnection_Client(t *testing.T) { //nolint:paralleltest
 	require.Len(t, cc.subConns, 1, "sub-connection should be registered")
 	cc.mu.RUnlock()
 
-	// Peer now stops reading.
-	// Client attempts to write a message on the stream.
-	writeErrCh := make(chan error, 1)
-	go func() {
-		err := sendMsg(s, []byte("payload"))
-		writeErrCh <- err
-	}()
+	// Peer now stops reading, so the write fails once cc.writeTimeout expires.
+	require.Error(t, sendMsg(s, []byte("payload")), "write on unresponsive pipe should fail")
 
-	// The write should fail due to the write deadline expiring.
-	select {
-	case err := <-writeErrCh:
-		require.Error(t, err, "write on unresponsive pipe should fail")
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for write to fail")
-	}
-
-	// Verify client connection was killed.
+	// Kill sets closed before it clears subConns, so wait for both.
 	require.Eventually(t, func() bool {
-		return cc.closed.Load()
+		cc.mu.RLock()
+		defer cc.mu.RUnlock()
+		return cc.closed.Load() && len(cc.subConns) == 0
 	}, 2*time.Second, 10*time.Millisecond, "client connection was not killed after write timeout")
-
-	// Verify all sub-connections were cleared.
-	cc.mu.RLock()
-	assert.Empty(t, cc.subConns, "client subConns map should be empty after connection is killed")
-	cc.mu.RUnlock()
 
 	// Verify onClose callback was invoked (which evicts connection from provider cache).
 	select {

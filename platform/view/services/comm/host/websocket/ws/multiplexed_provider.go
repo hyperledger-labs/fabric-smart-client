@@ -161,7 +161,8 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	}
 	conn, ok := c.clients[urlStr]
 	c.mu.RUnlock()
-	if ok {
+	// A killed connection stays cached until its onClose runs; dial a new one instead.
+	if ok && !conn.closed.Load() {
 		return conn, nil
 	}
 
@@ -170,7 +171,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 		c.mu.Unlock()
 		return nil, errors.New("provider is closed")
 	}
-	if conn, ok = c.clients[urlStr]; ok {
+	if conn, ok = c.clients[urlStr]; ok && !conn.closed.Load() {
 		c.mu.Unlock()
 		return conn, nil
 	}
@@ -307,6 +308,12 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	}
 
 	c.mu.Lock()
+	// Kill sets closed before it clears subConns under mu, so a sub-connection registered
+	// after this check is still shut down by Kill.
+	if c.closed.Load() {
+		c.mu.Unlock()
+		return nil, errors.New("connection is closed")
+	}
 	if len(c.subConns) >= c.maxSubConns {
 		c.mu.Unlock()
 		return nil, errors.Errorf("max sub-connections reached [%d]", c.maxSubConns)
@@ -548,14 +555,12 @@ func (c *multiplexedBaseConn) Kill() error {
 	clear(c.closing)
 	c.mu.Unlock()
 
-	// close sub conns
-	var err error
+	// Close the websocket first: it fails any write blocked on an unresponsive peer, which
+	// releases the subConn mu that shutdown needs.
+	err := c.conn.Close()
 	for _, sc := range subConns {
 		err = errors2.Join(err, sc.shutdown(false))
 	}
-
-	// close websocket
-	err = errors2.Join(err, c.conn.Close())
 
 	return err
 }
@@ -576,20 +581,19 @@ func (c *multiplexedBaseConn) newSubConn(id SubConnId) *subConn {
 	}
 }
 
+// write sends msg on the websocket. A failed write leaves the gorilla connection unusable, so
+// write closes the socket: the read loop then fails and its deferred Kill shuts down every
+// sub-connection and, on the client side, evicts the connection from the provider cache.
+// write does not call Kill itself because callers may hold a subConn's mu, which Kill needs.
 func (c *multiplexedBaseConn) write(msg any) error {
 	c.writeMu.Lock()
-	timeout := c.writeTimeout
-	if timeout <= 0 {
-		timeout = writeTimeout
-	}
-	_ = c.conn.SetWriteDeadline(time.Now().Add(timeout))
+	defer c.writeMu.Unlock()
+	_ = c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
 	err := c.conn.WriteJSON(msg)
-	c.writeMu.Unlock()
 	if err != nil {
-		_ = c.Kill()
-		return err
+		_ = c.conn.Close()
 	}
-	return nil
+	return err
 }
 
 // Sub connection
@@ -599,6 +603,9 @@ type subConn struct {
 	receiverChan chan result
 	parentConn   *multiplexedBaseConn
 
+	// mu protects isClosed. writeMultiplexedMessage holds it across the parent write so that
+	// shutdown cannot send the Err frame for this ID ahead of an in-flight data frame; the peer
+	// would take such a late data frame for a new sub-connection.
 	mu       sync.Mutex
 	isClosed bool
 }
@@ -637,10 +644,9 @@ func (c *subConn) WriteMessage(_ int, data []byte) error {
 
 func (c *subConn) writeMultiplexedMessage(msg MultiplexedMessage) error {
 	c.mu.Lock()
-	closed := c.isClosed
-	c.mu.Unlock()
+	defer c.mu.Unlock()
 
-	if closed {
+	if c.isClosed {
 		return websocket.ErrCloseSent
 	}
 
@@ -673,8 +679,10 @@ func (c *subConn) shutdown(awaitAck bool) error {
 	}
 	p.mu.Unlock()
 
-	// try to send closing handshake but ignore any error (in case connection is already closed)
-	_ = p.write(MultiplexedMessage{ID: c.id, Err: io.EOF.Error()})
+	// Send the closing handshake unless the whole connection is being killed; ignore any error.
+	if !p.closed.Load() {
+		_ = p.write(MultiplexedMessage{ID: c.id, Err: io.EOF.Error()})
+	}
 
 	return nil
 }
