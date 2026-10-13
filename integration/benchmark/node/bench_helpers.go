@@ -106,15 +106,12 @@ func RunGRPCBenchmark(b *testing.B, ccs []*benchmark.ViewClient, makeCaller func
 }
 
 // MakeGRPCCaller creates a caller function that sends a signed gRPC command
-// for the given workload name and input. The signed command is created once
-// and reused across all calls for efficiency.
+// for the given workload name and input. Every call signs a new command, as the
+// server accepts each signed command only once.
 func MakeGRPCCaller(tb testing.TB, cli *benchmark.ViewClient, fid string, input []byte) func(ctx context.Context) error {
 	tb.Helper()
-	sc, err := cli.CreateSignedCommand(buildCommand(fid, input))
-	require.NoError(tb, err)
-
 	return func(ctx context.Context) error {
-		return executeSignedCommand(cli, sc, ctx)
+		return signAndExecute(cli, fid, input, ctx)
 	}
 }
 
@@ -123,6 +120,15 @@ func buildCommand(fid string, input []byte) *protos2.Command {
 	return &protos2.Command{
 		Payload: &protos2.Command_CallView{CallView: &protos2.CallView{Fid: fid, Input: input}},
 	}
+}
+
+// signAndExecute signs a new CallView command and sends it.
+func signAndExecute(cli *benchmark.ViewClient, fid string, input []byte, ctx context.Context) error {
+	sc, err := cli.CreateSignedCommand(buildCommand(fid, input))
+	if err != nil {
+		return err
+	}
+	return executeSignedCommand(cli, sc, ctx)
 }
 
 // executeSignedCommand sends a pre-signed command and validates the response.

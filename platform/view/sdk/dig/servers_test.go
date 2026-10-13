@@ -547,9 +547,16 @@ func TestNewViewServiceServer(t *testing.T) {
 
 	t.Run("with nil grpcServer", func(t *testing.T) {
 		t.Parallel()
-		srv, err := NewViewServiceServer(nil, nil, nil, tp.Default, nil)
+		srv, err := NewViewServiceServer(providerFrom(t, ""), nil, nil, nil, tp.Default, nil)
 		require.NoError(t, err)
 		require.NotNil(t, srv)
+	})
+
+	t.Run("with a non-positive time window", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, "fsc:\n  grpc:\n    authentication:\n      timeWindow: 0s\n")
+		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default, nil)
+		require.ErrorContains(t, err, "command time window must be positive")
 	})
 
 	t.Run("with non-nil grpcServer", func(t *testing.T) {
@@ -576,7 +583,7 @@ fsc:
 		require.NotNil(t, grpcServer)
 		defer grpcServer.Stop()
 
-		srv, err := NewViewServiceServer(nil, nil, nil, tp.Default, grpcServer)
+		srv, err := NewViewServiceServer(p, nil, nil, nil, tp.Default, grpcServer)
 		require.NoError(t, err)
 		require.NotNil(t, srv)
 	})

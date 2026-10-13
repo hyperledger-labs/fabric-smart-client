@@ -274,6 +274,7 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 		server.NewMetrics(&disabled.Provider{}),
 		noop.NewTracerProvider(),
 		func(_ context.Context, _ proto.Message) error { return nil },
+		time.Minute,
 	)
 	require.NoError(tb, err)
 	require.NotNil(tb, srv)

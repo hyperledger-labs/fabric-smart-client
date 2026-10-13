@@ -8,15 +8,18 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"reflect"
 	"runtime/debug"
 	"strconv"
+	"time"
 
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -46,16 +49,27 @@ type Server struct {
 	streamers  map[reflect.Type]Streamer
 	metrics    *Metrics
 	tracer     trace.Tracer
+	timeWindow time.Duration
+	accepted   cache.Map[[sha256.Size]byte, struct{}]
 }
 
 // NewViewServiceServer returns a new instance of the view service server.
+//
+// The server accepts a command only if its header timestamp is within timeWindow of the
+// local clock, and only once: it remembers every accepted command for twice timeWindow, the
+// longest time a command stays acceptable. The memory is per process, so a restarted node, or
+// another node holding the same identities, accepts a command again within its window.
 func NewViewServiceServer(
 	marshaller Marshaller,
 	policyChecker PolicyChecker,
 	metrics *Metrics,
 	tracerProvider tracing.Provider,
 	bindingInspector BindingInspector,
+	timeWindow time.Duration,
 ) (*Server, error) {
+	if timeWindow <= 0 {
+		return nil, errors.Errorf("command time window must be positive, got [%s]", timeWindow)
+	}
 	return &Server{
 		Marshaller:       marshaller,
 		PolicyChecker:    policyChecker,
@@ -63,6 +77,9 @@ func NewViewServiceServer(
 		processors:       map[reflect.Type]Processor{},
 		streamers:        map[reflect.Type]Streamer{},
 		metrics:          metrics,
+		timeWindow:       timeWindow,
+		// The server has no shutdown hook, so the eviction goroutine lives as long as the process.
+		accepted: cache.NewTimeoutCache[[sha256.Size]byte, struct{}](context.Background(), 2*timeWindow, nil),
 		tracer: tracerProvider.Tracer("view_service", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{successLabel},
 		})),
@@ -96,6 +113,11 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	}
 
 	err = s.PolicyChecker.Check(sc, command)
+	if err != nil {
+		return s.MarshalErrorResponse(sc.Command, err)
+	}
+
+	err = s.checkReplay(sc)
 	if err != nil {
 		return s.MarshalErrorResponse(sc.Command, err)
 	}
@@ -168,6 +190,11 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 		return s.streamError(err, sc, commandServer)
 	}
 
+	err = s.checkReplay(sc)
+	if err != nil {
+		return s.streamError(err, sc, commandServer)
+	}
+
 	streamer, ok := s.streamers[reflect.TypeOf(command.GetPayload())]
 	switch ok {
 	case true:
@@ -184,10 +211,18 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 	return nil
 }
 
-// ValidateHeader validates the given command header.
-func (*Server) ValidateHeader(header *protos.Header) error {
+// ValidateHeader validates the given command header: it must carry a nonce, a creator, and a
+// timestamp within the server's time window of the local clock.
+func (s *Server) ValidateHeader(header *protos.Header) error {
 	if header == nil {
 		return errors.WithMessage(view.ErrCommandHeaderInvalid, "command header is required")
+	}
+
+	if err := header.GetTimestamp().CheckValid(); err != nil {
+		return errors.WithMessagef(view.ErrCommandHeaderInvalid, "valid timestamp is required in header: %s", err)
+	}
+	if skew := time.Since(header.GetTimestamp().AsTime()).Abs(); skew > s.timeWindow {
+		return errors.WithMessagef(view.ErrCommandHeaderInvalid, "timestamp is [%s] away from local time, more than the allowed [%s]", skew, s.timeWindow)
 	}
 
 	if len(header.Nonce) == 0 {
@@ -198,6 +233,15 @@ func (*Server) ValidateHeader(header *protos.Header) error {
 		return errors.WithMessage(view.ErrCommandHeaderInvalid, "creator is required in header")
 	}
 
+	return nil
+}
+
+// checkReplay rejects a command the server has already accepted. It keys on the signed bytes,
+// not the signature, because an ECDSA signature can be altered and still verify.
+func (s *Server) checkReplay(sc *protos.SignedCommand) error {
+	if s.accepted.Update(sha256.Sum256(sc.Command), func(bool, struct{}) (bool, struct{}) { return true, struct{}{} }) {
+		return errors.WithMessage(view.ErrCommandHeaderInvalid, "command already processed")
+	}
 	return nil
 }
 

@@ -30,15 +30,10 @@ var HistogramOptions = stats.HistogramOptions{
 
 // MakeRemoteGRPCCaller creates a caller function for deadline-driven (remote)
 // benchmarks. Unlike MakeGRPCCaller (which takes testing.TB), this version
-// panics on setup errors since it runs outside of `go test`.
+// runs outside of `go test`.
 func MakeRemoteGRPCCaller(cli *benchmark.ViewClient, fid string, input []byte) func(ctx context.Context) error {
-	sc, err := cli.CreateSignedCommand(buildCommand(fid, input))
-	if err != nil {
-		panic(fmt.Sprintf("failed to create signed command: %v", err))
-	}
-
 	return func(ctx context.Context) error {
-		return executeSignedCommand(cli, sc, ctx)
+		return signAndExecute(cli, fid, input, ctx)
 	}
 }
 

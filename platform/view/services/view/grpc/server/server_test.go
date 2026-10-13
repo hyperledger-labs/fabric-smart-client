@@ -11,13 +11,19 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"reflect"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	grpcutil "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
@@ -48,8 +54,15 @@ func certHash(raw []byte) []byte {
 // buildSignedCommand creates a minimal valid SignedCommand with the given TlsCertHash.
 func buildSignedCommand(t *testing.T, tlsCertHash []byte) *protos.SignedCommand {
 	t.Helper()
+	return buildSignedCommandAt(t, tlsCertHash, timestamppb.Now())
+}
+
+// buildSignedCommandAt creates a minimal SignedCommand with the given TlsCertHash and timestamp.
+func buildSignedCommandAt(t *testing.T, tlsCertHash []byte, ts *timestamppb.Timestamp) *protos.SignedCommand {
+	t.Helper()
 	cmd := &protos.Command{
 		Header: &protos.Header{
+			Timestamp:   ts,
 			Nonce:       []byte("nonce"),
 			Creator:     []byte("creator"),
 			TlsCertHash: tlsCertHash,
@@ -63,10 +76,14 @@ func buildSignedCommand(t *testing.T, tlsCertHash []byte) *protos.SignedCommand 
 	return &protos.SignedCommand{Command: raw}
 }
 
-// stubMarshaller always returns a non-nil response and never errors.
+// stubMarshaller always returns a non-nil response and never errors. An error payload's
+// message is returned as the response bytes.
 type stubMarshaller struct{}
 
-func (*stubMarshaller) MarshalCommandResponse(_ []byte, _ any) (*protos.SignedCommandResponse, error) {
+func (*stubMarshaller) MarshalCommandResponse(_ []byte, payload any) (*protos.SignedCommandResponse, error) {
+	if e, ok := payload.(*protos.CommandResponse_Err); ok {
+		return &protos.SignedCommandResponse{Response: []byte(e.Err.GetMessage())}, nil
+	}
 	return &protos.SignedCommandResponse{}, nil
 }
 
@@ -109,9 +126,119 @@ func newTestServer(t *testing.T, mutualTLS bool) *Server {
 		NewMetrics(&disabled.Provider{}),
 		noop.NewTracerProvider(),
 		BindingInspector(inspector),
+		time.Minute,
 	)
 	require.NoError(t, err)
 	return srv
+}
+
+// countingServer returns a server without mutual TLS whose CallView processor and streamer
+// count their invocations.
+func countingServer(t *testing.T) (*Server, *atomic.Int32) {
+	t.Helper()
+	srv := newTestServer(t, false)
+	calls := &atomic.Int32{}
+	typ := reflect.TypeFor[*protos.Command_CallView]()
+	srv.RegisterProcessor(typ, func(context.Context, *protos.Command) (any, error) {
+		calls.Add(1)
+		return nil, nil
+	})
+	srv.RegisterStreamer(typ, func(*protos.SignedCommand, *protos.Command, protos.ViewService_StreamCommandServer, Marshaller) error {
+		calls.Add(1)
+		return nil
+	})
+	return srv, calls
+}
+
+func TestNewViewServiceServer_RejectsNonPositiveTimeWindow(t *testing.T) {
+	t.Parallel()
+	_, err := NewViewServiceServer(&stubMarshaller{}, YesPolicyChecker{}, NewMetrics(&disabled.Provider{}), noop.NewTracerProvider(), nil, 0)
+	require.EqualError(t, err, "command time window must be positive, got [0s]")
+}
+
+func TestProcessCommand_RejectsTimestampOutsideWindow(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		ts      *timestamppb.Timestamp
+		wantErr string
+	}{
+		{name: "missing", ts: nil, wantErr: "valid timestamp is required in header"},
+		{name: "too old", ts: timestamppb.New(time.Now().Add(-2 * time.Minute)), wantErr: "away from local time, more than the allowed [1m0s]"},
+		{name: "too new", ts: timestamppb.New(time.Now().Add(2 * time.Minute)), wantErr: "away from local time, more than the allowed [1m0s]"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			srv, calls := countingServer(t)
+			resp, err := srv.ProcessCommand(context.Background(), buildSignedCommandAt(t, nil, tc.ts))
+			require.NoError(t, err)
+			require.Contains(t, string(resp.Response), tc.wantErr)
+			require.Zero(t, calls.Load())
+		})
+	}
+}
+
+func TestProcessCommand_AcceptsTimestampWithinWindow(t *testing.T) {
+	t.Parallel()
+	srv, calls := countingServer(t)
+	resp, err := srv.ProcessCommand(context.Background(), buildSignedCommandAt(t, nil, timestamppb.New(time.Now().Add(-50*time.Second))))
+	require.NoError(t, err)
+	require.Empty(t, resp.Response)
+	require.Equal(t, int32(1), calls.Load())
+}
+
+func TestProcessCommand_RejectsReplay(t *testing.T) {
+	t.Parallel()
+	srv, calls := countingServer(t)
+	sc := buildSignedCommand(t, nil)
+
+	resp, err := srv.ProcessCommand(context.Background(), sc)
+	require.NoError(t, err)
+	require.Empty(t, resp.Response)
+
+	// The same command with a different signature is still a replay.
+	for _, replay := range []*protos.SignedCommand{sc, {Command: sc.Command, Signature: []byte("other")}} {
+		resp, err = srv.ProcessCommand(context.Background(), replay)
+		require.NoError(t, err)
+		require.Contains(t, string(resp.Response), "command already processed")
+	}
+	require.Equal(t, int32(1), calls.Load())
+
+	// A new command from the same caller is accepted.
+	resp, err = srv.ProcessCommand(context.Background(), buildSignedCommand(t, nil))
+	require.NoError(t, err)
+	require.Empty(t, resp.Response)
+	require.Equal(t, int32(2), calls.Load())
+}
+
+func TestProcessCommand_RejectsConcurrentReplays(t *testing.T) {
+	t.Parallel()
+	srv, calls := countingServer(t)
+	sc := buildSignedCommand(t, nil)
+
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Go(func() {
+			_, err := srv.ProcessCommand(context.Background(), sc)
+			assert.NoError(t, err)
+		})
+	}
+	wg.Wait()
+	require.Equal(t, int32(1), calls.Load())
+}
+
+func TestStreamCommand_RejectsReplay(t *testing.T) {
+	t.Parallel()
+	srv, calls := countingServer(t)
+	sc := buildSignedCommand(t, nil)
+
+	require.NoError(t, srv.StreamCommand(&fakeStreamServer{ctx: context.Background(), sc: sc}))
+
+	stream := &fakeStreamServer{ctx: context.Background(), sc: sc}
+	require.ErrorContains(t, srv.StreamCommand(stream), "command already processed")
+	require.Len(t, stream.sent, 1)
+	require.Contains(t, string(stream.sent[0].Response), "command already processed")
+	require.Equal(t, int32(1), calls.Load())
 }
 
 // --- ProcessCommand tests ---
