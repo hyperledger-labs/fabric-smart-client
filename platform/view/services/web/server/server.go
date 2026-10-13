@@ -12,15 +12,24 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 )
 
 var logger = logging.MustGetLogger()
+
+var (
+	// shutdownGracePeriod bounds how long Stop lets in-flight handlers run undisturbed.
+	shutdownGracePeriod = 5 * time.Second
+	// handlerWaitTimeout bounds how long Stop waits for handlers once their contexts are cancelled.
+	handlerWaitTimeout = 10 * time.Second
+)
 
 type Options struct {
 	ListenAddress string
@@ -29,11 +38,22 @@ type Options struct {
 	TLS grpc.SecureOptions
 }
 
+// Server is an HTTP(S) listener serving the handlers registered on it.
 type Server struct {
 	options    Options
 	httpServer *http.Server
 	mux        *http.ServeMux
 	addr       string
+
+	// cancelRequests cancels the base context every request context derives from.
+	cancelRequests context.CancelFunc
+	// mu guards stopping and orders handlers.Add before handlers.Wait.
+	mu       sync.Mutex
+	stopping bool
+	// handlers counts running handlers, including those that hijacked their connection
+	// (streaming views), which http.Server.Shutdown neither waits for nor closes. A handler
+	// that hands its connection to another goroutine and returns is no longer counted.
+	handlers sync.WaitGroup
 }
 
 func NewServer(o Options) *Server {
@@ -72,18 +92,67 @@ func (s *Server) Start() error {
 	return nil
 }
 
+// Stop closes the listener and returns once every in-flight handler has returned, so
+// callers can release resources the handlers use. Handlers first get a grace period of 5s
+// to finish; the contexts of those still running are then cancelled, and Stop waits up to
+// 10s more. It returns an error when handlers are still running after that; they are left
+// running.
 func (s *Server) Stop() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownGracePeriod)
 	defer cancel()
+	// Shutdown's error only reports connections still active at the deadline; the
+	// handler wait below covers those and the hijacked ones it does not track.
+	_ = s.httpServer.Shutdown(ctx)
 
-	return s.httpServer.Shutdown(ctx)
+	s.mu.Lock()
+	s.stopping = true
+	s.mu.Unlock()
+	done := make(chan struct{})
+	go func() {
+		s.handlers.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+	}
+	logger.Warnf("in-flight handlers still running after %s, cancelling their contexts", shutdownGracePeriod)
+	s.cancelRequests()
+	select {
+	case <-done:
+		return nil
+	case <-time.After(handlerWaitTimeout):
+		return errors.Errorf("in-flight handlers did not return within %s of cancelling their contexts", handlerWaitTimeout)
+	}
+}
+
+// track counts the handlers h runs, so Stop can wait for them, and rejects requests
+// that arrive once Stop has started waiting.
+func (s *Server) track(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		if s.stopping {
+			s.mu.Unlock()
+			http.Error(w, "server is shutting down", http.StatusServiceUnavailable)
+			return
+		}
+		s.handlers.Add(1)
+		s.mu.Unlock()
+		defer s.handlers.Done()
+		h.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) initializeServer() {
+	baseCtx, cancel := context.WithCancel(context.Background())
+	s.cancelRequests = cancel
 	s.mux = http.NewServeMux()
 	s.httpServer = &http.Server{
 		Addr:              s.options.ListenAddress,
-		Handler:           s.mux,
+		Handler:           s.track(s.mux),
+		BaseContext:       func(net.Listener) context.Context { return baseCtx },
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      2 * time.Minute,

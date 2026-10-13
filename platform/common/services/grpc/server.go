@@ -22,6 +22,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
+// stopTimeout bounds how long Stop waits for in-flight handlers to return.
+var stopTimeout = 10 * time.Second
+
 type GRPCServer struct {
 	// Listen address for the server specified as hostname:port
 	address string
@@ -179,6 +182,9 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 		serverOpts = append(serverOpts, grpc.StatsHandler(serverConfig.ServerStatsHandler))
 	}
 
+	// Stop relies on this to wait for handlers, not only connections.
+	serverOpts = append(serverOpts, grpc.WaitForHandlers(true))
+
 	grpcServer.server = grpc.NewServer(serverOpts...)
 
 	if serverConfig.HealthCheckEnabled {
@@ -250,9 +256,21 @@ func (gServer *GRPCServer) Start() error {
 	return gServer.server.Serve(gServer.listener)
 }
 
-// Stop stops the underlying grpc.Server
+// Stop closes the listener and every connection, cancels the contexts of in-flight RPCs,
+// and returns once their handlers have returned, so callers can release resources the
+// handlers use. It waits at most 10s; handlers still running after that are logged and
+// left running.
 func (gServer *GRPCServer) Stop() {
-	gServer.server.Stop()
+	done := make(chan struct{})
+	go func() {
+		gServer.server.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(stopTimeout):
+		commLogger.Warnf("grpc server [%s]: in-flight handlers did not return within %s", gServer.address, stopTimeout)
+	}
 }
 
 // internal function to add a PEM-encoded clientRootCA
