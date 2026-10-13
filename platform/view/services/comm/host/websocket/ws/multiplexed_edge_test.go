@@ -412,6 +412,29 @@ func requireClosed(t *testing.T, r *rawPeer) {
 	}
 }
 
+// When both ends of a websocket belong to the provider, or the peer goes away during Close,
+// closing a socket fails although it is closed. Close must not report that as an error.
+func TestMultiplexedProviderCloseAfterPeerReset(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
+	streams := make(chan host.P2PStream, 1)
+	srv := startTestServer(t, p, serverTLS, func(s host.P2PStream) { streams <- s })
+	t.Cleanup(srv.Close)
+	info := host.StreamInfo{RemotePeerID: "server", RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
+	_, err := p.NewClientStream(info, t.Context(), clientID, clientTLS)
+	require.NoError(t, err)
+	receiveStream(t, streams)
+
+	// Reset the client's TCP connection, so the server's TLS close alert fails.
+	tcp, ok := firstClientConn(p).conn.NetConn().(*tls.Conn).NetConn().(*net.TCPConn)
+	require.True(t, ok)
+	require.NoError(t, tcp.SetLinger(0))
+	require.NoError(t, tcp.Close())
+
+	require.NoError(t, p.Close())
+}
+
 func serverConnCount(p *MultiplexedProvider) int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

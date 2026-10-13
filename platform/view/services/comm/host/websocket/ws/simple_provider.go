@@ -36,7 +36,9 @@ type SimpleProvider struct {
 }
 
 // Close closes the provider and every stream it opened or accepted. Once it starts,
-// NewClientStream fails and NewServerStream rejects new websockets. Later calls return nil.
+// NewClientStream fails and NewServerStream rejects new websockets. Close always returns nil:
+// a socket is closed even when closing it fails, which happens whenever the peer already went
+// away, so such errors are only logged.
 func (p *SimpleProvider) Close() error {
 	p.mu.Lock()
 	p.closed = true
@@ -47,11 +49,12 @@ func (p *SimpleProvider) Close() error {
 	clear(p.streams)
 	p.mu.Unlock()
 
-	var err error
 	for _, s := range streams {
-		err = errors.Join(err, s.Close())
+		if err := s.Close(); err != nil {
+			logger.Debugf("error closing stream [%s]: %v", s.Hash(), err)
+		}
 	}
-	return err
+	return nil
 }
 
 // track registers s until it closes, or closes s and fails if the provider is closed.

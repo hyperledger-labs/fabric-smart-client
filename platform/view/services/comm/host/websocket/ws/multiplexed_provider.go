@@ -82,9 +82,9 @@ type MultiplexedProvider struct {
 
 // KillAll closes the provider and kills every websocket it dialed or accepted, together with
 // their sub-connections. Once it starts, NewClientStream fails and NewServerStream rejects new
-// websockets. Only the first call does anything; later calls return nil.
+// websockets. KillAll always returns nil: a socket is closed even when closing it fails, which
+// happens whenever the peer already went away, so such errors are only logged.
 func (c *MultiplexedProvider) KillAll() error {
-	var err error
 	c.killOnce.Do(func() {
 		c.mu.Lock()
 		c.closed = true
@@ -104,11 +104,13 @@ func (c *MultiplexedProvider) KillAll() error {
 		// Killing closes each socket, which can block on the TLS close alert to a peer
 		// that stopped reading, so it runs without mu.
 		for _, conn := range conns {
-			err = errors.Join(err, conn.Kill())
+			if err := conn.Kill(); err != nil {
+				logger.Debugf("error closing websocket: %v", err)
+			}
 		}
 	})
 
-	return err
+	return nil
 }
 
 // Close is KillAll.
