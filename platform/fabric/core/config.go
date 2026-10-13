@@ -7,10 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package core
 
 import (
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+
+	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commondriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -87,8 +91,9 @@ func NewConfig(configProvider DynamicConfigProvider) (*Config, error) {
 // loadNetworks scans the `fabric` key of the given provider and returns the discovered
 // per-network configurations, the ordered (sorted) list of network names, and the resolved
 // default network name. Every network name and channel name it discovers is validated against
-// the Fabric naming rules, and at most one network may be marked as default (explicitly via
-// FSNConfig.Default, or implicitly by being named "default"); violating either rule is an error.
+// the Fabric naming rules, no network name may extend another with a dotted suffix (such as
+// default and default.tls), and at most one network may be marked as default (explicitly via
+// FSNConfig.Default, or implicitly by being named "default"); violating any rule is an error.
 func loadNetworks(configProvider ConfigProvider) (map[string]*FSNConfig, []string, string, error) {
 	var value any
 	if err := configProvider.UnmarshalKey("fabric", &value); err != nil {
@@ -126,6 +131,9 @@ func loadNetworks(configProvider ConfigProvider) (map[string]*FSNConfig, []strin
 		names = append(names, name)
 		configurations[name] = &fsnConfig
 		logger.Debugf("found fabric network [%s], driver [%s]", name, fsnConfig.Driver)
+	}
+	if err := checkNestedNetworks(names); err != nil {
+		return nil, nil, "", err
 	}
 
 	defaults := explicitDefaults(configurations, names)
@@ -208,20 +216,26 @@ func (f NetworkConfigValidatorFunc) Validate(networkName string, configProvider 
 // AddNetwork validates the given raw yaml configuration and, if it describes one or more new
 // Fabric networks, merges it into the live configuration tree.
 //
-// The raw configuration must be a valid `fabric` configuration snippet (e.g. `fabric.<name>.*`
-// keys) whose keys stay unique once lowercased and flattened; keys that differ only in case,
-// and dotted keys that repeat a nested one, are rejected before any validation runs. Every network name and channel name it introduces is validated
-// against the Fabric naming rules (the same rules applied to the configuration loaded at
-// startup), and every network it introduces must be new: adding a network whose name already
-// exists is rejected, as updating an existing network's configuration is not supported. A
-// network requesting to become the default (via FSNConfig.Default or the name "default") is
-// also rejected if doing so would leave more than one network marked as default. Any
-// additional validators are run, per incoming network, after the built-in checks and before
+// The raw configuration must hold only network sections under a nested `fabric` key (e.g.
+// `fabric: {<name>: {...}}`), as the checks and validators only see those networks; any other
+// key, including a dotted `fabric.<name>` key and a `fabric.enabled` that differs from the live
+// value, is rejected. Keys that differ only in case, and dotted keys that repeat a nested one,
+// are rejected before any validator runs; a key colliding with the live configuration fails the
+// merge. Every network name and channel name it introduces is validated against the Fabric naming
+// rules (the same rules applied to the configuration loaded at startup), and every network it
+// introduces must be new: adding a network whose name already exists, or extends an existing one
+// with a dotted suffix, is rejected, as updating an existing network's configuration is not
+// supported. A network requesting to become the default (via FSNConfig.Default or the name
+// "default") is also rejected if doing so would leave more than one network marked as default.
+// Any additional validators are run, per incoming network, after the built-in checks and before
 // anything is merged.
 func (c *Config) AddNetwork(raw []byte, validators ...NetworkConfigValidator) error {
 	temp, err := c.provider.ProvideFromRaw(raw)
 	if err != nil {
 		return errors.Wrap(err, "failed parsing fabric configuration")
+	}
+	if err := checkNetworksOnly(raw, c.provider); err != nil {
+		return err
 	}
 
 	incomingConfigurations, incomingNames, _, err := loadNetworks(temp)
@@ -245,6 +259,9 @@ func (c *Config) AddNetwork(raw []byte, validators ...NetworkConfigValidator) er
 			return errors.Errorf("fabric network [%s] already exists, updating an existing network is not supported", name)
 		}
 	}
+	if err := checkNestedNetworks(append(slices.Clone(c.names), incomingNames...)); err != nil {
+		return err
+	}
 
 	defaults := append(explicitDefaults(c.configurations, c.names), explicitDefaults(incomingConfigurations, incomingNames)...)
 	sort.Strings(defaults)
@@ -266,6 +283,45 @@ func (c *Config) AddNetwork(raw []byte, validators ...NetworkConfigValidator) er
 
 	logger.Infof("added fabric network(s) %v", incomingNames)
 
+	return nil
+}
+
+// checkNestedNetworks rejects network names where one extends another with a dotted suffix,
+// such as default and default.tls: koanf flattens the keys of default.tls into those of default.
+func checkNestedNetworks(names []string) error {
+	for _, name := range names {
+		for _, other := range names {
+			if strings.HasPrefix(other, name+".") {
+				return errors.Errorf("fabric network [%s] is nested under fabric network [%s]", other, name)
+			}
+		}
+	}
+	return nil
+}
+
+// checkNetworksOnly rejects keys of raw other than the network sections under `fabric`, except
+// a `fabric.enabled` equal to its live value.
+func checkNetworksOnly(raw []byte, live ConfigProvider) error {
+	m, err := viewconfig.LowercaseParser{Parser: koanfyaml.Parser()}.Unmarshal(raw)
+	if err != nil {
+		return errors.Wrap(err, "failed parsing fabric configuration")
+	}
+	for _, key := range slices.Sorted(maps.Keys(m)) {
+		if key != "fabric" {
+			return errors.Errorf("key [%s] is not a fabric network section", key)
+		}
+	}
+	if fabric, ok := m["fabric"].(map[string]any); ok {
+		if enabled, ok := fabric["enabled"]; ok {
+			var liveEnabled bool
+			if err := live.UnmarshalKey("fabric.enabled", &liveEnabled); err != nil {
+				return errors.Wrap(err, "failed reading fabric.enabled")
+			}
+			if enabled != liveEnabled {
+				return errors.Errorf("key [fabric.enabled] cannot change from [%t]", liveEnabled)
+			}
+		}
+	}
 	return nil
 }
 
