@@ -191,7 +191,7 @@ func TestTxVaultReader_DelegatesAfterOpen(t *testing.T) { //nolint:paralleltest
 		},
 		{
 			name:  "GetStateRange",
-			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (pkey >= $2 AND pkey < $3))",
+			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (pkey >= $2 AND pkey < $3)) ORDER BY pkey ASC",
 			args:  []sqldriver.Value{"ns", "a", "z"},
 			cols:  stateCols,
 			run: func(r driver.LockedVaultReader) error {

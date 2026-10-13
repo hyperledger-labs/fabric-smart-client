@@ -67,6 +67,8 @@ type VersionedResultsIterator = iterators.Iterator[*VaultRead]
 type QueryExecutor interface {
 	GetState(ctx context.Context, namespace Namespace, key PKey) (*VaultRead, error)
 	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
+	// GetStateRange returns the states of namespace with keys in [startKey, endKey),
+	// sorted by key in byte order.
 	GetStateRange(ctx context.Context, namespace Namespace, startKey, endKey PKey) (VersionedResultsIterator, error)
 	Done() error
 }
@@ -124,7 +126,8 @@ type VaultReader interface {
 	// GetStates returns the states for the given specific namespace - key pairs
 	GetStates(ctx context.Context, namespace Namespace, keys ...PKey) (TxStateIterator, error)
 
-	// GetStateRange returns the states for the given specific namespace - key range
+	// GetStateRange returns the states for the given specific namespace - key range,
+	// sorted by key in byte order.
 	GetStateRange(ctx context.Context, namespace Namespace, startKey, endKey PKey) (TxStateIterator, error)
 
 	// GetAllStates returns all states for a given namespace. Only used for testing purposes.
