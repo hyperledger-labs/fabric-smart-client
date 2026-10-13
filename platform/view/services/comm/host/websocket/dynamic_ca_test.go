@@ -234,52 +234,80 @@ func (s *syncExtraCAs) set(cas ...[]byte) {
 	s.cas = cas
 }
 
+// newTestNode returns the configuration of a mutual-TLS host named name, and its certificate.
+func newTestNode(t *testing.T, name string) (websocket.Config, []byte) {
+	t.Helper()
+	dir := t.TempDir()
+	certPEM, keyPEM, err := websocket.GenerateTestCert(name)
+	require.NoError(t, err)
+	certFile, keyFile := filepath.Join(dir, name+".crt"), filepath.Join(dir, name+".key")
+	require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+	require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+	cfg, err := websocket.NewConfigFromProperties("127.0.0.1:0", keyFile, certFile, nil, nil, true, 100, nil)
+	require.NoError(t, err)
+	return cfg, certPEM
+}
+
+// startTestHost starts a host that closes every inbound stream.
+func startTestHost(t *testing.T, name string, cfg websocket.Config, cas websocket.ExtraCAPoolProvider) interface{ Addr() string } {
+	t.Helper()
+	h, err := websocket.NewHost(name, nil, newTestStreamProvider(), cfg, cas)
+	require.NoError(t, err)
+	require.NoError(t, h.Start(func(stream host.P2PStream) { _ = stream.Close() }))
+	t.Cleanup(func() { _ = h.Close() })
+	return h
+}
+
+func newTestStreamProvider() websocket.StreamProvider {
+	return ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+}
+
+// dialTestHost opens and closes one stream from a fresh host named name to the host at addr,
+// so no connection is reused between calls.
+func dialTestHost(t *testing.T, name string, cfg websocket.Config, cas websocket.ExtraCAPoolProvider, addr string) error {
+	t.Helper()
+	router := routing.StaticIDRouter{"remote": {addr}}
+	h, err := websocket.NewHost(name,
+		routing.NewServiceDiscovery(router, routing.AlwaysFirst[host.PeerIPAddress]()),
+		newTestStreamProvider(), cfg, cas)
+	require.NoError(t, err)
+	defer func() { _ = h.Close() }()
+	s, err := h.NewStream(t.Context(), host.StreamInfo{RemotePeerID: "remote", ContextID: "ctx", SessionID: "s"})
+	if err == nil {
+		_ = s.Close()
+	}
+	return err
+}
+
 // An outbound dial trusts a peer whose anchor the provider learns after the host started,
 // even when the provider also holds entries that are not certificates.
 func TestDynamicCAOutbound(t *testing.T) {
 	t.Parallel()
-	tempDir := t.TempDir()
-	newNode := func(name string) (cfg websocket.Config, certPEM []byte) {
-		certPEM, keyPEM, err := websocket.GenerateTestCert(name)
-		require.NoError(t, err)
-		certFile, keyFile := filepath.Join(tempDir, name+".crt"), filepath.Join(tempDir, name+".key")
-		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
-		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
-		cfg, err = websocket.NewConfigFromProperties("127.0.0.1:0", keyFile, certFile, nil, nil, true, 100, nil)
-		require.NoError(t, err)
-		return cfg, certPEM
-	}
-	newStreamProvider := func() websocket.StreamProvider {
-		return ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
-	}
-
-	aliceCfg, aliceCert := newNode("alice")
-	bobCfg, bobCert := newNode("bob")
+	aliceCfg, aliceCert := newTestNode(t, "alice")
+	bobCfg, bobCert := newTestNode(t, "bob")
 
 	// Bob knows Alice from the start, so only Alice's outbound trust is under test.
-	bob, err := websocket.NewHost("bob", nil, newStreamProvider(), bobCfg, &syncExtraCAs{cas: [][]byte{aliceCert}})
-	require.NoError(t, err)
-	require.NoError(t, bob.Start(func(stream host.P2PStream) { _ = stream.Close() }))
-	t.Cleanup(func() { _ = bob.Close() })
+	bob := startTestHost(t, "bob", bobCfg, &syncExtraCAs{cas: [][]byte{aliceCert}})
 
 	aliceCAs := &syncExtraCAs{}
-	router := routing.StaticIDRouter{"bob": {bob.Addr()}}
-	alice, err := websocket.NewHost("alice",
-		routing.NewServiceDiscovery(router, routing.AlwaysFirst[host.PeerIPAddress]()),
-		newStreamProvider(), aliceCfg, aliceCAs)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = alice.Close() })
-
-	dial := func() error {
-		s, err := alice.NewStream(t.Context(), host.StreamInfo{RemotePeerID: "bob", ContextID: "ctx", SessionID: "s"})
-		if err == nil {
-			_ = s.Close()
-		}
-		return err
-	}
-
-	require.ErrorContains(t, dial(), "certificate signed by unknown authority")
+	require.ErrorContains(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()), "certificate signed by unknown authority")
 
 	aliceCAs.set([]byte("alice"), bobCert) // Alice's own non-PEM resolver ID, then Bob
-	require.NoError(t, dial())
+	require.NoError(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()))
+}
+
+// A server stops accepting a peer once the provider withdraws its anchor, including an
+// anchor that was already known when the server started.
+func TestDynamicCAInboundWithdrawal(t *testing.T) {
+	t.Parallel()
+	aliceCfg, aliceCert := newTestNode(t, "alice")
+	bobCfg, bobCert := newTestNode(t, "bob")
+
+	bobCAs := &syncExtraCAs{cas: [][]byte{aliceCert}}
+	bob := startTestHost(t, "bob", bobCfg, bobCAs)
+	aliceCAs := &syncExtraCAs{cas: [][]byte{bobCert}}
+	require.NoError(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()))
+
+	bobCAs.set()
+	require.ErrorContains(t, dialTestHost(t, "alice", aliceCfg, aliceCAs, bob.Addr()), "unknown certificate authority")
 }

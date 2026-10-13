@@ -144,7 +144,7 @@ func TestClientAndServerTLSConfigRejectInvalidRootCA(t *testing.T) {
 	cfg, err := NewConfig(p)
 	require.NoError(t, err)
 
-	_, err = cfg.ClientTLSConfig(nil)
+	_, err = cfg.ClientTLSConfig()
 	require.ErrorContains(t, err, "failed to build client root CA pool")
 
 	_, err = cfg.ServerTLSConfig(nil)

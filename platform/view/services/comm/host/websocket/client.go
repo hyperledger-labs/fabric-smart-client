@@ -59,10 +59,14 @@ func (c *client) OpenStream(info host2.StreamInfo, ctx context.Context) (host2.P
 }
 
 // currentRootCAs returns the configured root CAs plus the extra CAs the provider supplies now,
-// so peers whose anchors are discovered after startup can be dialed and peers whose anchors
-// are withdrawn are no longer trusted.
+// so peers whose anchors are discovered after startup can be dialed. A withdrawn anchor is no
+// longer trusted for new connections; a connection the stream provider already established and
+// reuses for later streams stays open.
 func (c *client) currentRootCAs() *x509.CertPool {
-	extraCAs := extraCAsOf(c.caPoolProvider)
+	var extraCAs [][]byte
+	if c.caPoolProvider != nil {
+		extraCAs = c.caPoolProvider.ExtraCAs()
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.rootCAs == nil || !slices.EqualFunc(extraCAs, c.extraCAs, bytes.Equal) {

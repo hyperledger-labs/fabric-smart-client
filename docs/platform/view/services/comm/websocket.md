@@ -69,7 +69,7 @@ type MultiplexedMessage struct {
 -   **TLS Caching**: Trusted root CAs are cached in memory to avoid disk I/O during handshakes. Dynamic trust updates (from the `EndpointService`) are appended to a clone of this cached pool in memory, significantly improving connection throughput.
 -   **Minimum TLS Version**: Both `ClientTLSConfig` and `ServerTLSConfig` (in `config.go`) set `MinVersion: tls.VersionTLS13`, so older protocol versions cannot be negotiated even if a peer offers them.
 -   **Identity Binding (Issue #871)**: The `PeerID` asserted in the application layer (during the WebSocket upgrade) is strictly validated against the public key extracted from the verified TLS certificate. The transport layer rejects any attempt to spoof an identity.
--   **Runtime Trust Updates**: The transport dynamically integrates with the `EndpointService`. Any peer public key added to the `EndpointService` at runtime is automatically added to the trusted CA pool for both inbound and outbound connections.
+-   **Runtime Trust Updates**: The transport trusts the peer certificates the `EndpointService` holds at the time of each connection. The server re-reads them on every inbound handshake and the client on every outbound stream, so a peer added at runtime is trusted and a peer removed at runtime is no longer trusted. Removal does not close established connections, and an outbound connection that is already open keeps carrying new streams.
 -   **Read Limits**: Each WebSocket connection has a 10MB read limit (`SetReadLimit`) to prevent OOM attacks.
 -   **WebSocket Hardening**:
     -   **Binary Enforcement**: All WebSocket messages are sent as binary packets.
@@ -85,8 +85,8 @@ type MultiplexedMessage struct {
 ## Trust and Access Control
 
 A remote node can only connect if its TLS certificate is trusted by the local server:
-- **Server Side**: Only clients presenting a certificate signed by a CA in `fsc.p2p.opts.tls.clientRootCAs` (or dynamically added via `EndpointService`) are permitted.
-- **Client Side**: The local node will only connect to servers whose certificates match the `serverRootCAs` or a dynamically retrieved peer public key.
+- **Server Side**: Only clients presenting a certificate signed by a CA in `fsc.p2p.opts.websocket.tls.clientRootCAs`, or known to the `EndpointService`, are permitted.
+- **Client Side**: The local node will only connect to servers whose certificates are signed by a CA in `fsc.p2p.opts.websocket.tls.rootCAs`, or known to the `EndpointService`.
 - **Identity Enforcement**: The server extracts the `PeerID` from the client certificate and compares it against the application-layer `PeerID` in the `StreamMeta` packet (Identity Binding). If they don't match, the connection is terminated.
 
 The WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../configuration.md#fsc-node-configuration).

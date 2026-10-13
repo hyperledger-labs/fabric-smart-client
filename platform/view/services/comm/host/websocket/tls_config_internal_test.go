@@ -27,68 +27,71 @@ type extraCAs [][]byte
 
 func (e extraCAs) ExtraCAs() [][]byte { return e }
 
-// Both builders apply the same rules to their keypair and extra CAs.
+// Both builders apply the same rules to their keypair, and trust only the configured pool.
 func TestTLSConfigBuildersRejectBadMaterial(t *testing.T) {
 	t.Parallel()
 	cert, key, err := GenerateTestCert("node")
 	require.NoError(t, err)
-	otherCA, _, err := GenerateTestCert("other")
-	require.NoError(t, err)
 
-	for name, build := range map[string]func(*x509.CertPool, grpc.SecureOptions, ExtraCAPoolProvider) (*tls.Config, error){
+	// GetNewHost relies on (nil, nil) to refuse a host without TLS.
+	cfg, err := newClientTLSConfig(nil, grpc.SecureOptions{})
+	require.NoError(t, err)
+	require.Nil(t, cfg)
+	cfg, err = newServerTLSConfig(nil, grpc.SecureOptions{}, nil)
+	require.NoError(t, err)
+	require.Nil(t, cfg)
+
+	for name, build := range map[string]func(*x509.CertPool, grpc.SecureOptions) (*tls.Config, error){
 		"client": newClientTLSConfig,
-		"server": newServerTLSConfig,
+		"server": func(pool *x509.CertPool, opts grpc.SecureOptions) (*tls.Config, error) {
+			return newServerTLSConfig(pool, opts, nil)
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			pool := func(cfg *tls.Config) *x509.CertPool {
-				if name == "server" {
-					return cfg.ClientCAs
-				}
-				return cfg.RootCAs
-			}
 
-			// GetNewHost relies on (nil, nil) to refuse a host without TLS.
-			cfg, err := build(nil, grpc.SecureOptions{}, nil)
-			require.NoError(t, err)
-			require.Nil(t, cfg)
-
-			_, err = build(x509.NewCertPool(), grpc.SecureOptions{Certificate: cert}, nil)
+			_, err := build(x509.NewCertPool(), grpc.SecureOptions{Certificate: cert})
 			require.ErrorContains(t, err, "both "+name+" key and cert must be set")
 
-			_, err = build(x509.NewCertPool(), grpc.SecureOptions{Certificate: []byte("junk"), Key: []byte("junk")}, nil)
+			_, err = build(x509.NewCertPool(), grpc.SecureOptions{Certificate: []byte("junk"), Key: []byte("junk")})
 			require.ErrorContains(t, err, "failed to load "+name+" x509 certificates")
 
-			opts := grpc.SecureOptions{Certificate: cert, Key: key, RequireClientCert: true}
-
-			// A valid extra CA lands in a clone; the configured pool is never mutated.
 			base := x509.NewCertPool()
-			cfg, err = build(base, opts, extraCAs{otherCA})
+			cfg, err := build(base, grpc.SecureOptions{Certificate: cert, Key: key, RequireClientCert: true})
 			require.NoError(t, err)
-			require.NotSame(t, base, pool(cfg))
-			require.False(t, base.Equal(pool(cfg)))
-			require.True(t, base.Equal(x509.NewCertPool()))
-			withOther := pool(cfg)
-
-			// An extra CA that is not a PEM certificate is skipped, not fatal, and does not
-			// keep the valid ones out.
-			cfg, err = build(base, opts, extraCAs{[]byte("not a pem"), otherCA})
-			require.NoError(t, err)
-			require.True(t, withOther.Equal(pool(cfg)))
-
-			// Without extra CAs the configured pool is used as is.
-			cfg, err = build(base, opts, extraCAs{})
-			require.NoError(t, err)
-			require.Same(t, base, pool(cfg))
+			if name == "server" {
+				require.Same(t, base, cfg.ClientCAs)
+			} else {
+				require.Same(t, base, cfg.RootCAs)
+			}
 		})
 	}
+}
+
+func TestWithExtraCAs(t *testing.T) {
+	t.Parallel()
+	otherCA, _, err := GenerateTestCert("other")
+	require.NoError(t, err)
+	base := x509.NewCertPool()
+
+	// Without extra CAs the configured pool is used as is.
+	require.Same(t, base, withExtraCAs(base, nil))
+
+	// A valid extra CA lands in a clone; the configured pool is never mutated.
+	withOther := withExtraCAs(base, [][]byte{otherCA})
+	require.False(t, base.Equal(withOther))
+	require.True(t, base.Equal(x509.NewCertPool()))
+
+	// An extra CA that is not a PEM certificate is skipped, not fatal, and does not keep the
+	// valid ones out.
+	require.True(t, withOther.Equal(withExtraCAs(base, [][]byte{[]byte("not a pem"), otherCA})))
 }
 
 func TestClientTLSConfigPresentsConfiguredCertificate(t *testing.T) {
 	t.Parallel()
 	certPEM, key, err := GenerateTestCert("node")
 	require.NoError(t, err)
-	cfg, err := newClientTLSConfig(x509.NewCertPool(), grpc.SecureOptions{Certificate: certPEM, Key: key}, nil)
+	cfg, err := newClientTLSConfig(x509.NewCertPool(), grpc.SecureOptions{Certificate: certPEM, Key: key})
 	require.NoError(t, err)
 	require.Equal(t, uint16(tls.VersionTLS13), cfg.MinVersion)
 	require.Equal(t, uint16(tls.VersionTLS13), cfg.MaxVersion)
@@ -149,6 +152,19 @@ func TestServerTLSConfigClientAuth(t *testing.T) {
 		perHandshake, err = cfg.GetConfigForClient(&tls.ClientHelloInfo{})
 		require.NoError(t, err)
 		require.True(t, withOther.Equal(perHandshake.ClientCAs))
+	})
+
+	t.Run("anchor known at startup is withdrawn", func(t *testing.T) {
+		t.Parallel()
+		base := x509.NewCertPool()
+		provider := extraCAs{otherCA}
+		cfg, err := newServerTLSConfig(base, opts(true), &provider)
+		require.NoError(t, err)
+
+		provider = extraCAs{}
+		perHandshake, err := cfg.GetConfigForClient(&tls.ClientHelloInfo{})
+		require.NoError(t, err)
+		require.Same(t, base, perHandshake.ClientCAs)
 	})
 }
 

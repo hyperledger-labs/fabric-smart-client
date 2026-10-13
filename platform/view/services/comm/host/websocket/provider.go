@@ -56,7 +56,7 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
 	}
 	nodeID := string(p.endpointService.ExtractPKI(raw))
-	clientTLSConfig, err := p.config.ClientTLSConfig(p)
+	clientTLSConfig, err := p.config.ClientTLSConfig()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build client TLS config")
 	}

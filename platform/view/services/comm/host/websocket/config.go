@@ -39,7 +39,7 @@ type configService interface {
 // Config is the websocket P2P host's view of its configuration.
 type Config interface {
 	ListenAddress() host2.PeerIPAddress
-	ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error)
+	ClientTLSConfig() (*tls.Config, error)
 	ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error)
 	CertPath() string
 	MaxSubConns() int
@@ -54,7 +54,9 @@ type Config interface {
 // The websocket host uses it to trust the identity certificates of known peers, so an empty
 // configured CA pool is normal for this surface. Entries that are not PEM certificates are
 // ignored. ExtraCAs is called for every inbound handshake and every outbound stream, so it
-// must be safe for concurrent use.
+// must be safe for concurrent use. Callers may keep the returned slice and compare it with
+// later results, so a provider must not modify a slice, or the entries in it, after returning
+// it.
 type ExtraCAPoolProvider interface {
 	ExtraCAs() [][]byte
 }
@@ -164,11 +166,12 @@ func (*config) IdleTimeout() time.Duration { return 120 * time.Second }
 // result disables CORS.
 func (c *config) CORSAllowedOrigins() []string { return c.corsAllowedOrigins }
 
-// ClientTLSConfig returns the TLS configuration for outbound connections, trusting the
-// configured root CAs plus any the provider supplies at call time. TLS 1.3 is pinned. It
-// returns nil when no TLS material is configured at all, and an error if the configured root
-// CAs or the client keypair are invalid.
-func (c *config) ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error) {
+// ClientTLSConfig returns the TLS configuration for outbound connections, trusting only the
+// configured root CAs. The crypto/tls package has no per-handshake hook for a client's trust
+// anchors, so the host adds the extra CAs to a copy of this configuration for every outbound
+// stream. TLS 1.3 is pinned. It returns nil when no TLS material is configured at all, and an
+// error if the configured root CAs or the client keypair are invalid.
+func (c *config) ClientTLSConfig() (*tls.Config, error) {
 	c.mu.Lock()
 	if c.serverRootCAPool == nil {
 		pool, err := NewRootCAPoolFromPEM(c.clientTLS.ServerRootCAs)
@@ -181,13 +184,14 @@ func (c *config) ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Confi
 	serverRootCAPool := c.serverRootCAPool
 	c.mu.Unlock()
 
-	return newClientTLSConfig(serverRootCAPool, c.clientTLS, caPoolProvider)
+	return newClientTLSConfig(serverRootCAPool, c.clientTLS)
 }
 
 // ServerTLSConfig returns the TLS configuration for inbound connections. When mutual TLS is
-// required the client CA pool is rebuilt per handshake so anchors the provider discovers
-// later are honoured. TLS 1.3 is pinned. It returns nil when no TLS material is configured,
-// and an error if the configured root CAs or the server keypair are invalid.
+// required the client CA pool is rebuilt from the provider on every handshake, so anchors it
+// discovers later are trusted and anchors it withdraws are not. TLS 1.3 is pinned. It returns
+// nil when no TLS material is configured, and an error if the configured root CAs or the server
+// keypair are invalid.
 func (c *config) ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error) {
 	c.mu.Lock()
 	if c.clientRootCAPool == nil {
@@ -204,8 +208,8 @@ func (c *config) ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Confi
 	return newServerTLSConfig(clientRootCAPool, c.serverTLS, caPoolProvider)
 }
 
-func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions, caPoolProvider ExtraCAPoolProvider) (*tls.Config, error) {
-	if serverRootCAPool == nil && len(opts.Certificate) == 0 && len(opts.Key) == 0 && caPoolProvider == nil {
+func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions) (*tls.Config, error) {
+	if serverRootCAPool == nil && len(opts.Certificate) == 0 && len(opts.Key) == 0 {
 		return nil, nil
 	}
 
@@ -221,7 +225,7 @@ func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	tlsConfig := &tls.Config{
 		MinVersion:         tls.VersionTLS13,
 		MaxVersion:         tls.VersionTLS13,
-		RootCAs:            withExtraCAs(serverRootCAPool, extraCAsOf(caPoolProvider)),
+		RootCAs:            serverRootCAPool,
 		InsecureSkipVerify: false,
 		// Unlike Certificates, which crypto/tls only presents when the server's AcceptableCAs
 		// list its issuer, this always presents the identity certificate and leaves the trust
@@ -265,7 +269,9 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 		MinVersion:   tls.VersionTLS13,
 		MaxVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{cert},
-		ClientCAs:    withExtraCAs(clientRootCAPool, extraCAsOf(caPoolProvider)),
+		// The extra CAs are added per handshake by GetConfigForClient. Adding them here too
+		// would keep trusting the startup anchors whenever the provider has none left.
+		ClientCAs: clientRootCAPool,
 	}
 
 	if !clientAuthRequired {
@@ -286,14 +292,6 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	}
 
 	return tlsConfig, nil
-}
-
-// extraCAsOf returns the extra CAs the provider currently supplies, or nil for a nil provider.
-func extraCAsOf(provider ExtraCAPoolProvider) [][]byte {
-	if provider == nil {
-		return nil
-	}
-	return provider.ExtraCAs()
 }
 
 // withExtraCAs returns pool extended with extraCAs. The configured pool is never modified: it
