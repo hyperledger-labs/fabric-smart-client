@@ -30,11 +30,13 @@ type ParentContext interface {
 
 // ChildContext is a view context with a parent.
 // It allows the developer to override session and initiator.
+// Its go context is the parent's, unless the Manager sets one for a responder.
 // It also supports error callbacks.
 type ChildContext struct {
 	Parent ParentContext
 
 	mu                 sync.RWMutex
+	ctx                context.Context
 	session            view.Session
 	initiator          view.View
 	errorCallbackFuncs []func()
@@ -97,7 +99,10 @@ func (w *ChildContext) GetSessionByID(id string, party view.Identity) (view.Sess
 }
 
 func (w *ChildContext) Context() context.Context {
-	return w.Parent.Context()
+	if w.ctx == nil {
+		return w.Parent.Context()
+	}
+	return w.ctx
 }
 
 func (w *ChildContext) Session() view.Session {

@@ -53,7 +53,7 @@ The `Manager` is the central orchestrator responsible for:
 **Key Methods:**
 - `InitiateView(ctx, view)`: Starts a new protocol with the given view as initiator
 - `InitiateContext(ctx, view)`: Creates a context for a view without executing it
-- `NewSessionContext(ctx, contextID, session, me, remote)`: Creates or reuses a context for responding to a remote request
+- `NewResponderContext(ctx, contextID, session, me, remote)`: Creates or joins a context for responding to a remote request, and returns the func that releases it
 - `RegisterFactory(id, factory)`: Registers a factory for creating views by ID
 - `RegisterResponder(responder, initiatedBy)`: Registers a responder view for a given initiator
 
@@ -188,10 +188,10 @@ sequenceDiagram
     participant Responder
 
     Remote->>P2P: Incoming Message
-    P2P->>Manager: NewSessionContext(ctx, contextID, session, me, remote)
+    P2P->>Manager: NewResponderContext(ctx, contextID, session, me, remote)
     
     alt Context Exists
-        Manager->>Context: Reuse Existing
+        Manager->>Context: Join (attach session if new)
     else New Context
         Manager->>ContextFactory: NewForResponder(...)
         ContextFactory->>Context: Create Context
@@ -212,21 +212,24 @@ sequenceDiagram
     Responder-->>Context: Result
     Context-->>P2P: Complete
     
-    alt New Context
-        P2P->>Manager: DeleteContext(contextID)
+    P2P->>Manager: release()
+    alt Last Responder
+        Manager->>Context: Dispose()
     end
 ```
 
 **Steps:**
 
 1. **Message Arrival**: P2P service receives an incoming message
-2. **Context Resolution**: P2P calls `Manager.NewSessionContext` to get or create a context
+2. **Context Resolution**: P2P calls `Manager.NewResponderContext` to create a context, or to join the context with that ID if one exists
 3. **Responder Lookup**: P2P queries `Registry.ExistResponderForCaller` to find the responder view
 4. **View Execution**: P2P runs the responder view in the context
 5. **Session Access**: Responder accesses the default session via `context.Session()`
 6. **Communication**: Responder sends/receives messages through the session
 7. **Completion**: Responder returns result
-8. **Cleanup**: If a new context was created, P2P deletes it
+8. **Cleanup**: P2P calls the release func; the context is disposed when its last responder releases it
+
+Several responders can run in one context, for example when a node receives two sessions of the same protocol. Each responder runs on its own go context, so that one responder returning does not cancel another. The shared context, and every session registered in it, lives until the last responder releases it, either by returning or because its go context is done.
 
 ## Context Types
 
@@ -353,7 +356,7 @@ When a view execution fails:
 
 When a context is disposed:
 
-1. `Manager.DeleteContext` is called
+1. `Manager.DeleteContext` is called, or the last responder in a responder context releases it
 2. Calls `context.Dispose()` to release resources
 3. Deletes each of the context's sessions via `SessionFactory.DeleteSession`, keyed by session ID and remote PKID so that no other session is closed
 4. Removes the context from the manager's map
@@ -403,9 +406,10 @@ The View Service integrates with the P2P Service for handling incoming messages:
 
 1. **Message Reception**: Listens on the master session for incoming messages
 2. **Responder Lookup**: Queries the registry for the appropriate responder view
-3. **Context Creation**: Calls `Manager.NewSessionContext` to get or create a context
+3. **Context Creation**: Calls `Manager.NewResponderContext` to get or create a context
 4. **View Execution**: Runs the responder view in the context
 5. **Error Handling**: Sends error messages back to the initiator on failure
+6. **Release**: Releases the context when the responder returns
 
 The text sent is the raw error returned by the responder view (`err.Error()`), forwarded unmodified via `Session().SendError(context.WithoutCancel(viewCtx.Context()), ...)`. The runtime does not inspect or filter it — deciding what information is safe to disclose to a remote, potentially untrusted caller is the responder view's responsibility, not the P2P service's. See the [View API](../view-api.md#send-and-receive) for guidance on what responder views should and shouldn't return as errors.
 
@@ -425,8 +429,8 @@ sequenceDiagram
     P2P->>Manager: ExistResponderForCaller(caller)
     Manager-->>P2P: Responder View
     
-    P2P->>Manager: NewSessionContext(...)
-    Manager-->>P2P: Context (new or existing)
+    P2P->>Manager: NewResponderContext(...)
+    Manager-->>P2P: Context (new or joined), release
     
     P2P->>Context: RunView(responder)
     Context->>Responder: Call(context)
@@ -437,9 +441,7 @@ sequenceDiagram
         P2P->>Context: Session().SendError(ctx, err)
     end
     
-    alt New Context
-        P2P->>Manager: DeleteContext(contextID)
-    end
+    P2P->>Manager: release()
 ```
 
 ## Best Practices

@@ -243,11 +243,9 @@ func (*fakeP2PViewManager) ExistResponderForCaller(string) (view2.View, view2.Id
 	return nil, nil, nil
 }
 
-func (*fakeP2PViewManager) NewResponderContext(context.Context, string, view2.Session, view2.Identity, view2.Identity) (view2.Context, bool, error) {
-	return nil, false, nil
+func (*fakeP2PViewManager) NewResponderContext(context.Context, string, view2.Session, view2.Identity, view2.Identity) (view2.Context, func(), error) {
+	return nil, nil, nil
 }
-
-func (*fakeP2PViewManager) DeleteContext(string) {}
 
 type fakeViewService struct {
 	protos.UnimplementedViewServiceServer
