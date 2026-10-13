@@ -36,11 +36,15 @@ func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, er
 
 func buildVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
 	return &VaultStore{
-		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, encodeKey, sqlite2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
 	}
 }
+
+// encodeKey binds keys as TEXT. SQLite stores TEXT with its length, so U+0000
+// survives, and its default BINARY collation compares keys bytewise.
+func encodeKey(k driver.PKey) any { return k }
 
 func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	if len(txIDs) == 0 && len(writes) == 0 && len(metaWrites) == 0 {

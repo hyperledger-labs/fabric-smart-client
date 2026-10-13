@@ -44,8 +44,9 @@ func (p *fakeDbProvider) Get(o postgres2.Opts) (*common2.RWDB, error) {
 
 // mockDB returns an RWDB whose read and write handles are the same sqlmock
 // connection, matching Open's single-handle layout, plus the mock controller.
-// The schema transaction CreateSchema runs is expected but its statements are
-// not matched: these tests assert on construction, not on DDL.
+// The schema transaction CreateSchema runs, and the vault's pkey type check, are
+// expected but their statements are not matched: these tests assert on
+// construction, not on DDL.
 func mockDB(t *testing.T) (*common2.RWDB, sqlmock.Sqlmock) {
 	t.Helper()
 	db, m, err := sqlmock.New()
@@ -55,6 +56,7 @@ func mockDB(t *testing.T) (*common2.RWDB, sqlmock.Sqlmock) {
 	m.ExpectBegin()
 	m.ExpectExec(".*").WillReturnResult(sqlmock.NewResult(0, 0))
 	m.ExpectCommit()
+	m.ExpectQuery("SELECT format_type").WillReturnRows(sqlmock.NewRows([]string{"format_type"}).AddRow("bytea"))
 	return &common2.RWDB{ReadDB: db, WriteDB: db}, m
 }
 

@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
-	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
@@ -32,27 +31,28 @@ type VaultTables struct {
 	StatusTable string
 }
 
-type Sanitizer interface {
-	EncodeAll(params []any) ([]any, error)
-	Encode(string) (string, error)
-	Decode(string) (string, error)
-}
+// KeyEncoder converts a state key into the query parameter bound to the pkey
+// column of the state table. Point lookups and range scans compare the bound
+// parameter with the stored column, so the encoding must be injective and the
+// column must order encoded keys bytewise, as Fabric orders keys. Composite keys
+// contain U+0000, so the column type must accept it.
+type KeyEncoder func(driver.PKey) any
 
 // NewVaultStore creates a VaultStore. All read and write queries use $N
-// placeholders, which both SQLite and Postgres accept.
-func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
-	vaultSanitizer := common3.NewSanitizer(sanitizer)
+// placeholders, which both SQLite and Postgres accept. encodeKey converts each
+// state key before it is bound to a query; stored keys are scanned back into
+// strings unchanged.
+func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, encodeKey KeyEncoder, il common3.IsolationLevelMapper) *VaultStore {
 	return &VaultStore{
 		vaultReader: &vaultReader{
 			readDB:    readDB,
-			sanitizer: vaultSanitizer,
+			encodeKey: encodeKey,
 			tables:    tables,
 		},
 		tables:       tables,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		sanitizer:    vaultSanitizer,
 		il:           il,
 	}
 }
@@ -64,7 +64,6 @@ type VaultStore struct {
 	readDB       *sql.DB
 	writeDB      common3.WriteDB
 	GlobalLock   sync.RWMutex
-	sanitizer    Sanitizer
 	il           common3.IsolationLevelMapper
 }
 
@@ -102,7 +101,7 @@ func (db *VaultStore) buildTxLockVaultReader(ctx context.Context, isolationLevel
 	}
 	return &vaultReader{
 		readDB:    tx,
-		sanitizer: db.sanitizer,
+		encodeKey: db.encodeKey,
 		tables:    db.tables,
 	}, tx.Commit, nil
 }
@@ -121,7 +120,7 @@ func (db *VaultStore) buildGlobalLockVaultReader() (*vaultReader, releaseFunc, e
 	}
 	return &vaultReader{
 		readDB:    db.readDB,
-		sanitizer: db.sanitizer,
+		encodeKey: db.encodeKey,
 		tables:    db.tables,
 	}, release, nil
 }
@@ -225,15 +224,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				logger.Debugf("setting version of [%s] to nil", pkey)
 				val.Version = nil
 			}
-			ns, err := db.sanitizer.Encode(ns)
-			if err != nil {
-				return nil, err
-			}
-			pkey, err := db.sanitizer.Encode(pkey)
-			if err != nil {
-				return nil, err
-			}
-			states = append(states, sqlbuild.Tuple{ns, pkey, val.Raw, val.Version, metadata})
+			states = append(states, sqlbuild.Tuple{ns, db.encodeKey(pkey), val.Raw, val.Version, metadata})
 		}
 	}
 
@@ -251,16 +242,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to marshal metadata for [%s:%s]", ns, pkey)
 			}
-			ns, err := db.sanitizer.Encode(ns)
-			if err != nil {
-				return nil, err
-			}
-			pkey, err := db.sanitizer.Encode(pkey)
-			if err != nil {
-				return nil, err
-			}
-			states = append(states, sqlbuild.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
-
+			states = append(states, sqlbuild.Tuple{ns, db.encodeKey(pkey), []byte{}, metaVal.Version, metadata})
 		}
 	}
 	return states, nil
@@ -373,7 +355,7 @@ func (db *txVaultReader) Done() error {
 // vaultReader handles all read queries.
 type vaultReader struct {
 	readDB    dbReader
-	sanitizer Sanitizer
+	encodeKey KeyEncoder
 	tables    VaultTables
 }
 
@@ -386,27 +368,32 @@ func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace,
 }
 
 func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.In("pkey", keys...)))
+	encoded := make([]any, len(keys))
+	for i, k := range keys {
+		encoded[i] = db.encodeKey(k)
+	}
+	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.In("pkey", encoded...)))
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), betweenStrings("pkey", startKey, endKey)))
+	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), betweenKeys("pkey", startKey, endKey, db.encodeKey)))
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
 	return db.queryState(ctx, sqlbuild.Eq("ns", namespace))
 }
 
-// betweenStrings returns a condition matching rows where col falls in the
-// half-open range [start, end). Empty start or end omits that bound; with both
-// empty it renders the always-true (1=1), so every row matches.
-func betweenStrings(col, start, end string) sqlbuild.Condition {
+// betweenKeys returns a condition matching rows where col falls in the
+// half-open range [start, end), with both bounds converted by encode. Empty
+// start or end omits that bound; with both empty it renders the always-true
+// (1=1), so every row matches.
+func betweenKeys(col string, start, end driver.PKey, encode KeyEncoder) sqlbuild.Condition {
 	var parts []sqlbuild.Condition
 	if start != "" {
-		parts = append(parts, sqlbuild.Gte(col, start))
+		parts = append(parts, sqlbuild.Gte(col, encode(start)))
 	}
 	if end != "" {
-		parts = append(parts, sqlbuild.Lt(col, end))
+		parts = append(parts, sqlbuild.Lt(col, encode(end)))
 	}
 	return sqlbuild.And(parts...)
 }
@@ -418,45 +405,26 @@ func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition)
 		WriteString("SELECT pkey, kversion, val FROM " + db.tables.StateTable).
 		WriteWhere(where).
 		Build()
-	encodedParams, err := db.sanitizer.EncodeAll(params)
-	if err != nil {
-		return nil, err
-	}
 
-	logger.Debug(query, encodedParams)
-	rows, err := db.readDB.QueryContext(ctx, query, encodedParams...)
+	logger.Debug(query, params)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
 	}
-	return common3.NewIterator(rows, func(r *driver.VaultRead) error {
-		if err := rows.Scan(&r.Key, &r.Version, &r.Raw); err != nil {
-			return err
-		}
-		r.Key, err = db.sanitizer.Decode(r.Key)
-		return err
-	}), nil
+	return common3.NewIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }), nil
 }
 
 func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
-	namespace, err := db.sanitizer.Encode(namespace)
-	if err != nil {
-		return nil, nil, err
-	}
-	key, err = db.sanitizer.Encode(key)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	query, params := sqlbuild.New().
 		WriteString("SELECT metadata, kversion FROM " + db.tables.StateTable).
-		WriteWhere(sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.Eq("pkey", key))).
+		WriteWhere(sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.Eq("pkey", db.encodeKey(key)))).
 		Build()
 	logger.Debug(query, params)
 
 	row := db.readDB.QueryRowContext(ctx, query, params...)
 	var m []byte
 	var kversion driver.RawVersion
-	err = row.Scan(&m, &kversion)
+	err := row.Scan(&m, &kversion)
 	if err != nil && errors2.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}

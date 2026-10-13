@@ -53,6 +53,11 @@ Registered into the `db-drivers` DI group:
 - **PostgreSQL** (`github.com/jackc/pgx/v5`) — production.
 - **Memory** — tests only.
 
+Keys are compared bytewise and may contain U+0000 (composite keys). Bind them so
+the column stores them verbatim — `BYTEA` on Postgres, `TEXT` on SQLite — rather
+than escaping them into another string: an escape scheme must stay injective and
+order-preserving, and range scans silently break when it is not.
+
 ## Identity management
 
 - An identity is a container for lower-level identity types: X509, ECDSA, Idemix.

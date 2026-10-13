@@ -36,7 +36,7 @@ func newVaultMockWithIso(t *testing.T, il common3.IsolationLevelMapper) (*common
 	t.Helper()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	require.NoError(t, err)
-	return common2.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idSanitizer{}, il), mockDB
+	return common2.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, il), mockDB
 }
 
 // defaultIsoMapper maps every isolation level to the default one.
@@ -367,23 +367,6 @@ func TestGetTableNames_InvalidParam(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-var errEncode = errors.New("cannot encode")
-
-// failingSanitizer rejects every value, so the sanitizer error paths are
-// reachable. EncodeAll is synthesized by the store's wrapper from Encode.
-type failingSanitizer struct{}
-
-func (failingSanitizer) Encode(string) (string, error)   { return "", errEncode }
-func (failingSanitizer) Decode(s string) (string, error) { return s, nil }
-
-func newVaultMockSanitizer(t *testing.T) (*common2.VaultStore, sqlmock.Sqlmock) {
-	t.Helper()
-	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	require.NoError(t, err)
-	store := common2.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, failingSanitizer{}, defaultIsoMapper{})
-	return store, mockDB
-}
-
 // A write with no Raw bytes is a delete: the version is cleared so the row
 // records the absence rather than a stale version.
 func TestUpsertStates_Delete(t *testing.T) { //nolint:paralleltest
@@ -444,24 +427,6 @@ func TestUpsertStates_NoValues(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-func TestUpsertStates_SanitizerFails(t *testing.T) { //nolint:paralleltest
-	store, _ := newVaultMockSanitizer(t)
-
-	_, _, err := store.UpsertStates(driver.Writes{
-		"ns": {"k1": driver.VaultValue{Raw: []byte("v"), Version: []byte("1")}},
-	}, driver.MetaWrites{})
-	require.ErrorIs(t, err, errEncode)
-}
-
-func TestUpsertStates_SanitizerFailsOnMetaOnly(t *testing.T) { //nolint:paralleltest
-	store, _ := newVaultMockSanitizer(t)
-
-	_, _, err := store.UpsertStates(driver.Writes{}, driver.MetaWrites{
-		"ns": {"k1": driver.VaultMetadataValue{Version: []byte("1")}},
-	})
-	require.ErrorIs(t, err, errEncode)
-}
-
 // A key with no row is not an error: the vault reports absent metadata as nil.
 func TestGetStateMetadata_NoRows(t *testing.T) { //nolint:paralleltest
 	store, mockDB := newVaultMockT(t)
@@ -502,22 +467,6 @@ func TestGetStateMetadata_BadMetadata(t *testing.T) { //nolint:paralleltest
 	_, _, err := store.GetStateMetadata(context.Background(), "ns", "k1")
 	require.Error(t, err)
 	require.NoError(t, mockDB.ExpectationsWereMet())
-}
-
-func TestGetStateMetadata_SanitizerFails(t *testing.T) { //nolint:paralleltest
-	store, _ := newVaultMockSanitizer(t)
-
-	_, _, err := store.GetStateMetadata(context.Background(), "ns", "k1")
-	require.ErrorIs(t, err, errEncode)
-}
-
-// queryState encodes its params before running, so a sanitizer failure stops
-// it before it reaches the database.
-func TestQueryState_SanitizerFails(t *testing.T) { //nolint:paralleltest
-	store, _ := newVaultMockSanitizer(t)
-
-	_, err := store.GetStates(context.Background(), "ns", "k1")
-	require.ErrorIs(t, err, errEncode)
 }
 
 func TestQueryState_QueryFails(t *testing.T) { //nolint:paralleltest

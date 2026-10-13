@@ -7,11 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"strings"
+	"sync"
 	"testing"
+	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
@@ -179,4 +185,158 @@ func TestPostgresVaultStoreCreateSchemaIdempotent(t *testing.T) {
 	store := newPostgresVaultStore(t)
 	require.NoError(t, store.CreateSchema())
 	require.NoError(t, store.CreateSchema())
+}
+
+// legacyEscape escapes a key the way a TEXT pkey column stores it: U+0000 as
+// "?0?" and U+10FFFF as "?1?", with "?" itself left as is.
+var legacyEscape = strings.NewReplacer("\x00", "?0?", string(utf8.MaxRune), "?1?").Replace
+
+// createTextKeyTable replaces the store's state table with one whose pkey column
+// is TEXT and fills it with rows, keyed by unescaped key, stored escaped. Each
+// row's value is its key and its version is "v".
+func createTextKeyTable(t *testing.T, store *VaultStore, ns string, keys []driver.PKey) {
+	t.Helper()
+	ctx := t.Context()
+	table := store.tables.StateTable
+	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE "+table)
+	require.NoError(t, err)
+	_, err = store.writeDB.ExecContext(ctx, "CREATE TABLE "+table+` (
+		ns TEXT NOT NULL,
+		pkey TEXT NOT NULL,
+		val BYTEA,
+		kversion BYTEA,
+		metadata BYTEA,
+		PRIMARY KEY (pkey, ns)
+	)`)
+	require.NoError(t, err)
+	for _, k := range keys {
+		_, err = store.writeDB.ExecContext(ctx, "INSERT INTO "+table+" (ns, pkey, val, kversion, metadata) VALUES ($1, $2, $3, $4, $5)",
+			ns, legacyEscape(k), []byte(k), []byte("v"), []byte{})
+		require.NoError(t, err)
+	}
+}
+
+func requirePkeyType(t *testing.T, store *VaultStore, want string) {
+	t.Helper()
+	got, err := store.pkeyType(store.writeDB)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+// textKeys covers every escape the TEXT encoding uses, keys without escapes,
+// non-ASCII text, and a literal "?".
+var textKeys = []driver.PKey{
+	compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "alice"),
+	compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "alice", "xyz"),
+	compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "alice", "123"),
+	compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "bob"),
+	"plain",
+	"mid\x00dle",
+	"what?is?this",
+	"über",
+	"end" + string(utf8.MaxRune),
+}
+
+// CreateSchema converts a TEXT pkey column to BYTEA in place: every row reads
+// back under its unescaped key, partial-composite-key range scans find every
+// child, and keys that the TEXT encoding conflated are distinct afterwards.
+func TestPostgresVaultStoreConvertsTextKeys(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStore(t)
+	ctx := t.Context()
+	createTextKeyTable(t, store, "ns", textKeys)
+	requirePkeyType(t, store, "text")
+
+	require.NoError(t, store.CreateSchema())
+	requirePkeyType(t, store, "bytea")
+	// Converting is a one-off: a second CreateSchema finds BYTEA and does nothing.
+	require.NoError(t, store.CreateSchema())
+
+	for _, k := range textKeys {
+		read, err := store.GetState(ctx, "ns", k)
+		require.NoError(t, err)
+		require.NotNil(t, read, "key [%q]", k)
+		require.Equal(t, k, read.Key)
+		require.Equal(t, driver.RawValue(k), read.Raw)
+		require.Equal(t, driver.RawVersion("v"), read.Version)
+	}
+
+	start, end, err := compose.CreateRangeKeysForPartialCompositeKey("Token", "alice")
+	require.NoError(t, err)
+	it, err := store.GetStateRange(ctx, "ns", start, end)
+	require.NoError(t, err)
+	reads, err := collections.ReadAll(it)
+	require.NoError(t, err)
+	got := make([]driver.PKey, len(reads))
+	for i, r := range reads {
+		got[i] = r.Key
+	}
+	require.ElementsMatch(t, textKeys[:3], got)
+
+	// The plain key spelling out the composite key's escapes is now its own row.
+	forged := legacyEscape(textKeys[0])
+	require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {forged: {Raw: []byte("forged"), Version: []byte("v2")}}}, nil))
+	read, err := store.GetState(ctx, "ns", textKeys[0])
+	require.NoError(t, err)
+	require.Equal(t, driver.RawValue(textKeys[0]), read.Raw)
+	read, err = store.GetState(ctx, "ns", forged)
+	require.NoError(t, err)
+	require.Equal(t, driver.RawValue("forged"), read.Raw)
+}
+
+// Replicas sharing a database may open a TEXT-keyed vault at the same time.
+// The test holds a lock on the state table until every replica has read the
+// TEXT type and is queued for the conversion lock, so all but the first find
+// the table already converted once they get it. Each CreateSchema succeeds and
+// the table is converted once.
+func TestPostgresVaultStoreConvertsTextKeysConcurrently(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStore(t)
+	ctx := t.Context()
+	table := store.tables.StateTable
+	createTextKeyTable(t, store, "ns", textKeys)
+
+	holder, err := store.writeDB.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	_, err = holder.ExecContext(ctx, "LOCK TABLE "+table+" IN ACCESS SHARE MODE")
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	errs := make([]error, 4)
+	for i := range errs {
+		wg.Go(func() { errs[i] = store.CreateSchema() })
+	}
+	require.Eventually(t, func() bool {
+		var waiting int
+		err := store.writeDB.QueryRowContext(ctx, "SELECT count(*) FROM pg_locks WHERE relation = $1::regclass AND NOT granted", table).Scan(&waiting)
+		return err == nil && waiting == len(errs)
+	}, 30*time.Second, 10*time.Millisecond, "every replica queues for the conversion lock")
+	require.NoError(t, holder.Rollback())
+	wg.Wait()
+
+	for _, err := range errs {
+		require.NoError(t, err)
+	}
+	requirePkeyType(t, store, "bytea")
+
+	read, err := store.GetState(ctx, "ns", textKeys[0])
+	require.NoError(t, err)
+	require.NotNil(t, read)
+	require.Equal(t, driver.RawValue(textKeys[0]), read.Raw)
+}
+
+// A pkey type other than TEXT or BYTEA is not converted: CreateSchema fails and
+// leaves the table as it is.
+func TestPostgresVaultStoreCreateSchemaRejectsOtherKeyType(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStore(t)
+	_, err := store.writeDB.ExecContext(t.Context(), "ALTER TABLE "+store.tables.StateTable+" ALTER COLUMN pkey TYPE VARCHAR(255) USING encode(pkey, 'escape')")
+	require.NoError(t, err)
+
+	err = store.CreateSchema()
+	require.ErrorContains(t, err, "stores pkey as [character varying(255)], expected [bytea]")
+	requirePkeyType(t, store, "character varying(255)")
 }

@@ -349,8 +349,8 @@ The state rows include:
 - version bytes
 - metadata bytes
 
-For Postgres-backed vaults, namespace and key values are sanitized before storage.
-For SQLite-backed vaults, no extra sanitizer is applied.
+Namespaces and keys are stored verbatim. SQLite stores keys as `TEXT`; Postgres stores them as `BYTEA`, so inspect them
+with `encode(pkey, 'escape')`.
 
 ## Inspecting a Live Database
 

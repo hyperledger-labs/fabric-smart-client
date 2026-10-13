@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
@@ -58,6 +59,7 @@ var SingleDBCases = []struct {
 	{"QueryExecutor", TTestQueryExecutor},
 	{"ShardLikeCommit", TTestShardLikeCommit},
 	{"VaultErr", TTestVaultErr},
+	{"KeyEncoding", TTestKeyEncoding},
 }
 
 var ReadCommittedDBCases = []struct {
@@ -425,6 +427,54 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	code, _, err := vault1.Status(context.Background(), "unknown-txid")
 	require.NoError(t, err)
 	require.Equal(t, unknown, code)
+}
+
+// TTestKeyEncoding checks that the store keeps distinct keys distinct and
+// orders them bytewise, as Fabric does: a composite key and a plain key that
+// spells out a textual escape of it are separate states, a key that looks like a
+// Postgres bytea literal is stored verbatim, and a partial-composite-key range
+// scan returns every child whatever its next character.
+func TTestKeyEncoding(t *testing.T, ddb driver2.VaultStore, _ artifactsProvider) {
+	t.Helper()
+	ctx := t.Context()
+	const ns = "ns"
+	composite := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "alice")
+	childLetter := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "alice", "xyz")
+	childDigit := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "alice", "123")
+	sibling := compose.CreateCompositeKeyOrPanic(&strings.Builder{}, "Token", "bob")
+	keys := []driver.PKey{composite, childLetter, childDigit, sibling, "?0?Token?0?alice?0?", `\x41`}
+
+	writes := driver.Writes{ns: {}}
+	metaWrites := driver.MetaWrites{ns: {}}
+	for _, k := range keys {
+		writes[ns][k] = driver.VaultValue{Raw: []byte(k), Version: []byte("v")}
+		metaWrites[ns][k] = driver.VaultMetadataValue{Metadata: map[string][]byte{"k": []byte(k)}, Version: []byte("v")}
+	}
+	require.NoError(t, ddb.Store(ctx, nil, writes, metaWrites))
+
+	for _, k := range keys {
+		read, err := ddb.GetState(ctx, ns, k)
+		require.NoError(t, err)
+		require.NotNil(t, read, "key [%q]", k)
+		require.Equal(t, k, read.Key)
+		require.Equal(t, []byte(k), read.Raw)
+
+		meta, _, err := ddb.GetStateMetadata(ctx, ns, k)
+		require.NoError(t, err)
+		require.Equal(t, []byte(k), meta["k"], "key [%q]", k)
+	}
+
+	start, end, err := compose.CreateRangeKeysForPartialCompositeKey("Token", "alice")
+	require.NoError(t, err)
+	it, err := ddb.GetStateRange(ctx, ns, start, end)
+	require.NoError(t, err)
+	reads, err := collections.ReadAll(it)
+	require.NoError(t, err)
+	got := make([]driver.PKey, len(reads))
+	for i, r := range reads {
+		got[i] = r.Key
+	}
+	require.ElementsMatch(t, []driver.PKey{composite, childLetter, childDigit}, got)
 }
 
 func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
