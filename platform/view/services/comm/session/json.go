@@ -27,6 +27,8 @@ type jsonSession struct {
 	ctx context.Context
 }
 
+// NewJSON returns the session from caller to party, obtained from viewCtx, wrapped in a JSON session.
+// Pass viewCtx.Initiator() as caller to use the session of the view initiator.
 func NewJSON(viewCtx view.Context, caller view.View, party view.Identity) (*jsonSession, error) {
 	s, err := viewCtx.GetSession(caller, party)
 	if err != nil {
@@ -35,18 +37,12 @@ func NewJSON(viewCtx view.Context, caller view.View, party view.Identity) (*json
 	return NewFromSession(viewCtx, s), nil
 }
 
-func NewFromInitiator(viewCtx view.Context, party view.Identity) (*jsonSession, error) {
-	s, err := viewCtx.GetSession(viewCtx.Initiator(), party)
-	if err != nil {
-		return nil, err
-	}
-	return NewFromSession(viewCtx, s), nil
-}
-
+// NewFromSession wraps an existing session in a JSON session bound to the context of viewCtx.
 func NewFromSession(viewCtx view.Context, session Session) *jsonSession {
 	return newJSONSession(session, viewCtx.Context())
 }
 
+// JSON wraps the session of viewCtx in a JSON session.
 func JSON(viewCtx view.Context) *jsonSession {
 	return newJSONSession(viewCtx.Session(), viewCtx.Context())
 }
