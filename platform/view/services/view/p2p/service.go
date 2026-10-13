@@ -49,10 +49,9 @@ type IdentityProvider interface {
 type ViewManager interface {
 	// ExistResponderForCaller returns the responder view for the given caller.
 	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
-	// NewResponderContext returns a context used to respond to an invocation.
-	NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error)
-	// DeleteContext deletes the view context for the given context ID.
-	DeleteContext(contextID string)
+	// NewResponderContext returns a context used to respond to an invocation, and the func that
+	// releases it once the responder returns.
+	NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, func(), error)
 }
 
 // CommLayer models the communication layer for P2P operations.
@@ -274,21 +273,14 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 	}()
 
 	// get context
-	viewCtx, isNew, cleanup, err := s.getOrCreateContext(ctx, id, msg)
+	viewCtx, cleanup, err := s.getOrCreateContext(ctx, id, msg)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting context for [%s,%s]", msg.ContextID, id)
 	}
-	// cleanup deregisters the AfterFunc callback and releases the merged context's
-	// WithCancel resources once this responder is done (see getOrCreateContext).
+	// cleanup releases the view context once this responder is done (see getOrCreateContext).
 	defer cleanup()
 
-	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder)) //nolint:contextcheck // deliberately logging against the responder's own view context (the merged ctx documented in getOrCreateContext), not this func's ctx param
-
-	// if a new context has been created to run the responder,
-	// then dispose the context when not needed anymore
-	if isNew {
-		defer s.viewManager.DeleteContext(viewCtx.ID())
-	}
+	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s], [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, logging.Identifier(responder)) //nolint:contextcheck // deliberately logging against the responder's own view context (the merged ctx documented in getOrCreateContext), not this func's ctx param
 
 	// run view
 	_, err = s.runner.RunView(viewCtx, responder)
@@ -306,20 +298,21 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 
 // getOrCreateContext returns a view context for the given arguments, along with a cleanup
 // function the caller MUST invoke (typically via defer) once the responder is done with the
-// context, to avoid leaking the AfterFunc registration and WithCancel resources created below.
-func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg *view.Message) (viewCtx view.Context, isNew bool, cleanup func(), err error) {
+// context. cleanup releases the view context, which is disposed when its last responder
+// releases it, and the AfterFunc registration and WithCancel resources created below.
+func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg *view.Message) (viewCtx view.Context, cleanup func(), err error) {
 	noop := func() {}
 
 	// get the caller identity
 	remote, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
-		return nil, false, noop, err
+		return nil, noop, err
 	}
 
 	// create a new session with the ID we received
 	responderSession, err := s.commLayer.NewResponderSession(remote, msg)
 	if err != nil {
-		return nil, false, noop, err
+		return nil, noop, err
 	}
 
 	// The responder's view.Context must be cancelled when EITHER msg.Ctx is done (e.g. the
@@ -331,14 +324,7 @@ func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg 
 	// transport (e.g. libp2p) whose stream context never cancels on its own.
 	mergedCtx, cancel := context.WithCancel(msg.Ctx)
 	stop := context.AfterFunc(ctx, cancel)
-	cleanup = func() {
-		// stop deregisters the AfterFunc callback (no-op if it already ran or msg.Ctx/ctx
-		// were already done); cancel releases mergedCtx's WithCancel resources.
-		stop()
-		cancel()
-	}
-
-	viewCtx, isNew, err = s.viewManager.NewResponderContext( //nolint:contextcheck // documented above: mergedCtx deliberately merges msg.Ctx with this func's ctx (via context.AfterFunc), rather than passing ctx directly
+	viewCtx, release, err := s.viewManager.NewResponderContext( //nolint:contextcheck // documented above: mergedCtx deliberately merges msg.Ctx with this func's ctx (via context.AfterFunc), rather than passing ctx directly
 		mergedCtx,
 		msg.ContextID,
 		responderSession,
@@ -346,7 +332,8 @@ func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg 
 		remote,
 	)
 	if err != nil {
-		cleanup()
+		stop()
+		cancel()
 		// No context holds the responder session, so no Dispose would ever delete it.
 		// responderSession may be a live session: a follow-up message on a new session can reach
 		// the master session before its responder registered the session. Such a message carries
@@ -354,8 +341,14 @@ func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg 
 		// path and does not fail. Deleting therefore affects only sessions keyed by the sender's
 		// own PKID that it reused with a ContextID it may not join.
 		s.commLayer.DeleteSession(ctx, msg.SessionID, msg.FromPKID)
-		return nil, false, noop, err
+		return nil, noop, err
 	}
 
-	return viewCtx, isNew, cleanup, nil
+	return viewCtx, func() {
+		release()
+		// stop deregisters the AfterFunc callback (no-op if it already ran or msg.Ctx/ctx
+		// were already done); cancel releases mergedCtx's WithCancel resources.
+		stop()
+		cancel()
+	}, nil
 }

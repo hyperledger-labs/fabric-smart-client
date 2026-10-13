@@ -57,9 +57,9 @@ func TestManagerWithMockFactory(t *testing.T) {
 		parentCtx.IDReturns("ctx-id-2")
 		cf.NewForResponderReturns(parentCtx, nil)
 
-		ctx, isNew, err := manager.NewResponderContext(context.Background(), "ctx-id-2", session, ip.DefaultIdentity(), party)
+		ctx, release, err := manager.NewResponderContext(context.Background(), "ctx-id-2", session, ip.DefaultIdentity(), party)
 		require.NoError(t, err)
-		require.True(t, isNew)
+		require.NotNil(t, release)
 		require.NotNil(t, ctx)
 		require.Equal(t, 1, cf.NewForResponderCallCount())
 

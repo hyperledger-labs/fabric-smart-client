@@ -72,8 +72,19 @@ type Manager struct {
 	metrics          *Metrics
 	runner           Runner
 
-	contexts   map[string]DisposableContext
+	contexts map[string]DisposableContext
+	// responders holds the responder contexts created by NewResponderContext, by context ID.
+	responders map[string]*responderContext
 	contextsMu sync.RWMutex
+}
+
+// responderContext is a responder context shared by the responders that run in it. It is
+// disposed, and its go context cancelled, when the last of them releases it. Its fields are
+// guarded by Manager.contextsMu.
+type responderContext struct {
+	parent     ParentContext
+	cancel     context.CancelFunc
+	responders int
 }
 
 // NewManager returns a new instance of the view manager.
@@ -87,8 +98,9 @@ func NewManager(
 	return &Manager{
 		identityProvider: identityProvider,
 
-		contexts: map[string]DisposableContext{},
-		registry: registry,
+		contexts:   map[string]DisposableContext{},
+		responders: map[string]*responderContext{},
+		registry:   registry,
 
 		metrics:        metrics,
 		contextFactory: contextFactory,
@@ -247,25 +259,31 @@ func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) erro
 	return nil
 }
 
-// NewResponderContext returns a context to be used to respond to an incoming message on the given session.
-// It returns the context, a boolean indicating if it's new, and an error.
+// NewResponderContext returns a context to be used to respond to an incoming message on the
+// given session, and the func that releases it. The caller must call release when its responder
+// returns; release also runs when ctx is done, and extra calls are no-ops.
 //
 // contextID and the session ID are chosen by the remote peer; a session is identified by its ID
-// and remote PKID. If no context with that ID exists, a new responder context is created and
-// returned with isNew true. If a responder context with that ID exists and its current session
-// (of the responder that created it, or that attached last) is another session, session attaches:
-// it is registered in the context, so that Dispose deletes it, and a child context with session
-// as its default session replaces the context in the manager. Any participant that knows the
-// context ID can attach. An attached context is returned with isNew false, so the caller does not
-// delete it; the context and every attached session are disposed when the context is deleted,
-// normally when the responder that created it returns.
+// and remote PKID. If no context with that ID exists, a new responder context is created. If a
+// responder context with that ID exists and its current session (of the responder that created
+// it, or that attached last) is another session, session attaches: it is registered in the
+// context, so that Dispose deletes it, and a child context with session as its default session
+// replaces the context in the manager. Any participant that knows the context ID can attach.
+//
+// Several responders can run in one context. Each one sees ctx as its go context, so that it is
+// not cancelled when another responder returns; the context registered in the manager uses the
+// shared go context instead. The context is removed from the manager and disposed, deleting
+// every session registered in it, when the last responder releases it.
 //
 // It returns ErrInvalidSessionID for an empty session ID, and ErrNotResponderContext if the
-// context with that ID is an initiator context (it has no default session), so that an incoming
-// session cannot join a protocol this node initiated.
+// context with that ID was not created by NewResponderContext (for example, an initiator
+// context), so that an incoming session cannot join a protocol this node initiated.
 //
 // On error, no context holds session and the caller must delete it.
-func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error) {
+func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, func(), error) {
+	if ctx == nil {
+		return nil, nil, errors.New("context is nil")
+	}
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
 
@@ -275,61 +293,94 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 
 	info := session.Info()
 	if len(info.ID) == 0 {
-		return nil, false, errors.Wrapf(ErrInvalidSessionID, "incoming session for context [%s]", contextID)
+		return nil, nil, errors.Wrapf(ErrInvalidSessionID, "incoming session for context [%s]", contextID)
 	}
 
 	if viewContext, ok := cm.contexts[contextID]; ok {
-		current := viewContext.Session()
-		if current == nil {
-			return nil, false, errors.Wrapf(ErrNotResponderContext, "context [%s]", contextID)
+		rc, ok := cm.responders[contextID]
+		if !ok {
+			return nil, nil, errors.Wrapf(ErrNotResponderContext, "context [%s]", contextID)
 		}
+		current := viewContext.Session()
 		// A session is identified by its ID and remote PKID: the same ID from another party
 		// is a different session and must be registered, so that the context replies on it
 		// and Dispose deletes it.
-		if sameSession(current.Info(), info) {
-			logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", me, contextID) //nolint:contextcheck // deliberately logging against the reused, longer-lived viewContext being returned, not this call's transient ctx
-			return viewContext, false, nil
+		attach := !sameSession(current.Info(), info)
+		if attach {
+			// The key matches sameSession, so distinct sessions never share an entry. The default
+			// session and the sessions of views are keyed by identity, not PKID, so a peer-chosen
+			// session ID cannot select their entries.
+			if err := rc.parent.PutSessionByID(info.ID, info.RemotePKID, session); err != nil {
+				return nil, nil, errors.Wrapf(err, "failed registering session for [%s]", info.Caller)
+			}
+			current = session
 		}
-
-		vCtx, ok := viewContext.(ParentContext)
-		if !ok {
-			return nil, false, errors.Wrapf(ErrContextConversionFailed, "context [%s] is not a ParentContext", contextID)
+		logger.DebugfContext(ctx, "[%s] Join context to respond [contextID:%s][attach:%v]", me, contextID, attach)
+		if attach {
+			cm.contexts[contextID] = NewChildContextFromParentAndSession(rc.parent, current)
 		}
-		// The key matches sameSession, so distinct sessions never share an entry. The default
-		// session and the sessions of views are keyed by identity, not PKID, so a peer-chosen
-		// session ID cannot select their entries.
-		if err := vCtx.PutSessionByID(info.ID, info.RemotePKID, session); err != nil {
-			return nil, false, errors.Wrapf(err, "failed registering session for [%s]", info.Caller)
-		}
-		c := NewChildContextFromParentAndSession(vCtx, session)
-		cm.contexts[contextID] = c
-		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
-
-		return c, false, nil
+		c := NewChildContextFromParentAndSession(rc.parent, current)
+		c.ctx = ctx
+		return c, cm.acquire(ctx, contextID, rc), nil
 	}
 
-	// next we continue with creating a new context
-	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", me, contextID)
+	logger.DebugfContext(ctx, "[%s] Create new context to respond [contextID:%s]", me, contextID)
+	// The shared context outlives the responder that creates it, so its go context keeps the
+	// values of ctx but is cancelled only when the last responder releases it.
+	parentCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	newCtx, err := cm.contextFactory.NewForResponder(
-		ctx,
+		parentCtx,
 		contextID,
 		me,
 		session,
 		remote,
 	)
 	if err != nil {
-		return nil, false, err
+		cancel()
+		return nil, nil, err
 	}
 
-	c := NewChildContextFromParent(newCtx)
-	cm.contexts[contextID] = c
+	rc := &responderContext{parent: newCtx, cancel: cancel}
+	cm.responders[contextID] = rc
+	cm.contexts[contextID] = NewChildContextFromParent(newCtx)
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
+	c := NewChildContextFromParent(newCtx)
+	c.ctx = ctx
 
-	context.AfterFunc(c.Context(), func() { //nolint:contextcheck // deliberately watching the new child context c's own lifetime (the tracked view context), not this call's ctx, to know when to evict the map entry
-		cm.DeleteContext(contextID)
-	})
+	return c, cm.acquire(ctx, contextID, rc), nil
+}
 
-	return c, true, nil
+// acquire adds a responder to rc and returns the func that releases it, once, when called or
+// when ctx is done. The caller must hold cm.contextsMu.
+func (cm *Manager) acquire(ctx context.Context, contextID string, rc *responderContext) func() {
+	rc.responders++
+	release := sync.OnceFunc(func() { cm.release(contextID, rc) })
+	stop := context.AfterFunc(ctx, release)
+	return func() {
+		stop()
+		release()
+	}
+}
+
+// release removes a responder from rc, and disposes rc when it was the last one. rc is disposed
+// and removed from the manager only if it is still registered under contextID: DeleteContext
+// has already disposed a context it removed, and a newer context may reuse the ID.
+func (cm *Manager) release(contextID string, rc *responderContext) {
+	cm.contextsMu.Lock()
+	defer cm.contextsMu.Unlock()
+
+	rc.responders--
+	if rc.responders > 0 {
+		return
+	}
+	defer rc.cancel()
+	if cm.responders[contextID] == rc {
+		logger.Debugf("last responder returned, dispose context [%s]", contextID)
+		rc.parent.Dispose()
+		delete(cm.responders, contextID)
+		delete(cm.contexts, contextID)
+		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
+	}
 }
 
 // GetIdentifier returns the identifier for the given view.
@@ -342,10 +393,14 @@ func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Ident
 	return cm.registry.ExistResponderForCaller(caller)
 }
 
-// DeleteContext removes a context from the manager and calls Dispose on the context.
+// DeleteContext removes a context from the manager and calls Dispose on the context. A responder
+// context is disposed immediately, including the sessions of responders still running in it;
+// responders release their context with the func returned by NewResponderContext instead.
 func (cm *Manager) DeleteContext(contextID string) {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
+
+	delete(cm.responders, contextID)
 
 	logger.Debugf("deleting context [%s]", contextID)
 	// dispose context
