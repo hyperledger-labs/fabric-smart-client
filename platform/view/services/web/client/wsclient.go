@@ -13,12 +13,14 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web"
 )
 
-type Input = server.Input
+// Input is a message sent on a view's websocket stream.
+type Input = web.Input
 
-type Output = server.Output
+// Output is a message received on a view's websocket stream.
+type Output = web.Output
 
 type WSStream struct {
 	conn *websocket.Conn

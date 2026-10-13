@@ -15,15 +15,15 @@ import (
 	"unicode/utf8"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web"
 )
 
-type Input struct {
-	Raw []byte
-}
+// Input is a message received on a view's websocket stream.
+type Input = web.Input
 
-type Output struct {
-	Raw []byte
-}
+// Output is a message sent on a view's websocket stream.
+type Output = web.Output
 
 type WSStream struct {
 	ws *websocket.Conn

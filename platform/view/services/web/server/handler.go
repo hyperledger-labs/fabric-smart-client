@@ -18,15 +18,16 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web"
 )
 
 const (
 	apiVersion = "/v1"
 )
 
-type ResponseErr struct {
-	Reason string
-}
+// ResponseErr is the JSON body of the error responses HttpHandler sends for a request to a
+// registered URI.
+type ResponseErr = web.ResponseErr
 
 //nolint:revive // var-naming: renaming this exported type is an API break; see follow-up
 type HttpHandler struct {
@@ -44,6 +45,8 @@ type ReqContext struct {
 type RequestHandler interface {
 	// HandleRequest dispatches the request in the backend by parsing the given request context
 	// and returning a status code and a response back to the client.
+	// On a non-2xx status code, a *ResponseErr response is sent as the body; any other
+	// response is JSON-encoded into the Reason of a ResponseErr.
 	HandleRequest(*ReqContext) (response any, statusCode int)
 
 	// ParsePayload parses the payload to handler specific form or returns an error
@@ -99,6 +102,12 @@ func (*HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, 
 	if statusCode < 100 || statusCode > 999 {
 		sendErr(backToClient, http.StatusInternalServerError, "invalid status code from backend",
 			errors.Errorf("backend returned status code %d", statusCode))
+		return
+	}
+
+	// A backend error already carries the reason for the client; send it as is.
+	if respErr, ok := resultFromBackend.(*ResponseErr); ok && respErr != nil && statusCode/100 != 2 {
+		sendErr(backToClient, statusCode, respErr.Reason, nil)
 		return
 	}
 

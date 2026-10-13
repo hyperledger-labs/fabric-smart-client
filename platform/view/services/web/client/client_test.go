@@ -285,6 +285,22 @@ func TestCallView_Error_Returns_Descriptive_Failure(t *testing.T) {
 			expectedErrMsg: "status code",
 		},
 		{
+			name: "Non_200_Status_Code_Returns_Server_Reason",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"Reason":"view failed"}`))
+			},
+			expectedErrMsg: "status code [500], status [500 Internal Server Error], reason [view failed]",
+		},
+		{
+			name: "Non_200_Status_Code_With_Non_JSON_Body_Returns_Status_Error",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = w.Write([]byte("<html>bad gateway</html>"))
+			},
+			expectedErrMsg: "status [502 Bad Gateway]",
+		},
+		{
 			name: "Invalid_JSON_Body_Returns_Unmarshal_Error",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
