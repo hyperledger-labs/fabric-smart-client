@@ -22,6 +22,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/goleak"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
@@ -107,7 +108,7 @@ func TestSimpleProvider_Security(t *testing.T) { //nolint:paralleltest
 func TestSimpleProviderStreamErrors(t *testing.T) { //nolint:paralleltest
 	testSetup(t)
 	p := NewSimpleProvider()
-	require.NoError(t, p.Close())
+	t.Cleanup(func() { _ = p.Close() })
 	requireServerStreamErrors(t, p)
 
 	serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, false)
@@ -169,6 +170,68 @@ func TestServerAcceptsMalformedSpanContext(t *testing.T) { //nolint:paralleltest
 		raw.send(MultiplexedMessage{ID: "1", Msg: mustMarshal(meta(clientID))})
 		requireAccepted(t, receiveStream(t, streams), clientID)
 	})
+}
+
+// Each stream owns its websocket, and http.Server.Shutdown leaves hijacked connections open,
+// so the provider must end the streams it opened and accepted itself.
+func TestSimpleProviderClose(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	ignore := goleak.IgnoreCurrent()
+	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
+
+	p := NewSimpleProvider()
+	serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
+	streams := make(chan host.P2PStream, 10)
+	onStream := func(s host.P2PStream) { streams <- s }
+	errs := make(chan error, 10)
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		errs <- p.NewServerStream(w, r, onStream) //nolint:contextcheck // server streams outlive the upgrade request by design
+	}))
+	srv.TLS = serverTLS
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+	info := host.StreamInfo{RemotePeerID: "server", RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
+	open := func(p *SimpleProvider) host.P2PStream {
+		t.Helper()
+		c, err := p.NewClientStream(info, t.Context(), clientID, clientTLS)
+		require.NoError(t, err)
+		return c
+	}
+
+	// Closed streams leave the provider, on both ends of the websocket.
+	require.NoError(t, open(p).Close())
+	require.NoError(t, <-errs)
+	receiveStream(t, streams)
+	require.Eventually(t, func() bool { return trackedStreams(p) == 0 }, 5*time.Second, 10*time.Millisecond)
+
+	client := open(p)
+	require.NoError(t, <-errs)
+	server := receiveStream(t, streams)
+	require.Equal(t, 2, trackedStreams(p))
+
+	require.NoError(t, p.Close())
+	require.NoError(t, p.Close())
+	_, err := client.Read(make([]byte, 1))
+	require.Error(t, err)
+	_, err = server.Read(make([]byte, 1))
+	require.Error(t, err)
+	_, err = p.NewClientStream(info, t.Context(), clientID, clientTLS)
+	require.ErrorContains(t, err, "provider is closed")
+
+	// The closed provider rejects new websockets.
+	other := NewSimpleProvider()
+	t.Cleanup(func() { _ = other.Close() })
+	late := open(other)
+	require.ErrorContains(t, <-errs, "provider is closed")
+	_, err = late.Read(make([]byte, 1))
+	require.Error(t, err)
+	require.Zero(t, trackedStreams(p))
+}
+
+func trackedStreams(p *SimpleProvider) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.streams)
 }
 
 func TestExpectedPeerID(t *testing.T) {

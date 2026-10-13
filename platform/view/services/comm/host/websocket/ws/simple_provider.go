@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"go.opentelemetry.io/otel/trace"
 
@@ -25,14 +26,65 @@ func NewSimpleProvider() *SimpleProvider {
 	return &SimpleProvider{}
 }
 
-type SimpleProvider struct{}
+// SimpleProvider opens one websocket per stream. It owns the streams it opens and accepts, and
+// Close ends all of them. The zero value is ready to use.
+type SimpleProvider struct {
+	// mu protects streams and closed. It is never held across a network dial, write, or close.
+	mu      sync.Mutex
+	streams map[*stream]struct{}
+	closed  bool
+}
 
-func (*SimpleProvider) Close() error {
+// Close closes the provider and every stream it opened or accepted. Once it starts,
+// NewClientStream fails and NewServerStream rejects new websockets. Later calls return nil.
+func (p *SimpleProvider) Close() error {
+	p.mu.Lock()
+	p.closed = true
+	streams := make([]*stream, 0, len(p.streams))
+	for s := range p.streams {
+		streams = append(streams, s)
+	}
+	clear(p.streams)
+	p.mu.Unlock()
+
+	var err error
+	for _, s := range streams {
+		err = errors.Join(err, s.Close())
+	}
+	return err
+}
+
+// track registers s until it closes, or closes s and fails if the provider is closed.
+func (p *SimpleProvider) track(s *stream) error {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		_ = s.Close()
+		return errors.New("provider is closed")
+	}
+	if p.streams == nil {
+		p.streams = make(map[*stream]struct{})
+	}
+	p.streams[s] = struct{}{}
+	p.mu.Unlock()
+
+	// Closing a stream cancels its context.
+	context.AfterFunc(s.ctx, func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		delete(p.streams, s)
+	})
 	return nil
 }
 
-func (*SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
+func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
+	p.mu.Lock()
+	closed := p.closed
+	p.mu.Unlock()
+	if closed {
+		return nil, errors.New("provider is closed")
+	}
 	tlsEnabled := config != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
 	// We use the background context instead of passing the existing context,
@@ -70,10 +122,14 @@ func (*SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Contex
 	// otherwise tear down the connection out from under subsequent, unrelated calls that
 	// reuse the same stream. We only propagate the span, as a local parent, for tracing
 	// purposes.
-	return NewWSStream(conn, trace.ContextWithSpanContext(context.Background(), spanContext), info), nil
+	s := NewWSStream(conn, trace.ContextWithSpanContext(context.Background(), spanContext), info)
+	if err := p.track(s); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
-func (*SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
+func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
 	expectedPeerID, err := expectedPeerIDFromRequest(request)
 	if err != nil {
 		return errors.Wrapf(err, "failed extracting expected peerID from TLS certificate")
@@ -106,12 +162,16 @@ func (*SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http
 	// Propagating the request context will not make a difference (see comment in SimpleProvider.NewClientStream)
 	spanContext := remoteSpanContext(&meta)
 	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
-	newStreamCallback(NewWSStream(conn, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
+	s := NewWSStream(conn, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: request.RemoteAddr,
 		ContextID:         meta.ContextID,
 		SessionID:         meta.SessionID,
-	}))
+	})
 	streamTransferred = true
+	if err := p.track(s); err != nil {
+		return err
+	}
+	newStreamCallback(s)
 	return nil
 }
