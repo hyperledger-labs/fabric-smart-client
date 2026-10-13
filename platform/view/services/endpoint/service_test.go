@@ -169,3 +169,23 @@ func TestGetIdentity(t *testing.T) {
 	require.ErrorIs(t, err, endpoint.ErrNotFound)
 	require.False(t, ok)
 }
+
+// An empty label is not looked up, so a resolver registered without a name cannot
+// claim callers identified by pkID alone.
+func TestGetIdentity_EmptyLabelResolvesByPKID(t *testing.T) {
+	t.Parallel()
+	service, err := endpoint.NewService(&mock.BindingStore{})
+	require.NoError(t, err)
+
+	_, err = service.AddResolver("", "org1", nil, nil, []byte("unnamed_id"))
+	require.NoError(t, err)
+	_, err = service.AddResolver("bob", "org2", nil, nil, []byte("bob_id"))
+	require.NoError(t, err)
+
+	id, err := service.GetIdentity("", []byte("bob_id"))
+	require.NoError(t, err)
+	require.Equal(t, view.Identity("bob_id"), id)
+
+	_, err = service.GetIdentity("", []byte("unknown"))
+	require.ErrorIs(t, err, endpoint.ErrNotFound)
+}

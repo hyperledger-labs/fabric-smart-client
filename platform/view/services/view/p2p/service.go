@@ -303,8 +303,9 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg *view.Message) (viewCtx view.Context, cleanup func(), err error) {
 	noop := func() {}
 
-	// get the caller identity
-	remote, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
+	// The caller is the peer ID the transport verified, not FromEndpoint: that is the
+	// connection's source address, which the peer chooses.
+	remote, err := s.endpointService.GetIdentity("", msg.FromPKID)
 	if err != nil {
 		return nil, noop, err
 	}
