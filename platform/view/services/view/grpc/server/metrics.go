@@ -21,6 +21,11 @@ var (
 		Help:       "The number of view requests that have been completed.",
 		LabelNames: []string{"command", "success"},
 	}
+	requestsRejected = metrics.CounterOpts{
+		Name:       "requests_rejected",
+		Help:       "The number of view requests rejected as stale or replayed.",
+		LabelNames: []string{"reason"},
+	}
 )
 
 // Metrics models the metrics for the view service server.
@@ -29,6 +34,8 @@ type Metrics struct {
 	RequestsReceived metrics.Counter
 	// RequestsCompleted returns the number of view requests that have been completed.
 	RequestsCompleted metrics.Counter
+	// RequestsRejected returns the number of view requests rejected as stale or replayed.
+	RequestsRejected metrics.Counter
 }
 
 // NewMetrics returns a new instance of the metrics for the view service server.
@@ -36,5 +43,6 @@ func NewMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		RequestsReceived:  p.NewCounter(requestsReceived),
 		RequestsCompleted: p.NewCounter(requestsCompleted),
+		RequestsRejected:  p.NewCounter(requestsRejected),
 	}
 }

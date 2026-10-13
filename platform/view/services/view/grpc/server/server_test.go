@@ -27,6 +27,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	grpcutil "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
@@ -239,6 +240,45 @@ func TestStreamCommand_RejectsReplay(t *testing.T) {
 	require.Len(t, stream.sent, 1)
 	require.Contains(t, string(stream.sent[0].Response), "command already processed")
 	require.Equal(t, int32(1), calls.Load())
+}
+
+func TestReplayGuard_ForgetsAfterRetention(t *testing.T) {
+	t.Parallel()
+	key := func(b byte) [sha256.Size]byte { return [sha256.Size]byte{b} }
+	g := &replayGuard{retention: 50 * time.Millisecond, seen: map[[sha256.Size]byte]struct{}{}}
+	t0 := time.Now()
+
+	require.True(t, g.accept(key(1), t0))
+	require.True(t, g.accept(key(2), t0.Add(20*time.Millisecond)))
+	require.False(t, g.accept(key(1), t0.Add(50*time.Millisecond)), "replay at the end of retention")
+
+	// Key 1 is past retention, key 2 is not.
+	require.True(t, g.accept(key(3), t0.Add(60*time.Millisecond)))
+	require.Len(t, g.seen, 2, "expired prefix not dropped")
+	require.Len(t, g.queue, 2, "expired prefix not dropped")
+	require.False(t, g.accept(key(2), t0.Add(60*time.Millisecond)), "replay inside retention")
+	require.True(t, g.accept(key(1), t0.Add(60*time.Millisecond)), "key accepted again after retention")
+}
+
+func TestRejectedRequestsAreCounted(t *testing.T) {
+	t.Parallel()
+	srv, _ := countingServer(t)
+	rejected := &mock.Counter{}
+	rejected.WithReturns(rejected)
+	srv.metrics = &Metrics{RequestsReceived: srv.metrics.RequestsReceived, RequestsCompleted: srv.metrics.RequestsCompleted, RequestsRejected: rejected}
+
+	_, err := srv.ProcessCommand(context.Background(), buildSignedCommandAt(t, nil, timestamppb.New(time.Now().Add(-2*time.Minute))))
+	require.NoError(t, err)
+	sc := buildSignedCommand(t, nil)
+	for range 2 {
+		_, err = srv.ProcessCommand(context.Background(), sc)
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, 2, rejected.WithCallCount())
+	require.Equal(t, []string{"reason", "stale"}, rejected.WithArgsForCall(0))
+	require.Equal(t, []string{"reason", "replay"}, rejected.WithArgsForCall(1))
+	require.Equal(t, 2, rejected.AddCallCount())
 }
 
 // --- ProcessCommand tests ---

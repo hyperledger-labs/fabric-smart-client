@@ -559,6 +559,13 @@ func TestNewViewServiceServer(t *testing.T) {
 		require.ErrorContains(t, err, "command time window must be positive")
 	})
 
+	t.Run("with a time window that is not a duration", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, "fsc:\n  grpc:\n    authentication:\n      timeWindow: 15\n")
+		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default, nil)
+		require.ErrorContains(t, err, "invalid [fsc.grpc.authentication.timeWindow] value [15]")
+	})
+
 	t.Run("with non-nil grpcServer", func(t *testing.T) {
 		t.Parallel()
 		p := providerFrom(t, `

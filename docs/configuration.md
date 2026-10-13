@@ -108,7 +108,7 @@ fsc:
       # window of the local clock, and only once: it remembers accepted commands for twice
       # the window. The memory is per process, so a restarted node, or another node serving
       # the same identities, accepts a command again within its window.
-      # Format: Go duration string. Defaults to 15m when absent; zero or negative fails startup.
+      # Format: Go duration string. Defaults to 15m when absent; an unparsable, zero or negative value fails startup.
       timeWindow: 15m
 
     # GRPC Server keepalive parameters. 

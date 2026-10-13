@@ -177,11 +177,12 @@ Primary implementation: `platform/view/services/comm/host/websocket/ws/metrics.g
 | --- | --- | --- | --- |
 | `fsc_view_services_view_grpc_server_requests_received` | counter | `command` | Number of unary view-service requests that passed the initial validation and reached the processor dispatch stage. |
 | `fsc_view_services_view_grpc_server_requests_completed` | counter | `command`, `success` | Number of unary view-service requests that completed processing. |
+| `fsc_view_services_view_grpc_server_requests_rejected` | counter | `reason` | Number of view-service requests rejected because their timestamp is outside the command time window (`stale`) or the command was already accepted (`replay`). |
 
 Operational notes:
 
-- These counters are updated only on the unary `ProcessCommand` path.
-- The streaming `StreamCommand` path is not currently counted by these families.
+- `requests_received` and `requests_completed` are updated only on the unary `ProcessCommand` path; the streaming `StreamCommand` path is not counted by them.
+- `requests_rejected` counts both `ProcessCommand` and `StreamCommand`. `stale` is counted before the signature is checked, so any caller can raise it; `replay` is counted only for commands that passed the policy check.
 - `command` is the Go type of the command payload, for example `*protos.Command_CallView`.
 
 Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, updated in `platform/view/services/view/grpc/server/server.go`.
@@ -362,6 +363,7 @@ The following labels are part of the current FSC metric surface.
 | `network` | Fabric network name | deployment-specific network name |
 | `peer` | Remote libp2p peer identifier | peer ID string |
 | `protocol` | Libp2p protocol identifier | protocol ID string |
+| `reason` | Why the view service rejected a request | `stale`, `replay` |
 | `side` | WebSocket connection side | `client`, `server` |
 | `status` | Committer handler outcome classification | `not_found`, `failure`, `successful` |
 | `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, `fsc_view_services_view_grpc_server_view_service_*`, and `fsc_view_services_view_grpc_server_view_handler_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |

@@ -432,7 +432,12 @@ func NewViewServiceServer(
 	inspector := grpc2.NewBindingInspector(mutualTLS, server.ExtractTLSCertHashFromCommand)
 	timeWindow := DefaultCommandTimeWindow
 	if configProvider.IsSet(CommandTimeWindowKey) {
-		timeWindow = configProvider.GetDuration(CommandTimeWindowKey)
+		raw := configProvider.GetString(CommandTimeWindowKey)
+		d, err := time.ParseDuration(raw)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid [%s] value [%s]", CommandTimeWindowKey, raw)
+		}
+		timeWindow = d
 	}
 	return server.NewViewServiceServer(marshaller, policyChecker, metrics, tracerProvider, server.BindingInspector(inspector), timeWindow)
 }

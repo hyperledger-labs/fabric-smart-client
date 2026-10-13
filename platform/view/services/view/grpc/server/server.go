@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"strconv"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
@@ -19,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -50,7 +50,7 @@ type Server struct {
 	metrics    *Metrics
 	tracer     trace.Tracer
 	timeWindow time.Duration
-	accepted   cache.Map[[sha256.Size]byte, struct{}]
+	accepted   *replayGuard
 }
 
 // NewViewServiceServer returns a new instance of the view service server.
@@ -78,8 +78,7 @@ func NewViewServiceServer(
 		streamers:        map[reflect.Type]Streamer{},
 		metrics:          metrics,
 		timeWindow:       timeWindow,
-		// The server has no shutdown hook, so the eviction goroutine lives as long as the process.
-		accepted: cache.NewTimeoutCache[[sha256.Size]byte, struct{}](context.Background(), 2*timeWindow, nil),
+		accepted:         &replayGuard{retention: 2 * timeWindow, seen: map[[sha256.Size]byte]struct{}{}},
 		tracer: tracerProvider.Tracer("view_service", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{successLabel},
 		})),
@@ -222,6 +221,7 @@ func (s *Server) ValidateHeader(header *protos.Header) error {
 		return errors.WithMessagef(view.ErrCommandHeaderInvalid, "valid timestamp is required in header: %s", err)
 	}
 	if skew := time.Since(header.GetTimestamp().AsTime()).Abs(); skew > s.timeWindow {
+		s.metrics.RequestsRejected.With("reason", "stale").Add(1)
 		return errors.WithMessagef(view.ErrCommandHeaderInvalid, "timestamp is [%s] away from local time, more than the allowed [%s]", skew, s.timeWindow)
 	}
 
@@ -239,10 +239,45 @@ func (s *Server) ValidateHeader(header *protos.Header) error {
 // checkReplay rejects a command the server has already accepted. It keys on the signed bytes,
 // not the signature, because an ECDSA signature can be altered and still verify.
 func (s *Server) checkReplay(sc *protos.SignedCommand) error {
-	if s.accepted.Update(sha256.Sum256(sc.Command), func(bool, struct{}) (bool, struct{}) { return true, struct{}{} }) {
+	if !s.accepted.accept(sha256.Sum256(sc.Command), time.Now()) {
+		s.metrics.RequestsRejected.With("reason", "replay").Add(1)
 		return errors.WithMessage(view.ErrCommandHeaderInvalid, "command already processed")
 	}
 	return nil
+}
+
+// replayGuard remembers accepted command hashes for retention. Entries expire in insertion
+// order, so each accept drops the expired prefix of the queue: amortized O(1) per call, with
+// no background goroutine to stop.
+type replayGuard struct {
+	mu        sync.Mutex
+	retention time.Duration
+	seen      map[[sha256.Size]byte]struct{}
+	queue     []replayEntry // ordered by expiry
+}
+
+type replayEntry struct {
+	key    [sha256.Size]byte
+	expiry time.Time
+}
+
+// accept reports whether key is new at now, and records it. Callers pass non-decreasing
+// times, as time.Now does.
+func (g *replayGuard) accept(key [sha256.Size]byte, now time.Time) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	n := 0
+	for n < len(g.queue) && now.After(g.queue[n].expiry) {
+		delete(g.seen, g.queue[n].key)
+		n++
+	}
+	g.queue = g.queue[n:]
+	if _, ok := g.seen[key]; ok {
+		return false
+	}
+	g.seen[key] = struct{}{}
+	g.queue = append(g.queue, replayEntry{key: key, expiry: now.Add(g.retention)})
+	return true
 }
 
 // MarshalErrorResponse marshals the given error into a signed command response.
