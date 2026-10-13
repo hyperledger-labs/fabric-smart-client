@@ -133,7 +133,7 @@ type mockConfig struct {
 }
 
 func (m *mockConfig) ListenAddress() host2.PeerIPAddress { return m.listenAddress }
-func (m *mockConfig) ClientTLSConfig(websocket.ExtraCAPoolProvider) (*tls.Config, error) {
+func (m *mockConfig) ClientTLSConfig() (*tls.Config, error) {
 	return nil, m.clientErr
 }
 

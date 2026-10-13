@@ -13,8 +13,11 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -83,4 +86,47 @@ func TestClientRootCAsFollowExtraCAs(t *testing.T) {
 	require.Same(t, first.RootCAs, second.RootCAs)
 	require.NotSame(t, first, second)
 	require.NotSame(t, h.client.tlsConfig, second)
+}
+
+type nopStreamProvider struct{ StreamProvider }
+
+func (nopStreamProvider) NewClientStream(host2.StreamInfo, context.Context, host2.PeerID, *tls.Config) (host2.P2PStream, error) {
+	return nil, nil
+}
+
+type atomicExtraCAs struct{ atomic.Pointer[[][]byte] }
+
+func (a *atomicExtraCAs) ExtraCAs() [][]byte {
+	if p := a.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
+
+// Streams opened concurrently while the extra CAs change share the cached pool safely. The
+// race detector is what fails this test.
+func TestClientOpenStreamConcurrentWithChangingExtraCAs(t *testing.T) {
+	t.Parallel()
+	peerPEM, _, err := GenerateTestCert("peer")
+	require.NoError(t, err)
+
+	cas := &atomicExtraCAs{}
+	c := &client{tlsConfig: &tls.Config{RootCAs: x509.NewCertPool()}, caPoolProvider: cas, streamProvider: nopStreamProvider{}}
+	states := [][][]byte{nil, {peerPEM}}
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		for i := range 200 {
+			cas.Store(&states[i%2])
+		}
+	})
+	for range 4 {
+		wg.Go(func() {
+			for range 200 {
+				_, err := c.OpenStream(host2.StreamInfo{}, t.Context())
+				assert.NoError(t, err)
+			}
+		})
+	}
+	wg.Wait()
 }

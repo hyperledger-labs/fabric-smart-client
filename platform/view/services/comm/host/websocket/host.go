@@ -42,9 +42,7 @@ type StreamProvider interface {
 // be dialed and can connect. It returns an error if either TLS configuration cannot be built
 // (invalid root CAs or an invalid keypair).
 func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) (*host, error) {
-	// The client trusts only the configured root CAs here; it adds the provider's extra CAs per
-	// stream.
-	clientConfig, err := config.ClientTLSConfig(nil)
+	clientConfig, err := config.ClientTLSConfig()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build client TLS config")
 	}
