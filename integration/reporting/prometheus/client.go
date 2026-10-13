@@ -45,7 +45,7 @@ func NewReporter(address string) (*reporter, error) {
 }
 
 func (c *reporter) GetVector(metric model.Metric) (model.Vector, error) {
-	val, warnings, err := c.api.Query(context.Background(), metric.String(), time.Now())
+	val, warnings, _, err := c.api.Query(context.Background(), metric.String(), time.Now())
 	if err != nil {
 		return nil, err
 	}
