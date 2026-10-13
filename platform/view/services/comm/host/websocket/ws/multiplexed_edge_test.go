@@ -355,12 +355,90 @@ func TestMultiplexedProviderClose(t *testing.T) { //nolint:paralleltest
 	require.True(t, gwebsocket.IsCloseError(err, gwebsocket.CloseAbnormalClosure), "got %v", err)
 	requirePhysicalConnClosed(t, conn)
 
-	// Streams created concurrently with Close may outlive it; clean them up.
+	// Connections dialed concurrently with Close are killed rather than cached.
 	p.mu.RLock()
-	for _, c := range p.clients {
-		_ = c.Kill()
-	}
+	require.Empty(t, p.clients)
 	p.mu.RUnlock()
+	_, err = p.NewClientStream(info, t.Context(), clientID, clientTLS)
+	require.ErrorContains(t, err, "provider is closed")
+}
+
+// http.Server.Shutdown neither closes nor waits for hijacked connections, so the provider
+// must end the websockets it accepted itself.
+func TestMultiplexedProviderCloseKillsServerConns(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	ignore := goleak.IgnoreCurrent()
+	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
+	streams := make(chan host.P2PStream, 10)
+	onStream := func(s host.P2PStream) { streams <- s }
+	errs := make(chan error, 10)
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		errs <- p.NewServerStream(w, r, onStream) //nolint:contextcheck // server streams outlive the upgrade request by design
+	}))
+	srv.TLS = serverTLS
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+
+	// A websocket the peer closes leaves the provider.
+	gone := dialRaw(t, srv.URL, clientTLS)
+	require.NoError(t, <-errs)
+	require.NoError(t, gone.conn.Close())
+	require.Eventually(t, func() bool { return serverConnCount(p) == 0 }, 5*time.Second, 10*time.Millisecond)
+
+	raw := dialRaw(t, srv.URL, clientTLS)
+	require.NoError(t, <-errs)
+	raw.sendMeta("1", clientID)
+	s := receiveStream(t, streams)
+
+	require.NoError(t, p.Close())
+	requireClosed(t, raw)
+	_, err := s.Read(make([]byte, 1))
+	require.Error(t, err)
+
+	// Websockets upgraded after Close are closed at once.
+	late := dialRaw(t, srv.URL, clientTLS)
+	require.ErrorContains(t, <-errs, "provider is closed")
+	requireClosed(t, late)
+}
+
+func requireClosed(t *testing.T, r *rawPeer) {
+	t.Helper()
+	select {
+	case <-r.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("server websocket still open after Close")
+	}
+}
+
+// When both ends of a websocket belong to the provider, or the peer goes away during Close,
+// closing a socket fails although it is closed. Close must not report that as an error.
+func TestMultiplexedProviderCloseAfterPeerReset(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
+	streams := make(chan host.P2PStream, 1)
+	srv := startTestServer(t, p, serverTLS, func(s host.P2PStream) { streams <- s })
+	t.Cleanup(srv.Close)
+	info := host.StreamInfo{RemotePeerID: "server", RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"), SessionID: "s1"}
+	_, err := p.NewClientStream(info, t.Context(), clientID, clientTLS)
+	require.NoError(t, err)
+	receiveStream(t, streams)
+
+	// Reset the client's TCP connection, so the server's TLS close alert fails.
+	tcp, ok := firstClientConn(p).conn.NetConn().(*tls.Conn).NetConn().(*net.TCPConn)
+	require.True(t, ok)
+	require.NoError(t, tcp.SetLinger(0))
+	require.NoError(t, tcp.Close())
+
+	require.NoError(t, p.Close())
+}
+
+func serverConnCount(p *MultiplexedProvider) int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return len(p.servers)
 }
 
 func TestMultiplexedProviderStreamErrors(t *testing.T) { //nolint:paralleltest
@@ -472,7 +550,7 @@ func newPipedWebsocketPair(t *testing.T) (serverConn, clientConn *gwebsocket.Con
 func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns int, cb func(host.P2PStream)) (*multiplexedServerConn, *gwebsocket.Conn) {
 	t.Helper()
 	serverWSConn, clientWSConn := newPipedWebsocketPair(t)
-	sc := newServerConn(serverWSConn, expectedPeerID, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, cb)
+	sc := newServerConn(serverWSConn, expectedPeerID, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, cb, func() {})
 	return sc, clientWSConn
 }
 

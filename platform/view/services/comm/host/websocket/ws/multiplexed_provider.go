@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	errors2 "errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -61,12 +60,15 @@ type inFlightDial struct {
 	err  error
 }
 
+// MultiplexedProvider multiplexes streams over one websocket per remote URL. It owns the
+// websockets it dials and the ones it accepts in NewServerStream, and Close ends all of them.
 type MultiplexedProvider struct {
-	// mu protects clients, dialing, and closed. It is never held across a network dial or
-	// sub-connection meta message write: a peer that never answers or stops reading blocks
-	// for up to handshake or write timeout, and stream creation to other peers must proceed.
+	// mu protects clients, servers, dialing, and closed. It is never held across a network
+	// dial, write, or close: a peer that never answers or stops reading blocks for up to the
+	// handshake or write timeout, and stream creation to other peers must proceed.
 	mu      sync.RWMutex
 	clients map[string]*multiplexedClientConn
+	servers map[*multiplexedServerConn]struct{}
 	dialing map[string]*inFlightDial
 	closed  bool
 
@@ -78,27 +80,40 @@ type MultiplexedProvider struct {
 	MaxSubConns int
 }
 
+// KillAll closes the provider and kills every websocket it dialed or accepted, together with
+// their sub-connections. Once it starts, NewClientStream fails and NewServerStream rejects new
+// websockets. KillAll always returns nil: a socket is closed even when closing it fails, which
+// happens whenever the peer already went away, so such errors are only logged.
 func (c *MultiplexedProvider) KillAll() error {
-	var err error
 	c.killOnce.Do(func() {
 		c.mu.Lock()
-		defer c.mu.Unlock()
-
 		c.closed = true
 		close(c.trackerDone)
-
+		conns := make([]*multiplexedBaseConn, 0, len(c.clients)+len(c.servers))
 		for _, cl := range c.clients {
-			err = errors2.Join(err, cl.Kill())
+			conns = append(conns, cl.multiplexedBaseConn)
 		}
-
-		// cleanup clients and in-flight map
+		for sc := range c.servers {
+			conns = append(conns, sc.multiplexedBaseConn)
+		}
 		clear(c.clients)
+		clear(c.servers)
 		clear(c.dialing)
+		c.mu.Unlock()
+
+		// Killing closes each socket, which can block on the TLS close alert to a peer
+		// that stopped reading, so it runs without mu.
+		for _, conn := range conns {
+			if err := conn.Kill(); err != nil {
+				logger.Debugf("error closing websocket: %v", err)
+			}
+		}
 	})
 
-	return err
+	return nil
 }
 
+// Close is KillAll.
 func (c *MultiplexedProvider) Close() error {
 	return c.KillAll()
 }
@@ -109,6 +124,7 @@ func NewMultiplexedProvider(tracerProvider tracing.Provider, metricsProvider met
 	}
 	p := &MultiplexedProvider{
 		clients: make(map[string]*multiplexedClientConn),
+		servers: make(map[*multiplexedServerConn]struct{}),
 		dialing: make(map[string]*inFlightDial),
 		tracer: tracerProvider.Tracer("multiplexed_ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{contextIDLabel},
@@ -270,8 +286,23 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 	if err != nil {
 		return errors.Wrapf(err, "failed to open websocket")
 	}
+
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		_ = conn.Close()
+		return errors.New("provider is closed")
+	}
+	// Registering under mu orders the deletion in onClose after the insertion below.
+	var sc *multiplexedServerConn
+	sc = newServerConn(conn, expectedPeerID, c.tracer, c.m, c.MaxSubConns, newStreamCallback, func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		delete(c.servers, sc)
+	})
+	c.servers[sc] = struct{}{}
+	c.mu.Unlock()
 	c.m.OpenedWebsockets.With(sideLabel, serverSide).Add(1)
-	newServerConn(conn, expectedPeerID, c.tracer, c.m, c.MaxSubConns, newStreamCallback)
 	return nil
 }
 
@@ -388,12 +419,17 @@ type multiplexedServerConn struct {
 
 // Server
 
-func newServerConn(conn *websocket.Conn, expectedPeerID host2.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns int, newStreamCallback func(pStream host2.P2PStream)) *multiplexedServerConn {
+// newServerConn starts serving conn and calls onClose once its read loop has ended and the
+// connection is killed.
+func newServerConn(conn *websocket.Conn, expectedPeerID host2.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns int, newStreamCallback func(pStream host2.P2PStream), onClose func()) *multiplexedServerConn {
 	c := &multiplexedServerConn{
 		multiplexedBaseConn: newBaseConn(conn, tracer, m, serverSide, maxSubConns),
 		expectedPeerID:      expectedPeerID,
 	}
-	go c.readIncoming(newStreamCallback)
+	go func() {
+		c.readIncoming(newStreamCallback)
+		onClose()
+	}()
 	return c
 }
 
@@ -556,7 +592,7 @@ func (c *multiplexedBaseConn) Kill() error {
 	// releases the subConn mu that shutdown needs.
 	err := c.conn.Close()
 	for _, sc := range subConns {
-		err = errors2.Join(err, sc.shutdown(false))
+		err = errors.Join(err, sc.shutdown(false))
 	}
 
 	return err
