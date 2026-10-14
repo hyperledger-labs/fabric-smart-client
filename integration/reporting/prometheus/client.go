@@ -20,11 +20,18 @@ import (
 )
 
 const (
+	// ViewCallsOperationsMetric is the counter of view calls run by an FSC node.
 	ViewCallsOperationsMetric = "fsc_view_services_view_calls_operations"
 )
 
+// Reporter queries a Prometheus server for the metrics scraped from FSC nodes.
 type Reporter interface {
+	// GetVector runs an instant query for the series matching metric and returns
+	// their current samples. It fails if the server returns warnings or a result
+	// that is not a vector.
 	GetVector(metric model.Metric) (model.Vector, error)
+	// GetViewOperations returns the number of calls of viewName on nodeName, summed
+	// across all series. An empty nodeName or viewName matches any value.
 	GetViewOperations(nodeName, viewName string) (int, error)
 }
 
@@ -32,10 +39,13 @@ type reporter struct {
 	api prom_v1.API
 }
 
+// NewLocalReporter returns a Reporter for a Prometheus server on the local host
+// at the default port monitoring.PrometheusPort.
 func NewLocalReporter() (*reporter, error) {
 	return NewReporter(fmt.Sprintf("http://0.0.0.0:%d", monitoring.PrometheusPort))
 }
 
+// NewReporter returns a Reporter for the Prometheus server at address.
 func NewReporter(address string) (*reporter, error) {
 	promClient, err := prom_api.NewClient(prom_api.Config{Address: address})
 	if err != nil {
@@ -75,11 +85,10 @@ func (c *reporter) GetViewOperations(nodeName, viewName string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(vector) == 0 {
-		return 0, nil
+	// One series per distinct value of the other labels (success, initiator_view, ...).
+	var total model.SampleValue
+	for _, s := range vector {
+		total += s.Value
 	}
-	if len(vector) != 1 {
-		return 0, errors.New("expected vector len 1")
-	}
-	return int(vector[0].Value), nil
+	return int(total), nil
 }

@@ -208,3 +208,22 @@ func TestTracer_Start_AddEvent_DelegatesToBackingSpan(t *testing.T) {
 	require.Len(t, rt.spans, 1)
 	require.Equal(t, []string{"my-event"}, rt.spans[0].events)
 }
+
+func TestTracer_Start_BoolAttribute_FlushesRenderedValue(t *testing.T) {
+	t.Parallel()
+
+	mp := newRecordingMetricsProvider()
+	p := tracing.NewProviderWithBackingProvider(noop.NewTracerProvider(), mp)
+	tracer := p.Tracer("test-tracer", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		LabelNames: []string{"success"},
+	}))
+
+	// "fid" is not a declared label: it must not reach the metric, which would
+	// otherwise reject the label set.
+	_, span := tracer.Start(context.Background(), "my-span", tracing.WithAttributes(tracing.String("fid", "f")))
+	span.SetAttributes(tracing.Bool("success", true))
+	span.End()
+
+	require.Equal(t, []string{"success", "true"}, mp.counter.lastLabels)
+	require.Equal(t, []string{"success", "true"}, mp.histogram.lastLabels)
+}

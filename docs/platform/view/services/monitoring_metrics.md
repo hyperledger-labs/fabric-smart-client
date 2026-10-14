@@ -68,7 +68,7 @@ Explicit overrides are used in the following place within the current catalog:
 
 ### Labels
 
-Only the labels registered with the metric family are part of the exported schema. For trace-derived metrics, this means that only the label names declared in `tracing.WithMetricsOpts(...)` are guaranteed to appear in Prometheus.
+Only the labels registered with the metric family are part of the exported schema. For trace-derived metrics, this means that only the label names declared in `tracing.WithMetricsOpts(...)` are guaranteed to appear in Prometheus. A span sets a label from the span attribute with the same key, rendering non-string values as text (`true`, `false`, `3`). Attributes whose key is not a declared label name are recorded on the trace only.
 
 For trace-derived metrics, the namespace and subsystem are also fixed by `tracing.WithMetricsOpts(...)`. If a tracer is created without that option, the wrapper registers the metric family under the tracing package. The concrete case in this catalog is `fsc_view_services_tracing_listens_*`: the tracer is declared in the Fabric committer package, but the exported family name is derived from `platform/view/services/tracing`.
 
