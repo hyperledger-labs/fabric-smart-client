@@ -232,7 +232,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvid
 	res, err := collections.ReadAll(itr)
 	require.NoError(t, err)
 	require.Len(t, res, 4)
-	require.ElementsMatch(t, []driver.VaultRead{
+	require.Equal(t, []driver.VaultRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
 		{Key: "k111", Raw: []byte("k111_value"), Version: versionBlockTxNumToBytes(35, 4)},
 		{Key: "k2", Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)},
@@ -474,7 +474,7 @@ func TTestKeyEncoding(t *testing.T, ddb driver2.VaultStore, _ artifactsProvider)
 	for i, r := range reads {
 		got[i] = r.Key
 	}
-	require.ElementsMatch(t, []driver.PKey{composite, childLetter, childDigit}, got)
+	require.Equal(t, []driver.PKey{composite, childDigit, childLetter}, got)
 }
 
 func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {

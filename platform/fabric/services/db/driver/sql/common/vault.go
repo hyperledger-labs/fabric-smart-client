@@ -376,7 +376,18 @@ func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), betweenKeys("pkey", startKey, endKey, db.encodeKey)))
+	query, params := sqlbuild.New().
+		WriteString("SELECT pkey, kversion, val FROM " + db.tables.StateTable).
+		WriteWhere(sqlbuild.And(sqlbuild.Eq("ns", namespace), betweenKeys("pkey", startKey, endKey, db.encodeKey))).
+		WriteString(" ORDER BY pkey ASC").
+		Build()
+
+	logger.Debug(query, params)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
+	if err != nil {
+		return nil, err
+	}
+	return common3.NewIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }), nil
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {

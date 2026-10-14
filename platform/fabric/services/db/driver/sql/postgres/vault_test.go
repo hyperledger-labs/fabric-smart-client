@@ -30,16 +30,25 @@ import (
 // CreateSchema runs the same way it does in production.
 func newPostgresVaultStore(tb testing.TB) *VaultStore {
 	tb.Helper()
+	return newPostgresVaultStoreWithParams(tb, "")
+}
+
+// newPostgresVaultStoreWithParams is newPostgresVaultStore with params appended
+// to the connection string, which pgx sends as session parameters on every
+// pooled connection.
+func newPostgresVaultStoreWithParams(tb testing.TB, params string) *VaultStore {
+	tb.Helper()
 
 	terminate, pgConnStr, err := postgres2.StartPostgres(tb.Context(), postgres2.ConfigFromEnv(), nil)
 	require.NoError(tb, err)
 	tb.Cleanup(terminate)
 
 	cp := postgres2.NewConfigProvider(testing2.MockConfig(postgres2.Config{
-		DataSource: pgConnStr,
+		DataSource: pgConnStr + " " + params,
 	}))
 	store, err := NewPersistenceWithOpts(cp, postgres2.NewDbProvider(), "", NewVaultStore)
 	require.NoError(tb, err)
+	tb.Cleanup(func() { _ = store.Close() })
 
 	return store
 }
@@ -283,6 +292,30 @@ func TestPostgresVaultStoreConvertsTextKeys(t *testing.T) {
 	read, err = store.GetState(ctx, "ns", forged)
 	require.NoError(t, err)
 	require.Equal(t, driver.RawValue("forged"), read.Raw)
+}
+
+// GetStateRange returns keys sorted in byte order even when the planner reads
+// the state table in physical order, as it may for a range covering much of
+// the table.
+func TestPostgresVaultStoreRangeIsSorted(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStoreWithParams(t, "enable_indexscan=off enable_bitmapscan=off")
+	ctx := t.Context()
+	// One Store per key, so the rows are laid out in this order.
+	for _, k := range []driver.PKey{"k3", "k2", "k111", "k1"} {
+		require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}, nil))
+	}
+
+	it, err := store.GetStateRange(ctx, "ns", "k1", "k3")
+	require.NoError(t, err)
+	reads, err := collections.ReadAll(it)
+	require.NoError(t, err)
+	got := make([]driver.PKey, len(reads))
+	for i, r := range reads {
+		got[i] = r.Key
+	}
+	require.Equal(t, []driver.PKey{"k1", "k111", "k2"}, got)
 }
 
 // Replicas sharing a database may open a TEXT-keyed vault at the same time.

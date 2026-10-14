@@ -149,7 +149,7 @@ func TestVaultSQL_QueryState(t *testing.T) { //nolint:paralleltest
 		},
 		{
 			name:  "GetStateRange both bounds",
-			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (pkey >= $2 AND pkey < $3))",
+			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (pkey >= $2 AND pkey < $3)) ORDER BY pkey ASC",
 			args:  []sqldriver.Value{"ns", "a", "z"},
 			run: func(store *common2.VaultStore) error {
 				_, err := store.GetStateRange(context.Background(), "ns", "a", "z")
@@ -158,7 +158,7 @@ func TestVaultSQL_QueryState(t *testing.T) { //nolint:paralleltest
 		},
 		{
 			name:  "GetStateRange no bounds",
-			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (1=1))",
+			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (1=1)) ORDER BY pkey ASC",
 			args:  []sqldriver.Value{"ns"},
 			run: func(store *common2.VaultStore) error {
 				_, err := store.GetStateRange(context.Background(), "ns", "", "")
