@@ -166,6 +166,10 @@ func (s *stream) deliver(r result) {
 	}
 }
 
+// RemotePeerID returns the peer at the other end of the stream. With TLS, both providers bind
+// it to the remote's verified certificate: a server stream takes it from the client
+// certificate, and a client stream is opened only if the server certificate belongs to the
+// dialed peer.
 func (s *stream) RemotePeerID() host2.PeerID {
 	return s.info.RemotePeerID
 }

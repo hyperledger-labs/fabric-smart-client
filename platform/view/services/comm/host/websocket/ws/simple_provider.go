@@ -80,6 +80,9 @@ func (p *SimpleProvider) track(s *stream) error {
 	return nil
 }
 
+// NewClientStream dials info.RemotePeerAddress on a new websocket and opens a stream on it.
+// When config is not nil, the server's verified TLS certificate must belong to
+// info.RemotePeerID, so the stream's RemotePeerID is authenticated; without TLS nothing is.
 func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	p.mu.Lock()
@@ -97,6 +100,12 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	if err != nil {
 		logger.Errorf("Dial failed: %s", err.Error())
 		return nil, errors.Wrapf(err, "failed to open websocket")
+	}
+	if tlsEnabled {
+		if err := verifyServerPeerID(conn, info.RemotePeerID); err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
 	}
 	logger.Debugf("Successfully connected to websocket")
 	spanContext := trace.SpanContextFromContext(ctx)

@@ -67,8 +67,9 @@ type ExtraCAPoolProvider interface {
 //
 // The transport keypair defaults to fsc.identity and CANNOT be given a separate credential:
 // the peer ID a host announces is derived from the public key of its verified TLS
-// certificate ([ws.expectedPeerIDFromRequest]), and the receiving side rejects any
-// connection whose claimed peer ID does not match it. That binding is what prevents peer ID
+// certificate ([ws.expectedPeerIDFromRequest]). The server rejects any connection whose
+// claimed peer ID does not match the client certificate, and the client rejects any server
+// whose certificate does not match the peer ID it dialed. That binding is what prevents peer ID
 // spoofing (issues #871, #1037), so the transport certificate and the application identity
 // must remain the same key until an application-layer binding replaces it (issue #719).
 //

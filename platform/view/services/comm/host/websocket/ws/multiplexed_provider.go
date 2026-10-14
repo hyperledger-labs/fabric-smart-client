@@ -60,16 +60,25 @@ type inFlightDial struct {
 	err  error
 }
 
-// MultiplexedProvider multiplexes streams over one websocket per remote URL. It owns the
-// websockets it dials and the ones it accepts in NewServerStream, and Close ends all of them.
+// clientKey identifies a cached client connection. It includes the peer ID because the
+// server certificate is checked against it only when the connection is dialed: a connection
+// is reused only for streams to the peer it was verified for.
+type clientKey struct {
+	url    string
+	peerID host2.PeerID
+}
+
+// MultiplexedProvider multiplexes streams over one websocket per remote URL and peer ID. It
+// owns the websockets it dials and the ones it accepts in NewServerStream, and Close ends all
+// of them.
 type MultiplexedProvider struct {
 	// mu protects clients, servers, dialing, and closed. It is never held across a network
 	// dial, write, or close: a peer that never answers or stops reading blocks for up to the
 	// handshake or write timeout, and stream creation to other peers must proceed.
 	mu      sync.RWMutex
-	clients map[string]*multiplexedClientConn
+	clients map[clientKey]*multiplexedClientConn
 	servers map[*multiplexedServerConn]struct{}
-	dialing map[string]*inFlightDial
+	dialing map[clientKey]*inFlightDial
 	closed  bool
 
 	tracer      trace.Tracer
@@ -123,9 +132,9 @@ func NewMultiplexedProvider(tracerProvider tracing.Provider, metricsProvider met
 		maxSubConns = defaultMaxSubConns
 	}
 	p := &MultiplexedProvider{
-		clients: make(map[string]*multiplexedClientConn),
+		clients: make(map[clientKey]*multiplexedClientConn),
 		servers: make(map[*multiplexedServerConn]struct{}),
-		dialing: make(map[string]*inFlightDial),
+		dialing: make(map[clientKey]*inFlightDial),
 		tracer: tracerProvider.Tracer("multiplexed_ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{contextIDLabel},
 		})),
@@ -175,7 +184,8 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 		c.mu.RUnlock()
 		return nil, errors.New("provider is closed")
 	}
-	conn, ok := c.clients[urlStr]
+	key := clientKey{url: urlStr, peerID: info.RemotePeerID}
+	conn, ok := c.clients[key]
 	c.mu.RUnlock()
 	// A killed connection stays cached until its onClose runs; dial a new one instead.
 	if ok && !conn.closed.Load() {
@@ -187,12 +197,12 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 		c.mu.Unlock()
 		return nil, errors.New("provider is closed")
 	}
-	if conn, ok = c.clients[urlStr]; ok && !conn.closed.Load() {
+	if conn, ok = c.clients[key]; ok && !conn.closed.Load() {
 		c.mu.Unlock()
 		return conn, nil
 	}
 
-	if inFlight, dialing := c.dialing[urlStr]; dialing {
+	if inFlight, dialing := c.dialing[key]; dialing {
 		c.mu.Unlock()
 		select {
 		case <-inFlight.done:
@@ -214,16 +224,21 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	}
 
 	inFlight := &inFlightDial{done: make(chan struct{})}
-	c.dialing[urlStr] = inFlight
+	c.dialing[key] = inFlight
 	c.mu.Unlock()
 
 	wsConn, err := web2.OpenWSClientConnContext(ctx, urlStr, config)
+	if err == nil && config != nil {
+		if err = verifyServerPeerID(wsConn, info.RemotePeerID); err != nil {
+			_ = wsConn.Close()
+		}
+	}
 	if err != nil {
 		logger.Errorf("Failed to open websocket connection from [%s] to [%s@%s]: %s", src, info.RemotePeerID, info.RemotePeerAddress, err.Error())
 		dialErr := errors.Wrapf(err, "failed to open websocket")
 
 		c.mu.Lock()
-		delete(c.dialing, urlStr)
+		delete(c.dialing, key)
 		inFlight.err = dialErr
 		close(inFlight.done)
 		c.mu.Unlock()
@@ -235,21 +250,21 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		if c.clients[urlStr] == conn {
-			delete(c.clients, urlStr)
+		if c.clients[key] == conn {
+			delete(c.clients, key)
 		}
 	})
 
 	c.mu.Lock()
 	if c.closed {
-		delete(c.dialing, urlStr)
+		delete(c.dialing, key)
 		close(inFlight.done)
 		c.mu.Unlock()
 		_ = conn.Kill()
 		return nil, errors.New("provider is closed")
 	}
-	c.clients[urlStr] = conn
-	delete(c.dialing, urlStr)
+	c.clients[key] = conn
+	delete(c.dialing, key)
 	inFlight.conn = conn
 	close(inFlight.done)
 	c.m.OpenedWebsockets.With(sideLabel, clientSide).Add(1)
@@ -258,6 +273,10 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	return conn, nil
 }
 
+// NewClientStream opens a sub-connection to info.RemotePeerID at info.RemotePeerAddress,
+// reusing the cached websocket to that peer and address or dialing a new one. When config is
+// not nil, a new websocket is used only if the server's verified TLS certificate belongs to
+// info.RemotePeerID, so the stream's RemotePeerID is authenticated; without TLS nothing is.
 func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
 	span := trace.SpanFromContext(ctx)
 	defer func() {

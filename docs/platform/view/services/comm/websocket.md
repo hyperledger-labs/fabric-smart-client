@@ -44,8 +44,9 @@ graph TD
 2.  **mTLS Identity**: Both parties use the node's main identity (configured via `fsc.identity.key.file` and `fsc.identity.cert.file`) for mutual authentication.
 3.  **mTLS Verification**: Both parties exchange and verify certificates. The server extracts the `expectedPeerID` from the client's verified certificate.
 4.  **WebSocket Upgrade**: The client sends an `Upgrade: websocket` header.
-5.  **Meta Handshake**: Once the WebSocket is established, the client sends an initial `StreamMeta` JSON packet containing its claimed `PeerID`, `ContextID`, and `SessionID`.
-6.  **Identity Binding Validation**: The server compares the `PeerID` in the `StreamMeta` against the `expectedPeerID` from the TLS certificate. If they mismatch, the connection is terminated.
+5.  **Server Identity Binding**: The client derives the `PeerID` from the server's verified certificate and closes the connection if it differs from the `PeerID` it dialed. A certificate that chains to a trusted CA and is valid for the dialed host is therefore not enough to impersonate another peer.
+6.  **Meta Handshake**: Once the WebSocket is established, the client sends an initial `StreamMeta` JSON packet containing its claimed `PeerID`, `ContextID`, and `SessionID`.
+7.  **Identity Binding Validation**: The server compares the `PeerID` in the `StreamMeta` against the `expectedPeerID` from the TLS certificate. If they mismatch, the connection is terminated.
 
 ## Multiplexing and Logical Streams
 
@@ -69,6 +70,7 @@ type MultiplexedMessage struct {
 -   **TLS Caching**: Trusted root CAs are cached in memory to avoid disk I/O during handshakes. Dynamic trust updates (from the `EndpointService`) are appended to a clone of this cached pool in memory, significantly improving connection throughput.
 -   **Minimum TLS Version**: Both `ClientTLSConfig` and `ServerTLSConfig` (in `config.go`) set `MinVersion: tls.VersionTLS13`, so older protocol versions cannot be negotiated even if a peer offers them.
 -   **Identity Binding (Issue #871)**: The `PeerID` asserted in the application layer (during the WebSocket upgrade) is strictly validated against the public key extracted from the verified TLS certificate. The transport layer rejects any attempt to spoof an identity.
+-   **Server Identity Binding**: A client stream opens only if the server's verified certificate belongs to the dialed `PeerID`. The multiplexed provider caches connections per address and `PeerID`, so a cached connection never carries a stream for a different peer.
 -   **Runtime Trust Updates**: The transport trusts the peer certificates the `EndpointService` holds at the time of each connection. The server re-reads them on every inbound handshake and the client on every outbound stream, so a peer added at runtime is trusted and a peer removed at runtime is no longer trusted. Removal does not close established connections, and an outbound connection that is already open keeps carrying new streams.
 -   **Read Limits**: Each WebSocket connection has a 10MB read limit (`SetReadLimit`) to prevent OOM attacks.
 -   **WebSocket Hardening**:
