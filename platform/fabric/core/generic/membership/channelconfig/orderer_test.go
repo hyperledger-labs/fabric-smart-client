@@ -102,7 +102,7 @@ func TestNewOrdererOrgConfig(t *testing.T) {
 		t.Parallel()
 		orgGroup := &cb.ConfigGroup{
 			Values: map[string]*cb.ConfigValue{
-				EndpointsKey: {Value: protoutil.MarshalOrPanic(EndpointsValue([]string{"o:7050"}).Value())},
+				EndpointsKey: {Value: protoutil.MarshalOrPanic(&cb.OrdererAddresses{Addresses: []string{"o:7050"}})},
 			},
 		}
 		_, err := NewOrdererOrgConfig("org1", orgGroup, nil, capabilities.NewChannelProvider(nil))
@@ -133,8 +133,8 @@ func TestNewOrdererOrgConfig(t *testing.T) {
 
 		orgGroup := &cb.ConfigGroup{
 			Values: map[string]*cb.ConfigValue{
-				MSPKey:       {Value: protoutil.MarshalOrPanic(MSPValue(conf).Value())},
-				EndpointsKey: {Value: protoutil.MarshalOrPanic(EndpointsValue([]string{"o:7050"}).Value())},
+				MSPKey:       {Value: protoutil.MarshalOrPanic(conf)},
+				EndpointsKey: {Value: protoutil.MarshalOrPanic(&cb.OrdererAddresses{Addresses: []string{"o:7050"}})},
 			},
 		}
 
@@ -165,9 +165,9 @@ func TestNewOrdererConfig(t *testing.T) {
 
 	baseValues := func() map[string]*cb.ConfigValue {
 		return map[string]*cb.ConfigValue{
-			BatchSizeKey:     {Value: protoutil.MarshalOrPanic(BatchSizeValue(10, 1000, 500).Value())},
-			BatchTimeoutKey:  {Value: protoutil.MarshalOrPanic(BatchTimeoutValue("1s").Value())},
-			ConsensusTypeKey: {Value: protoutil.MarshalOrPanic(ConsensusTypeValue("etcdraft", nil).Value())},
+			BatchSizeKey:     {Value: protoutil.MarshalOrPanic(&ab.BatchSize{MaxMessageCount: 10, AbsoluteMaxBytes: 1000, PreferredMaxBytes: 500})},
+			BatchTimeoutKey:  {Value: protoutil.MarshalOrPanic(&ab.BatchTimeout{Timeout: "1s"})},
+			ConsensusTypeKey: {Value: protoutil.MarshalOrPanic(&ab.ConsensusType{Type: "etcdraft"})},
 		}
 	}
 
@@ -193,7 +193,7 @@ func TestNewOrdererConfig(t *testing.T) {
 			Values: baseValues(),
 			Groups: map[string]*cb.ConfigGroup{
 				"org1": {Values: map[string]*cb.ConfigValue{
-					MSPKey: {Value: protoutil.MarshalOrPanic(MSPValue(conf).Value())},
+					MSPKey: {Value: protoutil.MarshalOrPanic(conf)},
 				}},
 			},
 		}
@@ -211,8 +211,8 @@ func TestNewOrdererConfig(t *testing.T) {
 			Values: baseValues(),
 			Groups: map[string]*cb.ConfigGroup{
 				"org1": {Values: map[string]*cb.ConfigValue{
-					MSPKey:       {Value: protoutil.MarshalOrPanic(MSPValue(conf).Value())},
-					EndpointsKey: {Value: protoutil.MarshalOrPanic(EndpointsValue([]string{"o:7050"}).Value())},
+					MSPKey:       {Value: protoutil.MarshalOrPanic(conf)},
+					EndpointsKey: {Value: protoutil.MarshalOrPanic(&cb.OrdererAddresses{Addresses: []string{"o:7050"}})},
 				}},
 			},
 		}

@@ -20,11 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
-func TestInterface(t *testing.T) {
-	t.Parallel()
-	_ = Channel(&ChannelConfig{})
-}
-
 func TestChannelConfig(t *testing.T) {
 	t.Parallel()
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
@@ -62,12 +57,6 @@ func TestOrdererAddresses(t *testing.T) {
 	require.NoError(t, cc.validateOrdererAddresses(), "Invalid orderer address supplied")
 
 	require.Equal(t, "127.0.0.1:7050", cc.OrdererAddresses()[0], "Unexpected orderer address returned")
-}
-
-func TestConsortiumName(t *testing.T) {
-	t.Parallel()
-	cc := &ChannelConfig{protos: &ChannelProtos{Consortium: &cb.Consortium{Name: "TestConsortium"}}}
-	require.Equal(t, "TestConsortium", cc.ConsortiumName(), "Unexpected consortium name returned")
 }
 
 func TestChannelConfigGetters(t *testing.T) {
@@ -167,9 +156,9 @@ func TestNewChannelConfigErrors(t *testing.T) {
 
 	validValues := func() map[string]*cb.ConfigValue {
 		return map[string]*cb.ConfigValue{
-			HashingAlgorithmKey:          {Value: protoutil.MarshalOrPanic(HashingAlgorithmValue().Value())},
-			BlockDataHashingStructureKey: {Value: protoutil.MarshalOrPanic(BlockDataHashingStructureValue().Value())},
-			OrdererAddressesKey:          {Value: protoutil.MarshalOrPanic(OrdererAddressesValue([]string{"orderer:7050"}).Value())},
+			HashingAlgorithmKey:          {Value: protoutil.MarshalOrPanic(&cb.HashingAlgorithm{Name: bccsp.SHA256})},
+			BlockDataHashingStructureKey: {Value: protoutil.MarshalOrPanic(&cb.BlockDataHashingStructure{Width: math.MaxUint32})},
+			OrdererAddressesKey:          {Value: protoutil.MarshalOrPanic(&cb.OrdererAddresses{Addresses: []string{"orderer:7050"}})},
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
@@ -30,14 +31,14 @@ func TestACL(t *testing.T) {
 		Values: map[string]*cb.ConfigValue{
 			ACLsKey: {
 				Value: protoutil.MarshalOrPanic(
-					ACLValues(map[string]string{}).Value(),
+					&pb.ACLs{},
 				),
 			},
 			CapabilitiesKey: {
 				Value: protoutil.MarshalOrPanic(
-					CapabilitiesValue(map[string]bool{
-						capabilities.ApplicationV1_2: true,
-					}).Value(),
+					&cb.Capabilities{Capabilities: map[string]*cb.Capability{
+						capabilities.ApplicationV1_2: {},
+					}},
 				),
 			},
 		},
@@ -46,8 +47,11 @@ func TestACL(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		t.Parallel()
 		cg := proto.Clone(cgt).(*cb.ConfigGroup)
-		_, err := NewApplicationConfig(proto.Clone(cg).(*cb.ConfigGroup), nil)
+		ac, err := NewApplicationConfig(proto.Clone(cg).(*cb.ConfigGroup), nil)
 		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(ac.Capabilities().Supported()).To(Succeed())
+		g.Expect(ac.Capabilities().ACLs()).To(BeTrue())
+		g.Expect(ac.Organizations()).To(BeEmpty())
 	})
 }
 
@@ -57,7 +61,7 @@ func TestApplicationConfigAPIPolicyMapper(t *testing.T) {
 		Values: map[string]*cb.ConfigValue{
 			ACLsKey: {
 				Value: protoutil.MarshalOrPanic(
-					ACLValues(map[string]string{"api": "/Channel/Application/Writers"}).Value(),
+					&pb.ACLs{Acls: map[string]*pb.APIResource{"api": {PolicyRef: "/Channel/Application/Writers"}}},
 				),
 			},
 		},

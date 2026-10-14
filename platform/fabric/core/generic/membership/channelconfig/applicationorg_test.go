@@ -46,8 +46,8 @@ func TestNewApplicationOrgConfig(t *testing.T) {
 
 		orgGroup := &cb.ConfigGroup{
 			Values: map[string]*cb.ConfigValue{
-				MSPKey:         {Value: protoutil.MarshalOrPanic(MSPValue(conf).Value())},
-				AnchorPeersKey: {Value: protoutil.MarshalOrPanic(AnchorPeersValue([]*pb.AnchorPeer{{Host: "p", Port: 7051}}).Value())},
+				MSPKey:         {Value: protoutil.MarshalOrPanic(conf)},
+				AnchorPeersKey: {Value: protoutil.MarshalOrPanic(&pb.AnchorPeers{AnchorPeers: []*pb.AnchorPeer{{Host: "p", Port: 7051}}})},
 			},
 		}
 		aoc, err := NewApplicationOrgConfig("org1", orgGroup, mspConfigHandler)

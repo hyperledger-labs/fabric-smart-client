@@ -42,21 +42,6 @@ const (
 	CapabilitiesKey = "Capabilities"
 )
 
-// ChannelValues gives read only access to the channel configuration
-type ChannelValues interface {
-	// HashingAlgorithm returns the default algorithm to be used when hashing
-	// such as computing block hashes, and CreationPolicy digests
-	HashingAlgorithm() func(input []byte) []byte
-
-	// BlockDataHashingStructureWidth returns the width to use when constructing the
-	// Merkle tree to compute the BlockData hash
-	BlockDataHashingStructureWidth() uint32
-
-	// OrdererAddresses returns the list of valid global orderer addresses (does not include org-specific orderer endpoints)
-	// Deprecated
-	OrdererAddresses() []string
-}
-
 // ChannelProtos is where the proposed configuration is unmarshaled into
 type ChannelProtos struct {
 	HashingAlgorithm          *cb.HashingAlgorithm
@@ -157,16 +142,8 @@ func (cc *ChannelConfig) OrdererAddresses() []string {
 	return cc.protos.OrdererAddresses.Addresses
 }
 
-// ConsortiumName returns the name of the consortium this channel was created under
-func (cc *ChannelConfig) ConsortiumName() string {
-	return cc.protos.Consortium.Name
-}
-
 // Capabilities returns information about the available capabilities for this channel
 func (cc *ChannelConfig) Capabilities() ChannelCapabilities {
-	_ = cc.protos
-	_ = cc.protos.Capabilities
-	_ = cc.protos.Capabilities.Capabilities
 	return capabilities.NewChannelProvider(cc.protos.Capabilities.Capabilities)
 }
 

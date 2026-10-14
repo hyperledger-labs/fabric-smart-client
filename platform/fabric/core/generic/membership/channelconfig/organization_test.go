@@ -55,7 +55,7 @@ func TestNewOrganizationConfig(t *testing.T) {
 
 		orgGroup := &cb.ConfigGroup{
 			Values: map[string]*cb.ConfigValue{
-				MSPKey: {Value: protoutil.MarshalOrPanic(MSPValue(conf).Value())},
+				MSPKey: {Value: protoutil.MarshalOrPanic(conf)},
 			},
 		}
 		oc, err := NewOrganizationConfig("org1", orgGroup, mspConfigHandler)
