@@ -55,10 +55,6 @@ type OnMergeConfigEventHandler interface {
 	OnMergeConfig()
 }
 
-// DecodeHookFuncType converts a configuration value from one type to another during
-// decoding, returning the value unchanged when it does not apply.
-type DecodeHookFuncType func(reflect.Type, reflect.Type, any) (any, error)
-
 // Provider reads FSC node configuration. Keys are matched case-insensitively, and
 // configured paths are resolved relative to the configuration file.
 type Provider struct {

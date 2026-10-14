@@ -33,11 +33,6 @@ func NewConn(ctx context.Context, index int, session view.Session) (Conn, error)
 	}, nil
 }
 
-type Comm struct {
-	Channels map[uint]Conn
-	MyPID    int
-}
-
 func (c *commSCCConn) Write(data []byte) (n int, err error) {
 	logger.Debugf("Write [%d][%s]", len(data), logging.SHA256Base64(data))
 	defer logger.Debugf("Write [%d][%s] done", len(data), logging.SHA256Base64(data))

@@ -93,15 +93,6 @@ func (r *Resolver) GetIdentity() (view.Identity, error) {
 	return r.ID, nil
 }
 
-// NetworkMember represents a peer in the network with its endpoint information
-// and metadata.
-type NetworkMember struct {
-	Endpoint         string
-	Metadata         []byte
-	PKIid            []byte
-	InternalEndpoint string
-}
-
 // BindingStore is an alias for cdriver.BindingStore
 //
 //go:generate counterfeiter -o mock/binding_store.go -fake-name BindingStore . BindingStore
