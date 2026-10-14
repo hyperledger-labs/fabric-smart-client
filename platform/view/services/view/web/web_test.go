@@ -94,13 +94,12 @@ func TestCallViewFailureReachesClient(t *testing.T) {
 func TestViewHandler(t *testing.T) {
 	t.Parallel()
 	vm := &fakeViewManager{}
-	ip := &fakeIdentityProvider{}
 	tp := noop.NewTracerProvider()
 
 	h := server2.NewHttpHandler()
-	InstallViewHandler(vm, ip, h, tp)
+	InstallViewHandler(vm, h, tp)
 
-	c := newViewClient(vm, ip, tp)
+	c := newViewClient(vm, tp)
 	vh := &viewHandler{c: c}
 
 	// CallView success: byte slice
@@ -136,9 +135,8 @@ func TestViewHandler(t *testing.T) {
 func TestClientCallView(t *testing.T) {
 	t.Parallel()
 	vm := &fakeViewManager{}
-	ip := &fakeIdentityProvider{}
 	tp := noop.NewTracerProvider()
-	c := newViewClient(vm, ip, tp)
+	c := newViewClient(vm, tp)
 
 	// CallView success
 	res, err := c.CallView("fid", []byte("input"), t.Context())
@@ -208,7 +206,7 @@ func TestClientStreamCallView(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			out, err, readErr := streamCall(t, newViewClient(tc.vm, &fakeIdentityProvider{}, noop.NewTracerProvider()), "fid")
+			out, err, readErr := streamCall(t, newViewClient(tc.vm, noop.NewTracerProvider()), "fid")
 			if tc.wantErr != "" {
 				require.ErrorContains(t, err, tc.wantErr)
 				// The close frame carries the failure to the client.
@@ -259,7 +257,7 @@ func TestClientStreamCallViewReleasesManagerContext(t *testing.T) {
 			manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
 			v := &recordingView{err: tc.err}
 			require.NoError(t, manager.RegisterFactory("recording", &recordingViewFactory{v: v}))
-			c := newViewClient(manager, &fakeIdentityProvider{}, noop.NewTracerProvider())
+			c := newViewClient(manager, noop.NewTracerProvider())
 
 			_, err, readErr := streamCall(t, c, "recording")
 			if tc.wantErr != "" {
@@ -351,11 +349,6 @@ type fakeView struct{}
 func (*fakeView) Call(_ view2.Context) (any, error) {
 	return nil, nil
 }
-
-type fakeIdentityProvider struct{}
-
-func (*fakeIdentityProvider) DefaultIdentity() view2.Identity { return nil }
-func (*fakeIdentityProvider) Clients() []view2.Identity       { return nil }
 
 type fakeViewContext struct {
 	runErr        error

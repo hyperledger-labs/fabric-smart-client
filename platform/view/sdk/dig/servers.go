@@ -84,7 +84,7 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 // NewWebServer returns the node's REST listener, configured from fsc.web. It returns a
 // no-op server when fsc.web.enabled is false, and an error when fsc.web.tls does not
 // resolve — a listener is never returned with weaker TLS than the configuration describes.
-func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, identityProvider server.IdentityProvider, tracerProvider tracing.Provider) (Server, error) {
+func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, tracerProvider tracing.Provider) (Server, error) {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer(), nil
@@ -110,7 +110,7 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 			viewTimeout = d
 		}
 	}
-	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider, web2.WithTimeout(viewTimeout))
+	web2.InstallViewHandler(viewManager, h, tracerProvider, web2.WithTimeout(viewTimeout))
 
 	return webServer, nil
 }

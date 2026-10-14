@@ -78,8 +78,11 @@ func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, _ 
 // Callers can supply options, such as WithTimeout, to configure view execution limits.
 // Views must observe their context (e.g. by selecting on ctx.Done()) for the timeout to
 // take effect and abort execution early.
-func InstallViewHandler(manager server.ViewManager, identityProvider server.IdentityProvider, h *server2.HttpHandler, tp tracing.Provider, opts ...Option) {
-	fh := &viewHandler{c: newViewClient(manager, identityProvider, tp, opts...)}
+//
+// The handler does not authorize callers: any client the listener's TLS configuration
+// accepts can call any view. Restrict callers with the listener's client root CAs.
+func InstallViewHandler(manager server.ViewManager, h *server2.HttpHandler, tp tracing.Provider, opts ...Option) {
+	fh := &viewHandler{c: newViewClient(manager, tp, opts...)}
 	newDispatcher(h).WireViewCaller(viewCallFunc(fh.CallView))
 	newDispatcher(h).WireStreamViewCaller(viewCallFunc(fh.StreamCallView))
 }
@@ -91,13 +94,12 @@ type ViewClient interface {
 }
 
 type client struct {
-	viewManager      server.ViewManager
-	identityProvider server.IdentityProvider
-	tracer           trace.Tracer
-	timeout          time.Duration
+	viewManager server.ViewManager
+	tracer      trace.Tracer
+	timeout     time.Duration
 }
 
-func newViewClient(viewManager server.ViewManager, identityProvider server.IdentityProvider, tp tracing.Provider, opts ...Option) *client {
+func newViewClient(viewManager server.ViewManager, tp tracing.Provider, opts ...Option) *client {
 	var o options
 	for _, opt := range opts {
 		if opt != nil {
@@ -105,9 +107,8 @@ func newViewClient(viewManager server.ViewManager, identityProvider server.Ident
 		}
 	}
 	return &client{
-		viewManager:      viewManager,
-		identityProvider: identityProvider,
-		timeout:          o.timeout,
+		viewManager: viewManager,
+		timeout:     o.timeout,
 		tracer: tp.Tracer("view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{vidLabel},
 		})),

@@ -155,11 +155,10 @@ func TestCallView_TimeoutCancelsViewExecution(t *testing.T) {
 	const viewTimeout = 50 * time.Millisecond
 
 	vm := &blockingViewManager{blockFor: blockFor, done: make(chan struct{})}
-	ip := &fakeIdentityProvider{}
 	tp := noop.NewTracerProvider()
 
 	h := server2.NewHttpHandler()
-	InstallViewHandler(vm, ip, h, tp, WithTimeout(viewTimeout))
+	InstallViewHandler(vm, h, tp, WithTimeout(viewTimeout))
 
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
@@ -200,11 +199,10 @@ func TestCallView_NoTimeoutRunsFullDuration(t *testing.T) {
 	const blockFor = 60 * time.Millisecond
 
 	vm := &blockingViewManager{blockFor: blockFor, done: make(chan struct{})}
-	ip := &fakeIdentityProvider{}
 	tp := noop.NewTracerProvider()
 
 	h := server2.NewHttpHandler()
-	InstallViewHandler(vm, ip, h, tp, WithTimeout(0))
+	InstallViewHandler(vm, h, tp, WithTimeout(0))
 
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)
@@ -244,9 +242,8 @@ func TestStreamCallView_TimeoutCancelsViewExecution(t *testing.T) {
 	done := make(chan struct{})
 	bvc := &blockingViewContext{blockFor: blockFor, done: done}
 	vm := &blockingStreamViewManager{bvc: bvc}
-	ip := &fakeIdentityProvider{}
 	tp := noop.NewTracerProvider()
-	c := newViewClient(vm, ip, tp, WithTimeout(viewTimeout))
+	c := newViewClient(vm, tp, WithTimeout(viewTimeout))
 
 	handlerErr := make(chan error, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -300,9 +297,8 @@ func TestStreamCallView_NoTimeoutRunsFullDuration(t *testing.T) {
 	done := make(chan struct{})
 	bvc := &blockingViewContext{blockFor: blockFor, done: done}
 	vm := &blockingStreamViewManager{bvc: bvc}
-	ip := &fakeIdentityProvider{}
 	tp := noop.NewTracerProvider()
-	c := newViewClient(vm, ip, tp)
+	c := newViewClient(vm, tp)
 
 	handlerErr := make(chan error, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -352,10 +348,9 @@ func TestInstallViewHandler_WithOptions(t *testing.T) {
 	t.Parallel()
 
 	vm := &fakeViewManager{}
-	ip := &fakeIdentityProvider{}
 	tp := noop.NewTracerProvider()
 	h := server2.NewHttpHandler()
 
-	InstallViewHandler(vm, ip, h, tp, WithTimeout(10*time.Second))
+	InstallViewHandler(vm, h, tp, WithTimeout(10*time.Second))
 	require.NotNil(t, h)
 }

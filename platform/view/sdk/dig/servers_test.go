@@ -200,7 +200,6 @@ func TestNewWebServer(t *testing.T) {
 	t.Parallel()
 
 	vm := &fakeViewManager{}
-	ip := &fakeIdentityProvider{}
 	tp, err := newTracerProvider(&disabled.Provider{}, providerFrom(t, ""))
 	require.NoError(t, err)
 
@@ -211,7 +210,7 @@ fsc:
   web:
     enabled: false
 `)
-		ws, err := NewWebServer(p, vm, ip, tp.Default)
+		ws, err := NewWebServer(p, vm, tp.Default)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})
@@ -228,7 +227,7 @@ fsc:
         files:
           - non-existent.crt
 `)
-		_, err := NewWebServer(p, vm, ip, tp.Default)
+		_, err := NewWebServer(p, vm, tp.Default)
 		require.ErrorContains(t, err, "failed resolving fsc.web.tls")
 	})
 
@@ -240,7 +239,7 @@ fsc:
     enabled: true
     address: 127.0.0.1:0
 `)
-		ws, err := NewWebServer(p, vm, ip, tp.Default)
+		ws, err := NewWebServer(p, vm, tp.Default)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})
@@ -254,7 +253,7 @@ fsc:
     address: 127.0.0.1:0
     viewTimeout: 10s
 `)
-		ws, err := NewWebServer(p, vm, ip, tp.Default)
+		ws, err := NewWebServer(p, vm, tp.Default)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})
@@ -268,7 +267,7 @@ fsc:
     address: 127.0.0.1:0
     viewTimeout: 0s
 `)
-		ws, err := NewWebServer(p, vm, ip, tp.Default)
+		ws, err := NewWebServer(p, vm, tp.Default)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})

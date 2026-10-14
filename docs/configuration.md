@@ -295,7 +295,11 @@ fsc:
       # The middle state is the reason clientRootCAs may be set while clientAuthRequired
       # is false; it is a supported configuration, not a mistake.
       clientAuthRequired: false
-      # Root certificates used to verify client TLS certificates.
+      # Root certificates used to verify client TLS certificates. They are the only access
+      # control on views over REST: any client whose certificate chains to one of them can
+      # call any view. fsc.client.certs, which authorizes gRPC view callers, does not apply
+      # here. To admit only specific clients, list a CA that issues certificates to those
+      # clients alone.
       clientRootCAs:
         files:
         - path/to/client/tls/ca.crt
