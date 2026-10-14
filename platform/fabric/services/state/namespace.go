@@ -22,8 +22,6 @@ import (
 
 var logger = logging.MustGetLogger()
 
-type EndorseTransaction any
-
 type MetaHandler interface {
 	StoreMeta(ns *Namespace, s any, namespace, key string, options *addOutputOptions) error
 }
