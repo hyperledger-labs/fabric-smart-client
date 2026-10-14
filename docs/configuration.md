@@ -670,11 +670,10 @@ fabric:
        # Format: Go duration string
        maxRetryDelay: 5m
 
-    # List of channels and deployed chaincode
+    # List of channels and deployed chaincode. Opening a channel not listed here is an error.
     channels:
       - name: mychannel
-        # whether this is the default channel or not
-        # TBD: What is the meaning of a default channel ?
+        # The default channel is used when a channel is requested with an empty name.
         default: true
         numRetries: 3 # number of retries on a chaincode operation failure
         retrySleep: 1s # waiting time before retry again a failed chaincode operation

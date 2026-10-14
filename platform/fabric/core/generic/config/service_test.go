@@ -362,9 +362,6 @@ func TestServiceGetters(t *testing.T) {
 	require.Equal(t, "fabric.mynet.ordering.connectionPoolSize", m.GetIntArgsForCall(poolCallIndex))
 	m.IsSetReturns(false)
 	require.Equal(t, 10, svc.OrdererConnectionPoolSize())
-
-	defaultCh := svc.NewDefaultChannelConfig("new-ch")
-	require.Equal(t, "new-ch", defaultCh.ID())
 }
 
 func TestService_MoreCases(t *testing.T) {
