@@ -253,7 +253,7 @@ type replayGuard struct {
 	mu        sync.Mutex
 	retention time.Duration
 	seen      map[[sha256.Size]byte]struct{}
-	queue     []replayEntry // ordered by expiry
+	queue     []replayEntry // ordered by acceptance
 }
 
 type replayEntry struct {
