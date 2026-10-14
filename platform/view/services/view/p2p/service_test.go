@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	mock3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
@@ -109,6 +111,42 @@ func TestService(t *testing.T) {
 		// respond releases the context when the responder returns
 	case <-time.After(5 * time.Second):
 		t.Fatal("the responder context was not released")
+	}
+}
+
+// The responder's caller is the peer ID the transport verified. A peer connecting from
+// another node's registered address gets its own identity, not that node's.
+func TestService_CallerIsVerifiedPeerID(t *testing.T) {
+	t.Parallel()
+	es, err := endpoint.NewService(&mock3.BindingStore{})
+	require.NoError(t, err)
+	victimAddr := "127.0.0.1:20001"
+	_, err = es.AddResolver("victim", "org1", map[string]string{string(endpoint.P2PPort): victimAddr}, nil, []byte("victim_id"))
+	require.NoError(t, err)
+	_, err = es.AddResolver("attacker", "org2", map[string]string{string(endpoint.P2PPort): "127.0.0.1:20002"}, nil, []byte("attacker_id"))
+	require.NoError(t, err)
+
+	vm := &viewManagerMock{HandleResponderCalled: make(chan struct{}, 10)}
+	cl := &mock2.CommLayer{}
+	sess := &mock.Session{}
+	ch := make(chan *view.Message, 10)
+	cl.MasterSessionReturns(sess, nil)
+	sess.ReceiveReturns(ch)
+	vm.NewSessionContextFunc = func(context.Context, string, view.Session, view.Identity) (view.Context, func(), error) {
+		vm.HandleResponderCalled <- struct{}{}
+		return &mock.Context{}, func() {}, nil
+	}
+	require.NoError(t, p2p.NewService(vm, vm, cl, es, p2p.NewDefaultRunner(), nil).Start(t.Context()))
+
+	for _, from := range []string{victimAddr, "127.0.0.1:54321"} {
+		ch <- &view.Message{ContextID: "ctx", SessionID: from, Caller: "caller", FromEndpoint: from, FromPKID: []byte("attacker_id"), Ctx: t.Context()}
+		select {
+		case <-vm.HandleResponderCalled:
+		case <-time.After(5 * time.Second):
+			t.Fatal("NewResponderContext was not called")
+		}
+		remote, _ := cl.NewResponderSessionArgsForCall(cl.NewResponderSessionCallCount() - 1)
+		require.Equal(t, []byte("attacker_id"), remote, "message from [%s]", from)
 	}
 }
 

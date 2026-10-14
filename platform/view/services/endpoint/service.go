@@ -187,20 +187,19 @@ func (r *Service) IsBoundTo(ctx context.Context, a, b view.Identity) bool {
 	return ok
 }
 
-// GetIdentity returns the identity associated with the given label or public key ID.
-// It first searches by label, then by pkID if the label lookup fails.
+// GetIdentity returns the identity associated with the given public key ID or label.
+// A non-empty pkID is authoritative: the label is looked up only when pkID is empty, since
+// a label is matched against names, aliases and addresses, none of which a remote peer
+// proves. An empty label is not looked up.
 func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
-	resolver, ok := r.resolversMap[label]
-	if ok {
-		return resolver.GetIdentity()
+	key := label
+	if len(pkID) != 0 {
+		key = string(pkID)
 	}
-
-	// by pkID
-	resolver, ok = r.resolversMap[string(pkID)]
-	if ok {
+	if resolver, ok := r.resolversMap[key]; ok && len(key) != 0 {
 		return resolver.GetIdentity()
 	}
 
