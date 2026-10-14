@@ -147,6 +147,16 @@ func TestHttpHandlerErrors(t *testing.T) {
 			wantParsed:  1,
 			wantHandled: 1,
 		},
+		{
+			name: "backend ResponseErr",
+			setup: func(rh *mock.RequestHandler) {
+				rh.HandleRequestReturns(&server.ResponseErr{Reason: "view failed"}, http.StatusInternalServerError)
+			},
+			wantCode:    http.StatusInternalServerError,
+			wantReason:  "view failed",
+			wantParsed:  1,
+			wantHandled: 1,
+		},
 	}
 
 	for _, tc := range tests {

@@ -25,11 +25,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web"
 )
 
 var logger = logging.MustGetLogger()
 
-// maxErrorBodySize bounds how much of a non-200 response body is read.
+// maxErrorBodySize bounds how much of a non-200 response body is read for its error reason.
 const maxErrorBodySize = 64 << 10
 
 // Config models the configuration for the web client
@@ -160,11 +161,17 @@ func (c *Client) req(ctx context.Context, method, url string, in []byte) (io.Rea
 		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], no response", url, len(in))
 	}
 	if resp.StatusCode != http.StatusOK {
-		// Drain and close the body so the transport can reuse the connection.
-		// The drain is capped so a large error body cannot hold the caller; Close handles the rest.
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorBodySize))
+		// Read and close the body so the transport can reuse the connection.
+		// The read is capped so a large error body cannot hold the caller; Close handles the rest.
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
 		_ = resp.Body.Close()
-		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], status code [%d], status [%s]", url, len(in), resp.StatusCode, resp.Status)
+		msg := fmt.Sprintf("failed to process http request to [%s], input length [%d], status code [%d], status [%s]", url, len(in), resp.StatusCode, resp.Status)
+		// The server sends a web.ResponseErr; other bodies, e.g. from a proxy, carry no reason.
+		var respErr web.ResponseErr
+		if json.Unmarshal(body, &respErr) == nil && respErr.Reason != "" {
+			msg += fmt.Sprintf(", reason [%s]", respErr.Reason)
+		}
+		return nil, errors.New(msg)
 	}
 	return resp.Body, nil
 }

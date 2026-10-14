@@ -246,6 +246,17 @@ fsc:
   # ------------------- Web Server Configuration -------------------------
   # Web server must be enabled to support healthz, version and prometheus /metrics
   # end points.
+  #
+  # When a view fails, the REST endpoint returns its error text to the client verbatim, as
+  # the Reason of the response body; the gRPC view service on fsc.grpc does the same in
+  # Error.Message. Over REST, only a view that exceeds viewTimeout gets a fixed message
+  # instead. The text is the full error chain of the view and everything it called,
+  # including the value of a panic, and can carry database errors, file paths, addresses
+  # or identities. Anyone who can call views on this listener sees it, so set
+  # tls.clientAuthRequired: true below unless the listener is reachable only by the node's
+  # own applications. Without fsc.metrics.address, /metrics and /logspec share this
+  # listener; give them an address of their own when parties that must not call views
+  # need to reach them.
   web:
     enabled: true
     address: 0.0.0.0:20002

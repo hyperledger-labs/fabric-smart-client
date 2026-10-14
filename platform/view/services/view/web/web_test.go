@@ -9,9 +9,11 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
+	webclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -71,6 +74,21 @@ func TestDispatcher(t *testing.T) {
 
 	// WireStreamViewCaller
 	d.WireStreamViewCaller(vc)
+}
+
+// TestCallViewFailureReachesClient checks that the reason a view fails with reaches the
+// error returned by the REST client.
+func TestCallViewFailureReachesClient(t *testing.T) {
+	t.Parallel()
+	h := server2.NewHttpHandler()
+	newDispatcher(h).WireViewCaller(&fakeViewCaller{err: errors.New("boom")})
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+
+	c, err := webclient.NewClient(&webclient.Config{Host: strings.TrimPrefix(srv.URL, "http://")})
+	require.NoError(t, err)
+	_, err = c.CallView("v", nil)
+	require.ErrorContains(t, err, "status code [500], status [500 Internal Server Error], reason [boom]")
 }
 
 func TestViewHandler(t *testing.T) {
