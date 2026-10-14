@@ -266,6 +266,59 @@ func TestUpdateResolver(t *testing.T) {
 		assert.Equal(t, id, resolver.ID)
 	})
 
+	t.Run("update reindexes addresses and records new aliases", func(t *testing.T) {
+		t.Parallel()
+		service, err := endpoint.NewService(&mock.BindingStore{})
+		require.NoError(t, err)
+
+		aliceID := []byte("alice-id")
+		_, err = service.AddResolver("alice", "example.com", map[string]string{"p2p": "localhost:1010"}, []string{"alice-alias"}, aliceID)
+		require.NoError(t, err)
+		bobID := []byte("bob-id")
+		_, err = service.AddResolver("bob", "example.com", map[string]string{"p2p": "localhost:3030"}, nil, bobID)
+		require.NoError(t, err)
+
+		_, err = service.UpdateResolver("alice", "example.com", map[string]string{"p2p": "localhost:2020"}, []string{"alice-alias", "alice2"}, aliceID)
+		require.NoError(t, err)
+
+		_, err = service.GetIdentity("localhost:1010", nil)
+		require.ErrorIs(t, err, endpoint.ErrNotFound)
+		for _, label := range []string{"localhost:2020", "alice", "alice.example.com", "alice-alias", "alice2"} {
+			id, err := service.GetIdentity(label, nil)
+			require.NoError(t, err, label)
+			assert.Equal(t, view.Identity(aliceID), id, label)
+		}
+		id, err := service.GetIdentity("localhost:3030", nil)
+		require.NoError(t, err)
+		assert.Equal(t, view.Identity(bobID), id)
+
+		resolvers := service.Resolvers()
+		require.Len(t, resolvers, 2)
+		assert.Equal(t, "alice", resolvers[0].Name)
+		assert.Equal(t, []string{"alice-alias", "alice2"}, resolvers[0].Aliases)
+		assert.Equal(t, []string{"localhost:2020"}, resolvers[0].AddressList)
+	})
+
+	t.Run("update keeps an old address another resolver took over", func(t *testing.T) {
+		t.Parallel()
+		service, err := endpoint.NewService(&mock.BindingStore{})
+		require.NoError(t, err)
+
+		aliceID := []byte("alice-id")
+		_, err = service.AddResolver("alice", "example.com", map[string]string{"p2p": "localhost:1010"}, nil, aliceID)
+		require.NoError(t, err)
+		bobID := []byte("bob-id")
+		_, err = service.AddResolver("bob", "example.com", map[string]string{"p2p": "localhost:1010"}, nil, bobID)
+		require.NoError(t, err)
+
+		_, err = service.UpdateResolver("alice", "example.com", map[string]string{"p2p": "localhost:2020"}, nil, aliceID)
+		require.NoError(t, err)
+
+		id, err := service.GetIdentity("localhost:1010", nil)
+		require.NoError(t, err)
+		assert.Equal(t, view.Identity(bobID), id)
+	})
+
 	t.Run("update non-existent resolver adds it", func(t *testing.T) {
 		t.Parallel()
 		bindingStore := &mock.BindingStore{}
@@ -687,7 +740,11 @@ func TestConcurrency(t *testing.T) {
 				// Reader
 				go func() {
 					defer wg.Done()
-					_, err := service.GetResolver(context.Background(), id)
+					resolver, err := service.GetResolver(context.Background(), id)
+					if assert.NoError(t, err) {
+						_ = resolver.GetAddress(endpoint.P2PPort)
+					}
+					_, _, _, err = service.Resolve(context.Background(), id)
 					assert.NoError(t, err)
 				}()
 			} else {
