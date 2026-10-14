@@ -247,7 +247,7 @@ func NewMyService(... Deps, tracerProvider tracing.Provider, otherService OtherS
   * Use `trace.SpanKindInternal` that corresponds to calls within the same node.
   * Start a new trace and avoid re-using the trace of the parent if you think that a new unit of work has started. If you need to reuse the parent span (just to add events and properties, but not to end it), use `trace.SpanFromContext(ctx)`.
   * Optionally add more events that appear as logs within your span. Prefer verbs as event names.
-  * Do not try to set labels that you haven't defined in the `LabelNames` field above, and make sure all labels have a value (pick a default value if you are unsure and overwrite it later). The span implementation will not fail, but custom extensions of it (read below) will require that they all be defined and set.
+  * Do not try to set labels that you haven't defined in the `LabelNames` field above, and make sure all labels have a value (pick a default value if you are unsure and overwrite it later). The span implementation records attributes with any other key on the trace only, and event attributes never set labels, but custom extensions of it (read below) will require that they all be defined and set.
   * The Subsystem field is optional and is automatically derived if left unspecified.
 ```go
 func (s *MyService) Transfer(ctx context.Context, ... OtherParams) error {

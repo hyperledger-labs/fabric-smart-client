@@ -66,3 +66,21 @@ func TestLabels_ToLabels_MultipleKeys(t *testing.T) {
 
 	require.ElementsMatch(t, []string{"a", "1", "b", "2", "c", "3"}, l.ToLabels())
 }
+
+func TestLabels_Append_NonStringValues(t *testing.T) {
+	t.Parallel()
+
+	l := tracing.NewLabels([]string{"b", "i", "f"})
+	l.Append(attribute.Bool("b", true), attribute.Int("i", 3), attribute.Float64("f", 1.5))
+
+	require.ElementsMatch(t, []string{"b", "true", "i", "3", "f", "1.5"}, l.ToLabels())
+}
+
+func TestLabels_Append_UndeclaredKey_IsIgnored(t *testing.T) {
+	t.Parallel()
+
+	l := tracing.NewLabels([]string{"color"})
+	l.Append(attribute.String("fid", "ignored"))
+
+	require.ElementsMatch(t, []string{"color", ""}, l.ToLabels())
+}
