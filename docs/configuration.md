@@ -103,6 +103,14 @@ fsc:
         files:
         - /path/to/client/tls/ca.crt
 
+    authentication:
+      # The view service accepts a signed command only if its timestamp is within this
+      # window of the local clock, and only once: it remembers accepted commands for twice
+      # the window. The memory is per process, so a restarted node, or another node serving
+      # the same identities, accepts a command again within its window.
+      # Format: Go duration string. Defaults to 15m when absent; an unparsable, zero or negative value fails startup.
+      timeWindow: 15m
+
     # GRPC Server keepalive parameters. 
     # This section can be omitted.
     keepalive:

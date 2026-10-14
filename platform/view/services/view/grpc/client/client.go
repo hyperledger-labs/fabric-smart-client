@@ -199,7 +199,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 		return nil, errors.Wrap(err, "failed creating view client")
 	}
 
-	logger.Debugf("process command [%s]", sc)
+	logger.Debugf("process command [%s]", logging.SHA256Base64(sc.Command))
 	scr, err := client.ProcessCommand(ctx, sc)
 	if err != nil {
 		logger.Errorf("failed view client process command [%s]", err)
@@ -218,7 +218,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "error from view during process command: %s", commandResp.GetErr().GetMessage())
 	}
 
-	logger.Debugf("process command [%s] done", sc)
+	logger.Debugf("process command [%s] done", logging.SHA256Base64(sc.Command))
 	return commandResp, nil
 }
 
@@ -235,7 +235,7 @@ func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (
 		return nil, nil, errors.Wrap(err, "failed creating view client")
 	}
 
-	logger.Debugf("stream command [%s]", sc)
+	logger.Debugf("stream command [%s]", logging.SHA256Base64(sc.Command))
 	streamCommandClient, err := client.StreamCommand(ctx)
 	if err != nil {
 		logger.Errorf("failed view client stream command [%s]", err)

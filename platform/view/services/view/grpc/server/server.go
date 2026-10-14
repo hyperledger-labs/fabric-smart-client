@@ -8,9 +8,12 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"reflect"
 	"runtime/debug"
 	"strconv"
+	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel/trace"
 
@@ -46,16 +49,27 @@ type Server struct {
 	streamers  map[reflect.Type]Streamer
 	metrics    *Metrics
 	tracer     trace.Tracer
+	timeWindow time.Duration
+	accepted   *replayGuard
 }
 
 // NewViewServiceServer returns a new instance of the view service server.
+//
+// The server accepts a command only if its header timestamp is within timeWindow of the
+// local clock, and only once: it remembers every accepted command for twice timeWindow, the
+// longest time a command stays acceptable. The memory is per process, so a restarted node, or
+// another node holding the same identities, accepts a command again within its window.
 func NewViewServiceServer(
 	marshaller Marshaller,
 	policyChecker PolicyChecker,
 	metrics *Metrics,
 	tracerProvider tracing.Provider,
 	bindingInspector BindingInspector,
+	timeWindow time.Duration,
 ) (*Server, error) {
+	if timeWindow <= 0 {
+		return nil, errors.Errorf("command time window must be positive, got [%s]", timeWindow)
+	}
 	return &Server{
 		Marshaller:       marshaller,
 		PolicyChecker:    policyChecker,
@@ -63,6 +77,8 @@ func NewViewServiceServer(
 		processors:       map[reflect.Type]Processor{},
 		streamers:        map[reflect.Type]Streamer{},
 		metrics:          metrics,
+		timeWindow:       timeWindow,
+		accepted:         &replayGuard{retention: 2 * timeWindow, seen: map[[sha256.Size]byte]struct{}{}},
 		tracer: tracerProvider.Tracer("view_service", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{successLabel},
 		})),
@@ -96,6 +112,11 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	}
 
 	err = s.PolicyChecker.Check(sc, command)
+	if err != nil {
+		return s.MarshalErrorResponse(sc.Command, err)
+	}
+
+	err = s.checkReplay(sc)
 	if err != nil {
 		return s.MarshalErrorResponse(sc.Command, err)
 	}
@@ -168,6 +189,11 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 		return s.streamError(err, sc, commandServer)
 	}
 
+	err = s.checkReplay(sc)
+	if err != nil {
+		return s.streamError(err, sc, commandServer)
+	}
+
 	streamer, ok := s.streamers[reflect.TypeOf(command.GetPayload())]
 	switch ok {
 	case true:
@@ -184,10 +210,19 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 	return nil
 }
 
-// ValidateHeader validates the given command header.
-func (*Server) ValidateHeader(header *protos.Header) error {
+// ValidateHeader validates the given command header: it must carry a nonce, a creator, and a
+// timestamp within the server's time window of the local clock.
+func (s *Server) ValidateHeader(header *protos.Header) error {
 	if header == nil {
 		return errors.WithMessage(view.ErrCommandHeaderInvalid, "command header is required")
+	}
+
+	if err := header.GetTimestamp().CheckValid(); err != nil {
+		return errors.WithMessagef(view.ErrCommandHeaderInvalid, "valid timestamp is required in header: %s", err)
+	}
+	if skew := time.Since(header.GetTimestamp().AsTime()).Abs(); skew > s.timeWindow {
+		s.metrics.RequestsRejected.With("reason", "stale").Add(1)
+		return errors.WithMessagef(view.ErrCommandHeaderInvalid, "timestamp is [%s] away from local time, more than the allowed [%s]", skew, s.timeWindow)
 	}
 
 	if len(header.Nonce) == 0 {
@@ -199,6 +234,50 @@ func (*Server) ValidateHeader(header *protos.Header) error {
 	}
 
 	return nil
+}
+
+// checkReplay rejects a command the server has already accepted. It keys on the signed bytes,
+// not the signature, because an ECDSA signature can be altered and still verify.
+func (s *Server) checkReplay(sc *protos.SignedCommand) error {
+	if !s.accepted.accept(sha256.Sum256(sc.Command), time.Now()) {
+		s.metrics.RequestsRejected.With("reason", "replay").Add(1)
+		return errors.WithMessage(view.ErrCommandHeaderInvalid, "command already processed")
+	}
+	return nil
+}
+
+// replayGuard remembers accepted command hashes for retention. Entries expire in insertion
+// order, so each accept drops the expired prefix of the queue: amortized O(1) per call, with
+// no background goroutine to stop.
+type replayGuard struct {
+	mu        sync.Mutex
+	retention time.Duration
+	seen      map[[sha256.Size]byte]struct{}
+	queue     []replayEntry // ordered by acceptance
+}
+
+type replayEntry struct {
+	key    [sha256.Size]byte
+	expiry time.Time
+}
+
+// accept reports whether key is new at now, and records it. Callers pass non-decreasing
+// times, as time.Now does.
+func (g *replayGuard) accept(key [sha256.Size]byte, now time.Time) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	n := 0
+	for n < len(g.queue) && now.After(g.queue[n].expiry) {
+		delete(g.seen, g.queue[n].key)
+		n++
+	}
+	g.queue = g.queue[n:]
+	if _, ok := g.seen[key]; ok {
+		return false
+	}
+	g.seen[key] = struct{}{}
+	g.queue = append(g.queue, replayEntry{key: key, expiry: now.Add(g.retention)})
+	return true
 }
 
 // MarshalErrorResponse marshals the given error into a signed command response.
