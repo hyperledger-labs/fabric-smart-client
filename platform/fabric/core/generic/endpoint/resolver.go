@@ -24,7 +24,9 @@ var logger = logging.MustGetLogger()
 type Resolver struct {
 	config.Resolver
 	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
-	Id             []byte
+	Id []byte
+	// RootID is the identity of the resolver already registered under the same name, which
+	// Id was bound to. It is nil when the resolver was registered on its own.
 	RootID         view.Identity
 	IdentityGetter func() (view.Identity, []byte, error)
 }
@@ -128,9 +130,14 @@ func (r *ResolverService) LoadResolvers() error {
 	return nil
 }
 
-// GetIdentity returns the identity associated to the passed label.
-// The label is matched against the name
+// GetIdentity returns the identity of the first loaded resolver whose name, alias, or
+// identity UniqueID equals label, or whose RootID UniqueID does. It returns nil if none
+// matches. An empty label matches no resolver, and a nil RootID is not compared, because
+// UniqueID of an empty identity is a fixed placeholder shared by all of them.
 func (r *ResolverService) GetIdentity(label string) view.Identity {
+	if len(label) == 0 {
+		return nil
+	}
 	for _, resolver := range r.resolvers {
 		if resolver.Name == label {
 			return resolver.Id
@@ -141,7 +148,7 @@ func (r *ResolverService) GetIdentity(label string) view.Identity {
 		if view.Identity(resolver.Id).UniqueID() == label {
 			return resolver.Id
 		}
-		if resolver.RootID.UniqueID() == label {
+		if len(resolver.RootID) != 0 && resolver.RootID.UniqueID() == label {
 			return resolver.Id
 		}
 	}
