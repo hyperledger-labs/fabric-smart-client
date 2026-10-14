@@ -36,6 +36,11 @@ func expectedPeerIDFromRequest(request *http.Request) (host2.PeerID, error) {
 // expectedPeerIDFromRequest: without it, any certificate that chains to a trusted CA and is
 // valid for the dialed host would be accepted as the dialed peer. conn must be a TLS
 // connection.
+//
+// The providers call it after the dial rather than from a tls.Config.VerifyConnection
+// callback on purpose: the multiplexed provider reuses a cached connection for later streams
+// without a new handshake, so a handshake-time check alone would not cover them. The binding
+// holds only together with the cache key, which includes the verified peer ID.
 func verifyServerPeerID(conn *websocket.Conn, expected host2.PeerID) error {
 	tlsConn, ok := conn.NetConn().(*tls.Conn)
 	if !ok {

@@ -8,7 +8,7 @@ The `MultiplexedProvider` allows multiple logical P2P streams to share a single 
 
 ### Components
 
-1.  **MultiplexedProvider**: Manages the lifecycle of physical connections (`multiplexedClientConn` / `multiplexedServerConn`). It maintains a registry of active connections to remote peers.
+1.  **MultiplexedProvider**: Manages the lifecycle of physical connections (`multiplexedClientConn` / `multiplexedServerConn`). It maintains a registry of active client connections keyed by remote address and peer ID, so a connection whose server certificate was verified for one peer never carries a stream for another.
 2.  **Physical Connection** (`multiplexedBaseConn`): Wraps a standard `websocket.Conn` with 1MB read/write buffers. It runs a read loop (`readIncoming`) that demultiplexes incoming messages.
 3.  **Sub-Connection** (`subConn`): Represents a logical stream. It has a unique `ID` scoped to the physical connection and a 10,240-slot message buffer to prevent head-of-line blocking.
 4.  **Stream Wrapper** (`websocket.stream`): Implements `host.P2PStream`. It handles context cancellation, returns `io.ErrClosedPipe` on closed writes, and ensures atomic framing (via `delimitedReader`).
@@ -88,6 +88,7 @@ type MultiplexedMessage struct {
 | **Unknown ID** (Server) | Treat as new stream request. | Tries to parse as `StreamMeta`. |
 | **Unknown ID** (Client) | Log warning and drop. | Late messages for closed streams are ignored. |
 | **Identity Mismatch** | Log error, send error frame. | **MUST** kill physical connection (prevent spoofing). |
+| **Server Identity Mismatch** (Client) | Close the new physical connection; `NewClientStream` returns `peer identity binding failed`. | Nothing is cached and no stream opens. |
 | **Max SubConns Reached** | Send error frame. | Reject new stream, keep physical connection alive. |
 | **SubConn Read Timeout** | N/A | Handled by `Stream` layer logic via read deadlines. |
 

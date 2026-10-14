@@ -374,7 +374,9 @@ fsc:
     - name: fscNodeA
       # domain can be used to distinguish nodes if name isn't unique
       domain:
-      # the public identity of this node
+      # the public identity of this node. With websocket P2P this must be the node's fsc.identity
+      # certificate: the node's peer ID is derived from it, and a websocket client accepts the
+      # node's TLS server certificate only if it carries the same public key.
       identity:
         path: /path/to/fscNodeA-cert.pem
       # endpoint addresses to associate with the resolver
