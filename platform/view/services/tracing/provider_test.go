@@ -44,15 +44,3 @@ func TestNewProviderWithBackingProvider_Tracer_EmptyNamePanics(t *testing.T) {
 		p.Tracer("")
 	})
 }
-
-func TestNewProviderWithNodeName(t *testing.T) {
-	t.Parallel()
-
-	bp := noop.NewTracerProvider()
-
-	p := tracing.NewProviderWithNodeName(bp, "node-1")
-	require.NotNil(t, p)
-
-	tracer := p.Tracer("test", tracing.WithMetricsOpts(tracing.MetricsOpts{}))
-	require.NotNil(t, tracer)
-}

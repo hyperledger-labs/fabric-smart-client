@@ -6,15 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package metrics
 
-import (
-	"reflect"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-)
-
-var key = reflect.TypeFor[*Provider]()
-
 // A Provider is an abstraction for a metrics provider. It is a factory for
 // Counter, Gauge, and Histogram meters.
 type Provider interface {
@@ -152,17 +143,4 @@ type HistogramOpts struct {
 	// LabelHelp provides help information for labels. When set, this information
 	// will be used to populate the documentation.
 	LabelHelp map[string]string
-}
-
-// GetProvider returns the metrics provider registered in the service provider passed in.
-func GetProvider(sp services.Provider) Provider {
-	s, err := sp.GetService(key)
-	if err != nil {
-		panic(err)
-	}
-	provider, ok := s.(Provider)
-	if !ok {
-		panic(errors.Errorf("unexpected service type [%T] for metrics provider", s))
-	}
-	return provider
 }

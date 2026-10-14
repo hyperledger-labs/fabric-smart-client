@@ -10,17 +10,15 @@ import (
 	"fmt"
 	"reflect"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/embedded"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
-// Provider is an alias for tracing.Provider
+// Provider is an alias for the OpenTelemetry trace.TracerProvider.
 type Provider = trace.TracerProvider
 
 type metricsProvider interface {
@@ -28,33 +26,8 @@ type metricsProvider interface {
 	NewHistogram(opts metrics.HistogramOpts) metrics.Histogram
 }
 
-type providerWithNodeName struct {
-	Provider
-	nodeName string
-}
-
-func NewProviderWithNodeName(p Provider, nodeName string) Provider {
-	return &providerWithNodeName{
-		Provider: p,
-		nodeName: nodeName,
-	}
-}
-
-func (p *providerWithNodeName) Tracer(name string, options ...trace.TracerOption) trace.Tracer {
-	c := trace.NewTracerConfig(options...)
-
-	attrs := c.InstrumentationAttributes()
-	return p.Provider.Tracer(name, append(options, trace.WithInstrumentationAttributes(append(attrs.ToSlice(), attribute.String(nodeNameKey, p.nodeName))...))...)
-}
-
-func NewProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (Provider, error) {
-	backingProvider, err := NewProviderFromConfigService(confService)
-	if err != nil {
-		return nil, err
-	}
-	return NewProviderWithBackingProvider(backingProvider, metricsProvider), nil
-}
-
+// NewProviderWithBackingProvider returns a Provider whose tracers delegate spans to tp
+// and record, per tracer, an operations counter and a duration histogram in mp.
 func NewProviderWithBackingProvider(tp Provider, mp metricsProvider) Provider {
 	return &tracerProvider{metricsProvider: mp, backingProvider: tp}
 }

@@ -23,9 +23,7 @@ type (
 )
 
 var (
-	WithTimestamp  = trace.WithTimestamp
 	WithAttributes = trace.WithAttributes
-	Int            = attribute.Int
 	Bool           = attribute.Bool
 	String         = attribute.String
 )
@@ -74,10 +72,6 @@ func (s *span) End(options ...SpanEndOption) {
 	ls := s.labels.ToLabels()
 	s.operations.With(ls...).Add(1)
 	s.duration.With(ls...).Observe(defaultNow(c.Timestamp()).Sub(s.start).Seconds())
-}
-
-func (s *span) AddEvent(name string, options ...EventOption) {
-	s.Span.AddEvent(name, options...)
 }
 
 func (s *span) SetAttributes(kv ...KeyValue) {
