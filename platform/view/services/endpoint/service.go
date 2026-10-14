@@ -415,10 +415,14 @@ func (r *Service) Resolvers() []ResolverInfo {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
-	// clone r.resolvers
+	// PKI is written under PKILock, not resolversMutex. Copy each resolver while
+	// holding that lock so the copy does not race with PkiResolve. The lock order
+	// is resolversMutex then PKILock.
 	var res []ResolverInfo
 	for _, resolver := range r.resolvers {
+		resolver.PKILock.RLock()
 		res = append(res, resolver.ResolverInfo)
+		resolver.PKILock.RUnlock()
 	}
 	return res
 }
