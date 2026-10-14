@@ -885,6 +885,31 @@ func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T)
 	require.Equal(t, connB, currentConn, "stale onClose callback evicted reconnected client connB")
 }
 
+// TestNewClientStream_ImmediateServerCloseIsNotCached dials a server that drops the websocket
+// immediately. onClose must not read the client connection before getClientConn has assigned
+// and cached it, and the closed connection must not stay in the cache.
+func TestNewClientStream_ImmediateServerCloseIsNotCached(t *testing.T) { //nolint:paralleltest,tparallel
+	up := gwebsocket.Upgrader{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := up.Upgrade(w, r, nil)
+		if err == nil {
+			_ = c.Close()
+		}
+	}))
+	t.Cleanup(srv.Close)
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	for range 20 {
+		p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+		_, _ = p.NewClientStream(host.StreamInfo{RemotePeerAddress: addr}, t.Context(), "client", nil)
+		require.Eventually(t, func() bool {
+			p.mu.RLock()
+			defer p.mu.RUnlock()
+			return len(p.clients) == 0
+		}, time.Second, time.Millisecond, "a closed client connection is still cached")
+		_ = p.Close()
+	}
+}
+
 // TestNewClientStream_PostShutdownDialsRefused verifies that NewClientStream returns an error
 // and refuses to dial or register new connections after the provider has been shut down via KillAll.
 func TestNewClientStream_PostShutdownDialsRefused(t *testing.T) { //nolint:paralleltest
