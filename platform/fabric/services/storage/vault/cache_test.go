@@ -14,21 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 )
-
-// mockCache implements the cache interface.
-type mockCache struct {
-	data map[string]*entry
-}
-
-func newMockCache() *mockCache { return &mockCache{data: make(map[string]*entry)} }
-
-func (m *mockCache) Get(key string) (*entry, bool) {
-	e, ok := m.data[key]
-	return e, ok
-}
-func (m *mockCache) Add(key string, value *entry) { m.data[key] = value }
-func (m *mockCache) Delete(key string)            { delete(m.data, key) }
 
 // mockVaultStore implements driver.VaultStore with only GetTxStatus, Store, SetStatuses active.
 type mockVaultStore struct {
@@ -130,7 +117,7 @@ func TestNotCachedStoreDelegatesToBacked(t *testing.T) {
 // --- cachedStore tests ---
 
 func newCachedTestStore(backed *mockVaultStore) *cachedStore {
-	return &cachedStore{VaultStore: backed, cache: newMockCache()}
+	return &cachedStore{VaultStore: backed, cache: cache.NewMapCache[driver.TxID, *entry]()}
 }
 
 func TestCachedStoreGetTxStatusCacheHit(t *testing.T) {
@@ -138,7 +125,7 @@ func TestCachedStoreGetTxStatusCacheHit(t *testing.T) {
 	backed := newMockVaultStore()
 	s := newCachedTestStore(backed)
 	// Pre-populate cache
-	s.cache.Add("tx1", &entry{Code: driver.Valid, Message: "ok"})
+	s.cache.Put("tx1", &entry{Code: driver.Valid, Message: "ok"})
 
 	got, err := s.GetTxStatus(context.Background(), "tx1")
 	require.NoError(t, err)
@@ -176,8 +163,8 @@ func TestCachedStoreGetTxStatusMissNotFound(t *testing.T) {
 func TestCachedStoreInvalidateDeletesFromCache(t *testing.T) {
 	t.Parallel()
 	s := newCachedTestStore(newMockVaultStore())
-	s.cache.Add("tx1", &entry{Code: driver.Valid})
-	s.cache.Add("tx2", &entry{Code: driver.Valid})
+	s.cache.Put("tx1", &entry{Code: driver.Valid})
+	s.cache.Put("tx2", &entry{Code: driver.Valid})
 
 	s.Invalidate("tx1")
 
@@ -242,4 +229,26 @@ func TestCachedStoreSetStatusesPropagatesError(t *testing.T) {
 
 	_, ok := s.cache.Get("tx1")
 	require.False(t, ok)
+}
+
+// Invalidate must make the next read miss. secondcache zeroed the value and kept
+// the key, so a deleted entry came back as a hit and GetTxStatus returned it;
+// the eviction cache deletes, so the read falls through to the backing store.
+func TestCachedStoreInvalidateFallsThroughToBacked(t *testing.T) {
+	t.Parallel()
+	backed := newMockVaultStore()
+	backed.statuses["tx1"] = &driver.TxStatus{TxID: "tx1", Code: driver.Valid, Message: "from backed"}
+
+	s := &cachedStore{
+		VaultStore: backed,
+		cache:      cache.NewSecondChanceCache[driver.TxID, *entry](10, 3, nil),
+	}
+
+	s.cache.Put("tx1", &entry{Code: driver.Busy, Message: "stale"})
+	s.Invalidate("tx1")
+
+	got, err := s.GetTxStatus(context.Background(), "tx1")
+	require.NoError(t, err)
+	require.Equal(t, driver.Valid, got.Code)
+	require.Equal(t, "from backed", got.Message)
 }
