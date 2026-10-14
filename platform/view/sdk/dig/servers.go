@@ -316,24 +316,26 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, ops OperationsServer,
 	startServe(grpcServer, webServer, ops, operationsSystem, kvss, ctx)
 }
 
-// startServe starts the GRPC server, web server, and operations system in their own
-// goroutines, plus a shutdown goroutine that stops them when ctx is done. It
-// returns a *sync.WaitGroup tracking the three server goroutines so callers
-// (and tests) can confirm they have actually stopped before proceeding with
-// teardown.
+// startServe starts the GRPC server, web server, metrics server and operations system in
+// their own goroutines, plus a shutdown goroutine that stops them when ctx is done and then
+// stops kvss. The web and gRPC servers' Stop return only once their in-flight handlers have
+// returned, within a bound, so the KVS is not closed under a request still using it.
+// The returned *sync.WaitGroup tracks the start goroutines of the web server, metrics
+// server and operations system: the first two finish once their listener is bound, the
+// last once the operations system has stopped.
 func startServe(grpcServer *grpc2.GRPCServer, webServer Server, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
-	wg.Go(func() {
-		if grpcServer == nil {
-			return
-		}
-
-		logger.Info("Starting GRPC server...")
-		if err := grpcServer.Start(); err != nil {
-			logger.Fatalf("grpc server stopped with err [%s]", err)
-		}
-	})
+	// Not tracked by wg: Serve returns only once every handler has, so joining it would
+	// defeat the bound GRPCServer.Stop puts on that wait.
+	if grpcServer != nil {
+		go func() {
+			logger.Info("Starting GRPC server...")
+			if err := grpcServer.Start(); err != nil {
+				logger.Fatalf("grpc server stopped with err [%s]", err)
+			}
+		}()
+	}
 
 	wg.Go(func() {
 		logger.Info("Starting WEB server...")
@@ -393,11 +395,11 @@ func startServe(grpcServer *grpc2.GRPCServer, webServer Server, ops OperationsSe
 			}
 		}
 
-		// Every server has been asked to stop, so join their goroutines before tearing
-		// down the storage they may still be using: in-flight requests served by the
-		// web/grpc servers can touch the KVS, so stopping it any earlier would pull the
-		// storage out from under them. This has to come after operationsSystem.Stop(),
-		// which is what unblocks the operations system's own Start goroutine.
+		// Every server has stopped and the web and gRPC Stop calls above have waited, within
+		// their bound, for in-flight handlers, which can touch the KVS. Join the start
+		// goroutines too before tearing down the storage; this has to come after
+		// operationsSystem.Stop(), which is what unblocks the operations system's own Start
+		// goroutine.
 		wg.Wait()
 
 		if kvss != nil {

@@ -162,10 +162,13 @@ The FSC node handles these signals for graceful shutdown:
 | `SIGTERM` | Graceful shutdown |
 
 **Graceful shutdown:**
-1. Stop accepting new requests
-2. Complete in-flight operations
-3. Close connections
-4. Exit cleanly
+1. Stop the servers one after another (web, metrics, gRPC). Each stops accepting new requests and waits for its in-flight ones:
+   - web and metrics: requests get 5s to finish, then their contexts are cancelled and the server waits up to 10s more for its handlers to return
+   - gRPC: requests are cancelled at once, and the server waits up to 10s for its handlers to return
+2. Close storage, once those handlers have returned or the waits have timed out
+3. Exit cleanly
+
+Views that observe their context (`ctx.Done()`) return promptly once it is cancelled. A view that ignores it can still find storage closed if it outlives the wait.
 
 **Note:** The signal handling uses Go's `signal.NotifyContext` for cross-platform compatibility. On Unix-like systems, both SIGINT and SIGTERM trigger graceful shutdown. On Windows, Ctrl+C and Ctrl+Break are handled appropriately.
 
