@@ -246,6 +246,11 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 		return nil, dialErr
 	}
 
+	c.mu.Lock()
+	// Registering under mu orders the deletion in onClose after the insertion below.
+	// newClientConn starts the read loop, which can close the socket before this
+	// function returns, but onClose takes c.mu and so cannot run until conn is assigned
+	// and the registration below is done.
 	conn = newClientConn(wsConn, c.tracer, c.m, c.MaxSubConns, func() {
 		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
@@ -254,8 +259,6 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 			delete(c.clients, key)
 		}
 	})
-
-	c.mu.Lock()
 	if c.closed {
 		delete(c.dialing, key)
 		close(inFlight.done)
