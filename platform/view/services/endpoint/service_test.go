@@ -216,3 +216,77 @@ func TestGetIdentity_PKIDWinsOverLabel(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("victim_id"), id)
 }
+
+// A resolver without a name is not indexed under the empty key or under "."+domain, so
+// an empty label, pkID or identity matches no resolver. The resolver stays reachable by
+// its ID and addresses.
+func TestUnnamedResolver_NotIndexedUnderEmptyKey(t *testing.T) {
+	t.Parallel()
+	service, err := endpoint.NewService(&mock.BindingStore{})
+	require.NoError(t, err)
+
+	_, err = service.AddResolver("", "org1", map[string]string{string(endpoint.P2PPort): "localhost:1010"}, nil, []byte("unnamed_id"))
+	require.NoError(t, err)
+
+	for _, label := range []string{"", ".org1"} {
+		_, err = service.GetIdentity(label, nil)
+		require.ErrorIs(t, err, endpoint.ErrNotFound, "label [%s]", label)
+	}
+	_, _, _, err = service.Resolve(t.Context(), nil)
+	require.ErrorIs(t, err, endpoint.ErrNotFound)
+	_, err = service.RemoveResolver(nil)
+	require.ErrorIs(t, err, endpoint.ErrNotFound)
+
+	id, err := service.GetIdentity("", []byte("unnamed_id"))
+	require.NoError(t, err)
+	require.Equal(t, view.Identity("unnamed_id"), id)
+	id, err = service.GetIdentity("localhost:1010", nil)
+	require.NoError(t, err)
+	require.Equal(t, view.Identity("unnamed_id"), id)
+}
+
+// Resolvers are deduplicated by name only when they have one: two resolvers without a
+// name are registered separately and are not bound to each other.
+func TestAddResolver_UnnamedResolversAreNotBound(t *testing.T) {
+	t.Parallel()
+	bindingStore := &mock.BindingStore{}
+	service, err := endpoint.NewService(bindingStore)
+	require.NoError(t, err)
+
+	_, err = service.AddResolver("", "org1", map[string]string{string(endpoint.P2PPort): "localhost:1010"}, nil, []byte("first_id"))
+	require.NoError(t, err)
+	existing, err := service.AddResolver("", "org2", map[string]string{string(endpoint.P2PPort): "localhost:2020"}, nil, []byte("second_id"))
+	require.NoError(t, err)
+	require.Nil(t, existing)
+	require.Zero(t, bindingStore.PutBindingsCallCount())
+	require.Len(t, service.Resolvers(), 2)
+
+	for _, tc := range []struct{ id, addr string }{{"first_id", "localhost:1010"}, {"second_id", "localhost:2020"}} {
+		id, err := service.GetIdentity("", []byte(tc.id))
+		require.NoError(t, err)
+		require.Equal(t, view.Identity(tc.id), id)
+		id, err = service.GetIdentity(tc.addr, nil)
+		require.NoError(t, err)
+		require.Equal(t, view.Identity(tc.id), id)
+	}
+}
+
+// UpdateResolver with an empty name adds a resolver and leaves existing unnamed
+// resolvers unchanged.
+func TestUpdateResolver_EmptyNameAddsResolver(t *testing.T) {
+	t.Parallel()
+	service, err := endpoint.NewService(&mock.BindingStore{})
+	require.NoError(t, err)
+
+	_, err = service.AddResolver("", "org1", map[string]string{string(endpoint.P2PPort): "localhost:1010"}, nil, []byte("first_id"))
+	require.NoError(t, err)
+	_, err = service.UpdateResolver("", "org2", map[string]string{string(endpoint.P2PPort): "localhost:2020"}, nil, []byte("second_id"))
+	require.NoError(t, err)
+
+	resolvers := service.Resolvers()
+	require.Len(t, resolvers, 2)
+	require.Equal(t, []string{"localhost:1010"}, resolvers[0].AddressList)
+	id, err := service.GetIdentity("localhost:2020", nil)
+	require.NoError(t, err)
+	require.Equal(t, view.Identity("second_id"), id)
+}

@@ -101,7 +101,10 @@ type BindingStore = cdriver.BindingStore
 // Service manages endpoint resolution, identity binding, and PKI extraction
 // for the view service layer.
 type Service struct {
-	resolvers      []*Resolver
+	resolvers []*Resolver
+	// resolversMap indexes resolvers by name, name.domain, aliases, addresses, ID and
+	// PKI ID. It never holds the empty key, so an empty label, identity or name matches
+	// no resolver.
 	resolversMap   map[string]*Resolver
 	resolversMutex sync.RWMutex
 	bindingKVS     cdriver.BindingStore
@@ -206,7 +209,10 @@ func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) 
 	return nil, errors.Wrapf(ErrNotFound, "identity not found at [%s,%s]", label, view.Identity(pkID))
 }
 
-// UpdateResolver updates an existing resolver or adds a new one.
+// UpdateResolver looks up the resolver that name matches in the index (by name, name.domain,
+// alias, address, ID or PKI ID), sets its Addresses and AddressList, indexes the given
+// aliases, and returns its ID. The address index entries are left unchanged. If name matches
+// no resolver, UpdateResolver behaves like AddResolver. An empty name matches no resolver.
 func (r *Service) UpdateResolver(
 	name string,
 	domain string,
@@ -221,8 +227,7 @@ func (r *Service) UpdateResolver(
 	if ok {
 		// update addresses
 		addressList := make([]string, 0, len(addresses))
-		for k, v := range addresses {
-			addresses[k] = v
+		for _, v := range addresses {
 			addressList = append(addressList, v)
 		}
 		resolver.Addresses = convert(addresses)
@@ -241,7 +246,11 @@ func (r *Service) UpdateResolver(
 	return r.AddResolver(name, domain, addresses, aliases, id)
 }
 
-// AddResolver adds a new resolver.
+// AddResolver registers a resolver and returns nil. If name already matches a resolver in
+// the index (by name, name.domain, alias, address, ID or PKI ID), AddResolver binds id to
+// that resolver's identity and returns it instead. An empty name matches no resolver, so
+// each resolver without a name is registered separately and is reachable only by its
+// aliases, addresses, ID and PKI ID.
 func (r *Service) AddResolver(
 	name string,
 	domain string,
@@ -260,17 +269,14 @@ func (r *Service) AddResolver(
 		return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
 	}
 	for _, alias := range aliases {
-		_, ok := r.resolversMap[name]
-		if ok {
-			logger.Warnf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
+		if existing, ok := r.resolversMap[alias]; ok {
+			logger.Warnf("alias [%s] already defined by resolver [%s]", alias, existing.Name)
 		}
 	}
 	r.resolversMutex.RUnlock()
 
-	// resolve addresses to their IPs, if needed
 	addressList := make([]string, 0, len(addresses))
-	for k, v := range addresses {
-		addresses[k] = v
+	for _, v := range addresses {
 		addressList = append(addressList, v)
 	}
 
@@ -417,21 +423,24 @@ func (r *Service) Resolvers() []ResolverInfo {
 	return res
 }
 
-// appendResolver adds a resolver to the internal maps and list, indexing it by
-// name, aliases, domain, addresses, ID, and PKI ID for efficient lookup.
+// appendResolver adds a resolver to the internal list and indexes it in resolversMap by
+// name, name.domain, aliases, addresses, ID and PKI ID. Empty keys are skipped, and a
+// resolver without a name is indexed by neither name nor name.domain.
 func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	r.resolvers = append(r.resolvers, newResolver)
 
-	// by name
-	r.resolversMap[newResolver.Name] = newResolver
+	if len(newResolver.Name) != 0 {
+		// by name
+		r.resolversMap[newResolver.Name] = newResolver
+		// by name + domain
+		r.resolversMap[newResolver.Name+"."+newResolver.Domain] = newResolver
+	}
 	// by alias
 	for _, alias := range newResolver.Aliases {
 		if len(alias) != 0 {
 			r.resolversMap[alias] = newResolver
 		}
 	}
-	// by name + domain
-	r.resolversMap[newResolver.Name+"."+newResolver.Domain] = newResolver
 
 	// by addresses
 	for _, address := range newResolver.Addresses {
@@ -440,7 +449,8 @@ func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 		}
 	}
 
-	// by addresses
+	// by address list, which also keeps addresses whose port name convert did not
+	// recognize, since convert maps all of them to the same empty PortName
 	for _, address := range newResolver.AddressList {
 		if len(address) != 0 {
 			r.resolversMap[address] = newResolver

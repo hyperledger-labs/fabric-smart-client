@@ -240,3 +240,21 @@ func requireResolverLookups(t *testing.T, resolvers []config.Resolver, addCalls 
 		}
 	}
 }
+
+// An empty label matches no resolver, even one without a name or with an empty alias, and
+// the UniqueID placeholder of an empty RootID matches none either.
+func TestResolverServiceGetIdentity_EmptyKeys(t *testing.T) {
+	t.Parallel()
+
+	service := &ResolverService{resolvers: []*Resolver{
+		{Name: "", Aliases: []string{""}, Id: []byte("unnamed_id")},
+		{Name: "bob", Id: []byte("bob_id"), RootID: view.Identity("bob_root")},
+	}}
+
+	require.Nil(t, service.GetIdentity(""))
+	require.Nil(t, service.GetIdentity(view.Identity(nil).UniqueID()))
+
+	require.Equal(t, view.Identity("unnamed_id"), service.GetIdentity(view.Identity("unnamed_id").UniqueID()))
+	require.Equal(t, view.Identity("bob_id"), service.GetIdentity("bob"))
+	require.Equal(t, view.Identity("bob_id"), service.GetIdentity(view.Identity("bob_root").UniqueID()))
+}
