@@ -50,17 +50,6 @@ type Application interface {
 	Organizations() map[string]ApplicationOrg
 }
 
-// Channel gives read only access to the channel configuration
-type Channel interface {
-	// BlockDataHashingStructureWidth returns the width to use when constructing the
-	// Merkle tree to compute the BlockData hash
-	BlockDataHashingStructureWidth() uint32
-
-	// OrdererAddresses returns the list of valid global orderer addresses (does not include org-specific orderer endpoints)
-	// Deprecated
-	OrdererAddresses() []string
-}
-
 // Consortium represents a group of orgs which may create channels together
 type Consortium interface {
 	// ChannelCreationPolicy returns the policy to check when instantiating a channel for this consortium
@@ -207,25 +196,9 @@ type OrdererCapabilities interface {
 	UseChannelCreationPolicyAsAdmins() bool
 }
 
-// PolicyMapper is an interface for
+// PolicyMapper resolves an API name to the policy that guards it.
 type PolicyMapper interface {
 	// PolicyRefForAPI takes the name of an API, and returns the policy name
 	// or the empty string if the API is not found
 	PolicyRefForAPI(apiName string) string
-}
-
-// Resources is the common set of config resources for all channels
-// Depending on whether chain is used at the orderer or at the peer, other
-// config resources may be available
-type Resources interface {
-	// OrdererConfig returns the config.Orderer for the channel
-	// and whether the Orderer config exists
-	OrdererConfig() (Orderer, bool)
-
-	// ApplicationConfig returns the configtxapplication.SharedConfig for the channel
-	// and whether the Application config exists
-	ApplicationConfig() (Application, bool)
-
-	// MSPManager returns the msp.MSPManager for the chain
-	MSPManager() msp.MSPManager
 }
