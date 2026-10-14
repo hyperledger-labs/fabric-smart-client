@@ -231,7 +231,7 @@ const (
 func NewMyService(... Deps, tracerProvider tracing.Provider, otherService OtherService) *MyService {
 	return &MyService {
 		...
-		tracer: p.Tracer("transfer_responder", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		tracer: tracerProvider.Tracer("transfer_responder", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{currencyLabel, successLabel, validatorTypeLabel},
 		})),
 		...
@@ -257,12 +257,12 @@ func (s *MyService) Transfer(ctx context.Context, ... OtherParams) error {
 	defer span.End()
 	...
 
-	span.AddEvent("start_validation", tracing.WithAttributes(tracing.Int(validatorTypeLabel, 3)))
+	span.AddEvent("start_validation", tracing.WithAttributes(attribute.Int(validatorTypeLabel, 3)))
 	err := s.otherService.ValidateTransfer(newCtx, ...)
 	span.AddEvent("end_validation")
 	
 	...
-	span.AddAttributes(tracing.Bool(successLabel, err == nil))
+	span.SetAttributes(tracing.Bool(successLabel, err == nil))
 	return err
 }
 ```
