@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 	viewendpoint "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -170,6 +171,45 @@ func TestLoadResolvers_Errors(t *testing.T) {
 		require.ErrorContains(t, err, "failed to convert address [bad-addr]")
 	})
 
+	t.Run("missing fsc.id fails", func(t *testing.T) {
+		t.Parallel()
+		cfg := &mockConfig{values: map[string]string{"fsc.p2p.listenAddress": "/ip4/127.0.0.1/tcp/9000"}}
+		loader, err := NewResolversLoader(cfg, &mockBackend{}, &mockIdentityService{defaultID: view.Identity("def-id")})
+		require.NoError(t, err)
+		require.EqualError(t, loader.LoadResolvers(), "fsc.id is required")
+	})
+
+	// the endpoint service, not the loader, validates address keys
+	t.Run("unknown address key fails through the endpoint service", func(t *testing.T) {
+		t.Parallel()
+		ca, err := tlsgen.NewCA()
+		require.NoError(t, err)
+		kp, err := ca.NewServerCertKeyPair("127.0.0.1")
+		require.NoError(t, err)
+		certFile := filepath.Join(t.TempDir(), "cert.crt")
+		require.NoError(t, os.WriteFile(certFile, kp.Cert, 0o600))
+
+		cfg := &mockConfig{
+			values: map[string]string{"fsc.p2p.listenAddress": "/ip4/127.0.0.1/tcp/9000", "fsc.id": "node1"},
+			isSet:  map[string]bool{"fsc.endpoint.resolvers": true},
+			unmarshalFn: func(_ string, val any) error {
+				target := val.(*[]*entry)
+				*target = []*entry{{
+					Name:      "peer1",
+					Identity:  Identity{Path: certFile},
+					Addresses: map[string]string{"P2PAdress": "localhost:1010"},
+				}}
+				return nil
+			},
+		}
+		service, err := viewendpoint.NewService(&mock.BindingStore{})
+		require.NoError(t, err)
+		loader, err := NewResolversLoader(cfg, service, &mockIdentityService{defaultID: view.Identity("def-id")})
+		require.NoError(t, err)
+		require.ErrorContains(t, loader.LoadResolvers(), "fsc.endpoint.resolvers[0]: failed adding resolver [peer1]: unknown address key [P2PAdress]")
+		require.Len(t, service.Resolvers(), 1, "only the default resolver is registered")
+	})
+
 	t.Run("default resolver failure propagates", func(t *testing.T) {
 		t.Parallel()
 		cfg := &mockConfig{
@@ -235,8 +275,33 @@ func TestLoadResolvers_Errors(t *testing.T) {
 		loader, err := NewResolversLoader(cfg, &mockBackend{}, &mockIdentityService{defaultID: view.Identity("def-id")})
 		require.NoError(t, err)
 		err = loader.LoadResolvers()
-		require.Error(t, err)
+		require.ErrorContains(t, err, "fsc.endpoint.resolvers[0] [peer1]: failed loading identity.path [non-existent.crt]")
 	})
+
+	for _, tc := range []struct {
+		name    string
+		entry   *entry
+		wantErr string
+	}{
+		{"missing name fails", &entry{Identity: Identity{Path: "peer1.crt"}}, "fsc.endpoint.resolvers[0]: name is required"},
+		{"missing identity path fails", &entry{Name: "peer1"}, "fsc.endpoint.resolvers[0] [peer1]: identity.path is required"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := &mockConfig{
+				values: map[string]string{"fsc.p2p.listenAddress": "/ip4/127.0.0.1/tcp/9000", "fsc.id": "node1"},
+				isSet:  map[string]bool{"fsc.endpoint.resolvers": true},
+				unmarshalFn: func(_ string, val any) error {
+					target := val.(*[]*entry)
+					*target = []*entry{tc.entry}
+					return nil
+				},
+			}
+			loader, err := NewResolversLoader(cfg, &mockBackend{}, &mockIdentityService{defaultID: view.Identity("def-id")})
+			require.NoError(t, err)
+			require.EqualError(t, loader.LoadResolvers(), tc.wantErr)
+		})
+	}
 
 	t.Run("adding resolver fails", func(t *testing.T) {
 		t.Parallel()
@@ -281,7 +346,7 @@ func TestLoadResolvers_Errors(t *testing.T) {
 		loader, err := NewResolversLoader(cfg, backend, &mockIdentityService{defaultID: view.Identity("def-id")})
 		require.NoError(t, err)
 		err = loader.LoadResolvers()
-		require.ErrorContains(t, err, "failed adding resolver")
+		require.ErrorContains(t, err, "fsc.endpoint.resolvers[0]: fail adding entry resolver")
 	})
 
 	t.Run("binding alias fails", func(t *testing.T) {

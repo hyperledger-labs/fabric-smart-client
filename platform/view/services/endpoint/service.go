@@ -59,13 +59,12 @@ type PublicKeyIDSynthesizer interface {
 // ResolverInfo carries information about a resolver including its identity,
 // network addresses, and aliases.
 type ResolverInfo struct {
-	ID          []byte
-	Name        string
-	Domain      string
-	Addresses   map[PortName]string
-	AddressList []string
-	Aliases     []string
-	PKI         []byte
+	ID        []byte
+	Name      string
+	Domain    string
+	Addresses map[PortName]string
+	Aliases   []string
+	PKI       []byte
 }
 
 // Resolver wraps ResolverInfo with additional management fields including
@@ -228,7 +227,8 @@ func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) 
 // the update keep the old addresses.
 //
 // If name matches no resolver, UpdateResolver behaves like AddResolver. An empty name
-// matches no resolver.
+// matches no resolver. UpdateResolver returns an error, and changes nothing, if an address
+// key is not a port name accepted by AddResolver.
 func (r *Service) UpdateResolver(
 	name string,
 	domain string,
@@ -238,14 +238,18 @@ func (r *Service) UpdateResolver(
 ) (view.Identity, error) {
 	logger.Debugf("updating resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
+	ports, err := convert(addresses)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed updating resolver [%s]", name)
+	}
+
 	r.resolversMutex.Lock()
 	old, ok := r.resolversMap[name]
 	if ok {
 		old.PKILock.RLock()
 		updated := &Resolver{ResolverInfo: old.ResolverInfo}
 		old.PKILock.RUnlock()
-		updated.Addresses = convert(addresses)
-		updated.AddressList = slices.Collect(maps.Values(addresses))
+		updated.Addresses = ports
 		updated.Aliases = slices.Clone(old.Aliases)
 		for _, alias := range aliases {
 			if len(alias) != 0 && !slices.Contains(updated.Aliases, alias) {
@@ -269,9 +273,17 @@ func (r *Service) UpdateResolver(
 
 // AddResolver registers a resolver and returns nil. If name already matches a resolver in
 // the index (by name, name.domain, alias, address, ID or PKI ID), AddResolver binds id to
-// that resolver's identity and returns it instead. An empty name matches no resolver, so
-// each resolver without a name is registered separately and is reachable only by its
-// aliases, addresses, ID and PKI ID.
+// that resolver's identity and returns it instead; the other arguments are only validated.
+// Node configurations rely on this: replicas of a node share its name, and a Fabric
+// resolver binds a node's MSP identity to its FSC identity by reusing the node's name.
+//
+// An empty name matches no resolver, so each resolver without a name is registered
+// separately and is reachable only by its aliases, addresses, ID and PKI ID. The config
+// loaders reject entries without a name, so only programmatic callers register such
+// resolvers.
+//
+// Each address key must name a PortName (Listen, View or P2P), compared case-insensitively,
+// at most once; AddResolver returns an error, and registers nothing, for any other key.
 func (r *Service) AddResolver(
 	name string,
 	domain string,
@@ -280,6 +292,11 @@ func (r *Service) AddResolver(
 	id []byte,
 ) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
+
+	ports, err := convert(addresses)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed adding resolver [%s]", name)
+	}
 
 	// is there a resolver with the same name or clashing aliases?
 	r.resolversMutex.RLock()
@@ -297,12 +314,11 @@ func (r *Service) AddResolver(
 	r.resolversMutex.RUnlock()
 
 	newResolver := &Resolver{
-		Name:        name,
-		Domain:      domain,
-		Addresses:   convert(addresses),
-		AddressList: slices.Collect(maps.Values(addresses)),
-		Aliases:     aliases,
-		ID:          id,
+		Name:      name,
+		Domain:    domain,
+		Addresses: ports,
+		Aliases:   aliases,
+		ID:        id,
 	}
 	pkiID := r.PkiResolve(newResolver)
 
@@ -470,14 +486,6 @@ func (r *Service) indexResolver(newResolver *Resolver, pkiID []byte) {
 		}
 	}
 
-	// by address list, which also keeps addresses whose port name convert did not
-	// recognize, since convert maps all of them to the same empty PortName
-	for _, address := range newResolver.AddressList {
-		if len(address) != 0 {
-			r.resolversMap[address] = newResolver
-		}
-	}
-
 	// by id
 	if len(newResolver.ID) != 0 {
 		r.resolversMap[string(newResolver.ID)] = newResolver
@@ -556,11 +564,20 @@ var portNameMap = map[string]PortName{
 	strings.ToLower(string(P2PPort)):    P2PPort,
 }
 
-// convert transforms a map of string keys to PortName keys using the portNameMap.
-func convert(o map[string]string) map[PortName]string {
+// convert maps each key of o to its PortName, compared case-insensitively. It returns an
+// error for a key that names no PortName or the same PortName as another key, so that a
+// misspelled or repeated key fails instead of dropping an address.
+func convert(o map[string]string) (map[PortName]string, error) {
 	r := map[PortName]string{}
 	for k, v := range o {
-		r[portNameMap[strings.ToLower(k)]] = v
+		port, ok := portNameMap[strings.ToLower(k)]
+		if !ok {
+			return nil, errors.Errorf("unknown address key [%s], expected one of [%s, %s, %s]", k, ListenPort, ViewPort, P2PPort)
+		}
+		if _, dup := r[port]; dup {
+			return nil, errors.Errorf("duplicate address key [%s]", k)
+		}
+		r[port] = v
 	}
-	return r
+	return r, nil
 }

@@ -18,7 +18,8 @@ logging:
 fsc:
   # The FSC id provides a name for this node instance within the fsc network and is used when
   # naming docker resources for nwo testing as well as the unique id for tracing.
-  # It's also used as the unique name to resolve this node's identity and grpc server endpoint
+  # It's also used as the unique name to resolve this node's identity and grpc server endpoint.
+  # It is required: the node fails to start without it.
   id: someid
 
   # This is the identity of the node
@@ -381,7 +382,11 @@ fsc:
     
   # ------------------- FSC Node endpoint resolvers -------------------------
   # The endpoint section tells how to reach other FSC node in the network.
-  # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
+  # Each entry needs a name and an identity; domain, addresses and aliases are optional.
+  # The node fails to start if an entry has no name or no identity.path, or if an address key is not
+  # one of Listen, View or P2P (case-insensitive).
+  # An entry that reuses the name of an earlier entry, such as a replica of the same node, does not get
+  # its own addresses: its identity is bound to the identity of the earlier entry.
   endpoint:
     resolvers:
     # name is a name that describes the FSC node (must also match name used in the view) it isn't a P2P bootstrap node
@@ -407,7 +412,7 @@ fsc:
         # P2P endpoint address for this node
         P2P: thebootstrapFQDN:20001
       aliases:
-    # This demonstrates other keys available for addresses:, TBD
+    # This demonstrates the other keys available for addresses:
     - name: otheraddressestypes
       domain:
       identity:
@@ -417,8 +422,6 @@ fsc:
         Listen:
         # Port at which the View Service Server respond
         View:
-        # Port at which the Web Server respond
-        Web:
 
 
 
@@ -739,9 +742,11 @@ fabric:
 
     # ------------------- Fabric Node resolvers -------------------------
     # The endpoint section tells how to reach other Fabric nodes in the network.
+    # Entries follow the same rules as fsc.endpoint.resolvers. An entry that reuses the name of an FSC
+    # resolver binds its MSP identity to the identity of that FSC node.
     endpoint:
       resolvers:
-      # a unique name which has to match what the view references ?
+      # name of the FSC node this identity belongs to
       - name: fscnodeA
         domain:
         identity:
@@ -749,16 +754,15 @@ fabric:
           mspID: peerOrg0MSP
           # path to the public MSP (ie no crypto material) or signing cert (but I would highly recommend not specifying just the signing cert)
           path: /path/to/fscnodeA/msp
-          # TBD
-          addresses:
-          aliases:
-          - anotherName
+        addresses:
+        aliases:
+        - anotherName
       - name: fscnodeB
         domain:
         identity:
           mspID: peerOrg2MSP
           path: /path/to/fscnodeB/msp
-          addresses:
+        addresses:
 ```
 
 ## Migrating TLS configuration

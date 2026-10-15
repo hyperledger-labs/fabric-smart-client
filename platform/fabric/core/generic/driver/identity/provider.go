@@ -47,7 +47,7 @@ func (p *provider) New(network string) (driver.IdentityProvider, error) {
 		return nil, errors.Wrap(err, "failed instantiating fabric endpoint resolver")
 	}
 	if err := resolverService.LoadResolvers(); err != nil {
-		return nil, errors.Wrap(err, "failed loading fabric endpoint resolvers")
+		return nil, errors.Wrapf(err, "failed loading endpoint resolvers of fabric network [%s]", network)
 	}
 	endpointService, err := endpoint.NewResolver(resolverService, p.endpointService)
 	if err != nil {
