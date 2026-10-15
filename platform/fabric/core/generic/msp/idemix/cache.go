@@ -42,6 +42,8 @@ type IdentityCache struct {
 	cancel context.CancelFunc
 }
 
+// NewIdentityCache returns a cache that keeps up to size identities from backed ready in
+// advance. size must not be negative; zero disables caching.
 func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.IdentityOptions, cacheOpts *IdentityCacheOptions) *IdentityCache {
 	cacheTimeout := 1 * time.Second // default timeout
 	if cacheOpts != nil && cacheOpts.CacheTimeout > 0 {
@@ -71,17 +73,18 @@ func (c *IdentityCache) CacheSize() int {
 	return len(c.cache)
 }
 
+// Identity returns an identity for opts. Only a request without options is served from the
+// cache; the first such request starts the background provisioning. A zero-sized cache is
+// never filled, so it serves every request from the backend directly.
 func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
-	if opts != nil {
+	if opts != nil || cap(c.cache) == 0 {
 		return c.fetchIdentityFromBackend(opts)
 	}
 
 	c.once.Do(func() {
-		if cap(c.cache) > 0 {
-			var backgroundCtx context.Context
-			backgroundCtx, c.cancel = context.WithCancel(context.Background())
-			go c.provisionIdentities(backgroundCtx)
-		}
+		var backgroundCtx context.Context
+		backgroundCtx, c.cancel = context.WithCancel(context.Background())
+		go c.provisionIdentities(backgroundCtx)
 	})
 
 	logger.Debugf("fetching identity from cache...")

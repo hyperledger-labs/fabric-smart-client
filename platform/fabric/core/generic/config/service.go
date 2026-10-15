@@ -80,6 +80,9 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 	if len(driver) == 0 {
 		driver = GenericDriver
 	}
+	if err := checkSizes(configService, prefix); err != nil {
+		return nil, err
+	}
 
 	networkTLSKey := fmt.Sprintf("fabric.%stls", prefix)
 	if err := tlsconfig.CheckRemovedNetworkKeys(configService, fmt.Sprintf("fabric.%s", prefix)); err != nil {
@@ -286,6 +289,8 @@ func (s *Service) RawSubtrees(key string) []map[string]any {
 	return s.Configuration.RawSubtrees("fabric." + s.prefix + key)
 }
 
+// MSPCacheSize returns how many idemix pseudonyms are generated in advance, read from
+// fabric.<network>.mspCacheSize. Zero disables the cache. It defaults to 3.
 func (s *Service) MSPCacheSize() int {
 	if cacheSize, err := strconv.Atoi(s.GetString("mspCacheSize")); err == nil {
 		return cacheSize
@@ -307,6 +312,8 @@ func (s *Service) BroadcastRetryInterval() time.Duration {
 	return defaultBroadcastRetryInterval
 }
 
+// OrdererConnectionPoolSize returns the maximum number of concurrent connections to the
+// ordering service, read from fabric.<network>.ordering.connectionPoolSize. It defaults to 10.
 func (s *Service) OrdererConnectionPoolSize() int {
 	if s.IsSet("ordering.connectionPoolSize") {
 		return s.GetInt("ordering.connectionPoolSize")
@@ -342,6 +349,24 @@ func (s *Service) PickPeer(ft driver.PeerFunctionType) *ConnectionConfig {
 func (s *Service) IsChannelQuiet(name string) bool {
 	channel, ok := s.channels[name]
 	return ok && channel.Quiet
+}
+
+// checkSizes rejects size settings the components built from this network cannot work with:
+// a negative mspCacheSize panics the idemix identity cache, and a connectionPoolSize below one
+// panics the ordering broadcaster or blocks every broadcast. Checking here turns either into a
+// startup error that names the key.
+func checkSizes(configService Configuration, prefix string) error {
+	key := fmt.Sprintf("fabric.%smspCacheSize", prefix)
+	if configService.IsSet(key) {
+		if v, err := strconv.Atoi(configService.GetString(key)); err != nil || v < 0 {
+			return errors.Errorf("invalid %s [%s]: must be a non-negative integer", key, configService.GetString(key))
+		}
+	}
+	key = fmt.Sprintf("fabric.%sordering.connectionPoolSize", prefix)
+	if configService.IsSet(key) && configService.GetInt(key) < 1 {
+		return errors.Errorf("invalid %s [%s]: must be a positive integer", key, configService.GetString(key))
+	}
+	return nil
 }
 
 func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) {

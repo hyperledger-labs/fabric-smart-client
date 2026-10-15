@@ -142,13 +142,20 @@ type Channel struct {
 	Chaincodes []*Chaincode  `yaml:"Chaincodes,omitempty"`
 }
 
+// Verify rejects a channel configuration the node cannot run with and raises a NumRetries of
+// zero to one.
 func (c *Channel) Verify() error {
 	if len(c.Name) == 0 {
 		return errors.New("channel name is empty")
 	}
+	// A negative worker count would start no finality workers, and no finality event would
+	// ever be delivered.
+	if c.Finality.EventQueueWorkers < 0 {
+		return errors.Errorf("invalid finality.eventQueueWorkers [%d] for channel [%s]: must not be negative", c.Finality.EventQueueWorkers, c.Name)
+	}
 	if c.NumRetries == 0 {
 		c.NumRetries = 1
-		logger.Warnf("channel configuration [%s], num retries set to 0", c.Name)
+		logger.Warnf("channel configuration [%s], num retries is 0, using 1", c.Name)
 	}
 	return nil
 }
@@ -224,6 +231,8 @@ func (c *Channel) FinalityWaitTimeout() time.Duration {
 	return c.Finality.WaitForEventTimeout
 }
 
+// FinalityEventQueueWorkers returns how many goroutines deliver finality events to listeners.
+// Zero selects the default of one; Verify rejects a negative value.
 func (c *Channel) FinalityEventQueueWorkers() int {
 	if c.Finality.EventQueueWorkers == 0 {
 		return 1
