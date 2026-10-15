@@ -285,8 +285,37 @@ func TestUpdateResolver_EmptyNameAddsResolver(t *testing.T) {
 
 	resolvers := service.Resolvers()
 	require.Len(t, resolvers, 2)
-	require.Equal(t, []string{"localhost:1010"}, resolvers[0].AddressList)
+	require.Equal(t, map[endpoint.PortName]string{endpoint.P2PPort: "localhost:1010"}, resolvers[0].Addresses)
 	id, err := service.GetIdentity("localhost:2020", nil)
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("second_id"), id)
+}
+
+// AddResolver and UpdateResolver reject an address key that names no PortName, such as a
+// misspelled P2P key, and two keys that differ only in case. Known keys are matched
+// case-insensitively.
+func TestAddResolver_RejectsUnknownAddressKey(t *testing.T) {
+	t.Parallel()
+	service, err := endpoint.NewService(&mock.BindingStore{})
+	require.NoError(t, err)
+
+	_, err = service.AddResolver("bob", "org1", map[string]string{"P2PAdress": "localhost:1010"}, nil, []byte("bob_id"))
+	require.ErrorContains(t, err, "failed adding resolver [bob]: unknown address key [P2PAdress]")
+	require.Empty(t, service.Resolvers())
+
+	_, err = service.AddResolver("bob", "org1", map[string]string{"P2P": "localhost:1010", "p2p": "localhost:2020"}, nil, []byte("bob_id"))
+	require.ErrorContains(t, err, "failed adding resolver [bob]: duplicate address key")
+	require.Empty(t, service.Resolvers())
+
+	_, err = service.AddResolver("bob", "org1", map[string]string{"p2p": "localhost:1010"}, nil, []byte("bob_id"))
+	require.NoError(t, err)
+	_, ports, _, err := service.Resolve(t.Context(), []byte("bob_id"))
+	require.NoError(t, err)
+	require.Equal(t, map[endpoint.PortName]string{endpoint.P2PPort: "localhost:1010"}, ports)
+
+	_, err = service.UpdateResolver("bob", "", map[string]string{"P2PAdress": "localhost:2020"}, nil, nil)
+	require.ErrorContains(t, err, "failed updating resolver [bob]: unknown address key [P2PAdress]")
+	_, ports, _, err = service.Resolve(t.Context(), []byte("bob_id"))
+	require.NoError(t, err)
+	require.Equal(t, map[endpoint.PortName]string{endpoint.P2PPort: "localhost:1010"}, ports)
 }

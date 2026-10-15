@@ -90,8 +90,30 @@ func TestResolverServiceLoadResolvers_StatError(t *testing.T) {
 	require.NoError(t, err)
 
 	err = service.LoadResolvers()
-	require.ErrorContains(t, err, "failed to stat")
+	require.ErrorContains(t, err, "endpoint.resolvers[0] [alice]: failed to stat identity.path [/path/does/not/exist]")
 	require.Empty(t, backend.AddCalls)
+}
+
+func TestResolverServiceLoadResolvers_MissingNameOrPath(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		resolver config.Resolver
+		wantErr  string
+	}{
+		{"missing name", config.Resolver{Identity: config.MSP{MSPID: "apple", Path: "msp"}}, "endpoint.resolvers[0]: name is required"},
+		{"missing identity path", config.Resolver{Name: "alice", Identity: config.MSP{MSPID: "apple"}}, "endpoint.resolvers[0] [alice]: identity.path is required"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			backend := &fake.ResolverServiceBackend{}
+			service, err := NewResolverService(&fake.Config{ResolversList: []config.Resolver{tc.resolver}}, backend)
+			require.NoError(t, err)
+			require.EqualError(t, service.LoadResolvers(), tc.wantErr)
+			require.Empty(t, backend.AddCalls)
+		})
+	}
 }
 
 func TestResolverServiceLoadResolvers_AddResolverError(t *testing.T) {
@@ -118,6 +140,7 @@ func TestResolverServiceLoadResolvers_AddResolverError(t *testing.T) {
 
 	err = service.LoadResolvers()
 	require.ErrorIs(t, err, expectedErr)
+	require.ErrorContains(t, err, "endpoint.resolvers[0] [alice]: add resolver failed")
 	require.Len(t, backend.AddCalls, 1)
 	require.Empty(t, backend.BindCalls)
 }
