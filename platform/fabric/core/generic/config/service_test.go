@@ -513,6 +513,10 @@ func TestNewService_sizeSettings(t *testing.T) {
 		}},
 		{name: "negative msp cache", network: "mspCacheSize: -1", wantErr: []string{"fabric.mynet.mspCacheSize"}},
 		{name: "non-integer msp cache", network: "mspCacheSize: lots", wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		// A key written without a value is set, so it must not fall back to the default like an
+		// absent one does.
+		{name: "empty msp cache", network: "mspCacheSize:", wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		{name: "empty string msp cache", network: `mspCacheSize: ""`, wantErr: []string{"fabric.mynet.mspCacheSize"}},
 		{name: "pool of one", network: "ordering:\n      connectionPoolSize: 1", check: func(t *testing.T, svc *cfg.Service) {
 			t.Helper()
 			assert.Equal(t, 1, svc.OrdererConnectionPoolSize())
