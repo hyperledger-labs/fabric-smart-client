@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config/mock"
+	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 func TestNewNotificationServiceConfig(t *testing.T) {
@@ -80,6 +81,16 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		cfg, err := config.NewNotificationServiceConfig(fakeConfigService)
 		require.NoError(t, err)
 		require.Zero(t, cfg.ListenerTTL, "an explicit zero must override the default, not be treated as unset")
+	})
+
+	t.Run("explicit zero requestTimeout is kept for the committer default", func(t *testing.T) {
+		t.Parallel()
+		backend, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte("notificationService:\n  requestTimeout: 0\n"))
+		require.NoError(t, err)
+
+		cfg, err := config.NewNotificationServiceConfig(backend)
+		require.NoError(t, err)
+		require.Zero(t, cfg.RequestTimeout, "zero asks the committer to apply its own timeout and must not be replaced")
 	})
 
 	t.Run("explicit zero handler and interval settings fall back to defaults", func(t *testing.T) {
@@ -216,6 +227,18 @@ func TestNewQueryServiceConfig(t *testing.T) {
 		require.NotNil(t, cfg)
 		require.Equal(t, config.DefaultRequestTimeout, cfg.RequestTimeout)
 	})
+
+	for _, v := range []string{"0", "0s", "-1s"} {
+		t.Run("non-positive timeout "+v+" falls back to default", func(t *testing.T) {
+			t.Parallel()
+			backend, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte("queryService:\n  requestTimeout: " + v + "\n"))
+			require.NoError(t, err)
+
+			cfg, err := config.NewQueryServiceConfig(backend)
+			require.NoError(t, err)
+			require.Equal(t, config.DefaultRequestTimeout, cfg.RequestTimeout)
+		})
+	}
 
 	t.Run("error unmarshal", func(t *testing.T) {
 		t.Parallel()

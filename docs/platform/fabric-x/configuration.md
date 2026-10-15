@@ -13,7 +13,7 @@ The Fabric-x platform currently documents configuration for these services:
 - `fabric.<network>.notificationService`
 - `fabric.<network>.queryService`
 
-Both services support endpoint-based gRPC connectivity and optional TLS or mutual TLS settings, plus a `requestTimeout` for outbound gRPC calls (default `30s`).
+Both services support endpoint-based gRPC connectivity and optional TLS or mutual TLS settings, plus a `requestTimeout` for outbound gRPC calls (default `30s`). For `queryService` it is the deadline of every query, so a zero or negative value falls back to `30s`.
 
 ### Notification service tuning
 
