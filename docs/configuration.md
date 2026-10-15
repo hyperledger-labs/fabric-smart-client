@@ -305,7 +305,8 @@ fsc:
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
-    # Type of provider to be used: none (default), file, otlp, console
+    # Type of provider to be used: none (default), file, otlp, console.
+    # Values are case-insensitive; any other value is a startup error.
     provider: otlp
     # Tracer configuration when provider == 'file'
     file:
@@ -335,7 +336,9 @@ fsc:
         # if the collector's certificate does not cover the address being dialled
         serverNameOverride: ""
     sampling:
-      # The ratio of the traces to be sampled
+      # Fraction of root spans to sample, in [0, 1]. Defaults to 1 (sample every trace)
+      # when unset. Spans continuing a remote trace follow the caller's sampling decision,
+      # so 0 records only traces that were sampled upstream.
       ratio: 0.8
 
   # ------------------- Metrics Configuration -------------------------
