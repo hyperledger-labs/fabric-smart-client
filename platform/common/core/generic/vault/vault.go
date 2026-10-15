@@ -61,11 +61,6 @@ type commitInput struct {
 	rws *ReadWriteSet
 }
 
-var (
-	DeadlockDetected   = dbdriver.DeadlockDetected
-	UniqueKeyViolation = dbdriver.UniqueKeyViolation
-)
-
 // Vault models a key-value Store that can be modified by committing rwsets
 type Vault[V driver.ValidationCode] struct {
 	logger           Logger
@@ -198,8 +193,8 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 			db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
 			return collections.Repeat[error](nil, len(txs))
 		}
-		if !errors.HasCause(err, DeadlockDetected) {
-			// This should generate a panic
+		// A deadlock is transient, so the whole batch is retried; any other error fails every tx in the batch.
+		if !errors.HasCause(err, dbdriver.DeadlockDetected) {
 			return collections.Repeat(err, len(txs))
 		}
 		db.logger.Debugf("Deadlock detected. Retrying... [%v]", err)
