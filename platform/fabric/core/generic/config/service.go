@@ -115,7 +115,7 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 	}
 	channelMap, defaultChannel, err := createChannelMap(channels)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessagef(err, "invalid fabric.%schannels", prefix)
 	}
 
 	return &Service{
@@ -290,9 +290,10 @@ func (s *Service) RawSubtrees(key string) []map[string]any {
 }
 
 // MSPCacheSize returns how many idemix pseudonyms are generated in advance, read from
-// fabric.<network>.mspCacheSize. Zero disables the cache. It defaults to 3.
+// fabric.<network>.mspCacheSize. Zero disables the cache. It defaults to 3, also for a value
+// that is not a non-negative integer, which NewService rejects.
 func (s *Service) MSPCacheSize() int {
-	if cacheSize, err := strconv.Atoi(s.GetString("mspCacheSize")); err == nil {
+	if cacheSize, err := strconv.Atoi(s.GetString("mspCacheSize")); err == nil && cacheSize >= 0 {
 		return cacheSize
 	}
 	return defaultMSPCacheSize
@@ -312,8 +313,9 @@ func (s *Service) BroadcastRetryInterval() time.Duration {
 	return defaultBroadcastRetryInterval
 }
 
-// OrdererConnectionPoolSize returns the maximum number of concurrent connections to the
-// ordering service, read from fabric.<network>.ordering.connectionPoolSize. It defaults to 10.
+// OrdererConnectionPoolSize returns the size of an orderer connection pool, read from
+// fabric.<network>.ordering.connectionPoolSize. CFT keeps one pool for the network; BFT keeps
+// one per orderer address. It defaults to 10.
 func (s *Service) OrdererConnectionPoolSize() int {
 	if s.IsSet("ordering.connectionPoolSize") {
 		return s.GetInt("ordering.connectionPoolSize")

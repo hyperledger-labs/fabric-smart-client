@@ -339,6 +339,8 @@ func TestServiceGetters(t *testing.T) {
 	require.Equal(t, 4, svc.MSPCacheSize())
 	m.GetStringReturns("bad")
 	require.Equal(t, 3, svc.MSPCacheSize())
+	m.GetStringReturns("-1")
+	require.Equal(t, 3, svc.MSPCacheSize())
 
 	// Ordering retries
 	getIntCallsBefore := m.GetIntCallCount()
@@ -497,17 +499,31 @@ func TestNewService_sizeSettings(t *testing.T) {
 	tests := []struct {
 		name    string
 		network string
-		wantErr string
+		check   func(t *testing.T, svc *cfg.Service)
+		wantErr []string
 	}{
-		{name: "defaults"},
-		{name: "msp cache disabled", network: "mspCacheSize: 0"},
-		{name: "negative msp cache", network: "mspCacheSize: -1", wantErr: "fabric.mynet.mspCacheSize"},
-		{name: "non-integer msp cache", network: "mspCacheSize: lots", wantErr: "fabric.mynet.mspCacheSize"},
-		{name: "pool of one", network: "ordering:\n      connectionPoolSize: 1"},
-		{name: "empty pool", network: "ordering:\n      connectionPoolSize: 0", wantErr: "fabric.mynet.ordering.connectionPoolSize"},
-		{name: "negative pool", network: "ordering:\n      connectionPoolSize: -1", wantErr: "fabric.mynet.ordering.connectionPoolSize"},
-		{name: "default workers", network: "channels:\n      - name: ch1\n        finality:\n          eventQueueWorkers: 0"},
-		{name: "negative workers", network: "channels:\n      - name: ch1\n        finality:\n          eventQueueWorkers: -1", wantErr: "finality.eventQueueWorkers"},
+		{name: "defaults", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 3, svc.MSPCacheSize())
+			assert.Equal(t, 10, svc.OrdererConnectionPoolSize())
+		}},
+		{name: "msp cache disabled", network: "mspCacheSize: 0", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 0, svc.MSPCacheSize())
+		}},
+		{name: "negative msp cache", network: "mspCacheSize: -1", wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		{name: "non-integer msp cache", network: "mspCacheSize: lots", wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		{name: "pool of one", network: "ordering:\n      connectionPoolSize: 1", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 1, svc.OrdererConnectionPoolSize())
+		}},
+		{name: "empty pool", network: "ordering:\n      connectionPoolSize: 0", wantErr: []string{"fabric.mynet.ordering.connectionPoolSize"}},
+		{name: "negative pool", network: "ordering:\n      connectionPoolSize: -1", wantErr: []string{"fabric.mynet.ordering.connectionPoolSize"}},
+		{name: "default workers", network: "channels:\n      - name: ch1\n        finality:\n          eventQueueWorkers: 0", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 1, svc.Channel("ch1").FinalityEventQueueWorkers())
+		}},
+		{name: "negative workers", network: "channels:\n      - name: ch1\n        finality:\n          eventQueueWorkers: -1", wantErr: []string{"fabric.mynet.channels", "finality.eventQueueWorkers", "ch1"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -517,12 +533,15 @@ func TestNewService_sizeSettings(t *testing.T) {
 			p, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte(raw))
 			require.NoError(t, err)
 
-			_, err = cfg.NewService(p, "mynet", true)
-			if tt.wantErr == "" {
+			svc, err := cfg.NewService(p, "mynet", true)
+			if len(tt.wantErr) == 0 {
 				require.NoError(t, err)
+				tt.check(t, svc)
 				return
 			}
-			require.ErrorContains(t, err, tt.wantErr)
+			for _, want := range tt.wantErr {
+				require.ErrorContains(t, err, want)
+			}
 		})
 	}
 }

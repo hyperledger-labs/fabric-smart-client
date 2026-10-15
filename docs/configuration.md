@@ -557,8 +557,9 @@ fabric:
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it defaults to 500ms
       retryInterval: 500ms
-      # maximum number of concurrent connections to the ordering service. It defaults to 10;
-      # a value below 1 is a startup error.
+      # maximum number of concurrent connections per pool. CFT keeps one pool for the network;
+      # BFT keeps one per orderer, so 4 orderers allow up to 4 x connectionPoolSize connections.
+      # It defaults to 10; a value below 1 is a startup error.
       connectionPoolSize: 10
       #
       # ordering.tlsEnabled and ordering.tlsClientAuthRequired have been REMOVED. They existed
