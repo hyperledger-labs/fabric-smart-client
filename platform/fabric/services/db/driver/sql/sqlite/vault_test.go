@@ -47,3 +47,25 @@ func TestVaultStoreRangeIsSorted(t *testing.T) {
 	}
 	require.Equal(t, []driver.PKey{"k1", "k111", "k2"}, got)
 }
+
+// TestVaultStoreCreatesNamespaceKeyIndex checks that CreateSchema adds an index
+// whose first column is the namespace, so a range scan of one namespace does not
+// have to walk every namespace that shares the key range.
+func TestVaultStoreCreatesNamespaceKeyIndex(t *testing.T) {
+	t.Parallel()
+
+	cp := sqlite2.NewConfigProvider(testing2.MockConfig(sqlite2.Config{
+		DataSource: "file:" + filepath.Join(t.TempDir(), "vault.db"),
+	}))
+	store, err := NewPersistenceWithOpts(cp, sqlite2.NewDbProvider(), "", NewVaultStore)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+
+	tx, err := store.writeDB.Begin()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = tx.Rollback() })
+	var name string
+	err = tx.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'ns_pkey_%'`).Scan(&name)
+	require.NoError(t, err)
+	require.NotEmpty(t, name)
+}

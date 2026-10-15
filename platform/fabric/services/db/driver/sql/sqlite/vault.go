@@ -114,8 +114,10 @@ func (db *VaultStore) CreateSchema() error {
 		kversion BYTEA DEFAULT '',
 		metadata BYTEA DEFAULT '',
 		PRIMARY KEY (pkey, ns)
-	);`, db.tables.StatusTable,
+	);
+	CREATE INDEX IF NOT EXISTS ns_pkey_%s ON %s (ns, pkey);`, db.tables.StatusTable,
 		driver.Unknown,
 		db.tables.StatusTable, db.tables.StatusTable,
-		db.tables.StateTable))
+		db.tables.StateTable,
+		db.tables.StateTable, db.tables.StateTable))
 }
