@@ -52,6 +52,11 @@ updates:
       - dependency-name: "github.com/hyperledger/fabric*"
       - dependency-name: "github.com/IBM/idemix"
       - dependency-name: "github.com/IBM/mathlib"
+      # go-libp2p releases as v0.x. Its pre-modules v6.x tags resolve as
+      # v6.0.23+incompatible, which Dependabot offers as a major bump that
+      # cannot build, failing the whole update job.
+      - dependency-name: "github.com/libp2p/go-libp2p"
+        versions: [">= 1.0.0"]
 
   # Actions are pinned to SHAs, so without this they never move at all.
   - package-ecosystem: github-actions
