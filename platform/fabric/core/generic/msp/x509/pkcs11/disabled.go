@@ -33,10 +33,7 @@ type PKCS11Opts struct {
 	SessionCacheSize uint           `yaml:"SessionCacheSize,omitempty"`
 }
 
+// NewProvider panics: PKCS#11 support requires building with -tags pkcs11.
 func NewProvider(_ any, _ bccsp.KeyStore, _ func(ski []byte) []byte) (bccsp.BCCSP, error) {
-	panic("pkcs11 not included in build. Use: go build -tags pkcs11")
-}
-
-func ToPKCS11OptsOpts(_ any) *PKCS11Opts {
 	panic("pkcs11 not included in build. Use: go build -tags pkcs11")
 }
