@@ -290,3 +290,29 @@ func TestUpdateResolver_EmptyNameAddsResolver(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("second_id"), id)
 }
+
+// TestResolversRacesWithPkiResolve copies a resolver's PKI while PkiResolve writes it.
+// Run with -race.
+func TestResolversRacesWithPkiResolve(t *testing.T) {
+	t.Parallel()
+	service, err := endpoint.NewService(&mock.BindingStore{})
+	require.NoError(t, err)
+
+	// no extractor yet, so AddResolver leaves the PKI empty and Resolve computes it later
+	aliceID := view.Identity("alice_id")
+	_, err = service.AddResolver("alice", "org1", map[string]string{string(endpoint.P2PPort): "localhost:1010"}, nil, aliceID)
+	require.NoError(t, err)
+	extractor := &mock.PublicKeyExtractor{}
+	extractor.ExtractPublicKeyReturns([]byte("alice_pk"), nil)
+	require.NoError(t, service.AddPublicKeyExtractor(extractor))
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _, _, _ = service.Resolve(t.Context(), aliceID)
+	}()
+	for range 100 {
+		_ = service.Resolvers()
+	}
+	<-done
+}
