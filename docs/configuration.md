@@ -230,12 +230,14 @@ fsc:
   # ------------------- Persistence Configuration -------------------------
   # All persistence configurations of the application are defined here
   # Then each store chooses a configuration by referencing it by the key (e.g. my_sqlite_persistence)
-  # If a store does not define one, the 'default' will be picked if it is defined 
+  # If a store does not define one, the 'default' will be picked if it is defined.
+  # Creating a store fails if it references a key that is not defined here,
+  # or if the referenced configuration does not set a type.
   persistences:
     # The default persistence configuration for all stores that do not define one or do not support customization.
-    # A default persistence. It is the safest choice to define one. 
+    # Define it: without it, such stores fall back to memory, log a warning, and lose their data on restart.
     default:
-      # The type can be memory, sqlite, postgres
+      # The type can be memory, sqlite, postgres. Required.
       type: memory
     # The persistence configuration for all stores that define the option
     # persistence: my_sqlite_persistence

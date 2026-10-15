@@ -77,15 +77,17 @@ type KeyValueStore interface {
 	Stats() any
 }
 
-// PersistenceName is the key of a persistence configuration in the core.yaml under fsc.persistences
-// Each store has a property "persistence" that references to a persistence config by its name
-// If the persistence property is not populated, the "default" persistence name is implied (if this is defined under fsc.persistences).
+// PersistenceName is the key of a persistence configuration in the core.yaml under fsc.persistences.
+// Each store has a property "persistence" that references a persistence config by its name.
+// An empty name refers to the "default" persistence config.
 type PersistenceName string
 
 // PersistenceConfig reads the section under fsc.persistences in the core.yaml
 type PersistenceConfig interface {
-	// GetDriverType returns the persistence type (memory, postgres, sqlite) of a specific persistence config
-	// Corresponds to fsc.persistences.{{persistence_name}}.type
+	// GetDriverType returns the persistence type (memory, postgres, sqlite) of a specific persistence config.
+	// Corresponds to fsc.persistences.{{persistence_name}}.type.
+	// It returns an error if a non-empty name has no config or if the config sets no type.
+	// It returns an empty type only for an empty name when no default config is defined.
 	GetDriverType(PersistenceName) (driver.PersistenceType, error)
 
 	// UnmarshalDriverOpts retrieves the persistence options of a specific persistence config
