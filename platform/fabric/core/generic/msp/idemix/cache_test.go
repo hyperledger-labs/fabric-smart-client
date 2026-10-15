@@ -107,3 +107,23 @@ func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
 	// Cache should still be empty (no background provisioning)
 	require.Equal(t, 0, c.CacheSize(), "cache should remain empty after fetching from backend")
 }
+
+// A zero-sized cache has nothing provisioning it, so Identity must go straight to the
+// backend instead of waiting out the cache timeout on every call.
+func TestIdentityCacheDisabled(t *testing.T) {
+	t.Parallel()
+	var counter atomic.Int32
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		counter.Add(1)
+		return []byte("hello world"), []byte("audit"), nil
+	}, 0, nil, &IdentityCacheOptions{CacheTimeout: time.Minute})
+	defer c.Close()
+
+	start := time.Now()
+	id, audit, err := c.Identity(nil)
+	require.NoError(t, err)
+	require.Less(t, time.Since(start), 10*time.Second)
+	require.Equal(t, view.Identity([]byte("hello world")), id)
+	require.Equal(t, []byte("audit"), audit)
+	require.Equal(t, int32(1), counter.Load())
+}

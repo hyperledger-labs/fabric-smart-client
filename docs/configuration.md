@@ -433,8 +433,8 @@ fabric:
     # defines whether this is the default fabric network
     default: true
     # Cache size to use when handling idemix pseudonyms. If the value is larger than 0, the cache is enabled and
-    # pseudonyms are generated in batches of the given size to be ready to be used.
-    # if not specified then the default is 3
+    # pseudonyms are generated in batches of the given size to be ready to be used. 0 disables the cache.
+    # if not specified then the default is 3. A negative or non-integer value is a startup error.
     mspCacheSize: 500
     # the default msp for this node (matches the id in the msps key)
     # TBD: what does being the default mean ?
@@ -557,6 +557,10 @@ fabric:
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it defaults to 500ms
       retryInterval: 500ms
+      # maximum number of concurrent connections per pool. CFT keeps one pool for the network;
+      # BFT keeps one per orderer, so 4 orderers allow up to 4 x connectionPoolSize connections.
+      # It defaults to 10; a value below 1 is a startup error.
+      connectionPoolSize: 10
       #
       # ordering.tlsEnabled and ordering.tlsClientAuthRequired have been REMOVED. They existed
       # to shadow the network tls block for orderer connections alone, which meant the same
@@ -691,6 +695,9 @@ fabric:
         finality:
           waitForEventTimeout: 20s
           forPartiesWaitTimeout: 1m
+          # goroutines delivering finality events to listeners. 0 or unset means 1;
+          # a negative value is a startup error.
+          eventQueueWorkers: 1
         # section about the committer service
         committer:
           waitForEventTimeout: 300s
