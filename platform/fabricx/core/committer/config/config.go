@@ -75,7 +75,10 @@ type Config struct {
 	// connection timeout, resolved TLS and message size are the same four things a Fabric
 	// peer or orderer endpoint configures, under the same yaml keys.
 	Endpoints []grpc.ConnectionConfig `yaml:"endpoints,omitempty"`
-	// RequestTimeout is the timeout for gRPC requests.
+	// RequestTimeout is the timeout for gRPC requests. For the query service it is the
+	// deadline of each query, and a non-positive value falls back to DefaultRequestTimeout.
+	// For the notification service it is sent to the committer as the subscription timeout,
+	// where a non-positive value selects the committer's own (maximum) timeout.
 	RequestTimeout time.Duration `yaml:"requestTimeout,omitempty"`
 	// HandlerTimeout is the deadline set on the context handed to a single
 	// finality listener OnStatus callback. Only meaningful for the notification
@@ -179,10 +182,11 @@ func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error)
 
 // NewQueryServiceConfig creates a new Config instance by unmarshaling the "queryService" key
 // from the provided ServiceBackend. It returns an error if the unmarshaling fails.
+//
+// RequestTimeout falls back to DefaultRequestTimeout when unset, zero or negative: it is
+// the deadline of every query, so a non-positive value would fail each one immediately.
 func NewQueryServiceConfig(configService ServiceBackend) (*Config, error) {
-	config := &Config{
-		RequestTimeout: DefaultRequestTimeout,
-	}
+	config := &Config{}
 
 	err := configService.UnmarshalKey("queryService", &config)
 	if err != nil {
@@ -190,6 +194,10 @@ func NewQueryServiceConfig(configService ServiceBackend) (*Config, error) {
 	}
 	if err := resolveEndpointTLS(configService, "queryService", config.Endpoints); err != nil {
 		return config, err
+	}
+
+	if config.RequestTimeout <= 0 {
+		config.RequestTimeout = DefaultRequestTimeout
 	}
 
 	return config, nil
