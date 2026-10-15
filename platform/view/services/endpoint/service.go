@@ -254,6 +254,9 @@ func (r *Service) UpdateResolver(
 		}
 
 		r.unindexResolver(old)
+		// every resolver in resolversMap is also in r.resolvers, since appendResolver,
+		// RemoveResolver and UpdateResolver change both together under the write lock, so
+		// the index is never -1
 		r.resolvers[slices.Index(r.resolvers, old)] = updated
 		r.indexResolver(updated, updated.PKI)
 		r.resolversMutex.Unlock()
@@ -293,16 +296,11 @@ func (r *Service) AddResolver(
 	}
 	r.resolversMutex.RUnlock()
 
-	addressList := make([]string, 0, len(addresses))
-	for _, v := range addresses {
-		addressList = append(addressList, v)
-	}
-
 	newResolver := &Resolver{
 		Name:        name,
 		Domain:      domain,
 		Addresses:   convert(addresses),
-		AddressList: addressList,
+		AddressList: slices.Collect(maps.Values(addresses)),
 		Aliases:     aliases,
 		ID:          id,
 	}

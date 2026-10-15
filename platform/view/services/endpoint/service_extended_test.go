@@ -277,9 +277,14 @@ func TestUpdateResolver(t *testing.T) {
 		bobID := []byte("bob-id")
 		_, err = service.AddResolver("bob", "example.com", map[string]string{"p2p": "localhost:3030"}, nil, bobID)
 		require.NoError(t, err)
+		stale, err := service.GetResolver(context.Background(), aliceID)
+		require.NoError(t, err)
 
 		_, err = service.UpdateResolver("alice", "example.com", map[string]string{"p2p": "localhost:2020"}, []string{"alice-alias", "alice2"}, aliceID)
 		require.NoError(t, err)
+
+		// a resolver obtained before the update keeps the old address
+		assert.Equal(t, "localhost:1010", stale.GetAddress(endpoint.P2PPort))
 
 		_, err = service.GetIdentity("localhost:1010", nil)
 		require.ErrorIs(t, err, endpoint.ErrNotFound)
@@ -297,6 +302,29 @@ func TestUpdateResolver(t *testing.T) {
 		assert.Equal(t, "alice", resolvers[0].Name)
 		assert.Equal(t, []string{"alice-alias", "alice2"}, resolvers[0].Aliases)
 		assert.Equal(t, []string{"localhost:2020"}, resolvers[0].AddressList)
+		assert.Equal(t, "bob", resolvers[1].Name)
+	})
+
+	t.Run("update keeps the PKI ID index", func(t *testing.T) {
+		t.Parallel()
+		service, err := endpoint.NewService(&mock.BindingStore{})
+		require.NoError(t, err)
+		extractor := &mock.PublicKeyExtractor{}
+		extractor.ExtractPublicKeyReturns([]byte("alice-pk"), nil)
+		require.NoError(t, service.AddPublicKeyExtractor(extractor))
+		synthesizer := &mock.PublicKeyIDSynthesizer{}
+		synthesizer.PublicKeyIDReturns([]byte("alice-pki"), nil)
+		service.SetPublicKeyIDSynthesizer(synthesizer)
+
+		aliceID := []byte("alice-id")
+		_, err = service.AddResolver("alice", "example.com", map[string]string{"p2p": "localhost:1010"}, nil, aliceID)
+		require.NoError(t, err)
+		_, err = service.UpdateResolver("alice", "example.com", map[string]string{"p2p": "localhost:2020"}, nil, aliceID)
+		require.NoError(t, err)
+
+		id, err := service.GetIdentity("", []byte("alice-pki"))
+		require.NoError(t, err)
+		assert.Equal(t, view.Identity(aliceID), id)
 	})
 
 	t.Run("update keeps an old address another resolver took over", func(t *testing.T) {
