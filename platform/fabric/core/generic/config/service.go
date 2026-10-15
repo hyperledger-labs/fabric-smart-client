@@ -26,8 +26,6 @@ const (
 	defaultBroadcastNumRetries        = 3
 	defaultBroadcastRetryInterval     = 500 * time.Millisecond
 	defaultOrderingConnectionPoolSize = 10
-	defaultNumRetries                 = 3
-	defaultRetrySleep                 = 1 * time.Second
 	defaultCacheSize                  = 100
 	defaultConnectionTimeout          = 10 * time.Second
 
@@ -180,17 +178,6 @@ func (s *Service) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
 	return c
 }
 
-func (*Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
-	return &Channel{
-		Name:       name,
-		Default:    false,
-		Quiet:      false,
-		NumRetries: defaultNumRetries,
-		RetrySleep: defaultRetrySleep,
-		Chaincodes: nil,
-	}
-}
-
 func (s *Service) Orderers() []*ConnectionConfig {
 	return s.orderers
 }
@@ -239,8 +226,14 @@ func (s *Service) ChannelIDs() []string {
 	return channelIDs
 }
 
+// Channel returns the configuration of the named channel, or nil if fabric.<network>.channels
+// does not declare it.
 func (s *Service) Channel(name string) driver.ChannelConfig {
-	return s.channels[name]
+	// An absent *Channel must not be returned as is: wrapped in the interface it is not nil.
+	if c, ok := s.channels[name]; ok {
+		return c
+	}
+	return nil
 }
 
 func (s *Service) Resolvers() ([]Resolver, error) {

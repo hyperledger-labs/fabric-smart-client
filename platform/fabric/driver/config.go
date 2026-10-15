@@ -96,6 +96,8 @@ type ConfigService interface {
 	NetworkName() string
 	DriverName() string
 	DefaultChannel() string
+	// Channel returns the configuration of the named channel, or nil if the network does not
+	// declare it.
 	Channel(name string) ChannelConfig
 	ChannelIDs() []string
 	Orderers() []*grpc.ConnectionConfig
@@ -114,5 +116,4 @@ type ConfigService interface {
 	// dials inherits from. Trust anchors discovered from a channel's MSPs are appended to a
 	// copy of its ServerRootCAs; they augment the configured pool rather than replacing it.
 	NetworkClientTLS() grpc.SecureOptions
-	NewDefaultChannelConfig(name string) ChannelConfig
 }

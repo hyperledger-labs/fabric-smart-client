@@ -362,9 +362,6 @@ func TestServiceGetters(t *testing.T) {
 	require.Equal(t, "fabric.mynet.ordering.connectionPoolSize", m.GetIntArgsForCall(poolCallIndex))
 	m.IsSetReturns(false)
 	require.Equal(t, 10, svc.OrdererConnectionPoolSize())
-
-	defaultCh := svc.NewDefaultChannelConfig("new-ch")
-	require.Equal(t, "new-ch", defaultCh.ID())
 }
 
 func TestService_MoreCases(t *testing.T) {
@@ -484,7 +481,7 @@ func TestService_MoreCases(t *testing.T) {
 		require.ElementsMatch(t, []string{"ch1", "ch2"}, svc.ChannelIDs())
 		require.NotNil(t, svc.Channel("ch1"))
 		require.NotNil(t, svc.Channel("ch2"))
-		require.Nil(t, svc.Channel("unknown"))
+		require.Equal(t, driver.ChannelConfig(nil), svc.Channel("unknown"))
 		require.True(t, svc.IsChannelQuiet("ch2"))
 		require.False(t, svc.IsChannelQuiet("ch1"))
 		require.False(t, svc.IsChannelQuiet("unknown"))
