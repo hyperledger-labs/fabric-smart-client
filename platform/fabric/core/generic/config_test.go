@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config/mock"
 	dconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type stubConfigProvider struct {
@@ -27,19 +28,13 @@ func (p stubConfigProvider) GetConfig(string) (dconfig.ConfigService, error) { r
 func TestGetChannelConfig(t *testing.T) {
 	t.Parallel()
 
-	m := &mock.Configuration{}
-	m.IsSetStub = func(key string) bool { return key == "fabric.net" }
-	m.UnmarshalKeyStub = func(key string, rawVal any) error {
-		if key == "fabric.net.channels" {
-			*rawVal.(*[]*config.Channel) = []*config.Channel{{Name: "ch1", Default: true}}
-		}
-		return nil
-	}
-	svc, err := config.NewService(m, "net", false)
-	require.NoError(t, err)
-	p := NewChannelConfigProvider(stubConfigProvider{conf: svc})
+	p := providerWithChannels(t, &config.Channel{Name: "ch1", Default: true}, &config.Channel{Name: "ch2"})
 
-	c, err := p.GetChannelConfig("net", "ch1")
+	c, err := p.GetChannelConfig("net", "ch2")
+	require.NoError(t, err)
+	require.Equal(t, "ch2", c.ID())
+
+	c, err = p.GetChannelConfig("net", "")
 	require.NoError(t, err)
 	require.Equal(t, "ch1", c.ID())
 
@@ -47,6 +42,25 @@ func TestGetChannelConfig(t *testing.T) {
 	require.EqualError(t, err, "channel [typo] is not configured under fabric.net.channels")
 	require.Nil(t, c)
 
-	_, err = p.GetChannelConfig("net", "")
+	c, err = providerWithChannels(t, &config.Channel{Name: "ch1"}).GetChannelConfig("net", "")
 	require.EqualError(t, err, "no default channel configured under fabric.net.channels")
+	require.Nil(t, c)
+}
+
+// providerWithChannels returns a provider for network "net" declaring the given channels.
+func providerWithChannels(t *testing.T, channels ...*config.Channel) driver.ChannelConfigProvider {
+	t.Helper()
+
+	m := &mock.Configuration{}
+	m.IsSetStub = func(key string) bool { return key == "fabric.net" }
+	m.UnmarshalKeyStub = func(key string, rawVal any) error {
+		if key == "fabric.net.channels" {
+			*rawVal.(*[]*config.Channel) = channels
+		}
+		return nil
+	}
+	svc, err := config.NewService(m, "net", false)
+	require.NoError(t, err)
+
+	return NewChannelConfigProvider(stubConfigProvider{conf: svc})
 }
