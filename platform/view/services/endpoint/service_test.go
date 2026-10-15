@@ -291,10 +291,9 @@ func TestUpdateResolver_EmptyNameAddsResolver(t *testing.T) {
 	require.Equal(t, view.Identity("second_id"), id)
 }
 
-// An address key that names no PortName, such as a misspelled P2P key, is rejected by
-// AddResolver and UpdateResolver instead of storing the address under the empty PortName,
-// and so are two keys that differ only in case.
-// Known keys are matched case-insensitively.
+// AddResolver and UpdateResolver reject an address key that names no PortName, such as a
+// misspelled P2P key, and two keys that differ only in case. Known keys are matched
+// case-insensitively.
 func TestAddResolver_RejectsUnknownAddressKey(t *testing.T) {
 	t.Parallel()
 	service, err := endpoint.NewService(&mock.BindingStore{})

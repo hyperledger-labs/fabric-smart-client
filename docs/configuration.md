@@ -18,7 +18,8 @@ logging:
 fsc:
   # The FSC id provides a name for this node instance within the fsc network and is used when
   # naming docker resources for nwo testing as well as the unique id for tracing.
-  # It's also used as the unique name to resolve this node's identity and grpc server endpoint
+  # It's also used as the unique name to resolve this node's identity and grpc server endpoint.
+  # It is required: the node fails to start without it.
   id: someid
 
   # This is the identity of the node
