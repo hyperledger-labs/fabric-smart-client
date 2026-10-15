@@ -7,12 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package multiplexed
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	vdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
+	vmultiplexed "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 )
 
 func NewDriver(config vdbdriver.Config, ds ...fdbdriver.NamedDriver) Driver {
@@ -64,15 +63,5 @@ func (d Driver) NewVault(name vdbdriver.PersistenceName, params ...string) (driv
 }
 
 func (d Driver) getDriver(name vdbdriver.PersistenceName) (fdbdriver.Driver, error) {
-	t, err := d.config.GetDriverType(name)
-	if err != nil {
-		return nil, err
-	}
-	if len(t) == 0 {
-		t = mem.Persistence
-	}
-	if dr, ok := d.drivers[t]; ok {
-		return dr, nil
-	}
-	return nil, errors.Errorf("driver %s not found [%s] in [%v] drivers", t, name, d.drivers)
+	return vmultiplexed.GetDriver(d.config, d.drivers, name)
 }

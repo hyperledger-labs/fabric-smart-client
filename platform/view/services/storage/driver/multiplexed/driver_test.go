@@ -93,6 +93,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		mockDriver.NewKVSReturns(&mock.KeyValueStore{}, nil)
 
 		config := &mock.Config{}
+		config.IsSetReturns(true)
 		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
@@ -114,6 +115,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		mockDriver.NewKVSReturns(&mock.KeyValueStore{}, nil)
 
 		config := &mock.Config{}
+		config.IsSetReturns(true)
 		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
@@ -128,22 +130,16 @@ func TestDriver_NewKVS(t *testing.T) {
 		require.NotNil(t, kvs)
 	})
 
-	t.Run("defaults to memory when type is empty", func(t *testing.T) {
+	t.Run("defaults to memory without persistence name and default block", func(t *testing.T) {
 		t.Parallel()
 
 		mockDriver := &mock.Driver{}
 		mockDriver.NewKVSReturns(&mock.KeyValueStore{}, nil)
 
 		config := &mock.Config{}
-		config.UnmarshalKeyStub = func(_ string, v any) error {
-			if ptr, ok := v.(*driver.PersistenceType); ok {
-				*ptr = ""
-			}
-			return nil
-		}
 
 		d := NewDriver(config, driver2.NamedDriver{Name: mem.Persistence, Driver: mockDriver})
-		kvs, err := d.NewKVS("test-persistence")
+		kvs, err := d.NewKVS("")
 
 		require.NoError(t, err)
 		require.NotNil(t, kvs)
@@ -153,6 +149,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		t.Parallel()
 
 		config := &mock.Config{}
+		config.IsSetReturns(true)
 		config.UnmarshalKeyReturns(errors.New("config error"))
 
 		d := NewDriver(config)
@@ -167,6 +164,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		t.Parallel()
 
 		config := &mock.Config{}
+		config.IsSetReturns(true)
 		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
@@ -190,6 +188,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		mockDriver.NewKVSReturns(nil, errors.New("driver error"))
 
 		config := &mock.Config{}
+		config.IsSetReturns(true)
 		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
@@ -213,6 +212,7 @@ func TestDriver_NewBinding(t *testing.T) {
 	mockDriver.NewBindingReturns(&mock.BindingStore{}, nil)
 
 	config := &mock.Config{}
+	config.IsSetReturns(true)
 	config.UnmarshalKeyStub = func(_ string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
 			*ptr = "sqlite"
@@ -251,6 +251,7 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 	t.Parallel()
 
 	config := &mock.Config{}
+	config.IsSetReturns(true)
 	config.UnmarshalKeyStub = func(_ string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
 			*ptr = "postgres"
@@ -289,6 +290,7 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 	t.Parallel()
 
 	config := &mock.Config{}
+	config.IsSetReturns(true)
 	config.UnmarshalKeyStub = func(_ string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
 			*ptr = "memory"
@@ -328,6 +330,8 @@ func TestDriver_getDriver(t *testing.T) {
 
 	tests := []struct {
 		name        string
+		persistence driver2.PersistenceName
+		undefined   bool
 		driverType  driver.PersistenceType
 		configErr   error
 		registered  bool
@@ -335,27 +339,43 @@ func TestDriver_getDriver(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:       "returns configured driver",
-			driverType: "postgres",
+			name:        "returns configured driver",
+			persistence: "test-persistence",
+			driverType:  "postgres",
+			registered:  true,
+		},
+		{
+			name:       "defaults to memory without persistence name and default block",
+			undefined:  true,
 			registered: true,
 		},
 		{
-			name:       "defaults to memory when empty",
-			driverType: "",
-			registered: true,
+			name:        "error for undefined persistence",
+			persistence: "test-persistence",
+			undefined:   true,
+			expectErr:   true,
+			errContains: "persistence [test-persistence] is not defined under fsc.persistences",
+		},
+		{
+			name:        "error for persistence without type",
+			persistence: "test-persistence",
+			expectErr:   true,
+			errContains: "fsc.persistences.test-persistence.type is not set",
 		},
 		{
 			name:        "error from config",
+			persistence: "test-persistence",
 			configErr:   errors.New("config error"),
 			expectErr:   true,
 			errContains: "config error",
 		},
 		{
 			name:        "driver not registered",
+			persistence: "test-persistence",
 			driverType:  "unregistered",
 			registered:  false,
 			expectErr:   true,
-			errContains: "driver unregistered not found",
+			errContains: "driver unregistered not found [test-persistence], registered drivers []",
 		},
 	}
 
@@ -364,6 +384,7 @@ func TestDriver_getDriver(t *testing.T) {
 			t.Parallel()
 
 			config := &mock.Config{}
+			config.IsSetReturns(!tt.undefined)
 			if tt.configErr != nil {
 				config.UnmarshalKeyReturns(tt.configErr)
 			} else {
@@ -386,7 +407,7 @@ func TestDriver_getDriver(t *testing.T) {
 			}
 
 			d := NewDriver(config, namedDrivers...)
-			dr, err := d.getDriver("test-persistence")
+			dr, err := d.getDriver(tt.persistence)
 
 			if tt.expectErr {
 				require.Error(t, err)
