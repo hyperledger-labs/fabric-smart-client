@@ -188,6 +188,23 @@ fsc:
 	require.NotContains(t, err.Error(), "could not build arguments")
 }
 
+// The check runs before Start constructs the servers, so the node fails with nothing
+// listening and with the check's own error.
+func TestSDK_Install_MissingWebAddress(t *testing.T) {
+	t.Parallel()
+
+	c := NewContainer()
+	registry := view.NewServiceProvider()
+	cfg := providerFrom(t, "fsc:\n  web:\n    enabled: true\n")
+	require.NoError(t, registry.RegisterService(cfg))
+
+	s := NewSDKFrom(dig2.NewBaseSDK(c, cfg), registry)
+
+	err := s.Install()
+	require.ErrorContains(t, err, "fsc.web.address is not set")
+	require.NotContains(t, err.Error(), "could not build arguments")
+}
+
 // The check runs before registration builds the operations options, so the error is the
 // check's own rather than wrapped in the dependency-injection chain.
 func TestSDK_Install_UnverifiableOperationsClientAuth(t *testing.T) {
@@ -195,7 +212,7 @@ func TestSDK_Install_UnverifiableOperationsClientAuth(t *testing.T) {
 
 	c := NewContainer()
 	registry := view.NewServiceProvider()
-	cfg := providerFrom(t, "fsc:\n  web:\n    enabled: true\n  metrics:\n    clientAuthRequired: true\n")
+	cfg := providerFrom(t, "fsc:\n  web:\n    enabled: true\n    address: 127.0.0.1:0\n  metrics:\n    clientAuthRequired: true\n")
 	require.NoError(t, registry.RegisterService(cfg))
 
 	s := NewSDKFrom(dig2.NewBaseSDK(c, cfg), registry)

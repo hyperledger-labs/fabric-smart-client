@@ -73,6 +73,17 @@ func TestValidateConfig_InvalidTracingConfig(t *testing.T) {
 	require.Contains(t, err.Error(), "requires fsc.tracing.otlp.address")
 }
 
+func TestValidateConfig_MissingWebAddress(t *testing.T) {
+	t.Parallel()
+
+	confPath := t.TempDir()
+	raw := strings.Replace(validConfigYAML(t), "    address: 127.0.0.1:8443\n", "", 1)
+	require.NoError(t, os.WriteFile(filepath.Join(confPath, "core.yaml"), []byte(raw), 0o600))
+
+	_, err := ValidateConfig(confPath)
+	require.ErrorContains(t, err, "fsc.web.address is not set")
+}
+
 func validConfigYAML(t *testing.T) string {
 	t.Helper()
 

@@ -116,6 +116,7 @@ fsc:
     enabled: false
   web:
     enabled: true
+    address: 127.0.0.1:0
     tls:
       clientRootCAs:
         files:
@@ -160,6 +161,22 @@ fsc:
 `)
 		require.NoError(t, CheckTLSConfig(p))
 	})
+
+	for _, tc := range []struct{ name, address, wantErr string }{
+		{name: "web enabled without address fails", wantErr: "fsc.web.address is not set"},
+		{name: "web enabled with port only fails", address: "\n    address: 20002", wantErr: "invalid fsc.web.address [20002]"},
+		{name: "web enabled with port and no host succeeds", address: "\n    address: :20002"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := providerFrom(t, "fsc:\n  web:\n    enabled: true"+tc.address+"\n  metrics:\n    clientAuthRequired: false\n")
+			if tc.wantErr == "" {
+				require.NoError(t, CheckTLSConfig(p))
+				return
+			}
+			require.ErrorContains(t, CheckTLSConfig(p), tc.wantErr)
+		})
+	}
 
 	for _, tc := range []struct{ name, metrics, wantErr string }{
 		{name: "explicit operations client auth the listener cannot verify fails", metrics: "    clientAuthRequired: true\n", wantErr: "fsc.web.tls listener never requests a client certificate"},
@@ -214,6 +231,17 @@ fsc:
 		ws, err := NewWebServer(p, vm, ip, tp.Default)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
+	})
+
+	t.Run("enabled without address fails", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, `
+fsc:
+  web:
+    enabled: true
+`)
+		_, err := NewWebServer(p, vm, ip, tp.Default)
+		require.ErrorContains(t, err, "fsc.web.address is not set")
 	})
 
 	t.Run("invalid tls fails", func(t *testing.T) {

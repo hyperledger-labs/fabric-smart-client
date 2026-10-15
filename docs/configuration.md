@@ -269,6 +269,7 @@ fsc:
   # need to reach them.
   web:
     enabled: true
+    # Listen address (host:port). Required when enabled; the node refuses to start without it.
     address: 0.0.0.0:20002
     # Execution timeout for direct/REST view invocations (PUT /Views/{View} and
     # GET /Views/Stream/{View}). Default: 2m
