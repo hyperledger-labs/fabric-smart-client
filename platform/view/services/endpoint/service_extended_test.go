@@ -301,7 +301,7 @@ func TestUpdateResolver(t *testing.T) {
 		require.Len(t, resolvers, 2)
 		assert.Equal(t, "alice", resolvers[0].Name)
 		assert.Equal(t, []string{"alice-alias", "alice2"}, resolvers[0].Aliases)
-		assert.Equal(t, []string{"localhost:2020"}, resolvers[0].AddressList)
+		assert.Equal(t, map[endpoint.PortName]string{endpoint.P2PPort: "localhost:2020"}, resolvers[0].Addresses)
 		assert.Equal(t, "bob", resolvers[1].Name)
 	})
 

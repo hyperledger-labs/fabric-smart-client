@@ -285,7 +285,7 @@ func TestUpdateResolver_EmptyNameAddsResolver(t *testing.T) {
 
 	resolvers := service.Resolvers()
 	require.Len(t, resolvers, 2)
-	require.Equal(t, []string{"localhost:1010"}, resolvers[0].AddressList)
+	require.Equal(t, map[endpoint.PortName]string{endpoint.P2PPort: "localhost:1010"}, resolvers[0].Addresses)
 	id, err := service.GetIdentity("localhost:2020", nil)
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("second_id"), id)

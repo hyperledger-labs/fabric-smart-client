@@ -59,13 +59,12 @@ type PublicKeyIDSynthesizer interface {
 // ResolverInfo carries information about a resolver including its identity,
 // network addresses, and aliases.
 type ResolverInfo struct {
-	ID          []byte
-	Name        string
-	Domain      string
-	Addresses   map[PortName]string
-	AddressList []string
-	Aliases     []string
-	PKI         []byte
+	ID        []byte
+	Name      string
+	Domain    string
+	Addresses map[PortName]string
+	Aliases   []string
+	PKI       []byte
 }
 
 // Resolver wraps ResolverInfo with additional management fields including
@@ -251,7 +250,6 @@ func (r *Service) UpdateResolver(
 		updated := &Resolver{ResolverInfo: old.ResolverInfo}
 		old.PKILock.RUnlock()
 		updated.Addresses = ports
-		updated.AddressList = slices.Collect(maps.Values(addresses))
 		updated.Aliases = slices.Clone(old.Aliases)
 		for _, alias := range aliases {
 			if len(alias) != 0 && !slices.Contains(updated.Aliases, alias) {
@@ -316,12 +314,11 @@ func (r *Service) AddResolver(
 	r.resolversMutex.RUnlock()
 
 	newResolver := &Resolver{
-		Name:        name,
-		Domain:      domain,
-		Addresses:   ports,
-		AddressList: slices.Collect(maps.Values(addresses)),
-		Aliases:     aliases,
-		ID:          id,
+		Name:      name,
+		Domain:    domain,
+		Addresses: ports,
+		Aliases:   aliases,
+		ID:        id,
 	}
 	pkiID := r.PkiResolve(newResolver)
 
