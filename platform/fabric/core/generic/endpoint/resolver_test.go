@@ -140,6 +140,7 @@ func TestResolverServiceLoadResolvers_AddResolverError(t *testing.T) {
 
 	err = service.LoadResolvers()
 	require.ErrorIs(t, err, expectedErr)
+	require.ErrorContains(t, err, "endpoint.resolvers[0] [alice]: add resolver failed")
 	require.Len(t, backend.AddCalls, 1)
 	require.Empty(t, backend.BindCalls)
 }

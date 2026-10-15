@@ -122,7 +122,7 @@ func (r *ResolverService) LoadResolvers() error {
 		// Add Resolver
 		rootID, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id)
 		if err != nil {
-			return errors.WithMessagef(err, "endpoint.resolvers[%d]", i)
+			return errors.WithMessagef(err, "endpoint.resolvers[%d] [%s]", i, resolver.Name)
 		}
 		logger.Debugf("added resolver [root-id:%s]", rootID)
 		resolver.RootID = rootID

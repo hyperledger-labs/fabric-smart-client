@@ -292,7 +292,8 @@ func TestUpdateResolver_EmptyNameAddsResolver(t *testing.T) {
 }
 
 // An address key that names no PortName, such as a misspelled P2P key, is rejected by
-// AddResolver and UpdateResolver instead of storing the address under the empty PortName.
+// AddResolver and UpdateResolver instead of storing the address under the empty PortName,
+// and so are two keys that differ only in case.
 // Known keys are matched case-insensitively.
 func TestAddResolver_RejectsUnknownAddressKey(t *testing.T) {
 	t.Parallel()
@@ -301,6 +302,10 @@ func TestAddResolver_RejectsUnknownAddressKey(t *testing.T) {
 
 	_, err = service.AddResolver("bob", "org1", map[string]string{"P2PAdress": "localhost:1010"}, nil, []byte("bob_id"))
 	require.ErrorContains(t, err, "failed adding resolver [bob]: unknown address key [P2PAdress]")
+	require.Empty(t, service.Resolvers())
+
+	_, err = service.AddResolver("bob", "org1", map[string]string{"P2P": "localhost:1010", "p2p": "localhost:2020"}, nil, []byte("bob_id"))
+	require.ErrorContains(t, err, "failed adding resolver [bob]: duplicate address key")
 	require.Empty(t, service.Resolvers())
 
 	_, err = service.AddResolver("bob", "org1", map[string]string{"p2p": "localhost:1010"}, nil, []byte("bob_id"))

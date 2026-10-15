@@ -275,15 +275,17 @@ func (r *Service) UpdateResolver(
 
 // AddResolver registers a resolver and returns nil. If name already matches a resolver in
 // the index (by name, name.domain, alias, address, ID or PKI ID), AddResolver binds id to
-// that resolver's identity and returns it instead, ignoring the other arguments except
-// for address validation. Node
-// configurations rely on this: replicas of a node share its name, and a Fabric resolver
-// binds a node's MSP identity to its FSC identity by reusing the node's name. An empty
-// name matches no resolver, so each resolver without a name is registered separately and
-// is reachable only by its aliases, addresses, ID and PKI ID.
+// that resolver's identity and returns it instead; the other arguments are only validated.
+// Node configurations rely on this: replicas of a node share its name, and a Fabric
+// resolver binds a node's MSP identity to its FSC identity by reusing the node's name.
 //
-// Each address key must name a PortName (Listen, View or P2P), compared case-insensitively;
-// AddResolver returns an error, and registers nothing, for any other key.
+// An empty name matches no resolver, so each resolver without a name is registered
+// separately and is reachable only by its aliases, addresses, ID and PKI ID. The config
+// loaders reject entries without a name, so only programmatic callers register such
+// resolvers.
+//
+// Each address key must name a PortName (Listen, View or P2P), compared case-insensitively,
+// at most once; AddResolver returns an error, and registers nothing, for any other key.
 func (r *Service) AddResolver(
 	name string,
 	domain string,
@@ -487,14 +489,6 @@ func (r *Service) indexResolver(newResolver *Resolver, pkiID []byte) {
 		}
 	}
 
-	// by address list, which also keeps addresses whose keys differ only in case and
-	// so collapse into one PortName in Addresses
-	for _, address := range newResolver.AddressList {
-		if len(address) != 0 {
-			r.resolversMap[address] = newResolver
-		}
-	}
-
 	// by id
 	if len(newResolver.ID) != 0 {
 		r.resolversMap[string(newResolver.ID)] = newResolver
@@ -574,14 +568,17 @@ var portNameMap = map[string]PortName{
 }
 
 // convert maps each key of o to its PortName, compared case-insensitively. It returns an
-// error for a key that names no PortName, so that a misspelled key fails instead of
-// dropping the address.
+// error for a key that names no PortName or the same PortName as another key, so that a
+// misspelled or repeated key fails instead of dropping an address.
 func convert(o map[string]string) (map[PortName]string, error) {
 	r := map[PortName]string{}
 	for k, v := range o {
 		port, ok := portNameMap[strings.ToLower(k)]
 		if !ok {
 			return nil, errors.Errorf("unknown address key [%s], expected one of [%s, %s, %s]", k, ListenPort, ViewPort, P2PPort)
+		}
+		if _, dup := r[port]; dup {
+			return nil, errors.Errorf("duplicate address key [%s]", k)
 		}
 		r[port] = v
 	}

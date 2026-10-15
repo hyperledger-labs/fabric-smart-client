@@ -381,7 +381,7 @@ fsc:
     
   # ------------------- FSC Node endpoint resolvers -------------------------
   # The endpoint section tells how to reach other FSC node in the network.
-  # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
+  # Each entry needs a name and an identity; domain, addresses and aliases are optional.
   # The node fails to start if an entry has no name or no identity.path, or if an address key is not
   # one of Listen, View or P2P (case-insensitive).
   # An entry that reuses the name of an earlier entry, such as a replica of the same node, does not get
@@ -753,16 +753,15 @@ fabric:
           mspID: peerOrg0MSP
           # path to the public MSP (ie no crypto material) or signing cert (but I would highly recommend not specifying just the signing cert)
           path: /path/to/fscnodeA/msp
-          # TBD
-          addresses:
-          aliases:
-          - anotherName
+        addresses:
+        aliases:
+        - anotherName
       - name: fscnodeB
         domain:
         identity:
           mspID: peerOrg2MSP
           path: /path/to/fscnodeB/msp
-          addresses:
+        addresses:
 ```
 
 ## Migrating TLS configuration

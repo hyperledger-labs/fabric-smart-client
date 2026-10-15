@@ -77,8 +77,9 @@ func NewResolversLoader(config ConfigService, backend Backend, is IdentityServic
 
 // LoadResolvers registers the default resolver for this node, built from fsc.id,
 // fsc.grpc.address and fsc.p2p.listenAddress, followed by each entry of
-// fsc.endpoint.resolvers. An entry must have a name and an identity.path; LoadResolvers
-// returns an error naming the entry otherwise, or if the backend rejects it.
+// fsc.endpoint.resolvers. fsc.id must be set, and an entry must have a name and an
+// identity.path; LoadResolvers returns an error naming the key or entry otherwise, or if
+// the backend rejects a resolver.
 func (r *ResolversLoader) LoadResolvers() error {
 	// add default
 	p2pAddress := r.config.GetString("fsc.p2p.listenAddress")
@@ -86,8 +87,12 @@ func (r *ResolversLoader) LoadResolvers() error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert address [%s]", p2pAddress)
 	}
+	nodeID := r.config.GetString("fsc.id")
+	if len(nodeID) == 0 {
+		return errors.New("fsc.id is required")
+	}
 	_, err = r.backend.AddResolver(
-		r.config.GetString("fsc.id"),
+		nodeID,
 		"",
 		map[string]string{
 			string(endpoint.ViewPort): r.config.GetString("fsc.grpc.address"),
