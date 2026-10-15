@@ -9,6 +9,7 @@ package tracing
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -53,6 +54,8 @@ type Config struct {
 
 // SamplingConfig controls what fraction of traces is recorded.
 type SamplingConfig struct {
+	// Ratio is the fraction of root spans to sample, in [0, 1]. Spans with a remote parent
+	// follow the parent's sampling decision, so 0 records only traces sampled upstream.
 	Ratio float64 `mapstructure:"ratio"`
 }
 
@@ -77,8 +80,10 @@ var logger = logging.MustGetLogger()
 
 // NewProviderFromConfigService returns a tracing provider configured from fsc.tracing,
 // resolving the OTLP collector's TLS so a bad block fails here rather than at first export.
+// An unset fsc.tracing.sampling.ratio defaults to 1, matching the OpenTelemetry SDK's
+// default of sampling every trace.
 func NewProviderFromConfigService(confService driver.ConfigService) (Provider, error) {
-	c := Config{}
+	c := Config{Sampling: SamplingConfig{Ratio: 1}}
 	if err := confService.UnmarshalKey("fsc.tracing", &c); err != nil {
 		return nil, err
 	}
@@ -96,15 +101,49 @@ func NewProviderFromConfigService(confService driver.ConfigService) (Provider, e
 const otlpTLSKey = "fsc.tracing.otlp.tls"
 
 // NewProviderFromConfig returns a tracing provider from an already-populated [Config],
-// including any resolved TLS it carries.
+// including any resolved TLS it carries. Nothing is defaulted: a zero Sampling.Ratio
+// samples no root spans.
 func NewProviderFromConfig(c Config) (Provider, error) {
 	return buildProviderFromConfig(c, ServiceName)
 }
 
+// Validate reports whether c names a known provider, matched case-insensitively, with the
+// settings that provider needs. A disabled configuration (empty provider or none) is
+// always valid.
+func (c Config) Validate() error {
+	switch c.provider() {
+	case "", None:
+		return nil
+	case Console:
+	case File:
+		if c.File.Path == "" {
+			return errors.New("file provider requires fsc.tracing.file.path")
+		}
+	case Otlp:
+		if c.Otlp.Address == "" {
+			return errors.New("otlp provider requires fsc.tracing.otlp.address")
+		}
+	default:
+		return errors.Errorf("unknown fsc.tracing.provider [%s], expected one of [%s, %s, %s, %s]", c.Provider, None, Console, File, Otlp)
+	}
+	if r := c.Sampling.Ratio; !(r >= 0 && r <= 1) { // also rejects NaN
+		return errors.Errorf("fsc.tracing.sampling.ratio [%v] must be in [0, 1]", r)
+	}
+	return nil
+}
+
+func (c Config) provider() TracerType {
+	return TracerType(strings.ToLower(string(c.Provider)))
+}
+
 func buildProviderFromConfig(c Config, serviceName string) (Provider, error) {
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+
 	var exporter sdktrace.SpanExporter
 	var err error
-	switch c.Provider {
+	switch c.provider() {
 	case Otlp:
 		logger.Debugf("OTLP tracer provider selected")
 		exporter, err = grpcExporter(&c.Otlp)
@@ -114,12 +153,10 @@ func buildProviderFromConfig(c Config, serviceName string) (Provider, error) {
 	case Console:
 		logger.Debugf("Console tracing provider selected")
 		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
-	case None:
-	default:
-		logger.Debugf("No provider or no-op provider type passed. Tracing disabled.")
+	default: // "" or none: Validate rejects every other value
+		logger.Debugf("Tracing disabled")
 		return noop.NewTracerProvider(), nil
 	}
-
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to initialize span exporter")
 	}
@@ -128,9 +165,6 @@ func buildProviderFromConfig(c Config, serviceName string) (Provider, error) {
 }
 
 func fileExporter(c *FileConfig) (sdktrace.SpanExporter, error) {
-	if c == nil || len(c.Path) == 0 {
-		return nil, errors.New("filepath must not be empty")
-	}
 	f, err := os.Create(c.Path)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open output file")
@@ -139,10 +173,6 @@ func fileExporter(c *FileConfig) (sdktrace.SpanExporter, error) {
 }
 
 func grpcExporter(c *OtlpConfig) (sdktrace.SpanExporter, error) {
-	if c == nil || len(c.Address) == 0 {
-		return nil, errors.New("empty url")
-	}
-
 	opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(c.Address)}
 	tlsCfg, err := c.TLS.TLSConfig()
 	if err != nil {

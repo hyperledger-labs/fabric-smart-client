@@ -87,30 +87,11 @@ func ValidateConfig(confPath string) (Report, error) {
 		if err := configService.UnmarshalKey("fsc.tracing", &tracingConfig); err != nil {
 			return report, errors.Wrap(err, "invalid fsc.tracing configuration")
 		}
-		if err := validateTracingConfig(tracingConfig); err != nil {
+		if err := tracingConfig.Validate(); err != nil {
 			return report, errors.Wrap(err, "invalid fsc.tracing configuration")
 		}
 		report.Checks = append(report.Checks, "validated fsc.tracing configuration")
 	}
 
 	return report, nil
-}
-
-func validateTracingConfig(c tracing.Config) error {
-	switch c.Provider {
-	case "", tracing.None, tracing.Console:
-		return nil
-	case tracing.File:
-		if c.File.Path == "" {
-			return errors.New("file provider requires fsc.tracing.file.path")
-		}
-		return nil
-	case tracing.Otlp:
-		if c.Otlp.Address == "" {
-			return errors.New("otlp provider requires fsc.tracing.otlp.address")
-		}
-		return nil
-	default:
-		return errors.Errorf("unsupported provider [%s]", c.Provider)
-	}
 }
