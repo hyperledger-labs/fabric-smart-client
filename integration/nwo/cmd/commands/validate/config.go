@@ -60,13 +60,10 @@ func ValidateConfig(confPath string) (Report, error) {
 	if configService.GetBool("fsc.grpc.enabled") && configService.GetString("fsc.grpc.address") == "" {
 		return report, errors.New("invalid fsc.grpc configuration: missing address")
 	}
-	if configService.GetBool("fsc.web.enabled") && configService.GetString("fsc.web.address") == "" {
-		return report, errors.New("invalid fsc.web configuration: missing address")
-	}
 
-	// One call resolves and validates every fsc.* TLS surface and rejects removed keys,
-	// through exactly the code the node runs at startup. This used to hand-roll the web
-	// half, which is how the two drifted apart.
+	// One call resolves and validates every fsc.* TLS surface, requires fsc.web.address and
+	// rejects removed keys, through exactly the code the node runs at startup, so validate
+	// cannot accept a configuration the node rejects.
 	if err := sdk.CheckTLSConfig(configService); err != nil {
 		return report, errors.Wrap(err, "invalid fsc listener configuration")
 	}
