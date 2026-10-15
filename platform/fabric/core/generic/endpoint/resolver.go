@@ -69,7 +69,11 @@ func NewResolverService(config Config, service Service) (*ResolverService, error
 	return er, nil
 }
 
-// LoadResolvers loads the resolvers specified in the configuration file, if any
+// LoadResolvers registers each resolver of the network's endpoint.resolvers. An entry
+// must have a name and an identity.path; LoadResolvers returns an error naming the entry
+// otherwise, or if the identity cannot be loaded or the service rejects the entry. An entry
+// that reuses the name of a registered resolver, typically the FSC resolver of the same
+// node, has its identity bound to that resolver's identity, which becomes its RootID.
 func (r *ResolverService) LoadResolvers() error {
 	// Load Resolver
 	logger.Debugf("loading resolvers")
@@ -81,28 +85,34 @@ func (r *ResolverService) LoadResolvers() error {
 	logger.Debugf("loaded resolvers successfully, number of entries found %d", len(cfgResolvers))
 
 	var resolvers []*Resolver
-	for _, cfgResolver := range cfgResolvers {
+	for i, cfgResolver := range cfgResolvers {
 		resolver := &Resolver{Resolver: cfgResolver}
+		if len(resolver.Name) == 0 {
+			return errors.Errorf("endpoint.resolvers[%d]: name is required", i)
+		}
+		if len(resolver.Identity.Path) == 0 {
+			return errors.Errorf("endpoint.resolvers[%d] [%s]: identity.path is required", i, resolver.Name)
+		}
 
 		path := r.config.TranslatePath(resolver.Identity.Path)
 		var raw []byte
 		// Load identity, is resolver.Identity.Path a directory or a file?
 		fileInfo, err := os.Stat(path)
 		if err != nil {
-			return errors.Wrapf(err, "failed to stat [%s]", path)
+			return errors.Wrapf(err, "endpoint.resolvers[%d] [%s]: failed to stat identity.path [%s]", i, resolver.Name, path)
 		}
 		if fileInfo.IsDir() {
 			// load the msp provider
 			raw, err = x509.SerializeFromMSP(resolver.Identity.MSPID, path)
 			if err != nil {
-				return errors.Wrapf(err, "failed to load msp at [%s:%s]", resolver.Identity.MSPID, path)
+				return errors.Wrapf(err, "endpoint.resolvers[%d] [%s]: failed to load msp at [%s:%s]", i, resolver.Name, resolver.Identity.MSPID, path)
 			}
 		} else {
 			// file is not a directory
 			logger.Warnf("resolver [%s:%s] points directly to a certificate, cannot sanitize, use an msp folder instead", resolver.Identity.MSPID, path)
 			raw, err = x509.Serialize(resolver.Identity.MSPID, path)
 			if err != nil {
-				return errors.Wrapf(err, "failed to load x509 certificate [%s:%s]", resolver.Identity.MSPID, path)
+				return errors.Wrapf(err, "endpoint.resolvers[%d] [%s]: failed to load x509 certificate [%s:%s]", i, resolver.Name, resolver.Identity.MSPID, path)
 			}
 		}
 
@@ -112,7 +122,7 @@ func (r *ResolverService) LoadResolvers() error {
 		// Add Resolver
 		rootID, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id)
 		if err != nil {
-			return errors.Wrapf(err, "failed adding resolver")
+			return errors.WithMessagef(err, "endpoint.resolvers[%d]", i)
 		}
 		logger.Debugf("added resolver [root-id:%s]", rootID)
 		resolver.RootID = rootID

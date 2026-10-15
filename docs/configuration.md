@@ -382,6 +382,10 @@ fsc:
   # ------------------- FSC Node endpoint resolvers -------------------------
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
+  # The node fails to start if an entry has no name or no identity.path, or if an address key is not
+  # one of Listen, View or P2P (case-insensitive).
+  # An entry that reuses the name of an earlier entry, such as a replica of the same node, does not get
+  # its own addresses: its identity is bound to the identity of the earlier entry.
   endpoint:
     resolvers:
     # name is a name that describes the FSC node (must also match name used in the view) it isn't a P2P bootstrap node
@@ -407,7 +411,7 @@ fsc:
         # P2P endpoint address for this node
         P2P: thebootstrapFQDN:20001
       aliases:
-    # This demonstrates other keys available for addresses:, TBD
+    # This demonstrates the other keys available for addresses:
     - name: otheraddressestypes
       domain:
       identity:
@@ -417,8 +421,6 @@ fsc:
         Listen:
         # Port at which the View Service Server respond
         View:
-        # Port at which the Web Server respond
-        Web:
 
 
 
@@ -739,9 +741,11 @@ fabric:
 
     # ------------------- Fabric Node resolvers -------------------------
     # The endpoint section tells how to reach other Fabric nodes in the network.
+    # Entries follow the same rules as fsc.endpoint.resolvers. An entry that reuses the name of an FSC
+    # resolver binds its MSP identity to the identity of that FSC node.
     endpoint:
       resolvers:
-      # a unique name which has to match what the view references ?
+      # name of the FSC node this identity belongs to
       - name: fscnodeA
         domain:
         identity:

@@ -75,6 +75,10 @@ func NewResolversLoader(config ConfigService, backend Backend, is IdentityServic
 	return er, nil
 }
 
+// LoadResolvers registers the default resolver for this node, built from fsc.id,
+// fsc.grpc.address and fsc.p2p.listenAddress, followed by each entry of
+// fsc.endpoint.resolvers. An entry must have a name and an identity.path; LoadResolvers
+// returns an error naming the entry otherwise, or if the backend rejects it.
 func (r *ResolversLoader) LoadResolvers() error {
 	// add default
 	p2pAddress := r.config.GetString("fsc.p2p.listenAddress")
@@ -108,11 +112,16 @@ func (r *ResolversLoader) LoadResolvers() error {
 		}
 		logger.Debugf("loaded resolvers successfully, number of entries found %d", len(resolvers))
 
-		for _, resolver := range resolvers {
-			// Load identity
+		for i, resolver := range resolvers {
+			if len(resolver.Name) == 0 {
+				return errors.Errorf("fsc.endpoint.resolvers[%d]: name is required", i)
+			}
+			if len(resolver.Identity.Path) == 0 {
+				return errors.Errorf("fsc.endpoint.resolvers[%d] [%s]: identity.path is required", i, resolver.Name)
+			}
 			raw, err := id.LoadIdentity(r.config.TranslatePath(resolver.Identity.Path))
 			if err != nil {
-				return err
+				return errors.WithMessagef(err, "fsc.endpoint.resolvers[%d] [%s]: failed loading identity.path [%s]", i, resolver.Name, resolver.Identity.Path)
 			}
 			resolver.ID = raw
 			logger.Debugf("resolver [%s,%s][%s] %s",
@@ -122,7 +131,7 @@ func (r *ResolversLoader) LoadResolvers() error {
 
 			// Add entry
 			if _, err := r.backend.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.ID); err != nil {
-				return errors.Wrapf(err, "failed adding resolver")
+				return errors.WithMessagef(err, "fsc.endpoint.resolvers[%d]", i)
 			}
 
 			// Bind Aliases

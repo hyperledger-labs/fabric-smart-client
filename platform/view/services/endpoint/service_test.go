@@ -290,3 +290,28 @@ func TestUpdateResolver_EmptyNameAddsResolver(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("second_id"), id)
 }
+
+// An address key that names no PortName, such as a misspelled P2P key, is rejected by
+// AddResolver and UpdateResolver instead of storing the address under the empty PortName.
+// Known keys are matched case-insensitively.
+func TestAddResolver_RejectsUnknownAddressKey(t *testing.T) {
+	t.Parallel()
+	service, err := endpoint.NewService(&mock.BindingStore{})
+	require.NoError(t, err)
+
+	_, err = service.AddResolver("bob", "org1", map[string]string{"P2PAdress": "localhost:1010"}, nil, []byte("bob_id"))
+	require.ErrorContains(t, err, "failed adding resolver [bob]: unknown address key [P2PAdress]")
+	require.Empty(t, service.Resolvers())
+
+	_, err = service.AddResolver("bob", "org1", map[string]string{"p2p": "localhost:1010"}, nil, []byte("bob_id"))
+	require.NoError(t, err)
+	_, ports, _, err := service.Resolve(t.Context(), []byte("bob_id"))
+	require.NoError(t, err)
+	require.Equal(t, map[endpoint.PortName]string{endpoint.P2PPort: "localhost:1010"}, ports)
+
+	_, err = service.UpdateResolver("bob", "", map[string]string{"P2PAdress": "localhost:2020"}, nil, nil)
+	require.ErrorContains(t, err, "failed updating resolver [bob]: unknown address key [P2PAdress]")
+	_, ports, _, err = service.Resolve(t.Context(), []byte("bob_id"))
+	require.NoError(t, err)
+	require.Equal(t, map[endpoint.PortName]string{endpoint.P2PPort: "localhost:1010"}, ports)
+}
