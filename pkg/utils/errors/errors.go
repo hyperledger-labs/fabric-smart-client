@@ -4,6 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package errors provides helpers for creating, annotating, wrapping, and joining
+// errors, and for inspecting their causes and types. It also supports attaching
+// stack traces to errors.
 package errors
 
 import "github.com/cockroachdb/errors"

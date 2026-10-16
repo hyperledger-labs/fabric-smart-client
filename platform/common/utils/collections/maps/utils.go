@@ -4,6 +4,8 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package maps provides generic helpers for copying and inverting maps,
+// extracting keys and values, and selecting entries by key or searching by value.
 package maps
 
 import (

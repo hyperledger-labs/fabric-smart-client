@@ -4,6 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package assert provides assertions that panic on failure, including checks for
+// errors, values, and view identities. Optional func() arguments run before the
+// panic to release resources.
 package assert
 
 import (

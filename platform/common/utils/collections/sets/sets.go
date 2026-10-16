@@ -4,6 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package sets provides mutable sets of unique comparable values, with membership
+// checks, set difference, and conversion to slices. Sets are not safe for
+// concurrent use.
 package sets
 
 import (
