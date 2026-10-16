@@ -22,10 +22,6 @@ type ChannelProvider interface {
 	Channel(name string) (driver.Channel, error)
 }
 
-type RWSExtractor interface {
-	Extract(tx []byte) (driver.ProcessTransaction, driver.RWSet, error)
-}
-
 type request struct {
 	id string
 }

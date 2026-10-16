@@ -49,12 +49,6 @@ type ChannelResponse interface {
 	Endorsers(invocationChain InvocationChain, f Filter) (Endorsers, error)
 }
 
-// LocalResponse aggregates responses for a channel-less scope
-type LocalResponse interface {
-	// Peers returns a response for a local peer membership query, or error if something went wrong
-	Peers() ([]*Peer, error)
-}
-
 // Endorsers defines a set of peers that are sufficient
 // for satisfying some chaincode's endorsement policy
 type Endorsers []*Peer

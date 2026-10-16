@@ -57,10 +57,6 @@ type KeyIDMapping struct {
 	ID  string `yaml:"ID,omitempty"`
 }
 
-type MSPOpts struct {
-	BCCSP *BCCSP `yaml:"BCCSP,omitempty"`
-}
-
 type MSP struct {
 	ID        string         `yaml:"id"`
 	MSPType   string         `yaml:"mspType"`

@@ -199,12 +199,10 @@ func (f *Network) Init() error {
 	return nil
 }
 
+// SetTransactionManager replaces the transaction manager installed by Init.
+// Call it after Init; a later Init call overwrites it.
 func (f *Network) SetTransactionManager(tm driver.TransactionManager) {
 	f.transactionManager = tm
-}
-
-func (f *Network) SetProcessorManager(pm driver.ProcessorManager) {
-	f.processorManager = pm
 }
 
 type OrdererClientFactory struct {
