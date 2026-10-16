@@ -166,7 +166,7 @@ An initiator view typically:
 6. validates the result
 7. returns an application outcome
 
-From [`integration/fabric/stoprestart/initiator.go`](integration/fabric/stoprestart/initiator.go), the pattern is:
+From [`integration/fabric/stoprestart/initiator.go`](/integration/fabric/stoprestart/initiator.go), the pattern is:
 
 ```go
 type Initiator struct {
@@ -321,7 +321,7 @@ Less ideal examples:
 
 ### Use services for reusable logic
 
-If multiple views need the same logic, move it into a service and retrieve it with [`GetService()`](platform/view/services/view-service.md:72).
+If multiple views need the same logic, move it into a service and retrieve it with [`GetService()`](services/view-service.md#view-context).
 
 ### Prefer explicit protocol steps
 

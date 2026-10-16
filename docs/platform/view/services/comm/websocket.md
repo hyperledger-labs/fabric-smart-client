@@ -91,7 +91,7 @@ A remote node can only connect if its TLS certificate is trusted by the local se
 - **Client Side**: The local node will only connect to servers whose certificates are signed by a CA in `fsc.p2p.opts.websocket.tls.rootCAs`, or known to the `EndpointService`.
 - **Identity Enforcement**: The server extracts the `PeerID` from the client certificate and compares it against the application-layer `PeerID` in the `StreamMeta` packet (Identity Binding). If they don't match, the connection is terminated.
 
-The WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../configuration.md#fsc-node-configuration).
+The WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../../configuration.md).
 
 ```yaml
 fsc:

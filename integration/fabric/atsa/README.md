@@ -4,7 +4,7 @@ There is nothing better than an example to start learning something new. One of 
 the development of Fabric-based distributed applications by offering a programming model that is closer to the
 business logic rather than the blockchain.
 
-The [Secured asset transfer in Fabric](`https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html`)
+The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html)
 is a Fabric sample that demonstrates how an asset can be represented and traded between organizations
 in a Hyperledger Fabric blockchain channel.
 
@@ -26,7 +26,7 @@ There, we will learn:
 # Secured Asset Transfer in Fabric with FSC
 
 In [/integration/fabric/atsachaincode](../atsachaincode/README.md) we learned about: 
-1. The [Secured asset transfer in Fabric](`https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html`), 
+1. The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html),
 a Fabric sample that demonstrates how an asset can be represented and traded between organizations in a Hyperledger Fabric blockchain channel, and its design.
 2. How to use the Integration Test Infrastructure that comes with the Fabric Smart Client to programmatically 
 test distributed applications written with Fabric.
