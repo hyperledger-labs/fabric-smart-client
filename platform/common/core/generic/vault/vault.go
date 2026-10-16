@@ -193,7 +193,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 			db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
 			return collections.Repeat[error](nil, len(txs))
 		}
-		// A deadlock is transient, so the whole batch is retried; any other error fails every tx in the batch.
+		// A deadlock is transient, so the whole batch is retried indefinitely; any other error fails every tx in the batch.
 		if !errors.HasCause(err, dbdriver.DeadlockDetected) {
 			return collections.Repeat(err, len(txs))
 		}
