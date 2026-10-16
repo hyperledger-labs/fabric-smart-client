@@ -8,7 +8,6 @@ package node
 
 import (
 	"context"
-	"log"
 	"runtime/debug"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -75,7 +74,7 @@ func (n *Node) ID() string {
 func (n *Node) Start() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("start triggered panic: %s\n%s\n", r, debug.Stack())
+			logger.Errorf("start triggered panic: %s\n%s\n", r, debug.Stack())
 			err = errors.Errorf("start triggered panic: %s", r)
 			n.Stop()
 		}
