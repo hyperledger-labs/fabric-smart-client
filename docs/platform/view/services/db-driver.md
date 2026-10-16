@@ -114,7 +114,8 @@ fsc.persistences:
 Each store has a dedicated configuration in the `core.yaml` file.
 Its instantiation is defined in the field `persistence` and it references a persistence name that has already been defined under `fsc.persistences`.
 If none is defined, the `default` will be taken, provided there is one.
-If there is no `default`, an error is returned.
+If there is no `default`, the FSC stores fall back to `memory` and log a warning, so their data is lost on restart.
+Creating a store fails if it references a name that is not defined under `fsc.persistences`, or if the referenced persistence sets no `type`.
 
 ```yaml
 fabric:

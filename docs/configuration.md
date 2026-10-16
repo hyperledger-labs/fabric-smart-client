@@ -18,7 +18,8 @@ logging:
 fsc:
   # The FSC id provides a name for this node instance within the fsc network and is used when
   # naming docker resources for nwo testing as well as the unique id for tracing.
-  # It's also used as the unique name to resolve this node's identity and grpc server endpoint
+  # It's also used as the unique name to resolve this node's identity and grpc server endpoint.
+  # It is required: the node fails to start without it.
   id: someid
 
   # This is the identity of the node
@@ -230,12 +231,14 @@ fsc:
   # ------------------- Persistence Configuration -------------------------
   # All persistence configurations of the application are defined here
   # Then each store chooses a configuration by referencing it by the key (e.g. my_sqlite_persistence)
-  # If a store does not define one, the 'default' will be picked if it is defined 
+  # If a store does not define one, the 'default' will be picked if it is defined.
+  # Creating a store fails if it references a key that is not defined here,
+  # or if the referenced configuration does not set a type.
   persistences:
     # The default persistence configuration for all stores that do not define one or do not support customization.
-    # A default persistence. It is the safest choice to define one. 
+    # Define it: without it, such stores fall back to memory, log a warning, and lose their data on restart.
     default:
-      # The type can be memory, sqlite, postgres
+      # The type can be memory, sqlite, postgres. Required.
       type: memory
     # The persistence configuration for all stores that define the option
     # persistence: my_sqlite_persistence
@@ -267,6 +270,7 @@ fsc:
   # need to reach them.
   web:
     enabled: true
+    # Listen address (host:port). Required when enabled; the node refuses to start without it.
     address: 0.0.0.0:20002
     # Execution timeout for direct/REST view invocations (PUT /Views/{View} and
     # GET /Views/Stream/{View}). Default: 2m
@@ -302,7 +306,8 @@ fsc:
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
-    # Type of provider to be used: none (default), file, otlp, console
+    # Type of provider to be used: none (default), file, otlp, console.
+    # Values are case-insensitive; any other value is a startup error.
     provider: otlp
     # Tracer configuration when provider == 'file'
     file:
@@ -332,7 +337,9 @@ fsc:
         # if the collector's certificate does not cover the address being dialled
         serverNameOverride: ""
     sampling:
-      # The ratio of the traces to be sampled
+      # Fraction of root spans to sample, in [0, 1]. Defaults to 1 (sample every trace)
+      # when unset. Spans continuing a remote trace follow the caller's sampling decision,
+      # so 0 records only traces that were sampled upstream.
       ratio: 0.8
 
   # ------------------- Metrics Configuration -------------------------
@@ -375,7 +382,11 @@ fsc:
     
   # ------------------- FSC Node endpoint resolvers -------------------------
   # The endpoint section tells how to reach other FSC node in the network.
-  # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
+  # Each entry needs a name and an identity; domain, addresses and aliases are optional.
+  # The node fails to start if an entry has no name or no identity.path, or if an address key is not
+  # one of Listen, View or P2P (case-insensitive).
+  # An entry that reuses the name of an earlier entry, such as a replica of the same node, does not get
+  # its own addresses: its identity is bound to the identity of the earlier entry.
   endpoint:
     resolvers:
     # name is a name that describes the FSC node (must also match name used in the view) it isn't a P2P bootstrap node
@@ -401,7 +412,7 @@ fsc:
         # P2P endpoint address for this node
         P2P: thebootstrapFQDN:20001
       aliases:
-    # This demonstrates other keys available for addresses:, TBD
+    # This demonstrates the other keys available for addresses:
     - name: otheraddressestypes
       domain:
       identity:
@@ -411,8 +422,6 @@ fsc:
         Listen:
         # Port at which the View Service Server respond
         View:
-        # Port at which the Web Server respond
-        Web:
 
 
 
@@ -427,8 +436,8 @@ fabric:
     # defines whether this is the default fabric network
     default: true
     # Cache size to use when handling idemix pseudonyms. If the value is larger than 0, the cache is enabled and
-    # pseudonyms are generated in batches of the given size to be ready to be used.
-    # if not specified then the default is 3
+    # pseudonyms are generated in batches of the given size to be ready to be used. 0 disables the cache.
+    # if not specified then the default is 3. A negative or non-integer value is a startup error.
     mspCacheSize: 500
     # the default msp for this node (matches the id in the msps key)
     # TBD: what does being the default mean ?
@@ -551,6 +560,10 @@ fabric:
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it defaults to 500ms
       retryInterval: 500ms
+      # maximum number of concurrent connections per pool. CFT keeps one pool for the network;
+      # BFT keeps one per orderer, so 4 orderers allow up to 4 x connectionPoolSize connections.
+      # It defaults to 10; a value below 1 is a startup error.
+      connectionPoolSize: 10
       #
       # ordering.tlsEnabled and ordering.tlsClientAuthRequired have been REMOVED. They existed
       # to shadow the network tls block for orderer connections alone, which meant the same
@@ -670,11 +683,10 @@ fabric:
        # Format: Go duration string
        maxRetryDelay: 5m
 
-    # List of channels and deployed chaincode
+    # List of channels and deployed chaincode. Opening a channel not listed here is an error.
     channels:
       - name: mychannel
-        # whether this is the default channel or not
-        # TBD: What is the meaning of a default channel ?
+        # The default channel is used when a channel is requested with an empty name.
         default: true
         numRetries: 3 # number of retries on a chaincode operation failure
         retrySleep: 1s # waiting time before retry again a failed chaincode operation
@@ -686,6 +698,9 @@ fabric:
         finality:
           waitForEventTimeout: 20s
           forPartiesWaitTimeout: 1m
+          # goroutines delivering finality events to listeners. 0 or unset means 1;
+          # a negative value is a startup error.
+          eventQueueWorkers: 1
         # section about the committer service
         committer:
           waitForEventTimeout: 300s
@@ -727,9 +742,11 @@ fabric:
 
     # ------------------- Fabric Node resolvers -------------------------
     # The endpoint section tells how to reach other Fabric nodes in the network.
+    # Entries follow the same rules as fsc.endpoint.resolvers. An entry that reuses the name of an FSC
+    # resolver binds its MSP identity to the identity of that FSC node.
     endpoint:
       resolvers:
-      # a unique name which has to match what the view references ?
+      # name of the FSC node this identity belongs to
       - name: fscnodeA
         domain:
         identity:
@@ -737,16 +754,15 @@ fabric:
           mspID: peerOrg0MSP
           # path to the public MSP (ie no crypto material) or signing cert (but I would highly recommend not specifying just the signing cert)
           path: /path/to/fscnodeA/msp
-          # TBD
-          addresses:
-          aliases:
-          - anotherName
+        addresses:
+        aliases:
+        - anotherName
       - name: fscnodeB
         domain:
         identity:
           mspID: peerOrg2MSP
           path: /path/to/fscnodeB/msp
-          addresses:
+        addresses:
 ```
 
 ## Migrating TLS configuration

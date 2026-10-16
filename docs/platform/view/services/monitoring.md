@@ -154,12 +154,14 @@ FSC defines the following implementations, although custom implementations can b
 * **File:** Exports (stores) the traces into the file `fsc.tracing.file.path`, when `fsc.tracing.provider = file`
 * **OTLP:** Exports (sends) the traces to an OTLP collector that listens on the port `fsc.tracing.otlp.address` when `fsc.tracing.provider = otlp`
 
-These supported tracer providers can be instantiated using `tracing.NewTracerProviderFromConfig`.
-Using this constructor, along with the type of the exporter, we can also specify other parameters, like the sampling rate.
+These supported tracer providers can be instantiated using `tracing.NewProviderFromConfigService`, which reads `fsc.tracing` from `core.yaml`, or `tracing.NewProviderFromConfig`, which takes an already-populated `tracing.Config` as is.
+Besides the type of the exporter, the configuration specifies other parameters, like the sampling rate (`fsc.tracing.sampling.ratio`, in [0, 1]).
+`NewProviderFromConfigService` defaults an unset ratio to 1; `NewProviderFromConfig` applies no defaults, so a zero ratio samples no root spans.
+Any other `fsc.tracing.provider` value is rejected at startup.
 The default implementation is defined in the view SDK, but can be overridden in the same way as the metrics provider.
 
 FSC provides also an enhanced implementation of the `tracing.Provider` that keeps metrics in the background for each span.
-Whenever we start spans, we keep track of the count and the duration of the operations. To use it, override the existing tracer provider with this implementation using `tracing.NewTracerProviderWithBackingProvider`.
+Whenever we start spans, we keep track of the count and the duration of the operations. To use it, override the existing tracer provider with this implementation using `tracing.NewProviderWithBackingProvider`.
 
 ### Adding traces
 

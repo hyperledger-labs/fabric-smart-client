@@ -244,17 +244,6 @@ type ConfigService struct {
 	networkNameReturnsOnCall map[int]struct {
 		result1 string
 	}
-	NewDefaultChannelConfigStub        func(string) driver.ChannelConfig
-	newDefaultChannelConfigMutex       sync.RWMutex
-	newDefaultChannelConfigArgsForCall []struct {
-		arg1 string
-	}
-	newDefaultChannelConfigReturns struct {
-		result1 driver.ChannelConfig
-	}
-	newDefaultChannelConfigReturnsOnCall map[int]struct {
-		result1 driver.ChannelConfig
-	}
 	OrdererConnectionPoolSizeStub        func() int
 	ordererConnectionPoolSizeMutex       sync.RWMutex
 	ordererConnectionPoolSizeArgsForCall []struct {
@@ -1628,67 +1617,6 @@ func (fake *ConfigService) NetworkNameReturnsOnCall(i int, result1 string) {
 	}
 	fake.networkNameReturnsOnCall[i] = struct {
 		result1 string
-	}{result1}
-}
-
-func (fake *ConfigService) NewDefaultChannelConfig(arg1 string) driver.ChannelConfig {
-	fake.newDefaultChannelConfigMutex.Lock()
-	ret, specificReturn := fake.newDefaultChannelConfigReturnsOnCall[len(fake.newDefaultChannelConfigArgsForCall)]
-	fake.newDefaultChannelConfigArgsForCall = append(fake.newDefaultChannelConfigArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	stub := fake.NewDefaultChannelConfigStub
-	fakeReturns := fake.newDefaultChannelConfigReturns
-	fake.recordInvocation("NewDefaultChannelConfig", []interface{}{arg1})
-	fake.newDefaultChannelConfigMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigService) NewDefaultChannelConfigCallCount() int {
-	fake.newDefaultChannelConfigMutex.RLock()
-	defer fake.newDefaultChannelConfigMutex.RUnlock()
-	return len(fake.newDefaultChannelConfigArgsForCall)
-}
-
-func (fake *ConfigService) NewDefaultChannelConfigCalls(stub func(string) driver.ChannelConfig) {
-	fake.newDefaultChannelConfigMutex.Lock()
-	defer fake.newDefaultChannelConfigMutex.Unlock()
-	fake.NewDefaultChannelConfigStub = stub
-}
-
-func (fake *ConfigService) NewDefaultChannelConfigArgsForCall(i int) string {
-	fake.newDefaultChannelConfigMutex.RLock()
-	defer fake.newDefaultChannelConfigMutex.RUnlock()
-	argsForCall := fake.newDefaultChannelConfigArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *ConfigService) NewDefaultChannelConfigReturns(result1 driver.ChannelConfig) {
-	fake.newDefaultChannelConfigMutex.Lock()
-	defer fake.newDefaultChannelConfigMutex.Unlock()
-	fake.NewDefaultChannelConfigStub = nil
-	fake.newDefaultChannelConfigReturns = struct {
-		result1 driver.ChannelConfig
-	}{result1}
-}
-
-func (fake *ConfigService) NewDefaultChannelConfigReturnsOnCall(i int, result1 driver.ChannelConfig) {
-	fake.newDefaultChannelConfigMutex.Lock()
-	defer fake.newDefaultChannelConfigMutex.Unlock()
-	fake.NewDefaultChannelConfigStub = nil
-	if fake.newDefaultChannelConfigReturnsOnCall == nil {
-		fake.newDefaultChannelConfigReturnsOnCall = make(map[int]struct {
-			result1 driver.ChannelConfig
-		})
-	}
-	fake.newDefaultChannelConfigReturnsOnCall[i] = struct {
-		result1 driver.ChannelConfig
 	}{result1}
 }
 

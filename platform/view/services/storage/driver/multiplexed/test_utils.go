@@ -14,8 +14,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
 )
 
+// MockTypeConfig returns a ConfigProvider in which every persistence is defined with type typ
+// and options config.
 func MockTypeConfig[T any](typ driver.PersistenceType, config T) *mock.ConfigProvider {
 	cp := &mock.ConfigProvider{}
+	cp.IsSetReturns(true)
 	cp.UnmarshalKeyCalls(func(key string, val any) error {
 		if strings.Contains(key, "type") {
 			typPtr, ok := val.(*driver.PersistenceType)

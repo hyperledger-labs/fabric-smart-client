@@ -10,6 +10,7 @@ import (
 	"context"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 
@@ -58,17 +59,22 @@ type PublicKeyIDSynthesizer interface {
 // ResolverInfo carries information about a resolver including its identity,
 // network addresses, and aliases.
 type ResolverInfo struct {
-	ID          []byte
-	Name        string
-	Domain      string
-	Addresses   map[PortName]string
-	AddressList []string
-	Aliases     []string
-	PKI         []byte
+	ID        []byte
+	Name      string
+	Domain    string
+	Addresses map[PortName]string
+	Aliases   []string
+	PKI       []byte
 }
 
 // Resolver wraps ResolverInfo with additional management fields including
 // a lock for thread-safe PKI operations.
+//
+// Once a Resolver is registered with a Service, the Service never modifies its
+// ResolverInfo fields other than PKI, which PKILock guards. UpdateResolver registers an
+// updated copy instead, so the fields of a Resolver returned by GetResolver or Resolver,
+// other than PKI, can be read without locking but do not reflect later updates. Read PKI
+// through Service.PkiResolve.
 type Resolver struct {
 	ResolverInfo
 	PKILock sync.RWMutex
@@ -209,10 +215,20 @@ func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) 
 	return nil, errors.Wrapf(ErrNotFound, "identity not found at [%s,%s]", label, view.Identity(pkID))
 }
 
-// UpdateResolver looks up the resolver that name matches in the index (by name, name.domain,
-// alias, address, ID or PKI ID), sets its Addresses and AddressList, indexes the given
-// aliases, and returns its ID. The address index entries are left unchanged. If name matches
-// no resolver, UpdateResolver behaves like AddResolver. An empty name matches no resolver.
+// UpdateResolver looks up the resolver that name matches in the index (by name,
+// name.domain, alias, address, ID or PKI ID), replaces its addresses with the given ones,
+// adds the given aliases it does not have yet, and returns its ID. domain and id are
+// ignored for an existing resolver.
+//
+// The resolver is replaced by an updated copy at the same position in Resolvers. The copy
+// is indexed like a newly added resolver, taking over its keys from any other resolver
+// that holds them; keys of the old resolver that the copy no longer has, such as replaced
+// addresses, are removed unless another resolver holds them. Resolvers obtained before
+// the update keep the old addresses.
+//
+// If name matches no resolver, UpdateResolver behaves like AddResolver. An empty name
+// matches no resolver. UpdateResolver returns an error, and changes nothing, if an address
+// key is not a port name accepted by AddResolver.
 func (r *Service) UpdateResolver(
 	name string,
 	domain string,
@@ -222,24 +238,33 @@ func (r *Service) UpdateResolver(
 ) (view.Identity, error) {
 	logger.Debugf("updating resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
+	ports, err := convert(addresses)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed updating resolver [%s]", name)
+	}
+
 	r.resolversMutex.Lock()
-	resolver, ok := r.resolversMap[name]
+	old, ok := r.resolversMap[name]
 	if ok {
-		// update addresses
-		addressList := make([]string, 0, len(addresses))
-		for _, v := range addresses {
-			addressList = append(addressList, v)
-		}
-		resolver.Addresses = convert(addresses)
-		resolver.AddressList = addressList
-		// update aliases
+		old.PKILock.RLock()
+		updated := &Resolver{ResolverInfo: old.ResolverInfo}
+		old.PKILock.RUnlock()
+		updated.Addresses = ports
+		updated.Aliases = slices.Clone(old.Aliases)
 		for _, alias := range aliases {
-			if len(alias) != 0 {
-				r.resolversMap[alias] = resolver
+			if len(alias) != 0 && !slices.Contains(updated.Aliases, alias) {
+				updated.Aliases = append(updated.Aliases, alias)
 			}
 		}
+
+		r.unindexResolver(old)
+		// every resolver in resolversMap is also in r.resolvers, since appendResolver,
+		// RemoveResolver and UpdateResolver change both together under the write lock, so
+		// the index is never -1
+		r.resolvers[slices.Index(r.resolvers, old)] = updated
+		r.indexResolver(updated, updated.PKI)
 		r.resolversMutex.Unlock()
-		return resolver.ID, nil
+		return updated.ID, nil
 	}
 	r.resolversMutex.Unlock()
 
@@ -248,9 +273,17 @@ func (r *Service) UpdateResolver(
 
 // AddResolver registers a resolver and returns nil. If name already matches a resolver in
 // the index (by name, name.domain, alias, address, ID or PKI ID), AddResolver binds id to
-// that resolver's identity and returns it instead. An empty name matches no resolver, so
-// each resolver without a name is registered separately and is reachable only by its
-// aliases, addresses, ID and PKI ID.
+// that resolver's identity and returns it instead; the other arguments are only validated.
+// Node configurations rely on this: replicas of a node share its name, and a Fabric
+// resolver binds a node's MSP identity to its FSC identity by reusing the node's name.
+//
+// An empty name matches no resolver, so each resolver without a name is registered
+// separately and is reachable only by its aliases, addresses, ID and PKI ID. The config
+// loaders reject entries without a name, so only programmatic callers register such
+// resolvers.
+//
+// Each address key must name a PortName (Listen, View or P2P), compared case-insensitively,
+// at most once; AddResolver returns an error, and registers nothing, for any other key.
 func (r *Service) AddResolver(
 	name string,
 	domain string,
@@ -259,6 +292,11 @@ func (r *Service) AddResolver(
 	id []byte,
 ) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
+
+	ports, err := convert(addresses)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed adding resolver [%s]", name)
+	}
 
 	// is there a resolver with the same name or clashing aliases?
 	r.resolversMutex.RLock()
@@ -275,18 +313,12 @@ func (r *Service) AddResolver(
 	}
 	r.resolversMutex.RUnlock()
 
-	addressList := make([]string, 0, len(addresses))
-	for _, v := range addresses {
-		addressList = append(addressList, v)
-	}
-
 	newResolver := &Resolver{
-		Name:        name,
-		Domain:      domain,
-		Addresses:   convert(addresses),
-		AddressList: addressList,
-		Aliases:     aliases,
-		ID:          id,
+		Name:      name,
+		Domain:    domain,
+		Addresses: ports,
+		Aliases:   aliases,
+		ID:        id,
 	}
 	pkiID := r.PkiResolve(newResolver)
 
@@ -324,12 +356,7 @@ func (r *Service) RemoveResolver(id view.Identity) (bool, error) {
 		return false, errors.Wrapf(ErrNotFound, "cannot find resolver for [%s]", id)
 	}
 
-	// remove from the map
-	for key, value := range r.resolversMap {
-		if value == resolver {
-			delete(r.resolversMap, key)
-		}
-	}
+	r.unindexResolver(resolver)
 
 	// remove from the resolver list
 	for i, value := range r.resolvers {
@@ -427,12 +454,18 @@ func (r *Service) Resolvers() []ResolverInfo {
 	return res
 }
 
-// appendResolver adds a resolver to the internal list and indexes it in resolversMap by
-// name, name.domain, aliases, addresses, ID and PKI ID. Empty keys are skipped, and a
-// resolver without a name is indexed by neither name nor name.domain.
+// appendResolver adds a resolver to the internal list and indexes it.
+// The caller must hold resolversMutex for writing.
 func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	r.resolvers = append(r.resolvers, newResolver)
+	r.indexResolver(newResolver, pkiID)
+}
 
+// indexResolver indexes a resolver in resolversMap by name, name.domain, aliases,
+// addresses, ID and PKI ID, overwriting the entries of any other resolver under the same
+// keys. Empty keys are skipped, and a resolver without a name is indexed by neither name
+// nor name.domain. The caller must hold resolversMutex for writing.
+func (r *Service) indexResolver(newResolver *Resolver, pkiID []byte) {
 	if len(newResolver.Name) != 0 {
 		// by name
 		r.resolversMap[newResolver.Name] = newResolver
@@ -453,14 +486,6 @@ func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 		}
 	}
 
-	// by address list, which also keeps addresses whose port name convert did not
-	// recognize, since convert maps all of them to the same empty PortName
-	for _, address := range newResolver.AddressList {
-		if len(address) != 0 {
-			r.resolversMap[address] = newResolver
-		}
-	}
-
 	// by id
 	if len(newResolver.ID) != 0 {
 		r.resolversMap[string(newResolver.ID)] = newResolver
@@ -470,6 +495,12 @@ func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	if len(pkiID) != 0 {
 		r.resolversMap[string(pkiID)] = newResolver
 	}
+}
+
+// unindexResolver deletes every resolversMap entry that points to resolver.
+// The caller must hold resolversMutex for writing.
+func (r *Service) unindexResolver(resolver *Resolver) {
+	maps.DeleteFunc(r.resolversMap, func(_ string, value *Resolver) bool { return value == resolver })
 }
 
 // PkiResolve extracts and caches the PKI ID for a resolver.
@@ -533,11 +564,20 @@ var portNameMap = map[string]PortName{
 	strings.ToLower(string(P2PPort)):    P2PPort,
 }
 
-// convert transforms a map of string keys to PortName keys using the portNameMap.
-func convert(o map[string]string) map[PortName]string {
+// convert maps each key of o to its PortName, compared case-insensitively. It returns an
+// error for a key that names no PortName or the same PortName as another key, so that a
+// misspelled or repeated key fails instead of dropping an address.
+func convert(o map[string]string) (map[PortName]string, error) {
 	r := map[PortName]string{}
 	for k, v := range o {
-		r[portNameMap[strings.ToLower(k)]] = v
+		port, ok := portNameMap[strings.ToLower(k)]
+		if !ok {
+			return nil, errors.Errorf("unknown address key [%s], expected one of [%s, %s, %s]", k, ListenPort, ViewPort, P2PPort)
+		}
+		if _, dup := r[port]; dup {
+			return nil, errors.Errorf("duplicate address key [%s]", k)
+		}
+		r[port] = v
 	}
-	return r
+	return r, nil
 }

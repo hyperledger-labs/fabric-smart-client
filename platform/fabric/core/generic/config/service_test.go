@@ -306,7 +306,7 @@ func TestServiceGetters(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
 	// Initialize with some basic setup to avoid NewService errors
-	m.IsSetStub = setsEverythingButRemovedKeys
+	m.IsSetStub = setsAllButRejectedKeys
 	m.GetStringReturns("")
 	svc, err := cfg.NewService(m, "mynet", true)
 	require.NoError(t, err)
@@ -326,7 +326,7 @@ func TestServiceGetters(t *testing.T) {
 	m.IsSetReturns(false)
 	require.Equal(t, 10*time.Second, svc.ClientConnTimeout())
 
-	m.IsSetStub = setsEverythingButRemovedKeys
+	m.IsSetStub = setsAllButRejectedKeys
 	m.GetDurationReturns(5 * time.Second)
 	require.Equal(t, 5*time.Second, svc.ClientConnTimeout())
 
@@ -339,6 +339,8 @@ func TestServiceGetters(t *testing.T) {
 	require.Equal(t, 4, svc.MSPCacheSize())
 	m.GetStringReturns("bad")
 	require.Equal(t, 3, svc.MSPCacheSize())
+	m.GetStringReturns("-1")
+	require.Equal(t, 3, svc.MSPCacheSize())
 
 	// Ordering retries
 	getIntCallsBefore := m.GetIntCallCount()
@@ -348,23 +350,20 @@ func TestServiceGetters(t *testing.T) {
 	m.GetIntReturnsOnCall(getIntCallsBefore+1, 0)
 	require.Equal(t, 3, svc.BroadcastNumRetries())
 
-	m.IsSetStub = setsEverythingButRemovedKeys
+	m.IsSetStub = setsAllButRejectedKeys
 	m.GetDurationReturns(100 * time.Millisecond)
 	require.Equal(t, 100*time.Millisecond, svc.BroadcastRetryInterval())
 	m.IsSetReturns(false)
 	require.Equal(t, 500*time.Millisecond, svc.BroadcastRetryInterval())
 
 	// Orderer connection pool
-	m.IsSetStub = setsEverythingButRemovedKeys
+	m.IsSetReturns(true)
 	m.GetIntReturns(20)
 	poolCallIndex := m.GetIntCallCount()
 	require.Equal(t, 20, svc.OrdererConnectionPoolSize())
 	require.Equal(t, "fabric.mynet.ordering.connectionPoolSize", m.GetIntArgsForCall(poolCallIndex))
 	m.IsSetReturns(false)
 	require.Equal(t, 10, svc.OrdererConnectionPoolSize())
-
-	defaultCh := svc.NewDefaultChannelConfig("new-ch")
-	require.Equal(t, "new-ch", defaultCh.ID())
 }
 
 func TestService_MoreCases(t *testing.T) {
@@ -374,7 +373,7 @@ func TestService_MoreCases(t *testing.T) {
 	t.Run("NewService_Errors", func(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
-		m.IsSetStub = setsEverythingButRemovedKeys
+		m.IsSetStub = setsAllButRejectedKeys
 		// Error in readItems (orderers)
 		m.UnmarshalKeyReturnsOnCall(0, errors.New("orderer-err"))
 		_, err := cfg.NewService(m, "mynet", false)
@@ -430,7 +429,7 @@ func TestService_MoreCases(t *testing.T) {
 	t.Run("PickPeer_Fallback", func(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
-		m.IsSetStub = setsEverythingButRemovedKeys
+		m.IsSetStub = setsAllButRejectedKeys
 		m.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "fabric.mynet.peers" {
 				p := rawVal.(*[]*grpc.ConnectionConfig)
@@ -465,7 +464,7 @@ func TestService_MoreCases(t *testing.T) {
 	t.Run("Channels", func(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
-		m.IsSetStub = setsEverythingButRemovedKeys
+		m.IsSetStub = setsAllButRejectedKeys
 		m.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "fabric.mynet.channels" {
 				p := rawVal.(*[]*cfg.Channel)
@@ -484,22 +483,84 @@ func TestService_MoreCases(t *testing.T) {
 		require.ElementsMatch(t, []string{"ch1", "ch2"}, svc.ChannelIDs())
 		require.NotNil(t, svc.Channel("ch1"))
 		require.NotNil(t, svc.Channel("ch2"))
-		require.Nil(t, svc.Channel("unknown"))
+		require.Equal(t, driver.ChannelConfig(nil), svc.Channel("unknown"))
 		require.True(t, svc.IsChannelQuiet("ch2"))
 		require.False(t, svc.IsChannelQuiet("ch1"))
 		require.False(t, svc.IsChannelQuiet("unknown"))
 	})
 }
 
-// setsEverythingButRemovedKeys answers true for any key except the ones the TLS migration
-// removed. A blanket IsSet -> true would claim fabric.<net>.ordering.tlsEnabled is configured,
-// and NewService rejects a network still carrying it — correctly, so the mock has to be
-// specific rather than the check made lenient.
-func setsEverythingButRemovedKeys(key string) bool {
+// NewService must reject a size or count that would panic or stall the node once a component
+// is built from it, and name the offending key. A value that is valid but not the default must
+// pass through unchanged.
+func TestNewService_sizeSettings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		network string
+		check   func(t *testing.T, svc *cfg.Service)
+		wantErr []string
+	}{
+		{name: "defaults", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 3, svc.MSPCacheSize())
+			assert.Equal(t, 10, svc.OrdererConnectionPoolSize())
+		}},
+		{name: "msp cache disabled", network: "mspCacheSize: 0", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 0, svc.MSPCacheSize())
+		}},
+		{name: "negative msp cache", network: "mspCacheSize: -1", wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		{name: "non-integer msp cache", network: "mspCacheSize: lots", wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		// A key written without a value is set, so it must not fall back to the default like an
+		// absent one does.
+		{name: "empty msp cache", network: "mspCacheSize:", wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		{name: "empty string msp cache", network: `mspCacheSize: ""`, wantErr: []string{"fabric.mynet.mspCacheSize"}},
+		{name: "pool of one", network: "ordering:\n      connectionPoolSize: 1", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 1, svc.OrdererConnectionPoolSize())
+		}},
+		{name: "empty pool", network: "ordering:\n      connectionPoolSize: 0", wantErr: []string{"fabric.mynet.ordering.connectionPoolSize"}},
+		{name: "negative pool", network: "ordering:\n      connectionPoolSize: -1", wantErr: []string{"fabric.mynet.ordering.connectionPoolSize"}},
+		{name: "default workers", network: "channels:\n      - name: ch1\n        finality:\n          eventQueueWorkers: 0", check: func(t *testing.T, svc *cfg.Service) {
+			t.Helper()
+			assert.Equal(t, 1, svc.Channel("ch1").FinalityEventQueueWorkers())
+		}},
+		{name: "negative workers", network: "channels:\n      - name: ch1\n        finality:\n          eventQueueWorkers: -1", wantErr: []string{"fabric.mynet.channels", "finality.eventQueueWorkers", "ch1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			raw := "fabric:\n  mynet:\n    default: true\n    " + tt.network
+			p, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte(raw))
+			require.NoError(t, err)
+
+			svc, err := cfg.NewService(p, "mynet", true)
+			if len(tt.wantErr) == 0 {
+				require.NoError(t, err)
+				tt.check(t, svc)
+				return
+			}
+			for _, want := range tt.wantErr {
+				require.ErrorContains(t, err, want)
+			}
+		})
+	}
+}
+
+// setsAllButRejectedKeys answers true for any key except the ones the TLS migration
+// removed and the size settings NewService validates. A blanket IsSet -> true would claim
+// fabric.<net>.ordering.tlsEnabled is configured, and NewService rejects a network still
+// carrying it — correctly, so the mock has to be specific rather than the check made lenient.
+// The size keys are left out too: NewService rejects them when the mock answers with an empty value.
+func setsAllButRejectedKeys(key string) bool {
 	switch strings.ToLower(key) {
 	case "fabric.mynet.ordering.tlsenabled", "fabric.mynet.ordering.tlsclientauthrequired",
 		"fabric.ordering.tlsenabled", "fabric.ordering.tlsclientauthrequired",
-		"fabric.network.ordering.tlsenabled", "fabric.network.ordering.tlsclientauthrequired":
+		"fabric.network.ordering.tlsenabled", "fabric.network.ordering.tlsclientauthrequired",
+		"fabric.mynet.mspcachesize", "fabric.mynet.ordering.connectionpoolsize":
 		return false
 	}
 	return true

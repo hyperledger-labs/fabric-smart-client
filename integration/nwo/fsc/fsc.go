@@ -305,6 +305,7 @@ func (p *Platform) PostRun(bool) {
 		Otlp: tracing2.OtlpConfig{
 			Address: fmt.Sprintf("0.0.0.0:%d", otlp.JaegerCollectorPort),
 		},
+		Sampling: tracing2.SamplingConfig{Ratio: p.Topology.Monitoring.TracingSamplingRatio},
 	})
 	if err != nil {
 		panic(err)
