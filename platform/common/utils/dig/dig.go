@@ -4,6 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package utils provides helpers for registering constructors and visualizing
+// dependency graphs in dig containers. It also registers services resolved by dig
+// with the FSC service registry.
 package utils
 
 import (
