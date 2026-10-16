@@ -4,6 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package slices provides generic helpers for removing elements, computing
+// differences and intersections, and repeating values. It also provides a
+// [SortedSlice] that inserts values in ascending order without duplicates.
 package slices
 
 import (

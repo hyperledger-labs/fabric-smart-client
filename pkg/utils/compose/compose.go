@@ -4,6 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package compose builds and splits composite keys from object types and
+// attributes. It also constructs range bounds for partial composite keys and
+// transaction topic keys.
 package compose
 
 import (
