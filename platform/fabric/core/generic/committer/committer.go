@@ -70,13 +70,10 @@ type CommitTx struct {
 
 type TransactionHandler = func(ctx context.Context, block *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error)
 
+// OrderingService receives the consensus type and orderer endpoints whenever
+// the committer applies or reloads a channel config that lists orderers.
 type OrderingService interface {
 	Configure(consensusType string, orderers []*grpc.ConnectionConfig) error
-}
-
-type OrdererConfig interface {
-	ConsensusType() string
-	Endpoints() []*grpc.ConnectionConfig
 }
 
 type Committer struct {

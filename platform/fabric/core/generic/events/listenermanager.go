@@ -51,8 +51,6 @@ type Delivery interface {
 	ScanBlock(background context.Context, callback fabric.BlockCallback) error
 }
 
-type EventInfoCallback[T EventInfo] func(T) error
-
 type DeliveryListenerManagerConfig struct {
 	MapperParallelism       int
 	BlockProcessParallelism int
