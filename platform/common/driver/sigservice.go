@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// VerifyingIdentity is an identity that can verify signatures produced by its signing counterpart.
 type VerifyingIdentity interface {
 	// Serialize returns the byte representation of this identity
 	Serialize() ([]byte, error)
@@ -20,12 +21,14 @@ type VerifyingIdentity interface {
 	Verify(message, signature []byte) error
 }
 
+// SigningIdentity is an identity that holds the private material to sign messages.
 type SigningIdentity interface {
 	VerifyingIdentity
 
 	// Sign signs message bytes and returns the signature or an error on failure.
 	Sign(message []byte) ([]byte, error)
 
+	// GetPublicVersion returns the verifying counterpart of this identity.
 	GetPublicVersion() VerifyingIdentity
 }
 
@@ -59,25 +62,16 @@ type SigService interface {
 	AreMe(ctx context.Context, identities ...view.Identity) []string
 }
 
-// AuditRegistry models a repository of identities' audit information
-type AuditRegistry interface {
-	// RegisterAuditInfo binds the passed audit info to the passed identity
-	RegisterAuditInfo(ctx context.Context, identity view.Identity, info []byte) error
-
-	// GetAuditInfo returns the audit info associated to the passed identity, nil if not found
-	GetAuditInfo(ctx context.Context, identity view.Identity) ([]byte, error)
-}
-
-type SigRegistry interface {
-	// RegisterSigner binds the passed identity to the passed signer and verifier
-	RegisterSigner(ctx context.Context, identity view.Identity, signer Signer, verifier Verifier) error
-
-	// RegisterVerifier binds the passed identity to the passed verifier
-	RegisterVerifier(identity view.Identity, verifier Verifier) error
-}
-
+// SigDeserializer turns serialized identities into signers and verifiers.
 type SigDeserializer interface {
+	// DeserializeVerifier returns the verifier for the passed serialized identity.
 	DeserializeVerifier(raw []byte) (Verifier, error)
+
+	// DeserializeSigner returns the signer for the passed serialized identity.
 	DeserializeSigner(raw []byte) (Signer, error)
+
+	// Info returns a human-readable description of the passed serialized identity.
+	// auditInfo is optional: identity types that support it (e.g. idemix) use it to add
+	// the enrollment ID and return an error if it does not match raw; others ignore it.
 	Info(raw, auditInfo []byte) (string, error)
 }
