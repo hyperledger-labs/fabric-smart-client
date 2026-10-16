@@ -147,7 +147,7 @@ This means preparing the RWSet, and collecting endorsements. Moreover, the endor
   signing keys compatible with the endorsement policy of the chaincode the transaction targets.
 
 Let us explore the above two possibilities in the following Sections.
-If you want to jump ahead, find some examples [`here`](../integration/README.md).
+If you want to jump ahead, find some examples [`here`](../integration/).
 
 ### A Chaincode Mediated Example
 
