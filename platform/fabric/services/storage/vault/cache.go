@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache/secondcache"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 )
 
@@ -27,11 +27,7 @@ type entry struct {
 	Message string
 }
 
-type cache interface {
-	Get(key string) (*entry, bool)
-	Add(key string, value *entry)
-	Delete(key string)
-}
+// removed the store now holds a cache.Map[driver.TxID, *entry] directly
 
 type notCachedStore struct {
 	driver.VaultStore
@@ -45,7 +41,8 @@ func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
 	logger.Debugf("creating txID store second cache with size [%d]", cacheSize)
 	return &cachedStore{
 		VaultStore: backed,
-		cache:      secondcache.NewTyped[*entry](cacheSize),
+		// buffer mirrors secondcache.NewTyped, which derived it as one third of the size
+		cache: cache.NewSecondChanceCache[driver.TxID, *entry](cacheSize, max(cacheSize/3, 1), nil),
 	}
 }
 
@@ -53,20 +50,18 @@ func (*notCachedStore) Invalidate(...driver.TxID) {}
 
 type cachedStore struct {
 	driver.VaultStore
-	cache cache
+	cache cache.Map[driver.TxID, *entry]
 }
 
 func (s *cachedStore) Invalidate(txIDs ...driver.TxID) {
 	logger.Debugf("Invalidating cache entry for [%v]", txIDs)
 
-	for _, txID := range txIDs {
-		s.cache.Delete(txID)
-	}
+	s.cache.Delete(txIDs...)
 }
 
 func (s *cachedStore) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
 	logger.DebugfContext(ctx, "Get tx status")
-	if e, ok := s.cache.Get(txID); ok && e != nil { // Deleted entries return ok
+	if e, ok := s.cache.Get(txID); ok {
 		logger.DebugfContext(ctx, "Found value for [%s] in cache: %v", txID, e.Code)
 		return &driver.TxStatus{
 			TxID:    txID,
@@ -86,7 +81,7 @@ func (s *cachedStore) forceGet(ctx context.Context, txID driver.TxID) (*driver.T
 	}
 
 	logger.Debugf("Force get returned value [%v] from backed: %v", *txStatus, err)
-	s.cache.Add(txID, &entry{Code: txStatus.Code, Message: txStatus.Message})
+	s.cache.Put(txID, &entry{Code: txStatus.Code, Message: txStatus.Message})
 	return txStatus, nil
 }
 
@@ -97,7 +92,7 @@ func (s *cachedStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	}
 
 	for _, txID := range txIDs {
-		s.cache.Add(txID, &entry{Code: driver.Valid})
+		s.cache.Put(txID, &entry{Code: driver.Valid})
 	}
 	return nil
 }
@@ -109,7 +104,7 @@ func (s *cachedStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	}
 
 	for _, txID := range txIDs {
-		s.cache.Add(txID, &entry{Code: code, Message: message})
+		s.cache.Put(txID, &entry{Code: code, Message: message})
 	}
 	return nil
 }
