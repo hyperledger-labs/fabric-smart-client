@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package iterators
 
 import (
-	"errors"
 	"io"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type stream[T any] interface {
