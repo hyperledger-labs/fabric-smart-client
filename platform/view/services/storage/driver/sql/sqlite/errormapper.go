@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
-	errors2 "errors"
+	stderrors "errors"
 
 	"modernc.org/sqlite"
 
@@ -25,7 +25,7 @@ type ErrorMapper struct{}
 
 func (*ErrorMapper) WrapError(err error) error {
 	var pgErr *sqlite.Error
-	if !errors2.As(err, &pgErr) {
+	if !stderrors.As(err, &pgErr) {
 		return err
 	}
 	mappedErr, ok := errorMap[pgErr.Code()]

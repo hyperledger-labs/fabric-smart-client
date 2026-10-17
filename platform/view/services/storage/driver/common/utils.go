@@ -8,7 +8,8 @@ package common
 
 import (
 	"database/sql"
-	"errors"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type RWDB struct {
