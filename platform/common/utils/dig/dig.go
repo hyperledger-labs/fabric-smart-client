@@ -8,7 +8,6 @@ package utils
 
 import (
 	"bytes"
-	errors2 "errors"
 	"fmt"
 	"runtime/debug"
 
@@ -47,7 +46,7 @@ func ProvideAll(c *dig.Container, constructors ...any) error {
 	for i, constructor := range constructors {
 		errs[i] = c.Provide(constructor)
 	}
-	return errors2.Join(errs...)
+	return errors.Join(errs...)
 }
 
 func Identity[T any]() func(T) T {
