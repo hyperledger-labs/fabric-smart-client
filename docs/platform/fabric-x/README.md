@@ -13,7 +13,7 @@ The Fabric-x platform driver currently builds upon the existing Fabric platform 
 
 ## Application Node
 
-To use the Fabric-x platform within an FSC application node, you need to install the Fabric-x [SDK](`../../../platform/fabricx/sdk/dig/sdk.go`):
+To use the Fabric-x platform within an FSC application node, you need to install the Fabric-x [SDK](../../../platform/fabricx/sdk/dig/sdk.go):
 
 ```go
 import (

@@ -297,7 +297,7 @@ This is not the most convenient way to test programmatically an application.
 
 FSC provides an `Integration Test Infrastructure` that allow the developer to:
 - Describe the topology of the networks (FSC network, in this case);
-- Boostrap these networks;
+- Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
 To run the test, it is just enough to run `go test` from the folder containing the test.
@@ -404,7 +404,7 @@ func main() {
 }
 ```
 
-### Boostrap these networks
+### Bootstrap these networks
 
 Once the topology is ready, the relative networks can be bootstrapped by creating a new integration test infrastructure.
 
@@ -502,7 +502,7 @@ The above questions can be answered by looking at an FSC node's configuration fi
 
 Let's start from the configuration file. 
 Here is the annotated configuration file used for the `initiator`, Alice. 
-You can find it [`here`](testdata/fsc/nodes/initiator/core.yaml) too.
+You can find it [`here`](testdata/fsc/nodes/initiator.0/core.yaml) too.
 
 ````yaml
 ---

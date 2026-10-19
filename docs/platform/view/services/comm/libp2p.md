@@ -62,7 +62,7 @@ In libp2p mode, nodes establish trust through the exchange of public keys:
 - **Identity Verification**: The `PeerID` of the remote node is checked against the local node's trusted set (from static configuration or dynamic `EndpointService` resolutions).
 - **Public Key Invariant**: The connection is only accepted if the remote party can cryptographically prove possession of the private key corresponding to its identity.
 
-Libp2p is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../configuration.md#fsc-node-configuration).
+Libp2p is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../../configuration.md).
 
 ```yaml
 fsc:
