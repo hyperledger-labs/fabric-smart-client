@@ -24,12 +24,6 @@ func NewPermutatedIterator[T any](it iterators.Iterator[*T]) (iterators.Iterator
 	return iterators.Permutate(it)
 }
 
-// CopyIterator returns an independent copy of it, materializing its
-// remaining elements. See [iterators.Copy].
-func CopyIterator[T any](it iterators.Iterator[*T]) (iterators.Iterator[*T], error) {
-	return iterators.Copy(it)
-}
-
 // ReadFirst reads at most the first limit elements of it and closes it. See
 // [iterators.ReadFirst].
 func ReadFirst[T any](it iterators.Iterator[*T], limit int) ([]T, error) {
@@ -42,12 +36,6 @@ func ReadAll[T any](it iterators.Iterator[*T]) ([]T, error) {
 	return iterators.ReadAllValues(it)
 }
 
-// NewSingleIterator returns an [Iterator] that yields item once. See
-// [iterators.From].
-func NewSingleIterator[T any](item T) iterators.Iterator[T] {
-	return iterators.From(item)
-}
-
 // NewSliceIterator returns an [Iterator] over items, in order. See
 // [iterators.Slice].
 func NewSliceIterator[T any](items []T) iterators.Iterator[T] {
@@ -58,12 +46,6 @@ func NewSliceIterator[T any](items []T) iterators.Iterator[T] {
 // iterator lazily. See [iterators.Map].
 func Map[A, B any](iterator iterators.Iterator[A], transformer func(A) (B, error)) iterators.Iterator[B] {
 	return iterators.Map(iterator, transformer)
-}
-
-// Filter returns an [Iterator] that yields only the elements of iterator
-// satisfying filter. See [iterators.Filter].
-func Filter[A any](iterator iterators.Iterator[*A], filter iterators.Predicate[*A]) iterators.Iterator[*A] {
-	return iterators.Filter(iterator, filter)
 }
 
 // NewEmptyIterator returns an [Iterator] that yields no elements. See
