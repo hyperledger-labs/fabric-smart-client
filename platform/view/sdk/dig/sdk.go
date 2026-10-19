@@ -93,7 +93,6 @@ func (p *SDK) Install() error {
 	err := errors.Join(
 		// Events
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
-		p.Container().Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
 
 		// Storage service
 		p.Container().Provide(postgres2.NewDbProvider),
