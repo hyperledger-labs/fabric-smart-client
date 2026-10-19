@@ -9,7 +9,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"reflect"
 
 	"go.opentelemetry.io/otel/trace"
@@ -52,7 +51,7 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command)
 
 	fid := initiateView.Fid
 	input := initiateView.Input
-	log.Printf("Initiate view [%s]", fid)
+	logger.DebugfContext(ctx, "initiate view [%s]", fid)
 
 	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
