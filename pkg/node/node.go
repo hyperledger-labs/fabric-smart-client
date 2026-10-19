@@ -19,8 +19,6 @@ import (
 
 var logger = logging.MustGetLogger()
 
-type ExecuteCallbackFunc = func() error
-
 // PostStart enables a platform to execute additional tasks after all platforms have started
 type PostStart interface {
 	PostStart(context.Context) error

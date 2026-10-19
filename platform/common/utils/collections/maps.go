@@ -18,12 +18,6 @@ func InverseMap[K, V comparable](in map[K]V) map[V]K { return maps.Inverse(in) }
 // Values returns all values of m, in no particular order. See [maps.Values].
 func Values[K comparable, V any](m map[K]V) []V { return maps.Values(m) }
 
-// ContainsValue reports whether needle is a value in haystack. See
-// [maps.ContainsValue].
-func ContainsValue[K, V comparable](haystack map[K]V, needle V) bool {
-	return maps.ContainsValue(haystack, needle)
-}
-
 // Keys returns all keys of m, in no particular order. See [maps.Keys].
 func Keys[K comparable, V any](m map[K]V) []K { return maps.Keys(m) }
 

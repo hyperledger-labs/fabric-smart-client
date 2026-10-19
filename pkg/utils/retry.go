@@ -14,12 +14,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-// RetryRunner receives a function that potentially fails and retries according to the specified strategy
-type RetryRunner interface {
-	Run(func() error) error
-	RunWithErrors(runner func() (bool, error)) error
-}
-
 var ErrMaxRetriesExceeded = errors.New("maximum number of retries exceeded")
 
 const Infinitely = -1

@@ -15,10 +15,6 @@ import (
 // [slices.Remove].
 func Remove[T comparable](items []T, toRemove T) ([]T, bool) { return slices.Remove(items, toRemove) }
 
-// Difference returns the elements of a that are not in b. See
-// [slices.Difference].
-func Difference[V comparable](a, b []V) []V { return slices.Difference(a, b) }
-
 // Intersection returns the elements contained in both a and b. See
 // [slices.Intersection].
 func Intersection[V comparable](a, b []V) []V { return slices.Intersection(a, b) }
