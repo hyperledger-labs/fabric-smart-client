@@ -9,7 +9,7 @@ package lazy
 import "sync"
 
 // Provider is a cache of values keyed by input, each produced lazily and at
-// most once per key. Unlike [Getter], individual entries can be recomputed:
+// most once per key. Individual entries can be recomputed:
 // Update reruns the provider for one key and Delete evicts it, so a later
 // Get produces it again.
 type Provider[I any, V any] interface {

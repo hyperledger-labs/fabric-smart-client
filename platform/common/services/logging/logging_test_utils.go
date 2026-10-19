@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
-	"go.uber.org/zap"
 )
 
 // Test helpers for packages that need to assert on log output. They live in a
@@ -21,13 +20,6 @@ type (
 	Recorder = floggingtest.Recorder
 	Option   = floggingtest.Option
 )
-
-// Named returns an Option that names the logger under test.
-func Named(loggerName string) Option {
-	return func(_ *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
-		return l.Named(loggerName)
-	}
-}
 
 // NewTestLogger returns a Logger that records what is written to it, so tests
 // can assert on log output.
