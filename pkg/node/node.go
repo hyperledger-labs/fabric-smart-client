@@ -74,7 +74,7 @@ func (n *Node) ID() string {
 func (n *Node) Start() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("start triggered panic: %s\n%s\n", r, debug.Stack())
+			logger.Errorf("start triggered panic: %s\n%s", r, debug.Stack())
 			err = errors.Errorf("start triggered panic: %s", r)
 			n.Stop()
 		}
