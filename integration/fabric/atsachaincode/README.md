@@ -1,6 +1,6 @@
 # Secured Asset Transfer in Fabric
 
-The [Secured asset transfer in Fabric](`https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html`) 
+The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html)
 is a tutorial that demonstrates how an asset can be represented and traded between organizations 
 in a Hyperledger Fabric blockchain channel.
 
@@ -85,7 +85,7 @@ This is not the most convenient way to test programmatically an application.
 
 FSC provides an `Integration Test Infrastructure` that allow the developer to:
 - Describe the topology of the networks used (Fabric and FSC networks);
-- Boostrap these networks;
+- Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
 Let us go step by step. 
@@ -163,7 +163,7 @@ This is the reason we specify the view factories at topology definition time. At
 the Integration Test Infrastructure synthesizes the `main` file for each FSC node and builds it.
 The developer does not have to worry about this.
 
-### Boostrap the networks
+### Bootstrap the networks
 
 To bootstrap the networks described by the above topologies, we can simply do this:
 
@@ -175,7 +175,7 @@ To bootstrap the networks described by the above topologies, we can simply do th
     ii.Start()
 
 ```
-(The above code is taken from this [`test file`](asset_test.go)).
+(The above code is taken from this [`test file`](atsa_test.go)).
 
 ### Initiate a Business Process
 

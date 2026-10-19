@@ -123,7 +123,7 @@ msg := <-session.Receive()
 
 ## Configuration
 
-Configuration is managed via the FSC configuration file (usually `core.yaml`). For a complete configuration reference including all available options, see the [Configuration Guide](../../../configuration.md).
+Configuration is managed via the FSC configuration file (usually `core.yaml`). For a complete configuration reference including all available options, see the [Configuration Guide](../../../../configuration.md).
 
 ```yaml
 fsc:
