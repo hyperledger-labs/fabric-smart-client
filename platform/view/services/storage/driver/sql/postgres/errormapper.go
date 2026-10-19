@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	errors2 "errors"
+	stderrors "errors"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -24,7 +24,7 @@ type ErrorMapper struct{}
 
 func (*ErrorMapper) WrapError(err error) error {
 	var pgErr *pgconn.PgError
-	if !errors2.As(err, &pgErr) {
+	if !stderrors.As(err, &pgErr) {
 		logger.Warnf("error of type [%T] not pgError", err)
 		return err
 	}
