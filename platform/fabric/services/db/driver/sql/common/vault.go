@@ -11,7 +11,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
-	errors2 "errors"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
@@ -436,7 +435,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 	var m []byte
 	var kversion driver.RawVersion
 	err := row.Scan(&m, &kversion)
-	if err != nil && errors2.Is(err, sql.ErrNoRows) {
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}
 	if err != nil {
@@ -509,7 +508,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where sqlbuild.Condition
 }
 
 func (db *VaultStore) Close() error {
-	return errors2.Join(db.writeDB.Close(), db.readDB.Close())
+	return errors.Join(db.writeDB.Close(), db.readDB.Close())
 }
 
 // Data marshal/unmarshal
