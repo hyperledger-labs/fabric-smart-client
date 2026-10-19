@@ -4,6 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package proto provides Protocol Buffer marshaling, unmarshaling, equality, and
+// cloning helpers. Its marshaling and unmarshaling helpers support both v1 and v2
+// message interfaces.
 package proto
 
 import (
