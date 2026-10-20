@@ -55,6 +55,8 @@ func TestReadExpectedLengthPartialVarint(t *testing.T) {
 }
 
 func TestDelimitedReaderCustomLimit(t *testing.T) {
+	t.Parallel()
+
 	const limit = 20 * 1024 * 1024
 	// a payload above the default but within the configured limit is accepted
 	buf := make([]byte, binary.MaxVarintLen64)

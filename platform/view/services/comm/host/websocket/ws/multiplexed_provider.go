@@ -392,7 +392,7 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	// otherwise tear down the sub-connection out from under subsequent, unrelated calls that
 	// reuse the same stream. We only propagate the span, as a local parent, for tracing
 	// purposes.
-	return newWSStream(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info, c.maxSendMsgSize), nil
+	return newStreamWithLimit(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info, c.maxSendMsgSize), nil
 }
 
 func (c *multiplexedClientConn) readIncoming() {
@@ -554,7 +554,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	logger.Debugf("Created server subconn with id [%s]", sc.id)
 
 	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
-	newStreamCallback(newWSStream(&subConnWithSpan{subConn: sc, span: span}, ctx, host2.StreamInfo{
+	newStreamCallback(newStreamWithLimit(&subConnWithSpan{subConn: sc, span: span}, ctx, host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: c.conn.RemoteAddr().String(),
 		ContextID:         meta.ContextID,
