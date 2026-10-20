@@ -38,6 +38,15 @@ func OpenWSClientConn(url string, config *tls.Config) (*websocket.Conn, error) {
 
 // OpenWSClientConnContext establishes a websocket connection to the given URL with the provided context and DefaultHandshakeTimeout.
 func OpenWSClientConnContext(ctx context.Context, url string, config *tls.Config) (*websocket.Conn, error) { //nolint:contextcheck // documented nil-ctx fallback below (nil is treated as context.Background), not an ignored inherited context
+	return OpenWSClientConnContextWithLimit(ctx, url, config, maxMessageSize)
+}
+
+// OpenWSClientConnContextWithLimit is OpenWSClientConnContext with an explicit read limit, in
+// bytes, for a single websocket message. A non-positive limit means the default (10 MiB).
+func OpenWSClientConnContextWithLimit(ctx context.Context, url string, config *tls.Config, readLimit int64) (*websocket.Conn, error) { //nolint:contextcheck // nil ctx is treated as context.Background
+	if readLimit <= 0 {
+		readLimit = maxMessageSize
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -53,7 +62,7 @@ func OpenWSClientConnContext(ctx context.Context, url string, config *tls.Config
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}
-	ws.SetReadLimit(maxMessageSize)
+	ws.SetReadLimit(readLimit)
 	return ws, nil
 }
 

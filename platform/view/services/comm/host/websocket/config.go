@@ -43,6 +43,8 @@ type Config interface {
 	ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error)
 	CertPath() string
 	MaxSubConns() int
+	MaxRecvMsgSize() int
+	MaxSendMsgSize() int
 	ReadHeaderTimeout() time.Duration
 	ReadTimeout() time.Duration
 	WriteTimeout() time.Duration
@@ -93,6 +95,20 @@ func NewConfig(cs configService) (*config, error) {
 		maxSubConns = cs.GetInt("fsc.p2p.opts.websocket.maxSubConns")
 	}
 
+	maxRecvMsgSize := comm.DefaultMaxMessageSize
+	if cs.IsSet("fsc.p2p.maxRecvMsgSize") {
+		if v := cs.GetInt("fsc.p2p.maxRecvMsgSize"); v > 0 {
+			maxRecvMsgSize = v
+		}
+	}
+
+	maxSendMsgSize := comm.DefaultMaxMessageSize
+	if cs.IsSet("fsc.p2p.maxSendMsgSize") {
+		if v := cs.GetInt("fsc.p2p.maxSendMsgSize"); v > 0 {
+			maxSendMsgSize = v
+		}
+	}
+
 	var corsAllowedOrigins []string
 	if cs.IsSet("fsc.p2p.opts.websocket.corsAllowedOrigins") {
 		raw := cs.GetString("fsc.p2p.opts.websocket.corsAllowedOrigins")
@@ -120,6 +136,8 @@ func NewConfig(cs configService) (*config, error) {
 		serverTLS:          serverTLS,
 		clientTLS:          clientTLS,
 		maxSubConns:        maxSubConns,
+		maxRecvMsgSize:     maxRecvMsgSize,
+		maxSendMsgSize:     maxSendMsgSize,
 		corsAllowedOrigins: corsAllowedOrigins,
 	}, nil
 }
@@ -134,6 +152,8 @@ type config struct {
 	serverTLS          grpc.SecureOptions
 	clientTLS          grpc.SecureOptions
 	maxSubConns        int
+	maxRecvMsgSize     int
+	maxSendMsgSize     int
 	corsAllowedOrigins []string
 
 	serverRootCAPool *x509.CertPool
@@ -150,6 +170,13 @@ func (c *config) CertPath() string { return c.identityCertPath }
 
 // MaxSubConns returns the maximum number of multiplexed sub-connections accepted per peer.
 func (c *config) MaxSubConns() int { return c.maxSubConns }
+
+// MaxRecvMsgSize returns the largest single payload accepted on a stream (fsc.p2p.maxRecvMsgSize). The physical websocket read limit is derived from it to
+// account for base64 framing.
+func (c *config) MaxRecvMsgSize() int { return c.maxRecvMsgSize }
+
+// MaxSendMsgSize returns the largest single payload sent on a stream (fsc.p2p.maxSendMsgSize).
+func (c *config) MaxSendMsgSize() int { return c.maxSendMsgSize }
 
 // ReadHeaderTimeout returns how long the server waits for request headers.
 func (*config) ReadHeaderTimeout() time.Duration { return 10 * time.Second }

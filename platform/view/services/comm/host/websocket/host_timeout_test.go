@@ -142,6 +142,8 @@ func (m *mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) (*tls.Config
 }
 func (m *mockConfig) CertPath() string               { return m.certPath }
 func (*mockConfig) MaxSubConns() int                 { return 100 }
+func (*mockConfig) MaxRecvMsgSize() int              { return 10 * 1024 * 1024 }
+func (*mockConfig) MaxSendMsgSize() int              { return 10 * 1024 * 1024 }
 func (*mockConfig) ReadHeaderTimeout() time.Duration { return 10 * time.Second }
 
 func (*mockConfig) ReadTimeout() time.Duration { return 30 * time.Second }
