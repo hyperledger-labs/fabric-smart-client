@@ -268,3 +268,46 @@ func TestRaisedMessageLimitEndToEnd(t *testing.T) {
 		require.Error(t, sendMsg(stream, payload))
 	})
 }
+
+// TestMultiplexedMessageWireCompatibility verifies that readMultiplexedMessage decodes frames
+// written by gorilla's WriteJSON, and that frames written by write decode with ReadJSON, so peers
+// using either read path interoperate.
+func TestMultiplexedMessageWireCompatibility(t *testing.T) {
+	t.Parallel()
+	testSetup(t)
+
+	sent := MultiplexedMessage{ID: "1", Msg: []byte{0xAA, 0x00, 0xBB}}
+	fromStreamed, fromWhole := make(chan MultiplexedMessage, 1), make(chan MultiplexedMessage, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := (&gorilla_websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer func() { _ = conn.Close() }()
+		// A streaming peer's frame decodes with readMultiplexedMessage...
+		var mm MultiplexedMessage
+		if err := readMultiplexedMessage(conn, &mm); err != nil {
+			t.Errorf("readMultiplexedMessage: %v", err)
+			return
+		}
+		fromStreamed <- mm
+		// ...and write's frame decodes with ReadJSON.
+		if err := newBaseConn(conn, nil, nil, serverSide, 0, 0).write(mm); err != nil {
+			t.Errorf("write: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	conn, resp, err := gorilla_websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	defer func() { _ = conn.Close() }()
+
+	require.NoError(t, conn.WriteJSON(sent))
+	var echoed MultiplexedMessage
+	require.NoError(t, conn.ReadJSON(&echoed))
+	fromWhole <- echoed
+
+	require.Equal(t, sent, <-fromStreamed)
+	require.Equal(t, sent, <-fromWhole)
+}
