@@ -87,6 +87,10 @@ type MultiplexedProvider struct {
 	killOnce    sync.Once
 
 	MaxSubConns int
+	// MaxRecvMsgSize caps the size of a single received payload; <= 0 means the default (10 MiB).
+	MaxRecvMsgSize int
+	// MaxSendMsgSize caps the size of a single sent payload; <= 0 means the default (10 MiB).
+	MaxSendMsgSize int
 }
 
 // KillAll closes the provider and kills every websocket it dialed or accepted, together with
@@ -227,7 +231,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	c.dialing[key] = inFlight
 	c.mu.Unlock()
 
-	wsConn, err := web2.OpenWSClientConnContext(ctx, urlStr, config)
+	wsConn, err := web2.OpenWSClientConnContextWithLimit(ctx, urlStr, config, wireReadLimit(c.MaxRecvMsgSize))
 	if err == nil && config != nil {
 		if err = verifyServerPeerID(wsConn, info.RemotePeerID); err != nil {
 			_ = wsConn.Close()
@@ -251,7 +255,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	// newClientConn starts the read loop, which can close the socket before this
 	// function returns, but onClose takes c.mu and so cannot run until conn is assigned
 	// and the registration below is done.
-	conn = newClientConn(wsConn, c.tracer, c.m, c.MaxSubConns, func() {
+	conn = newClientConn(wsConn, c.tracer, c.m, c.MaxSubConns, c.MaxSendMsgSize, func() {
 		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -304,7 +308,7 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 		return errors.Wrapf(err, "failed extracting expected peerID from TLS certificate")
 	}
 
-	conn, err := server.OpenWSServerConn(writer, request)
+	conn, err := server.OpenWSServerConnWithLimit(writer, request, wireReadLimit(c.MaxRecvMsgSize))
 	if err != nil {
 		return errors.Wrapf(err, "failed to open websocket")
 	}
@@ -317,7 +321,7 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 	}
 	// Registering under mu orders the deletion in onClose after the insertion below.
 	var sc *multiplexedServerConn
-	sc = newServerConn(conn, expectedPeerID, c.tracer, c.m, c.MaxSubConns, newStreamCallback, func() {
+	sc = newServerConn(conn, expectedPeerID, c.tracer, c.m, c.MaxSubConns, c.MaxSendMsgSize, newStreamCallback, func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		delete(c.servers, sc)
@@ -334,8 +338,8 @@ type multiplexedClientConn struct {
 	*multiplexedBaseConn
 }
 
-func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, maxSubConns int, onClose func()) *multiplexedClientConn {
-	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer, m, clientSide, maxSubConns)}
+func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, onClose func()) *multiplexedClientConn {
+	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer, m, clientSide, maxSubConns, maxSendMsgSize)}
 	go func() {
 		c.readIncoming()
 		onClose()
@@ -388,7 +392,7 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	// otherwise tear down the sub-connection out from under subsequent, unrelated calls that
 	// reuse the same stream. We only propagate the span, as a local parent, for tracing
 	// purposes.
-	return NewWSStream(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info), nil
+	return newStreamWithLimit(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info, c.maxSendMsgSize), nil
 }
 
 func (c *multiplexedClientConn) readIncoming() {
@@ -443,9 +447,9 @@ type multiplexedServerConn struct {
 
 // newServerConn starts serving conn and calls onClose once its read loop has ended and the
 // connection is killed.
-func newServerConn(conn *websocket.Conn, expectedPeerID host2.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns int, newStreamCallback func(pStream host2.P2PStream), onClose func()) *multiplexedServerConn {
+func newServerConn(conn *websocket.Conn, expectedPeerID host2.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, newStreamCallback func(pStream host2.P2PStream), onClose func()) *multiplexedServerConn {
 	c := &multiplexedServerConn{
-		multiplexedBaseConn: newBaseConn(conn, tracer, m, serverSide, maxSubConns),
+		multiplexedBaseConn: newBaseConn(conn, tracer, m, serverSide, maxSubConns, maxSendMsgSize),
 		expectedPeerID:      expectedPeerID,
 	}
 	go func() {
@@ -550,12 +554,12 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	logger.Debugf("Created server subconn with id [%s]", sc.id)
 
 	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
-	newStreamCallback(NewWSStream(&subConnWithSpan{subConn: sc, span: span}, ctx, host2.StreamInfo{
+	newStreamCallback(newStreamWithLimit(&subConnWithSpan{subConn: sc, span: span}, ctx, host2.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: c.conn.RemoteAddr().String(),
 		ContextID:         meta.ContextID,
 		SessionID:         meta.SessionID,
-	}))
+	}, c.maxSendMsgSize))
 } //nolint:spancheck // span is handed off to subConnWithSpan, whose Close() ends it
 
 type multiplexedBaseConn struct {
@@ -573,24 +577,26 @@ type multiplexedBaseConn struct {
 	closing   map[SubConnId]struct{}
 	subConnID atomic.Uint64
 
-	tracer       trace.Tracer
-	m            *Metrics
-	side         string
-	maxSubConns  int
-	closed       atomic.Bool
-	writeTimeout time.Duration
+	tracer         trace.Tracer
+	m              *Metrics
+	side           string
+	maxSubConns    int
+	maxSendMsgSize int
+	closed         atomic.Bool
+	writeTimeout   time.Duration
 }
 
-func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, side string, maxSubConns int) *multiplexedBaseConn {
+func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, side string, maxSubConns, maxSendMsgSize int) *multiplexedBaseConn {
 	c := &multiplexedBaseConn{
-		conn:         conn,
-		subConns:     make(map[SubConnId]*subConn),
-		closing:      make(map[SubConnId]struct{}),
-		tracer:       tracer,
-		m:            metrics,
-		side:         side,
-		maxSubConns:  maxSubConns,
-		writeTimeout: writeTimeout,
+		conn:           conn,
+		subConns:       make(map[SubConnId]*subConn),
+		closing:        make(map[SubConnId]struct{}),
+		tracer:         tracer,
+		m:              metrics,
+		side:           side,
+		maxSubConns:    maxSubConns,
+		maxSendMsgSize: maxSendMsgSize,
+		writeTimeout:   writeTimeout,
 	}
 	return c
 }
@@ -761,3 +767,17 @@ func (s *subConnWithSpan) Close() error {
 	s.span.End()
 	return s.subConn.Close()
 }
+
+// wireReadLimit returns the read limit to set on the physical websocket so that a payload of
+// maxRecvMsgSize bytes can be received. A payload travels inside a JSON MultiplexedMessage in
+// which Msg is base64-encoded (4/3 expansion), plus the envelope. A non-positive
+// maxRecvMsgSize means the default of 10 MiB.
+func wireReadLimit(maxRecvMsgSize int) int64 {
+	if maxRecvMsgSize <= 0 {
+		maxRecvMsgSize = defaultMaxDelimitedPayloadSize
+	}
+	return int64(maxRecvMsgSize)/3*4 + 4 + wireEnvelopeOverhead
+}
+
+// wireEnvelopeOverhead is the slack reserved for the JSON envelope (id, field names) around Msg.
+const wireEnvelopeOverhead = 1024

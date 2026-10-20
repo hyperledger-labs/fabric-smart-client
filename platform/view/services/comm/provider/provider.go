@@ -47,5 +47,8 @@ func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endp
 	if err != nil {
 		return nil, err
 	}
-	return websocket.NewEndpointBasedProvider(restConfig, endpointService, discovery, ws.NewMultiplexedProvider(tracerProvider, metricsProvider, restConfig.MaxSubConns())), nil
+	streamProvider := ws.NewMultiplexedProvider(tracerProvider, metricsProvider, restConfig.MaxSubConns())
+	streamProvider.MaxRecvMsgSize = restConfig.MaxRecvMsgSize()
+	streamProvider.MaxSendMsgSize = restConfig.MaxSendMsgSize()
+	return websocket.NewEndpointBasedProvider(restConfig, endpointService, discovery, streamProvider), nil
 }

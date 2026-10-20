@@ -64,6 +64,7 @@ type MultiplexedMessage struct {
 -   **Client Side**: Uses `newClientSubConn` to initiate a sub-connection. It increments a local counter to generate new IDs.
 -   **Server Side**: Uses `newServerSubConn` when it receives a `MultiplexedMessage` with a new `ID`.
 -   **Limits**: Enforced by `maxSubConns` (default 100) per physical connection to prevent resource exhaustion.
+-   **Message Size**: A single payload is capped by `fsc.p2p.maxRecvMsgSize` on receive and `fsc.p2p.maxSendMsgSize` on send (default 10 MiB each; zero or negative values fall back to the default). Both are shared with the other P2P transports. The physical websocket read limit is derived from `maxRecvMsgSize` to cover the base64 framing of the multiplexed JSON envelope. Raise both on the sender and the receiver to move payloads larger than 10 MiB.
 
 ## Performance and Security
 

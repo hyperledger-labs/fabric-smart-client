@@ -14,7 +14,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-const maxDelimitedPayloadSize = 10 * 1024 * 1024
+// defaultMaxDelimitedPayloadSize is the default cap on a single length-delimited payload (10 MiB).
+// It matches comm.DefaultMaxMessageSize and is overridden by fsc.p2p.maxSendMsgSize.
+const defaultMaxDelimitedPayloadSize = 10 * 1024 * 1024
 
 // delimitedReader reads the output of a protobuf DelimitedWriter.
 // The difference with the protobuf DelimitedReader is that:
@@ -25,18 +27,23 @@ type delimitedReader struct {
 	expectedLength int
 	currentLength  int
 	headerBuf      []byte
+	maxPayload     int
 }
 
-func newDelimitedReader() *delimitedReader {
+func newDelimitedReader(maxPayload int) *delimitedReader {
+	if maxPayload <= 0 {
+		maxPayload = defaultMaxDelimitedPayloadSize
+	}
 	return &delimitedReader{
-		buf:       []byte{},
-		headerBuf: []byte{},
+		maxPayload: maxPayload,
+		buf:        []byte{},
+		headerBuf:  []byte{},
 	}
 }
 
 func (r *delimitedReader) Read(p []byte) (int, error) {
 	if r.expectedLength == 0 {
-		if len(r.headerBuf)+len(p) > binary.MaxVarintLen64+maxDelimitedPayloadSize {
+		if len(r.headerBuf)+len(p) > binary.MaxVarintLen64+r.maxPayload {
 			return 0, errors.Errorf("message header or payload too large")
 		}
 		r.headerBuf = append(r.headerBuf, p...)
@@ -50,8 +57,8 @@ func (r *delimitedReader) Read(p []byte) (int, error) {
 		}
 
 		// We have a full varint
-		if length > maxDelimitedPayloadSize {
-			return 0, errors.Errorf("message payload too large [%d], max [%d]", length, maxDelimitedPayloadSize)
+		if length > uint64(r.maxPayload) {
+			return 0, errors.Errorf("message payload too large [%d], max [%d]", length, r.maxPayload)
 		}
 		total := length + uint64(n)
 		if total > uint64(math.MaxInt) {

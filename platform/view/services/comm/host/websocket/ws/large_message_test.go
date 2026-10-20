@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
-// TestOversizedMessageRejection verifies that messages exceeding maxDelimitedPayloadSize (10MB)
+// TestOversizedMessageRejection verifies that messages exceeding defaultMaxDelimitedPayloadSize (10MB)
 // are rejected by the delimitedReader.
 func TestOversizedMessageRejection(t *testing.T) {
 	t.Parallel()
@@ -55,7 +55,7 @@ func TestOversizedMessageRejection(t *testing.T) {
 	clientStream, err := p.NewClientStream(info, ctx, srcID, clientTLSConfig)
 	require.NoError(t, err)
 
-	// Attempt to send 11MB (exceeds maxDelimitedPayloadSize = 10MB)
+	// Attempt to send 11MB (exceeds defaultMaxDelimitedPayloadSize = 10MB)
 	oversizedPayload := make([]byte, 11*1024*1024)
 
 	// Write should fail because it uses the accumulator which checks the size
@@ -203,4 +203,68 @@ func TestMultipleMessagesOrderAndContent(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for ACK from server")
 	}
+}
+
+// TestRaisedMessageLimitEndToEnd verifies that a payload above the default 10 MiB cap travels
+// end to end when both sides raise the limits, and is refused at the sender when the send limit
+// stays at the default.
+func TestRaisedMessageLimitEndToEnd(t *testing.T) {
+	t.Parallel()
+	testSetup(t)
+
+	const limit = 32 * 1024 * 1024
+	payload := make([]byte, 12*1024*1024) // above the 10 MiB default
+	payload[0], payload[len(payload)-1] = 0xAA, 0xBB
+
+	open := func(t *testing.T, sendLimit, recvLimit int) (host.P2PStream, chan []byte) {
+		t.Helper()
+		serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, false)
+
+		serverProvider := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+		serverProvider.MaxRecvMsgSize, serverProvider.MaxSendMsgSize = recvLimit, sendLimit
+		clientProvider := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+		clientProvider.MaxRecvMsgSize, clientProvider.MaxSendMsgSize = recvLimit, sendLimit
+
+		received := make(chan []byte, 1)
+		srv := startTestServer(t, serverProvider, serverTLSConfig, func(s host.P2PStream) {
+			// The callback runs on the connection's read loop, so reading here would block it.
+			go func() {
+				if msg, err := readMsg(s); err == nil {
+					received <- msg
+				}
+			}()
+		})
+		t.Cleanup(srv.Close)
+
+		info := host.StreamInfo{
+			RemotePeerID:      serverPeerID(t, serverTLSConfig),
+			RemotePeerAddress: strings.TrimPrefix(srv.URL, "https://"),
+			ContextID:         "raised-ctx",
+			SessionID:         "raised-sess",
+		}
+		clientStream, err := clientProvider.NewClientStream(info, t.Context(), srcID, clientTLSConfig)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = clientStream.Close() })
+		return clientStream, received
+	}
+
+	t.Run("raised limits deliver the payload", func(t *testing.T) {
+		t.Parallel()
+		stream, received := open(t, limit, limit)
+		require.NoError(t, sendMsg(stream, payload))
+		select {
+		case got := <-received:
+			require.Len(t, got, len(payload))
+			require.Equal(t, byte(0xAA), got[0])
+			require.Equal(t, byte(0xBB), got[len(got)-1])
+		case <-time.After(30 * time.Second):
+			t.Fatal("timeout waiting for the large payload")
+		}
+	})
+
+	t.Run("default send limit refuses the payload", func(t *testing.T) {
+		t.Parallel()
+		stream, _ := open(t, 0, limit)
+		require.Error(t, sendMsg(stream, payload))
+	})
 }
