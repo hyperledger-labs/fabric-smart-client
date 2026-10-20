@@ -406,7 +406,7 @@ func (c *multiplexedClientConn) readIncoming() {
 		// below, and encoding/json reuses a non-nil []byte field's backing array,
 		// so reusing mm would let the next read overwrite a payload still in flight.
 		var mm MultiplexedMessage
-		err := c.conn.ReadJSON(&mm)
+		err := readMultiplexedMessage(c.conn, &mm)
 		if err != nil {
 			logger.Debugf("Client connection errored: %v", err)
 			return
@@ -469,7 +469,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		// Declared per iteration on purpose: see the note in the client's readIncoming.
 		var mm MultiplexedMessage
 		_ = c.conn.SetReadDeadline(time.Now().Add(readTimeout))
-		err := c.conn.ReadJSON(&mm)
+		err := readMultiplexedMessage(c.conn, &mm)
 		if err != nil {
 			logger.Debugf("Connection errored: %v", err)
 
@@ -640,6 +640,19 @@ func (c *multiplexedBaseConn) newSubConn(id SubConnId) *subConn {
 		receiverChan: make(chan result, 100),
 		parentConn:   c,
 	}
+}
+
+// readMultiplexedMessage reads the next websocket message and decodes it into mm. The message is
+// read whole and then decoded, rather than streamed through gorilla's ReadJSON, which feeds the
+// JSON decoder through many small reads. Under the race detector the streamed decode costs time
+// superlinear in the payload size, seconds for a few MiB; reading whole keeps it linear and
+// also allocates less. The wire format is unchanged: one JSON MultiplexedMessage per message.
+func readMultiplexedMessage(conn *websocket.Conn, mm *MultiplexedMessage) error {
+	_, raw, err := conn.ReadMessage()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, mm)
 }
 
 // write sends msg on the websocket. A failed write leaves the gorilla connection unusable, so
