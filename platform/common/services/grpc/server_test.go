@@ -394,7 +394,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 			SecOpts:            grpc3.SecureOptions{UseTLS: false},
 		},
 	)
-	require.EqualError(t, err, "missing address parameter")
+	require.EqualError(t, err, "fsc.grpc.address is required when fsc.grpc.enabled is true")
 
 	// missing port
 	_, err = grpc3.NewGRPCServer(

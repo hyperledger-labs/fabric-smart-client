@@ -54,7 +54,7 @@ func NewGRPCServer(address string, serverConfig ServerConfig) (*GRPCServer, erro
 		len(serverConfig.SecOpts.ClientRootCAs))
 
 	if address == "" {
-		return nil, errors.New("missing address parameter")
+		return nil, errors.New("fsc.grpc.address is required when fsc.grpc.enabled is true")
 	}
 	// create our listener
 	lis, err := net.Listen("tcp", address)

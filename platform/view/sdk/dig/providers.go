@@ -83,5 +83,5 @@ func newKMSDriver(in struct {
 			return &kms.KMS{Driver: driver.Driver}, nil
 		}
 	}
-	return nil, errors.New("driver not found")
+	return nil, errors.Errorf("Unknown fsc.identity.type [%s]", driverName)
 }
