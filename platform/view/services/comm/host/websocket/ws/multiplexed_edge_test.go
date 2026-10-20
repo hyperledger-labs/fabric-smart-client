@@ -550,7 +550,7 @@ func newPipedWebsocketPair(t *testing.T) (serverConn, clientConn *gwebsocket.Con
 func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns int, cb func(host.P2PStream)) (*multiplexedServerConn, *gwebsocket.Conn) {
 	t.Helper()
 	serverWSConn, clientWSConn := newPipedWebsocketPair(t)
-	sc := newServerConn(serverWSConn, expectedPeerID, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, cb, func() {})
+	sc := newServerConn(serverWSConn, expectedPeerID, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, 0, cb, func() {})
 	return sc, clientWSConn
 }
 
@@ -559,7 +559,7 @@ func newPipedServerConn(t *testing.T, expectedPeerID host.PeerID, maxSubConns in
 func newPipedClientConn(t *testing.T, maxSubConns int, onClose func()) (*multiplexedClientConn, *gwebsocket.Conn) {
 	t.Helper()
 	serverWSConn, clientWSConn := newPipedWebsocketPair(t)
-	cc := newClientConn(clientWSConn, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, onClose)
+	cc := newClientConn(clientWSConn, noop.NewTracerProvider().Tracer("test"), newMetrics(&disabled.Provider{}), maxSubConns, 0, onClose)
 	return cc, serverWSConn
 }
 
@@ -869,7 +869,7 @@ func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T)
 	rawWS, resp, err := (&gwebsocket.Dialer{}).Dial("ws://"+addr+"/p2p", nil)
 	require.NoError(t, err)
 	_ = resp.Body.Close()
-	connB := newClientConn(rawWS, p.tracer, p.m, 0, func() {})
+	connB := newClientConn(rawWS, p.tracer, p.m, 0, 0, func() {})
 
 	p.mu.Lock()
 	p.clients[key] = connB

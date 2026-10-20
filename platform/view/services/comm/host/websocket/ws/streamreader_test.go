@@ -15,7 +15,7 @@ import (
 
 func TestReadExpectedLengthHappyPath(t *testing.T) {
 	t.Parallel()
-	reader := newDelimitedReader()
+	reader := newDelimitedReader(0)
 	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(buf, 128)
 
@@ -27,9 +27,9 @@ func TestReadExpectedLengthHappyPath(t *testing.T) {
 
 func TestReadExpectedLengthOversizedPayload(t *testing.T) {
 	t.Parallel()
-	reader := newDelimitedReader()
+	reader := newDelimitedReader(0)
 	buf := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutUvarint(buf, maxDelimitedPayloadSize+1)
+	n := binary.PutUvarint(buf, defaultMaxDelimitedPayloadSize+1)
 
 	_, err := reader.Read(buf[:n])
 	require.Error(t, err)
@@ -38,7 +38,7 @@ func TestReadExpectedLengthOversizedPayload(t *testing.T) {
 
 func TestReadExpectedLengthPartialVarint(t *testing.T) {
 	t.Parallel()
-	reader := newDelimitedReader()
+	reader := newDelimitedReader(0)
 
 	// 128 in varint is [0x80, 0x01]
 	// Send first byte
@@ -52,4 +52,20 @@ func TestReadExpectedLengthPartialVarint(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, n)
 	require.Equal(t, 130, reader.expectedLength) // 128 + 2 bytes header
+}
+
+func TestDelimitedReaderCustomLimit(t *testing.T) {
+	t.Parallel()
+
+	const limit = 20 * 1024 * 1024
+	// a payload above the default but within the configured limit is accepted
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, defaultMaxDelimitedPayloadSize+1)
+	_, err := newDelimitedReader(limit).Read(buf[:n])
+	require.NoError(t, err)
+
+	// a payload above the configured limit is rejected
+	n = binary.PutUvarint(buf, limit+1)
+	_, err = newDelimitedReader(limit).Read(buf[:n])
+	require.Error(t, err)
 }

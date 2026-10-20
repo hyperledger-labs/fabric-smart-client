@@ -42,6 +42,15 @@ const (
 )
 
 func OpenWSServerConn(writer http.ResponseWriter, request *http.Request) (*websocket.Conn, error) {
+	return OpenWSServerConnWithLimit(writer, request, maxMessageSize)
+}
+
+// OpenWSServerConnWithLimit is OpenWSServerConn with an explicit read limit, in bytes, for a
+// single websocket message. A non-positive limit means the default (10 MiB).
+func OpenWSServerConnWithLimit(writer http.ResponseWriter, request *http.Request, readLimit int64) (*websocket.Conn, error) {
+	if readLimit <= 0 {
+		readLimit = maxMessageSize
+	}
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -52,7 +61,7 @@ func OpenWSServerConn(writer http.ResponseWriter, request *http.Request) (*webso
 		logger.Errorf("Failed to upgrade connection to websocket from [%s]: %s", request.RemoteAddr, err.Error())
 		return nil, err
 	}
-	conn.SetReadLimit(maxMessageSize)
+	conn.SetReadLimit(readLimit)
 	return conn, nil
 }
 

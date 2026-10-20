@@ -55,12 +55,17 @@ type stream struct {
 // the connection erroring out); the <-ctx.Done() goroutine below is a safety net that in practice
 // is only ever triggered by Close()'s own s.cancel(), not by an external caller cancelling ctx.
 func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *stream {
+	return newStreamWithLimit(conn, ctx, info, defaultMaxDelimitedPayloadSize)
+}
+
+// newStreamWithLimit is NewWSStream with an explicit cap on the size of a single sent payload.
+func newStreamWithLimit(conn connection, ctx context.Context, info host2.StreamInfo, maxSendMsgSize int) *stream {
 	ctx, cancel := context.WithCancel(ctx)
 	s := &stream{
 		ctx:          ctx,
 		conn:         conn,
 		cancel:       cancel,
-		accumulator:  newDelimitedReader(),
+		accumulator:  newDelimitedReader(maxSendMsgSize),
 		reads:        make(chan result, 100),
 		readLeftover: []byte{},
 		info:         info,

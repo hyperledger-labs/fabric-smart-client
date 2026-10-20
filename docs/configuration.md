@@ -163,9 +163,11 @@ fsc:
     # Maximum allowed size (in bytes) for incoming P2P messages. Default: 10485760 (10 MiB)
     # This protects the node from memory exhaustion by rejecting oversized payloads before deserialization.
     # The limit cannot be disabled: zero or negative values fall back to the default.
+    # Applies to every p2p type, including websocket, where it also sizes the websocket read limit.
     maxRecvMsgSize: 10485760
     # Maximum allowed size (in bytes) for outgoing P2P messages. Default: 10485760 (10 MiB)
     # The limit cannot be disabled: zero or negative values fall back to the default.
+    # Applies to every p2p type, including websocket.
     maxSendMsgSize: 10485760
     # Maximum number of responder views running concurrently for one remote peer. Default: 1000
     # A first message over the limit is rejected with an error to the initiator; once as many
