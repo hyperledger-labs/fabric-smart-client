@@ -64,6 +64,20 @@ func webAddress(configProvider driver.ConfigService) (string, error) {
 	return addr, nil
 }
 
+// grpcAddress returns fsc.grpc.address, or an error when it is empty or not host:port. An
+// empty address would make net.Listen bind a random port on all interfaces, and a
+// malformed one would only fail once the node starts serving.
+func grpcAddress(configProvider driver.ConfigService) (string, error) {
+	addr := configProvider.GetString("fsc.grpc.address")
+	if addr == "" {
+		return "", errors.New("fsc.grpc.address is required when fsc.grpc.enabled is true")
+	}
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		return "", errors.Wrapf(err, "invalid fsc.grpc.address [%s]", addr)
+	}
+	return addr, nil
+}
+
 // resolveWebTLS resolves fsc.web.tls, inheriting per field from fsc.tls.
 func resolveWebTLS(configProvider driver.ConfigService) (grpc2.SecureOptions, error) {
 	return tlsconfig.ResolveServer(configProvider, "fsc.tls", "fsc.web.tls")
@@ -71,9 +85,9 @@ func resolveWebTLS(configProvider driver.ConfigService) (grpc2.SecureOptions, er
 
 // CheckTLSConfig resolves and validates the TLS of every enabled fsc listener, including
 // the operations one, and the operations endpoints' client authentication, requires a
-// host:port fsc.web.address when the web listener is enabled, and rejects removed configuration
-// keys, without binding any address. It returns an error naming the
-// offending key, which makes a core.yaml checkable without starting a node.
+// host:port fsc.grpc.address and fsc.web.address when their listeners are enabled, and
+// rejects removed configuration keys, without binding any address. It returns an error
+// naming the offending key, which makes a core.yaml checkable without starting a node.
 func CheckTLSConfig(configProvider driver.ConfigService) error {
 	if err := tlsconfig.CheckRemovedKeys(configProvider, "fsc"); err != nil {
 		return err
@@ -81,6 +95,9 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 	// Gated per service: a disabled listener's block is not this node's problem, and
 	// failing on it would make `validate` reject a configuration that runs fine.
 	if configProvider.GetBool("fsc.grpc.enabled") {
+		if _, err := grpcAddress(configProvider); err != nil {
+			return err
+		}
 		if _, err := NewServerConfig(configProvider); err != nil {
 			return errors.WithMessage(err, "invalid fsc.grpc TLS configuration")
 		}
@@ -296,7 +313,10 @@ func NewGRPCServer(configProvider driver.ConfigService) (*grpc2.GRPCServer, erro
 		return nil, nil
 	}
 
-	listenAddr := configProvider.GetString("fsc.grpc.address")
+	listenAddr, err := grpcAddress(configProvider)
+	if err != nil {
+		return nil, err
+	}
 	serverConfig, err := NewServerConfig(configProvider)
 	if err != nil {
 		return nil, err
