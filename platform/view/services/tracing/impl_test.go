@@ -63,6 +63,24 @@ func TestNewProviderFromConfigService_SamplingRatio(t *testing.T) {
 	}
 }
 
+// TestUnmarshalTracingConfig_SkipsOTLPTLS checks that fsc.tracing.otlp.tls is not
+// decoded into OtlpConfig.TLS. That block is resolved later by tlsconfig.
+func TestUnmarshalTracingConfig_SkipsOTLPTLS(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	core := "fsc:\n  tracing:\n    provider: otlp\n    otlp:\n      address: 127.0.0.1:4317\n      tls:\n        enabled: true\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(core), 0o600))
+	cs, err := config.NewProvider(dir)
+	require.NoError(t, err)
+
+	var c tracing.Config
+	require.NoError(t, cs.UnmarshalKey("fsc.tracing", &c))
+	require.Equal(t, tracing.Otlp, c.Provider)
+	require.Equal(t, "127.0.0.1:4317", c.Otlp.Address)
+	require.Zero(t, c.Otlp.TLS)
+}
+
 func TestNewProviderFromConfigService_UnknownProvider(t *testing.T) {
 	t.Parallel()
 
