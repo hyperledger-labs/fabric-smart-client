@@ -66,26 +66,6 @@ type MSP struct {
 	Opts      map[string]any `yaml:"opts,omitempty"`
 }
 
-type File struct {
-	File string `yaml:"file"`
-}
-
-type Files struct {
-	Files []string `yaml:"files"`
-}
-
-type TLS struct {
-	Enabled            bool
-	ClientAuthRequired bool
-	Cert               File   `yaml:"cert"`
-	Key                File   `yaml:"key"`
-	ClientCert         File   `yaml:"clientCert"`
-	ClientKey          File   `yaml:"clientKey"`
-	RootCert           File   `yaml:"rootCert"`
-	ClientRootCAs      Files  `yaml:"clientRootCAs"`
-	RootCertFile       string `yaml:"rootCertFile"`
-}
-
 type ConnectionConfig = grpc.ConnectionConfig
 
 type Chaincode struct {
