@@ -104,6 +104,17 @@ func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest // t.Setenv
 	assert.Equal(t, "yes", p.GetString("core.isFine"))
 }
 
+func TestEnvPrefixFiltering(t *testing.T) { //nolint:paralleltest
+	t.Setenv("COREPACK_ENABLE_AUTO_PIN", "0")
+	t.Setenv("CORE_STR", "override")
+
+	p, err := NewProvider("./testdata")
+	require.NoError(t, err)
+
+	assert.Equal(t, "override", p.GetString("str"))
+	assert.NotContains(t, p.Backend.Keys(), "corepack.enable.auto.pin")
+}
+
 func testMerge(t *testing.T, p *Provider) {
 	t.Helper()
 	newKey := p.GetString("newKey")
