@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
@@ -167,6 +168,7 @@ func (p *SDK) Install() error {
 			return operations.NewMetricsProvider(o.Metrics)
 		}),
 		p.Container().Provide(viewgrpcserver.NewMetrics),
+		p.Container().Provide(connstate.NewMetrics),
 
 		// Web server
 		p.Container().Provide(NewWebServer),
