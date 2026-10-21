@@ -7,21 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package client
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/json"
 	"encoding/pem"
 	"math/big"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -29,8 +25,6 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
 // --- Config URL generation ---
@@ -122,29 +116,25 @@ func TestNewClient_Success_Configures_Client_Correctly(t *testing.T) {
 		config              Config
 		expectTLS           bool
 		expectURL           string
-		expectWsURL         string
 		expectClientCertLen int
 	}{
 		{
-			name:        "No_TLS_Uses_Plain_HTTP_And_WS",
-			config:      Config{Host: "localhost:8080"},
-			expectTLS:   false,
-			expectURL:   "http://localhost:8080",
-			expectWsURL: "ws://localhost:8080",
+			name:      "No_TLS_Uses_Plain_HTTP_And_WS",
+			config:    Config{Host: "localhost:8080"},
+			expectTLS: false,
+			expectURL: "http://localhost:8080",
 		},
 		{
-			name:        "CACertRaw_Enables_TLS_With_HTTPS_And_WSS",
-			config:      Config{Host: "localhost:8443", CACertRaw: caCertPEM},
-			expectTLS:   true,
-			expectURL:   "https://localhost:8443",
-			expectWsURL: "wss://localhost:8443",
+			name:      "CACertRaw_Enables_TLS_With_HTTPS_And_WSS",
+			config:    Config{Host: "localhost:8443", CACertRaw: caCertPEM},
+			expectTLS: true,
+			expectURL: "https://localhost:8443",
 		},
 		{
-			name:        "CACertPath_Enables_TLS_With_HTTPS_And_WSS",
-			config:      Config{Host: "localhost:8443", CACertPath: caPath},
-			expectTLS:   true,
-			expectURL:   "https://localhost:8443",
-			expectWsURL: "wss://localhost:8443",
+			name:      "CACertPath_Enables_TLS_With_HTTPS_And_WSS",
+			config:    Config{Host: "localhost:8443", CACertPath: caPath},
+			expectTLS: true,
+			expectURL: "https://localhost:8443",
 		},
 		{
 			name: "Mutual_TLS_Loads_Client_Certificates",
@@ -156,7 +146,6 @@ func TestNewClient_Success_Configures_Client_Correctly(t *testing.T) {
 			},
 			expectTLS:           true,
 			expectURL:           "https://localhost:8443",
-			expectWsURL:         "wss://localhost:8443",
 			expectClientCertLen: 1,
 		},
 	}
@@ -170,7 +159,6 @@ func TestNewClient_Success_Configures_Client_Correctly(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, client)
 			require.Equal(t, tc.expectURL, client.url)
-			require.Equal(t, tc.expectWsURL, client.wsURL)
 
 			if tc.expectTLS {
 				require.NotNil(t, client.tlsConfig)
@@ -240,164 +228,6 @@ func TestNewClient_Error_Returns_Missing_Config(t *testing.T) {
 
 // --- CallView / CallViewWithContext ---
 
-// Verifies the full happy path: CallView sends a PUT to /v1/Views/{fid},
-// deserializes the JSON-encoded CallViewResponse, and returns the Result.
-func TestCallView_Returns_Result_On_Valid_Server_Response(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPut, r.Method)
-		assert.Equal(t, "/v1/Views/myView", r.URL.Path)
-
-		resp := &protos.CommandResponse_CallViewResponse{
-			CallViewResponse: &protos.CallViewResponse{
-				Result: []byte("hello-world"),
-			},
-		}
-		w.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(w).Encode(resp)
-		assert.NoError(t, err)
-	}))
-	defer server.Close()
-
-	client := newTestClient(t, server)
-
-	result, err := client.CallView("myView", []byte(`{"key":"value"}`))
-	require.NoError(t, err)
-	require.NotNil(t, result)
-}
-
-// Verifies that CallView surfaces clear errors for each server-side failure mode:
-// HTTP error status, unparseable body, and a response with a nil inner message.
-func TestCallView_Error_Returns_Descriptive_Failure(t *testing.T) {
-	t.Parallel()
-
-	table := []struct {
-		name           string
-		handler        http.HandlerFunc
-		expectedErrMsg string
-	}{
-		{
-			name: "Non_200_Status_Code_Returns_Status_Error",
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-			},
-			expectedErrMsg: "status code",
-		},
-		{
-			name: "Non_200_Status_Code_Returns_Server_Reason",
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte(`{"Reason":"view failed"}`))
-			},
-			expectedErrMsg: "status code [500], status [500 Internal Server Error], reason [view failed]",
-		},
-		{
-			name: "Non_200_Status_Code_With_Non_JSON_Body_Returns_Status_Error",
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusBadGateway)
-				_, _ = w.Write([]byte("<html>bad gateway</html>"))
-			},
-			expectedErrMsg: "status [502 Bad Gateway]",
-		},
-		{
-			name: "Invalid_JSON_Body_Returns_Unmarshal_Error",
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte("not-json"))
-			},
-			expectedErrMsg: "failed to unmarshal response",
-		},
-		{
-			name: "Null_CallViewResponse_Returns_Invalid_Response_Error",
-			handler: func(w http.ResponseWriter, _ *http.Request) {
-				resp := &protos.CommandResponse_CallViewResponse{}
-				w.WriteHeader(http.StatusOK)
-				_ = json.NewEncoder(w).Encode(resp)
-			},
-			expectedErrMsg: "invalid response",
-		},
-	}
-
-	for _, tc := range table {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			server := httptest.NewServer(tc.handler)
-			defer server.Close()
-
-			client := newTestClient(t, server)
-
-			result, err := client.CallView("someView", nil)
-			require.Error(t, err)
-			require.Nil(t, result)
-			require.Contains(t, err.Error(), tc.expectedErrMsg)
-		})
-	}
-}
-
-// Verifies that failed calls reuse their connection, and that an error body too
-// large to drain costs a new connection instead of being read in full.
-func TestCallView_Error_Releases_Connection(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		name  string
-		size  int
-		conns int32
-	}{
-		{name: "within limit", size: maxErrorBodySize / 2, conns: 1},
-		// More than maxErrorBodySize plus the 256 KiB the transport drains on Close.
-		{name: "over limit", size: 1 << 20, conns: 5},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			var conns atomic.Int32
-			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write(make([]byte, tc.size))
-			}))
-			server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
-				if state == http.StateNew {
-					conns.Add(1)
-				}
-			}
-			server.Start()
-			defer server.Close()
-
-			client := newTestClient(t, server)
-			for range 5 {
-				_, err := client.CallView("someView", nil)
-				require.ErrorContains(t, err, "status code [500]")
-			}
-			require.Equal(t, tc.conns, conns.Load())
-		})
-	}
-}
-
-// Verifies that CallViewWithContext propagates context cancellation
-// and does not hang when the caller cancels before the server responds.
-func TestCallViewWithContext_Cancelled_Context_Returns_Error(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-
-	client := newTestClient(t, server)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	result, err := client.CallViewWithContext(ctx, "slowView", nil)
-	require.Error(t, err)
-	require.Nil(t, result)
-}
-
-// --- Metrics ---
-
 // Verifies that Metrics() correctly parses a Prometheus text response into
 // MetricFamily objects on success, and returns a wrapped error on HTTP failure.
 func TestMetrics_Parses_And_Returns_Prometheus_Families(t *testing.T) {
@@ -464,7 +294,6 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 	return &Client{
 		c:             server.Client(),
 		url:           server.URL,
-		wsURL:         "ws" + server.URL[4:],
 		metricsParser: expfmt.NewTextParser(model.LegacyValidation),
 	}
 }

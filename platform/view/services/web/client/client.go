@@ -7,11 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package client
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,8 +22,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web"
 )
 
 var logger = logging.MustGetLogger()
@@ -67,16 +63,16 @@ func (c *Config) isTLSEnabled() bool {
 	return c.CACertPath != "" || len(c.CACertRaw) != 0
 }
 
-// Client models a client for an FSC node
+// Client reads a node's metrics from its operations endpoint over HTTP.
 type Client struct {
 	c             *http.Client
 	url           string
-	wsURL         string
-	tlsConfig     *tls.Config
+	tlsConfig     *tls.Config // the TLS c dials with, nil without TLS
 	metricsParser expfmt.TextParser
 }
 
-// NewClient returns a new web client. It returns an error if config is nil.
+// NewClient returns a client for the listener at config.Host. It returns an error if config
+// is nil or its TLS material does not load.
 func NewClient(config *Config) (*Client, error) {
 	if config == nil {
 		return nil, errors.New("missing client config")
@@ -118,14 +114,14 @@ func NewClient(config *Config) (*Client, error) {
 			}),
 		},
 		url:           config.WebURL(),
-		wsURL:         config.WsURL(),
 		tlsConfig:     tlsClientConfig,
 		metricsParser: expfmt.NewTextParser(model.LegacyValidation),
 	}, nil
 }
 
+// Metrics returns the metric families the node exposes on /metrics.
 func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {
-	body, err := c.req(context.Background(), http.MethodGet, fmt.Sprintf("%s/metrics", c.url), nil)
+	body, err := c.get(context.Background(), c.url+"/metrics")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed calling metrics")
 	}
@@ -133,76 +129,21 @@ func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {
 	return c.metricsParser.TextToMetricFamilies(body)
 }
 
-func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
-	urlSuffix := fmt.Sprintf("/v1/Views/Stream/%s", fid)
-	stream, err := NewWSStream(c.wsURL+urlSuffix, c.tlsConfig)
+func (c *Client) get(ctx context.Context, url string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to init web socket stream")
+		return nil, errors.Wrapf(err, "failed to create http request to [%s]", url)
 	}
-	// push input
-	if err := stream.SendInput(in); err != nil {
-		return nil, errors.WithMessage(err, "failed to send input")
-	}
-	return stream, nil
-}
-
-func (c *Client) req(ctx context.Context, method, url string, in []byte) (io.ReadCloser, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(in))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create http request to [%s], input length [%d]", url, len(in))
-	}
-	logger.Debugf("send http request to [%s], input length [%d]", url, len(in))
-
 	resp, err := c.c.Do(req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to process http request to [%s], input length [%d]", url, len(in))
-	}
-	if resp == nil {
-		return nil, errors.Errorf("failed to process http request to [%s], input length [%d], no response", url, len(in))
+		return nil, errors.Wrapf(err, "failed to process http request to [%s]", url)
 	}
 	if resp.StatusCode != http.StatusOK {
 		// Read and close the body so the transport can reuse the connection.
 		// The read is capped so a large error body cannot hold the caller; Close handles the rest.
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
 		_ = resp.Body.Close()
-		msg := fmt.Sprintf("failed to process http request to [%s], input length [%d], status code [%d], status [%s]", url, len(in), resp.StatusCode, resp.Status)
-		// The server sends a web.ResponseErr; other bodies, e.g. from a proxy, carry no reason.
-		var respErr web.ResponseErr
-		if json.Unmarshal(body, &respErr) == nil && respErr.Reason != "" {
-			msg += fmt.Sprintf(", reason [%s]", respErr.Reason)
-		}
-		return nil, errors.New(msg)
+		return nil, errors.Errorf("failed to process http request to [%s], status code [%d], status [%s], body [%s]", url, resp.StatusCode, resp.Status, body)
 	}
 	return resp.Body, nil
-}
-
-// CallView takes in input a view factory identifier, fid, and an input, in, and invokes the
-// factory f bound to fid on input in. The view returned by the factory is invoked on
-// a freshly created context. This call is blocking until the result is produced or
-// an error is returned.
-func (c *Client) CallView(fid string, in []byte) (any, error) {
-	return c.CallViewWithContext(context.Background(), fid, in)
-}
-
-func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte) (any, error) {
-	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
-	body, err := c.req(ctx, http.MethodPut, url, in)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to call [%s]", fid)
-	}
-	defer func() { _ = body.Close() }()
-	buff, err := io.ReadAll(body)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
-	}
-
-	response := &protos.CommandResponse_CallViewResponse{}
-	err = json.Unmarshal(buff, response)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal response from [%s], response [%s]", url, string(buff))
-	}
-	if response.CallViewResponse == nil {
-		return nil, errors.Errorf("invalid response from [%s], response [%s]", url, string(buff))
-	}
-	return response.CallViewResponse.Result, nil
 }

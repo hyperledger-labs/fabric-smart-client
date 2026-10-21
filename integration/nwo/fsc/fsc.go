@@ -49,8 +49,7 @@ import (
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
-	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
+	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
 var logger = logging.MustGetLogger()
@@ -339,10 +338,8 @@ func (p *Platform) PostRun(bool) {
 			p.Context.SetViewClient(alias, grpcClient)
 		}
 
-		// Web Client
-		webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		webClient, err := client2.NewClient(webClientConfig)
+		// Web client: the view service over HTTP, signed as the node itself, and its metrics.
+		webClient, err := client.NewWebClient(p.NodeDir(node), tracerProvider)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		p.Context.SetWebClient(node.Name, webClient)
 		p.Context.SetWebClient(node.ID(), webClient)

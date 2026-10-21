@@ -276,7 +276,7 @@ func (*Infrastructure) Serve() error {
 	return nil
 }
 
-func (i *Infrastructure) Client(name string) api.GRPCClient {
+func (i *Infrastructure) Client(name string) api.RemoteViewClient {
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}

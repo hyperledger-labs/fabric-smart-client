@@ -11,12 +11,14 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -28,7 +30,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
@@ -90,11 +91,8 @@ func TestClient_CallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("view-result")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -109,11 +107,8 @@ func TestClient_CallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("view-result")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig"), signErr: fmt.Errorf("sign error")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -127,11 +122,8 @@ func TestClient_CallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("view-result"), processErr: fmt.Errorf("process error")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -145,11 +137,8 @@ func TestClient_CallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("view-result"), respBytes: []byte("junk-proto")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -163,11 +152,8 @@ func TestClient_CallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("view-result")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -188,11 +174,8 @@ func TestClient_StreamCallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("stream-result")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -207,11 +190,8 @@ func TestClient_StreamCallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("stream-result")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig"), signErr: fmt.Errorf("sign error")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -225,11 +205,8 @@ func TestClient_StreamCallView(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("stream-result"), streamErr: fmt.Errorf("stream error")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			Address: "localhost",
-			ViewServiceClient: &fakeStreamClient{
-				vsc: vsc,
-			},
+		cl := &Client{
+			Transport:        &fakeStreamClient{vsc: vsc},
 			RandomnessReader: rand.Reader,
 			Time:             time.Now,
 			SigningIdentity:  sid,
@@ -248,26 +225,26 @@ func TestClient_ProcessCommand(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("res")}
 		fc := &fakeStreamClient{vsc: vsc}
-		cl := &client{ViewServiceClient: fc}
+		cl := &Client{Transport: fc}
 		resp, err := cl.processCommand(t.Context(), sc)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 	})
 
-	t.Run("CreateViewClient error", func(t *testing.T) {
+	t.Run("Open error", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("res")}
-		fc := &fakeStreamClient{vsc: vsc, createErr: fmt.Errorf("create view client error")}
-		cl := &client{ViewServiceClient: fc}
+		fc := &fakeStreamClient{vsc: vsc, openErr: fmt.Errorf("open error")}
+		cl := &Client{Transport: fc}
 		_, err := cl.processCommand(t.Context(), sc)
-		require.ErrorContains(t, err, "create view client error")
+		require.ErrorContains(t, err, "open error")
 	})
 
 	t.Run("unmarshal error", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("res"), respBytes: []byte("invalid-bytes")}
 		fc := &fakeStreamClient{vsc: vsc}
-		cl := &client{ViewServiceClient: fc}
+		cl := &Client{Transport: fc}
 		_, err := cl.processCommand(t.Context(), sc)
 		require.ErrorContains(t, err, "failed to unmarshal")
 	})
@@ -276,7 +253,7 @@ func TestClient_ProcessCommand(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("res"), cmdRespErr: &protos.Error{Message: "view execution exception"}}
 		fc := &fakeStreamClient{vsc: vsc}
-		cl := &client{ViewServiceClient: fc}
+		cl := &Client{Transport: fc}
 		_, err := cl.processCommand(t.Context(), sc)
 		require.ErrorContains(t, err, "view execution exception")
 	})
@@ -286,11 +263,11 @@ func TestClient_StreamCommand(t *testing.T) {
 	t.Parallel()
 	sc := &protos.SignedCommand{}
 
-	t.Run("CreateViewClient error", func(t *testing.T) {
+	t.Run("Open error", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("res")}
-		fc := &fakeStreamClient{vsc: vsc, createErr: fmt.Errorf("create view client error")}
-		cl := &client{ViewServiceClient: fc}
+		fc := &fakeStreamClient{vsc: vsc, openErr: fmt.Errorf("open error")}
+		cl := &Client{Transport: fc}
 		_, _, err := cl.streamCommand(t.Context(), sc)
 		require.Error(t, err)
 	})
@@ -299,7 +276,7 @@ func TestClient_StreamCommand(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("res"), sendErr: fmt.Errorf("send error")}
 		fc := &fakeStreamClient{vsc: vsc}
-		cl := &client{ViewServiceClient: fc}
+		cl := &Client{Transport: fc}
 		_, _, err := cl.streamCommand(t.Context(), sc)
 		require.ErrorContains(t, err, "failed to send signed command")
 	})
@@ -311,11 +288,11 @@ func TestClient_CreateSignedCommand(t *testing.T) {
 	t.Run("Invalid payload", func(t *testing.T) {
 		t.Parallel()
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			ViewServiceClient: &fakeStreamClient{},
-			RandomnessReader:  rand.Reader,
-			Time:              time.Now,
-			SigningIdentity:   sid,
+		cl := &Client{
+			Transport:        &fakeStreamClient{},
+			RandomnessReader: rand.Reader,
+			Time:             time.Now,
+			SigningIdentity:  sid,
 		}
 		_, err := cl.CreateSignedCommand("not-a-command", sid)
 		require.ErrorContains(t, err, "command type not recognized")
@@ -324,11 +301,11 @@ func TestClient_CreateSignedCommand(t *testing.T) {
 	t.Run("Randomness reader error", func(t *testing.T) {
 		t.Parallel()
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			ViewServiceClient: &fakeStreamClient{},
-			RandomnessReader:  &failingReader{},
-			Time:              time.Now,
-			SigningIdentity:   sid,
+		cl := &Client{
+			Transport:        &fakeStreamClient{},
+			RandomnessReader: &failingReader{},
+			Time:             time.Now,
+			SigningIdentity:  sid,
 		}
 		payload := &protos.Command_CallView{CallView: &protos.CallView{Fid: "fid"}}
 		_, err := cl.CreateSignedCommand(payload, sid)
@@ -338,11 +315,11 @@ func TestClient_CreateSignedCommand(t *testing.T) {
 	t.Run("Serialize error", func(t *testing.T) {
 		t.Parallel()
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig"), serializeErr: fmt.Errorf("serialize error")}
-		cl := &client{
-			ViewServiceClient: &fakeStreamClient{},
-			RandomnessReader:  rand.Reader,
-			Time:              time.Now,
-			SigningIdentity:   sid,
+		cl := &Client{
+			Transport:        &fakeStreamClient{},
+			RandomnessReader: rand.Reader,
+			Time:             time.Now,
+			SigningIdentity:  sid,
 		}
 		payload := &protos.Command_CallView{CallView: &protos.CallView{Fid: "fid"}}
 		_, err := cl.CreateSignedCommand(payload, sid)
@@ -356,43 +333,25 @@ func TestStream(t *testing.T) {
 	t.Run("Send", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`)}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
-		err = st.Send("test-msg")
+		st := newTestStream(vsc)
+		err := st.Send("test-msg")
 		require.NoError(t, err)
 	})
 
 	t.Run("Send error marshaling", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`)}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
-		err = st.Send(make(chan int)) // unmarshalable
+		st := newTestStream(vsc)
+		err := st.Send(make(chan int)) // unmarshalable
 		require.Error(t, err)
 	})
 
 	t.Run("Recv", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`)}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
+		st := newTestStream(vsc)
 		var s string
-		err = st.Recv(&s)
+		err := st.Recv(&s)
 		require.NoError(t, err)
 		require.Equal(t, "test-value", s)
 	})
@@ -400,14 +359,8 @@ func TestStream(t *testing.T) {
 	t.Run("SendProtoMsg and RecvProtoMsg", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`)}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
-		err = st.SendProtoMsg(&protos.CallViewResponse{})
+		st := newTestStream(vsc)
+		err := st.SendProtoMsg(&protos.CallViewResponse{})
 		require.NoError(t, err)
 		err = st.RecvProtoMsg(&protos.CallViewResponse{})
 		require.NoError(t, err)
@@ -416,13 +369,7 @@ func TestStream(t *testing.T) {
 	t.Run("Result success", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`)}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
+		st := newTestStream(vsc)
 		res, err := st.Result()
 		require.NoError(t, err)
 		require.Equal(t, []byte(`"test-value"`), res)
@@ -431,59 +378,43 @@ func TestStream(t *testing.T) {
 	t.Run("Result recv error", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`), recvErr: fmt.Errorf("recv error")}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
-		_, err = st.Result()
+		st := newTestStream(vsc)
+		_, err := st.Result()
 		require.ErrorContains(t, err, "recv error")
 	})
 
 	t.Run("Result unmarshal error", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`), respBytes: []byte("junk")}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
-		_, err = st.Result()
+		st := newTestStream(vsc)
+		_, err := st.Result()
 		require.Error(t, err)
 	})
 
 	t.Run("Result view error", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte(`"test-value"`), cmdRespErr: &protos.Error{Message: "view error"}}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
-		_, err = st.Result()
+		st := newTestStream(vsc)
+		_, err := st.Result()
 		require.ErrorContains(t, err, "view error")
 	})
 
 	t.Run("Result empty cvr", func(t *testing.T) {
 		t.Parallel()
-		// An empty CommandResponse encodes to zero bytes; non-nil so the fake sends it as is.
-		vsc := &fakeProtosVSC{respBytes: []byte{}}
-		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = dummyConn.Close() })
-		st := &Stream{
-			scc:  &fakeBidiStream{f: vsc},
-			conn: dummyConn,
-		}
-		_, err = st.Result()
+		vsc := &fakeProtosVSC{answer: &protos.CommandResponse{}}
+		st := newTestStream(vsc)
+		_, err := st.Result()
 		require.ErrorContains(t, err, "no call view response found")
 	})
+}
+
+// The final stream response is accepted only if it answers the command the stream was opened
+// with.
+func TestStreamResultRejectsResponseToAnotherCommand(t *testing.T) {
+	t.Parallel()
+	vsc := &fakeProtosVSC{cvrBytes: []byte(`"v"`), commandHash: []byte("other")}
+	_, err := newTestStream(vsc).Result()
+	require.ErrorContains(t, err, "response does not answer the command sent")
 }
 
 func TestNewX509SigningIdentity(t *testing.T) {
@@ -602,42 +533,73 @@ func TestLocalClient(t *testing.T) {
 	require.ErrorContains(t, err, "runner execution fault")
 }
 
-type fakeStreamClient struct {
-	vsc       *fakeProtosVSC
-	createErr error
+// newTestClient returns a Client whose transport is vsc.
+func newTestClient(vsc *fakeProtosVSC) *Client {
+	return &Client{
+		Transport:        &fakeStreamClient{vsc: vsc},
+		RandomnessReader: rand.Reader,
+		Time:             time.Now,
+		SigningIdentity:  &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")},
+		tracer:           noop.NewTracerProvider().Tracer("test"),
+	}
 }
 
-func (f *fakeStreamClient) CreateViewClient() (*grpc.ClientConn, protos.ViewServiceClient, error) {
-	if f.createErr != nil {
-		return nil, nil, f.createErr
+// newTestStream returns a Stream opened with a command on vsc.
+func newTestStream(vsc *fakeProtosVSC) *Stream {
+	sc := &protos.SignedCommand{Command: []byte("command")}
+	vsc.sent = sc
+	return &Stream{scc: &fakeBidiStream{f: vsc}, closer: nopCloser{}, sc: sc}
+}
+
+type nopCloser struct{}
+
+func (nopCloser) Close() error { return nil }
+
+// fakeStreamClient is a Transport over vsc that records whether it was released.
+type fakeStreamClient struct {
+	vsc     *fakeProtosVSC
+	openErr error
+	closed  bool
+}
+
+func (f *fakeStreamClient) Open() (protos.ViewServiceClient, io.Closer, error) {
+	if f.openErr != nil {
+		return nil, nil, f.openErr
 	}
-	return nil, f.vsc, nil
+	return f.vsc, f, nil
+}
+
+func (f *fakeStreamClient) Close() error {
+	f.closed = true
+	return nil
 }
 
 func (*fakeStreamClient) Certificate() *tls.Certificate {
 	return nil
 }
 
+// fakeProtosVSC is a view service that answers the last command it was sent, as the real one
+// does: the response header names that command's hash, unless commandHash overrides it.
+// answer, when set, is the response payload; otherwise a CallViewResponse with cvrBytes, or
+// an err response with cmdRespErr. respBytes, when non-nil, is sent verbatim instead.
 type fakeProtosVSC struct {
-	processErr error
-	streamErr  error
-	sendErr    error
-	recvErr    error
-	sendMsgErr error
-	recvMsgErr error
-	respBytes  []byte
-	cvrBytes   []byte
-	cmdRespErr *protos.Error
+	processErr  error
+	streamErr   error
+	sendErr     error
+	recvErr     error
+	sendMsgErr  error
+	recvMsgErr  error
+	respBytes   []byte
+	cvrBytes    []byte
+	cmdRespErr  *protos.Error
+	answer      *protos.CommandResponse
+	commandHash []byte
+	sent        *protos.SignedCommand
 }
 
-func (f *fakeProtosVSC) ProcessCommand(ctx context.Context, _ *protos.SignedCommand, _ ...grpc.CallOption) (*protos.SignedCommandResponse, error) {
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-	}
-	if f.processErr != nil {
-		return nil, f.processErr
+func (f *fakeProtosVSC) response() *protos.SignedCommandResponse {
+	if f.respBytes != nil {
+		return &protos.SignedCommandResponse{Response: f.respBytes}
 	}
 	resp := &protos.CommandResponse{
 		Payload: &protos.CommandResponse_CallViewResponse{
@@ -647,11 +609,30 @@ func (f *fakeProtosVSC) ProcessCommand(ctx context.Context, _ *protos.SignedComm
 	if f.cmdRespErr != nil {
 		resp.Payload = &protos.CommandResponse_Err{Err: f.cmdRespErr}
 	}
-	b := f.respBytes
-	if b == nil {
-		b, _ = proto.Marshal(resp)
+	if f.answer != nil {
+		resp = f.answer
 	}
-	return &protos.SignedCommandResponse{Response: b}, nil
+	hash := f.commandHash
+	if hash == nil && f.sent != nil {
+		h := sha256.Sum256(f.sent.Command)
+		hash = h[:]
+	}
+	resp.Header = &protos.CommandResponseHeader{CommandHash: hash}
+	b, _ := proto.Marshal(resp)
+	return &protos.SignedCommandResponse{Response: b}
+}
+
+func (f *fakeProtosVSC) ProcessCommand(ctx context.Context, sc *protos.SignedCommand, _ ...grpc.CallOption) (*protos.SignedCommandResponse, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	if f.processErr != nil {
+		return nil, f.processErr
+	}
+	f.sent = sc
+	return f.response(), nil
 }
 
 func (f *fakeProtosVSC) StreamCommand(ctx context.Context, _ ...grpc.CallOption) (grpc.BidiStreamingClient[protos.SignedCommand, protos.SignedCommandResponse], error) {
@@ -671,7 +652,8 @@ type fakeBidiStream struct {
 	grpc.ClientStream
 }
 
-func (s *fakeBidiStream) Send(_ *protos.SignedCommand) error {
+func (s *fakeBidiStream) Send(sc *protos.SignedCommand) error {
+	s.f.sent = sc
 	return s.f.sendErr
 }
 
@@ -679,19 +661,7 @@ func (s *fakeBidiStream) Recv() (*protos.SignedCommandResponse, error) {
 	if s.f.recvErr != nil {
 		return nil, s.f.recvErr
 	}
-	resp := &protos.CommandResponse{
-		Payload: &protos.CommandResponse_CallViewResponse{
-			CallViewResponse: &protos.CallViewResponse{Result: s.f.cvrBytes},
-		},
-	}
-	if s.f.cmdRespErr != nil {
-		resp.Payload = &protos.CommandResponse_Err{Err: s.f.cmdRespErr}
-	}
-	b := s.f.respBytes
-	if b == nil {
-		b, _ = proto.Marshal(resp)
-	}
-	return &protos.SignedCommandResponse{Response: b}, nil
+	return s.f.response(), nil
 }
 
 func (*fakeBidiStream) CloseSend() error { return nil }

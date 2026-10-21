@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net"
@@ -30,12 +31,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
 const (
 	KeepAliveConfigKey = "fsc.grpc.keepalive"
+	// WebMaxRecvMsgSizeKey is the largest request body or WebSocket message, in bytes, the
+	// web listener's view routes read; 0 or unset means protos.DefaultHTTPMaxRecvMsgSize.
+	WebMaxRecvMsgSizeKey = "fsc.web.maxRecvMsgSize"
 	// DefaultRemoteViewTimeout is the default execution timeout of views called remotely,
 	// through the view service, on every transport.
 	DefaultRemoteViewTimeout = 2 * time.Minute
@@ -94,6 +99,9 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 		if _, err := listenAddress(configProvider, "fsc.web"); err != nil {
 			return err
 		}
+		if n := configProvider.GetInt(WebMaxRecvMsgSizeKey); n < 0 {
+			return errors.Errorf("[%s] must not be negative, got [%d]", WebMaxRecvMsgSizeKey, n)
+		}
 		if _, err := resolveWebTLS(configProvider); err != nil {
 			return errors.WithMessage(err, "invalid fsc.web TLS configuration")
 		}
@@ -105,13 +113,17 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 	return err
 }
 
-// NewWebServer returns the node's REST listener, configured from fsc.web. It returns a
-// no-op server when fsc.web.enabled is false. It returns an error when fsc.web.address is
-// empty or not host:port. It also returns an error when fsc.web.tls does not resolve: a listener is never
-// returned with weaker TLS than the configuration describes. The listener also serves
-// /healthz and /readyz, with readiness taken from connStates. They skip the client-certificate
-// check of the view endpoints, but not the listener's TLS handshake.
-func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, identityProvider server.IdentityProvider, tracerProvider tracing.Provider, connStates *connstate.Metrics) (Server, error) {
+// NewWebServer returns the node's web listener, configured from fsc.web, with the view
+// service's HTTP binding mounted on it. viewService is the instance that also serves gRPC, so
+// both transports share one allowlist, one replay memory and one view timeout. The view routes
+// do not require a client certificate: the signed command authenticates the caller, as on
+// gRPC. It returns a no-op server when fsc.web.enabled is false. It returns an error when
+// fsc.web.address is empty or not host:port. It also returns an error when fsc.web.tls does
+// not resolve: a listener is never returned with weaker TLS than the configuration describes.
+// The listener also serves /healthz and /readyz, with readiness taken from connStates. They
+// skip the client-certificate check of the view endpoints, but not the listener's TLS
+// handshake.
+func NewWebServer(configProvider driver.ConfigService, viewService server.Service, connStates *connstate.Metrics) (Server, error) {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer(), nil
@@ -121,6 +133,7 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	if err != nil {
 		return nil, err
 	}
+	viewTimeout := RemoteViewTimeout(configProvider)
 
 	tlsOpts, err := resolveWebTLS(configProvider)
 	if err != nil {
@@ -133,13 +146,13 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 		ListenAddress: addr,
 		TLS:           tlsOpts,
 	})
-	h := web.NewHttpHandler()
-	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
+	maxRecv := cmp.Or(configProvider.GetInt(WebMaxRecvMsgSizeKey), protos.DefaultHTTPMaxRecvMsgSize)
+	webServer.RegisterHandler(protos.ProcessCommandHTTPPath,
+		otelhttp.NewHandler(web2.NewProcessCommandHandler(viewService, maxRecv, viewTimeout), "view-service-process-command"), false)
+	webServer.RegisterHandler(protos.StreamCommandHTTPPath,
+		otelhttp.NewHandler(web2.NewStreamCommandHandler(viewService, maxRecv), "view-service-stream-command"), false)
 	webServer.RegisterHandler("/healthz", http.HandlerFunc(web.Healthz), false)
 	webServer.RegisterHandler("/readyz", web.Readyz(connStates), false)
-
-	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider, web2.WithTimeout(RemoteViewTimeout(configProvider)))
-
 	return webServer, nil
 }
 

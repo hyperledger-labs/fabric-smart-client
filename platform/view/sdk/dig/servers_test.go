@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -242,10 +243,7 @@ func (*fakeIdentityProvider) Clients() []view.Identity       { return nil }
 func TestNewWebServer(t *testing.T) {
 	t.Parallel()
 
-	vm := &fakeViewManager{}
-	ip := &fakeIdentityProvider{}
-	tp, err := newTracerProvider(&disabled.Provider{}, providerFrom(t, ""))
-	require.NoError(t, err)
+	svc := &fakeViewService{}
 
 	t.Run("disabled returns dummy server", func(t *testing.T) {
 		t.Parallel()
@@ -254,7 +252,7 @@ fsc:
   web:
     enabled: false
 `)
-		ws, err := NewWebServer(p, vm, ip, tp.Default, nil)
+		ws, err := NewWebServer(p, svc, nil)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})
@@ -266,7 +264,7 @@ fsc:
   web:
     enabled: true
 `)
-		_, err := NewWebServer(p, vm, ip, tp.Default, nil)
+		_, err := NewWebServer(p, svc, nil)
 		require.ErrorContains(t, err, "fsc.web.address is not set")
 	})
 
@@ -282,7 +280,7 @@ fsc:
         files:
           - non-existent.crt
 `)
-		_, err := NewWebServer(p, vm, ip, tp.Default, nil)
+		_, err := NewWebServer(p, svc, nil)
 		require.ErrorContains(t, err, "failed resolving fsc.web.tls")
 	})
 
@@ -294,7 +292,7 @@ fsc:
     enabled: true
     address: 127.0.0.1:0
 `)
-		ws, err := NewWebServer(p, vm, ip, tp.Default, nil)
+		ws, err := NewWebServer(p, svc, nil)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})
@@ -309,15 +307,17 @@ fsc:
 `)
 		cs := connstate.NewMetrics(&disabled.Provider{})
 		cs.Tracker("net", "ch", connstate.ComponentDelivery, "peer0:7051").Set(connstate.Connecting)
-		ws, err := NewWebServer(p, vm, ip, tp.Default, cs)
+		ws, err := NewWebServer(p, svc, cs)
 		require.NoError(t, err)
 		require.NoError(t, ws.Start())
 		t.Cleanup(func() { _ = ws.Stop() })
 		addr := ws.(*web.Server).Addr()
+		// The view binding needs no client certificate either: a GET reaches the handler,
+		// which accepts only POST.
 		for path, want := range map[string]int{
-			"/healthz":       http.StatusOK,
-			"/readyz":        http.StatusServiceUnavailable,
-			"/Views/someone": http.StatusUnauthorized,
+			"/healthz":                    http.StatusOK,
+			"/readyz":                     http.StatusServiceUnavailable,
+			protos.ProcessCommandHTTPPath: http.StatusMethodNotAllowed,
 		} {
 			resp, err := http.Get("http://" + addr + path)
 			require.NoError(t, err)
@@ -325,6 +325,12 @@ fsc:
 			require.Equal(t, want, resp.StatusCode, path)
 		}
 	})
+}
+
+func TestCheckTLSConfigRejectsNegativeWebMaxRecvMsgSize(t *testing.T) {
+	t.Parallel()
+	err := CheckTLSConfig(providerFrom(t, "fsc:\n  web:\n    enabled: true\n    address: 127.0.0.1:0\n    maxRecvMsgSize: -1\n"))
+	require.ErrorContains(t, err, "fsc.web.maxRecvMsgSize")
 }
 
 func TestRemoteViewTimeout(t *testing.T) {

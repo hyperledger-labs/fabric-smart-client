@@ -21,11 +21,10 @@ The activation conditions in the current codebase are:
 - libp2p transport families appear only when the node uses the libp2p communication stack
 - WebSocket transport families appear only when the node uses the WebSocket communication stack
 - unary view gRPC request counters appear only on the `ProcessCommand` path
-- web view client tracer families appear only when a view is invoked through the FSC web endpoint
 - Fabric ordering, delivery, committer, vault, and finality families appear only when the node executes a Fabric transaction flow
 - caller-process tracer families appear only in the process that creates those tracers
 
-Not every family is emitted by the FSC node itself. In the current catalog, the caller-process families are `fsc_view_services_view_grpc_client_client_*` and `fsc_view_services_view_grpc_client_node_view_client_*`.
+Not every family is emitted by the FSC node itself. In the current catalog, the caller-process families are `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`.
 
 ## Scope and Conventions
 
@@ -78,12 +77,12 @@ For trace-derived metrics, the namespace and subsystem are also fixed by `tracin
 The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
 - all 33 explicit metric families
-- all trace-derived families except `fsc_view_services_view_grpc_client_client_*` and `fsc_view_services_view_grpc_client_node_view_client_*`
+- all trace-derived families except `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`
 
 The two caller-process families are exported only by the process that creates those tracers:
 
-- `fsc_view_services_view_grpc_client_client_*`
-- `fsc_view_services_view_grpc_client_node_view_client_*`
+- `fsc_view_services_view_client_client_*`
+- `fsc_view_services_view_client_node_view_client_*`
 
 When validating the catalog from an FSC node's `/metrics` endpoint, those two caller-process families are expected to be absent unless the node process itself is the tracer owner.
 
@@ -92,11 +91,11 @@ When validating the catalog from an FSC node's `/metrics` endpoint, those two ca
 For node-level monitoring, the quickest way to interpret the FSC metrics surface is below. Unless `fsc.metrics.clientAuthRequired` is `false`, the scraper must present a client certificate.
 
 - if the node is up and metrics are enabled, expect `fsc_view_services_metrics_operations_fsc_version` on `/metrics`
-- if the node is serving views, expect `fsc_view_services_view_contexts`, `fsc_view_services_view_calls_*`, and one or both of `fsc_view_services_view_grpc_server_requests_*` and `fsc_view_services_view_web_view_client_*`, depending on whether callers use gRPC, the web endpoint, or both
+- if the node is serving views, expect `fsc_view_services_view_contexts`, `fsc_view_services_view_calls_*`, and `fsc_view_services_view_grpc_server_requests_*`, which count view-service commands whether callers reach the view service over gRPC or HTTP
 - if the node uses libp2p, expect `fsc_view_services_comm_host_libp2p_bytes_sent` and `fsc_view_services_comm_host_libp2p_bytes_received`
 - if the node uses WebSocket transport, expect `fsc_view_services_comm_host_websocket_ws_opened_websockets`, `fsc_view_services_comm_host_websocket_ws_opened_subconns`, and `fsc_view_services_comm_host_websocket_ws_active_subconns`
 - if the node participates in Fabric transaction execution, expect the Fabric ordering, committer, delivery, vault, and finality-manager families listed in this catalog
-- do not expect `fsc_view_services_view_grpc_client_client_*` or `fsc_view_services_view_grpc_client_node_view_client_*` on the node unless the node process itself is the tracer owner
+- do not expect `fsc_view_services_view_client_client_*` or `fsc_view_services_view_client_node_view_client_*` on the node unless the node process itself is the tracer owner
 
 If a family is absent, check the matching runtime condition first: communication transport, ingress path, Fabric execution path, or caller-process ownership.
 
@@ -173,7 +172,9 @@ Operational notes:
 
 Primary implementation: `platform/view/services/comm/host/websocket/ws/metrics.go`, updated by `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
 
-### View gRPC Service
+### View Service
+
+The view service counts commands on every transport it is served on, gRPC (`fsc.grpc`) and HTTP (`fsc.web`) alike.
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -339,9 +340,8 @@ Unless otherwise stated, the duration is recorded in seconds and uses the defaul
 | --- | --- | --- |
 | `fsc_view_services_view_calls` | `success`, `view`, `initiator_view` | Local view execution spans created by the view runtime around each view invocation started by the FSC view manager. |
 | `fsc_view_services_view_grpc_server_view_service` | `success` | View gRPC service tracer declared by the gRPC server package. No span start was found on the current `ProcessCommand` or `StreamCommand` implementation paths. |
-| `fsc_view_services_view_grpc_client_client` | none | Outbound gRPC view invocation tracer. This family is emitted by the caller process, not by the remote FSC node that handles the request. |
-| `fsc_view_services_view_grpc_client_node_view_client` | `fid` | Local client tracer used when a node invokes a view through the in-process local client helper. |
-| `fsc_view_services_view_web_view_client` | `vid` | Web view client tracer used for REST or WebSocket view invocation. |
+| `fsc_view_services_view_client_client` | none | Outbound view service invocation tracer, over gRPC or HTTP. This family is emitted by the caller process, not by the remote FSC node that handles the request. |
+| `fsc_view_services_view_client_node_view_client` | `fid` | Local client tracer used when a node invokes a view through the in-process local client helper. |
 
 Each metric base above exports:
 
@@ -351,9 +351,8 @@ Each metric base above exports:
 Primary implementation:
 
 - `platform/view/services/view/context.go`
-- `platform/view/services/view/web/view.go`
-- `platform/view/services/view/grpc/client/client.go`
-- `platform/view/services/view/grpc/client/local.go`
+- `platform/view/services/view/client/client.go`
+- `platform/view/services/view/client/local.go`
 - `platform/view/services/view/grpc/server/server.go`
 - `platform/view/services/view/grpc/server/view.go`
 
@@ -425,7 +424,6 @@ The following labels are part of the current FSC metric surface.
 | `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, and `fsc_view_services_view_grpc_server_view_service_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |
 | `type` | Delivery message type classification | `unknown`, `block`, `status`, `other` |
 | `version` | FSC version string | node version |
-| `vid` | View identifier used by the web client tracer | application-defined view ID |
 | `view` | Fully qualified FSC view identifier | Go package and type-based identifier |
 
 ## Current Caveats
@@ -437,6 +435,6 @@ The following families have implementation caveats:
 - `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.
 - `fsc_view_services_grpc_conn_opened` and `fsc_view_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
-- `fsc_view_services_view_grpc_client_client_*`: these are caller-process metrics. The standard integration harness creates its external gRPC client with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
-- `fsc_view_services_view_grpc_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.
+- `fsc_view_services_view_client_client_*`: these are caller-process metrics. The standard integration harness creates its external view clients with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
+- `fsc_view_services_view_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.
 

@@ -30,8 +30,8 @@ fsc:
       file: /path/to/key.pwm
 
   # This is used to list the authorized clients of this FSC node.
-  # The GRPC view service accepts commands signed by the node's default identity
-  # (fsc.identity) or by one of the identities listed here.
+  # The view service, on fsc.grpc and fsc.web alike, accepts commands signed by the node's
+  # default identity (fsc.identity) or by one of the identities listed here.
   client:
     certs:
     - path/to/client-cert.pem
@@ -271,8 +271,11 @@ fsc:
       # negative values fall back to the default.
       timeout: 2m
   # ------------------- Web Server Configuration -------------------------
-  # Web server must be enabled to support healthz, version and prometheus /metrics
-  # end points.
+  # The web listener serves the view service's HTTP binding (POST
+  # /v1/ViewService/ProcessCommand and the WebSocket GET /v1/ViewService/StreamCommand; see
+  # docs/platform/view/services/view-service-http.md) and, without fsc.metrics.address, the
+  # operations endpoints /metrics and /logspec. Callers of the view service are
+  # authenticated and authorized by their signed commands exactly as on fsc.grpc.
   #
   # The listener serves two probe endpoints that skip the client-certificate check of the
   # view endpoints. The TLS handshake still applies: with tls.clientAuthRequired: true, a
@@ -285,20 +288,24 @@ fsc:
   #                   list of the unready components (network, channel, component, and
   #                   reason: stopped or never connected). Endpoints are on /metrics.
   #
-  # When a view fails, the REST endpoint returns its error text to the client verbatim, as
-  # the Reason of the response body; the gRPC view service on fsc.grpc does the same in
-  # Error.Message. A view that exceeds fsc.view.remote.timeout gets the fixed message
-  # "view execution timed out" instead (see fsc.view.remote). The text is the full error chain of the
-  # view and everything it called, including the value of a panic, and can carry database
-  # errors, file paths, addresses or identities. Anyone who can call views on this listener sees it, so set
-  # tls.clientAuthRequired: true below unless the listener is reachable only by the node's
-  # own applications. Without fsc.metrics.address, /metrics and /logspec share this
-  # listener; give them an address of their own when parties that must not call views
-  # need to reach them.
+  # When a view fails, the view service returns its error text to the client verbatim, in
+  # Error.Message, on fsc.grpc and fsc.web alike. A view that exceeds fsc.view.remote.timeout
+  # gets the fixed message "view execution timed out" instead (see fsc.view.remote). The text is the
+  # full error chain of the view and everything it called, including the value of a panic,
+  # and can carry database errors, file paths, addresses or identities. Anyone who can call
+  # views on this listener sees it, so set tls.clientAuthRequired: true below unless the
+  # listener is reachable only by the node's own applications. Without fsc.metrics.address,
+  # /metrics and /logspec share this listener; give them an address of their own when
+  # parties that must not call views need to reach them.
   web:
     enabled: true
     # Listen address (host:port). Required when enabled; the node refuses to start without it.
     address: 0.0.0.0:20002
+    # The largest request body or WebSocket message, in bytes, the view service's HTTP
+    # binding reads; a larger one gets HTTP 413 or ends the stream. Omit or set to 0 to use
+    # the default of 100 MiB; a negative value fails startup. It counts protojson bytes,
+    # which are larger than the binary encoding of the same command.
+    maxRecvMsgSize: 104857600
     # As with fsc.grpc, only the fields that differ from fsc.tls need to appear here.
     tls:
       # Whether TLS is enabled. Inherited from fsc.tls when absent.
@@ -320,7 +327,10 @@ fsc:
       # The middle state is the reason clientRootCAs may be set while clientAuthRequired
       # is false; it is a supported configuration, not a mistake.
       clientAuthRequired: false
-      # Root certificates used to verify client TLS certificates.
+      # Root certificates used to verify client TLS certificates, in the three states above.
+      # The view service does not authorize callers by certificate: it authorizes the signer
+      # of each command against the node's identity and fsc.client.certs, and binds a
+      # command to a verified client certificate when the connection carries one.
       clientRootCAs:
         files:
         - path/to/client/tls/ca.crt

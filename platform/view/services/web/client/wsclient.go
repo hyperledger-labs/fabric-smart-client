@@ -12,19 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web"
 )
-
-// Input is a message sent on a view's websocket stream.
-type Input = web.Input
-
-// Output is a message received on a view's websocket stream.
-type Output = web.Output
-
-type WSStream struct {
-	conn *websocket.Conn
-}
 
 const (
 	maxMessageSize          = 10 * 1024 * 1024
@@ -64,39 +52,4 @@ func OpenWSClientConnContextWithLimit(ctx context.Context, url string, config *t
 	}
 	ws.SetReadLimit(readLimit)
 	return ws, nil
-}
-
-func NewWSStream(url string, config *tls.Config) (*WSStream, error) {
-	logger.Debugf("connecting to %s", url)
-	ws, err := OpenWSClientConn(url, config)
-	if err != nil {
-		logger.Errorf("dial [%s] failed: %s\n", url, err.Error())
-		return nil, err
-	}
-	logger.Debug("successfully connected to websocket")
-	return &WSStream{conn: ws}, nil
-}
-
-func (c *WSStream) Send(v any) error {
-	return c.conn.WriteJSON(v)
-}
-
-func (c *WSStream) Recv(v any) error {
-	return c.conn.ReadJSON(v)
-}
-
-func (c *WSStream) Close() error {
-	return c.conn.Close()
-}
-
-func (c *WSStream) Result() ([]byte, error) {
-	output := &Output{}
-	if err := c.Recv(output); err != nil {
-		return nil, err
-	}
-	return output.Raw, nil
-}
-
-func (c *WSStream) SendInput(in []byte) error {
-	return c.Send(&Input{Raw: in})
 }

@@ -13,7 +13,7 @@ import (
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/si"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client/si"
 )
 
 // NewX509SigningIdentity returns a new signing identity for the given certificate and secret key paths.

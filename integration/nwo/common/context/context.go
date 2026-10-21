@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -39,7 +39,7 @@ type NWOContext struct {
 	hostByOrdererID    map[string]string
 	extensionsByPeerID map[string]api.Extensions
 
-	ViewClients             map[string]api.GRPCClient
+	ViewClients             map[string]api.RemoteViewClient
 	WebClients              map[string]api.WebClient
 	ViewCLIs                map[string]api.ViewClient
 	ViewIdentities          map[string]view.Identity
@@ -61,7 +61,7 @@ func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...
 		rootDir:                 rootDir,
 		PortCounter:             portCounter,
 		Builder:                 builder,
-		ViewClients:             map[string]api.GRPCClient{},
+		ViewClients:             map[string]api.RemoteViewClient{},
 		WebClients:              map[string]api.WebClient{},
 		ViewCLIs:                map[string]api.ViewClient{},
 		ViewIdentities:          map[string]view.Identity{},
@@ -148,7 +148,7 @@ func (c *NWOContext) ClientSigningIdentity(name string) view2.SigningIdentity {
 	return c.ClientSigningIdentities[name]
 }
 
-func (c *NWOContext) SetViewClient(name string, client api.GRPCClient) {
+func (c *NWOContext) SetViewClient(name string, client api.RemoteViewClient) {
 	c.ViewClients[name] = client
 }
 

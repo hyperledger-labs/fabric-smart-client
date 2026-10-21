@@ -37,6 +37,8 @@ type ecdsaSigner struct {
 }
 
 // NewEcdsaSigner returns a new ECDSA signer for the given private key.
+//
+//nolint:revive // unexported-return: callers use it only as a Sign function; exporting ecdsaSigner is an API change
 func NewEcdsaSigner(sk *ecdsa.PrivateKey) *ecdsaSigner {
 	return &ecdsaSigner{sk: sk}
 }
