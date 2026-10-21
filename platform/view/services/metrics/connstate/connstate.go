@@ -71,7 +71,7 @@ func NewMetrics(p metrics.Provider) *Metrics {
 			Namespace:  "fsc",
 			Subsystem:  "connection",
 			Name:       "reconnects",
-			Help:       "Number of transitions to the reconnecting state.",
+			Help:       "Number of reconnect attempts.",
 			LabelNames: labelNames,
 		}),
 		lastConnected: p.NewGauge(metrics.GaugeOpts{
@@ -115,9 +115,9 @@ type Tracker struct {
 }
 
 // Set records s as the current state. Reconnecting increments the reconnect counter,
-// and Connected stamps the last-connected time.
+// and Connected stamps the last-connected time. A nil *Tracker records nothing.
 func (t *Tracker) Set(s State) {
-	if t.state == nil {
+	if t == nil || t.state == nil {
 		return
 	}
 	t.state.Set(float64(s))

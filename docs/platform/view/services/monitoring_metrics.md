@@ -204,7 +204,7 @@ Primary implementation: `platform/common/services/grpc/metrics.go`, with the cus
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
 | `fsc_connection_state` | gauge | `network`, `channel`, `component`, `endpoint` | Current state of a client connection, encoded as below. |
-| `fsc_connection_reconnects` | counter | `network`, `channel`, `component`, `endpoint` | Number of transitions to `reconnecting`. |
+| `fsc_connection_reconnects` | counter | `network`, `channel`, `component`, `endpoint` | Number of reconnect attempts. |
 | `fsc_connection_last_connected_timestamp_seconds` | gauge | `network`, `channel`, `component`, `endpoint` | Unix time of the last transition to `connected`. |
 
 `fsc_connection_state` values:

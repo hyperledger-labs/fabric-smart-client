@@ -69,7 +69,9 @@ func TestNilMetrics_NoOpTracker(t *testing.T) {
 	var m *Metrics
 	tr := m.Tracker("net", "ch", ComponentFabricxQuery, "q:7001")
 	require.NotNil(t, tr)
+	var nilTracker *Tracker
 	for _, s := range []State{Disconnected, Connecting, Connected, Reconnecting, Stopped} {
 		tr.Set(s)
+		nilTracker.Set(s)
 	}
 }
