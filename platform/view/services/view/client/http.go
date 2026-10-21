@@ -14,6 +14,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -47,9 +48,21 @@ type httpTransport struct {
 	maxRecvMsgSize int
 }
 
-func newHTTPTransport(cc *grpc2.ConnectionConfig) (*httpTransport, error) {
-	// A client presents its keypair only when mutual TLS is asked for, as the gRPC client
-	// does (grpc.Client), so both transports present the same certificate.
+// HTTPClient is an HTTP client for one node listener, built from a ConnectionConfig the same
+// way the gRPC client is: it presents the TLS keypair only when cc.TLS.RequireClientCert is
+// set, and ConnectionTimeout bounds dialing and the TLS handshake.
+type HTTPClient struct {
+	*http.Client
+	// URL is the listener's base URL, http:// or https:// as cc.TLS selects.
+	URL string
+
+	tlsConfig *tls.Config      // nil without TLS
+	cert      *tls.Certificate // the client certificate presented, nil when none is
+}
+
+// NewHTTPClient returns an HTTPClient for the listener cc describes. It returns an error when
+// mutual TLS is required without a keypair, or when the TLS material does not load.
+func NewHTTPClient(cc *grpc2.ConnectionConfig) (*HTTPClient, error) {
 	opts := cc.TLS
 	if opts.RequireClientCert && (len(opts.Certificate) == 0 || len(opts.Key) == 0) {
 		return nil, errors.New("both Key and Certificate are required when using mutual TLS")
@@ -62,26 +75,38 @@ func newHTTPTransport(cc *grpc2.ConnectionConfig) (*httpTransport, error) {
 		return nil, errors.WithMessage(err, "failed building client TLS")
 	}
 	timeout := cmp.Or(cc.ConnectionTimeout, grpc2.DefaultConnectionTimeout)
-	scheme, wsScheme := "http", "ws"
-	var cert *tls.Certificate
-	if tlsConfig != nil {
-		scheme, wsScheme = "https", "wss"
-		if len(tlsConfig.Certificates) > 0 {
-			cert = &tlsConfig.Certificates[0]
-		}
-	}
-	return &httpTransport{
-		url:   scheme + "://" + cc.Address,
-		wsURL: wsScheme + "://" + cc.Address,
-		client: &http.Client{Transport: otelhttp.NewTransport(&http.Transport{
+	c := &HTTPClient{
+		Client: &http.Client{Transport: otelhttp.NewTransport(&http.Transport{
 			TLSClientConfig: tlsConfig,
 			// The connection timeout bounds dialing and the TLS handshake, as on gRPC.
 			DialContext:         (&net.Dialer{Timeout: timeout}).DialContext,
 			TLSHandshakeTimeout: timeout,
 			IdleConnTimeout:     idleConnTimeout,
 		})},
-		tlsConfig:      tlsConfig,
-		cert:           cert,
+		URL:       "http://" + cc.Address,
+		tlsConfig: tlsConfig,
+	}
+	if tlsConfig != nil {
+		c.URL = "https://" + cc.Address
+		if len(tlsConfig.Certificates) > 0 {
+			c.cert = &tlsConfig.Certificates[0]
+		}
+	}
+	return c, nil
+}
+
+func newHTTPTransport(cc *grpc2.ConnectionConfig) (*httpTransport, error) {
+	// The same client rules as the gRPC transport, so both present the same certificate.
+	c, err := NewHTTPClient(cc)
+	if err != nil {
+		return nil, err
+	}
+	return &httpTransport{
+		url:            c.URL,
+		wsURL:          "ws" + strings.TrimPrefix(c.URL, "http"),
+		client:         c.Client,
+		tlsConfig:      c.tlsConfig,
+		cert:           c.cert,
 		maxRecvMsgSize: cmp.Or(cc.MaxRecvMsgSize, protos.DefaultHTTPMaxRecvMsgSize),
 	}, nil
 }
