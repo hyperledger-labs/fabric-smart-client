@@ -96,7 +96,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 
 		// Storage service
-		p.Container().Provide(postgres2.NewDbProvider),
+		p.Container().Provide(postgres2.NewDbProviderWithMetrics),
 		p.Container().Provide(postgres2.NewNamedDriver, dig.Group("db-drivers")),
 		p.Container().Provide(sqlite2.NewDbProvider),
 		p.Container().Provide(sqlite2.NewNamedDriver, dig.Group("db-drivers")),
