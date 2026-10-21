@@ -50,30 +50,16 @@ type Server interface {
 	Stop() error
 }
 
-// webAddress returns fsc.web.address, or an error when it is empty or not host:port. An
-// empty address would make net.Listen bind a random port on all interfaces, and a
-// malformed one would only fail once the node starts serving.
-func webAddress(configProvider driver.ConfigService) (string, error) {
-	addr := configProvider.GetString("fsc.web.address")
+// listenAddress returns <prefix>.address (prefix is "fsc.web" or "fsc.grpc"), or an error
+// when it is empty or not host:port. An empty address would make net.Listen bind a random
+// port on all interfaces, and a malformed one would only fail once the node starts serving.
+func listenAddress(configProvider driver.ConfigService, prefix string) (string, error) {
+	addr := configProvider.GetString(prefix + ".address")
 	if addr == "" {
-		return "", errors.New("fsc.web.enabled is true but fsc.web.address is not set")
+		return "", errors.Errorf("%s.enabled is true but %s.address is not set", prefix, prefix)
 	}
 	if _, _, err := net.SplitHostPort(addr); err != nil {
-		return "", errors.Wrapf(err, "invalid fsc.web.address [%s]", addr)
-	}
-	return addr, nil
-}
-
-// grpcAddress returns fsc.grpc.address, or an error when it is empty or not host:port. An
-// empty address would make net.Listen bind a random port on all interfaces, and a
-// malformed one would only fail once the node starts serving.
-func grpcAddress(configProvider driver.ConfigService) (string, error) {
-	addr := configProvider.GetString("fsc.grpc.address")
-	if addr == "" {
-		return "", errors.New("fsc.grpc.address is required when fsc.grpc.enabled is true")
-	}
-	if _, _, err := net.SplitHostPort(addr); err != nil {
-		return "", errors.Wrapf(err, "invalid fsc.grpc.address [%s]", addr)
+		return "", errors.Wrapf(err, "invalid %s.address [%s]", prefix, addr)
 	}
 	return addr, nil
 }
@@ -95,7 +81,7 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 	// Gated per service: a disabled listener's block is not this node's problem, and
 	// failing on it would make `validate` reject a configuration that runs fine.
 	if configProvider.GetBool("fsc.grpc.enabled") {
-		if _, err := grpcAddress(configProvider); err != nil {
+		if _, err := listenAddress(configProvider, "fsc.grpc"); err != nil {
 			return err
 		}
 		if _, err := NewServerConfig(configProvider); err != nil {
@@ -103,7 +89,7 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 		}
 	}
 	if configProvider.GetBool("fsc.web.enabled") {
-		if _, err := webAddress(configProvider); err != nil {
+		if _, err := listenAddress(configProvider, "fsc.web"); err != nil {
 			return err
 		}
 		if _, err := resolveWebTLS(configProvider); err != nil {
@@ -127,7 +113,7 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 		return web.NewDummyServer(), nil
 	}
 
-	addr, err := webAddress(configProvider)
+	addr, err := listenAddress(configProvider, "fsc.web")
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +299,7 @@ func NewGRPCServer(configProvider driver.ConfigService) (*grpc2.GRPCServer, erro
 		return nil, nil
 	}
 
-	listenAddr, err := grpcAddress(configProvider)
+	listenAddr, err := listenAddress(configProvider, "fsc.grpc")
 	if err != nil {
 		return nil, err
 	}

@@ -164,7 +164,7 @@ fsc:
 	})
 
 	for _, tc := range []struct{ name, address, wantErr string }{
-		{name: "grpc enabled without address fails", wantErr: "fsc.grpc.address is required when fsc.grpc.enabled is true"},
+		{name: "grpc enabled without address fails", wantErr: "fsc.grpc.enabled is true but fsc.grpc.address is not set"},
 		{name: "grpc enabled with ip only fails", address: "\n    address: 127.0.0.1", wantErr: "invalid fsc.grpc.address [127.0.0.1]"},
 		{name: "grpc enabled with port only fails", address: "\n    address: 20000", wantErr: "invalid fsc.grpc.address [20000]"},
 		{name: "grpc enabled with ip and port succeeds", address: "\n    address: 127.0.0.1:20000"},
@@ -534,7 +534,7 @@ fsc:
     enabled: true
 `)
 		srv, err := NewGRPCServer(p)
-		require.EqualError(t, err, "fsc.grpc.address is required when fsc.grpc.enabled is true")
+		require.EqualError(t, err, "fsc.grpc.enabled is true but fsc.grpc.address is not set")
 		require.Nil(t, srv)
 	})
 
