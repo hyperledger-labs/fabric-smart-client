@@ -9,13 +9,7 @@ package comm
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"fmt"
-	"math/big"
 	"net"
 	"os"
 	"path/filepath"
@@ -25,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
@@ -73,55 +68,24 @@ func generateKeys(b *testing.B, n int) (caPath string, nodes []nodeKeys) {
 	b.Helper()
 	dir := b.TempDir()
 
-	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(b, err)
-	caTemplate := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: "bench-ca"},
-		NotBefore:             time.Now().Add(-time.Minute),
-		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-	}
-	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	ca, err := tlsgen.NewCA()
 	require.NoError(b, err)
 	caPath = filepath.Join(dir, "ca.pem")
-	writePEM(b, caPath, "CERTIFICATE", caDER)
+	require.NoError(b, os.WriteFile(caPath, ca.CertBytes(), 0o600))
 
 	for i := range n {
-		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		kp, err := ca.NewServerCertKeyPair("127.0.0.1")
 		require.NoError(b, err)
-		template := &x509.Certificate{
-			SerialNumber: big.NewInt(int64(i + 2)),
-			Subject:      pkix.Name{CommonName: fmt.Sprintf("node%d", i)},
-			NotBefore:    time.Now().Add(-time.Minute),
-			NotAfter:     time.Now().Add(24 * time.Hour),
-			KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-			DNSNames:     []string{"localhost"},
-			IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
-		}
-		certDER, err := x509.CreateCertificate(rand.Reader, template, caTemplate, &key.PublicKey, caKey)
-		require.NoError(b, err)
-		keyDER, err := x509.MarshalPKCS8PrivateKey(key)
-		require.NoError(b, err)
-
 		k := nodeKeys{
 			keyPath:  filepath.Join(dir, fmt.Sprintf("node%d-key.pem", i)),
 			certPath: filepath.Join(dir, fmt.Sprintf("node%d-cert.pem", i)),
-			pub:      &key.PublicKey,
+			pub:      kp.Public().(*ecdsa.PublicKey),
 		}
-		writePEM(b, k.keyPath, "PRIVATE KEY", keyDER)
-		writePEM(b, k.certPath, "CERTIFICATE", certDER)
+		require.NoError(b, os.WriteFile(k.keyPath, kp.Key, 0o600))
+		require.NoError(b, os.WriteFile(k.certPath, kp.Cert, 0o600))
 		nodes = append(nodes, k)
 	}
 	return caPath, nodes
-}
-
-func writePEM(b *testing.B, path, typ string, der []byte) {
-	b.Helper()
-	require.NoError(b, os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: typ, Bytes: der}), 0o600))
 }
 
 // freePorts returns n distinct TCP ports on 127.0.0.1 that were free when the call returned.
