@@ -41,7 +41,6 @@ func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
 	logger.Debugf("creating txID store second cache with size [%d]", cacheSize)
 	return &cachedStore{
 		VaultStore: backed,
-		// buffer mirrors secondcache.NewTyped, which derived it as one third of the size
 		cache: cache.NewSecondChanceCache[driver.TxID, *entry](cacheSize, max(cacheSize/3, 1), nil),
 	}
 }
