@@ -212,7 +212,7 @@ fsc:
           # Defaults to true for websocket p2p when omitted.
           clientAuthRequired: true
           # Root certificates used by this node (as a websocket client) to verify remote server certificates.
-          serverRootCAs:
+          rootCAs:
             files:
               - /path/to/server/tls/ca.crt
           # Root certificates used by this node (as a websocket server) to verify remote client certificates.
