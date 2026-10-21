@@ -44,18 +44,18 @@ func waitServerReady(t *testing.T, address string, dialOptions ...grpc.DialOptio
 
 func TestExtractCertificateHashFromContext(t *testing.T) {
 	t.Parallel()
-	require.Nil(t, grpc3.ExtractCertificateHashFromContext(context.Background()))
+	require.Nil(t, grpc3.ExtractCertificateHashFromContext(t.Context()))
 
 	p := &peer.Peer{}
-	ctx := peer.NewContext(context.Background(), p)
+	ctx := peer.NewContext(t.Context(), p)
 	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = &nonTLSConnection{}
-	ctx = peer.NewContext(context.Background(), p)
+	ctx = peer.NewContext(t.Context(), p)
 	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = credentials.TLSInfo{}
-	ctx = peer.NewContext(context.Background(), p)
+	ctx = peer.NewContext(t.Context(), p)
 	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = credentials.TLSInfo{
@@ -65,7 +65,7 @@ func TestExtractCertificateHashFromContext(t *testing.T) {
 			},
 		},
 	}
-	ctx = peer.NewContext(context.Background(), p)
+	ctx = peer.NewContext(t.Context(), p)
 	h := sha256.New()
 	h.Write([]byte{1, 2, 3})
 	require.Equal(t, h.Sum(nil), grpc3.ExtractCertificateHashFromContext(ctx))

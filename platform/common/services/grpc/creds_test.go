@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package grpc_test
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
@@ -52,7 +51,7 @@ func TestCreds(t *testing.T) {
 	logger, recorder := logging.NewTestLogger(t)
 
 	creds := grpc.NewServerTransportCredentials(config, logger)
-	_, _, err = creds.ClientHandshake(context.Background(), "", nil)
+	_, _, err = creds.ClientHandshake(t.Context(), "", nil)
 	require.EqualError(t, err, grpc.ErrClientHandshakeNotImplemented.Error())
 	//lint:ignore SA1019: creds.OverrideServerName is deprecated: use grpc.WithAuthority instead. Will be supported throughout 1.x.
 	err = creds.OverrideServerName("") //nolint:all

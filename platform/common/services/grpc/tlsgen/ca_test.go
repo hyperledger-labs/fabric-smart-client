@@ -61,7 +61,7 @@ func TestTLSCA(t *testing.T) {
 		}
 		tlsCfg.RootCAs.AppendCertsFromPEM(ca.CertBytes())
 		tlsOpts := grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg))
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 		//lint:ignore SA1019: grpc.DialContext is deprecated: use NewClient instead.  Will be supported throughout 1.x.
 		conn, err := grpc.DialContext(ctx, listener.Addr().String(), tlsOpts, grpc.WithBlock()) //nolint:all

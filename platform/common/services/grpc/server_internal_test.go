@@ -44,7 +44,7 @@ func TestStopGivesUpOnHandlerIgnoringCancellation(t *testing.T) { //nolint:paral
 	cc, err := grpc.NewClient(s.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = cc.Close() })
-	go func() { _, _ = testpb.NewEmptyServiceClient(cc).EmptyCall(context.Background(), &testpb.Empty{}) }()
+	go func() { _, _ = testpb.NewEmptyServiceClient(cc).EmptyCall(t.Context(), &testpb.Empty{}) }()
 	<-svc.entered
 
 	stopped := make(chan struct{})

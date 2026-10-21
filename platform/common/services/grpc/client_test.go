@@ -587,7 +587,7 @@ func TestSetMessageSize(t *testing.T) {
 			defer func() { _ = conn.Close() }()
 			// create service client from conn
 			svcClient := testpb.NewEchoServiceClient(conn)
-			callCtx := context.Background()
+			callCtx := t.Context()
 			callCtx, cancel := context.WithTimeout(callCtx, testTimeout)
 			t.Cleanup(cancel)
 			// invoke service
@@ -657,7 +657,7 @@ func TestClientConfigMessageSize(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = conn.Close() })
 
-			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+			ctx, cancel := context.WithTimeout(t.Context(), testTimeout)
 			t.Cleanup(cancel)
 			echo := &testpb.Echo{Payload: []byte{0, 0, 0, 0, 0}}
 			resp, err := testpb.NewEchoServiceClient(conn).EchoCall(ctx, echo)
@@ -697,7 +697,7 @@ func TestCreateGRPCClientCarriesMessageSize(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), testTimeout)
 	t.Cleanup(cancel)
 	_, err = testpb.NewEchoServiceClient(conn).EchoCall(ctx, &testpb.Echo{Payload: []byte{0, 0, 0, 0, 0}})
 	require.ErrorContains(t, err, "received message larger than max")

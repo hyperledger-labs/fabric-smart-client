@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -67,7 +66,7 @@ func runBenchmarkSetStateCommit(b *testing.B, ddb driver.VaultStore) {
 		for pb.Next() {
 			txCtr := ctr.Add(1)
 			commitIndex := &txCommitIndex{
-				ctx:         context.Background(),
+				ctx:         b.Context(),
 				txID:        fmt.Sprintf("tx%d", txCtr),
 				block:       txCtr / blockSize,
 				indexInBloc: txCtr % blockSize,
@@ -86,7 +85,7 @@ func runBenchmarkSetStateCommit(b *testing.B, ddb driver.VaultStore) {
 
 func verifyResult(b *testing.B, vault *Vault[ValidationCode]) {
 	b.Helper()
-	stateItr, err := vault.vaultStore.GetAllStates(context.Background(), namespace)
+	stateItr, err := vault.vaultStore.GetAllStates(b.Context(), namespace)
 	require.NoError(b, err)
 	states, err := collections.ReadAll(stateItr)
 	require.NoError(b, err)

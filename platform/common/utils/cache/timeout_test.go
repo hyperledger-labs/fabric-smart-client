@@ -133,7 +133,7 @@ func TestTimeoutCache_NonPositiveTimeout(t *testing.T) { //nolint:paralleltest /
 
 	for _, timeout := range []time.Duration{0, -time.Second} {
 		require.NotPanics(t, func() {
-			c := cache.NewTimeoutCache[int, int](context.Background(), timeout, func(map[int]int) {})
+			c := cache.NewTimeoutCache[int, int](t.Context(), timeout, func(map[int]int) {})
 			c.Put(1, 1)
 			v, ok := c.Get(1)
 			require.True(t, ok)
