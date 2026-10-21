@@ -75,6 +75,16 @@ for the trust and identity model.
 - One `core.yaml` per node.
 - `fsc` section → view platform; `fabric` section → Fabric.
 - Detailed examples: [`docs/configuration.md`](../configuration.md).
+- `docs/configuration.md` is pinned by reference tests built on
+  [`pkg/utils/configtest`](../../pkg/utils/configtest): each platform's
+  `TestReferenceConfiguration` (`platform/view/services/config`,
+  `platform/fabric/core/generic/config`, `platform/fabricx/core/committer/config`) claims
+  its sections, strictly decoding the ones read into a struct and listing the keys read one
+  at a time; `TestReferenceResolvers` (`platform/view/sdk/dig/support/endpoint`) checks
+  `fsc.endpoint.resolvers`. A documented key that no test claims fails, and
+  `TestReferenceSectionsOwned` (`pkg/utils/configtest`) fails on a top-level section with no
+  owning test. Adding, renaming or removing a key means updating the document and the
+  reference test of the component that reads it.
 
 ## Security
 
