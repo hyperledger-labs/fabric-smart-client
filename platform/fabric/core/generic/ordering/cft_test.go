@@ -21,6 +21,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering/fake"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate/connstatetest"
 	metricsdisabled "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
@@ -836,4 +838,34 @@ func TestCFTBroadcaster_ConnectionLifecycle(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to send transaction to orderer")
 		require.Empty(t, b.connections, "no connections should be pooled after all failures")
 	})
+}
+
+func TestCFTBroadcast_BrokenConnectionReportsReconnecting(t *testing.T) {
+	t.Parallel()
+	cfg := &fake.ConfigService{
+		PoolSizeValue:    1,
+		RetriesValue:     2,
+		NetworkNameValue: "test-network",
+		OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
+	}
+	connState, rec := connstatetest.NewMetrics()
+	m := newTestMetrics()
+	m.ConnState = connState
+	b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, m)
+
+	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+	require.Equal(t, []connstate.State{connstate.Connected, connstate.Connected}, rec.States("orderer-1"))
+
+	// Break the pooled connection: the next broadcast discards it, reports the
+	// orderer reconnecting, and succeeds on a fresh connection.
+	conn := <-b.connections
+	conn.Stream = &fakeCFTStream{sendErr: errors.New("orderer went away")}
+	b.connections <- conn
+
+	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+	require.Equal(t, []connstate.State{
+		connstate.Connected, connstate.Connected, // first broadcast: connect, success
+		connstate.Reconnecting,                   // broken pooled connection discarded
+		connstate.Connected, connstate.Connected, // retry: connect, success
+	}, rec.States("orderer-1"))
 }

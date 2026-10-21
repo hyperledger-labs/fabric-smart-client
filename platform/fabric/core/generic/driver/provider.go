@@ -16,6 +16,7 @@ import (
 	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
@@ -26,6 +27,7 @@ type Provider struct {
 	configProvider     config.Provider
 	identityProvider   identity.Provider
 	metricsProvider    metrics.Provider
+	connState          *connstate.Metrics
 	channelProvider    generic.ChannelProvider
 	sigService         fdriver.SignerService
 	mspManagerProvider identity.MSPManagerProvider
@@ -34,6 +36,7 @@ type Provider struct {
 func NewProvider(
 	configProvider config.Provider,
 	metricsProvider metrics.Provider,
+	connState *connstate.Metrics,
 	endpointService identity.EndpointService,
 	channelProvider generic.ChannelProvider,
 	idProvider identity.ViewIdentityProvider,
@@ -49,6 +52,7 @@ func NewProvider(
 		channelProvider:  channelProvider,
 		identityProvider: identity.NewProvider(configProvider, endpointService),
 		metricsProvider:  metricsProvider,
+		connState:        connState,
 		sigService:       sigService,
 		mspManagerProvider: identity.NewMSPManagerProvider(
 			configProvider,
@@ -81,6 +85,10 @@ func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, er
 		return nil, err
 	}
 
+	// The connection-state metrics are shared node-wide, so they are not owned by the network.
+	m := gmetrics.NewMetrics(d.metricsProvider)
+	m.ConnState = d.connState
+
 	// New Network
 	net, err := generic.NewNetwork(
 		network,
@@ -88,7 +96,7 @@ func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, er
 		idProvider,
 		mspService,
 		d.sigService,
-		gmetrics.NewMetrics(d.metricsProvider),
+		m,
 		d.channelProvider.NewChannel,
 	)
 	if err != nil {

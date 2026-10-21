@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
 const bftSendRecvTimeout = 10 * time.Second
@@ -28,6 +29,14 @@ type bftOrdererState struct {
 	slots chan struct{}
 }
 
+// BFTBroadcaster sends each envelope to every orderer of a byzantine-fault-tolerant
+// ordering service and succeeds once enough of them acknowledge it. It keeps a
+// pool of broadcast streams per orderer.
+//
+// It reports the state of each orderer: connected when a stream is opened and
+// after each envelope the orderer accepts, reconnecting when a failed stream is
+// discarded. A send that times out or is cancelled counts as failed. A stream
+// discarded after a rejection does not change the state: the orderer answered.
 type BFTBroadcaster struct {
 	ConfigService driver.ConfigService
 	ClientFactory Services
@@ -133,6 +142,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 				cancel()
 				if err != nil {
 					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, err.Error())
+					connection.State.Set(connstate.Reconnecting)
 					lock.Lock()
 					defer lock.Unlock()
 					usedConnections = append(usedConnections, connection)
@@ -145,6 +155,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 
 				switch status.GetStatus() {
 				case common2.Status_SUCCESS:
+					connection.State.Set(connstate.Connected)
 					o.releaseConnection(connection, orderer)
 					counter++
 				default:
@@ -233,11 +244,14 @@ func (o *BFTBroadcaster) createConnection(to *grpc.ConnectionConfig) (*Connectio
 		return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
 	}
 
+	state := connState(o.metrics).Tracker(o.ConfigService.NetworkName(), "", connstate.ComponentOrderer, to.Address)
+	state.Set(connstate.Connected)
 	return &Connection{
 		Address: to.Address,
 		Stream:  stream,
 		Client:  client,
 		Cancel:  cancel,
+		State:   state,
 	}, nil
 }
 

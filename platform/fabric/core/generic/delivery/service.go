@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -62,6 +63,11 @@ type Service struct {
 // NewService creates the delivery Service for a channel. It fails if
 // channelConfig is nil, which would otherwise panic here: the buffer size is
 // read off channelConfig while building the arguments to New.
+//
+// connMetrics receives the connection state of the long-running Delivery only;
+// nil reports nothing. Scans do not report: they share the long-running
+// stream's network, channel and peer labels, so a scan ending would mark that
+// stream disconnected.
 func NewService(
 	channel string,
 	channelConfig driver.ChannelConfig,
@@ -74,6 +80,7 @@ func NewService(
 	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
 	tracerProvider tracing.Provider,
+	connMetrics *connstate.Metrics,
 	acceptedHeaderTypes []common.HeaderType,
 ) (*Service, error) {
 	if channelConfig == nil {
@@ -91,6 +98,7 @@ func NewService(
 		vault,
 		channelConfig.DeliveryBufferSize(),
 		tracerProvider,
+		connMetrics,
 	)
 	if err != nil {
 		return nil, err
@@ -139,6 +147,7 @@ func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver
 		vault,
 		c.channelConfig.DeliveryBufferSize(),
 		c.tracerProvider,
+		nil,
 	)
 	if err != nil {
 		return err

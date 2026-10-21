@@ -217,7 +217,21 @@ Primary implementation: `platform/common/services/grpc/metrics.go`, with the cus
 | `3` | reconnecting | A lost connection is being re-established. |
 | `4` | stopped | The component gave up retrying. Recovery requires operator action. |
 
-Primary implementation: `platform/view/services/metrics/connstate/connstate.go`.
+Components that report connection state:
+
+| `component` | `network` / `channel` | `endpoint` | Reported states |
+| --- | --- | --- | --- |
+| `delivery` | Fabric network and channel | Peer the channel's block stream is attached to | `connecting` on the first connection attempt, `reconnecting` on every later attempt, `connected` once the Deliver stream is open. `stopped` when the committer rejects a block, which stops the channel's block stream (see `commit_failures` below). `disconnected` on a clean shutdown. |
+| `orderer` | Fabric network, empty channel | Orderer a broadcast stream is open to | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state. |
+
+Operational notes:
+
+- Delivery picks a random peer on every connection attempt. When it moves to another peer, the previous peer's series drops to `disconnected`, so at most one peer per channel shows a live state. The attempt is counted against the peer being tried.
+- Only the channel's long-running block stream reports. Historical scans (`ScanBlock`, `Scan`) open their own streams and do not report.
+- The `orderer` series is updated only by broadcasts. A node that broadcasts nothing keeps the last reported state, and an orderer whose stream broke stays `reconnecting` until a broadcast connects to it again. An orderer no stream was ever opened to has no series. For orderers, `fsc_connection_last_connected_timestamp_seconds` is the time of the last stream opened or envelope accepted.
+- A shutdown, including the cancellation of the node's context, ends delivery in `disconnected`. Only a rejected block ends it in `stopped`.
+
+Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go` and `platform/fabric/core/generic/ordering/`.
 
 ### Fabric Ordering
 
@@ -399,7 +413,7 @@ The following labels are part of the current FSC metric surface.
 
 The following families have implementation caveats:
 
-- `fsc_connection_*`: the families are registered, but no component reports connection state yet, so no series are exported.
+- `fsc_connection_*`: only the `delivery` and `orderer` components report connection state, so no series are exported for the other `component` values.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
 - `fsc_view_services_view_grpc_server_view_handler_*`: the tracer is active for `initiate_view`, but the `success` label is declared without a matching attribute update. The exported `initiate_view` series therefore uses `success=""`.
 - `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 

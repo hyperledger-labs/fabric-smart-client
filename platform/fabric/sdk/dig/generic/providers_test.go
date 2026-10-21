@@ -28,6 +28,7 @@ import (
 	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
@@ -194,6 +195,7 @@ func TestNewDriver(t *testing.T) {
 		dig.In
 		ConfigProvider  config.Provider
 		MetricsProvider metrics.Provider
+		ConnState       *connstate.Metrics
 		EndpointService identity.EndpointService
 		IDProvider      identity.ViewIdentityProvider
 		KVS             *kvs.KVS
@@ -244,6 +246,7 @@ func TestNewChannelProvider(t *testing.T) {
 		TracerProvider  tracing.Provider
 		Drivers         multiplexed.Driver
 		MetricsProvider metrics.Provider
+		ConnState       *connstate.Metrics
 	}{
 		ConfigProvider:  configProvider,
 		EnvelopeKVS:     envelopeStore,
@@ -317,6 +320,7 @@ func TestNewChannelProvider_InvalidOrdering(t *testing.T) {
 		TracerProvider  tracing.Provider
 		Drivers         multiplexed.Driver
 		MetricsProvider metrics.Provider
+		ConnState       *connstate.Metrics
 	}{
 		ConfigProvider:  configProvider,
 		EnvelopeKVS:     envelopeStore,

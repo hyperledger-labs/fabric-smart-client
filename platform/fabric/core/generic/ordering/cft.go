@@ -18,8 +18,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
+// CFTBroadcaster sends envelopes to a crash-fault-tolerant ordering service,
+// one orderer per envelope, over a shared pool of broadcast streams to orderers
+// picked at random.
+//
+// It reports the state of each orderer it connects to: connected when a stream
+// is opened and after each envelope the orderer accepts, reconnecting when a
+// broken stream is discarded. A rejected envelope does not change the state. An
+// orderer that broke and is never picked again keeps reporting reconnecting.
 type CFTBroadcaster struct {
 	NetworkID     string
 	ConfigService driver.ConfigService
@@ -70,17 +79,18 @@ func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 		if err != nil {
 			// the connection is broken, throw it away and retry with a fresh one
 			logger.DebugfContext(ctx, "Discard connection")
+			connection.State.Set(connstate.Reconnecting)
 			o.discardConnection(connection)
 			lastErr = err
 			continue
 		}
-
 		logger.DebugfContext(ctx, "Release connection")
 		o.releaseConnection(connection)
 		if status.GetStatus() != common2.Status_SUCCESS {
 			// the orderer rejected the envelope, retrying will not help
 			return errors.Errorf("failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
 		}
+		connection.State.Set(connstate.Connected)
 		o.metrics.OrderedTransactions.With("network", o.NetworkID).Add(1)
 
 		return nil
@@ -150,9 +160,12 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
 			}
 
+			state := connState(o.metrics).Tracker(o.NetworkID, "", connstate.ComponentOrderer, to.Address)
+			state.Set(connstate.Connected)
 			return &Connection{
 				Stream: stream,
 				Client: client,
+				State:  state,
 			}, nil
 		}
 	}

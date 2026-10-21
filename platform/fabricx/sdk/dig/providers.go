@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
@@ -36,6 +37,7 @@ func NewDriver(in struct {
 	dig.In
 	ConfigProvider  config.Provider
 	MetricsProvider metrics.Provider
+	ConnState       *connstate.Metrics
 	EndpointService identity.EndpointService
 	IDProvider      identity.ViewIdentityProvider
 	KVS             *kvs.KVS
@@ -50,6 +52,7 @@ func NewDriver(in struct {
 		Driver: fabricx.NewProvider(
 			in.ConfigProvider,
 			in.MetricsProvider,
+			in.ConnState,
 			in.EndpointService,
 			in.ChannelProvider,
 			in.IDProvider,
@@ -125,6 +128,8 @@ func NewChannelProvider(in struct {
 				nw.TransactionManager(),
 				callback,
 				in.TracerProvider,
+				// Fabric-x runs no long-running delivery, only scans, which do not report.
+				nil,
 				[]cb.HeaderType{cb.HeaderType_MESSAGE},
 			)
 		},
