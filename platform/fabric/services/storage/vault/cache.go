@@ -27,8 +27,6 @@ type entry struct {
 	Message string
 }
 
-// removed the store now holds a cache.Map[driver.TxID, *entry] directly
-
 type notCachedStore struct {
 	driver.VaultStore
 }
@@ -41,7 +39,7 @@ func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
 	logger.Debugf("creating txID store second cache with size [%d]", cacheSize)
 	return &cachedStore{
 		VaultStore: backed,
-		cache: cache.NewSecondChanceCache[driver.TxID, *entry](cacheSize, max(cacheSize/3, 1), nil),
+		cache:      cache.NewSecondChanceCache[driver.TxID, *entry](cacheSize, 1, nil),
 	}
 }
 

@@ -231,9 +231,8 @@ func TestCachedStoreSetStatusesPropagatesError(t *testing.T) {
 	require.False(t, ok)
 }
 
-// Invalidate must make the next read miss. secondcache zeroed the value and kept
-// the key, so a deleted entry came back as a hit and GetTxStatus returned it;
-// the eviction cache deletes, so the read falls through to the backing store.
+// TestCachedStoreInvalidateFallsThroughToBacked asserts that a read after
+// Invalidate misses the cache and is served from the backing store.
 func TestCachedStoreInvalidateFallsThroughToBacked(t *testing.T) {
 	t.Parallel()
 	backed := newMockVaultStore()
@@ -241,7 +240,7 @@ func TestCachedStoreInvalidateFallsThroughToBacked(t *testing.T) {
 
 	s := &cachedStore{
 		VaultStore: backed,
-		cache:      cache.NewSecondChanceCache[driver.TxID, *entry](10, 3, nil),
+		cache:      cache.NewSecondChanceCache[driver.TxID, *entry](10, 1, nil),
 	}
 
 	s.cache.Put("tx1", &entry{Code: driver.Busy, Message: "stale"})
