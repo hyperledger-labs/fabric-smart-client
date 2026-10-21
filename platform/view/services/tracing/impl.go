@@ -46,34 +46,35 @@ var NoOp = Config{Provider: None}
 
 // Config is the node's tracing configuration, read from fsc.tracing.
 type Config struct {
-	Provider TracerType     `mapstructure:"provider"`
-	File     FileConfig     `mapstructure:"file"`
-	Otlp     OtlpConfig     `mapstructure:"otlp"`
-	Sampling SamplingConfig `mapstructure:"sampling"`
+	Provider TracerType     `yaml:"provider"`
+	File     FileConfig     `yaml:"file"`
+	Otlp     OtlpConfig     `yaml:"otlp"`
+	Sampling SamplingConfig `yaml:"sampling"`
 }
 
 // SamplingConfig controls what fraction of traces is recorded.
 type SamplingConfig struct {
 	// Ratio is the fraction of root spans to sample, in [0, 1]. Spans with a remote parent
 	// follow the parent's sampling decision, so 0 records only traces sampled upstream.
-	Ratio float64 `mapstructure:"ratio"`
+	Ratio float64 `yaml:"ratio"`
 }
 
 // FileConfig configures the file backend.
 type FileConfig struct {
-	Path string `mapstructure:"path"`
+	Path string `yaml:"path"`
 }
 
 // OtlpConfig configures the OTLP collector connection.
 type OtlpConfig struct {
-	Address string `mapstructure:"address"`
-	// TLS is the resolved client-side TLS for the collector connection. It has no
-	// mapstructure tag: fsc.tracing.otlp.tls is resolved through tlsconfig so an unknown key
-	// under it is an error, and so its files are read and validated at startup.
+	Address string `yaml:"address"`
+	// TLS is the resolved client-side TLS for the collector connection. The yaml
+	// tag skips fsc.tracing.otlp.tls: that block is resolved through tlsconfig so
+	// an unknown key under it is an error, and so its files are read and validated
+	// at startup.
 	//
 	// TLS is opt-in here. A collector reached over loopback needs none, and requiring it
 	// would break every existing tracing setup, so an absent block still means plaintext.
-	TLS grpc.SecureOptions `mapstructure:"-"`
+	TLS grpc.SecureOptions `yaml:"-"`
 }
 
 var logger = logging.MustGetLogger()
