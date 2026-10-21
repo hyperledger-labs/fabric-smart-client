@@ -209,6 +209,12 @@ func (gServer *GRPCServer) Server() *grpc.Server {
 	return gServer.server
 }
 
+// RegisterService registers a gRPC service on the server, so GRPCServer is a
+// grpc.ServiceRegistrar. It must be called before Start.
+func (gServer *GRPCServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
+	gServer.server.RegisterService(desc, impl)
+}
+
 // ServerCertificate returns the tls.Certificate used by the grpc.Server
 func (gServer *GRPCServer) ServerCertificate() tls.Certificate {
 	cert, ok := gServer.serverCertificate.Load().(tls.Certificate)

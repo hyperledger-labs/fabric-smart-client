@@ -115,17 +115,17 @@ func (p *Provider) loadDefaultIdentity() error {
 }
 
 func (p *Provider) loadClientIdentities() error {
-	certs := p.configProvider.GetStringSlice("fsc.client.certs")
+	// fsc.view.remote can only hold clients when the remote view API is enabled; the SDK
+	// rejects the key otherwise before this runs.
+	certs := p.configProvider.GetStringSlice("fsc.view.remote.clients")
 	var clients []view.Identity
 	for _, cert := range certs {
-		// TODO: support cert as a folder
 		certPath := p.configProvider.TranslatePath(cert)
 		client, err := LoadIdentity(certPath)
 		if err != nil {
-			logger.Errorf("failed loading client cert at [%s]: [%s]", certPath, err)
-			continue
+			// A dropped allowlist entry would lock that caller out with no visible cause.
+			return errors.Wrapf(err, "failed loading client cert [%s]", certPath)
 		}
-		logger.Debugf("loaded client cert at [%s]: [%s]", certPath, err)
 		clients = append(clients, client)
 	}
 	logger.Debugf("loaded [%d] client identities", len(clients))

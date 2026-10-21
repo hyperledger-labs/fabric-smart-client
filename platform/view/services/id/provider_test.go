@@ -66,6 +66,21 @@ func TestLoad(t *testing.T) {
 	require.Equal(t, raw, []byte(idProvider.Clients()[0]))
 }
 
+// An allowlist entry that does not load fails NewProvider instead of silently locking that
+// caller out.
+func TestLoadClientIdentitiesFailsOnBadCert(t *testing.T) {
+	t.Parallel()
+	cp := &mock.ConfigProvider{}
+	cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/default.pem")
+	cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")
+	cp.GetStringSliceReturns([]string{"./testdata/client/missing.pem"})
+	cp.TranslatePathReturns("./testdata/client/missing.pem")
+
+	_, err := id2.NewProvider(cp, &mock.SigService{}, nil, &kms.KMS{Driver: &file.Driver{}})
+	require.ErrorContains(t, err, "missing.pem")
+	require.Equal(t, "fsc.view.remote.clients", cp.GetStringSliceArgsForCall(0))
+}
+
 func TestNewProviderFailurePaths(t *testing.T) {
 	t.Parallel()
 

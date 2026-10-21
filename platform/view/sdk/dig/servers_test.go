@@ -25,7 +25,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -161,6 +160,10 @@ fsc:
       clientRootCAs:
         files:
           - ca.crt
+  view:
+    remote:
+      enabled: true
+      backends: [grpc, web]
 `)
 		require.NoError(t, CheckTLSConfig(p))
 	})
@@ -174,7 +177,9 @@ fsc:
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			p := providerFrom(t, "fsc:\n  grpc:\n    enabled: true"+tc.address+"\n  metrics:\n    clientAuthRequired: false\n")
+			// A node serving gRPC configures the remote view API on it.
+			p := providerFrom(t, "fsc:\n  grpc:\n    enabled: true"+tc.address+
+				"\n  view:\n    remote:\n      enabled: true\n      backends: [grpc]\n  metrics:\n    clientAuthRequired: false\n")
 			if tc.wantErr == "" {
 				require.NoError(t, CheckTLSConfig(p))
 				return
@@ -243,20 +248,6 @@ func (*fakeIdentityProvider) Clients() []view.Identity       { return nil }
 func TestNewWebServer(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeViewService{}
-
-	t.Run("disabled returns dummy server", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, `
-fsc:
-  web:
-    enabled: false
-`)
-		ws, err := NewWebServer(p, svc, nil)
-		require.NoError(t, err)
-		require.NotNil(t, ws)
-	})
-
 	t.Run("enabled without address fails", func(t *testing.T) {
 		t.Parallel()
 		p := providerFrom(t, `
@@ -264,7 +255,7 @@ fsc:
   web:
     enabled: true
 `)
-		_, err := NewWebServer(p, svc, nil)
+		_, err := NewWebServer(p)
 		require.ErrorContains(t, err, "fsc.web.address is not set")
 	})
 
@@ -280,7 +271,7 @@ fsc:
         files:
           - non-existent.crt
 `)
-		_, err := NewWebServer(p, svc, nil)
+		_, err := NewWebServer(p)
 		require.ErrorContains(t, err, "failed resolving fsc.web.tls")
 	})
 
@@ -292,39 +283,38 @@ fsc:
     enabled: true
     address: 127.0.0.1:0
 `)
-		ws, err := NewWebServer(p, svc, nil)
+		ws, err := NewWebServer(p)
 		require.NoError(t, err)
 		require.NotNil(t, ws)
 	})
+}
 
-	t.Run("health endpoints need no client certificate", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, `
-fsc:
-  web:
-    enabled: true
-    address: 127.0.0.1:0
-`)
-		cs := connstate.NewMetrics(&disabled.Provider{})
-		cs.Tracker("net", "ch", connstate.ComponentDelivery, "peer0:7051").Set(connstate.Connecting)
-		ws, err := NewWebServer(p, svc, cs)
+// The probes are served on the web listener without a client certificate, and on any
+// listener the SDK holds, including a replaced one.
+func TestMountHealth(t *testing.T) {
+	t.Parallel()
+	cs := connstate.NewMetrics(&disabled.Provider{})
+	cs.Tracker("net", "ch", connstate.ComponentDelivery, "peer0:7051").Set(connstate.Connecting)
+
+	ws, err := NewWebServer(providerFrom(t, "fsc:\n  web:\n    enabled: true\n    address: 127.0.0.1:0\n"))
+	require.NoError(t, err)
+	mountHealth(ws, cs)
+	require.NoError(t, ws.Start())
+	t.Cleanup(func() { _ = ws.Stop() })
+	addr := ws.(*web.Server).Addr()
+	for path, want := range map[string]int{
+		"/healthz": http.StatusOK,
+		"/readyz":  http.StatusServiceUnavailable,
+	} {
+		resp, err := http.Get("http://" + addr + path)
 		require.NoError(t, err)
-		require.NoError(t, ws.Start())
-		t.Cleanup(func() { _ = ws.Stop() })
-		addr := ws.(*web.Server).Addr()
-		// The view binding needs no client certificate either: a GET reaches the handler,
-		// which accepts only POST.
-		for path, want := range map[string]int{
-			"/healthz":                    http.StatusOK,
-			"/readyz":                     http.StatusServiceUnavailable,
-			protos.ProcessCommandHTTPPath: http.StatusMethodNotAllowed,
-		} {
-			resp, err := http.Get("http://" + addr + path)
-			require.NoError(t, err)
-			require.NoError(t, resp.Body.Close())
-			require.Equal(t, want, resp.StatusCode, path)
-		}
-	})
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, want, resp.StatusCode, path)
+	}
+
+	replaced := &recordingWebServer{}
+	mountHealth(replaced, cs)
+	require.Equal(t, map[string]bool{"/healthz": false, "/readyz": false}, replaced.secure)
 }
 
 func TestCheckTLSConfigRejectsNegativeWebMaxRecvMsgSize(t *testing.T) {
@@ -536,18 +526,6 @@ func TestOperationsLogspecClientAuth(t *testing.T) { //nolint:paralleltest // mu
 func TestNewGRPCServer(t *testing.T) {
 	t.Parallel()
 
-	t.Run("disabled returns nil", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, `
-fsc:
-  grpc:
-    enabled: false
-`)
-		srv, err := NewGRPCServer(p)
-		require.NoError(t, err)
-		require.Nil(t, srv)
-	})
-
 	t.Run("enabled without address returns error", func(t *testing.T) {
 		t.Parallel()
 		p := providerFrom(t, `
@@ -644,23 +622,9 @@ func TestNewViewServiceServer(t *testing.T) {
 
 	t.Run("with the default time window", func(t *testing.T) {
 		t.Parallel()
-		srv, err := NewViewServiceServer(providerFrom(t, ""), nil, nil, nil, tp.Default)
+		srv, err := NewViewServiceServer(RemoteConfig{TimeWindow: DefaultCommandTimeWindow}, nil, nil, nil, tp.Default)
 		require.NoError(t, err)
 		require.NotNil(t, srv)
-	})
-
-	t.Run("with a non-positive time window", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, "fsc:\n  grpc:\n    authentication:\n      timeWindow: 0s\n")
-		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default)
-		require.ErrorContains(t, err, "command time window must be positive")
-	})
-
-	t.Run("with a time window that is not a duration", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, "fsc:\n  grpc:\n    authentication:\n      timeWindow: 15\n")
-		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default)
-		require.ErrorContains(t, err, "invalid [fsc.grpc.authentication.timeWindow] value [15]")
 	})
 }
 
@@ -671,8 +635,8 @@ func TestServe_FullLifecycle(t *testing.T) { //nolint:paralleltest // relies on 
 	ws := newFakeServer()
 	ownOps := newFakeServer()
 	ops := OperationsServer{
-		Server: ws,
-		Own:    ownOps,
+		WebServer: ws,
+		Own:       ownOps,
 	}
 
 	opsSystem, err := operations.NewOperationSystem(ws, NewOperationsLogger(&operations.Options{}), &disabled.Provider{}, &operations.Options{Version: "1.0.0"})

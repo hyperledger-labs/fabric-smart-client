@@ -135,8 +135,10 @@ func TestValidate(t *testing.T) {
 func TestCheckRemovedNodeKeys(t *testing.T) {
 	t.Parallel()
 	set := fakeSource{dir: t.TempDir(), subtrees: map[string]map[string]any{
-		"fsc.metrics.prometheus": {"tls": true},
-		"fsc.web":                {"viewtimeout": "10s"},
+		"fsc.metrics.prometheus":  {"tls": true},
+		"fsc.web":                 {"viewtimeout": "10s"},
+		"fsc.grpc.authentication": {"timewindow": "1m"},
+		"fsc.client":              {"certs": []any{"a.pem"}},
 	}}
 
 	err := CheckRemovedKeys(set, "fsc")
@@ -145,6 +147,8 @@ func TestCheckRemovedNodeKeys(t *testing.T) {
 	require.ErrorContains(t, err, "fsc.metrics.clientAuthRequired")
 	require.ErrorContains(t, err, "fsc.web.viewtimeout")
 	require.ErrorContains(t, err, "fsc.view.remote.timeout")
+	require.ErrorContains(t, err, "fsc.view.remote.timeWindow")
+	require.ErrorContains(t, err, "fsc.view.remote.clients")
 
 	require.NoError(t, CheckRemovedKeys(set, "fsc.p2p"),
 		"a narrower prefix must not reach a key outside it")

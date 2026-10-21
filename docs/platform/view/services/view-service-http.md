@@ -67,6 +67,12 @@ When the view service ends the stream with an error instead of a final response,
 with code 1011. A frame larger than `fsc.web.maxRecvMsgSize` (100 MiB when unset) ends the stream. Browsers may open a stream only from
 the listener's own origin.
 
+## Configuration
+
+The HTTP binding is served when `fsc.view.remote.enabled` is true and `fsc.view.remote.backends`
+lists `web`, on the `fsc.web` listener. See `fsc.view.remote` in the
+[configuration reference](../../../configuration.md).
+
 ## Transport security
 
 The view routes do not require a client certificate: the signed command authenticates the caller.

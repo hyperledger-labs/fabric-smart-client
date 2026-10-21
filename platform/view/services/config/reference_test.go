@@ -34,7 +34,6 @@ func TestReferenceConfiguration(t *testing.T) {
 		"fsc.id",
 		"fsc.identity.cert.file",
 		"fsc.identity.key.file",
-		"fsc.client.certs",
 		"fsc.kvs.cache.size",
 		"fsc.metrics.provider",
 	)
@@ -47,7 +46,6 @@ func TestReferenceConfiguration(t *testing.T) {
 		"fsc.grpc.connectionTimeout",
 		"fsc.grpc.maxRecvMsgSize",
 		"fsc.grpc.maxSendMsgSize",
-		"fsc.grpc.authentication.timeWindow",
 	)
 	r.Decode("fsc.grpc.tls", &tlsconfig.ServerTLS{})
 	r.Decode("fsc.grpc.keepalive", &grpc.ServerKeepAliveConfig{})
@@ -88,7 +86,14 @@ func TestReferenceConfiguration(t *testing.T) {
 
 	r.Read("fsc.web.enabled", "fsc.web.address", "fsc.web.maxRecvMsgSize")
 
-	r.Read("fsc.view.remote.timeout")
+	r.Read(
+		"fsc.view.remote.enabled",
+		"fsc.view.remote.backends",
+		"fsc.view.remote.timeout",
+		"fsc.view.remote.timeWindow",
+		"fsc.view.remote.clients",
+		"fsc.view.remote.maxMessageSize",
+	)
 	r.Decode("fsc.web.tls", &tlsconfig.ServerTLS{})
 
 	r.Decode("fsc.tracing", &tracing.Config{}, "otlp.tls")
