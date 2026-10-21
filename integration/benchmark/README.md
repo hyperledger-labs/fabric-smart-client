@@ -56,6 +56,15 @@ Full FSC node benchmarks via View API and gRPC View API:
 - Histogram-based latency measurement (p5, p95, p99)
 - See `node/remote/README.md` for deployment instructions
 
+### 4. Comm Benchmarks (`comm/`)
+P2P communication layer benchmarks, each run against both the websocket and the libp2p transport:
+- **`BenchmarkRoundTrip`**: steady-state request/echo latency on one session, 64 B to 1 MiB payloads
+- **`BenchmarkSessionSetup`**: full session lifecycle (open, one exchange, close)
+- **`BenchmarkParallelRoundTrip`**: concurrent senders, one session each
+- **`BenchmarkMesh`**: full mesh of 3 or 5 nodes, 1 or 4 sessions per pair, all exchanging at once
+- Each reports p50/p99 latency and allocations next to the mean
+- See `comm/README.md` for details and a known libp2p limitation
+
 ## Quick Start
 
 ### Run View Benchmarks
