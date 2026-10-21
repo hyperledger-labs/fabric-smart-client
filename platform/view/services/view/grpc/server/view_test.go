@@ -11,12 +11,13 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -38,10 +39,6 @@ type fakeViewManager struct {
 
 	lastNewViewID string
 	lastNewViewIn []byte
-
-	// deleteContextCh, when set, is signalled after each DeleteContext so a test
-	// can await the goroutine RunView spawns instead of racing it.
-	deleteContextCh chan struct{}
 }
 
 func (f *fakeViewManager) NewView(id string, in []byte) (view2.View, error) {
@@ -63,12 +60,6 @@ func (f *fakeViewManager) InitiateContext(_ context.Context, _ view2.View) (view
 
 func (f *fakeViewManager) DeleteContext(_ string) {
 	f.deleteContextCallCount++
-	if f.deleteContextCh != nil {
-		select {
-		case f.deleteContextCh <- struct{}{}:
-		default:
-		}
-	}
 }
 
 type fakeContext struct {
@@ -198,48 +189,25 @@ func (f *viewTestStreamServer) SendMsg(m any) error {
 	return nil
 }
 
-type fakeTracerProvider struct {
-	trace.TracerProvider
-}
-
-func (*fakeTracerProvider) Tracer(name string, _ ...trace.TracerOption) trace.Tracer {
-	return noop.NewTracerProvider().Tracer(name)
-}
-
 // --- tests ---
 
 func TestInstallViewHandler(t *testing.T) {
 	t.Parallel()
 	vm := &fakeViewManager{}
 	srv := &fakeService{}
-	tp := &fakeTracerProvider{}
 
-	InstallViewHandler(vm, srv, tp)
+	InstallViewHandler(vm, srv, 0)
 
-	require.Len(t, srv.processors, 2)
+	// CallView is the only command; any other payload gets the server's "command type not
+	// recognized" response.
+	require.Len(t, srv.processors, 1)
 	require.Len(t, srv.streamers, 1)
 
 	// Each handler is invoked rather than only checked for non-nil: asserting
 	// NotNil alone still passes if the registrations are swapped.
-	initiateProcessor := srv.processors[reflect.TypeFor[*protos.Command_InitiateView]()]
-	require.NotNil(t, initiateProcessor)
-	vm.deleteContextCh = make(chan struct{}, 1)
-	vm.initiateContextReturns = &fakeContext{id: "initiate_ctx"}
-
-	result, err := initiateProcessor(context.Background(), &protos.Command{
-		Payload: &protos.Command_InitiateView{
-			InitiateView: &protos.InitiateView{Fid: "initiate_fid"},
-		},
-	})
-	require.NoError(t, err)
-	require.IsType(t, &protos.CommandResponse_InitiateViewResponse{}, result)
-	require.Equal(t, "initiate_fid", vm.lastNewViewID)
-	// wait for the view goroutine so it cannot race the assertions below
-	<-vm.deleteContextCh
-
 	callProcessor := srv.processors[reflect.TypeFor[*protos.Command_CallView]()]
 	require.NotNil(t, callProcessor)
-	result, err = callProcessor(context.Background(), &protos.Command{
+	result, err := callProcessor(context.Background(), &protos.Command{
 		Payload: &protos.Command_CallView{
 			CallView: &protos.CallView{Fid: "call_fid"},
 		},
@@ -250,6 +218,7 @@ func TestInstallViewHandler(t *testing.T) {
 
 	streamer := srv.streamers[reflect.TypeFor[*protos.Command_CallView]()]
 	require.NotNil(t, streamer)
+	vm.initiateContextReturns = &fakeContext{id: "stream_ctx"}
 	scs := &viewTestStreamServer{}
 	marshaller := &fakeMarshaller{marshalCommandResponseReturns: &protos.SignedCommandResponse{}}
 	require.NoError(t, streamer(
@@ -266,87 +235,12 @@ func TestInstallViewHandler(t *testing.T) {
 	require.Len(t, scs.sentMsgs, 1)
 }
 
-func TestInitiateView(t *testing.T) {
-	t.Parallel()
-	vm := &fakeViewManager{}
-	tp := &fakeTracerProvider{}
-
-	vh := &viewHandler{
-		viewManager: vm,
-		tracer:      tp.Tracer("view_handler"),
-	}
-
-	command := &protos.Command{
-		Payload: &protos.Command_InitiateView{
-			InitiateView: &protos.InitiateView{
-				Fid:   "test_view",
-				Input: []byte("test_input"),
-			},
-		},
-	}
-
-	mockCtx := &fakeContext{id: "test_context_id"}
-	vm.initiateContextReturns = mockCtx
-
-	result, err := vh.initiateView(context.Background(), command)
-	require.NoError(t, err)
-
-	resp, ok := result.(*protos.CommandResponse_InitiateViewResponse)
-	require.True(t, ok)
-	require.Equal(t, "test_context_id", resp.InitiateViewResponse.Cid)
-
-	require.Equal(t, 1, vm.newViewCallCount)
-	require.Equal(t, "test_view", vm.lastNewViewID)
-	require.Equal(t, []byte("test_input"), vm.lastNewViewIn)
-
-	require.Equal(t, 1, vm.initiateContextCallCount)
-}
-
-func TestInitiateView_Error(t *testing.T) {
-	t.Parallel()
-	t.Run("NewView fails", func(t *testing.T) {
-		t.Parallel()
-		vm := &fakeViewManager{newViewErr: errors.New("new_view_error")}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
-
-		command := &protos.Command{
-			Payload: &protos.Command_InitiateView{
-				InitiateView: &protos.InitiateView{Fid: "test_view", Input: []byte("test_input")},
-			},
-		}
-
-		_, err := vh.initiateView(context.Background(), command)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "new_view_error")
-	})
-
-	t.Run("InitiateContext fails", func(t *testing.T) {
-		t.Parallel()
-		vm := &fakeViewManager{initiateContextErr: errors.New("initiate_context_error")}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
-
-		command := &protos.Command{
-			Payload: &protos.Command_InitiateView{
-				InitiateView: &protos.InitiateView{Fid: "test_view", Input: []byte("test_input")},
-			},
-		}
-
-		_, err := vh.initiateView(context.Background(), command)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "initiate_context_error")
-	})
-}
-
 func TestCallView(t *testing.T) {
 	t.Parallel()
 	vm := &fakeViewManager{}
-	tp := &fakeTracerProvider{}
 
 	vh := &viewHandler{
 		viewManager: vm,
-		tracer:      tp.Tracer("view_handler"),
 	}
 
 	command := &protos.Command{
@@ -383,8 +277,7 @@ func TestCallView_Error(t *testing.T) {
 	t.Run("NewView fails", func(t *testing.T) {
 		t.Parallel()
 		vm := &fakeViewManager{newViewErr: errors.New("new_view_error")}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 
 		_, err := vh.callView(context.Background(), command)
 		require.Error(t, err)
@@ -394,8 +287,7 @@ func TestCallView_Error(t *testing.T) {
 	t.Run("InitiateView fails", func(t *testing.T) {
 		t.Parallel()
 		vm := &fakeViewManager{initiateViewErr: errors.New("initiate_view_error")}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 
 		_, err := vh.callView(context.Background(), command)
 		require.Error(t, err)
@@ -406,12 +298,10 @@ func TestCallView_Error(t *testing.T) {
 func TestStreamCallView(t *testing.T) {
 	t.Parallel()
 	vm := &fakeViewManager{}
-	tp := &fakeTracerProvider{}
 	marshaller := &fakeMarshaller{}
 
 	vh := &viewHandler{
 		viewManager: vm,
-		tracer:      tp.Tracer("view_handler"),
 	}
 
 	command := &protos.Command{
@@ -456,8 +346,7 @@ func TestStreamCallView_Error(t *testing.T) {
 	t.Run("NewView fails", func(t *testing.T) {
 		t.Parallel()
 		vm := &fakeViewManager{newViewErr: errors.New("new_view_error")}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 		marshaller := &fakeMarshaller{}
 
 		err := vh.streamCallView(sc, command, &viewTestStreamServer{}, marshaller)
@@ -468,8 +357,7 @@ func TestStreamCallView_Error(t *testing.T) {
 	t.Run("InitiateContext fails", func(t *testing.T) {
 		t.Parallel()
 		vm := &fakeViewManager{initiateContextErr: errors.New("initiate_context_error")}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 		marshaller := &fakeMarshaller{}
 
 		err := vh.streamCallView(sc, command, &viewTestStreamServer{}, marshaller)
@@ -481,8 +369,7 @@ func TestStreamCallView_Error(t *testing.T) {
 		t.Parallel()
 		mockCtx := &fakeContext{id: "ctx", putServiceErr: errors.New("put_service_error")}
 		vm := &fakeViewManager{initiateContextReturns: mockCtx}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 		marshaller := &fakeMarshaller{}
 
 		err := vh.streamCallView(sc, command, &viewTestStreamServer{}, marshaller)
@@ -494,8 +381,7 @@ func TestStreamCallView_Error(t *testing.T) {
 	t.Run("context is not mutable", func(t *testing.T) {
 		t.Parallel()
 		vm := &fakeViewManager{initiateContextReturns: &fakeNonMutableContext{id: "ctx"}}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 		marshaller := &fakeMarshaller{}
 
 		err := vh.streamCallView(sc, command, &viewTestStreamServer{}, marshaller)
@@ -508,8 +394,7 @@ func TestStreamCallView_Error(t *testing.T) {
 		t.Parallel()
 		mockCtx := &fakeContext{id: "ctx", runViewErr: errors.New("run_view_error")}
 		vm := &fakeViewManager{initiateContextReturns: mockCtx}
-		tp := &fakeTracerProvider{}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 		marshaller := &fakeMarshaller{}
 
 		err := vh.streamCallView(sc, command, &viewTestStreamServer{}, marshaller)
@@ -520,7 +405,6 @@ func TestStreamCallView_Error(t *testing.T) {
 
 func TestCallView_JSON(t *testing.T) {
 	t.Parallel()
-	tp := &fakeTracerProvider{}
 	command := &protos.Command{
 		Payload: &protos.Command_CallView{
 			CallView: &protos.CallView{Fid: "test_view", Input: []byte("test_input")},
@@ -530,7 +414,7 @@ func TestCallView_JSON(t *testing.T) {
 	t.Run("non-byte result is JSON marshalled", func(t *testing.T) {
 		t.Parallel()
 		vm := &fakeViewManager{initiateViewReturns: map[string]string{"key": "value"}}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 
 		result, err := vh.callView(context.Background(), command)
 		require.NoError(t, err)
@@ -542,7 +426,7 @@ func TestCallView_JSON(t *testing.T) {
 	t.Run("unmarshalable result returns error", func(t *testing.T) {
 		t.Parallel()
 		vm := &fakeViewManager{initiateViewReturns: make(chan int)}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 
 		_, err := vh.callView(context.Background(), command)
 		require.Error(t, err)
@@ -552,7 +436,6 @@ func TestCallView_JSON(t *testing.T) {
 
 func TestStreamCallView_JSON(t *testing.T) {
 	t.Parallel()
-	tp := &fakeTracerProvider{}
 	command := &protos.Command{
 		Payload: &protos.Command_CallView{
 			CallView: &protos.CallView{Fid: "test_view", Input: []byte("test_input")},
@@ -564,7 +447,7 @@ func TestStreamCallView_JSON(t *testing.T) {
 		t.Parallel()
 		mockCtx := &fakeContext{id: "ctx", runViewReturns: map[string]string{"key": "value"}}
 		vm := &fakeViewManager{initiateContextReturns: mockCtx}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 		marshaller := &fakeMarshaller{marshalCommandResponseReturns: &protos.SignedCommandResponse{}}
 
 		err := vh.streamCallView(sc, command, &viewTestStreamServer{}, marshaller)
@@ -577,7 +460,7 @@ func TestStreamCallView_JSON(t *testing.T) {
 		t.Parallel()
 		mockCtx := &fakeContext{id: "ctx", runViewReturns: make(chan int)}
 		vm := &fakeViewManager{initiateContextReturns: mockCtx}
-		vh := &viewHandler{viewManager: vm, tracer: tp.Tracer("view_handler")}
+		vh := &viewHandler{viewManager: vm}
 		marshaller := &fakeMarshaller{}
 
 		err := vh.streamCallView(sc, command, &viewTestStreamServer{}, marshaller)
@@ -652,4 +535,68 @@ func TestStream(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "recv_error")
 	})
+}
+
+// deadlineViewManager runs every view until its context is done, then returns err, or the
+// context's error when err is nil.
+type deadlineViewManager struct {
+	fakeViewManager
+	err error
+}
+
+func (*deadlineViewManager) NewView(string, []byte) (view2.View, error) { return nil, nil }
+
+func (m *deadlineViewManager) InitiateView(ctx context.Context, _ view2.View) (any, error) {
+	<-ctx.Done()
+	if m.err != nil {
+		return nil, m.err
+	}
+	return nil, ctx.Err()
+}
+
+func (*deadlineViewManager) InitiateContext(ctx context.Context, _ view2.View) (view2.Context, error) {
+	return &deadlineContext{id: "ctx", ctx: ctx}, nil
+}
+
+// deadlineContext runs a view until ctx is done.
+type deadlineContext struct {
+	fakeContext
+	ctx context.Context
+}
+
+func (c *deadlineContext) RunView(view2.View, ...view2.RunViewOption) (any, error) {
+	<-c.ctx.Done()
+	return nil, c.ctx.Err()
+}
+
+// A view that outlives the timeout ends with ErrViewTimedOut on both the unary and the
+// streamed path, and nothing of the view's own error reaches the client.
+func TestViewHandlerTimesOut(t *testing.T) {
+	t.Parallel()
+	srv := &fakeService{}
+	InstallViewHandler(&deadlineViewManager{}, srv, 20*time.Millisecond)
+	cmd := &protos.Command{Payload: &protos.Command_CallView{CallView: &protos.CallView{Fid: "slow"}}}
+
+	_, err := srv.processors[reflect.TypeFor[*protos.Command_CallView]()](t.Context(), cmd)
+	require.ErrorIs(t, err, ErrViewTimedOut)
+	require.EqualError(t, err, "view execution timed out")
+
+	err = srv.streamers[reflect.TypeFor[*protos.Command_CallView]()](&protos.SignedCommand{}, cmd, &viewTestStreamServer{}, &fakeMarshaller{})
+	require.EqualError(t, err, "view execution timed out")
+}
+
+// Only the handler's own deadline is a timeout: a view that fails with a deadline error of
+// its own, while the handler's context is still live, reports that failure.
+func TestViewHandlerReportsTheViewsOwnDeadlineError(t *testing.T) {
+	t.Parallel()
+	srv := &fakeService{}
+	ctx, cancel := context.WithCancel(t.Context())
+	vm := &deadlineViewManager{err: errors.Wrap(context.DeadlineExceeded, "dial peer")}
+	InstallViewHandler(vm, srv, time.Hour)
+	cmd := &protos.Command{Payload: &protos.Command_CallView{CallView: &protos.CallView{Fid: "v"}}}
+	cancel() // the client went away; the view returns its own deadline error
+
+	_, err := srv.processors[reflect.TypeFor[*protos.Command_CallView]()](ctx, cmd)
+	require.ErrorIs(t, err, view.ErrViewExecutionFailed)
+	require.NotErrorIs(t, err, ErrViewTimedOut)
 }

@@ -86,7 +86,9 @@ func TestReferenceConfiguration(t *testing.T) {
 		}
 	}
 
-	r.Read("fsc.web.enabled", "fsc.web.address", "fsc.web.viewTimeout")
+	r.Read("fsc.web.enabled", "fsc.web.address")
+
+	r.Read("fsc.view.remote.timeout")
 	r.Decode("fsc.web.tls", &tlsconfig.ServerTLS{})
 
 	r.Decode("fsc.tracing", &tracing.Config{}, "otlp.tls")

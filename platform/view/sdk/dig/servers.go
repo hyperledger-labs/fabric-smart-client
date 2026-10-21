@@ -36,9 +36,10 @@ import (
 
 const (
 	KeepAliveConfigKey = "fsc.grpc.keepalive"
-	// DefaultViewTimeout is the default execution timeout for REST view invocations.
-	DefaultViewTimeout = 2 * time.Minute
-	ViewTimeoutKey     = "fsc.web.viewTimeout"
+	// DefaultRemoteViewTimeout is the default execution timeout of views called remotely,
+	// through the view service, on every transport.
+	DefaultRemoteViewTimeout = 2 * time.Minute
+	RemoteViewTimeoutKey     = "fsc.view.remote.timeout"
 	// DefaultCommandTimeWindow is the default time window for view service commands.
 	DefaultCommandTimeWindow = 15 * time.Minute
 	CommandTimeWindowKey     = "fsc.grpc.authentication.timeWindow"
@@ -137,13 +138,7 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	webServer.RegisterHandler("/healthz", http.HandlerFunc(web.Healthz), false)
 	webServer.RegisterHandler("/readyz", web.Readyz(connStates), false)
 
-	viewTimeout := DefaultViewTimeout
-	if configProvider.IsSet(ViewTimeoutKey) {
-		if d := configProvider.GetDuration(ViewTimeoutKey); d > 0 {
-			viewTimeout = d
-		}
-	}
-	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider, web2.WithTimeout(viewTimeout))
+	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider, web2.WithTimeout(RemoteViewTimeout(configProvider)))
 
 	return webServer, nil
 }
@@ -451,10 +446,21 @@ func startServe(grpcServer *grpc2.GRPCServer, webServer Server, ops OperationsSe
 	return &wg
 }
 
-// NewViewServiceServer constructs the view gRPC server for the DI container.
-// It derives whether mutual TLS is required from grpcServer and wires
-// a BindingInspector that enforces the TLS certificate hash included in every
-// signed command header when mutual TLS is active. The command time window is read from
+// RemoteViewTimeout returns the execution timeout of views called remotely, through the view
+// service, read from fsc.view.remote.timeout; an absent or non-positive value yields
+// DefaultRemoteViewTimeout. Local view calls keep their caller's context.
+func RemoteViewTimeout(configProvider driver.ConfigService) time.Duration {
+	if configProvider.IsSet(RemoteViewTimeoutKey) {
+		if d := configProvider.GetDuration(RemoteViewTimeoutKey); d > 0 {
+			return d
+		}
+	}
+	return DefaultRemoteViewTimeout
+}
+
+// NewViewServiceServer constructs the view service for the DI container. Commands are bound
+// to the verified client TLS certificate of the connection they arrive on
+// (server.BindToVerifiedClientCert). The command time window is read from
 // fsc.grpc.authentication.timeWindow, and defaults to DefaultCommandTimeWindow when unset.
 func NewViewServiceServer(
 	configProvider driver.ConfigService,
@@ -462,10 +468,7 @@ func NewViewServiceServer(
 	policyChecker server.PolicyChecker,
 	metrics *server.Metrics,
 	tracerProvider tracing.Provider,
-	grpcServer *grpc2.GRPCServer,
 ) (server.Service, error) {
-	mutualTLS := grpcServer != nil && grpcServer.MutualTLSRequired()
-	inspector := grpc2.NewBindingInspector(mutualTLS, server.ExtractTLSCertHashFromCommand)
 	timeWindow := DefaultCommandTimeWindow
 	if configProvider.IsSet(CommandTimeWindowKey) {
 		raw := configProvider.GetString(CommandTimeWindowKey)
@@ -475,5 +478,5 @@ func NewViewServiceServer(
 		}
 		timeWindow = d
 	}
-	return server.NewViewServiceServer(marshaller, policyChecker, metrics, tracerProvider, server.BindingInspector(inspector), timeWindow)
+	return server.NewViewServiceServer(marshaller, policyChecker, metrics, tracerProvider, server.BindToVerifiedClientCert, timeWindow)
 }

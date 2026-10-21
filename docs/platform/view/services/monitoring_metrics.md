@@ -339,7 +339,6 @@ Unless otherwise stated, the duration is recorded in seconds and uses the defaul
 | --- | --- | --- |
 | `fsc_view_services_view_calls` | `success`, `view`, `initiator_view` | Local view execution spans created by the view runtime around each view invocation started by the FSC view manager. |
 | `fsc_view_services_view_grpc_server_view_service` | `success` | View gRPC service tracer declared by the gRPC server package. No span start was found on the current `ProcessCommand` or `StreamCommand` implementation paths. |
-| `fsc_view_services_view_grpc_server_view_handler` | `fid`, `success` | View handler tracer used for the `initiate_view` path. |
 | `fsc_view_services_view_grpc_client_client` | none | Outbound gRPC view invocation tracer. This family is emitted by the caller process, not by the remote FSC node that handles the request. |
 | `fsc_view_services_view_grpc_client_node_view_client` | `fid` | Local client tracer used when a node invokes a view through the in-process local client helper. |
 | `fsc_view_services_view_web_view_client` | `vid` | Web view client tracer used for REST or WebSocket view invocation. |
@@ -410,7 +409,7 @@ The following labels are part of the current FSC metric surface.
 | --- | --- | --- |
 | `channel` | Fabric channel name | deployment-specific channel name |
 | `class` | Committer commit-failure class that stopped the channel's block stream | `degrade`, `fatal` |
-| `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView`, `*protos.Command_InitiateView` |
+| `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView` |
 | `component` | FSC component that owns a client connection | `orderer`, `delivery`, `fabricx_notification`, `fabricx_query`, `database`, `database_notifier` |
 | `context_id` | FSC context identifier used by the WebSocket multiplexer tracer | FSC context UUID or caller-provided context ID |
 | `data_source` | Postgres data source of a connection pool, without credentials | `host:port/dbname` |
@@ -423,7 +422,7 @@ The following labels are part of the current FSC metric surface.
 | `reason` | Why the view service rejected a request | `stale`, `replay` |
 | `side` | WebSocket connection side | `client`, `server` |
 | `status` | Committer handler outcome classification | `not_found`, `failure`, `successful` |
-| `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, `fsc_view_services_view_grpc_server_view_service_*`, and `fsc_view_services_view_grpc_server_view_handler_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |
+| `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, and `fsc_view_services_view_grpc_server_view_service_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |
 | `type` | Delivery message type classification | `unknown`, `block`, `status`, `other` |
 | `version` | FSC version string | node version |
 | `vid` | View identifier used by the web client tracer | application-defined view ID |
@@ -435,7 +434,6 @@ The following families have implementation caveats:
 
 - `fsc_connection_*`: only the `delivery`, `orderer` and `database` components report connection state, so no series are exported for the other `component` values.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
-- `fsc_view_services_view_grpc_server_view_handler_*`: the tracer is active for `initiate_view`, but the `success` label is declared without a matching attribute update. The exported `initiate_view` series therefore uses `success=""`.
 - `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.
 - `fsc_view_services_grpc_conn_opened` and `fsc_view_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.

@@ -229,8 +229,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		OperationsServer OperationsServer
 		System           *operations.System
 		KVS              *kvs.KVS
-		TracerProvider   tracing.Provider
-		IdentityProvider viewgrpcserver.IdentityProvider
+		ConfigService    driver.ConfigService
 	},
 	) error {
 		if in.GRPCServer != nil {
@@ -238,7 +237,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		}
 		in.CommService.Start(ctx)
 
-		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
+		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, RemoteViewTimeout(in.ConfigService))
 		if err := in.P2PService.Start(ctx); err != nil {
 			return err
 		}
