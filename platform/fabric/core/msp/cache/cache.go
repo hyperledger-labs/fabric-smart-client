@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache/secondcache"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
@@ -30,30 +30,25 @@ func New(o msp.MSP) (msp.MSP, error) {
 	}
 
 	theMsp := &cachedMSP{MSP: o}
-	theMsp.deserializeIdentityCache = secondcache.New(deserializeIdentityCacheSize)
-	theMsp.satisfiesPrincipalCache = secondcache.New(satisfiesPrincipalCacheSize)
-	theMsp.validateIdentityCache = secondcache.New(validateIdentityCacheSize)
+	theMsp.cleanCache()
 
 	return theMsp, nil
-}
-
-type cache interface {
-	Get(key string) (any, bool)
-	Add(key string, value any)
 }
 
 type cachedMSP struct {
 	msp.MSP
 
 	// cache for DeserializeIdentity.
-	deserializeIdentityCache cache
+	deserializeIdentityCache cache.Map[string, msp.Identity]
 
-	// cache for validateIdentity
-	validateIdentityCache cache
+	// cache for validateIdentity. Only successful validations are cached, so
+	// the presence of the key is the answer and the value is always true.
+	validateIdentityCache cache.Map[string, bool]
 
-	// basically a map of principals=>identities=>stringified to booleans
-	// specifying whether this identity satisfies this principal
-	satisfiesPrincipalCache cache
+	// basically a map of principals=>identities=>stringified to the outcome of
+	// the check. A cached nil error is a cached success, so a hit is told from
+	// a miss by the second return value rather than by the error being nil.
+	satisfiesPrincipalCache cache.Map[string, error]
 }
 
 type cachedIdentity struct {
@@ -91,11 +86,7 @@ func (id *cachedSigningIdentity) GetPublicVersion() msp.Identity {
 }
 
 func (c *cachedMSP) DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error) {
-	if cached, ok := c.deserializeIdentityCache.Get(string(serializedIdentity)); ok {
-		id, ok := cached.(msp.Identity)
-		if !ok {
-			return nil, errors.Errorf("unexpected cached identity type [%T]", cached)
-		}
+	if id, ok := c.deserializeIdentityCache.Get(string(serializedIdentity)); ok {
 		return c.wrap(id), nil
 	}
 
@@ -103,7 +94,7 @@ func (c *cachedMSP) DeserializeIdentity(serializedIdentity []byte) (msp.Identity
 	if err != nil {
 		return nil, err
 	}
-	c.deserializeIdentityCache.Add(string(serializedIdentity), id)
+	c.deserializeIdentityCache.Put(string(serializedIdentity), id)
 	return c.wrap(id), nil
 }
 
@@ -132,15 +123,14 @@ func (c *cachedMSP) Validate(id msp.Identity) error {
 	identifier := id.GetIdentifier()
 	key := identifier.Mspid + ":" + identifier.Id
 
-	_, ok := c.validateIdentityCache.Get(key)
-	if ok {
+	if _, ok := c.validateIdentityCache.Get(key); ok {
 		// cache only stores if the identity is valid.
 		return nil
 	}
 
 	err := c.MSP.Validate(id)
 	if err == nil {
-		c.validateIdentityCache.Add(key, true)
+		c.validateIdentityCache.Put(key, true)
 	}
 
 	return err
@@ -152,27 +142,22 @@ func (c *cachedMSP) SatisfiesPrincipal(id msp.Identity, principal *pmsp.MSPPrinc
 	principalKey := string(principal.PrincipalClassification) + string(principal.Principal)
 	key := identityKey + principalKey
 
-	v, ok := c.satisfiesPrincipalCache.Get(key)
-	if ok {
-		if v == nil {
-			return nil
-		}
-
-		cachedErr, ok := v.(error)
-		if !ok {
-			return errors.Errorf("unexpected cached value type [%T]", v)
-		}
+	if cachedErr, ok := c.satisfiesPrincipalCache.Get(key); ok {
+		// A cached nil is a cached success; ok is what tells it from a miss.
 		return cachedErr
 	}
 
 	err := c.MSP.SatisfiesPrincipal(id, principal)
 
-	c.satisfiesPrincipalCache.Add(key, err)
+	c.satisfiesPrincipalCache.Put(key, err)
 	return err
 }
 
 func (c *cachedMSP) cleanCache() {
-	c.deserializeIdentityCache = secondcache.New(deserializeIdentityCacheSize)
-	c.satisfiesPrincipalCache = secondcache.New(satisfiesPrincipalCacheSize)
-	c.validateIdentityCache = secondcache.New(validateIdentityCacheSize)
+	c.deserializeIdentityCache = cache.NewSecondChanceCache[string, msp.Identity](
+		deserializeIdentityCacheSize, 1, nil)
+	c.satisfiesPrincipalCache = cache.NewSecondChanceCache[string, error](
+		satisfiesPrincipalCacheSize, 1, nil)
+	c.validateIdentityCache = cache.NewSecondChanceCache[string, bool](
+		validateIdentityCacheSize, 1, nil)
 }

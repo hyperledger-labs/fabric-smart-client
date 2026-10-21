@@ -188,7 +188,7 @@ func TestValidate(t *testing.T) {
 	key := identifier.Mspid + ":" + identifier.Id
 	v, ok := i.(*cachedMSP).validateIdentityCache.Get(key)
 	require.True(t, ok)
-	require.True(t, v.(bool))
+	require.True(t, v)
 
 	// Recheck
 	err = i.Validate(mockIdentity)
@@ -295,7 +295,7 @@ func TestSatisfiesPrincipal(t *testing.T) {
 	key := identityKey + principalKey
 	v, ok := i.(*cachedMSP).satisfiesPrincipalCache.Get(key)
 	require.True(t, ok)
-	require.Nil(t, v)
+	require.NoError(t, v)
 
 	// Recheck
 	err = i.SatisfiesPrincipal(mockIdentity, mockMSPPrincipal)
@@ -319,8 +319,8 @@ func TestSatisfiesPrincipal(t *testing.T) {
 	key = identityKey + principalKey
 	v, ok = i.(*cachedMSP).satisfiesPrincipalCache.Get(key)
 	require.True(t, ok)
-	require.NotNil(t, v)
-	require.Contains(t, "Invalid", v.(error).Error())
+	require.Error(t, v)
+	require.Contains(t, "Invalid", v.Error())
 }
 
 func TestDeserializeSigningIdentity(t *testing.T) {
