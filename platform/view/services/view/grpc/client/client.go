@@ -110,6 +110,8 @@ func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provi
 }
 
 // CallView calls the given view with the given input.
+// The client never retries the call. Views are not idempotent, so a caller
+// that receives codes.Unavailable decides whether running the view again is safe.
 func (s *client) CallView(fid string, input []byte) (any, error) {
 	return s.CallViewWithContext(context.Background(), fid, input)
 }
