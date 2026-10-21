@@ -11,7 +11,7 @@ The FSC metrics surface has two layers:
 
 At the time of writing, the repository defines:
 
-- **29 explicit metric families**
+- **32 explicit metric families**
 - **14 tracer bases**, which produce **28 trace-derived metric families** (`*_operations` and `*_duration`)
 
 This catalog is organized by subsystem and records the metric family names that Prometheus sees.
@@ -62,9 +62,10 @@ Most FSC packages do not hard-code the namespace or subsystem. Instead, the Prom
 - metric name `contexts`
 - exported metric `fsc_view_services_view_contexts`
 
-Explicit overrides are used in the following place within the current catalog:
+Explicit overrides are used in the following places within the current catalog:
 
 - `platform/fabric/core/generic/metrics/metrics.go` registers `fsc_fabric_core_generic_ordering_ordered_transactions`
+- `platform/view/services/metrics/connstate/connstate.go` registers the `fsc_connection_*` families
 
 ### Labels
 
@@ -76,7 +77,7 @@ For trace-derived metrics, the namespace and subsystem are also fixed by `tracin
 
 The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
-- all 29 explicit metric families
+- all 32 explicit metric families
 - all trace-derived families except `fsc_view_services_view_grpc_client_client_*` and `fsc_view_services_view_grpc_client_node_view_client_*`
 
 The two caller-process families are exported only by the process that creates those tracers:
@@ -197,6 +198,26 @@ Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, up
 These counters are implemented by FSC's custom gRPC server stats handler. The handler itself is tested, but the default runtime currently wires the gRPC server through OpenTelemetry's server handler. See [Current Caveats](#current-caveats).
 
 Primary implementation: `platform/common/services/grpc/metrics.go`, with the custom stats handler in `platform/common/services/grpc/serverstatshandler.go`.
+
+### Connection State
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `fsc_connection_state` | gauge | `network`, `channel`, `component`, `endpoint` | Current state of a client connection, encoded as below. |
+| `fsc_connection_reconnects` | counter | `network`, `channel`, `component`, `endpoint` | Number of transitions to `reconnecting`. |
+| `fsc_connection_last_connected_timestamp_seconds` | gauge | `network`, `channel`, `component`, `endpoint` | Unix time of the last transition to `connected`. |
+
+`fsc_connection_state` values:
+
+| Value | State | Meaning |
+| --- | --- | --- |
+| `0` | disconnected | No connection is open. A clean shutdown ends in this state. |
+| `1` | connecting | The first connection attempt is in progress. |
+| `2` | connected | The connection is established. |
+| `3` | reconnecting | A lost connection is being re-established. |
+| `4` | stopped | The component gave up retrying. Recovery requires operator action. |
+
+Primary implementation: `platform/view/services/metrics/connstate/connstate.go`.
 
 ### Fabric Ordering
 
@@ -357,7 +378,9 @@ The following labels are part of the current FSC metric surface.
 | `channel` | Fabric channel name | deployment-specific channel name |
 | `class` | Committer commit-failure class that stopped the channel's block stream | `degrade`, `fatal` |
 | `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView`, `*protos.Command_InitiateView` |
+| `component` | FSC component that owns a client connection | `orderer`, `delivery`, `fabricx_notification`, `fabricx_query`, `database`, `database_notifier` |
 | `context_id` | FSC context identifier used by the WebSocket multiplexer tracer | FSC context UUID or caller-provided context ID |
+| `endpoint` | Remote address of a client connection | `host:port` |
 | `fid` | View factory identifier used by gRPC-oriented view tracers | application-defined factory ID |
 | `initiator_view` | Initiator view identifier associated with a child view execution | fully qualified view identifier or empty |
 | `network` | Fabric network name | deployment-specific network name |
@@ -376,6 +399,7 @@ The following labels are part of the current FSC metric surface.
 
 The following families have implementation caveats:
 
+- `fsc_connection_*`: the families are registered, but no component reports connection state yet, so no series are exported.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
 - `fsc_view_services_view_grpc_server_view_handler_*`: the tracer is active for `initiate_view`, but the `success` label is declared without a matching attribute update. The exported `initiate_view` series therefore uses `success=""`.
 - `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 
