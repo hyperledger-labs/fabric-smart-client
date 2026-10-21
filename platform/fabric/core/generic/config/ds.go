@@ -66,26 +66,6 @@ type MSP struct {
 	Opts      map[string]any `yaml:"opts,omitempty"`
 }
 
-type File struct {
-	File string `yaml:"file"`
-}
-
-type Files struct {
-	Files []string `yaml:"files"`
-}
-
-type TLS struct {
-	Enabled            bool
-	ClientAuthRequired bool
-	Cert               File   `yaml:"cert"`
-	Key                File   `yaml:"key"`
-	ClientCert         File   `yaml:"clientCert"`
-	ClientKey          File   `yaml:"clientKey"`
-	RootCert           File   `yaml:"rootCert"`
-	ClientRootCAs      Files  `yaml:"clientRootCAs"`
-	RootCertFile       string `yaml:"rootCertFile"`
-}
-
 type ConnectionConfig = grpc.ConnectionConfig
 
 type Chaincode struct {
@@ -286,19 +266,6 @@ func (c *Channel) GetRetrySleep() time.Duration {
 	return c.RetrySleep
 }
 
-type VaultOpts struct {
-	Path string `yaml:"path"`
-}
-
-type VaultPersistence struct {
-	Type string    `yaml:"type"`
-	Opts VaultOpts `yaml:"opts"`
-}
-
-type Vault struct {
-	Persistence VaultPersistence `yaml:"persistence"`
-}
-
 // Resolver models a Fabric identity resolver
 type Resolver struct {
 	// Name of the resolver
@@ -311,20 +278,4 @@ type Resolver struct {
 	Addresses map[string]string `yaml:"addresses,omitempty"`
 	// Aliases is a list of alias for this resolver
 	Aliases []string `yaml:"aliases,omitempty"`
-}
-
-type Endpoint struct {
-	Resolvers []Resolver `yaml:"resolvers,omitempty"`
-}
-
-type Network struct {
-	Default    bool                `yaml:"default,omitempty"`
-	DefaultMSP string              `yaml:"defaultMSP"`
-	MSPs       []*MSP              `yaml:"msps"`
-	TLS        TLS                 `yaml:"tls"`
-	Orderers   []*ConnectionConfig `yaml:"orderers"`
-	Peers      []*ConnectionConfig `yaml:"peers"`
-	Channels   []*Channel          `yaml:"channels"`
-	Vault      Vault               `yaml:"vault"`
-	Endpoint   *Endpoint           `yaml:"endpoint,omitempty"`
 }

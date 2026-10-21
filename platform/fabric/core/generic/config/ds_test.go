@@ -25,13 +25,11 @@ func TestLoad(t *testing.T) {
 	v := koanf.New(".")
 	require.NoError(t, v.Load(koanffile.Provider("./testdata/core.yaml"), configservice.LowercaseParser{Parser: koanfyaml.Parser()}))
 
-	var value any
-	require.NoError(t, v.Unmarshal("fabric", &value))
+	var msps []config.MSP
+	require.NoError(t, configservice.EnhancedExactUnmarshal(v, "fabric.default.msps", &msps))
+	require.NotEmpty(t, msps)
 
-	var network config.Network
-	require.NoError(t, configservice.EnhancedExactUnmarshal(v, "fabric.default", &network))
-
-	b, err := x509.ToBCCSPOpts(network.MSPs[0].Opts[x509.BCCSPOptField])
+	b, err := x509.ToBCCSPOpts(msps[0].Opts[x509.BCCSPOptField])
 	require.NoError(t, err)
 	require.NotNil(t, b.SW)
 	assert.Equal(t, "SHA2", b.SW.Hash)
