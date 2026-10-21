@@ -128,21 +128,15 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 				return time.Now().Add((-1) * timeShift)
 			}
 		}
-		grpcServer.tls.config.ClientAuth = tls.RequestClientCert
-		// check if client authentication is required
-		if secureConfig.RequireClientCert {
-			// require TLS client auth
-			grpcServer.tls.config.ClientAuth = tls.RequireAndVerifyClientCert
-			// if we have client root CAs, create a certPool
-			if len(secureConfig.ClientRootCAs) > 0 {
-				grpcServer.clientRootCAs = make(map[string]*x509.Certificate)
-
-				grpcServer.tls.config.ClientCAs = x509.NewCertPool()
-				for _, clientRootCA := range secureConfig.ClientRootCAs {
-					err = grpcServer.appendClientRootCA(clientRootCA)
-					if err != nil {
-						return nil, err
-					}
+		// The same client-auth rule as SecureOptions.TLSConfig, so fsc.grpc and fsc.web
+		// interpret clientAuthRequired and clientRootCAs identically.
+		grpcServer.tls.config.ClientAuth = secureConfig.clientAuth()
+		if len(secureConfig.ClientRootCAs) > 0 {
+			grpcServer.clientRootCAs = make(map[string]*x509.Certificate)
+			grpcServer.tls.config.ClientCAs = x509.NewCertPool()
+			for _, clientRootCA := range secureConfig.ClientRootCAs {
+				if err := grpcServer.appendClientRootCA(clientRootCA); err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -271,6 +265,9 @@ func (gServer *GRPCServer) Stop() {
 	case <-time.After(stopTimeout):
 		commLogger.Warnf("grpc server [%s]: in-flight handlers did not return within %s", gServer.address, stopTimeout)
 	}
+	// grpc.Server.Stop closes only the listeners it serves; a server stopped before Start
+	// would otherwise keep its address bound. Closing a served listener again is harmless.
+	_ = gServer.listener.Close()
 }
 
 // internal function to add a PEM-encoded clientRootCA
