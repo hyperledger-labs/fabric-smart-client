@@ -69,7 +69,10 @@ func TestUnmarshalTracingConfig_SkipsOTLPTLS(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	core := "fsc:\n  tracing:\n    provider: otlp\n    otlp:\n      address: 127.0.0.1:4317\n      tls:\n        enabled: true\n"
+	// serverRootCAs matches SecureOptions.ServerRootCAs. enabled does not
+	// (the boolean is UseTLS), so only this key fails the zero check when the
+	// yaml skip tag is missing.
+	core := "fsc:\n  tracing:\n    provider: otlp\n    otlp:\n      address: 127.0.0.1:4317\n      tls:\n        enabled: true\n        serverRootCAs: [/nonexistent.pem]\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(core), 0o600))
 	cs, err := config.NewProvider(dir)
 	require.NoError(t, err)
