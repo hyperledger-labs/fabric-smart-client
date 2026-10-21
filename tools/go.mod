@@ -1,6 +1,6 @@
 module tools
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.14.0
@@ -23,6 +23,6 @@ require (
 	golang.org/x/telemetry v0.0.0-20261010193011-f71dc92da45e // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260817212433-ac3dfec99bb1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	google.golang.org/grpc v1.84.0 // indirect
 )
