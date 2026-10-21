@@ -43,7 +43,7 @@ func TestContextLogFields_ExtractedIntoLogLine(t *testing.T) { //nolint:parallel
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.present"}}})
 
 	logger, observed := newObservedLogger()
-	ctx := context.WithValue(context.Background(), key, "some-value")
+	ctx := context.WithValue(t.Context(), key, "some-value")
 
 	logger.InfowContext(ctx, "hello")
 
@@ -64,7 +64,7 @@ func TestContextLogFields_NamedStringKeyType_ExtractedIntoLogLine(t *testing.T) 
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.request-id"}}})
 
 	logger, observed := newObservedLogger()
-	ctx := context.WithValue(context.Background(), key, "abc-123")
+	ctx := context.WithValue(t.Context(), key, "abc-123")
 
 	logger.InfowContext(ctx, "hello")
 
@@ -82,7 +82,7 @@ func TestContextLogFields_AbsentKeyNoField(t *testing.T) { //nolint:paralleltest
 
 	logger, observed := newObservedLogger()
 
-	logger.InfowContext(context.Background(), "hello")
+	logger.InfowContext(t.Context(), "hello")
 
 	entries := observed.All()
 	require.Len(t, entries, 1)
@@ -112,7 +112,7 @@ func TestContextLogFields_OnlyPresentKeysAdded(t *testing.T) { //nolint:parallel
 	}})
 
 	logger, observed := newObservedLogger()
-	ctx := context.WithValue(context.Background(), presentKey, "value")
+	ctx := context.WithValue(t.Context(), presentKey, "value")
 
 	logger.InfowContext(ctx, "hello")
 
@@ -137,7 +137,7 @@ func TestContextLogFields_SurviveWithAndNamed(t *testing.T) { //nolint:parallelt
 
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.survive"}}})
 
-	ctx := context.WithValue(context.Background(), key, "still-works")
+	ctx := context.WithValue(t.Context(), key, "still-works")
 	derived.InfowContext(ctx, "hello")
 
 	entries := observed.All()
@@ -154,7 +154,7 @@ func TestRegisterContextLogField_AddedToExistingLogger(t *testing.T) { //nolint:
 	// exist rather than only ones constructed after registration.
 	logger, observed := newObservedLogger()
 	key := ctxKey{"register.existing"}
-	ctx := context.WithValue(context.Background(), key, "late-registered-value")
+	ctx := context.WithValue(t.Context(), key, "late-registered-value")
 
 	RegisterContextLogField("test.register.existing", key)
 
@@ -176,7 +176,7 @@ func TestRegisterContextLogField_SecondCallAddsBoth(t *testing.T) { //nolint:par
 	logger, observed := newObservedLogger()
 	firstKey := ctxKey{"register.multi.first"}
 	secondKey := ctxKey{"register.multi.second"}
-	ctx := context.WithValue(context.Background(), firstKey, "first-value")
+	ctx := context.WithValue(t.Context(), firstKey, "first-value")
 	ctx = context.WithValue(ctx, secondKey, "second-value")
 
 	RegisterContextLogField("test.register.multi.first", firstKey)
@@ -224,7 +224,7 @@ func TestInit_ContextLogFields_Idempotent(t *testing.T) { //nolint:paralleltest 
 	})
 
 	logger, observed := newObservedLogger()
-	ctx := context.WithValue(context.Background(), secondKey, "second-value")
+	ctx := context.WithValue(t.Context(), secondKey, "second-value")
 	logger.InfowContext(ctx, "hello")
 
 	entries := observed.All()
@@ -244,7 +244,7 @@ func TestContextLogFields_SurviveMultipleContextWrapping(t *testing.T) { //nolin
 
 	logger, observed := newObservedLogger()
 
-	ctx := context.WithValue(context.Background(), key, "wrapped-value")
+	ctx := context.WithValue(t.Context(), key, "wrapped-value")
 	ctx = context.WithValue(ctx, ctxKey{"unrelated.1"}, "noise-1")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -267,7 +267,7 @@ func TestContextLogFields_CallerAccuracy(t *testing.T) { //nolint:paralleltest /
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.caller"}}})
 
 	logger, observed := newObservedLogger()
-	ctx := context.WithValue(context.Background(), key, "value")
+	ctx := context.WithValue(t.Context(), key, "value")
 
 	logger.InfowContext(ctx, "hello") // the call site under test
 

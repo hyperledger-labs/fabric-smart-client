@@ -267,7 +267,7 @@ func TestWaitForValueAlreadyLoaded(t *testing.T) {
 		return &config{id: "first"}, nil
 	}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
 	v, err := h.WaitForValue(ctx)
@@ -280,7 +280,7 @@ func TestWaitForValueReleasedByUpdate(t *testing.T) {
 
 	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	// Several waiters must all be released by a single Update.
@@ -324,7 +324,7 @@ func TestWaitForValueTimeoutReportsNotLoaded(t *testing.T) {
 
 	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer cancel()
 
 	v, err := h.WaitForValue(ctx)
@@ -346,7 +346,7 @@ func TestWaitForValueContextCancelled(t *testing.T) {
 
 	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	v, err := h.WaitForValue(ctx)
@@ -370,7 +370,7 @@ func TestWaitForValueRejectedDoesNotWait(t *testing.T) {
 
 	// A generous deadline: the point is that WaitForValue returns without
 	// consuming it, because retrying cannot clear a rejection.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
 	start := time.Now()
@@ -402,7 +402,7 @@ func TestWaitForValueRejectionReleasesParkedWaiter(t *testing.T) {
 	go func() {
 		// A budget far longer than the test's own patience, so that sitting it
 		// out is unmistakably a failure rather than a slow pass.
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 		defer cancel()
 		start := time.Now()
 		_, err := h.WaitForValue(ctx)
@@ -445,7 +445,7 @@ func TestWaitForValueRejectionDoesNotDisturbAHeldValue(t *testing.T) {
 		return nil, errors.New("bad config")
 	}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	v, err := h.WaitForValue(ctx)
 	require.NoError(t, err)
@@ -461,7 +461,7 @@ func TestWaitForValueAfterReset(t *testing.T) {
 	}))
 	h.Reset()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer cancel()
 
 	// Reset must re-arm the wait: a waiter after Reset blocks rather than
@@ -475,7 +475,7 @@ func TestWaitForValueAfterReset(t *testing.T) {
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "second"}, nil
 	}))
-	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	ctx2, cancel2 := context.WithTimeout(t.Context(), time.Second)
 	defer cancel2()
 	v, err := h.WaitForValue(ctx2)
 	require.NoError(t, err)
@@ -489,7 +489,7 @@ func TestWaitForValueResetReleasesParkedWaiter(t *testing.T) {
 
 	got := make(chan error, 1)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		_, err := h.WaitForValue(ctx)
 		got <- err
@@ -522,7 +522,7 @@ func TestWaitForValueParkedWaiterNotHungAfterResetThenUpdate(t *testing.T) {
 
 	returned := make(chan bool, 1)
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		_, _ = h.WaitForValue(ctx)
 		returned <- true

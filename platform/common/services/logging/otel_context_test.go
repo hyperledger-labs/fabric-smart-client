@@ -73,7 +73,7 @@ func TestContextMethods_EnabledLevelAttachesFields(t *testing.T) { //nolint:para
 			Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.enabled"}}})
 
 			logger, observed := levelObservedLogger(zapcore.DebugLevel)
-			m.call(logger, context.WithValue(context.Background(), key, "some-value"))
+			m.call(logger, context.WithValue(t.Context(), key, "some-value"))
 
 			entries := observed.All()
 			require.Len(t, entries, 1)
@@ -96,7 +96,7 @@ func TestContextMethods_DisabledLevelSkipsExtraction(t *testing.T) { //nolint:pa
 			Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.disabled"}}})
 
 			logger, observed := levelObservedLogger(m.level + 1)
-			m.call(logger, context.WithValue(context.Background(), key, "some-value"))
+			m.call(logger, context.WithValue(t.Context(), key, "some-value"))
 
 			assert.Empty(t, observed.All(), "nothing is written below the core's level")
 		})
@@ -112,7 +112,7 @@ func TestContextMethods_NoRegisteredFields(t *testing.T) { //nolint:paralleltest
 			Init(Config{})
 
 			logger, observed := levelObservedLogger(zapcore.DebugLevel)
-			m.call(logger, context.Background())
+			m.call(logger, t.Context())
 
 			entries := observed.All()
 			require.Len(t, entries, 1)
@@ -129,7 +129,7 @@ func TestAppendContextLogFields_LeavesCallerSliceUnchanged(t *testing.T) { //nol
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.append"}}})
 
 	original := []any{"k", "v"}
-	ctx := context.WithValue(context.Background(), key, "some-value")
+	ctx := context.WithValue(t.Context(), key, "some-value")
 
 	combined := appendContextLogFields(ctx, original)
 
@@ -145,7 +145,7 @@ func TestAppendContextLogFields_NoRegisteredFields(t *testing.T) { //nolint:para
 	Init(Config{})
 
 	original := []any{"k", "v"}
-	assert.Equal(t, original, appendContextLogFields(context.Background(), original))
+	assert.Equal(t, original, appendContextLogFields(t.Context(), original))
 	assert.Equal(t, original, appendContextLogFields(nil, original)) //nolint:staticcheck // nil context is the case under test
 }
 
@@ -155,5 +155,5 @@ func TestContextLogFieldArgs_NoRegisteredFields(t *testing.T) { //nolint:paralle
 	t.Cleanup(resetContextLogFields)
 	Init(Config{})
 
-	assert.Nil(t, contextLogFieldArgs(context.Background()))
+	assert.Nil(t, contextLogFieldArgs(t.Context()))
 }

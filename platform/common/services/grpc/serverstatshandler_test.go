@@ -12,7 +12,6 @@ package grpc_test
 //go:generate counterfeiter -o mock/provider.go -fake-name Provider github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics.Provider
 
 import (
-	"context"
 	"net"
 	"testing"
 	"time"
@@ -40,12 +39,12 @@ func TestConnectionCounters(t *testing.T) {
 	}
 
 	for i := 1; i <= 10; i++ {
-		sh.HandleConn(context.Background(), &stats.ConnBegin{})
+		sh.HandleConn(t.Context(), &stats.ConnBegin{})
 		gt.Expect(openConn.AddCallCount()).To(Equal(i))
 	}
 
 	for i := 1; i <= 5; i++ {
-		sh.HandleConn(context.Background(), &stats.ConnEnd{})
+		sh.HandleConn(t.Context(), &stats.ConnEnd{})
 		gt.Expect(closedConn.AddCallCount()).To(Equal(i))
 	}
 }
@@ -99,7 +98,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 
 		// invoke service
 		client := testpb.NewEmptyServiceClient(clientConn)
-		_, err = client.EmptyCall(context.Background(), &testpb.Empty{})
+		_, err = client.EmptyCall(t.Context(), &testpb.Empty{})
 		gt.Expect(err).NotTo(HaveOccurred())
 		gt.Expect(openConn.AddCallCount()).To(Equal(i))
 	}

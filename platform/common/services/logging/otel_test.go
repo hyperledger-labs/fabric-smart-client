@@ -25,7 +25,7 @@ func recordingSpanCtx(t *testing.T) (ctx context.Context, ended func() tracetest
 	t.Helper()
 	rec := tracetest.NewSpanRecorder()
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(rec))
-	ctx, span := tp.Tracer("test").Start(context.Background(), "root")
+	ctx, span := tp.Tracer("test").Start(t.Context(), "root")
 	return ctx, func() tracetest.SpanStub {
 		span.End()
 		stubs := rec.Ended()
@@ -108,7 +108,7 @@ func TestSpanEvent_SanitizedWhenConfigured(t *testing.T) { //nolint:paralleltest
 func TestSpanEvent_NoSpanInContextIsSafe(t *testing.T) { //nolint:paralleltest // mutates the shared global config
 	logger, observed := otelTestLogger(t, zapcore.InfoLevel, false)
 
-	logger.InfowContext(context.Background(), "no span")
+	logger.InfowContext(t.Context(), "no span")
 
 	require.Len(t, observed.All(), 1)
 }

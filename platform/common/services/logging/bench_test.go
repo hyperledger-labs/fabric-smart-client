@@ -58,7 +58,7 @@ func BenchmarkDebugfContext_Disabled_NoFields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
 	zl := zap.New(core)
 	l := newLogger(zl)
-	ctx := context.Background()
+	ctx := b.Context()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		l.DebugfContext(ctx, "msg %d", i)
@@ -80,7 +80,7 @@ func BenchmarkInfowContext_Enabled_NoFields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
 	zl := zap.New(core)
 	l := newLogger(zl)
-	ctx := context.Background()
+	ctx := b.Context()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		l.InfowContext(ctx, "msg", "i", i)
@@ -108,7 +108,7 @@ func BenchmarkInfowContext_Enabled_3FieldsRegistered_NoneInContext(b *testing.B)
 	zl := zap.New(core)
 	l := newLogger(zl)
 	registerBenchFields(3)
-	ctx := context.Background()
+	ctx := b.Context()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		l.InfowContext(ctx, "msg", "i", i)
@@ -128,7 +128,7 @@ func BenchmarkInfowContext_Enabled_3FieldsRegistered_OneInContext(b *testing.B) 
 		keys[i] = benchKey{gen*1000 + i}
 		RegisterContextLogField(benchFieldName(gen, i), keys[i])
 	}
-	ctx := context.WithValue(context.Background(), keys[0], 0)
+	ctx := context.WithValue(b.Context(), keys[0], 0)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		l.InfowContext(ctx, "msg", "i", i)
