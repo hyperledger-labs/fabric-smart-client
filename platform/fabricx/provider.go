@@ -16,6 +16,7 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
@@ -31,6 +32,7 @@ type Provider struct {
 func NewProvider(
 	configProvider config.Provider,
 	metricsProvider metrics.Provider,
+	connState *connstate.Metrics,
 	endpointService identity.EndpointService,
 	channelProvider generic.ChannelProvider,
 	idProvider identity.ViewIdentityProvider,
@@ -43,6 +45,7 @@ func NewProvider(
 		p: driver2.NewProvider(
 			configProvider,
 			metricsProvider,
+			connState,
 			endpointService,
 			channelProvider,
 			idProvider,

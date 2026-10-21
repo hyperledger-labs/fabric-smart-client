@@ -20,7 +20,10 @@ import (
 	ggrpc "google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering/fake"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate/connstatetest"
 )
 
 // fakeBroadcastStream is a Broadcast-interface stub with per-instance outcomes.
@@ -747,4 +750,24 @@ func TestBFTBroadcaster_ConcurrentBroadcasts(t *testing.T) {
 		err := <-errChan
 		require.NoError(t, err)
 	}
+}
+
+func TestBFTBroadcast_BrokenConnectionReportsReconnecting(t *testing.T) {
+	t.Parallel()
+	orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
+	cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers, NetworkNameValue: "test-network"}
+	connState, rec := connstatetest.NewMetrics()
+	b := NewBFTBroadcaster(cfg, fakeServices{}, &metrics.Metrics{ConnState: connState})
+
+	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+	conn := <-b.ordererState("o1").pool
+	conn.Stream = &fakeBroadcastStream{sendErr: errors.New("orderer went away")}
+	b.ordererState("o1").pool <- conn
+
+	// Three of four orderers still meet the threshold.
+	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+	last, _ := rec.Last("o1")
+	require.Equal(t, connstate.Reconnecting, last)
+	// connect, then one accepted envelope per broadcast
+	require.Equal(t, []connstate.State{connstate.Connected, connstate.Connected, connstate.Connected}, rec.States("o2"))
 }

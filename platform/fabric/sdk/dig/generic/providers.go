@@ -35,6 +35,7 @@ import (
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
@@ -57,6 +58,7 @@ func NewDriver(in struct {
 	dig.In
 	ConfigProvider  config.Provider
 	MetricsProvider metrics.Provider
+	ConnState       *connstate.Metrics
 	EndpointService identity.EndpointService
 	IDProvider      identity.ViewIdentityProvider
 	KVS             *kvs.KVS
@@ -72,6 +74,7 @@ func NewDriver(in struct {
 		Driver: gdriver.NewProvider(
 			in.ConfigProvider,
 			in.MetricsProvider,
+			in.ConnState,
 			in.EndpointService,
 			in.ChannelProvider,
 			in.IDProvider,
@@ -94,6 +97,7 @@ func NewChannelProvider(in struct {
 	TracerProvider  tracing.Provider
 	Drivers         multiplexed.Driver
 	MetricsProvider metrics.Provider
+	ConnState       *connstate.Metrics
 },
 ) generic.ChannelProvider {
 	flmProvider := committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider)
@@ -201,6 +205,7 @@ func NewChannelProvider(in struct {
 				nw.TransactionManager(),
 				callback,
 				in.TracerProvider,
+				in.ConnState,
 				[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 			)
 		},

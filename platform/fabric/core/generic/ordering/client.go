@@ -16,7 +16,9 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
 // defaultRecvHardTimeout is the default value for Connection.RecvHardTimeout, used
@@ -32,6 +34,9 @@ type Connection struct {
 	Stream  Broadcast
 	Client  Client
 	Cancel  context.CancelFunc
+	// State reports the state of the orderer this connection was created for;
+	// nil reports nothing.
+	State *connstate.Tracker
 	// RecvHardTimeout bounds how long SendAndRecv itself waits for Stream.Recv(), so a
 	// caller that supplied a context without a deadline cannot block forever on a
 	// network-level stall that Cancel()/Client.Close() fail to unblock.
@@ -115,6 +120,14 @@ func (c *Connection) abort() {
 	if c.Client != nil {
 		c.Client.Close()
 	}
+}
+
+// connState returns the connection-state metrics held by m, or nil if m is nil.
+func connState(m *metrics.Metrics) *connstate.Metrics {
+	if m == nil {
+		return nil
+	}
+	return m.ConnState
 }
 
 type Client = services.OrdererClient
