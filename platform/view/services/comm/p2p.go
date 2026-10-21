@@ -409,6 +409,7 @@ func (s *streamHandler) handleIncoming() {
 				logger.Debugf("error reading message while closing, ignoring [%s]", err)
 				break
 			}
+			s.node.m.StreamReadErrors.Add(1)
 
 			streamHash := s.stream.Hash()
 			if logger.IsEnabledFor(zapcore.DebugLevel) {

@@ -9,13 +9,14 @@ package comm
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 
 type Metrics struct {
-	Sessions        metrics.Gauge
-	StreamHashes    metrics.Gauge
-	ActiveStreams   metrics.Gauge
-	OpenedStreams   metrics.Counter
-	ClosedStreams   metrics.Counter
-	StreamHandlers  metrics.Gauge
-	DroppedMessages metrics.Counter
+	Sessions         metrics.Gauge
+	StreamHashes     metrics.Gauge
+	ActiveStreams    metrics.Gauge
+	OpenedStreams    metrics.Counter
+	ClosedStreams    metrics.Counter
+	StreamHandlers   metrics.Gauge
+	DroppedMessages  metrics.Counter
+	StreamReadErrors metrics.Counter
 }
 
 func newMetrics(p metrics.Provider) *Metrics {
@@ -47,6 +48,10 @@ func newMetrics(p metrics.Provider) *Metrics {
 		DroppedMessages: p.NewCounter(metrics.CounterOpts{
 			Name: "dropped_messages",
 			Help: "The number of messages dropped due to full buffers",
+		}),
+		StreamReadErrors: p.NewCounter(metrics.CounterOpts{
+			Name: "stream_read_errors",
+			Help: "The number of streams dropped because reading a message failed",
 		}),
 	}
 }
