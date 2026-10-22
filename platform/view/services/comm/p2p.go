@@ -65,6 +65,8 @@ type P2PNode struct {
 	streamReaderBufferSize     int
 	maxRecvMsgSize             int
 	maxSendMsgSize             int
+	// sharedStreams is set when the host multiplexes many sessions on one stream, see host.SharedStreamsHost.
+	sharedStreams bool
 }
 
 func NewNode(ctx context.Context, h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
@@ -92,6 +94,9 @@ func NewNodeWithConfig(ctx context.Context, h host2.P2PHost, metricsProvider met
 		streamReaderBufferSize:     cfg.streamReaderBufferSize,
 		maxRecvMsgSize:             cfg.maxRecvMsgSize,
 		maxSendMsgSize:             cfg.maxSendMsgSize,
+	}
+	if sh, ok := h.(host2.SharedStreamsHost); ok {
+		p.sharedStreams = sh.SharedStreams()
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		cancel()
@@ -371,7 +376,8 @@ func (s *streamHandler) tryLease() bool {
 }
 
 func (s *streamHandler) release() {
-	if s.refCtr.Add(-1) == 0 {
+	// A shared stream can still carry a reply to another session, so it is not closed here.
+	if s.refCtr.Add(-1) == 0 && !s.node.sharedStreams {
 		s.close(context.TODO())
 	}
 }

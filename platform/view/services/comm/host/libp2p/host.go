@@ -201,6 +201,11 @@ func (*host) StreamHash(input host2.StreamInfo) host2.StreamHash {
 	return streamHash(input)
 }
 
+// SharedStreams reports that the streams of this host are shared by all sessions to a peer.
+func (*host) SharedStreams() bool {
+	return true
+}
+
 func (h *host) Close() error {
 	logger.Debugf("libp2p: Closing host [%s]...", h.ID())
 	err := h.Host.Close()
