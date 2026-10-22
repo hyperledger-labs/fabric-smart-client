@@ -57,13 +57,9 @@ func ValidateConfig(confPath string) (Report, error) {
 		report.Checks = append(report.Checks, fmt.Sprintf("validated fabric networks [%s]", strings.Join(fabricConfig.Names(), ", ")))
 	}
 
-	if configService.GetBool("fsc.grpc.enabled") && configService.GetString("fsc.grpc.address") == "" {
-		return report, errors.New("invalid fsc.grpc configuration: missing address")
-	}
-
-	// One call resolves and validates every fsc.* TLS surface, requires fsc.web.address and
-	// rejects removed keys, through exactly the code the node runs at startup, so validate
-	// cannot accept a configuration the node rejects.
+	// One call resolves and validates every fsc.* TLS surface, requires fsc.grpc.address and
+	// fsc.web.address, and rejects removed keys, through exactly the code the node runs at
+	// startup, so validate cannot accept a configuration the node rejects.
 	if err := sdk.CheckTLSConfig(configService); err != nil {
 		return report, errors.Wrap(err, "invalid fsc listener configuration")
 	}
