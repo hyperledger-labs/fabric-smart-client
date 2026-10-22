@@ -183,14 +183,36 @@ func TestRunWithErrors_NoSleepAfterLastAttempt(t *testing.T) {
 func TestBackoff_CappedAndJittered(t *testing.T) {
 	t.Parallel()
 	runner := NewBackoffRetryRunner(Infinitely, 10*time.Millisecond, 100*time.Millisecond)
-	seen := map[time.Duration]bool{}
 	for range 20 {
 		d := runner.NextDelay()
 		require.GreaterOrEqual(t, d, time.Duration(0))
 		require.LessOrEqual(t, d, 100*time.Millisecond)
-		seen[d] = true
 	}
-	require.Greater(t, len(seen), 1, "delays are not jittered")
+
+	// A growing ceiling yields distinct delays even without jitter, so pin
+	// the ceiling: any variation can then only come from the jitter.
+	fixed := NewBackoffRetryRunner(Infinitely, 5*time.Millisecond, 5*time.Millisecond)
+	seen := map[time.Duration]bool{}
+	for range 50 {
+		seen[fixed.NextDelay()] = true
+	}
+	require.Greater(t, len(seen), 10, "delays are not jittered")
+}
+
+func TestBackoff_MaxDelayBelowInitialIsRaised(t *testing.T) {
+	t.Parallel()
+	// The cap is raised to initial (10ms), so delays keep being drawn from
+	// [0, 10ms) instead of collapsing to the 1ms passed as maxDelay.
+	runner := NewBackoffRetryRunner(Infinitely, 10*time.Millisecond, time.Millisecond)
+	runner.NextDelay()
+	var above bool
+	for range 20 {
+		d := runner.NextDelay()
+		require.GreaterOrEqual(t, d, time.Duration(0))
+		require.Less(t, d, 10*time.Millisecond)
+		above = above || d > time.Millisecond
+	}
+	require.True(t, above, "delays collapsed below initial")
 }
 
 func TestBackoff_NoOverflowAndZeroInitial(t *testing.T) {
@@ -200,6 +222,16 @@ func TestBackoff_NoOverflowAndZeroInitial(t *testing.T) {
 		require.GreaterOrEqual(t, runner.NextDelay(), time.Duration(0))
 	}
 	require.Zero(t, NewBackoffRetryRunner(1, 0, time.Second).NextDelay())
+}
+
+func TestRunContext_NoSleepAfterLastAttempt(t *testing.T) {
+	t.Parallel()
+	start := time.Now()
+	// A non-jittered runner makes the skipped 1s wait deterministic.
+	err := NewRetryRunner(1, time.Second, false).
+		RunContext(t.Context(), func() error { return errors.New("fail") })
+	require.ErrorIs(t, err, ErrMaxRetriesExceeded)
+	require.Less(t, time.Since(start), 500*time.Millisecond)
 }
 
 func TestRunContext_StopsOnCancel(t *testing.T) {
