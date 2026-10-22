@@ -1060,7 +1060,10 @@ func TestKVS_CacheInvalidation(t *testing.T) {
 		// Second get - should go to store (cache invalidated)
 		result2 := &testStruct{}
 		err = k.Get(context.Background(), "key1", result2)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "does not exist",
+			"a deleted key must miss the cache and report the store's empty result")
+		require.Equal(t, 2, mockStore.GetStateCallCount(),
+			"the second Get must reach the store")
 	})
 
 	t.Run("put updates cache", func(t *testing.T) {

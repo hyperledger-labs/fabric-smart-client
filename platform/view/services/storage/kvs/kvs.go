@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache/secondcache"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
@@ -27,12 +27,6 @@ const (
 	persistenceOptsConfigKey = "fsc.kvs.persistence.opts"
 	DefaultCacheSize         = 100
 )
-
-type cache interface {
-	Get(key string) (any, bool)
-	Add(key string, value any)
-	Delete(key string)
-}
 
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
 
@@ -80,7 +74,7 @@ type KVS struct {
 	store     driver.KeyValueStore
 
 	putMutex sync.RWMutex
-	cache    cache
+	cache    cache.Map[string, []byte]
 }
 
 // New returns a new KVS instance for the passed namespace using the passed driver and config provider
@@ -88,7 +82,7 @@ func New(persistence driver.KeyValueStore, namespace string, cacheSize int) (*KV
 	return &KVS{
 		namespace: namespace,
 		store:     persistence,
-		cache:     secondcache.New(cacheSize),
+		cache:     cache.NewSecondChanceCache[string, []byte](cacheSize, 1, nil),
 	}, nil
 }
 
@@ -103,9 +97,9 @@ func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 	// is in cache?
 	o.putMutex.RLock()
 	for _, id := range ids {
-		if v, ok := o.cache.Get(id); !ok {
+		if raw, ok := o.cache.Get(id); !ok {
 			notFound = append(notFound, id)
-		} else if raw, ok := v.([]byte); ok && len(raw) > 0 {
+		} else if len(raw) > 0 {
 			result = append(result, id)
 		}
 	}
@@ -123,9 +117,9 @@ func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 	ids = notFound
 	notFound = make([]string, 0)
 	for _, id := range ids {
-		if v, ok := o.cache.Get(id); !ok {
+		if raw, ok := o.cache.Get(id); !ok {
 			notFound = append(notFound, id)
-		} else if raw, ok := v.([]byte); ok && len(raw) > 0 {
+		} else if len(raw) > 0 {
 			result = append(result, id)
 		}
 	}
@@ -145,7 +139,7 @@ func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 		if err != nil || v == nil {
 			break
 		}
-		o.cache.Add(v.Key, v.Raw)
+		o.cache.Put(v.Key, v.Raw)
 		if len(v.Raw) > 0 {
 			result = append(result, v.Key)
 		}
@@ -175,32 +169,20 @@ func (o *KVS) Put(ctx context.Context, id string, state any) error {
 
 	o.putMutex.Lock()
 	defer o.putMutex.Unlock()
-	o.cache.Add(id, raw)
+	o.cache.Put(id, raw)
 
 	return nil
 }
 
 func (o *KVS) Get(ctx context.Context, id string, state any) error {
-	var err error
-	var raw []byte
-
 	// Try to get from cache first (read lock)
 	o.putMutex.RLock()
-	cachedRaw, ok := o.cache.Get(id)
-	//nolint:gocritic // rewriting to switch would obscure the RLock/RUnlock and Lock/Unlock pairing across mixed branches (one branch has two early error returns); the if/else-if reads clearer and is not misleading here.
-	if cachedRaw != nil && ok {
-		var castOk bool
-		raw, castOk = cachedRaw.([]byte)
-		if !castOk {
-			o.putMutex.RUnlock()
-			return errors.Errorf("unexpected cached value type for [%s,%s]", o.namespace, id)
-		}
-		o.putMutex.RUnlock()
-	} else if !ok {
-		// Cache miss, need to fetch from store and add to cache
-		o.putMutex.RUnlock()
+	raw, ok := o.cache.Get(id)
+	o.putMutex.RUnlock()
 
-		// Fetch from store
+	if !ok {
+		// Cache miss, need to fetch from store and add to cache
+		var err error
 		raw, err = o.store.GetState(ctx, o.namespace, id)
 		if err != nil {
 			logger.DebugfContext(ctx, "failed retrieving state [%s,%s]", o.namespace, id)
@@ -212,11 +194,8 @@ func (o *KVS) Get(ctx context.Context, id string, state any) error {
 
 		// Add to cache (write lock)
 		o.putMutex.Lock()
-		o.cache.Add(id, raw)
+		o.cache.Put(id, raw)
 		o.putMutex.Unlock()
-	} else {
-		// cachedRaw is nil but ok is true unlock cache
-		o.putMutex.RUnlock()
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {
