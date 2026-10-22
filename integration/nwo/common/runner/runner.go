@@ -59,7 +59,6 @@ type Runner struct {
 	StartCheck        string
 	StartCheckTimeout time.Duration
 	Cleanup           func()
-	stop              chan os.Signal
 	// exitCode is -1 while the process is alive and its real exit code once it
 	// is not. It is written by monitorForExit's goroutine and read by callers
 	// waiting for the process to go away — nwo.StopFSCNode polls it through
@@ -78,7 +77,6 @@ func New(config Config) *Runner {
 		StartCheck:        config.StartCheck,
 		StartCheckTimeout: config.StartCheckTimeout,
 		Cleanup:           config.Cleanup,
-		stop:              make(chan os.Signal),
 	}
 	r.exitCode.Store(notExited)
 
@@ -177,14 +175,6 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 			}
 
 			return nil
-		case signal := <-r.stop:
-			logger.Infof("dispatch signal [%d] to process [%s]", signal, r.Name)
-			if signal != nil {
-				if err := r.Command.Process.Signal(signal); err != nil {
-					logger.Errorf("failed to send signal [%d] to process [%s]", signal, r.Name)
-				}
-			}
-
 		}
 	}
 }
@@ -209,9 +199,23 @@ func (r *Runner) monitorForExit(exited chan<- struct{}) {
 	close(exited)
 }
 
+// Stop sends SIGTERM to the process. It never blocks and does nothing once the
+// process has exited.
 func (r *Runner) Stop() {
-	logger.Infof("Send SIGTERM to [%s]", r.Name)
-	r.stop <- syscall.SIGTERM
+	r.signal(syscall.SIGTERM)
+}
+
+// Kill sends SIGKILL to the process, which ends it without running any of its
+// shutdown logic, as a crash would. Like Stop, it never blocks.
+func (r *Runner) Kill() {
+	r.signal(syscall.SIGKILL)
+}
+
+func (r *Runner) signal(s os.Signal) {
+	logger.Infof("Send %s to [%s]", s, r.Name)
+	if err := r.Command.Process.Signal(s); err != nil {
+		logger.Infof("[%s] not signaled: %s", r.Name, err)
+	}
 }
 
 func (r *Runner) PID() (string, int) {
@@ -231,7 +235,6 @@ func (r *Runner) Clone() *Runner {
 		StartCheck:        r.config.StartCheck,
 		StartCheckTimeout: r.config.StartCheckTimeout,
 		Cleanup:           r.config.Cleanup,
-		stop:              make(chan os.Signal),
 	}
 	clone.exitCode.Store(notExited)
 

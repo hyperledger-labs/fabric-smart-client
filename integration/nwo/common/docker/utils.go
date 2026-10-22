@@ -14,8 +14,10 @@ import (
 	"net/netip"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/containerd/errdefs"
+	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
 
@@ -165,6 +167,51 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 	}
 
 	return nil
+}
+
+// containerTimeout bounds how long StopContainer and StartContainer wait.
+const containerTimeout = time.Minute
+
+// StopContainer stops the named container and returns once it has exited. The
+// container keeps its file system and port bindings, so StartContainer brings
+// it back as it was.
+func (d *Docker) StopContainer(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), containerTimeout)
+	defer cancel()
+	if _, err := d.Client.ContainerStop(ctx, name, dcli.ContainerStopOptions{}); err != nil {
+		return errors.Wrapf(err, "failed stopping container [%s]", name)
+	}
+	return nil
+}
+
+// StartContainer starts the named, stopped container. If the container defines
+// a healthcheck, StartContainer returns once it reports healthy; otherwise it
+// returns once the container is running, and the caller waits for whatever
+// readiness the container's service needs.
+func (d *Docker) StartContainer(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), containerTimeout)
+	defer cancel()
+	if _, err := d.Client.ContainerStart(ctx, name, dcli.ContainerStartOptions{}); err != nil {
+		return errors.Wrapf(err, "failed starting container [%s]", name)
+	}
+	for {
+		inspect, err := d.Client.ContainerInspect(ctx, name, dcli.ContainerInspectOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed inspecting container [%s]", name)
+		}
+		health := inspect.Container.State.Health
+		if health == nil || health.Status == container.Healthy {
+			return nil
+		}
+		if health.Status == container.Unhealthy {
+			return errors.Errorf("container [%s] is unhealthy", name)
+		}
+		select {
+		case <-ctx.Done():
+			return errors.Wrapf(ctx.Err(), "container [%s] did not become healthy", name)
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 func (d *Docker) LocalIP(networkID string) (string, error) {

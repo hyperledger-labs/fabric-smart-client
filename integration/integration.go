@@ -16,20 +16,24 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	nwo_context "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -326,6 +330,95 @@ func (i *Infrastructure) StartFSCNode(id string) {
 	}
 
 	i.NWO.StartFSCNode(id)
+}
+
+// KillFSCNode sends SIGKILL to the FSC node with the given id and returns once
+// it is gone. Restart it with StartFSCNode.
+func (i *Infrastructure) KillFSCNode(id string) {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+
+	i.NWO.KillFSCNode(id)
+}
+
+// StopPeer stops the Fabric peer with the given name and returns once it is gone.
+// The test fails unless exactly one running Fabric network has a peer of that name.
+func (i *Infrastructure) StopPeer(name string) { i.NWO.StopMember(i.fabricMember("peer", name)) }
+
+// StartPeer restarts the Fabric peer stopped by StopPeer and returns once it is ready.
+func (i *Infrastructure) StartPeer(name string) { i.NWO.StartMember(i.fabricMember("peer", name)) }
+
+// StopOrderer stops the Fabric orderer with the given name and returns once it is gone.
+// The test fails unless exactly one running Fabric network has an orderer of that name.
+func (i *Infrastructure) StopOrderer(name string) { i.NWO.StopMember(i.fabricMember("orderer", name)) }
+
+// StartOrderer restarts the Fabric orderer stopped by StopOrderer and returns once it is ready.
+func (i *Infrastructure) StartOrderer(name string) {
+	i.NWO.StartMember(i.fabricMember("orderer", name))
+}
+
+// fabricMember returns the nwo member name of the Fabric peer or orderer
+// (kind) with the given name; see network.Network.Members for the naming.
+func (i *Infrastructure) fabricMember(kind, name string) string {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+	suffix := "." + kind + "." + name
+	var found []string
+	for _, m := range i.NWO.Members {
+		if strings.HasSuffix(m.Name, suffix) {
+			found = append(found, m.Name)
+		}
+	}
+	gomega.Expect(found).To(gomega.HaveLen(1), "expected exactly one %s named [%s], found %v", kind, name, found)
+	return found[0]
+}
+
+// EventuallyConnectionState polls the metrics of the FSC node until every
+// fsc_connection_state series that conn selects is in state want, and fails the
+// test if that does not happen within timeout. An empty field of conn matches
+// any value, and at least one series must match. Leaving Network or Channel
+// empty therefore requires the matching connections of every network or
+// channel to be in want, so one that is down cannot hide behind another.
+//
+// The series reports what the node last observed, which can be stale: the
+// orderer series changes only when the node broadcasts, so after stopping an
+// orderer it keeps its last value until a broadcast fails. Make the node act
+// on the connection before asserting a state that follows a fault.
+func (i *Infrastructure) EventuallyConnectionState(node string, conn fsc.Connection, want connstate.State, timeout time.Duration) {
+	client := i.WebClient(node)
+	gomega.Expect(client).NotTo(gomega.BeNil(), "no web client for node [%s]", node)
+	eventuallyConnectionState(gomega.Default, client.Metrics, conn, want, timeout,
+		"node [%s]: connection state of %+v never reached %d", node, conn, want)
+}
+
+// eventuallyConnectionState is EventuallyConnectionState with the metrics
+// source and the Gomega instance passed in, so it can be tested without a
+// network.
+func eventuallyConnectionState(g gomega.Gomega, metrics func() (map[string]*dto.MetricFamily, error), conn fsc.Connection, want connstate.State, timeout time.Duration, msg ...any) {
+	g.Eventually(func(g gomega.Gomega) {
+		families, err := metrics()
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(fsc.ParseConnectionState(families, conn)).To(gomega.HaveEach(want))
+	}).WithOffset(2).WithTimeout(timeout).WithPolling(500*time.Millisecond).Should(gomega.Succeed(), msg...)
+}
+
+// StopPostgres stops the Postgres container of the database dbName, which nwo
+// started for an FSC node, and returns once it is stopped. The container keeps
+// its data and port, so StartPostgres brings the same database back.
+func (*Infrastructure) StopPostgres(dbName string) {
+	d, err := docker.GetInstance()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(d.StopContainer(dbName)).To(gomega.Succeed())
+}
+
+// StartPostgres restarts the container stopped by StopPostgres and returns once
+// its healthcheck reports the database ready.
+func (*Infrastructure) StartPostgres(dbName string) {
+	d, err := docker.GetInstance()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(d.StartContainer(dbName)).To(gomega.Succeed())
 }
 
 func (i *Infrastructure) EnableRaceDetector() {

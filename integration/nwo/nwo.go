@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -35,15 +36,12 @@ type Process interface {
 	PID() (string, int)
 }
 
-type Group interface {
-	Members() grouper.Members
-}
-
+// NWO runs the members of its platforms. Every member runs as its own ifrit
+// process, so a test can stop, kill, or restart one FSC node, Fabric peer, or
+// Fabric orderer while the rest of the network keeps running.
 type NWO struct {
-	FSCProcesses      []ifrit.Process
-	Processes         []ifrit.Process
-	TerminationSignal os.Signal
-	Members           grouper.Members
+	Processes []ifrit.Process
+	Members   grouper.Members
 
 	Platforms              []api.Platform
 	StartEventuallyTimeout time.Duration
@@ -60,14 +58,6 @@ func New(nwoCtx *context.NWOContext, platforms ...api.Platform) *NWO {
 		Platforms:              platforms,
 		StartEventuallyTimeout: time.Minute,
 		StopEventuallyTimeout:  time.Minute,
-		TerminationSignal:      syscall.SIGTERM,
-	}
-}
-
-func (n *NWO) KillFSC() {
-	for _, process := range n.FSCProcesses {
-		process.Signal(syscall.SIGTERM)
-		gomega.Eventually(process.Wait(), n.StopEventuallyTimeout).Should(gomega.Receive())
 	}
 }
 
@@ -140,12 +130,11 @@ func (n *NWO) Start() {
 		}
 	}
 
-	// Execute members on their own stuff...
-	Runner := grouper.NewOrdered(n.TerminationSignal, members)
-	process := ifrit.Invoke(Runner)
-	n.Processes = append(n.Processes, process)
-	gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed())
-	n.storePIDs(f, members)
+	// Start the members one by one and in order, so orderers are up before peers.
+	for _, member := range members {
+		n.invoke(member)
+	}
+	storePIDs(f, members)
 
 	logger.Infof("Post execution for nodes...")
 	for _, platform := range n.Platforms {
@@ -166,18 +155,11 @@ func (n *NWO) Start() {
 		}
 	}
 
-	// Execute the fsc members in isolation so can be stopped and restarted as needed
 	logger.Infof("Run FSC nodes...")
 	for _, member := range fscMembers {
-		logger.Infof("Run FSC node [%s]...", member.Name)
-
-		runner := grouper.NewOrdered(n.TerminationSignal, []grouper.Member{member})
-		process := ifrit.Invoke(runner)
-		gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed())
-		n.Processes = append(n.Processes, process)
-		n.FSCProcesses = append(n.FSCProcesses, process)
+		n.invoke(member)
 	}
-	n.storePIDs(f, fscMembers)
+	storePIDs(f, fscMembers)
 
 	logger.Infof("Post execution for FSC nodes...")
 	for _, platform := range n.Platforms {
@@ -190,8 +172,10 @@ func (n *NWO) Start() {
 func (n *NWO) Stop() {
 	logger.Infof("Stopping...")
 	if len(n.Processes) != 0 {
+		// Stop in reverse start order, so FSC nodes go before the network they
+		// talk to; a member restarted by a test is stopped first.
 		logger.Infof("Sending sigterm signal...")
-		for _, process := range n.Processes {
+		for _, process := range slices.Backward(n.Processes) {
 			process.Signal(syscall.SIGTERM)
 			gomega.Eventually(process.Wait(), n.StopEventuallyTimeout).Should(gomega.Receive())
 		}
@@ -207,53 +191,99 @@ func (n *NWO) Stop() {
 // StopFSCNode stops the named FSC node and returns once its process is gone.
 //
 // Waiting matters because the node holds resources a replacement cannot share:
-// its listening ports and its vault. Returning as soon as the signal was sent
-// would leave a caller that restarts the node racing the old process for them,
-// which is why callers used to follow this with a sleep long enough to hope the
-// exit had happened. StartFSCNode already waits for readiness; this is its
-// counterpart.
+// its listening ports and its vault. A caller that restarts the node right away
+// would otherwise race the old process for them. StartFSCNode already waits for
+// readiness; this is its counterpart.
 func (n *NWO) StopFSCNode(id string) {
-	logger.Infof("Search FSC node [%s]...", id)
-	for _, member := range n.ViewMembers {
-		if strings.HasPrefix(member.Name, fmt.Sprintf("fsc.%s.", id)) {
-			logger.Infof("FSC node [%s] found. Stopping...", id)
-			r := member.Runner.(*runner.Runner)
-			r.Stop()
-			gomega.Eventually(r, n.StopEventuallyTimeout).Should(gexec.Exit(),
-				"FSC node [%s] did not exit after SIGTERM", id)
-			logger.Infof("FSC node [%s:%s] stopped", member.Name, id)
-			return
-		}
+	if i := n.fscIndex(id); i >= 0 {
+		r := n.ViewMembers[i].Runner.(*runner.Runner)
+		n.awaitExit(r, r.Stop)
 	}
-	logger.Infof("FSC node [%s] not found", id)
 }
 
+// KillFSCNode sends SIGKILL to the named FSC node and returns once its process
+// is gone. Unlike StopFSCNode the node runs none of its shutdown logic, which
+// makes this the primitive for crash-recovery tests. Restart the node with
+// StartFSCNode.
+func (n *NWO) KillFSCNode(id string) {
+	if i := n.fscIndex(id); i >= 0 {
+		r := n.ViewMembers[i].Runner.(*runner.Runner)
+		n.awaitExit(r, r.Kill)
+	}
+}
+
+// StartFSCNode starts the named FSC node, which must have been stopped or
+// killed before, and returns once it is ready.
 func (n *NWO) StartFSCNode(id string) {
-	logger.Infof("Search FSC node [%s]...", id)
-	for i, member := range n.ViewMembers {
-		if strings.HasPrefix(member.Name, fmt.Sprintf("fsc.%s.", id)) {
-			logger.Infof("FSC node [%s] found. Starting...", id)
-			member.Runner = member.Runner.(*runner.Runner).Clone()
-			n.ViewMembers[i] = member
-			process := ifrit.Invoke(member.Runner)
-			gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed())
-			n.Processes = append(n.Processes, process)
-			logger.Infof("FSC node [%s:%s] started", member.Name, id)
-			return
-		}
+	if i := n.fscIndex(id); i >= 0 {
+		n.ViewMembers[i] = n.restart(n.ViewMembers[i])
 	}
-	logger.Infof("FSC node [%s] not found", id)
 }
 
-func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
+// StopMember stops the platform member with the given name, such as a Fabric
+// peer or orderer, and returns once its process is gone. The test fails if no
+// such member exists.
+func (n *NWO) StopMember(name string) {
+	r := n.Members[n.memberIndex(name)].Runner.(*runner.Runner)
+	n.awaitExit(r, r.Stop)
+}
+
+// StartMember starts the platform member with the given name, which must have
+// been stopped before, and returns once it is ready. The test fails if no such
+// member exists.
+func (n *NWO) StartMember(name string) {
+	i := n.memberIndex(name)
+	n.Members[i] = n.restart(n.Members[i])
+}
+
+func (n *NWO) memberIndex(name string) int {
+	i := slices.IndexFunc(n.Members, func(m grouper.Member) bool { return m.Name == name })
+	gomega.Expect(i).NotTo(gomega.Equal(-1), "member [%s] not found", name)
+	return i
+}
+
+// fscIndex returns the index in ViewMembers of the FSC node with the given id,
+// or -1 if there is none. With replicas, it returns the first one.
+func (n *NWO) fscIndex(id string) int {
+	prefix := fmt.Sprintf("fsc.%s.", id)
+	i := slices.IndexFunc(n.ViewMembers, func(m grouper.Member) bool { return strings.HasPrefix(m.Name, prefix) })
+	if i < 0 {
+		logger.Infof("FSC node [%s] not found", id)
+	}
+	return i
+}
+
+// awaitExit sends the signal through send and waits for r's process to exit.
+func (n *NWO) awaitExit(r *runner.Runner, send func()) {
+	send()
+	gomega.Eventually(r, n.StopEventuallyTimeout).Should(gexec.Exit(), "[%s] did not exit", r.Name)
+	logger.Infof("[%s] stopped", r.Name)
+}
+
+// restart runs a fresh copy of the stopped member's runner and returns the
+// member holding it; a Runner can run only once.
+func (n *NWO) restart(member grouper.Member) grouper.Member {
+	member.Runner = member.Runner.(*runner.Runner).Clone()
+	n.invoke(member)
+	return member
+}
+
+// invoke runs member as its own process and waits until it is ready. The
+// process is recorded before the wait, so Stop also ends one that never
+// became ready.
+func (n *NWO) invoke(member grouper.Member) {
+	logger.Infof("Run [%s]...", member.Name)
+	process := ifrit.Background(member.Runner)
+	n.Processes = append(n.Processes, process)
+	gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed(), "[%s] did not start", member.Name)
+}
+
+func storePIDs(f *os.File, members grouper.Members) {
 	for _, member := range members {
-		switch r := member.Runner.(type) {
-		case Process:
+		if r, ok := member.Runner.(Process); ok {
 			path, pid := r.PID()
 			_, err := fmt.Fprintf(f, "%s %d\n", path, pid)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		case Group:
-			n.storePIDs(f, r.Members())
 		}
 	}
 }

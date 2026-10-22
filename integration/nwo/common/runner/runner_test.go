@@ -64,3 +64,21 @@ func TestCloneStartsUnexited(t *testing.T) {
 
 	g.Expect(r.Clone().ExitCode()).To(gomega.Equal(-1), "a fresh clone must not look exited")
 }
+
+// TestKillEndsTheProcessWithSIGKILL pins the contract nwo.KillFSCNode relies on:
+// Kill ends the process the way a crash does, and ExitCode reports it.
+func TestKillEndsTheProcessWithSIGKILL(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewWithT(t)
+
+	r := runner.New(runner.Config{
+		Name:    "sleeper",
+		Command: exec.Command("sleep", "60"),
+	})
+	process := ifrit.Invoke(r)
+	g.Eventually(process.Ready(), 10*time.Second).Should(gomega.BeClosed())
+
+	r.Kill()
+
+	g.Eventually(r, 30*time.Second).Should(gexec.Exit(128 + int(syscall.SIGKILL)))
+}
