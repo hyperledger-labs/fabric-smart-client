@@ -51,7 +51,7 @@ func newMetrics(p metrics.Provider) *Metrics {
 		}),
 		StreamReadErrors: p.NewCounter(metrics.CounterOpts{
 			Name: "stream_read_errors",
-			Help: "The number of streams dropped because reading a message failed",
+			Help: "The number of streams dropped because reading a message failed, excluding clean EOF and local closes",
 		}),
 	}
 }

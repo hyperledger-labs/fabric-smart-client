@@ -131,7 +131,7 @@ Primary implementation: `platform/view/services/view/metrics.go`, updated throug
 | `fsc_view_services_comm_closed_streams` | counter | none | Number of stream-handler closes. |
 | `fsc_view_services_comm_stream_handlers` | gauge | none | Number of running stream handler goroutines. |
 | `fsc_view_services_comm_dropped_messages` | counter | none | Number of messages dropped because dispatch or enqueue could not complete safely. |
-| `fsc_view_services_comm_stream_read_errors` | counter | none | Number of streams dropped because reading a message failed while the node was running. |
+| `fsc_view_services_comm_stream_read_errors` | counter | none | Number of streams dropped because reading a message failed while the node was running. A clean EOF from the remote and streams closed locally are not counted. |
 
 Operational notes:
 

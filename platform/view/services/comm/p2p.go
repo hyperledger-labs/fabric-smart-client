@@ -8,6 +8,7 @@ package comm
 
 import (
 	"context"
+	goio "io"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -409,7 +410,10 @@ func (s *streamHandler) handleIncoming() {
 				logger.Debugf("error reading message while closing, ignoring [%s]", err)
 				break
 			}
-			s.node.m.StreamReadErrors.Add(1)
+			// A clean EOF from the remote and a handler closed locally are normal ends of a stream.
+			if !s.isClosed() && !errors.Is(err, goio.EOF) {
+				s.node.m.StreamReadErrors.Add(1)
+			}
 
 			streamHash := s.stream.Hash()
 			if logger.IsEnabledFor(zapcore.DebugLevel) {

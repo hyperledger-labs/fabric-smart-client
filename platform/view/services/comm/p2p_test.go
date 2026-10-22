@@ -8,6 +8,7 @@ package comm
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,21 +20,26 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
-type failingReader struct{}
+type failingReader struct{ err error }
 
-func (failingReader) ReadMsg(proto.Message) error { return errors.New("read failed") }
-func (failingReader) Close() error                { return nil }
+func (r failingReader) ReadMsg(proto.Message) error { return r.err }
+func (failingReader) Close() error                  { return nil }
 
 func TestHandleIncoming_ReadErrorCounted(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
 		name     string
+		err      error
 		stopping bool
+		closed   bool
 		want     int
 	}{
-		{name: "running", want: 1},
-		{name: "stopping", stopping: true, want: 0},
+		{name: "running", err: errors.New("read failed"), want: 1},
+		{name: "stopping", err: errors.New("read failed"), stopping: true, want: 0},
+		{name: "clean EOF", err: errors.Wrapf(io.EOF, "failed reading data"), want: 0},
+		{name: "truncated message", err: io.ErrUnexpectedEOF, want: 1},
+		{name: "already closed", err: errors.New("read failed"), closed: true, want: 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -44,7 +50,8 @@ func TestHandleIncoming_ReadErrorCounted(t *testing.T) {
 			p.m.StreamReadErrors = readErrors
 			p.isStopping = tc.stopping
 
-			sh := &streamHandler{stream: &mockStream{ctx: t.Context()}, reader: failingReader{}, node: p}
+			sh := &streamHandler{stream: &mockStream{ctx: t.Context()}, reader: failingReader{err: tc.err}, node: p}
+			sh.closed.Store(tc.closed)
 			p.handlersWg.Add(1)
 			sh.handleIncoming()
 
