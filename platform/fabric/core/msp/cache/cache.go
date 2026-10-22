@@ -143,7 +143,6 @@ func (c *cachedMSP) SatisfiesPrincipal(id msp.Identity, principal *pmsp.MSPPrinc
 	key := identityKey + principalKey
 
 	if cachedErr, ok := c.satisfiesPrincipalCache.Get(key); ok {
-		// A cached nil is a cached success; ok is what tells it from a miss.
 		return cachedErr
 	}
 

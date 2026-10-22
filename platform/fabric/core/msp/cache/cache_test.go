@@ -319,8 +319,7 @@ func TestSatisfiesPrincipal(t *testing.T) {
 	key = identityKey + principalKey
 	v, ok = i.(*cachedMSP).satisfiesPrincipalCache.Get(key)
 	require.True(t, ok)
-	require.Error(t, v)
-	require.Contains(t, "Invalid", v.Error())
+	require.ErrorContains(t, v, "Invalid")
 }
 
 func TestDeserializeSigningIdentity(t *testing.T) {
