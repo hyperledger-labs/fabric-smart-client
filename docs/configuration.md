@@ -271,8 +271,8 @@ fsc:
   #   GET /readyz  -> 200 when every component that reports connection state
   #                   (fsc_connection_state) has been connected since startup and none
   #                   is stopped; reconnecting is still ready. Otherwise 503, with a JSON
-  #                   list of the offending connections (network, channel, component,
-  #                   endpoint, state as the numeric gauge value, everConnected).
+  #                   list of the unready components (network, channel, component, and
+  #                   reason: stopped or never connected). Endpoints are on /metrics.
   #
   # When a view fails, the REST endpoint returns its error text to the client verbatim, as
   # the Reason of the response body; the gRPC view service on fsc.grpc does the same in

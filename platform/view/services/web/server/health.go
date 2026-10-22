@@ -23,7 +23,7 @@ func Healthz(w http.ResponseWriter, _ *http.Request) {
 // It responds 503 when a connection is stopped, or when a component (network, channel, and
 // component labels) has not been connected through any of its endpoints since startup;
 // otherwise 200. Reconnecting does not make the node unready. The body is the JSON list of
-// the connections that make the node unready.
+// the unready components with their reason.
 func Readyz(m *connstate.Metrics) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		notReady := notReady(m.Snapshot())
@@ -37,21 +37,29 @@ func Readyz(m *connstate.Metrics) http.Handler {
 	})
 }
 
-// notReady returns the statuses that make the node unready. Connected-ness is judged per
-// component rather than per endpoint, because delivery moves between peers and a peer it
-// moves to has not been connected yet.
+// notReady returns the unready components, once each and in the order of statuses.
+// Connected-ness is judged per component rather than per endpoint, because delivery moves
+// between peers and a peer it moves to has not been connected yet. A component with a stopped
+// connection is reported as stopped, since it needs operator action.
 func notReady(statuses []connstate.Status) []connstate.Status {
 	type component struct{ network, channel, name string }
-	connected := map[component]bool{}
+	var order []component
+	reasons := map[component]string{}
 	for _, s := range statuses {
-		if s.EverConnected {
-			connected[component{s.Network, s.Channel, s.Component}] = true
+		c := component{s.Network, s.Channel, s.Component}
+		prev, seen := reasons[c]
+		if !seen {
+			order = append(order, c)
+		}
+		// Stopped overrides everything; a connection that has connected overrides never connected.
+		if !seen || prev == connstate.ReasonNeverConnected || s.Reason == connstate.ReasonStopped {
+			reasons[c] = s.Reason
 		}
 	}
 	out := []connstate.Status{}
-	for _, s := range statuses {
-		if s.State == connstate.Stopped || !connected[component{s.Network, s.Channel, s.Component}] {
-			out = append(out, s)
+	for _, c := range order {
+		if r := reasons[c]; r != "" {
+			out = append(out, connstate.Status{Network: c.network, Channel: c.channel, Component: c.name, Reason: r})
 		}
 	}
 	return out

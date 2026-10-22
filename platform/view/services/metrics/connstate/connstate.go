@@ -101,7 +101,6 @@ func (m *Metrics) Tracker(network, channel, component, endpoint string) *Tracker
 	}
 	labels := []string{"network", network, "channel", channel, "component", component, "endpoint", endpoint}
 	t := &Tracker{
-		labels:        k,
 		state:         m.state.With(labels...),
 		reconnects:    m.reconnects.With(labels...),
 		lastConnected: m.lastConnected.With(labels...),
@@ -110,53 +109,54 @@ func (m *Metrics) Tracker(network, channel, component, endpoint string) *Tracker
 	return t
 }
 
-// Status is the state of one tracked connection.
+// Values of Status.Reason.
+const (
+	ReasonStopped        = "stopped"
+	ReasonNeverConnected = "never connected"
+)
+
+// Status is the state of one tracked connection. It names no endpoint, so it can be served
+// without authentication.
 type Status struct {
 	Network   string `json:"network"`
 	Channel   string `json:"channel"`
 	Component string `json:"component"`
-	Endpoint  string `json:"endpoint"`
-	State     State  `json:"state"`
-	// EverConnected reports whether the connection has been Connected since the tracker was created.
-	EverConnected bool `json:"everConnected"`
+	// Reason is ReasonStopped, ReasonNeverConnected if the connection has not been Connected
+	// since the tracker was created, or empty otherwise.
+	Reason string `json:"reason"`
 }
 
-// Snapshot returns the status of every tracker created by m, sorted by network, channel,
-// component, and endpoint. A nil *Metrics returns nil.
+// Snapshot returns the status of every tracker created by m, sorted by network, channel, and
+// component; connections of the same component are in no particular order. A nil *Metrics
+// returns nil.
 func (m *Metrics) Snapshot() []Status {
 	if m == nil {
 		return nil
 	}
 	m.mu.Lock()
-	trackers := make([]*Tracker, 0, len(m.trackers))
-	for _, t := range m.trackers {
-		trackers = append(trackers, t)
-	}
-	m.mu.Unlock()
-
-	out := make([]Status, 0, len(trackers))
-	for _, t := range trackers {
+	out := make([]Status, 0, len(m.trackers))
+	for k, t := range m.trackers {
 		t.mu.Lock()
-		out = append(out, Status{
-			Network:       t.labels.network,
-			Channel:       t.labels.channel,
-			Component:     t.labels.component,
-			Endpoint:      t.labels.endpoint,
-			State:         t.current,
-			EverConnected: t.everConnected,
-		})
+		s := Status{Network: k.network, Channel: k.channel, Component: k.component}
+		switch {
+		case t.current == Stopped:
+			s.Reason = ReasonStopped
+		case !t.everConnected:
+			s.Reason = ReasonNeverConnected
+		}
+		out = append(out, s)
 		t.mu.Unlock()
 	}
+	m.mu.Unlock()
 	slices.SortFunc(out, func(a, b Status) int {
 		return cmp.Or(cmp.Compare(a.Network, b.Network), cmp.Compare(a.Channel, b.Channel),
-			cmp.Compare(a.Component, b.Component), cmp.Compare(a.Endpoint, b.Endpoint))
+			cmp.Compare(a.Component, b.Component))
 	})
 	return out
 }
 
 // Tracker records the state of one connection.
 type Tracker struct {
-	labels        key
 	state         metrics.Gauge
 	reconnects    metrics.Counter
 	lastConnected metrics.Gauge

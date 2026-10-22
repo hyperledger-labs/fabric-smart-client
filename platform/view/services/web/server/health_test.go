@@ -25,6 +25,7 @@ func readyz(t *testing.T, m *connstate.Metrics) (int, []connstate.Status) {
 	rec := httptest.NewRecorder()
 	server.Readyz(m).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.NotContains(t, rec.Body.String(), "7051")
 	var body []connstate.Status
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	return rec.Code, body
@@ -37,8 +38,7 @@ func TestReadyz_NotReadyBeforeFirstConnect(t *testing.T) {
 
 	code, body := readyz(t, m)
 	assert.Equal(t, http.StatusServiceUnavailable, code)
-	require.Len(t, body, 1)
-	assert.Equal(t, "peer0:7051", body[0].Endpoint)
+	assert.Equal(t, []connstate.Status{{Network: "net", Channel: "ch", Component: connstate.ComponentDelivery, Reason: connstate.ReasonNeverConnected}}, body)
 }
 
 func TestReadyz_ReadyWhileReconnecting(t *testing.T) {
@@ -74,9 +74,18 @@ func TestReadyz_NotReadyWhenStopped(t *testing.T) {
 
 	code, body := readyz(t, m)
 	assert.Equal(t, http.StatusServiceUnavailable, code)
-	require.Len(t, body, 1)
-	assert.Equal(t, connstate.ComponentDelivery, body[0].Component)
-	assert.Equal(t, connstate.Stopped, body[0].State)
+	assert.Equal(t, []connstate.Status{{Network: "net", Channel: "ch", Component: connstate.ComponentDelivery, Reason: connstate.ReasonStopped}}, body)
+}
+
+func TestReadyz_OneEntryPerComponent(t *testing.T) {
+	t.Parallel()
+	m := connstate.NewMetrics(&disabled.Provider{})
+	m.Tracker("net", "ch", connstate.ComponentDelivery, "peer0:7051").Set(connstate.Stopped)
+	m.Tracker("net", "ch", connstate.ComponentDelivery, "peer1:7051").Set(connstate.Connecting)
+
+	code, body := readyz(t, m)
+	assert.Equal(t, http.StatusServiceUnavailable, code)
+	assert.Equal(t, []connstate.Status{{Network: "net", Channel: "ch", Component: connstate.ComponentDelivery, Reason: connstate.ReasonStopped}}, body)
 }
 
 func TestHealthz_IgnoresComponents(t *testing.T) {

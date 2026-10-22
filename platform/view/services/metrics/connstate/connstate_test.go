@@ -80,14 +80,16 @@ func TestNilMetrics_NoOpTracker(t *testing.T) {
 func TestSnapshot_ReportsEverConnected(t *testing.T) {
 	t.Parallel()
 	m, _, _, _ := newTestMetrics()
-	m.Tracker("net", "ch", ComponentDelivery, "peer1:7051").Set(Connecting)
+	m.Tracker("net", "ch", ComponentOrderer, "orderer:7050").Set(Connecting)
+	m.Tracker("net", "", ComponentOrderer, "orderer:7050").Set(Stopped)
 	tr := m.Tracker("net", "ch", ComponentDelivery, "peer0:7051")
 	tr.Set(Connected)
 	tr.Set(Reconnecting)
 
 	assert.Equal(t, []Status{
-		{Network: "net", Channel: "ch", Component: ComponentDelivery, Endpoint: "peer0:7051", State: Reconnecting, EverConnected: true},
-		{Network: "net", Channel: "ch", Component: ComponentDelivery, Endpoint: "peer1:7051", State: Connecting},
+		{Network: "net", Channel: "", Component: ComponentOrderer, Reason: ReasonStopped},
+		{Network: "net", Channel: "ch", Component: ComponentDelivery},
+		{Network: "net", Channel: "ch", Component: ComponentOrderer, Reason: ReasonNeverConnected},
 	}, m.Snapshot())
 	var nilMetrics *Metrics
 	assert.Nil(t, nilMetrics.Snapshot())
@@ -107,5 +109,5 @@ func TestSnapshot_ConcurrentSet(t *testing.T) {
 		m.Snapshot()
 	}
 	wg.Wait()
-	assert.True(t, m.Snapshot()[0].EverConnected)
+	assert.Empty(t, m.Snapshot()[0].Reason)
 }
