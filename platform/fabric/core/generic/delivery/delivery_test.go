@@ -1026,6 +1026,8 @@ func TestRunReceiver_BackoffRestartsAfterBlock(t *testing.T) {
 	}}}
 	svcs.failures.Store(2)
 	d, _ := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+	// A threshold no stream here reaches, so only blocks decide progress.
+	d.channelConfig = &slowChannelConfig{}
 
 	// calls[i] counts the delays drawn from the i-th backoff. The first backoff
 	// waits not at all, the second parks the receiver for good.
@@ -1131,6 +1133,8 @@ func TestRunReceiver_WaitReportsReconnecting(t *testing.T) {
 		stream: &mockDeliverStream{recvChan: recvChan, recvErrChan: recvErrChan},
 	}}}
 	d, rec := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+	// A threshold no stream here reaches, so every break waits.
+	d.channelConfig = &slowChannelConfig{}
 	// The first wait ends at once, the second parks the receiver.
 	waited := make(chan struct{})
 	d.newBackoff = func() func() time.Duration {

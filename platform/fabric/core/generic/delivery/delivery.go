@@ -108,7 +108,9 @@ type Delivery struct {
 	connEndpoint string
 	// connWaiting is set while the receiver waits to reconnect, which conn
 	// already reports as reconnecting, so that the attempt ending the wait does
-	// not report, and count, the same reconnect again.
+	// not report, and count, the same reconnect again. An attempt that lands on
+	// another peer reports that peer reconnecting too, so each endpoint's
+	// series shows the reconnect.
 	connWaiting bool
 	// connDone is set once the final state has been reported, so that the
 	// receiver, which can outlive Stop while blocked in Recv, cannot overwrite it.
@@ -339,8 +341,8 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 // delay of an exponential backoff with full jitter, starting at
 // DeliverySleepAfterFailure and capped at maxReconnectDelay, so a peer that
 // keeps failing or rejecting the stream is neither retried in a hot loop nor
-// by every node at the same moment. The connection state reads reconnecting
-// for the whole wait. Stop and ctx cancellation end the wait immediately.
+// by every node at the same moment. Once a peer has been picked, the connection
+// state reads reconnecting for the whole wait. Stop and ctx cancellation end the wait immediately.
 func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	if ctx == nil || ch == nil {
 		return
