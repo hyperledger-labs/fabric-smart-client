@@ -752,7 +752,11 @@ fabric:
         # gRPC client keepalive.
         delivery:
           bufferSize: 1 # received blocks buffered ahead of processing (default: 1)
-          sleepAfterFailure: 10s # wait before reconnecting after a failed connect, a NOT_FOUND status or a malformed block (default: 10s)
+          # Initial reconnect delay (default: 10s). A stream that delivered a new block
+          # or stayed open this long is reopened at once. Any other reconnect waits a
+          # random delay below this value, doubling the bound on each further failure
+          # up to 1m.
+          sleepAfterFailure: 10s
         # section about the discovery service  
         discovery:
           timeout: 10s

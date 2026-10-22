@@ -19,6 +19,7 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -30,6 +31,10 @@ import (
 )
 
 var logger = logging.MustGetLogger()
+
+// maxReconnectDelay caps the wait between reconnects to a peer that keeps
+// failing, so a recovered peer is picked up again within this bound.
+const maxReconnectDelay = time.Minute
 
 // StartGenesis seeks the oldest block available on the ordering service, i.e.
 // the genesis block. It is the fallback start position whenever the last
@@ -90,14 +95,23 @@ type Delivery struct {
 	lastBlockReceived uint64
 	bufferSize        int
 	connMetrics       *connstate.Metrics
+	// newBackoff, if set, replaces reconnectBackoff; tests use it to observe
+	// the delays runReceiver draws.
+	newBackoff func() func() time.Duration
 
-	// connMu guards conn, connEndpoint and connDone.
+	// connMu guards conn, connEndpoint, connWaiting and connDone.
 	connMu sync.Mutex
 	// conn tracks the peer the stream is currently attached to; nil until the
 	// first peer is picked.
 	conn *connstate.Tracker
 	// connEndpoint is the address conn tracks.
 	connEndpoint string
+	// connWaiting is set while the receiver waits to reconnect, which conn
+	// already reports as reconnecting, so that the attempt ending the wait does
+	// not report, and count, the same reconnect again. An attempt that lands on
+	// another peer reports that peer reconnecting too, so each endpoint's
+	// series shows the reconnect.
+	connWaiting bool
 	// connDone is set once the final state has been reported, so that the
 	// receiver, which can outlive Stop while blocked in Recv, cannot overwrite it.
 	connDone bool
@@ -208,6 +222,11 @@ func (d *Delivery) connAttempt(endpoint string) {
 	if d.connDone {
 		return
 	}
+	waiting := d.connWaiting
+	d.connWaiting = false
+	if waiting && endpoint == d.connEndpoint {
+		return
+	}
 	s := connstate.Reconnecting
 	if d.conn == nil {
 		s = connstate.Connecting
@@ -218,6 +237,19 @@ func (d *Delivery) connAttempt(endpoint string) {
 		d.connEndpoint = endpoint
 	}
 	d.conn.Set(s)
+}
+
+// connWait reports the stream to the current peer reconnecting while the
+// receiver waits before the next attempt, unless the service has stopped or no
+// peer has been picked yet.
+func (d *Delivery) connWait() {
+	d.connMu.Lock()
+	defer d.connMu.Unlock()
+	if d.connDone || d.conn == nil {
+		return
+	}
+	d.connWaiting = true
+	d.conn.Set(connstate.Reconnecting)
 }
 
 // connEstablished reports the stream to the current peer connected, unless the
@@ -300,6 +332,17 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 // connection that yields no error must be detected by the gRPC client
 // keepalive. The new stream starts at the last block received, which is
 // therefore delivered again (see GetStartPosition).
+//
+// A stream that made progress is reopened at once and restarts the backoff.
+// Progress is either a block newer than any received before (the block each new
+// stream starts with is usually a re-delivery and does not count) or a stream
+// that stayed open for at least DeliverySleepAfterFailure, which covers a
+// healthy stream on a quiet channel. Every other reconnect waits for the next
+// delay of an exponential backoff with full jitter, starting at
+// DeliverySleepAfterFailure and capped at maxReconnectDelay, so a peer that
+// keeps failing or rejecting the stream is neither retried in a hot loop nor
+// by every node at the same moment. Once a peer has been picked, the connection
+// state reads reconnecting for the whole wait. Stop and ctx cancellation end the wait immediately.
 func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	if ctx == nil || ch == nil {
 		return
@@ -307,7 +350,15 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	var df DeliverStream
 	var dfCancel context.CancelFunc
 	var err error
-	waitTime := d.channelConfig.DeliverySleepAfterFailure()
+	// stalled is set when a connection attempt starts and cleared when the
+	// stream makes progress, so a reconnect waits only after an attempt that
+	// made none.
+	stalled := false
+	// opened is when the current stream was established; zero if the last
+	// connection attempt failed.
+	var opened time.Time
+	// nextDelay is the current backoff, created on the first wait after progress.
+	var nextDelay func() time.Duration
 	counter := 0
 	for {
 		select {
@@ -325,15 +376,31 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			// Cancellation is how the node shuts down, so it is not a failure.
 			d.stopWith(errors.New("context done"), connstate.Disconnected)
 		default:
+			if df == nil && stalled && !opened.IsZero() && time.Since(opened) >= d.channelConfig.DeliverySleepAfterFailure() {
+				stalled, nextDelay = false, nil
+			}
+			if df == nil && stalled {
+				d.connWait()
+				if nextDelay == nil {
+					nextDelay = d.reconnectBackoff()
+				}
+				delay := nextDelay()
+				logger.Debugf("reconnecting to delivery service [%s:%s] in %v", d.NetworkName, d.channel, delay)
+				if !d.sleep(ctx, delay) {
+					continue
+				}
+			}
 			deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
 			if df == nil {
 				logger.Debugf("deliver service [%s:%s], connecting...", d.NetworkName, d.channel)
 				span.AddEvent("connect")
+				stalled, opened = true, time.Time{}
 				df, dfCancel, err = d.connect(ctx)
+				if err == nil {
+					opened = time.Now()
+				}
 				if err != nil {
-					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait %.1fs before reconnecting", d.NetworkName, d.channel, err, waitTime.Seconds())
-					time.Sleep(waitTime)
-					logger.Debugf("reconnecting to delivery service [%s:%s]", d.NetworkName, d.channel)
+					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]", d.NetworkName, d.channel, err)
 					span.RecordError(err)
 					span.End()
 					continue
@@ -361,13 +428,17 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			switch r := resp.Type.(type) {
 			case *pb.DeliverResponse_Block:
 				span.SetAttributes(tracing.String(messageTypeLabel, block))
-				if !d.handleBlockResponse(deliveryCtx, span, r, ch, waitTime) { //nolint:contextcheck // deliveryCtx is a fresh root span per block-delivery attempt (context.Background(), see above), by design: block traces are independent per-attempt spans, not children of one span spanning the receiver's whole reconnect-loop lifetime
+				prev := d.lastBlockReceived
+				if !d.handleBlockResponse(deliveryCtx, span, r, ch) { //nolint:contextcheck // deliveryCtx is a fresh root span per block-delivery attempt (context.Background(), see above), by design: block traces are independent per-attempt spans, not children of one span spanning the receiver's whole reconnect-loop lifetime
 					if dfCancel != nil {
 						dfCancel()
 					}
 					df = nil
 					span.End()
 					continue
+				}
+				if r.Block.Header.Number > prev {
+					stalled, nextDelay = false, nil
 				}
 			case *pb.DeliverResponse_Status:
 				span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
@@ -377,8 +448,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 					if dfCancel != nil {
 						dfCancel()
 					}
-					logger.Warnf("delivery service [%s:%s:%s] status [%s], wait a few seconds before retrying", d.client.Address(), d.NetworkName, d.channel, r.Status)
-					time.Sleep(waitTime)
+					logger.Warnf("delivery service [%s:%s:%s] status [%s], reconnecting", d.client.Address(), d.NetworkName, d.channel, r.Status)
 				} else {
 					logger.Warnf("delivery service [%s:%s:%s] status [%s]", d.client.Address(), d.NetworkName, d.channel, r.Status)
 				}
@@ -400,11 +470,10 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 // while the push is pending (in either case the caller must tear down the
 // current stream, and, on its next loop iteration, either retry or exit), or
 // true if the block was handed off.
-func (d *Delivery) handleBlockResponse(ctx context.Context, span trace.Span, r *pb.DeliverResponse_Block, ch chan<- blockResponse, waitTime time.Duration) bool {
+func (d *Delivery) handleBlockResponse(ctx context.Context, span trace.Span, r *pb.DeliverResponse_Block, ch chan<- blockResponse) bool {
 	if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
 		logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
 		span.RecordError(errors.New("nil block"))
-		time.Sleep(waitTime)
 		return false
 	}
 
@@ -425,6 +494,29 @@ func (d *Delivery) handleBlockResponse(ctx context.Context, span trace.Span, r *
 		logger.Debugf("stopped while pushing block [%d] to channel", r.Block.Header.Number)
 		return false
 	}
+}
+
+// reconnectBackoff returns a fresh backoff whose successive calls yield the
+// waits between reconnects.
+func (d *Delivery) reconnectBackoff() func() time.Duration {
+	if d.newBackoff != nil {
+		return d.newBackoff()
+	}
+	return utils.NewBackoffRetryRunner(utils.Infinitely, d.channelConfig.DeliverySleepAfterFailure(), maxReconnectDelay).NextDelay
+}
+
+// sleep waits for delay and reports whether it elapsed. It returns false as
+// soon as the service stops or ctx ends.
+func (d *Delivery) sleep(ctx context.Context, delay time.Duration) bool {
+	t := time.NewTimer(delay)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return true
+	case <-d.stop:
+	case <-ctx.Done():
+	}
+	return false
 }
 
 // untilStop blocks until the service is stopped and returns the error that
