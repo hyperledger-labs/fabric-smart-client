@@ -526,9 +526,12 @@ The View Service uses structured logging:
 | Service Provider | `platform/view/services/view/sp.go` |
 | P2P Service | `platform/view/services/view/p2p/service.go` |
 | Error Definitions | `platform/view/services/view/errors.go` |
+| Remote view service (gRPC) | `platform/view/services/view/grpc/server/` |
+| Remote view service (HTTP binding) | `platform/view/services/view/web/` |
 
 ## Related Documentation
 
+- [View Service over HTTP](./view-service-http.md) - The view service's HTTP binding
 - [Communication Service](./comm/readme.md) - P2P communication layer
 - [View SDK](../view-sdk.md) - High-level view development guide
 - [Configuration Guide](../../../configuration.md) - FSC configuration reference

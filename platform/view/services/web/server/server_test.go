@@ -27,7 +27,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/mock"
 )
 
 var tlsCA tlsgen.CA
@@ -132,39 +131,6 @@ var _ = Describe("Server", func() {
 		}
 	})
 
-	When("the HttpHandler is mounted on the srv", func() {
-		It("succeeds in servicing", func() {
-			handler := server.NewHttpHandler()
-			srv.RegisterHandler("/", handler, true)
-			err := srv.Start()
-			Expect(err).NotTo(HaveOccurred())
-
-			rh := &mock.RequestHandler{}
-
-			rh.HandleRequestStub = func(_ *server.ReqContext) (any, int) {
-				m := make(map[string]any)
-				m["status"] = "OK"
-				return m, 200
-			}
-
-			rh.ParsePayloadStub = func(payload []byte) (any, error) {
-				return string(payload), nil
-			}
-
-			handler.RegisterURI("/service", "GET", rh)
-
-			url := fmt.Sprintf("https://%s%s", srv.Addr(), "/v1/service")
-			resp, err := client.Get(url)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
-			buff, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.Trim(string(buff), "\n")).To(Equal(`{"status":"OK"}`))
-			_ = resp.Body.Close()
-		})
-	})
-
 	When("a client connects without mutual TLS", func() {
 		BeforeEach(func() {
 			client = newHTTPClient(tempDir, false)
@@ -209,15 +175,14 @@ var _ = Describe("Server", func() {
 		})
 
 		It("starts successfully and accepts connections without client certificates", func() {
-			handler := server.NewHttpHandler()
-			srv.RegisterHandler("/", handler, false)
+			srv.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "open"}, false)
 			err := srv.Start()
 			Expect(err).NotTo(HaveOccurred())
 
 			url := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
 			resp, err := client.Get(url)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusNotFound)) // No handler registered for someURL
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			_ = resp.Body.Close()
 		})
 	})

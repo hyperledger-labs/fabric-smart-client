@@ -7,14 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/tls"
+	"crypto/sha256"
 	"io"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -37,75 +37,50 @@ type SigningIdentity interface {
 	Sign(msg []byte) ([]byte, error)
 }
 
-// ViewServiceClient defines an interface that creates a client to communicate with the view service in a peer.
-type ViewServiceClient interface {
-	// CreateViewClient creates a grpc connection and client to view peer
-	CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error)
-
-	// Certificate returns tls client certificate
-	Certificate() *tls.Certificate
+// Client calls views on a node through its view service. It signs every command with
+// SigningIdentity and accepts a response only if it answers the command sent.
+type Client struct {
+	Transport        Transport
+	RandomnessReader io.Reader
+	Time             TimeFunc
+	SigningIdentity  SigningIdentity
+	tracer           trace.Tracer
 }
 
-// ViewServiceClientImpl implements ViewServiceClient interface
-type ViewServiceClientImpl struct {
-	Address    string
-	GRPCClient *grpc2.Client
-}
-
-func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error) {
-	logger.Debugf("opening connection to [%s]", pc.Address)
-	conn, err := pc.GRPCClient.NewConnection(pc.Address)
-	if err != nil {
-		logger.Errorf("failed creating connection to [%s]: [%s]", pc.Address, err)
-		return conn, nil, errors.Wrapf(err, "failed creating connection to [%s]", pc.Address)
-	}
-	logger.Debugf("opening connection to [%s], done.", pc.Address)
-
-	return conn, protos2.NewViewServiceClient(conn), nil
-}
-
-func (pc *ViewServiceClientImpl) Certificate() *tls.Certificate {
-	cert := pc.GRPCClient.Certificate()
-	return &cert
-}
-
-// client implements network.Client interface
-type client struct {
-	Address           string
-	ViewServiceClient ViewServiceClient
-	RandomnessReader  io.Reader
-	Time              TimeFunc
-	SigningIdentity   SigningIdentity
-	tracer            trace.Tracer
-}
-
-// NewClient returns a new instance of the view service client. It returns an
-// error if config or config.ConnectionConfig is nil, or if the underlying
-// gRPC connection cannot be created.
-func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provider) (*client, error) {
+// NewClient returns a view client for the node described by config. config.Transport
+// selects how the client reaches the node (see [TransportType]; empty means TransportGRPC).
+// It returns an error if config or config.ConnectionConfig is nil, if the transport is
+// unknown, or if the transport cannot be configured.
+func NewClient(config *Config, signer SigningIdentity, tracerProvider tracing.Provider) (*Client, error) {
 	if config == nil {
 		return nil, errors.New("missing client config")
 	}
 	if config.ConnectionConfig == nil {
 		return nil, errors.New("missing fsc peer connection config")
 	}
-
-	// create a grpc client for view peer
-	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
-	if err != nil {
-		return nil, err
+	var transport Transport
+	switch config.Transport {
+	case "", TransportGRPC:
+		grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
+		if err != nil {
+			return nil, err
+		}
+		transport = &grpcTransport{address: config.ConnectionConfig.Address, client: grpcClient}
+	case TransportHTTP:
+		t, err := newHTTPTransport(config.ConnectionConfig)
+		if err != nil {
+			return nil, err
+		}
+		transport = t
+	default:
+		return nil, errors.Errorf("unknown view client transport [%s]", config.Transport)
 	}
-
-	return &client{
-		Address:          config.ConnectionConfig.Address,
+	return &Client{
+		Transport:        transport,
 		RandomnessReader: rand.Reader,
 		Time:             time.Now,
-		ViewServiceClient: &ViewServiceClientImpl{
-			Address:    config.ConnectionConfig.Address,
-			GRPCClient: grpcClient,
-		},
-		SigningIdentity: sID,
-		tracer:          tracerProvider.Tracer("client", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
+		SigningIdentity:  signer,
+		tracer:           tracerProvider.Tracer("client", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
 	}, nil
 }
 
@@ -114,10 +89,10 @@ func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provi
 // The client sends the call once and never retries it, because views are not
 // idempotent. If the client cannot connect to the node, the call fails before
 // the request is sent and the view does not run. If the call fails after the
-// request is sent, for example with codes.Unavailable or codes.DeadlineExceeded,
+// request is sent, for example when the connection drops or a deadline expires,
 // the view may have run fully or partially, and the caller decides whether
 // running it again is safe.
-func (s *client) CallView(fid string, input []byte) (any, error) {
+func (s *Client) CallView(fid string, input []byte) (any, error) {
 	return s.CallViewWithContext(context.Background(), fid, input)
 }
 
@@ -126,10 +101,10 @@ func (s *client) CallView(fid string, input []byte) (any, error) {
 // The client sends the call once and never retries it, because views are not
 // idempotent. If the client cannot connect to the node, the call fails before
 // the request is sent and the view does not run. If the call fails after the
-// request is sent, for example with codes.Unavailable or codes.DeadlineExceeded,
+// request is sent, for example when the connection drops or a deadline expires,
 // the view may have run fully or partially, and the caller decides whether
 // running it again is safe.
-func (s *client) CallViewWithContext(ctx context.Context, fid string, input []byte) (any, error) {
+func (s *Client) CallViewWithContext(ctx context.Context, fid string, input []byte) (any, error) {
 	logger.Debugf("Calling view [%s] on input [%s]", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
 		Fid:   fid,
@@ -140,7 +115,7 @@ func (s *client) CallViewWithContext(ctx context.Context, fid string, input []by
 		return nil, errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(input))
 	}
 
-	ctx, span := s.tracer.Start(ctx, "GrpcViewInvocation", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	ctx, span := s.tracer.Start(ctx, "ViewInvocation", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 	commandResp, err := s.processCommand(ctx, sc)
 	if err != nil {
@@ -158,10 +133,10 @@ func (s *client) CallViewWithContext(ctx context.Context, fid string, input []by
 // The client sends the call once and never retries it, because views are not
 // idempotent. If the client cannot connect to the node, the call fails before
 // the request is sent and the view does not run. If the call fails after the
-// request is sent, for example with codes.Unavailable or codes.DeadlineExceeded,
+// request is sent, for example when the connection drops or a deadline expires,
 // the view may have run fully or partially, and the caller decides whether
 // running it again is safe.
-func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
+func (s *Client) StreamCallView(fid string, input []byte) (*Stream, error) {
 	logger.Debugf("Streaming view call [%s] on input [%s]", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
 		Fid:   fid,
@@ -172,78 +147,69 @@ func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 		return nil, errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(input))
 	}
 
-	conn, scc, err := s.streamCommand(context.Background(), sc)
+	closer, scc, err := s.streamCommand(context.Background(), sc)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed stream command for [%s,%s]", fid, string(input))
 	}
 
-	return &Stream{conn: conn, scc: scc}, nil
+	return &Stream{scc: scc, closer: closer, sc: sc}, nil
 }
 
-// processCommand calls view client to send grpc request and returns a CommandResponse
-func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
-	logger.Debugf("get view service client...")
-	conn, client, err := s.ViewServiceClient.CreateViewClient()
-	logger.Debugf("get view service client...done")
-	if conn != nil {
-		logger.Debugf("get view service client...got a connection")
-		defer func() { _ = conn.Close() }()
-	}
+// processCommand sends sc and returns the decoded response, which must answer sc.
+func (s *Client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
+	svc, closer, err := s.Transport.Open()
 	if err != nil {
-		logger.Errorf("failed creating view client [%s]", err)
 		return nil, errors.Wrap(err, "failed creating view client")
 	}
+	defer func() { _ = closer.Close() }()
 
 	logger.Debugf("process command [%s]", logging.SHA256Base64(sc.Command))
-	scr, err := client.ProcessCommand(ctx, sc)
+	scr, err := svc.ProcessCommand(ctx, sc)
 	if err != nil {
-		logger.Errorf("failed view client process command [%s]", err)
 		return nil, errors.Wrap(err, "failed view client process command")
 	}
+	return decodeResponse(sc, scr)
+}
 
-	logger.Debugf("parse answer [%s]", logging.SHA256Base64(scr.Response))
+// decodeResponse decodes scr, checks that it answers sc, and turns an err response into an
+// error wrapping view.ErrViewExecutionFailed. The response signature is not verified: TLS
+// authenticates the node.
+func decodeResponse(sc *protos2.SignedCommand, scr *protos2.SignedCommandResponse) (*protos2.CommandResponse, error) {
 	commandResp := &protos2.CommandResponse{}
-	err = proto.Unmarshal(scr.Response, commandResp)
-	if err != nil {
-		logger.Errorf("failed to unmarshal command response [%s]", err)
+	if err := proto.Unmarshal(scr.Response, commandResp); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal command response")
 	}
+	want := sha256.Sum256(sc.Command)
+	if !bytes.Equal(commandResp.GetHeader().GetCommandHash(), want[:]) {
+		return nil, errors.New("response does not answer the command sent")
+	}
 	if commandResp.GetErr() != nil {
-		logger.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "error from view during process command: %s", commandResp.GetErr().GetMessage())
 	}
-
-	logger.Debugf("process command [%s] done", logging.SHA256Base64(sc.Command))
 	return commandResp, nil
 }
 
-// streamCommand calls view client to send grpc request and returns a CommandResponse
-func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (*grpc.ClientConn, protos2.ViewService_StreamCommandClient, error) {
-	logger.Debugf("get view service client...")
-	conn, client, err := s.ViewServiceClient.CreateViewClient()
-	logger.Debugf("get view service client...done")
-	if conn != nil {
-		logger.Debugf("get view service client...got a connection")
-	}
+// streamCommand opens a stream and sends sc on it. The returned closer releases the
+// transport once the stream is done.
+func (s *Client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (io.Closer, protos2.ViewService_StreamCommandClient, error) {
+	svc, closer, err := s.Transport.Open()
 	if err != nil {
-		logger.Errorf("failed creating view client [%s]", err)
 		return nil, nil, errors.Wrap(err, "failed creating view client")
 	}
-
-	logger.Debugf("stream command [%s]", logging.SHA256Base64(sc.Command))
-	streamCommandClient, err := client.StreamCommand(ctx)
+	scc, err := svc.StreamCommand(ctx)
 	if err != nil {
-		logger.Errorf("failed view client stream command [%s]", err)
+		_ = closer.Close()
 		return nil, nil, errors.Wrap(err, "failed view client stream command")
 	}
-	if err := streamCommandClient.Send(sc); err != nil {
+	if err := scc.Send(sc); err != nil {
+		_ = scc.CloseSend()
+		_ = closer.Close()
 		return nil, nil, errors.Wrapf(err, "failed to send signed command")
 	}
-
-	return conn, streamCommandClient, nil
+	return closer, scc, nil
 }
 
-func (s *client) CreateSignedCommand(payload any, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
+func (s *Client) CreateSignedCommand(payload any, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
 	command, err := commandFromPayload(payload)
 	if err != nil {
 		return nil, err
@@ -266,7 +232,7 @@ func (s *client) CreateSignedCommand(payload any, signingIdentity SigningIdentit
 	}
 
 	// check for client certificate and compute SHA2-256 on certificate if present
-	tlsCertHash, err := grpc2.GetTLSCertHash(s.ViewServiceClient.Certificate())
+	tlsCertHash, err := grpc2.GetTLSCertHash(s.Transport.Certificate())
 	if err != nil {
 		return nil, err
 	}

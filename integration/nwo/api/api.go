@@ -14,8 +14,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
+	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
 type (
@@ -76,7 +75,7 @@ type Context interface {
 	SetViewIdentity(name string, cert []byte)
 	ConnectionConfig(name string) *grpc.ConnectionConfig
 	ClientSigningIdentity(name string) client2.SigningIdentity
-	SetViewClient(name string, c GRPCClient)
+	SetViewClient(name string, c RemoteViewClient)
 	SetWebClient(name string, c WebClient)
 	SetCLI(name string, client ViewClient)
 	GetViewIdentityAliases(name string) []string
@@ -93,15 +92,17 @@ type ViewClient interface {
 	CallView(fid string, in []byte) (any, error)
 }
 
-type GRPCClient interface {
+// RemoteViewClient calls a node's views through its view service, over gRPC or HTTP.
+type RemoteViewClient interface {
 	ViewClient
 	StreamCallView(fid string, input []byte) (*client2.Stream, error)
 }
 
+// WebClient calls a node's views through the view service's HTTP binding and reads the
+// node's metrics from its operations endpoint.
 type WebClient interface {
-	ViewClient
+	RemoteViewClient
 	Metrics() (map[string]*dto.MetricFamily, error)
-	StreamCallView(fid string, input []byte) (*client.WSStream, error)
 }
 
 type Platform interface {

@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
@@ -24,8 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
-	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
+	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -67,21 +67,20 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator.0")
-			Expect(err).NotTo(HaveOccurred())
-			initiatorWebClient, err := client2.NewClient(webClientConfig)
-			Expect(err).NotTo(HaveOccurred())
+			initiatorWebClient := newWebClient("./testdata/fsc/nodes/initiator.0")
 			res, err := initiatorWebClient.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 5}))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
-			// A client presenting no certificate must be rejected.
-			webClientConfig.TLSCertRaw, webClientConfig.TLSKeyRaw = nil, nil
-			initiatorWebClient, err = client2.NewClient(webClientConfig)
+			// A command signed by an identity the initiator does not authorize is rejected:
+			// the responder's identity is a valid certificate of the same organization, but
+			// neither the initiator's own nor on its fsc.client.certs.
+			crypto := "./testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/"
+			stranger, err := client3.NewX509SigningIdentity(crypto+"signcerts/responder.fsc.example.com-cert.pem", crypto+"keystore/priv_sk")
 			Expect(err).NotTo(HaveOccurred())
+			initiatorWebClient.SigningIdentity = stranger
 			_, err = initiatorWebClient.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 5}))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("status code [401], status [401 Unauthorized]"))
+			Expect(err).To(MatchError(ContainSubstring("not recognized")))
 		})
 
 		It("successful pingpong based on WebSocket", func() {
@@ -272,7 +271,7 @@ func (s *TestSuite) TestStreamWebsocket(clients ...string) {
 		// server (topology.WebEnabled), not Prometheus metrics, so there is no
 		// /metrics route to probe. An attempt that errors yields no usable
 		// stream, so retrying is safe.
-		var channel *client2.WSStream
+		var channel *client3.Stream
 		Eventually(func() error {
 			var err error
 			channel, err = initiator.StreamCallView("stream", nil)
@@ -314,12 +313,12 @@ func (s *TestSuite) TestMockPingPong() {
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }
 
-func newWebClient(confDir string) *client2.Client {
-	c, err := client.NewWebClientConfigFromFSC(confDir)
+// newWebClient returns a view client that reaches the node in confDir over HTTP, signed as
+// the node itself.
+func newWebClient(confDir string) *client3.Client {
+	c, err := client.NewHTTPViewClient(confDir, noop.NewTracerProvider())
 	Expect(err).NotTo(HaveOccurred())
-	initiator, err := client2.NewClient(c)
-	Expect(err).NotTo(HaveOccurred())
-	return initiator
+	return c
 }
 
 func GetFSCReplicaNames(nodeName string, replicationFactor int) []string {

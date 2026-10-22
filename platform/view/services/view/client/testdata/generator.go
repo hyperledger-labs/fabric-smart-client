@@ -12,7 +12,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
 func main() {

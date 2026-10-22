@@ -24,6 +24,8 @@ type MSPInfo struct {
 type Config struct {
 	ID               string
 	ConnectionConfig *grpc.ConnectionConfig
+	// Transport selects how the client reaches the node; empty means TransportGRPC.
+	Transport TransportType `json:",omitempty"`
 }
 
 // ToJSon returns the JSON representation of the config.
@@ -64,8 +66,7 @@ func ValidateClientConfig(config Config) error {
 		return errors.New("missing fsc peer address")
 	}
 	// A TLS-enabled connection with no trust anchor could never verify the server. The
-	// anchors are already loaded by this point, so this checks the resolved pool rather than
-	// the two config keys it used to come from.
+	// anchors are already loaded by this point, so this checks the resolved pool.
 	if config.ConnectionConfig.TLS.UseTLS && len(config.ConnectionConfig.TLS.ServerRootCAs) == 0 {
 		return errors.New("missing fsc peer TLS root certificates")
 	}

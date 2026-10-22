@@ -8,18 +8,18 @@ package client
 
 import (
 	"encoding/json"
-
-	"google.golang.org/grpc"
+	"io"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
 // Stream models a communication stream between a client and a view.
 type Stream struct {
-	scc  protos.ViewService_StreamCommandClient
-	conn *grpc.ClientConn
+	scc    protos.ViewService_StreamCommandClient
+	closer io.Closer
+	// sc is the command the stream was opened with; the final response must answer it.
+	sc *protos.SignedCommand
 }
 
 // Send sends the given message to the stream.
@@ -53,21 +53,20 @@ func (c *Stream) RecvProtoMsg(m any) error {
 	return c.scc.RecvMsg(m)
 }
 
-// Result returns the result produced by the view.
+// Result receives the view's final response, checks that it answers the command the stream
+// was opened with, and releases the stream.
 func (c *Stream) Result() ([]byte, error) {
-	defer func() { _ = c.conn.Close() }()
+	defer func() {
+		_ = c.scc.CloseSend()
+		_ = c.closer.Close()
+	}()
 	scr, err := c.scc.Recv()
 	if err != nil {
 		return nil, err
 	}
-
-	commandResp := &protos.CommandResponse{}
-	err = proto.Unmarshal(scr.Response, commandResp)
+	commandResp, err := decodeResponse(c.sc, scr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal command response")
-	}
-	if commandResp.GetErr() != nil {
-		return nil, errors.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
+		return nil, err
 	}
 	cvr := commandResp.GetCallViewResponse()
 	if cvr == nil {

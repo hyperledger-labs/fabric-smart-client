@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -298,7 +298,7 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 	return grpcSrv.Address()
 }
 
-// setupClient create a grpc client using the grpc client impl in `platform/view/services/view/grpc/client`
+// setupClient create a grpc client using the grpc client impl in `platform/view/services/view/client`
 func setupClient(tb testing.TB, srvEndpoint string, opts ...ClientOption) (*benchmark.ViewClient, func()) {
 	tb.Helper()
 
