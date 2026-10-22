@@ -122,7 +122,7 @@ jobs:
       - name: Set up Fabric-x
         if: startsWith(matrix.tests, 'fabricx-')
         run: |
-          make -j4 install-fabricx-tools pull-images-fabricx
+          make -j4 install-fabricx-tools pull-images-fabricx pull-images-database
 
       - name: Set up Softhsm
         # we only need this for a subset of integration tests
