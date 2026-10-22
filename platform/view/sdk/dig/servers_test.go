@@ -286,41 +286,13 @@ fsc:
 		require.ErrorContains(t, err, "failed resolving fsc.web.tls")
 	})
 
-	t.Run("enabled with default viewTimeout succeeds", func(t *testing.T) {
+	t.Run("enabled succeeds", func(t *testing.T) {
 		t.Parallel()
 		p := providerFrom(t, `
 fsc:
   web:
     enabled: true
     address: 127.0.0.1:0
-`)
-		ws, err := NewWebServer(p, vm, ip, tp.Default, nil)
-		require.NoError(t, err)
-		require.NotNil(t, ws)
-	})
-
-	t.Run("enabled with custom viewTimeout succeeds", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, `
-fsc:
-  web:
-    enabled: true
-    address: 127.0.0.1:0
-    viewTimeout: 10s
-`)
-		ws, err := NewWebServer(p, vm, ip, tp.Default, nil)
-		require.NoError(t, err)
-		require.NotNil(t, ws)
-	})
-
-	t.Run("enabled with non-positive viewTimeout falls back to default", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, `
-fsc:
-  web:
-    enabled: true
-    address: 127.0.0.1:0
-    viewTimeout: 0s
 `)
 		ws, err := NewWebServer(p, vm, ip, tp.Default, nil)
 		require.NoError(t, err)
@@ -353,6 +325,22 @@ fsc:
 			require.Equal(t, want, resp.StatusCode, path)
 		}
 	})
+}
+
+func TestRemoteViewTimeout(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, DefaultRemoteViewTimeout, RemoteViewTimeout(providerFrom(t, "")))
+	require.Equal(t, 10*time.Second, RemoteViewTimeout(providerFrom(t, "fsc:\n  view:\n    remote:\n      timeout: 10s\n")))
+	require.Equal(t, DefaultRemoteViewTimeout, RemoteViewTimeout(providerFrom(t, "fsc:\n  view:\n    remote:\n      timeout: 0s\n")))
+}
+
+// SDK.Install runs CheckTLSConfig before constructing any server, so a removed key stops the
+// node with nothing listening; validate runs the same check.
+func TestCheckTLSConfigRejectsRemovedViewTimeout(t *testing.T) {
+	t.Parallel()
+	err := CheckTLSConfig(providerFrom(t, "fsc:\n  web:\n    enabled: true\n    address: 127.0.0.1:0\n    viewTimeout: 10s\n"))
+	require.ErrorContains(t, err, "fsc.web.viewtimeout")
+	require.ErrorContains(t, err, "fsc.view.remote.timeout")
 }
 
 func TestNewOperationsOptionsAndLogger(t *testing.T) {
@@ -648,9 +636,9 @@ func TestNewViewServiceServer(t *testing.T) {
 	tp, err := newTracerProvider(&disabled.Provider{}, providerFrom(t, ""))
 	require.NoError(t, err)
 
-	t.Run("with nil grpcServer", func(t *testing.T) {
+	t.Run("with the default time window", func(t *testing.T) {
 		t.Parallel()
-		srv, err := NewViewServiceServer(providerFrom(t, ""), nil, nil, nil, tp.Default, nil)
+		srv, err := NewViewServiceServer(providerFrom(t, ""), nil, nil, nil, tp.Default)
 		require.NoError(t, err)
 		require.NotNil(t, srv)
 	})
@@ -658,44 +646,15 @@ func TestNewViewServiceServer(t *testing.T) {
 	t.Run("with a non-positive time window", func(t *testing.T) {
 		t.Parallel()
 		p := providerFrom(t, "fsc:\n  grpc:\n    authentication:\n      timeWindow: 0s\n")
-		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default, nil)
+		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default)
 		require.ErrorContains(t, err, "command time window must be positive")
 	})
 
 	t.Run("with a time window that is not a duration", func(t *testing.T) {
 		t.Parallel()
 		p := providerFrom(t, "fsc:\n  grpc:\n    authentication:\n      timeWindow: 15\n")
-		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default, nil)
+		_, err := NewViewServiceServer(p, nil, nil, nil, tp.Default)
 		require.ErrorContains(t, err, "invalid [fsc.grpc.authentication.timeWindow] value [15]")
-	})
-
-	t.Run("with non-nil grpcServer", func(t *testing.T) {
-		t.Parallel()
-		p := providerFrom(t, `
-fsc:
-  tls:
-    enabled: true
-    cert:
-      file: server.crt
-    key:
-      file: server.key
-  grpc:
-    enabled: true
-    address: 127.0.0.1:0
-    tls:
-      clientAuthRequired: true
-      clientRootCAs:
-        files:
-          - ca.crt
-`)
-		grpcServer, err := NewGRPCServer(p)
-		require.NoError(t, err)
-		require.NotNil(t, grpcServer)
-		defer grpcServer.Stop()
-
-		srv, err := NewViewServiceServer(p, nil, nil, nil, tp.Default, grpcServer)
-		require.NoError(t, err)
-		require.NotNil(t, srv)
 	})
 }
 

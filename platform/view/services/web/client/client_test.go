@@ -396,18 +396,6 @@ func TestCallViewWithContext_Cancelled_Context_Returns_Error(t *testing.T) {
 	require.Nil(t, result)
 }
 
-func TestInitiate_Returns_Not_Supported_Error(t *testing.T) {
-	t.Parallel()
-
-	client := &Client{}
-
-	contextID, err := client.Initiate("someView", []byte("input"))
-
-	require.Error(t, err)
-	require.Empty(t, contextID)
-	require.Contains(t, err.Error(), "initiate is not supported by the web client")
-}
-
 // --- Metrics ---
 
 // Verifies that Metrics() correctly parses a Prometheus text response into

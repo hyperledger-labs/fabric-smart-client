@@ -49,7 +49,7 @@ A view is a unit of distributed application logic. A view may:
 - invoke other views as sub-steps of a larger protocol;
 - access node services through the supplied context.
 
-The return value is application-defined. The runtime passes it back to synchronous callers such as local execution, web `CallView`, and gRPC `CallView`. Asynchronous initiation paths, such as gRPC `InitiateView`, may return a context identifier instead of the final result.
+The return value is application-defined. The runtime passes it back to the caller: local execution, and `CallView` over gRPC or REST.
 
 The gRPC client sends `CallView`, `CallViewWithContext`, and `StreamCallView` once and never retries them, because views are not idempotent and a retry could run the same business process twice. If the client cannot connect to the node, the call fails before the request is sent and the view does not run. If the call fails after the request is sent, for example with `codes.Unavailable` or `codes.DeadlineExceeded`, the outcome is unknown: the view may have run fully or partially. The caller decides whether running it again is safe.
 

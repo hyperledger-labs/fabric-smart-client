@@ -102,7 +102,8 @@ fsc:
       # certificate and verifies it against these roots, which must then be non-empty (that
       # combination fails at startup, since an empty pool would reject every client); these
       # roots without clientAuthRequired verify a certificate only if the client offers one;
-      # no roots means client certificates are not requested.
+      # no roots means client certificates are not requested. Whenever a client certificate
+      # was verified, the view service accepts only commands whose tlsCertHash names it.
       clientRootCAs:
         files:
         - /path/to/client/tls/ca.crt
@@ -259,6 +260,16 @@ fsc:
       opts:
         dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
         maxOpenConns: 20
+  # ------------------- View Configuration -------------------------
+  view:
+    remote:
+      # Execution timeout of views called remotely, on fsc.grpc and fsc.web alike; views
+      # called locally keep their caller's context. Default: 2m. Over gRPC, a view still
+      # running when it expires ends with the error "view execution timed out"; over REST, a
+      # view that fails with the deadline error gets HTTP 504 with the same text. Views must
+      # observe their context (e.g. ctx.Done()) for the timeout to take effect. Zero or
+      # negative values fall back to the default.
+      timeout: 2m
   # ------------------- Web Server Configuration -------------------------
   # Web server must be enabled to support healthz, version and prometheus /metrics
   # end points.
@@ -276,10 +287,10 @@ fsc:
   #
   # When a view fails, the REST endpoint returns its error text to the client verbatim, as
   # the Reason of the response body; the gRPC view service on fsc.grpc does the same in
-  # Error.Message. Over REST, only a view that exceeds viewTimeout gets a fixed message
-  # instead. The text is the full error chain of the view and everything it called,
-  # including the value of a panic, and can carry database errors, file paths, addresses
-  # or identities. Anyone who can call views on this listener sees it, so set
+  # Error.Message. A view that exceeds fsc.view.remote.timeout gets the fixed message
+  # "view execution timed out" instead (see fsc.view.remote). The text is the full error chain of the
+  # view and everything it called, including the value of a panic, and can carry database
+  # errors, file paths, addresses or identities. Anyone who can call views on this listener sees it, so set
   # tls.clientAuthRequired: true below unless the listener is reachable only by the node's
   # own applications. Without fsc.metrics.address, /metrics and /logspec share this
   # listener; give them an address of their own when parties that must not call views
@@ -288,12 +299,6 @@ fsc:
     enabled: true
     # Listen address (host:port). Required when enabled; the node refuses to start without it.
     address: 0.0.0.0:20002
-    # Execution timeout for direct/REST view invocations (PUT /Views/{View} and
-    # GET /Views/Stream/{View}). Default: 2m
-    # When set to a positive duration, views execute with a deadline; views must
-    # observe their context (e.g. ctx.Done()) for the timeout to take effect and
-    # terminate early. Zero or negative values fall back to the default.
-    viewTimeout: 2m
     # As with fsc.grpc, only the fields that differ from fsc.tls need to appear here.
     tls:
       # Whether TLS is enabled. Inherited from fsc.tls when absent.
@@ -826,6 +831,15 @@ Two of these change behaviour rather than spelling:
 - **Metrics** now have their own `fsc.metrics.address`. Without one, `/metrics` and `/logspec`
   stay on the `fsc.web` listener and share its TLS, as before; setting one gives them a
   listener of their own, and `fsc.metrics.tls` then applies to it.
+
+### Other removed keys
+
+These keys sit outside every `tls:` block and fail startup with the same
+`configuration key [...] has been removed; use [...] instead` error.
+
+| Removed | Replacement |
+| --- | --- |
+| `fsc.web.viewTimeout` | `fsc.view.remote.timeout`, which bounds remote view calls on `fsc.grpc` and `fsc.web` alike |
 
 ## Overriding configuration keys
 

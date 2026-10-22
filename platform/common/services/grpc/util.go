@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
@@ -18,7 +17,6 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 // AddPemToCertPool adds PEM-encoded certs to a cert pool
@@ -56,54 +54,6 @@ func pemToX509Certs(pemCerts []byte) ([]*x509.Certificate, []string, error) {
 	}
 
 	return certs, subjects, nil
-}
-
-// BindingInspector receives as parameters a gRPC context and an Envelope,
-// and verifies whether the message contains an appropriate binding to the context
-type BindingInspector func(context.Context, proto.Message) error
-
-// CertHashExtractor extracts a certificate from a proto.Message message
-type CertHashExtractor func(proto.Message) []byte
-
-// NewBindingInspector returns a BindingInspector according to whether
-// mutualTLS is configured or not, and according to a function that extracts
-// TLS certificate hashes from proto messages.
-func NewBindingInspector(mutualTLS bool, extractTLSCertHash CertHashExtractor) BindingInspector {
-	if !mutualTLS {
-		return func(_ context.Context, _ proto.Message) error { return nil }
-	}
-
-	if extractTLSCertHash == nil {
-		// this is clearly a programming error
-		panic(errors.New("extractTLSCertHash parameter is nil"))
-	}
-
-	return func(ctx context.Context, msg proto.Message) error {
-		if msg == nil {
-			return errors.New("message is nil")
-		}
-		return mutualTLSBinding(ctx, extractTLSCertHash(msg))
-	}
-}
-
-// mutualTLSBinding enforces the client to send its TLS cert hash in the message,
-// and then compares it to the computed hash that is derived
-// from the gRPC context.
-// In case they don't match, or the cert hash is missing from the request or
-// there is no TLS certificate to be excavated from the gRPC context,
-// an error is returned.
-func mutualTLSBinding(ctx context.Context, claimedTLScertHash []byte) error {
-	if len(claimedTLScertHash) == 0 {
-		return errors.Errorf("client didn't include its TLS cert hash")
-	}
-	actualTLScertHash := ExtractCertificateHashFromContext(ctx)
-	if len(actualTLScertHash) == 0 {
-		return errors.Errorf("client didn't send a TLS certificate")
-	}
-	if !bytes.Equal(actualTLScertHash, claimedTLScertHash) {
-		return errors.Errorf("claimed TLS cert hash is %v but actual TLS cert hash is %v", claimedTLScertHash, actualTLScertHash)
-	}
-	return nil
 }
 
 // ExtractCertificateHashFromContext extracts the hash of the certificate from the given context.

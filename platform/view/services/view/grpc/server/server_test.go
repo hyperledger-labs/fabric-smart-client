@@ -26,7 +26,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpcutil "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -34,16 +33,15 @@ import (
 
 // --- helpers ---
 
-// peerContext builds a gRPC context that carries a peer with the given raw cert bytes.
-func peerContext(certRaw []byte) context.Context {
-	p := &peer.Peer{
-		AuthInfo: credentials.TLSInfo{
-			State: tls.ConnectionState{
-				PeerCertificates: []*x509.Certificate{{Raw: certRaw}},
-			},
-		},
+// peerContext builds a gRPC context whose TLS connection carries a client certificate with
+// the given raw bytes, verified by the listener when verified is true.
+func peerContext(certRaw []byte, verified bool) context.Context {
+	leaf := &x509.Certificate{Raw: certRaw}
+	state := tls.ConnectionState{PeerCertificates: []*x509.Certificate{leaf}}
+	if verified {
+		state.VerifiedChains = [][]*x509.Certificate{{leaf}}
 	}
-	return peer.NewContext(context.Background(), p)
+	return peer.NewContext(context.Background(), &peer.Peer{AuthInfo: credentials.TLSInfo{State: state}})
 }
 
 // certHash returns SHA256 of raw cert bytes, matching the server-side extraction.
@@ -116,28 +114,27 @@ func (*fakeStreamServer) SendHeader(metadata.MD) error           { return nil }
 func (*fakeStreamServer) SetTrailer(metadata.MD)                 {}
 func (f *fakeStreamServer) Recv() (*protos.SignedCommand, error) { return f.sc, nil }
 
-// newTestServer creates a Server wired with a noop tracing provider, YesPolicyChecker,
-// and a BindingInspector constructed from the given mutualTLS flag.
-func newTestServer(t *testing.T, mutualTLS bool) *Server {
+// newTestServer creates a Server wired with a noop tracing provider, YesPolicyChecker and
+// BindToVerifiedClientCert.
+func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	inspector := grpcutil.NewBindingInspector(mutualTLS, ExtractTLSCertHashFromCommand)
 	srv, err := NewViewServiceServer(
 		&stubMarshaller{},
 		YesPolicyChecker{},
 		NewMetrics(&disabled.Provider{}),
 		noop.NewTracerProvider(),
-		BindingInspector(inspector),
+		BindToVerifiedClientCert,
 		time.Minute,
 	)
 	require.NoError(t, err)
 	return srv
 }
 
-// countingServer returns a server without mutual TLS whose CallView processor and streamer
-// count their invocations.
+// countingServer returns a server whose CallView processor and streamer count their
+// invocations.
 func countingServer(t *testing.T) (*Server, *atomic.Int32) {
 	t.Helper()
-	srv := newTestServer(t, false)
+	srv := newTestServer(t)
 	calls := &atomic.Int32{}
 	typ := reflect.TypeFor[*protos.Command_CallView]()
 	srv.RegisterProcessor(typ, func(context.Context, *protos.Command) (any, error) {
@@ -281,108 +278,49 @@ func TestRejectedRequestsAreCounted(t *testing.T) {
 	require.Equal(t, 2, rejected.AddCallCount())
 }
 
-// --- ProcessCommand tests ---
+// --- TLS binding ---
 
-func TestProcessCommand_MutualTLS_MatchingHash(t *testing.T) {
+// A command must name the client TLS certificate of its connection exactly when the listener
+// verified that certificate; an unverified or absent certificate binds nothing. The rule is
+// the same for unary and streamed commands, and a rejected command never reaches the view.
+func TestTLSBinding(t *testing.T) {
 	t.Parallel()
-	certRaw := []byte{1, 2, 3}
-	ctx := peerContext(certRaw)
-	sc := buildSignedCommand(t, certHash(certRaw))
+	cert := []byte{1, 2, 3}
+	const bindErr = "command does not name the client TLS certificate of the connection"
+	for _, tc := range []struct {
+		name    string
+		ctx     context.Context
+		hash    []byte
+		wantErr bool
+	}{
+		{name: "verified, named", ctx: peerContext(cert, true), hash: certHash(cert)},
+		{name: "verified, unnamed", ctx: peerContext(cert, true), wantErr: true},
+		{name: "verified, other certificate named", ctx: peerContext(cert, true), hash: certHash([]byte{9}), wantErr: true},
+		{name: "unverified, unnamed", ctx: peerContext(cert, false)},
+		{name: "unverified, other certificate named", ctx: peerContext(cert, false), hash: certHash([]byte{9})},
+		{name: "no TLS, unnamed", ctx: context.Background()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	srv := newTestServer(t, true)
-	resp, err := srv.ProcessCommand(ctx, sc)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-}
+			srv, calls := countingServer(t)
+			resp, err := srv.ProcessCommand(tc.ctx, buildSignedCommand(t, tc.hash))
+			require.NoError(t, err)
+			stream := &fakeStreamServer{ctx: tc.ctx, sc: buildSignedCommand(t, tc.hash)}
+			streamErr := srv.StreamCommand(stream)
 
-func TestProcessCommand_MutualTLS_MissingHash(t *testing.T) {
-	t.Parallel()
-	certRaw := []byte{1, 2, 3}
-	ctx := peerContext(certRaw)
-	sc := buildSignedCommand(t, nil) // no TlsCertHash
-
-	srv := newTestServer(t, true)
-	resp, err := srv.ProcessCommand(ctx, sc)
-	require.NoError(t, err) // error is encoded in the response, not returned
-	require.NotNil(t, resp)
-}
-
-func TestProcessCommand_MutualTLS_WrongHash(t *testing.T) {
-	t.Parallel()
-	certRaw := []byte{1, 2, 3}
-	ctx := peerContext(certRaw)
-	wrongHash := certHash([]byte{9, 9, 9}) // hash of a different cert
-	sc := buildSignedCommand(t, wrongHash)
-
-	srv := newTestServer(t, true)
-	resp, err := srv.ProcessCommand(ctx, sc)
-	require.NoError(t, err) // error is encoded in the response, not returned
-	require.NotNil(t, resp)
-}
-
-func TestProcessCommand_NoMutualTLS_NoHash(t *testing.T) {
-	t.Parallel()
-	sc := buildSignedCommand(t, nil) // no TlsCertHash
-
-	srv := newTestServer(t, false)
-	resp, err := srv.ProcessCommand(context.Background(), sc)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-}
-
-// --- StreamCommand tests ---
-
-func TestStreamCommand_MutualTLS_MatchingHash(t *testing.T) {
-	t.Parallel()
-	certRaw := []byte{4, 5, 6}
-	sc := buildSignedCommand(t, certHash(certRaw))
-	stream := &fakeStreamServer{ctx: peerContext(certRaw), sc: sc}
-
-	srv := newTestServer(t, true)
-	err := srv.StreamCommand(stream)
-	// StreamCommand returns an error when no streamer is registered (command type not recognized),
-	// but that comes after TLS binding succeeds — binding itself must not cause the error.
-	// The stream error is reported via Send, not as a return value from StreamCommand in the
-	// streamError path. Here we only assert the binding did not block.
-	_ = err // may be non-nil due to missing streamer; that's expected
-}
-
-func TestStreamCommand_MutualTLS_MissingHash(t *testing.T) {
-	t.Parallel()
-	certRaw := []byte{4, 5, 6}
-	sc := buildSignedCommand(t, nil) // no hash
-	stream := &fakeStreamServer{ctx: peerContext(certRaw), sc: sc}
-
-	srv := newTestServer(t, true)
-	_ = srv.StreamCommand(stream)
-	// The binding inspector should have triggered streamError, which calls Send.
-	require.NotEmpty(t, stream.sent, "expected an error response to be sent to the stream")
-}
-
-func TestStreamCommand_MutualTLS_WrongHash(t *testing.T) {
-	t.Parallel()
-	certRaw := []byte{4, 5, 6}
-	wrongHash := certHash([]byte{9, 9, 9})
-	sc := buildSignedCommand(t, wrongHash)
-	stream := &fakeStreamServer{ctx: peerContext(certRaw), sc: sc}
-
-	srv := newTestServer(t, true)
-	_ = srv.StreamCommand(stream)
-	require.NotEmpty(t, stream.sent, "expected an error response to be sent to the stream")
-}
-
-func TestStreamCommand_NoMutualTLS_NoHash(t *testing.T) {
-	t.Parallel()
-	sc := buildSignedCommand(t, nil) // no hash
-	stream := &fakeStreamServer{ctx: context.Background(), sc: sc}
-
-	srv := newTestServer(t, false)
-	_ = srv.StreamCommand(stream)
-	// noop binding: TLS cert hash is not checked; any response sent is due to missing
-	// streamer registration, not a TLS binding error.
-	// We verify the stream did NOT receive a TLS-binding error as its first message
-	// by checking that streamCommand ran past the binding check.
-	// (If binding had failed, it would send exactly one error response and return.)
-	// A missing-streamer error also sends via stream.sent, so we can't distinguish here
-	// without inspecting the error message. Simply assert no panic occurred.
+			if tc.wantErr {
+				require.EqualError(t, streamErr, bindErr)
+				require.Equal(t, bindErr, string(resp.Response))
+				require.Len(t, stream.sent, 1)
+				require.Equal(t, bindErr, string(stream.sent[0].Response))
+				require.Zero(t, calls.Load())
+				return
+			}
+			require.NoError(t, streamErr)
+			require.Empty(t, resp.Response)
+			require.Empty(t, stream.sent)
+			require.Equal(t, int32(2), calls.Load())
+		})
+	}
 }

@@ -141,7 +141,7 @@ func TestClient_CallView(t *testing.T) {
 		require.ErrorContains(t, err, "process error")
 	})
 
-	t.Run("missing InitiateView response", func(t *testing.T) {
+	t.Run("undecodable response", func(t *testing.T) {
 		t.Parallel()
 		vsc := &fakeProtosVSC{cvrBytes: []byte("view-result"), respBytes: []byte("junk-proto")}
 		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
@@ -348,21 +348,6 @@ func TestClient_CreateSignedCommand(t *testing.T) {
 		_, err := cl.CreateSignedCommand(payload, sid)
 		require.Error(t, err)
 	})
-
-	t.Run("Success path covering InitiateView payload mapping", func(t *testing.T) {
-		t.Parallel()
-		sid := &fakeSigningIdentity{serialized: []byte("creator"), signature: []byte("sig")}
-		cl := &client{
-			ViewServiceClient: &fakeStreamClient{},
-			RandomnessReader:  rand.Reader,
-			Time:              time.Now,
-			SigningIdentity:   sid,
-		}
-		initPayload := &protos.Command_InitiateView{InitiateView: &protos.InitiateView{Fid: "fid"}}
-		sc, err := cl.CreateSignedCommand(initPayload, sid)
-		require.NoError(t, err)
-		require.NotNil(t, sc)
-	})
 }
 
 func TestStream(t *testing.T) {
@@ -487,13 +472,8 @@ func TestStream(t *testing.T) {
 
 	t.Run("Result empty cvr", func(t *testing.T) {
 		t.Parallel()
-		emptyResp := &protos.CommandResponse{
-			Payload: &protos.CommandResponse_InitiateViewResponse{
-				InitiateViewResponse: &protos.InitiateViewResponse{},
-			},
-		}
-		respBytes, _ := proto.Marshal(emptyResp)
-		vsc := &fakeProtosVSC{respBytes: respBytes}
+		// An empty CommandResponse encodes to zero bytes; non-nil so the fake sends it as is.
+		vsc := &fakeProtosVSC{respBytes: []byte{}}
 		dummyConn, err := grpc.NewClient("passthrough:///dummy", grpc.WithTransportCredentials(insecure.NewCredentials()))
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = dummyConn.Close() })

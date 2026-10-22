@@ -136,12 +136,15 @@ func TestCheckRemovedNodeKeys(t *testing.T) {
 	t.Parallel()
 	set := fakeSource{dir: t.TempDir(), subtrees: map[string]map[string]any{
 		"fsc.metrics.prometheus": {"tls": true},
+		"fsc.web":                {"viewtimeout": "10s"},
 	}}
 
 	err := CheckRemovedKeys(set, "fsc")
 	require.ErrorContains(t, err, "has been removed")
 	require.ErrorContains(t, err, "fsc.metrics.prometheus.tls")
 	require.ErrorContains(t, err, "fsc.metrics.clientAuthRequired")
+	require.ErrorContains(t, err, "fsc.web.viewtimeout")
+	require.ErrorContains(t, err, "fsc.view.remote.timeout")
 
 	require.NoError(t, CheckRemovedKeys(set, "fsc.p2p"),
 		"a narrower prefix must not reach a key outside it")

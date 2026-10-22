@@ -10,60 +10,34 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
-
-	"go.opentelemetry.io/otel/trace"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-const fidLabel tracing.LabelName = "fid"
+// ErrViewTimedOut is the error a view call ends with when the view outlives the view
+// service's timeout. Its text is fixed, so a client sees the same message on every transport
+// and nothing of the view's own error.
+var ErrViewTimedOut = errors.New("view execution timed out")
 
 type viewHandler struct {
 	viewManager ViewManager
-	tracer      trace.Tracer
+	timeout     time.Duration
 }
 
-// InstallViewHandler installs the view handler into the given service.
-func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider tracing.Provider) {
-	fh := &viewHandler{
-		viewManager: viewManager,
-		tracer: tracerProvider.Tracer("view_handler", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			LabelNames: []tracing.LabelName{fidLabel, successLabel},
-		})),
-	}
-	server.RegisterProcessor(reflect.TypeFor[*protos.Command_InitiateView](), fh.initiateView)
+// InstallViewHandler registers the CallView command on server: as a unary processor, which
+// runs the view and returns its result, and as a streamer, which also lets the view exchange
+// messages with the client over the stream (see [Stream]). Both bound the view's context by
+// timeout, and a view still running when it expires ends with [ErrViewTimedOut]; a
+// non-positive timeout imposes no bound. Views must observe their context for the timeout to
+// take effect; a streamed view blocked in [Stream.Recv] waits for the client regardless.
+func InstallViewHandler(viewManager ViewManager, server Service, timeout time.Duration) {
+	fh := &viewHandler{viewManager: viewManager, timeout: timeout}
 	server.RegisterProcessor(reflect.TypeFor[*protos.Command_CallView](), fh.callView)
 	server.RegisterStreamer(reflect.TypeFor[*protos.Command_CallView](), fh.streamCallView)
-}
-
-func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command) (any, error) {
-	payload, ok := command.Payload.(*protos.Command_InitiateView)
-	if !ok {
-		return nil, errors.Errorf("unexpected command payload type [%T]", command.Payload)
-	}
-	initiateView := payload.InitiateView
-	_, span := s.tracer.Start(ctx, "initiate_view", tracing.WithAttributes(tracing.String(fidLabel, initiateView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
-
-	fid := initiateView.Fid
-	input := initiateView.Input
-	logger.DebugfContext(ctx, "initiate view [%s]", fid)
-
-	f, err := s.viewManager.NewView(fid, input)
-	if err != nil {
-		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
-	}
-	contextID, err := s.RunView(ctx, s.viewManager, f)
-	if err != nil {
-		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
-	}
-	return &protos.CommandResponse_InitiateViewResponse{InitiateViewResponse: &protos.InitiateViewResponse{
-		Cid: contextID,
-	}}, nil
 }
 
 func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (any, error) {
@@ -72,8 +46,6 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (an
 		return nil, errors.Errorf("unexpected command payload type [%T]", command.Payload)
 	}
 	callView := payload.CallView
-	// newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
-	// defer span.End()
 	fid := callView.Fid
 	input := callView.Input
 	logger.DebugfContext(ctx, "Call view [%s] on input [%v]", fid, string(input))
@@ -83,9 +55,11 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (an
 		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	logger.DebugfContext(ctx, "Initiate new view")
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
 	result, err := s.viewManager.InitiateView(ctx, f)
 	if err != nil {
-		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
+		return nil, viewErr(ctx, fid, err)
 	}
 	raw, ok := result.([]byte)
 	if !ok {
@@ -116,7 +90,9 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	if err != nil {
 		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
-	viewCtx, err := s.viewManager.InitiateContext(commandServer.Context(), f)
+	ctx, cancel := s.withTimeout(commandServer.Context())
+	defer cancel()
+	viewCtx, err := s.viewManager.InitiateContext(ctx, f)
 	if err != nil {
 		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
@@ -133,7 +109,7 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	result, err := viewCtx.RunView(f)
 	if err != nil {
 		s.viewManager.DeleteContext(viewCtx.ID())
-		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
+		return viewErr(ctx, fid, err)
 	}
 	defer s.viewManager.DeleteContext(viewCtx.ID())
 	raw, ok := result.([]byte)
@@ -158,27 +134,22 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	return commandServer.Send(cr)
 }
 
-// RunView initiates a view and returns its context ID.
-func (s *viewHandler) RunView(ctx context.Context, manager ViewManager, view view2.View) (string, error) {
-	context, err := manager.InitiateContext(ctx, view)
-	if err != nil {
-		return "", err
+// withTimeout bounds ctx by the view timeout; a non-positive timeout imposes none.
+func (s *viewHandler) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	if s.timeout <= 0 {
+		return ctx, func() {}
 	}
-
-	// Run the view
-	go s.runViewAsync(view, context)
-
-	return context.ID(), nil
+	return context.WithTimeout(ctx, s.timeout)
 }
 
-func (s *viewHandler) runViewAsync(view view2.View, viewCtx view2.Context) {
-	defer s.viewManager.DeleteContext(viewCtx.ID())
-	result, err := viewCtx.RunView(view)
-	if err != nil {
-		logger.Errorf("failed view execution. Err [%s]\n", err.Error())
-	} else {
-		logger.Debugf("successful view execution. Result [%s]\n", result)
+// viewErr maps a failure of view fid to the error returned to the client. The expiry of
+// ctx's deadline (the view timeout, or an earlier deadline the client set) is a timeout; a
+// view that fails with a deadline error of its own while ctx is live reports that failure.
+func viewErr(ctx context.Context, fid string, err error) error {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return ErrViewTimedOut
 	}
+	return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 }
 
 type Stream struct {

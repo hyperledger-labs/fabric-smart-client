@@ -12,24 +12,16 @@ package protos;
 
 import "google/protobuf/timestamp.proto";
 
-// InitiateView is used to initiate a view
-message InitiateView {
-    string fid = 1;
-
-    bytes input = 2;
-}
-
-message InitiateViewResponse {
-    string cid = 1;
-}
-
-// InitiateView is used to initiate a view
+// CallView runs the view registered under fid on input and returns its result.
 message CallView {
     string fid = 1;
 
     bytes input = 2;
 }
 
+// CallViewResponse carries the result of a CallView: the view's return value, as raw bytes
+// when the view returns []byte and JSON otherwise. On a stream, it also frames the messages
+// the view and the client exchange.
 message CallViewResponse {
     bytes result = 1;
 }
@@ -47,19 +39,21 @@ message Header {
     // Creator of the message.
     bytes creator = 4;
 
-    // TlsCertHash represents the hash of the client's TLS certificate
-    // when mutual TLS is enabled
+    // TlsCertHash is the SHA-256 of the client's TLS certificate. The view service requires
+    // it to match the connection's client certificate whenever the listener verified one.
     bytes tls_cert_hash = 5;
 }
 
 // Command describes the type of operation that a client is requesting.
 message Command {
+    reserved 2;
+    reserved "initiateView";
+
     // Header is the header of this command
     Header header = 1;
 
-    // Payload is the payload of this command. It can assume one of the following value
+    // Payload is the payload of this command.
     oneof payload {
-        InitiateView initiateView = 2;
         CallView callView = 3;
     }
 }
@@ -99,13 +93,15 @@ message Error {
 
 // A CommandResponse is returned from a server to the command submitter.
 message CommandResponse {
+    reserved 3;
+    reserved "initiateViewResponse";
+
     // Header of the response.
     CommandResponseHeader header = 1;
 
     // Payload of the response.
     oneof payload {
         Error err = 2;
-        InitiateViewResponse initiateViewResponse = 3;
         CallViewResponse callViewResponse = 4;
     }
 }

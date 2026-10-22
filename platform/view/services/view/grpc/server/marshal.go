@@ -106,8 +106,6 @@ func commandResponseFromPayload(payload any) (*protos.CommandResponse, error) {
 	switch t := payload.(type) {
 	case *protos.CommandResponse_Err:
 		return &protos.CommandResponse{Payload: t}, nil
-	case *protos.CommandResponse_InitiateViewResponse:
-		return &protos.CommandResponse{Payload: t}, nil
 	case *protos.CommandResponse_CallViewResponse:
 		return &protos.CommandResponse{Payload: t}, nil
 	default:

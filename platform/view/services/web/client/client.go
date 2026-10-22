@@ -206,11 +206,3 @@ func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte)
 	}
 	return response.CallViewResponse.Result, nil
 }
-
-// Initiate always returns an error: the web client's REST API exposes only
-// CallView and StreamCallView (see the dispatcher in
-// platform/view/services/view/web), with no endpoint to initiate a view and
-// report back its context ID.
-func (*Client) Initiate(fid string, _ []byte) (string, error) {
-	return "", errors.Errorf("initiate is not supported by the web client for view [%s]", fid)
-}

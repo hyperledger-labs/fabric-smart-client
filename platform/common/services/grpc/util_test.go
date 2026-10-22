@@ -77,18 +77,6 @@ func (*nonTLSConnection) AuthType() string {
 	return ""
 }
 
-func TestBindingInspectorBadInit(t *testing.T) {
-	t.Parallel()
-	// nil extractor is only a programming error when mutualTLS is enabled,
-	// because the extractor is not called in noop mode.
-	require.NotPanics(t, func() {
-		grpc3.NewBindingInspector(false, nil)
-	})
-	require.Panics(t, func() {
-		grpc3.NewBindingInspector(true, nil)
-	})
-}
-
 func TestGetLocalIP(t *testing.T) {
 	t.Parallel()
 	ip, err := grpc3.GetLocalIP()

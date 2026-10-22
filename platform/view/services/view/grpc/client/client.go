@@ -153,32 +153,6 @@ func (s *client) CallViewWithContext(ctx context.Context, fid string, input []by
 	return commandResp.GetCallViewResponse().GetResult(), nil
 }
 
-// Initiate initiates a protocol on the remote peer for the given view factory
-// identifier and returns the ID of the resulting context.
-func (s *client) Initiate(fid string, in []byte) (string, error) {
-	logger.Debugf("Initiating view [%s] on input [%s]", fid, string(in))
-	payload := &protos2.Command_InitiateView{InitiateView: &protos2.InitiateView{
-		Fid:   fid,
-		Input: in,
-	}}
-	sc, err := s.CreateSignedCommand(payload, s.SigningIdentity)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(in))
-	}
-
-	ctx, span := s.tracer.Start(context.Background(), "GrpcViewInitiate", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
-	commandResp, err := s.processCommand(ctx, sc)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed process command for [%s,%s]", fid, string(in))
-	}
-
-	if commandResp.GetInitiateViewResponse() == nil {
-		return "", errors.New("expected initiate view response, got nothing")
-	}
-	return commandResp.GetInitiateViewResponse().GetCid(), nil
-}
-
 // StreamCallView calls the given view with the given input and returns a stream to communicate with it.
 //
 // The client sends the call once and never retries it, because views are not
@@ -322,8 +296,6 @@ func (s *client) CreateSignedCommand(payload any, signingIdentity SigningIdentit
 
 func commandFromPayload(payload any) (*protos2.Command, error) {
 	switch t := payload.(type) {
-	case *protos2.Command_InitiateView:
-		return &protos2.Command{Payload: t}, nil
 	case *protos2.Command_CallView:
 		return &protos2.Command{Payload: t}, nil
 	default:

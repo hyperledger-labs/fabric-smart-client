@@ -30,6 +30,9 @@ var removedNode = map[string]string{
 	// Never meant transport TLS: it gated whether scraping /metrics required a client
 	// certificate. Read through no struct, so nothing else would catch it.
 	"fsc.metrics.prometheus.tls": "fsc.metrics.clientAuthRequired",
+	// The view timeout belongs to the view service, whatever transport serves it, not to
+	// the web listener.
+	"fsc.web.viewtimeout": "fsc.view.remote.timeout",
 }
 
 // removedNetwork holds keys RELATIVE to one Fabric network, checked by
