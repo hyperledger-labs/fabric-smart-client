@@ -11,7 +11,7 @@ The FSC metrics surface has two layers:
 
 At the time of writing, the repository defines:
 
-- **32 explicit metric families**
+- **33 explicit metric families**
 - **14 tracer bases**, which produce **28 trace-derived metric families** (`*_operations` and `*_duration`)
 
 This catalog is organized by subsystem and records the metric family names that Prometheus sees.
@@ -77,7 +77,7 @@ For trace-derived metrics, the namespace and subsystem are also fixed by `tracin
 
 The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
-- all 32 explicit metric families
+- all 33 explicit metric families
 - all trace-derived families except `fsc_view_services_view_grpc_client_client_*` and `fsc_view_services_view_grpc_client_node_view_client_*`
 
 The two caller-process families are exported only by the process that creates those tracers:
@@ -131,6 +131,7 @@ Primary implementation: `platform/view/services/view/metrics.go`, updated throug
 | `fsc_view_services_comm_closed_streams` | counter | none | Number of stream-handler closes. |
 | `fsc_view_services_comm_stream_handlers` | gauge | none | Number of running stream handler goroutines. |
 | `fsc_view_services_comm_dropped_messages` | counter | none | Number of messages dropped because dispatch or enqueue could not complete safely. |
+| `fsc_view_services_comm_stream_read_errors` | counter | none | Number of streams dropped because reading a message failed while the node was running. A clean EOF from the remote and streams closed locally are not counted. |
 
 Operational notes:
 
