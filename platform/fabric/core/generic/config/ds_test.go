@@ -9,9 +9,6 @@ package config_test
 import (
 	"testing"
 
-	koanfyaml "github.com/knadh/koanf/parsers/yaml"
-	koanffile "github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -22,12 +19,14 @@ import (
 
 func TestLoad(t *testing.T) {
 	t.Parallel()
-	v := koanf.New(".")
-	require.NoError(t, v.Load(koanffile.Provider("./testdata/core.yaml"), configservice.LowercaseParser{Parser: koanfyaml.Parser()}))
-
-	var msps []config.MSP
-	require.NoError(t, configservice.EnhancedExactUnmarshal(v, "fabric.default.msps", &msps))
-	require.NotEmpty(t, msps)
+	p, err := configservice.NewProvider("./testdata")
+	require.NoError(t, err)
+	svc, err := config.NewService(p, "default", true)
+	require.NoError(t, err)
+	msps, err := svc.MSPs()
+	require.NoError(t, err)
+	require.Len(t, msps, 3)
+	require.Equal(t, "alice", msps[0].ID)
 
 	b, err := x509.ToBCCSPOpts(msps[0].Opts[x509.BCCSPOptField])
 	require.NoError(t, err)
