@@ -24,7 +24,7 @@ func TestConcurrency(t *testing.T) {
 	qe := fake.NewQE()
 	idsr := fake.TxStatusStore{}
 
-	i := newVaultInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
+	i := newVaultInterceptor(logging.MustGetLogger(), t.Context(), EmptyRWSet(), qe, idsr, "1")
 	s, err := i.GetState("ns", "key")
 	require.NoError(t, err)
 	require.Equal(t, qe.State.Raw, s, "with no opts, getstate should return the FromStorage value (query executor)")
@@ -69,7 +69,7 @@ func TestAddReadAt(t *testing.T) {
 	t.Parallel()
 	qe := fake.QE{}
 	idsr := fake.TxStatusStore{}
-	i := newVaultInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
+	i := newVaultInterceptor(logging.MustGetLogger(), t.Context(), EmptyRWSet(), qe, idsr, "1")
 
 	require.NoError(t, i.AddReadAt("ns", "key", []byte("version")))
 	require.Len(t, i.RWs().Reads, 1)

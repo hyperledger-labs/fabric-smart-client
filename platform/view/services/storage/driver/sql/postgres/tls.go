@@ -198,3 +198,16 @@ func RegisterTLSConnection(dataSource string, tlsCfg TLSConfig) (string, error) 
 
 	return name, nil
 }
+
+// registeredDataSource returns the datasource that RegisterTLSConnection registered
+// under name.
+func registeredDataSource(name string) (string, bool) {
+	tlsConnMu.Lock()
+	defer tlsConnMu.Unlock()
+	for k, n := range tlsConnNames {
+		if n == name {
+			return k.dataSource, true
+		}
+	}
+	return "", false
+}

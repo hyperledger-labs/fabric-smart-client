@@ -22,6 +22,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate/connstatetest"
 )
 
 // mockVault implements Vault for testing
@@ -135,6 +137,7 @@ func TestNew_NilChannelConfig(t *testing.T) {
 		nil,
 		nil,
 		1,
+		nil,
 		nil,
 	)
 	require.Error(t, err)
@@ -777,4 +780,175 @@ func TestRunReceiverReconnects(t *testing.T) {
 	require.NoError(t, d.stopError())
 	require.GreaterOrEqual(t, len(attempts), 3, "expected a refused attempt plus a reconnect after the malformed block")
 	require.Empty(t, ch, "neither a malformed block nor a filtered block may be forwarded")
+}
+
+// mockPeerSequence hands out the configured peers in order and then keeps
+// returning the last one, so a test can make a reconnect land on another peer.
+type mockPeerSequence struct {
+	driver.ConfigService
+	mu    sync.Mutex
+	peers []string
+}
+
+func (m *mockPeerSequence) PickPeer(driver.PeerFunctionType) *grpc.ConnectionConfig {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	addr := m.peers[0]
+	if len(m.peers) > 1 {
+		m.peers = m.peers[1:]
+	}
+	return &grpc.ConnectionConfig{Address: addr}
+}
+
+// newConnStateDelivery returns a Delivery that reports connection state into a
+// recorder and reads from stream through services.
+func newConnStateDelivery(t *testing.T, configService driver.ConfigService, svcs Services) (*Delivery, *connstatetest.Recorder) {
+	t.Helper()
+	m, rec := connstatetest.NewMetrics()
+	return &Delivery{
+		NetworkName:     "testNet",
+		channel:         "testChannel",
+		stop:            make(chan struct{}),
+		bufferSize:      1,
+		tracer:          noop.NewTracerProvider().Tracer("test"),
+		channelConfig:   &mockChannelConfig{},
+		ConfigService:   configService,
+		Services:        svcs,
+		LocalMembership: &mockLocalMembership{id: &mockSigningIdentity{}},
+		vault:           &mockVault{},
+		Ledger:          &mockLedger{},
+		client:          &mockPeerClient{},
+		connMetrics:     m,
+	}, rec
+}
+
+// runReceiverAsync starts runReceiver and returns a channel closed once it returns.
+func runReceiverAsync(ctx context.Context, d *Delivery, ch chan blockResponse) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		d.runReceiver(ctx, ch)
+	}()
+	return done
+}
+
+func TestRunReceiver_ReportsReconnectThenConnected(t *testing.T) {
+	t.Parallel()
+	recvChan := make(chan *pb.DeliverResponse)
+	svcs := &mockFlakyServices{peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+		stream: &mockDeliverStream{recvChan: recvChan},
+	}}}
+	svcs.failures.Store(1)
+	d, rec := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+
+	done := runReceiverAsync(t.Context(), d, make(chan blockResponse, 1))
+	require.Eventually(t, func() bool {
+		s, _ := rec.Last("peerA")
+		return s == connstate.Connected
+	}, 5*time.Second, time.Millisecond)
+
+	d.Stop(nil)
+	close(recvChan)
+	<-done
+	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Reconnecting, connstate.Connected, connstate.Disconnected}, rec.States("peerA"))
+}
+
+func TestRunReceiver_CallbackErrorReportsStopped(t *testing.T) {
+	t.Parallel()
+	recvChan := make(chan *pb.DeliverResponse, 1)
+	svcs := &mockServices{peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+		stream: &mockDeliverStream{recvChan: recvChan},
+	}}}
+	d, rec := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+	d.callback = func(context.Context, *cb.Block) (bool, error) { return false, errors.New("committer degraded") }
+
+	recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+		Header:   &cb.BlockHeader{Number: 1},
+		Data:     &cb.BlockData{},
+		Metadata: &cb.BlockMetadata{},
+	}}}
+	ch := make(chan blockResponse, 1)
+	done := runReceiverAsync(t.Context(), d, ch)
+	d.readBlocks(ch)
+
+	close(recvChan)
+	<-done
+	require.ErrorContains(t, d.stopError(), "committer degraded")
+	last, _ := rec.Last("peerA")
+	require.Equal(t, connstate.Stopped, last)
+
+	// A receiver that was already past its stop check, reconnecting while Stop
+	// ran, must not overwrite the terminal state.
+	d.connAttempt("peerA")
+	d.connEstablished()
+	last, _ = rec.Last("peerA")
+	require.Equal(t, connstate.Stopped, last)
+}
+
+func TestRunReceiver_ContextCancelReportsDisconnected(t *testing.T) {
+	t.Parallel()
+	recvChan := make(chan *pb.DeliverResponse)
+	svcs := &mockServices{peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+		stream: &mockDeliverStream{recvChan: recvChan},
+	}}}
+	d, rec := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := runReceiverAsync(ctx, d, make(chan blockResponse, 1))
+	require.Eventually(t, func() bool {
+		s, _ := rec.Last("peerA")
+		return s == connstate.Connected
+	}, 5*time.Second, time.Millisecond)
+
+	// A real gRPC stream fails Recv once its context is cancelled; the mock
+	// needs recvChan closed to do the same.
+	cancel()
+	close(recvChan)
+	<-done
+	require.ErrorContains(t, d.stopError(), "context done")
+	// A graceful shutdown is neither a reconnect nor a stop.
+	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Connected, connstate.Disconnected}, rec.States("peerA"))
+}
+
+func TestRunReceiver_EndpointSwitchClearsOldSeries(t *testing.T) {
+	t.Parallel()
+	recvChan := make(chan *pb.DeliverResponse)
+	recvErrChan := make(chan error, 1)
+	recvErrChan <- errors.New("peerA went away")
+	svcs := &mockServices{peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+		stream: &mockDeliverStream{recvChan: recvChan, recvErrChan: recvErrChan},
+	}}}
+	d, rec := newConnStateDelivery(t, &mockPeerSequence{peers: []string{"peerA", "peerB"}}, svcs)
+
+	done := runReceiverAsync(t.Context(), d, make(chan blockResponse, 1))
+	require.Eventually(t, func() bool {
+		s, _ := rec.Last("peerB")
+		return s == connstate.Connected
+	}, 5*time.Second, time.Millisecond)
+
+	d.Stop(nil)
+	close(recvChan)
+	<-done
+	// The reconnect is an attempt on peerB, so it is peerB that reports it.
+	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Connected, connstate.Disconnected}, rec.States("peerA"))
+	require.Equal(t, []connstate.State{connstate.Reconnecting, connstate.Connected, connstate.Disconnected}, rec.States("peerB"))
+}
+
+func TestBlockScan_ReportsNoConnectionState(t *testing.T) {
+	t.Parallel()
+	recvChan := make(chan *pb.DeliverResponse)
+	close(recvChan)
+	m, rec := connstatetest.NewMetrics()
+	svc, err := NewService("testChannel", &mockChannelConfig{}, "testNet", &mockLocalMembership{id: &mockSigningIdentity{}},
+		&mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}},
+		&mockServices{peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{stream: &mockDeliverStream{recvChan: recvChan}}}},
+		&mockLedger{}, &mockVault{}, &mockTransactionManager{}, nil, noop.NewTracerProvider(), m, nil)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	_ = svc.ScanBlock(ctx, func(context.Context, *cb.Block) (bool, error) { return true, nil })
+	// A scan shares the endpoint labels of the channel's stream, so it must not
+	// report: its end would mark the long-running stream disconnected.
+	require.Empty(t, rec.States("peerA"))
 }

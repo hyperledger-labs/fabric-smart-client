@@ -329,6 +329,7 @@ func newTestService(t *testing.T, opts testServiceOpts) *Service {
 		txMgr,
 		nil,
 		noop.NewTracerProvider(),
+		nil,
 		[]cb.HeaderType{cb.HeaderType_ENDORSER_TRANSACTION},
 	)
 	require.NoError(t, err)

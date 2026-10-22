@@ -1478,7 +1478,7 @@ func TestServerConfigMessageSize(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = conn.Close() })
 
-			ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+			ctx, cancel := context.WithTimeout(t.Context(), testTimeout)
 			t.Cleanup(cancel)
 			echo := &testpb.Echo{Payload: []byte{0, 0, 0, 0, 0}}
 			resp, err := testpb.NewEchoServiceClient(conn).EchoCall(ctx, echo)

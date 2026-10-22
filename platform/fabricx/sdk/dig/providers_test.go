@@ -31,6 +31,7 @@ import (
 	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	events "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	metrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	disabled "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	kvs "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
@@ -91,6 +92,7 @@ func TestNewDriver(t *testing.T) {
 		dig.In
 		ConfigProvider  config.Provider
 		MetricsProvider metrics.Provider
+		ConnState       *connstate.Metrics
 		EndpointService identity.EndpointService
 		IDProvider      identity.ViewIdentityProvider
 		KVS             *kvs.KVS

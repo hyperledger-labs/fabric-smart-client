@@ -161,6 +161,6 @@ fsc:
     type: hsm
 `)
 		_, err := newKMS(p, kmsdriver.NamedDriver{Name: "file", Driver: &fakeKMSDriver{}})
-		require.EqualError(t, err, "driver not found")
+		require.EqualError(t, err, "unknown fsc.identity.type [hsm]")
 	})
 }

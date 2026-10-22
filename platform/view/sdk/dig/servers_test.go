@@ -99,6 +99,7 @@ fsc:
 fsc:
   grpc:
     enabled: true
+    address: 127.0.0.1:0
     tls:
       clientRootCAs:
         files:
@@ -159,6 +160,30 @@ fsc:
         files:
           - ca.crt
 `)
+		require.NoError(t, CheckTLSConfig(p))
+	})
+
+	for _, tc := range []struct{ name, address, wantErr string }{
+		{name: "grpc enabled without address fails", wantErr: "fsc.grpc.enabled is true but fsc.grpc.address is not set"},
+		{name: "grpc enabled with ip only fails", address: "\n    address: 127.0.0.1", wantErr: "invalid fsc.grpc.address [127.0.0.1]"},
+		{name: "grpc enabled with port only fails", address: "\n    address: 20000", wantErr: "invalid fsc.grpc.address [20000]"},
+		{name: "grpc enabled with ip and port succeeds", address: "\n    address: 127.0.0.1:20000"},
+		{name: "grpc enabled with port and no host succeeds", address: "\n    address: :20000"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := providerFrom(t, "fsc:\n  grpc:\n    enabled: true"+tc.address+"\n  metrics:\n    clientAuthRequired: false\n")
+			if tc.wantErr == "" {
+				require.NoError(t, CheckTLSConfig(p))
+				return
+			}
+			require.ErrorContains(t, CheckTLSConfig(p), tc.wantErr)
+		})
+	}
+
+	t.Run("grpc disabled ignores a malformed address", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, "fsc:\n  grpc:\n    enabled: false\n    address: 20000\n  metrics:\n    clientAuthRequired: false\n")
 		require.NoError(t, CheckTLSConfig(p))
 	})
 
@@ -499,6 +524,28 @@ fsc:
 		srv, err := NewGRPCServer(p)
 		require.NoError(t, err)
 		require.Nil(t, srv)
+	})
+
+	t.Run("enabled without address returns error", func(t *testing.T) {
+		t.Parallel()
+		p := providerFrom(t, `
+fsc:
+  grpc:
+    enabled: true
+`)
+		srv, err := NewGRPCServer(p)
+		require.EqualError(t, err, "fsc.grpc.enabled is true but fsc.grpc.address is not set")
+		require.Nil(t, srv)
+	})
+
+	t.Run("enabled with malformed address returns error", func(t *testing.T) {
+		t.Parallel()
+		for _, addr := range []string{"127.0.0.1", "20000"} {
+			p := providerFrom(t, "fsc:\n  grpc:\n    enabled: true\n    address: "+addr+"\n")
+			srv, err := NewGRPCServer(p)
+			require.ErrorContains(t, err, "invalid fsc.grpc.address ["+addr+"]")
+			require.Nil(t, srv)
+		}
 	})
 
 	t.Run("invalid tls config returns error", func(t *testing.T) {

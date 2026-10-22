@@ -56,8 +56,7 @@ func TestValidateConfig_MissingGRPCAddress(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(confPath, "core.yaml"), []byte(raw), 0o600))
 
 	_, err := ValidateConfig(confPath)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing address")
+	require.ErrorContains(t, err, "fsc.grpc.address is not set")
 }
 
 func TestValidateConfig_InvalidTracingConfig(t *testing.T) {

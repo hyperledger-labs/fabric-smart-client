@@ -110,11 +110,25 @@ func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provi
 }
 
 // CallView calls the given view with the given input.
+//
+// The client sends the call once and never retries it, because views are not
+// idempotent. If the client cannot connect to the node, the call fails before
+// the request is sent and the view does not run. If the call fails after the
+// request is sent, for example with codes.Unavailable or codes.DeadlineExceeded,
+// the view may have run fully or partially, and the caller decides whether
+// running it again is safe.
 func (s *client) CallView(fid string, input []byte) (any, error) {
 	return s.CallViewWithContext(context.Background(), fid, input)
 }
 
 // CallViewWithContext calls the given view with the given input and go context.
+//
+// The client sends the call once and never retries it, because views are not
+// idempotent. If the client cannot connect to the node, the call fails before
+// the request is sent and the view does not run. If the call fails after the
+// request is sent, for example with codes.Unavailable or codes.DeadlineExceeded,
+// the view may have run fully or partially, and the caller decides whether
+// running it again is safe.
 func (s *client) CallViewWithContext(ctx context.Context, fid string, input []byte) (any, error) {
 	logger.Debugf("Calling view [%s] on input [%s]", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
@@ -166,6 +180,13 @@ func (s *client) Initiate(fid string, in []byte) (string, error) {
 }
 
 // StreamCallView calls the given view with the given input and returns a stream to communicate with it.
+//
+// The client sends the call once and never retries it, because views are not
+// idempotent. If the client cannot connect to the node, the call fails before
+// the request is sent and the view does not run. If the call fails after the
+// request is sent, for example with codes.Unavailable or codes.DeadlineExceeded,
+// the view may have run fully or partially, and the caller decides whether
+// running it again is safe.
 func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 	logger.Debugf("Streaming view call [%s] on input [%s]", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{

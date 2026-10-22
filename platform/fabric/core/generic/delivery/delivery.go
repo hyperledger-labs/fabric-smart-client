@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -88,6 +89,18 @@ type Delivery struct {
 	tracer            trace.Tracer
 	lastBlockReceived uint64
 	bufferSize        int
+	connMetrics       *connstate.Metrics
+
+	// connMu guards conn, connEndpoint and connDone.
+	connMu sync.Mutex
+	// conn tracks the peer the stream is currently attached to; nil until the
+	// first peer is picked.
+	conn *connstate.Tracker
+	// connEndpoint is the address conn tracks.
+	connEndpoint string
+	// connDone is set once the final state has been reported, so that the
+	// receiver, which can outlive Stop while blocked in Recv, cannot overwrite it.
+	connDone bool
 
 	// stop is closed exactly once, by Stop, to signal shutdown to every
 	// goroutine started by Run. It carries no value: untilStop, readBlocks and
@@ -106,7 +119,8 @@ var ctr = atomic.Uint32{}
 
 // New creates a Delivery for the given channel. It fails if channelConfig is
 // nil. bufferSize bounds the queue of blocks awaiting the callback and is
-// raised to 1 if not positive. The returned Delivery is inert until Run or
+// raised to 1 if not positive. connMetrics receives the state of the stream to
+// the peer; nil reports nothing. The returned Delivery is inert until Run or
 // Start is called.
 func New(
 	networkName string,
@@ -119,6 +133,7 @@ func New(
 	vault Vault,
 	bufferSize int,
 	tracerProvider tracing.Provider,
+	connMetrics *connstate.Metrics,
 ) (*Delivery, error) {
 	if channelConfig == nil {
 		return nil, errors.Errorf("expected channel config, got nil")
@@ -135,10 +150,11 @@ func New(
 		tracer: tracerProvider.Tracer("delivery", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{messageTypeLabel},
 		})),
-		callback:   callback,
-		vault:      vault,
-		bufferSize: max(bufferSize, 1),
-		stop:       make(chan struct{}),
+		callback:    callback,
+		vault:       vault,
+		bufferSize:  max(bufferSize, 1),
+		stop:        make(chan struct{}),
+		connMetrics: connMetrics,
 	}
 	return d, nil
 }
@@ -153,17 +169,65 @@ func (d *Delivery) Start(ctx context.Context) {
 }
 
 // Stop shuts the delivery service down, reporting err as the cause. A nil err
-// means a clean shutdown. Only the first call has any effect: err from later
-// calls is discarded. Stop never blocks and is safe to call concurrently and
-// after the service has already stopped.
+// means a clean shutdown and leaves the connection state disconnected; a
+// non-nil err leaves it stopped. Only the first call has any effect: err from
+// later calls is discarded. Stop never blocks and is safe to call concurrently
+// and after the service has already stopped.
 func (d *Delivery) Stop(err error) {
+	final := connstate.Disconnected
+	if err != nil {
+		final = connstate.Stopped
+	}
+	d.stopWith(err, final)
+}
+
+// stopWith is Stop with an explicit final connection state, for a shutdown whose
+// cause is an error but not a failure, such as context cancellation.
+func (d *Delivery) stopWith(err error, final connstate.State) {
 	d.stopOnce.Do(func() {
 		logger.Debugf("stop delivery with error [%v]", err)
 		if err != nil {
 			d.stopErr.Store(&err)
 		}
+		d.connMu.Lock()
+		d.connDone = true
+		d.conn.Set(final)
+		d.connMu.Unlock()
 		close(d.stop)
 	})
+}
+
+// connAttempt reports an attempt to open a stream to the peer at endpoint:
+// connecting for the first attempt, reconnecting for every later one. An
+// attempt on another peer than the previous one reports the previous peer
+// disconnected, so that only the peer in use shows a live state. Nothing is
+// reported once the service has stopped.
+func (d *Delivery) connAttempt(endpoint string) {
+	d.connMu.Lock()
+	defer d.connMu.Unlock()
+	if d.connDone {
+		return
+	}
+	s := connstate.Reconnecting
+	if d.conn == nil {
+		s = connstate.Connecting
+	}
+	if d.conn == nil || endpoint != d.connEndpoint {
+		d.conn.Set(connstate.Disconnected)
+		d.conn = d.connMetrics.Tracker(d.NetworkName, d.channel, connstate.ComponentDelivery, endpoint)
+		d.connEndpoint = endpoint
+	}
+	d.conn.Set(s)
+}
+
+// connEstablished reports the stream to the current peer connected, unless the
+// service has stopped.
+func (d *Delivery) connEstablished() {
+	d.connMu.Lock()
+	defer d.connMu.Unlock()
+	if !d.connDone {
+		d.conn.Set(connstate.Connected)
+	}
 }
 
 // stopError returns the error passed to the first call to Stop, or nil if the
@@ -258,7 +322,8 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			if dfCancel != nil {
 				dfCancel()
 			}
-			d.Stop(errors.New("context done"))
+			// Cancellation is how the node shuts down, so it is not a failure.
+			d.stopWith(errors.New("context done"), connstate.Disconnected)
 		default:
 			deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
 			if df == nil {
@@ -384,6 +449,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	}
 
 	address := peerConnConf.Address
+	d.connAttempt(address)
 	logger.Debugf("connecting to deliver service at [%s] for [%s:%s]", address, d.NetworkName, d.channel)
 	var err error
 	d.client, err = d.Services.NewPeerClient(*peerConnConf)
@@ -418,6 +484,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	}
 
 	logger.Debugf("connected to deliver service at [%s]", address)
+	d.connEstablished()
 	return stream, cancel, nil
 }
 

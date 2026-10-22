@@ -100,7 +100,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	manager.postStatuses = collections.NewSet(1)
 
 	// no listeners
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	manager.runStatusListener(ctx)
 
@@ -114,7 +114,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	listener.On("OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage).Once()
 	require.NoError(t, manager.AddListener("txID", listener))
 
-	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel = context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	go manager.runEventQueue(ctx)
 	manager.runStatusListener(ctx)
@@ -127,7 +127,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	require.NoError(t, manager.AddListener("txID", listener))
 	manager.listenerManager.(*finalityListenerManager[int]).txIDListeners["txID"] = []driver.FinalityListener[int]{listener}
 
-	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel = context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	manager.runStatusListener(ctx)
 	listener.AssertNotCalled(t, "OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage)
@@ -155,7 +155,7 @@ func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
 	listener := &MockFinalityListener{}
 	event := driver.FinalityEvent[int]{
-		Ctx:            context.TODO(),
+		Ctx:            t.Context(),
 		TxID:           "txID",
 		ValidationCode: 1,
 	}
