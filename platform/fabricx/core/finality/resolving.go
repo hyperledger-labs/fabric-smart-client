@@ -180,7 +180,7 @@ type proxyListener struct {
 // passed on; every other status is forwarded as it arrived.
 //
 // The re-resolve runs on the calling goroutine rather than on its own. The wrapped manager
-// settles every pending listener with Unknown when its stream tears down or an entry
+// settles every pending listener with Unknown when it shuts down or an entry
 // expires, so a goroutine per listener would fan out one query per pending transaction at
 // exactly the moment the committer is unreachable. Staying on the caller keeps the queries
 // bounded by the wrapped manager's handler pool, which is what that pool is for, and keeps

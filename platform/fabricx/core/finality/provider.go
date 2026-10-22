@@ -128,8 +128,8 @@ func (p *Provider) Initialize(ctx context.Context) {
 // NewManager retrieves or creates a ListenerManager for the given network and channel.
 // It ensures that only one ListenerManager exists for a specific network and channel combination
 // (singleton per network/channel).
-// If a new manager is created, it starts the manager's blocking listening process
-// in a separate goroutine.
+// A new manager is served in the background until the base context ends, reconnecting
+// its notification stream whenever it fails; see notificationListenerManager.run.
 func (p *Provider) NewManager(network, channel string) (ListenerManager, error) {
 	// Resolved once here and passed to the listening goroutine below, so that
 	// the manager registered in this call and the context its goroutine runs on
@@ -169,16 +169,15 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	// 4. Register the newly created instance
 	p.managers[key] = lm
 
-	// 5. Start listening in background
-	// lm.listen() is a blocking method that establishes and maintains a stream connection
-	// to receive finality notifications.
+	// 5. Serve in the background. run reconnects the notification stream itself and
+	// returns only once baseCtx ends, so the manager stays registered, and usable by
+	// the channel that holds it, across stream failures.
 	go func() {
-		logger.Debugf("Starting notification listener stream for %s", key)
-		if err := lm.listen(baseCtx); err != nil && !errors.Is(err, context.Canceled) {
-			logger.Errorf("Notification listener stream terminated unexpectedly for %s: %s", key, err)
+		logger.Debugf("Starting notification listener manager for %s", key)
+		if err := lm.run(baseCtx); err != nil && !errors.Is(err, context.Canceled) {
+			logger.Errorf("Notification listener manager stopped unexpectedly for %s: %s", key, err)
 		}
 
-		// Clean up: Remove the manager from the map when listen exits
 		p.managersMu.Lock()
 		delete(p.managers, key)
 		p.managersMu.Unlock()
