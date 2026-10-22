@@ -20,6 +20,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -374,25 +375,33 @@ func (i *Infrastructure) fabricMember(kind, name string) string {
 	return found[0]
 }
 
-// EventuallyConnectionState polls the metrics of the FSC node until the
-// connection state of component (one of the connstate.Component* values) is
-// want, and fails the test if that does not happen within timeout. With a
-// non-empty endpoint only that endpoint's state counts; with an empty one the
-// node must report at least one endpoint and every endpoint must be in want.
-func (i *Infrastructure) EventuallyConnectionState(node, component, endpoint string, want connstate.State, timeout time.Duration) {
+// EventuallyConnectionState polls the metrics of the FSC node until every
+// fsc_connection_state series that conn selects is in state want, and fails the
+// test if that does not happen within timeout. An empty field of conn matches
+// any value, and at least one series must match. Leaving Network or Channel
+// empty therefore requires the matching connections of every network or
+// channel to be in want, so one that is down cannot hide behind another.
+//
+// The series reports what the node last observed, which can be stale: the
+// orderer series changes only when the node broadcasts, so after stopping an
+// orderer it keeps its last value until a broadcast fails. Make the node act
+// on the connection before asserting a state that follows a fault.
+func (i *Infrastructure) EventuallyConnectionState(node string, conn fsc.Connection, want connstate.State, timeout time.Duration) {
 	client := i.WebClient(node)
 	gomega.Expect(client).NotTo(gomega.BeNil(), "no web client for node [%s]", node)
-	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
-		families, err := client.Metrics()
+	eventuallyConnectionState(gomega.Default, client.Metrics, conn, want, timeout,
+		"node [%s]: connection state of %+v never reached %d", node, conn, want)
+}
+
+// eventuallyConnectionState is EventuallyConnectionState with the metrics
+// source and the Gomega instance passed in, so it can be tested without a
+// network.
+func eventuallyConnectionState(g gomega.Gomega, metrics func() (map[string]*dto.MetricFamily, error), conn fsc.Connection, want connstate.State, timeout time.Duration, msg ...any) {
+	g.Eventually(func(g gomega.Gomega) {
+		families, err := metrics()
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		states := fsc.ParseConnectionState(families, component)
-		if endpoint != "" {
-			g.Expect(states).To(gomega.HaveKeyWithValue(endpoint, want))
-			return
-		}
-		g.Expect(states).To(gomega.HaveEach(want))
-	}).WithTimeout(timeout).WithPolling(500*time.Millisecond).Should(gomega.Succeed(),
-		"node [%s]: %s connection state never reached %d", node, component, want)
+		g.Expect(fsc.ParseConnectionState(families, conn)).To(gomega.HaveEach(want))
+	}).WithOffset(2).WithTimeout(timeout).WithPolling(500*time.Millisecond).Should(gomega.Succeed(), msg...)
 }
 
 // StopPostgres stops the Postgres container of the database dbName, which nwo

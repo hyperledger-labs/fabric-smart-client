@@ -133,13 +133,28 @@ around it.
 | `StopPeer(name)` / `StartPeer(name)` | the same for a Fabric peer, e.g. `Org1_peer_0` |
 | `StopOrderer(name)` / `StartOrderer(name)` | the same for a Fabric orderer, e.g. `orderer` |
 | `StopPostgres(dbName)` / `StartPostgres(dbName)` | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive |
-| `EventuallyConnectionState(node, component, endpoint, want, timeout)` | poll the node's `/metrics` until the `fsc_connection_state` of `component` is `want`; an empty `endpoint` requires every endpoint of the component to be in `want` |
+| `EventuallyConnectionState(node, conn, want, timeout)` | poll the node's `/metrics` until every `fsc_connection_state` series that `conn` (an `fsc.Connection`) selects is `want`; see below |
 
 Peer and orderer names must be unique across the Fabric networks of the topology;
 the call fails otherwise. For Fabric-x, `fabricx.FxPlatform(ii).StopCommitter()` and
 `StartCommitter()` stop and restart the all-in-one committer container; start waits
-until its sidecar, query and ordering services accept connections. The states and
-component names are listed under
+until its sidecar, query and ordering services accept connections.
+
+`fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
+and `Endpoint`. An empty field matches any value, and at least one series must match.
+Leaving `Network` or `Channel` empty therefore requires the connections of every
+network or channel to be in `want`, so one that is down cannot hide behind another:
+
+```go
+ii.EventuallyConnectionState("alice", fsc.Connection{Component: connstate.ComponentDelivery}, connstate.Connected, time.Minute)
+```
+
+The gauge holds what the node last observed, which can be stale. The `orderer` series
+changes only when the node broadcasts: after `StopOrderer` it keeps its pre-stop value
+until a broadcast fails, so asserting `Connected` right after the stop passes while the
+orderer is down. Make the node broadcast before asserting a state that follows an
+orderer fault. The states, the component names and when each component reports are
+listed under
 [Connection State](../platform/view/services/monitoring_metrics.md#connection-state).
 
 ## Running
