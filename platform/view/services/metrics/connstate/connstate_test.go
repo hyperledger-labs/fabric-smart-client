@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package connstate
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -74,4 +75,37 @@ func TestNilMetrics_NoOpTracker(t *testing.T) {
 		tr.Set(s)
 		nilTracker.Set(s)
 	}
+}
+
+func TestSnapshot_ReportsEverConnected(t *testing.T) {
+	t.Parallel()
+	m, _, _, _ := newTestMetrics()
+	m.Tracker("net", "ch", ComponentDelivery, "peer1:7051").Set(Connecting)
+	tr := m.Tracker("net", "ch", ComponentDelivery, "peer0:7051")
+	tr.Set(Connected)
+	tr.Set(Reconnecting)
+
+	assert.Equal(t, []Status{
+		{Network: "net", Channel: "ch", Component: ComponentDelivery, Endpoint: "peer0:7051", State: Reconnecting, EverConnected: true},
+		{Network: "net", Channel: "ch", Component: ComponentDelivery, Endpoint: "peer1:7051", State: Connecting},
+	}, m.Snapshot())
+	var nilMetrics *Metrics
+	assert.Nil(t, nilMetrics.Snapshot())
+}
+
+func TestSnapshot_ConcurrentSet(t *testing.T) {
+	t.Parallel()
+	m, _, _, _ := newTestMetrics()
+	tr := m.Tracker("net", "ch", ComponentOrderer, "orderer:7050")
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		for range 100 {
+			tr.Set(Connected)
+		}
+	})
+	for range 100 {
+		m.Snapshot()
+	}
+	wg.Wait()
+	assert.True(t, m.Snapshot()[0].EverConnected)
 }

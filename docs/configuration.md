@@ -263,6 +263,17 @@ fsc:
   # Web server must be enabled to support healthz, version and prometheus /metrics
   # end points.
   #
+  # The listener serves two probe endpoints that skip the client-certificate check of the
+  # view endpoints. The TLS handshake still applies: with tls.clientAuthRequired: true, a
+  # client without a certificate is rejected before it reaches them.
+  #   GET /healthz -> 200 while the process serves HTTP. It never checks external
+  #                   components, so a peer or orderer outage does not fail liveness.
+  #   GET /readyz  -> 200 when every component that reports connection state
+  #                   (fsc_connection_state) has been connected since startup and none
+  #                   is stopped; reconnecting is still ready. Otherwise 503, with a JSON
+  #                   list of the offending connections (network, channel, component,
+  #                   endpoint, state as the numeric gauge value, everConnected).
+  #
   # When a view fails, the REST endpoint returns its error text to the client verbatim, as
   # the Reason of the response body; the gRPC view service on fsc.grpc does the same in
   # Error.Message. Over REST, only a view that exceeds viewTimeout gets a fixed message

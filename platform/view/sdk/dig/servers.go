@@ -25,6 +25,7 @@ import (
 	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -106,8 +107,10 @@ func CheckTLSConfig(configProvider driver.ConfigService) error {
 // NewWebServer returns the node's REST listener, configured from fsc.web. It returns a
 // no-op server when fsc.web.enabled is false. It returns an error when fsc.web.address is
 // empty or not host:port. It also returns an error when fsc.web.tls does not resolve: a listener is never
-// returned with weaker TLS than the configuration describes.
-func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, identityProvider server.IdentityProvider, tracerProvider tracing.Provider) (Server, error) {
+// returned with weaker TLS than the configuration describes. The listener also serves
+// /healthz and /readyz, with readiness taken from connStates. They skip the client-certificate
+// check of the view endpoints, but not the listener's TLS handshake.
+func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, identityProvider server.IdentityProvider, tracerProvider tracing.Provider, connStates *connstate.Metrics) (Server, error) {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer(), nil
@@ -131,6 +134,8 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	})
 	h := web.NewHttpHandler()
 	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
+	webServer.RegisterHandler("/healthz", http.HandlerFunc(web.Healthz), false)
+	webServer.RegisterHandler("/readyz", web.Readyz(connStates), false)
 
 	viewTimeout := DefaultViewTimeout
 	if configProvider.IsSet(ViewTimeoutKey) {
