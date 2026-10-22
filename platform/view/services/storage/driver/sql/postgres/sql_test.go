@@ -56,6 +56,10 @@ func TestPostgres(t *testing.T) {
 	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
 		return p.(*common3.KeyValueStore)
 	})
+	t.Run("DBMonitor", func(t *testing.T) {
+		t.Parallel()
+		testDBMonitorExportsMetrics(t, pgConnStr)
+	})
 }
 
 func setupDBWithTLS(tb testing.TB) (pgConnStr, caPath string) {

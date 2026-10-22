@@ -224,6 +224,7 @@ Components that report connection state:
 | --- | --- | --- | --- |
 | `delivery` | Fabric network and channel | Peer the channel's block stream is attached to | `connecting` on the first connection attempt, `reconnecting` on every later attempt, `connected` once the Deliver stream is open. `stopped` when the committer rejects a block, which stops the channel's block stream (see `commit_failures` below). `disconnected` on a clean shutdown. |
 | `orderer` | Fabric network, empty channel | Orderer a broadcast stream is open to | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state. |
+| `database` | empty | `host:port/dbname` of a Postgres data source (see `data_source` below) | `connected` after a successful liveness ping, `reconnecting` after a failed one, `disconnected` on a clean shutdown. Each connection pool is pinged every 10 s. SQLite reports no state. |
 
 Operational notes:
 
@@ -232,7 +233,23 @@ Operational notes:
 - The `orderer` series is updated only by broadcasts. A node that broadcasts nothing keeps the last reported state, and an orderer whose stream broke stays `reconnecting` until a broadcast connects to it again. An orderer no stream was ever opened to has no series. For orderers, `fsc_connection_last_connected_timestamp_seconds` is the time of the last stream opened or envelope accepted.
 - A shutdown, including the cancellation of the node's context, ends delivery in `disconnected`. Only a rejected block ends it in `stopped`.
 
-Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go` and `platform/fabric/core/generic/ordering/`.
+Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go`, `platform/fabric/core/generic/ordering/` and `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
+
+### Database Pool
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `fsc_database_open_connections` | gauge | `data_source` | Number of established connections, in use and idle. |
+| `fsc_database_in_use` | gauge | `data_source` | Number of connections in use. |
+| `fsc_database_idle` | gauge | `data_source` | Number of idle connections. |
+| `fsc_database_wait_count` | gauge | `data_source` | Total number of times a caller waited for a connection. |
+| `fsc_database_wait_duration_seconds` | gauge | `data_source` | Total time callers waited for a connection. |
+
+The values are `sql.DBStats` of each Postgres connection pool, sampled every 10 s. `wait_count` and `wait_duration_seconds` only grow; alert on their rate. The liveness ping keeps one connection open, so `open_connections` stays at 1 or more. While every connection is in use, the ping is skipped and the state stays `connected`.
+
+The `data_source` label is `host:port/dbname` of the first host in the data source; for a unix socket, `host` is the socket directory, and a data source that cannot be parsed is labeled `unknown`. Pools whose data sources differ only in user or connection options share the label and therefore one series.
+
+Primary implementation: `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
 
 ### Fabric Ordering
 
@@ -395,7 +412,8 @@ The following labels are part of the current FSC metric surface.
 | `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView`, `*protos.Command_InitiateView` |
 | `component` | FSC component that owns a client connection | `orderer`, `delivery`, `fabricx_notification`, `fabricx_query`, `database`, `database_notifier` |
 | `context_id` | FSC context identifier used by the WebSocket multiplexer tracer | FSC context UUID or caller-provided context ID |
-| `endpoint` | Remote address of a client connection | `host:port` |
+| `data_source` | Postgres data source of a connection pool, without credentials | `host:port/dbname` |
+| `endpoint` | Remote address of a client connection | `host:port`; `host:port/dbname` for `database` |
 | `fid` | View factory identifier used by gRPC-oriented view tracers | application-defined factory ID |
 | `initiator_view` | Initiator view identifier associated with a child view execution | fully qualified view identifier or empty |
 | `network` | Fabric network name | deployment-specific network name |
@@ -414,7 +432,7 @@ The following labels are part of the current FSC metric surface.
 
 The following families have implementation caveats:
 
-- `fsc_connection_*`: only the `delivery` and `orderer` components report connection state, so no series are exported for the other `component` values.
+- `fsc_connection_*`: only the `delivery`, `orderer` and `database` components report connection state, so no series are exported for the other `component` values.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
 - `fsc_view_services_view_grpc_server_view_handler_*`: the tracer is active for `initiate_view`, but the `success` label is declared without a matching attribute update. The exported `initiate_view` series therefore uses `success=""`.
 - `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 

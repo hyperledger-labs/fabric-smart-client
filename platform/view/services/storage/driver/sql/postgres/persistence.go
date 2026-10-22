@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -25,14 +28,35 @@ var logger = logging.MustGetLogger()
 
 const driverName = "pgx"
 
+// DbProvider returns the connection pool for a set of Opts. Implementations share one
+// pool among all callers that pass the same DataSource.
 type DbProvider interface {
 	Get(Opts) (*common.RWDB, error)
 }
 
+// NewDbProvider returns a DbProvider that opens each pool with Open and reports no metrics.
 func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, Open) }
+
+// NewDbProviderWithMetrics returns a DbProvider that opens each pool with Open and then
+// monitors it for the lifetime of the process: it reports the pool's reachability as the
+// database component of the connection-state metrics and exports its pool statistics.
+func NewDbProviderWithMetrics(m *connstate.Metrics, p metrics.Provider) DbProvider {
+	return lazy.NewProviderWithKeyMapper(key, func(o Opts) (*common.RWDB, error) {
+		dbs, err := Open(o)
+		if err != nil {
+			return nil, err
+		}
+		label := dataSourceLabel(o.DataSource)
+		// Pools are never closed, so the monitor runs until the process exits.
+		go monitorDB(context.Background(), dbs.WriteDB, label, defaultPingInterval, m.Tracker("", "", connstate.ComponentDatabase, label), p)
+		return dbs, nil
+	})
+}
 
 func key(o Opts) string { return o.DataSource }
 
+// Open opens a connection pool for opts.DataSource and pings it once; it returns an error
+// if the database is unreachable. ReadDB and WriteDB share the same pool.
 func Open(opts Opts) (*common.RWDB, error) {
 	db, err := sqlOpen(opts.DataSource, opts.Tracing)
 	if err != nil {
