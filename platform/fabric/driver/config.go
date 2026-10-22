@@ -53,7 +53,8 @@ type ChannelConfig interface {
 	CommitterWaitForEventTimeout() time.Duration
 	DeliveryBufferSize() int
 	// DeliverySleepAfterFailure returns the initial bound of the backoff that
-	// spaces reconnects to a delivery peer that fails before handing off a block.
+	// spaces reconnects to a delivery peer whose stream failed before handing off
+	// a new block or staying open this long.
 	DeliverySleepAfterFailure() time.Duration
 	CommitParallelism() int
 	ChaincodeConfigs() []ChaincodeConfig

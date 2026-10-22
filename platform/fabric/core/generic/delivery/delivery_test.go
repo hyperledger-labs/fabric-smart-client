@@ -930,8 +930,9 @@ func TestRunReceiver_EndpointSwitchClearsOldSeries(t *testing.T) {
 	d.Stop(nil)
 	close(recvChan)
 	<-done
-	// The reconnect is an attempt on peerB, so it is peerB that reports it.
-	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Connected, connstate.Disconnected}, rec.States("peerA"))
+	// peerA reads reconnecting while the receiver waits; the attempt then lands
+	// on peerB, which reports its own reconnect.
+	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Connected, connstate.Reconnecting, connstate.Disconnected}, rec.States("peerA"))
 	require.Equal(t, []connstate.State{connstate.Reconnecting, connstate.Connected, connstate.Disconnected}, rec.States("peerB"))
 }
 
@@ -1066,4 +1067,98 @@ func TestRunReceiver_BackoffRestartsAfterBlock(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	require.Equal(t, []int{2, 1}, calls)
+}
+
+// idleStream serves block 1, then holds the stream open for hold before
+// failing, like a healthy stream on a quiet channel that a load balancer
+// eventually drops. Every stream it serves behaves the same way.
+type idleStream struct {
+	mockDeliverStream
+	hold  time.Duration
+	calls atomic.Int32
+}
+
+func (s *idleStream) Recv() (*pb.DeliverResponse, error) {
+	if s.calls.Add(1)%2 == 0 {
+		time.Sleep(s.hold)
+		return nil, errors.New("idle timeout")
+	}
+	return &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+		Header:   &cb.BlockHeader{Number: 1},
+		Data:     &cb.BlockData{},
+		Metadata: &cb.BlockMetadata{},
+	}}}, nil
+}
+
+// TestRunReceiver_LongLivedStreamReconnectsAtOnce checks that a stream that
+// stayed open for at least DeliverySleepAfterFailure counts as healthy even
+// without a new block: its drop is reconnected without drawing a delay.
+func TestRunReceiver_LongLivedStreamReconnectsAtOnce(t *testing.T) {
+	t.Parallel()
+	attempts := make(chan struct{}, 16)
+	svcs := &mockFlakyServices{attempts: attempts, peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+		stream: &idleStream{hold: 20 * time.Millisecond}, // past mockChannelConfig's 10ms
+	}}}
+	d, _ := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+	var draws atomic.Int32
+	d.newBackoff = func() func() time.Duration {
+		return func() time.Duration { draws.Add(1); return time.Hour }
+	}
+
+	done := runReceiverAsync(t.Context(), d, make(chan blockResponse, 4))
+	for range 3 {
+		select {
+		case <-attempts:
+		case <-time.After(5 * time.Second):
+			t.Fatal("a long-lived stream that dropped was not reconnected at once")
+		}
+	}
+	d.Stop(nil)
+	<-done
+	require.Zero(t, draws.Load())
+}
+
+// TestRunReceiver_WaitReportsReconnecting checks that the connection state
+// reads reconnecting while the receiver waits, not connected, and that the
+// attempt ending the wait does not count the reconnect twice.
+func TestRunReceiver_WaitReportsReconnecting(t *testing.T) {
+	t.Parallel()
+	recvErrChan := make(chan error, 2)
+	recvErrChan <- errors.New("stream broken")
+	recvErrChan <- errors.New("stream broken")
+	recvChan := make(chan *pb.DeliverResponse)
+	svcs := &mockServices{peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+		stream: &mockDeliverStream{recvChan: recvChan, recvErrChan: recvErrChan},
+	}}}
+	d, rec := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+	// The first wait ends at once, the second parks the receiver.
+	waited := make(chan struct{})
+	d.newBackoff = func() func() time.Duration {
+		var n atomic.Int32
+		return func() time.Duration {
+			if n.Add(1) == 1 {
+				return 0
+			}
+			close(waited)
+			return time.Hour
+		}
+	}
+
+	done := runReceiverAsync(t.Context(), d, make(chan blockResponse, 1))
+	select {
+	case <-waited:
+	case <-time.After(5 * time.Second):
+		t.Fatal("receiver never waited")
+	}
+	last, _ := rec.Last("peerA")
+	require.Equal(t, connstate.Reconnecting, last)
+
+	d.Stop(nil)
+	close(recvChan)
+	<-done
+	require.Equal(t, []connstate.State{
+		connstate.Connecting, connstate.Connected,
+		connstate.Reconnecting, connstate.Connected, // first wait, one reconnect
+		connstate.Reconnecting, connstate.Disconnected, // parked, then stopped
+	}, rec.States("peerA"))
 }

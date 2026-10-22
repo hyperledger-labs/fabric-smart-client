@@ -99,13 +99,17 @@ type Delivery struct {
 	// the delays runReceiver draws.
 	newBackoff func() func() time.Duration
 
-	// connMu guards conn, connEndpoint and connDone.
+	// connMu guards conn, connEndpoint, connWaiting and connDone.
 	connMu sync.Mutex
 	// conn tracks the peer the stream is currently attached to; nil until the
 	// first peer is picked.
 	conn *connstate.Tracker
 	// connEndpoint is the address conn tracks.
 	connEndpoint string
+	// connWaiting is set while the receiver waits to reconnect, which conn
+	// already reports as reconnecting, so that the attempt ending the wait does
+	// not report, and count, the same reconnect again.
+	connWaiting bool
 	// connDone is set once the final state has been reported, so that the
 	// receiver, which can outlive Stop while blocked in Recv, cannot overwrite it.
 	connDone bool
@@ -216,6 +220,11 @@ func (d *Delivery) connAttempt(endpoint string) {
 	if d.connDone {
 		return
 	}
+	waiting := d.connWaiting
+	d.connWaiting = false
+	if waiting && endpoint == d.connEndpoint {
+		return
+	}
 	s := connstate.Reconnecting
 	if d.conn == nil {
 		s = connstate.Connecting
@@ -226,6 +235,19 @@ func (d *Delivery) connAttempt(endpoint string) {
 		d.connEndpoint = endpoint
 	}
 	d.conn.Set(s)
+}
+
+// connWait reports the stream to the current peer reconnecting while the
+// receiver waits before the next attempt, unless the service has stopped or no
+// peer has been picked yet.
+func (d *Delivery) connWait() {
+	d.connMu.Lock()
+	defer d.connMu.Unlock()
+	if d.connDone || d.conn == nil {
+		return
+	}
+	d.connWaiting = true
+	d.conn.Set(connstate.Reconnecting)
 }
 
 // connEstablished reports the stream to the current peer connected, unless the
@@ -309,14 +331,16 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 // keepalive. The new stream starts at the last block received, which is
 // therefore delivered again (see GetStartPosition).
 //
-// A stream that broke after handing off a block is reopened at once. Every
-// other reconnect waits for the next delay of an exponential backoff with full
-// jitter, starting at DeliverySleepAfterFailure and capped at
-// maxReconnectDelay, so a peer that keeps failing or rejecting the stream is
-// neither retried in a hot loop nor by every node at the same moment. The
-// backoff restarts once a block newer than any received before is handed off;
-// the block each new stream starts with is usually a re-delivery and does not
-// count. Stop and ctx cancellation end the wait immediately.
+// A stream that made progress is reopened at once and restarts the backoff.
+// Progress is either a block newer than any received before (the block each new
+// stream starts with is usually a re-delivery and does not count) or a stream
+// that stayed open for at least DeliverySleepAfterFailure, which covers a
+// healthy stream on a quiet channel. Every other reconnect waits for the next
+// delay of an exponential backoff with full jitter, starting at
+// DeliverySleepAfterFailure and capped at maxReconnectDelay, so a peer that
+// keeps failing or rejecting the stream is neither retried in a hot loop nor
+// by every node at the same moment. The connection state reads reconnecting
+// for the whole wait. Stop and ctx cancellation end the wait immediately.
 func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	if ctx == nil || ch == nil {
 		return
@@ -324,9 +348,13 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	var df DeliverStream
 	var dfCancel context.CancelFunc
 	var err error
-	// stalled is set once a stream is opened and cleared when it hands off a
-	// new block, so a reconnect waits only after an attempt that made no progress.
+	// stalled is set when a connection attempt starts and cleared when the
+	// stream makes progress, so a reconnect waits only after an attempt that
+	// made none.
 	stalled := false
+	// opened is when the current stream was established; zero if the last
+	// connection attempt failed.
+	var opened time.Time
 	// nextDelay is the current backoff, created on the first wait after progress.
 	var nextDelay func() time.Duration
 	counter := 0
@@ -346,7 +374,11 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			// Cancellation is how the node shuts down, so it is not a failure.
 			d.stopWith(errors.New("context done"), connstate.Disconnected)
 		default:
+			if df == nil && stalled && !opened.IsZero() && time.Since(opened) >= d.channelConfig.DeliverySleepAfterFailure() {
+				stalled, nextDelay = false, nil
+			}
 			if df == nil && stalled {
+				d.connWait()
 				if nextDelay == nil {
 					nextDelay = d.reconnectBackoff()
 				}
@@ -360,8 +392,11 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			if df == nil {
 				logger.Debugf("deliver service [%s:%s], connecting...", d.NetworkName, d.channel)
 				span.AddEvent("connect")
-				stalled = true
+				stalled, opened = true, time.Time{}
 				df, dfCancel, err = d.connect(ctx)
+				if err == nil {
+					opened = time.Now()
+				}
 				if err != nil {
 					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]", d.NetworkName, d.channel, err)
 					span.RecordError(err)
