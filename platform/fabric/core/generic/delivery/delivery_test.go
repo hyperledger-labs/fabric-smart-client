@@ -9,6 +9,7 @@ package delivery
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -302,7 +303,7 @@ func TestHandleBlockResponse(t *testing.T) {
 		t.Parallel()
 		d := &Delivery{client: &mockPeerClient{}}
 		ch := make(chan blockResponse, 1)
-		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: nil}, ch, time.Millisecond)
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: nil}, ch)
 		require.False(t, ok)
 		require.Empty(t, ch)
 	})
@@ -316,7 +317,7 @@ func TestHandleBlockResponse(t *testing.T) {
 			Header:   nil,
 			Metadata: &cb.BlockMetadata{},
 		}
-		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch, time.Millisecond)
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch)
 		require.False(t, ok)
 		require.Empty(t, ch)
 	})
@@ -330,7 +331,7 @@ func TestHandleBlockResponse(t *testing.T) {
 			Header:   &cb.BlockHeader{Number: 1},
 			Metadata: &cb.BlockMetadata{},
 		}
-		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch, time.Millisecond)
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch)
 		require.False(t, ok)
 		require.Empty(t, ch)
 	})
@@ -344,7 +345,7 @@ func TestHandleBlockResponse(t *testing.T) {
 			Header:   &cb.BlockHeader{Number: 1},
 			Metadata: nil,
 		}
-		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch, time.Millisecond)
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch)
 		require.False(t, ok)
 		require.Empty(t, ch)
 	})
@@ -358,7 +359,7 @@ func TestHandleBlockResponse(t *testing.T) {
 			Header:   &cb.BlockHeader{Number: 42},
 			Metadata: &cb.BlockMetadata{},
 		}
-		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: good}, ch, time.Millisecond)
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: good}, ch)
 		require.True(t, ok)
 		require.Len(t, ch, 1)
 		received := <-ch
@@ -951,4 +952,118 @@ func TestBlockScan_ReportsNoConnectionState(t *testing.T) {
 	// A scan shares the endpoint labels of the channel's stream, so it must not
 	// report: its end would mark the long-running stream disconnected.
 	require.Empty(t, rec.States("peerA"))
+}
+
+// slowChannelConfig configures the 10s reconnect delay a node uses by default.
+type slowChannelConfig struct{ mockChannelConfig }
+
+func (*slowChannelConfig) DeliverySleepAfterFailure() time.Duration { return 10 * time.Second }
+
+func TestRunReceiver_StopDuringBackoffReturnsPromptly(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		stop func(d *Delivery, cancel context.CancelFunc)
+	}{
+		{"Stop", func(d *Delivery, _ context.CancelFunc) { d.Stop(nil) }},
+		{"ctx cancel", func(_ *Delivery, cancel context.CancelFunc) { cancel() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			attempts := make(chan struct{}, 8)
+			svcs := &mockFlakyServices{attempts: attempts}
+			svcs.failures.Store(1000) // never connects
+			d, _ := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+			d.channelConfig = &slowChannelConfig{}
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			done := runReceiverAsync(ctx, d, make(chan blockResponse, 1))
+			<-attempts
+			time.Sleep(50 * time.Millisecond) // let the receiver enter the wait
+
+			tc.stop(d, cancel)
+			select {
+			case <-done:
+			case <-time.After(200 * time.Millisecond):
+				t.Fatal("runReceiver kept waiting for the reconnect delay after shutdown")
+			}
+		})
+	}
+}
+
+// redeliverStream serves block 1 and then fails, over and over, like a peer
+// that re-delivers the block a stream is seeked to and then breaks.
+type redeliverStream struct {
+	mockDeliverStream
+	calls atomic.Int32
+}
+
+func (s *redeliverStream) Recv() (*pb.DeliverResponse, error) {
+	if s.calls.Add(1)%2 == 0 {
+		return nil, errors.New("stream broken")
+	}
+	return &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+		Header:   &cb.BlockHeader{Number: 1},
+		Data:     &cb.BlockData{},
+		Metadata: &cb.BlockMetadata{},
+	}}}, nil
+}
+
+// TestRunReceiver_BackoffRestartsAfterBlock checks which reconnects wait and on
+// which backoff: refused connects share one backoff, a stream that handed off a
+// new block is reopened without waiting, and the next wait starts a new
+// backoff. A stream that only re-delivers a block it already handed off made no
+// progress, so its failure waits instead of reconnecting in a hot loop.
+func TestRunReceiver_BackoffRestartsAfterBlock(t *testing.T) {
+	t.Parallel()
+
+	attempts := make(chan struct{}, 8)
+	svcs := &mockFlakyServices{attempts: attempts, peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+		stream: &redeliverStream{},
+	}}}
+	svcs.failures.Store(2)
+	d, _ := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+
+	// calls[i] counts the delays drawn from the i-th backoff. The first backoff
+	// waits not at all, the second parks the receiver for good.
+	var mu sync.Mutex
+	var calls []int
+	parked := make(chan struct{})
+	d.newBackoff = func() func() time.Duration {
+		mu.Lock()
+		defer mu.Unlock()
+		i := len(calls)
+		calls = append(calls, 0)
+		return func() time.Duration {
+			mu.Lock()
+			defer mu.Unlock()
+			calls[i]++
+			if i == 0 {
+				return 0
+			}
+			close(parked)
+			return time.Hour
+		}
+	}
+
+	ch := make(chan blockResponse, 2)
+	done := runReceiverAsync(t.Context(), d, ch)
+	select {
+	case <-parked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("receiver never waited on a second backoff")
+	}
+	d.Stop(nil)
+	<-done
+
+	require.Len(t, ch, 2)
+	// Two refused connects, then one that handed off block 1, then one reopened
+	// at once that only re-delivered block 1 before failing, so the receiver
+	// parked on a new backoff.
+	require.Len(t, attempts, 4)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, []int{2, 1}, calls)
 }
