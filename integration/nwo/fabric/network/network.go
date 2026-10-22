@@ -213,14 +213,20 @@ func (n *Network) createChannelBlock(c *topology.Channel) common.Command {
 func (*Network) Load() {
 }
 
+// Members returns one member per orderer, then one per Fabric peer that is not
+// marked SkipRunning, named <prefix>.orderer.<name> and <prefix>.peer.<name>.
+// nwo runs each as its own process, so a single peer or orderer can be stopped
+// and restarted while the rest of the network stays up.
 func (n *Network) Members() []grouper.Member {
 	members := grouper.Members{}
-
-	if r := n.OrdererGroupRunner(); r != nil {
-		members = append(members, grouper.Member{Name: n.Prefix + ".orderers", Runner: r})
+	for _, o := range n.Orderers {
+		members = append(members, grouper.Member{Name: n.Prefix + ".orderer." + o.Name, Runner: n.OrdererRunner(o)})
 	}
-	if r := n.PeerGroupRunner(); r != nil {
-		members = append(members, grouper.Member{Name: n.Prefix + ".peers", Runner: r})
+	for _, p := range n.Peers {
+		if p.SkipRunning || p.Type != topology.FabricPeer {
+			continue
+		}
+		members = append(members, grouper.Member{Name: n.Prefix + ".peer." + p.Name, Runner: n.PeerRunner(p)})
 	}
 	return members
 }

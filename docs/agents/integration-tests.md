@@ -119,6 +119,29 @@ The remaining options are `WithCtor(ctor)` (which also turns on init),
 - `integration.TestSuite` — base suite with setup/teardown.
 - `StartPort()` — dynamic port allocation to avoid collisions.
 
+### Fault primitives
+
+nwo runs every FSC node, Fabric peer and Fabric orderer as its own process, so a
+test can take one down while the rest of the network keeps running. Each call
+returns once the component is gone or ready again, so no `time.Sleep` is needed
+around it.
+
+| Call on `*integration.Infrastructure` | Effect |
+|---|---|
+| `StopFSCNode(id)` / `StartFSCNode(id)` | SIGTERM the node and wait for exit / start it again and wait for readiness |
+| `KillFSCNode(id)` | SIGKILL the node, as a crash would; restart with `StartFSCNode` |
+| `StopPeer(name)` / `StartPeer(name)` | the same for a Fabric peer, e.g. `Org1_peer_0` |
+| `StopOrderer(name)` / `StartOrderer(name)` | the same for a Fabric orderer, e.g. `orderer` |
+| `StopPostgres(dbName)` / `StartPostgres(dbName)` | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive |
+| `EventuallyConnectionState(node, component, endpoint, want, timeout)` | poll the node's `/metrics` until the `fsc_connection_state` of `component` is `want`; an empty `endpoint` requires every endpoint of the component to be in `want` |
+
+Peer and orderer names must be unique across the Fabric networks of the topology;
+the call fails otherwise. For Fabric-x, `fabricx.FxPlatform(ii).StopCommitter()` and
+`StartCommitter()` stop and restart the all-in-one committer container; start waits
+until its sidecar, query and ordering services accept connections. The states and
+component names are listed under
+[Connection State](../platform/view/services/monitoring_metrics.md#connection-state).
+
 ## Running
 
 ```bash

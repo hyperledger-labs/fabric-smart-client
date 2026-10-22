@@ -16,7 +16,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 
@@ -26,8 +25,6 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/matchers"
 	"github.com/onsi/gomega/types"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 	"go.yaml.in/yaml/v3"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -931,20 +928,6 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 	return runner2.New(config)
 }
 
-// OrdererGroupRunner returns a runner that can be used to start and stop all
-// orderers in a network.
-func (n *Network) OrdererGroupRunner() ifrit.Runner {
-	members := grouper.Members{}
-	for _, o := range n.Orderers {
-		members = append(members, grouper.Member{Name: o.ID(), Runner: n.OrdererRunner(o)})
-	}
-	if len(members) == 0 {
-		return nil
-	}
-
-	return grouper.NewParallel(syscall.SIGTERM, members)
-}
-
 // PeerRunner returns an ifrit.Runner for the specified peer. The runner can be
 // used to start and manage a peer process.
 func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
@@ -1003,24 +986,6 @@ func (n *Network) OrdererLogsFolder() string {
 		"logs",
 		"orderers",
 	)
-}
-
-// PeerGroupRunner returns a runner that can be used to start and stop all
-// peers in a network.
-func (n *Network) PeerGroupRunner() ifrit.Runner {
-	members := grouper.Members{}
-	for _, p := range n.Peers {
-		if p.SkipRunning {
-			continue
-		}
-		if p.Type == topology.FabricPeer {
-			members = append(members, grouper.Member{Name: p.ID(), Runner: n.PeerRunner(p)})
-		}
-	}
-	if len(members) == 0 {
-		return nil
-	}
-	return grouper.NewParallel(syscall.SIGTERM, members)
 }
 
 func (n *Network) peerCommand(command common.Command, tlsDir string, env ...string) *exec.Cmd {

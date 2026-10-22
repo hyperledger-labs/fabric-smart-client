@@ -38,18 +38,47 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
+// containerName is the name of the committer container; it is unique per network.
+func (e *Extension) containerName() string {
+	return fmt.Sprintf("%s-%s-%s-committer", e.network.NetworkID, e.cfg.SidecarOrg, e.cfg.SidecarName)
+}
+
+// ports returns the host ports of the sidecar, query, and ordering services
+// the committer container exposes.
+func (e *Extension) ports() (sidecar, query, ordering int) {
+	sidecarPeer := e.network.Peer(e.cfg.SidecarOrg, e.cfg.SidecarName)
+	return int(e.network.PeerPort(sidecarPeer, fabric_network.ListenPort)),
+		int(e.network.PeerPort(sidecarPeer, fabricx_network.QueryServicePortName)),
+		int(e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
+}
+
+// StopCommitter stops the committer container and returns once it has exited.
+// The container keeps its state, so StartCommitter resumes the same ledger.
+func (e *Extension) StopCommitter() {
+	d, err := docker.GetInstance()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(d.StopContainer(e.containerName())).To(gomega.Succeed())
+}
+
+// StartCommitter restarts the container stopped by StopCommitter and returns
+// once its sidecar, query, and ordering services accept connections.
+func (e *Extension) StartCommitter() {
+	d, err := docker.GetInstance()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	since := time.Now().Format(time.RFC3339Nano)
+	gomega.Expect(d.StartContainer(e.containerName())).To(gomega.Succeed())
+	e.followLogsAndWait(d.Client, e.containerName(), since)
+}
+
 func (e *Extension) launchContainer() {
 	logger.Infof("Launch container")
 
 	networkID := e.network.NetworkID
 	sidecarPeer := e.network.Peer(e.cfg.SidecarOrg, e.cfg.SidecarName)
-	containerName := fmt.Sprintf("%s-%s-%s-committer", networkID, e.cfg.SidecarOrg, e.cfg.SidecarName)
+	containerName := e.containerName()
 	rootCryptoDir := rootCrypto(e.network)
 
-	// get ports
-	sidecarPort := int(e.network.PeerPort(sidecarPeer, fabric_network.ListenPort))
-	queryServicePort := int(e.network.PeerPort(sidecarPeer, fabricx_network.QueryServicePortName))
-	orderingServicePort := int(e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
+	sidecarPort, queryServicePort, orderingServicePort := e.ports()
 
 	// genesis block
 	configBlockPath := e.network.OutputBlockPath(e.channel.Name)
@@ -143,12 +172,25 @@ func (e *Extension) launchContainer() {
 	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+	e.followLogsAndWait(cli, resp.ID, "")
+}
+
+// followLogsAndWait forwards the logs the running committer container writes
+// from since on (all of them if since is empty) to the logger until the
+// container stops, and waits until its services accept connections. The test
+// fails if they do not within 90 seconds or the container stops first.
+func (e *Extension) followLogsAndWait(cli dcli.APIClient, containerID, since string) {
+	containerName := e.containerName()
+	sidecarPeer := e.network.Peer(e.cfg.SidecarOrg, e.cfg.SidecarName)
+	sidecarPort, queryServicePort, orderingServicePort := e.ports()
+
 	ctx, cancel := context.WithCancel(context.TODO())
-	dockerLogger := logging.MustGetLogger("sc.container." + resp.ID[:8])
-	reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
+	dockerLogger := logging.MustGetLogger("sc.container." + containerName)
+	reader, errx := cli.ContainerLogs(context.TODO(), containerID, dcli.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,
+		Since:      since,
 	})
 	gomega.Expect(errx).NotTo(gomega.HaveOccurred())
 	go func() {

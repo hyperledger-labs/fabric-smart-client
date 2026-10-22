@@ -9,6 +9,7 @@ package fabricx
 import (
 	"fmt"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit/grouper"
 
@@ -147,6 +148,24 @@ func (p *Platform) Load() {
 
 func (p *Platform) Members() []grouper.Member {
 	return p.Network.Members()
+}
+
+// StopCommitter stops the committer container and returns once it has exited.
+// The test fails if the platform runs no committer.
+func (p *Platform) StopCommitter() { p.committer().StopCommitter() }
+
+// StartCommitter restarts the committer stopped by StopCommitter and returns
+// once its services accept connections.
+func (p *Platform) StartCommitter() { p.committer().StartCommitter() }
+
+func (p *Platform) committer() *scv2.Extension {
+	for _, ext := range p.Network.Extensions {
+		if c, ok := ext.(*scv2.Extension); ok {
+			return c
+		}
+	}
+	ginkgo.Fail("fabricx platform runs no committer")
+	return nil
 }
 
 func (*Platform) DeleteVault(id string) {
