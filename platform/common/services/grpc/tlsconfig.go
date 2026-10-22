@@ -73,22 +73,31 @@ func (so SecureOptions) TLSConfig() (*tls.Config, error) {
 		cfg.RootCAs = pool
 	}
 
-	// Three states, not two. RequireClientCert demands a certificate; client root CAs
-	// without it mean "verify one if offered", which is what the web listener has always
-	// done and must keep doing.
 	if len(so.ClientRootCAs) > 0 {
 		pool, err := certPool(so.ClientRootCAs)
 		if err != nil {
 			return nil, errors.WithMessage(err, "client root CAs")
 		}
 		cfg.ClientCAs = pool
-		cfg.ClientAuth = tls.VerifyClientCertIfGiven
 	}
-	if so.RequireClientCert {
-		cfg.ClientAuth = tls.RequireAndVerifyClientCert
-	}
+	cfg.ClientAuth = so.clientAuth()
 
 	return cfg, nil
+}
+
+// clientAuth is the client authentication a TLS server applies for these options. It has
+// three states, not two: RequireClientCert demands and verifies a certificate, ClientRootCAs
+// alone verify one only if the client offers it, and neither requests none. The fsc.grpc and
+// fsc.web listeners both apply it, so one configuration means the same thing on either.
+func (so SecureOptions) clientAuth() tls.ClientAuthType {
+	switch {
+	case so.RequireClientCert:
+		return tls.RequireAndVerifyClientCert
+	case len(so.ClientRootCAs) > 0:
+		return tls.VerifyClientCertIfGiven
+	default:
+		return tls.NoClientCert
+	}
 }
 
 // validateVersionRange rejects a floor below the lowest supported TLS version, and a ceiling

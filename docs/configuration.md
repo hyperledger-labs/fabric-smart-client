@@ -55,7 +55,8 @@ fsc:
     # Private key matching that certificate
     key:
       file: /path/to/tls/server.key
-    # Whether clients must present a certificate. See fsc.web below for the three states.
+    # Whether clients must present a certificate. fsc.grpc and fsc.web interpret it together
+    # with clientRootCAs in the same three states; see fsc.web below.
     clientAuthRequired: false
     # The TLS version range to negotiate, as crypto/tls version numbers: 771 = TLS 1.2,
     # 772 = TLS 1.3. Both are inherited from the parent tls block when absent. fsc.grpc's
@@ -96,10 +97,12 @@ fsc:
       key:
         file: /path/to/tls/server.key
 
-      # Root certificates used to verify client TLS certificates. REQUIRED when
-      # clientAuthRequired is true: a node configured to require client certificates with
-      # an empty pool would reject every client, so that combination fails at startup
-      # rather than at the first connection.
+      # Root certificates used to verify client TLS certificates. Client authentication has
+      # the same three states as on fsc.web (see below): clientAuthRequired: true demands a
+      # certificate and verifies it against these roots, which must then be non-empty (that
+      # combination fails at startup, since an empty pool would reject every client); these
+      # roots without clientAuthRequired verify a certificate only if the client offers one;
+      # no roots means client certificates are not requested.
       clientRootCAs:
         files:
         - /path/to/client/tls/ca.crt
@@ -289,7 +292,7 @@ fsc:
         file: /path/to/tls/server.crt
       key:
         file: /path/to/tls/server.key
-      # Client authentication has THREE states on this listener:
+      # Client authentication has THREE states, on this listener and on fsc.grpc:
       #
       #   clientAuthRequired: true                    -> a client certificate is required
       #                                                  and verified; clientRootCAs must
