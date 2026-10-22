@@ -251,10 +251,10 @@ func TestProvider_NewManager(t *testing.T) {
 		require.NoError(t, err, "NewManager should succeed")
 		require.NotNil(t, manager, "Manager should not be nil")
 
-		// Verify the REAL listen goroutine started
+		// Verify the manager opened its stream
 		select {
 		case <-listenStarted:
-			// Success - the real listen() is running
+			// Success - the manager is running
 		case <-time.After(managerTimeout):
 			t.Fatal("Real listen goroutine did not start")
 		}
@@ -334,41 +334,6 @@ func TestProvider_NewManager(t *testing.T) {
 		require.Len(t, provider.managers, 3, "Should create 3 different managers")
 	})
 
-	t.Run("Manager_Removed_When_Listen_Exits_With_Error", func(t *testing.T) {
-		t.Parallel()
-		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
-
-		listenStarted := make(chan struct{})
-
-		// Mock stream that returns error immediately
-		provider.newNotificationManager = func(_ string, _ GRPCClientProvider, _ config.Config) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(_ context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
-				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
-					close(listenStarted)
-					return nil, errors.New("stream error")
-				}
-			}), nil
-		}
-
-		ctx := t.Context()
-		provider.Initialize(ctx)
-
-		_, err := provider.NewManager("network1", "channel1")
-		require.NoError(t, err)
-
-		// Wait for listen to start
-		<-listenStarted
-
-		// Wait for cleanup - the REAL listen() will exit and trigger cleanup
-		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			provider.managersMu.Lock()
-			defer provider.managersMu.Unlock()
-			_, exists := provider.managers["network1:channel1"]
-			require.False(collect, exists, "Manager should be removed from map")
-		}, managerTimeout, managerTick, "Manager should be removed after listen() exits with error")
-	})
-
 	t.Run("Manager_Removed_When_Context_Canceled", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
@@ -399,7 +364,7 @@ func TestProvider_NewManager(t *testing.T) {
 		// Cancel context to trigger cleanup
 		cancel()
 
-		// The REAL listen() will handle context cancellation and exit gracefully
+		// run() returns once its context ends, and the provider then drops the manager
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			provider.managersMu.Lock()
 			defer provider.managersMu.Unlock()

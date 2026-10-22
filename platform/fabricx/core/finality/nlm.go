@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -59,10 +60,10 @@ type notificationListenerManager struct {
 	handlerTimeout time.Duration
 
 	// handlerWorkers is how many OnStatus callbacks may run at once, and so also how
-	// many stuck listeners it takes to stop delivering notifications on this stream.
+	// many stuck listeners it takes to stop delivering notifications on this manager.
 	handlerWorkers int
 
-	// handlerQueueSize is the capacity of the callback queue listen() creates. It absorbs
+	// handlerQueueSize is the capacity of the callback queue serve creates. It absorbs
 	// bursts: one response can name far more transactions than there are workers.
 	handlerQueueSize int
 
@@ -82,38 +83,81 @@ type notificationListenerManager struct {
 	handlers   map[driver.TxID]*handlerEntry
 	handlersMu sync.RWMutex
 
-	// streamCtx holds the context of the currently active listen() call, if any.
-	// Its Done() channel closes as soon as that stream fails (the first stream
-	// goroutine to error cancels it, without waiting for the others to unwind) or
-	// the parent context is canceled. AddFinalityListener
-	// uses it to fail fast on a dead stream instead of blocking forever on
-	// requestQueue.
+	// streamCtx holds the context of the current notification stream, if one has been
+	// opened. Its Done() channel closes as soon as that stream fails or the manager
+	// stops, and stays closed until the next stream replaces it. AddFinalityListener
+	// selects on it so a send to requestQueue never blocks on a stream that is gone.
 	streamCtx atomic.Pointer[context.Context]
+
+	// reconnectMinDelay and reconnectMaxDelay bound the backoff between stream
+	// attempts; zero falls back to defaultReconnectMinDelay and defaultReconnectMaxDelay.
+	reconnectMinDelay, reconnectMaxDelay time.Duration
+
+	// stopped is set, under handlersMu, before serve returns, once nothing will settle
+	// a new entry. AddFinalityListener rejects registrations from then on.
+	stopped bool
 }
 
-// Listen is a blocking method that runs the notification listener stream.
-func (n *notificationListenerManager) listen(ctx context.Context) error {
-	logger.Debugf("Notification listener stream starting.")
-	notifyStream, err := n.notifyClient.OpenNotificationStream(ctx)
-	if err != nil {
-		return err
+// Default reconnect backoff bounds. The delay is jittered and doubles per failed
+// attempt up to the maximum. It starts over after a stream that stayed up longer than
+// the maximum, so a committer that accepts and then drops every stream at once is still
+// retried with backoff.
+const (
+	defaultReconnectMinDelay = 100 * time.Millisecond
+	defaultReconnectMaxDelay = 10 * time.Second
+)
+
+// maxTxIDsPerRequest caps the txIDs re-requested in one NotificationRequest. It
+// matches the committer's default per-request limit, above which the committer
+// rejects the whole request.
+const maxTxIDsPerRequest = 1000
+
+// run serves the manager until ctx ends, reopening the notification stream with
+// backoff whenever it fails. Pending listeners survive a stream failure: the next
+// stream requests their txIDs again, and the sweeper keeps expiring them in the
+// meantime. Only the end of ctx settles what is left, with Unknown.
+func (n *notificationListenerManager) run(ctx context.Context) error {
+	minDelay, maxDelay := n.reconnectMinDelay, n.reconnectMaxDelay
+	if minDelay <= 0 {
+		minDelay = defaultReconnectMinDelay
 	}
-	// One group for the three stream goroutines: receiver, sender, dispatcher.
+	if maxDelay <= 0 {
+		maxDelay = defaultReconnectMaxDelay
+	}
+	return n.serve(ctx, func(ctx context.Context) error {
+		backoff := utils.NewBackoffRetryRunner(utils.Infinitely, minDelay, maxDelay)
+		for {
+			start := time.Now()
+			err := n.stream(ctx)
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if time.Since(start) > maxDelay {
+				backoff = utils.NewBackoffRetryRunner(utils.Infinitely, minDelay, maxDelay)
+			}
+			delay := backoff.NextDelay()
+			logger.Warnf("Notification stream failed, reconnecting in %s: %v", delay, err)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+	})
+}
+
+// serve runs the dispatcher, the sweeper and the handler pool until connect returns or
+// ctx ends, then stops the manager: every listener still pending is settled, with the
+// status the committer sent if one arrived and Unknown otherwise.
+func (n *notificationListenerManager) serve(ctx context.Context, connect func(context.Context) error) error {
+	// One group for the connection and the dispatcher, so either ending stops both.
 	g, gCtx := errgroup.WithContext(ctx)
 
-	// Publish gCtx so AddFinalityListener can select on it instead of
-	// blocking forever on requestQueue once this stream dies. Deliberately
-	// left in place (not cleared) after listen() returns: gCtx.Done() stays
-	// closed forever once this stream fails, which is exactly the permanent
-	// "this stream is dead" signal AddFinalityListener needs until a new
-	// listen() call replaces it with a fresh, live gCtx.
-	n.streamCtx.Store(&gCtx)
-
-	// The queue belongs to this stream, not the manager: a second listen() gets a fresh
-	// one, so no callback can outlive the stream that produced it.
+	// The queue belongs to this serve call, not the manager, so no callback can outlive
+	// the call that produced it.
 	q := make(chan handlerCall, n.handlerQueueSize)
 
-	// Never cancelled, only deadline-bounded by callHandler: listen() often returns
+	// Never cancelled, only deadline-bounded by callHandler: serve often returns
 	// *because* ctx was cancelled, and queued callbacks must not get a dead context.
 	callCtx := context.WithoutCancel(ctx)
 
@@ -130,50 +174,22 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 		})
 	}
 
-	// spawn stream receiver
-	g.Go(func() error {
-		for {
-			res, err := notifyStream.Recv()
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					return nil
-				}
-				return err
-			}
-			select {
-			case <-gCtx.Done():
-				return gCtx.Err()
-			case n.responseQueue <- res:
-			}
-		}
-	})
-
-	// spawn stream sender
-	g.Go(func() error {
-		var req *committerpb.NotificationRequest
-		for {
-			select {
-			case <-gCtx.Done():
-				return gCtx.Err()
-			case req = <-n.requestQueue:
-			}
-
-			if err := notifyStream.Send(req); err != nil {
-				return err
-			}
-		}
-	})
-
-	// spawn notification dispatcher
+	g.Go(func() error { return connect(gCtx) })
 	g.Go(func() error { return n.runDispatcher(gCtx, q) })
 
-	err = g.Wait()
-	logger.Debugf("Notification listener stream stopped.")
+	err := g.Wait()
+	logger.Debugf("Notification listener manager stopped.")
+
+	// Before serve can return, so a registration made after it is rejected rather
+	// than left in a map nothing will ever settle.
+	n.handlersMu.Lock()
+	n.stopped = true
+	n.handlersMu.Unlock()
 
 	// One deadline for the whole teardown, however many listeners are pending: settle
 	// what is left into the queue, close it, let the workers drain the backlog. A
 	// listener that never returns keeps its worker; we abandon the wait rather than hang
-	// listen(), and a later listen() starts with its own queue and workers.
+	// serve.
 	settled := make(chan struct{})
 	go func() {
 		defer close(settled)
@@ -192,6 +208,105 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	}
 
 	return err
+}
+
+// stream opens one notification stream, requests every pending txID on it, and then
+// relays requests and responses until the stream fails or ctx ends.
+func (n *notificationListenerManager) stream(ctx context.Context) error {
+	logger.Debugf("Notification listener stream starting.")
+	// The stream runs on gCtx so that the first goroutine to fail also cancels the
+	// gRPC call, which unblocks the other one.
+	g, gCtx := errgroup.WithContext(ctx)
+	notifyStream, err := n.notifyClient.OpenNotificationStream(gCtx)
+	if err != nil {
+		_ = g.Wait() // releases gCtx; nothing was started on g
+		return err
+	}
+
+	pending := n.attach(gCtx)
+
+	// receiver
+	g.Go(func() error {
+		for {
+			res, err := notifyStream.Recv()
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+				return err
+			}
+			select {
+			case <-gCtx.Done():
+				return gCtx.Err()
+			case n.responseQueue <- res:
+			}
+		}
+	})
+
+	// sender
+	g.Go(func() error {
+		for _, req := range pending {
+			if err := notifyStream.Send(req); err != nil {
+				return err
+			}
+		}
+		var req *committerpb.NotificationRequest
+		for {
+			select {
+			case <-gCtx.Done():
+				return gCtx.Err()
+			case req = <-n.requestQueue:
+			}
+
+			if err := notifyStream.Send(req); err != nil {
+				return err
+			}
+		}
+	})
+
+	err = g.Wait()
+	logger.Debugf("Notification listener stream stopped.")
+	return err
+}
+
+// attach makes streamCtx the stream AddFinalityListener sends to, and returns the
+// requests that subscribe that stream to every txID still waiting for an answer. The
+// committer reports a transaction only to the subscription it was requested on, so a
+// stream that replaces a failed one knows nothing of the txIDs requested before. An
+// entry holding a remembered status already has its answer and is skipped.
+//
+// Both happen under one write lock: a registration either lands in the snapshot or
+// sees the new stream and sends its own request, so none is missed. Taking the lock
+// twice would let a registration see the new stream and block on requestQueue, still
+// holding handlersMu, before the sender that drains it has started.
+func (n *notificationListenerManager) attach(streamCtx context.Context) []*committerpb.NotificationRequest {
+	n.handlersMu.Lock()
+	n.streamCtx.Store(&streamCtx)
+	txIDs := make([]string, 0, len(n.handlers))
+	for txID, entry := range n.handlers {
+		if entry.status == nil {
+			txIDs = append(txIDs, txID)
+		}
+	}
+	n.handlersMu.Unlock()
+
+	var reqs []*committerpb.NotificationRequest
+	for batch := range slices.Chunk(txIDs, maxTxIDsPerRequest) {
+		reqs = append(reqs, n.newRequest(batch...))
+	}
+	return reqs
+}
+
+// newRequest subscribes to txIDs. Its Timeout tells the committer to reply once it
+// passes rather than leaving it to its own internal max-timeout. Without it, a
+// client-side abort (e.g. our own listenerTTL firing) can mark transactions Unknown
+// that the committer already knows the outcome of, because the committer never got a
+// reason to answer early. See notify.proto's Timeout field doc.
+func (n *notificationListenerManager) newRequest(txIDs ...string) *committerpb.NotificationRequest {
+	return &committerpb.NotificationRequest{
+		TxStatusRequest: &committerpb.TxIDsBatch{TxIds: txIDs},
+		Timeout:         durationpb.New(n.requestTimeout),
+	}
 }
 
 // runDispatcher settles notifications and sweeps due entries until gCtx is done.
@@ -254,11 +369,11 @@ func (n *notificationListenerManager) logDeferred(deferred, total int) {
 }
 
 // settleAllAndClear empties the handlers map into q, so every listener still waiting
-// is settled rather than dropped. Used on stream teardown.
+// is settled rather than dropped. Used on teardown.
 //
 // An entry with a remembered status is settled with it rather than downgraded; the
 // status argument is the fallback for entries nothing was heard for. Sends block
-// here, unlike the live paths: there is no next sweep to defer to, and listen()
+// here, unlike the live paths: there is no next sweep to defer to, and serve
 // already bounds the whole teardown.
 func (n *notificationListenerManager) settleAllAndClear(q chan handlerCall, status int) {
 	var calls []handlerCall
@@ -277,11 +392,11 @@ func (n *notificationListenerManager) settleAllAndClear(q chan handlerCall, stat
 	n.handlersMu.Unlock()
 
 	if len(calls) == 0 {
-		logger.Debugf("Cleared handlers map on listen() exit")
+		logger.Debugf("Cleared handlers map on manager stop")
 		return
 	}
 
-	logger.Debugf("Settling %d pending finality listener(s) on stream teardown", len(calls))
+	logger.Debugf("Settling %d pending finality listener(s) on manager stop", len(calls))
 	for _, c := range calls {
 		q <- c
 	}
@@ -299,7 +414,7 @@ func (n *notificationListenerManager) callHandler(ctx context.Context, c handler
 	// worth reporting -- one that never returns and holds its worker for good -- was
 	// silent, which is also the line configuration.md tells operators to look for.
 	//
-	// ctx is never cancelled (see listen), so the deadline is the only thing that can
+	// ctx is never cancelled (see serve), so the deadline is the only thing that can
 	// trigger this, and stop() runs before cancel() below, so our own cleanup cannot.
 	stop := context.AfterFunc(timeoutCtx, func() {
 		logger.Warnf(
@@ -318,6 +433,16 @@ func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 	// first parse all timeouts
 	for _, txID := range resp.GetTimeoutTxIds() {
 		res[txID] = fdriver.Unknown
+	}
+
+	// The committer never reports on a txID it rejected (over its per-request or
+	// active-subscription limit), so it is settled Unknown, like a timeout, rather than
+	// left waiting for listenerTTL.
+	if rejected := resp.GetRejectedTxIds(); rejected != nil {
+		logger.Warnf("committer rejected %d finality subscription(s): %s", len(rejected.GetTxIds()), rejected.GetReason())
+		for _, txID := range rejected.GetTxIds() {
+			res[txID] = fdriver.Unknown
+		}
 	}
 
 	var s int
@@ -344,7 +469,10 @@ func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 	return res
 }
 
-// AddFinalityListener registers a listener to be notified when the transaction with the given txID reaches finality.
+// AddFinalityListener registers a listener to be notified when the transaction with the
+// given txID reaches finality. While the notification stream is down the registration
+// is kept and requested once the stream is back. It fails only for invalid arguments or
+// once the manager has stopped.
 func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, listener fabric.FinalityListener) error {
 	if listener == nil {
 		return errors.New("listener nil")
@@ -359,6 +487,10 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 
 	n.handlersMu.Lock()
 	defer n.handlersMu.Unlock()
+
+	if n.stopped {
+		return errors.Errorf("notification stream unavailable, cannot register listener for txID=%s", txID)
+	}
 
 	if entry, existed := n.handlers[txID]; existed {
 		if slices.Contains(entry.listeners, listener) {
@@ -378,40 +510,19 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		expiresAt: n.expiryFor(time.Now()),
 	}
 
-	// this is our first listener registered for the given txID
-	txIDs := []string{txID}
-	req := &committerpb.NotificationRequest{
-		TxStatusRequest: &committerpb.TxIDsBatch{
-			TxIds: txIDs,
-		},
-		// Timeout tells the committer to reply once it passes rather than leaving
-		// it to its own internal max-timeout. Without this, a client-side abort
-		// (e.g. our own listenerTTL firing) can mark transactions Unknown that the
-		// committer already knows the outcome of, because the committer never got
-		// a reason to answer early. See notify.proto's Timeout field doc.
-		Timeout: durationpb.New(n.requestTimeout),
-	}
-
-	// Guard the send against a dead stream: once listen()'s stream context
-	// is done (the stream failed, or listen()'s parent context was
-	// canceled), nothing will ever drain requestQueue again, so sending
-	// unconditionally would block forever -- see the streamCtx field doc.
-	// We still hold handlersMu here (never released since the top of this
-	// call), so no other goroutine can have joined this txID's handler list
-	// in the meantime; it is safe to simply undo our own registration on
-	// failure rather than to hand the send off to a would-be next caller.
-	var done <-chan struct{}
-	if sc := n.streamCtx.Load(); sc != nil {
-		done = (*sc).Done()
-	}
-
-	select {
-	case n.requestQueue <- req:
+	// Without a live stream the entry just waits: the next stream requests every
+	// pending txID when it opens (see stream), and the sweeper expires the entry if
+	// that takes longer than listenerTTL. handlersMu, held since the top of this call,
+	// is what keeps this in step with that snapshot.
+	sc := n.streamCtx.Load()
+	if sc == nil {
 		return nil
-	case <-done:
-		delete(n.handlers, txID)
-		return errors.Errorf("notification stream unavailable, cannot register listener for txID=%s", txID)
 	}
+	select {
+	case n.requestQueue <- n.newRequest(txID):
+	case <-(*sc).Done():
+	}
+	return nil
 }
 
 // RemoveFinalityListener unregisters a previously registered listener for the given txID.
