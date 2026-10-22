@@ -232,6 +232,7 @@ Operational notes:
 - Only the channel's long-running block stream reports. Historical scans (`ScanBlock`, `Scan`) open their own streams and do not report.
 - The `orderer` series is updated only by broadcasts. A node that broadcasts nothing keeps the last reported state, and an orderer whose stream broke stays `reconnecting` until a broadcast connects to it again. An orderer no stream was ever opened to has no series. For orderers, `fsc_connection_last_connected_timestamp_seconds` is the time of the last stream opened or envelope accepted.
 - A shutdown, including the cancellation of the node's context, ends delivery in `disconnected`. Only a rejected block ends it in `stopped`.
+- `GET /readyz` on the web listener is derived from the same state: it returns 503 while a component (network, channel, component) has not been `connected` through any endpoint since startup, or while any connection is `stopped`. See [configuration](../../../configuration.md).
 
 Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go`, `platform/fabric/core/generic/ordering/` and `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
 

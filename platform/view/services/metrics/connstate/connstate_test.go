@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package connstate
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -74,4 +75,39 @@ func TestNilMetrics_NoOpTracker(t *testing.T) {
 		tr.Set(s)
 		nilTracker.Set(s)
 	}
+}
+
+func TestSnapshot_ReportsEverConnected(t *testing.T) {
+	t.Parallel()
+	m, _, _, _ := newTestMetrics()
+	m.Tracker("net", "ch", ComponentOrderer, "orderer:7050").Set(Connecting)
+	m.Tracker("net", "", ComponentOrderer, "orderer:7050").Set(Stopped)
+	tr := m.Tracker("net", "ch", ComponentDelivery, "peer0:7051")
+	tr.Set(Connected)
+	tr.Set(Reconnecting)
+
+	assert.Equal(t, []Status{
+		{Network: "net", Channel: "", Component: ComponentOrderer, Reason: ReasonStopped},
+		{Network: "net", Channel: "ch", Component: ComponentDelivery},
+		{Network: "net", Channel: "ch", Component: ComponentOrderer, Reason: ReasonNeverConnected},
+	}, m.Snapshot())
+	var nilMetrics *Metrics
+	assert.Nil(t, nilMetrics.Snapshot())
+}
+
+func TestSnapshot_ConcurrentSet(t *testing.T) {
+	t.Parallel()
+	m, _, _, _ := newTestMetrics()
+	tr := m.Tracker("net", "ch", ComponentOrderer, "orderer:7050")
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		for range 100 {
+			tr.Set(Connected)
+		}
+	})
+	for range 100 {
+		m.Snapshot()
+	}
+	wg.Wait()
+	assert.Empty(t, m.Snapshot()[0].Reason)
 }

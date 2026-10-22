@@ -10,6 +10,8 @@ SPDX-License-Identifier: Apache-2.0
 package connstate
 
 import (
+	"cmp"
+	"slices"
 	"sync"
 	"time"
 
@@ -107,11 +109,61 @@ func (m *Metrics) Tracker(network, channel, component, endpoint string) *Tracker
 	return t
 }
 
+// Values of Status.Reason.
+const (
+	ReasonStopped        = "stopped"
+	ReasonNeverConnected = "never connected"
+)
+
+// Status is the state of one tracked connection. It names no endpoint, so it can be served
+// without authentication.
+type Status struct {
+	Network   string `json:"network"`
+	Channel   string `json:"channel"`
+	Component string `json:"component"`
+	// Reason is ReasonStopped, ReasonNeverConnected if the connection has not been Connected
+	// since the tracker was created, or empty otherwise.
+	Reason string `json:"reason"`
+}
+
+// Snapshot returns the status of every tracker created by m, sorted by network, channel, and
+// component; connections of the same component are in no particular order. A nil *Metrics
+// returns nil.
+func (m *Metrics) Snapshot() []Status {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	out := make([]Status, 0, len(m.trackers))
+	for k, t := range m.trackers {
+		t.mu.Lock()
+		s := Status{Network: k.network, Channel: k.channel, Component: k.component}
+		switch {
+		case t.current == Stopped:
+			s.Reason = ReasonStopped
+		case !t.everConnected:
+			s.Reason = ReasonNeverConnected
+		}
+		out = append(out, s)
+		t.mu.Unlock()
+	}
+	m.mu.Unlock()
+	slices.SortFunc(out, func(a, b Status) int {
+		return cmp.Or(cmp.Compare(a.Network, b.Network), cmp.Compare(a.Channel, b.Channel),
+			cmp.Compare(a.Component, b.Component))
+	})
+	return out
+}
+
 // Tracker records the state of one connection.
 type Tracker struct {
 	state         metrics.Gauge
 	reconnects    metrics.Counter
 	lastConnected metrics.Gauge
+
+	mu            sync.Mutex
+	current       State
+	everConnected bool
 }
 
 // Set records s as the current state. Reconnecting increments the reconnect counter,
@@ -120,11 +172,15 @@ func (t *Tracker) Set(s State) {
 	if t == nil || t.state == nil {
 		return
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.current = s
 	t.state.Set(float64(s))
 	switch s {
 	case Reconnecting:
 		t.reconnects.Add(1)
 	case Connected:
+		t.everConnected = true
 		t.lastConnected.Set(float64(time.Now().Unix()))
 	}
 }
