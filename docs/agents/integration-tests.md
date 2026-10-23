@@ -145,9 +145,14 @@ Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery` and
 `fabricx-faultrecovery`). Both run the FSC nodes alice and bob on Postgres; the Fabric
 suite adds three raft orderers, named in its `Orderers`. What the two suites share lives
-in `integration/fabric/common/faultrecovery`: the nodes, their views, and
-`SubmitAndWaitFinal(ii, n)`, which runs `n` two-party transactions and waits until each
-is final on both nodes. A view or helper both suites need goes there.
+in `integration/fabric/common/faultrecovery`: the nodes, their views, the specs both
+suites run (`CrashSpecs`), and the helpers that drive them. `SubmitAndWaitFinal(ii, n)`
+runs `n` two-party transactions and waits until each is final on both nodes.
+`Endorse` and `Order` split one transaction in two, so a spec can stop or kill a node
+after it has endorsed and before the transaction is ordered; `Query` returns a node's
+status for a transaction and the value it wrote. On Fabric-x a node's vault is the
+committer's query service, so `Query` answers the same on every node and does not show
+whether a restarted node has recovered. A view or helper both suites need goes there.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.
