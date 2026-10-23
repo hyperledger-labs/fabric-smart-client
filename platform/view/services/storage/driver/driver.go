@@ -24,6 +24,12 @@ var (
 	// SqlBusy happens when two transactions are trying to write at the same time. Can be avoided by opening the database in exclusive mode
 	//nolint:revive // var-naming: renaming this exported error var is an API break; see follow-up
 	SqlBusy = errors.New("sql is busy")
+	// ErrConnectionLost means the connection to the database broke or could not be
+	// opened: a dropped socket, a server shutdown or restart, a primary failover.
+	// The statement may or may not have been applied, so it is retryable only
+	// where repeating it is idempotent. database/sql opens a fresh connection on
+	// the next query.
+	ErrConnectionLost = errors.New("database connection lost")
 )
 
 type UnversionedRead = driver.UnversionedRead

@@ -137,11 +137,12 @@ var ErrFatalCommit = errors.New("unrecoverable commit failure")
 // classify maps an error raised while committing a block to the action to take.
 //
 // Retry is granted only on evidence, never by default: an error must name a cause
-// known to be non-deterministic — storage contention, or an expired context —
-// before the same block is committed again. Everything else is a degrade, because
-// retrying a deterministic failure burns the budget and arrives at the same place
-// later. That is the conservative direction to be wrong in: a misclassified
-// degrade stops the channel loudly, a misclassified retry spins.
+// known to be non-deterministic — storage contention, a lost database connection,
+// or an expired context — before the same block is committed again. Everything
+// else is a degrade, because retrying a deterministic failure burns the budget
+// and arrives at the same place later. That is the conservative direction to be
+// wrong in: a misclassified degrade stops the channel loudly, a misclassified
+// retry spins.
 func classify(err error) failureClass {
 	if err == nil {
 		return classNone
@@ -165,6 +166,16 @@ func classify(err error) failureClass {
 	// Both are mapped from each backend's native codes by the SQL error wrappers,
 	// so matching the sentinels covers every driver.
 	if errors.HasCause(err, dbdriver.DeadlockDetected) || errors.HasCause(err, dbdriver.SqlBusy) {
+		return classRetry
+	}
+
+	// A lost database connection — a restart, a failover, a dropped socket — is
+	// transient: database/sql opens a new connection on the next query. It may
+	// have broken during COMMIT after the transaction landed, so the block is
+	// committed again over state that may already hold it; Commit describes why
+	// that is safe, and the vault store's writes are upserts. It shares the
+	// contention budget, whose default spans a typical failover.
+	if errors.HasCause(err, dbdriver.ErrConnectionLost) {
 		return classRetry
 	}
 

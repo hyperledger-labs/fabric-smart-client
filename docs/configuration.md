@@ -756,8 +756,12 @@ fabric:
             unknownTxTimeout: 100ms
           parallelism: 3 # maximum go routines to commit at the same time transactions of the same block
           # Re-commit attempts for a transiently failed block, and the wait between
-          # them. Exhausting them stops this channel's block stream until restart,
-          # reported as fsc_fabric_core_generic_committer_commit_failures.
+          # them. Transient failures are storage contention (deadlock, busy,
+          # serialization failure), a lost database connection (Postgres restart or
+          # failover) and an expired context. Exhausting them stops this channel's
+          # block stream until restart, reported as
+          # fsc_fabric_core_generic_committer_commit_failures. The defaults allow
+          # about a minute; raise them if a database failover takes longer.
           retries: 5
           retrySleep: 10s
         # section about the delivery service. The peer pushes blocks over a long-lived
