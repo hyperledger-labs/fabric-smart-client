@@ -150,7 +150,7 @@ func New(
 	connMetrics *connstate.Metrics,
 ) (*Delivery, error) {
 	if channelConfig == nil {
-		return nil, errors.Errorf("expected channel config, got nil")
+		return nil, errors.New("expected channel config, got nil")
 	}
 
 	d := &Delivery{
@@ -550,13 +550,13 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	}
 	deliverClient, err := NewDeliverClient(d.client)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to get deliver client")
+		return nil, nil, errors.Wrap(err, "failed to get deliver client")
 	}
 	newCtx, cancel := context.WithCancel(ctx)
 	stream, err := deliverClient.NewDeliver(newCtx)
 	if err != nil {
 		cancel()
-		return nil, nil, errors.Wrapf(err, "failed to get delivery stream")
+		return nil, nil, errors.Wrap(err, "failed to get delivery stream")
 	}
 
 	blockEnvelope, err := CreateDeliverEnvelope(

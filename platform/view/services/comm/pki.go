@@ -19,7 +19,7 @@ type PKExtractor struct{}
 func (*PKExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 	certRaw, _ := pem.Decode(id)
 	if certRaw == nil {
-		return nil, errors.Errorf("pem decoding returned nil")
+		return nil, errors.New("pem decoding returned nil")
 	}
 
 	cert, err := x509.ParseCertificate(certRaw.Bytes)

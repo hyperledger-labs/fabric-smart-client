@@ -90,7 +90,7 @@ func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.I
 	case string:
 		cm.registerResponderForInitiatorID(responder, id, t)
 	default:
-		return errors.Errorf("initiatedBy must be a view or a string")
+		return errors.New("initiatedBy must be a view or a string")
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func (cm *Registry) GetResponder(initiatedBy any) (view.View, error) {
 	case string:
 		initiatedByID = t
 	default:
-		return nil, errors.Errorf("initiatedBy must be a view or a string")
+		return nil, errors.New("initiatedBy must be a view or a string")
 	}
 
 	cm.viewsSync.Lock()

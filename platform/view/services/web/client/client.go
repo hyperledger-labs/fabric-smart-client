@@ -90,7 +90,7 @@ func NewClient(config *Config) (*Client, error) {
 			var err error
 			caCert, err = os.ReadFile(config.CACertPath)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to open ca cert")
+				return nil, errors.Wrap(err, "failed to open ca cert")
 			}
 		}
 		rootCAs.AppendCertsFromPEM(caCert)
@@ -101,7 +101,7 @@ func NewClient(config *Config) (*Client, error) {
 		if len(config.TLSCertRaw) != 0 {
 			clientCert, err := tls.X509KeyPair(config.TLSCertRaw, config.TLSKeyRaw)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to load x509 key pair")
+				return nil, errors.Wrap(err, "failed to load x509 key pair")
 			}
 			tlsClientConfig.Certificates = []tls.Certificate{clientCert}
 		}
@@ -123,7 +123,7 @@ func NewClient(config *Config) (*Client, error) {
 func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {
 	body, err := c.get(context.Background(), c.url+"/metrics")
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed calling metrics")
+		return nil, errors.Wrap(err, "failed calling metrics")
 	}
 	defer func() { _ = body.Close() }()
 	return c.metricsParser.TextToMetricFamilies(body)

@@ -105,7 +105,7 @@ func stringFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	case !ok:
 		return data, nil
 	case fileName == nil:
-		return nil, errors.Errorf("value of File: was nil")
+		return nil, errors.New("value of File: was nil")
 	}
 	fileNameStr, ok := fileName.(string)
 	if !ok {
@@ -144,7 +144,7 @@ func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	case !ok:
 		return data, nil
 	case fileName == "":
-		return nil, errors.Errorf("value of File: is empty")
+		return nil, errors.New("value of File: is empty")
 	}
 	bytes, err := os.ReadFile(fileName)
 	if err != nil {
@@ -171,7 +171,7 @@ func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
 func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output any) error {
 	oType := reflect.TypeOf(output)
 	if oType.Kind() != reflect.Pointer {
-		return errors.Errorf("supplied output argument must be a pointer to a struct but is not pointer")
+		return errors.New("supplied output argument must be a pointer to a struct but is not pointer")
 	}
 	config := &mapstructure.DecoderConfig{
 		ErrorUnused:      false,

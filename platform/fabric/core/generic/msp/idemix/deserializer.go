@@ -27,7 +27,7 @@ type Deserializer struct {
 func NewDeserializer(ipk []byte) (*Deserializer, error) {
 	bccsp, err := NewBCCSP(math.FP256BN_AMCL)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to instantiate bccsp")
+		return nil, errors.WithMessage(err, "failed to instantiate bccsp")
 	}
 	return NewDeserializerWithBCCSP(ipk, csp.BestEffort, nil, bccsp)
 }

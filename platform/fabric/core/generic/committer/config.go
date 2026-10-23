@@ -36,7 +36,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 
 	qe, err := c.Vault.NewQueryExecutor(ctx)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting query executor")
+		return errors.WithMessage(err, "failed getting query executor")
 	}
 	defer func() {
 		if err := qe.Done(); err != nil {
@@ -60,11 +60,11 @@ func (c *Committer) ReloadConfigTransactions() error {
 
 			key, err := compose.CreateCompositeKey(&strings.Builder{}, channelConfigKey, strconv.FormatUint(sequence, 10))
 			if err != nil {
-				return errors.Wrapf(err, "cannot create configtx rws key")
+				return errors.Wrap(err, "cannot create configtx rws key")
 			}
 			envelope, err := qe.GetState(ctx, peerNamespace, key)
 			if err != nil {
-				return errors.Wrapf(err, "failed setting configtx state in rws")
+				return errors.Wrap(err, "failed setting configtx state in rws")
 			}
 			env, err := protoutil.UnmarshalEnvelope(envelope.Raw)
 			if err != nil {
@@ -124,12 +124,12 @@ func (c *Committer) ReloadConfigTransactions() error {
 func configSequenceOf(env *common.Envelope) (uint64, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return 0, errors.Wrapf(err, "cannot get payload from config transaction")
+		return 0, errors.Wrap(err, "cannot get payload from config transaction")
 	}
 
 	cenv, err := protoutil.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
-		return 0, errors.Wrapf(err, "cannot get config envelope from config transaction")
+		return 0, errors.Wrap(err, "cannot get config envelope from config transaction")
 	}
 
 	if cenv.Config == nil {
@@ -147,12 +147,12 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 	defer commitConfigMutex.Unlock()
 
 	if env == nil {
-		return errors.Errorf("envelope nil")
+		return errors.New("envelope nil")
 	}
 
 	sequence, err := configSequenceOf(env)
 	if err != nil {
-		return errors.Wrapf(err, "cannot read the config sequence")
+		return errors.Wrap(err, "cannot read the config sequence")
 	}
 
 	// first we check if config is already committed
@@ -186,7 +186,7 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 	// Recorded last: a crash before this replays the config on restart, which is
 	// idempotent. Skipping one that was never applied is not.
 	if err := c.applyConfigCommit(ctx, txID, blockNumber, sequence, raw); err != nil {
-		return errors.Wrapf(err, "failed committing configtx to the vault")
+		return errors.Wrap(err, "failed committing configtx to the vault")
 	}
 
 	return nil

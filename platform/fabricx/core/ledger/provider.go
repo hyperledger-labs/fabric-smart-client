@@ -138,7 +138,7 @@ func (p *Provider) Context() (context.Context, error) {
 func GetLedgerProvider(sp services.Provider) (*Provider, error) {
 	lp, err := sp.GetService(reflect.TypeFor[*Provider]())
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find ledger provider")
+		return nil, errors.Wrap(err, "could not find ledger provider")
 	}
 	provider, ok := lp.(*Provider)
 	if !ok {

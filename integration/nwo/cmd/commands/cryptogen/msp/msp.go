@@ -121,7 +121,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca.CA,
 	// generate config.yaml if required
 	if nodeOUs {
 		if err := exportConfig(mspDir, filepath.Join("cacerts", x509Filename(signCA.Name)), true); err != nil {
-			return errors.WithMessagef(err, "failed to export cacerts config")
+			return errors.WithMessage(err, "failed to export cacerts config")
 		}
 	}
 
@@ -212,7 +212,7 @@ func GenerateVerifyingMSP(
 	// generate config.yaml if required
 	if nodeOUs {
 		if err := exportConfig(baseDir, "cacerts/"+x509Filename(signCA.Name), true); err != nil {
-			return errors.WithMessagef(err, "failed to export cacerts config")
+			return errors.WithMessage(err, "failed to export cacerts config")
 		}
 	}
 

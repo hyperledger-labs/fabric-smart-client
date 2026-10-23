@@ -59,7 +59,7 @@ func (d *Docker) Cleanup() error {
 	if err := dockerClient.Cleanup(d.NetworkID, func(name string) bool {
 		return strings.HasPrefix(name, "/"+d.NetworkID)
 	}); err != nil {
-		return errors.Wrapf(err, "cleanup failed")
+		return errors.Wrap(err, "cleanup failed")
 	}
 
 	return nil

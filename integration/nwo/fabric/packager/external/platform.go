@@ -97,10 +97,10 @@ func (*Platform) GetDeploymentPayload(_ string, replacer replacer.Func) ([]byte,
 
 	path, raw := replacer("connection.json", "connection.json")
 	if err := WriteBytesToPackage(raw, path, tw); err != nil {
-		return nil, errors.Wrapf(err, "error writing connection.json to tar")
+		return nil, errors.Wrap(err, "error writing connection.json to tar")
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "error writing connection.json to tar")
+		return nil, errors.Wrap(err, "error writing connection.json to tar")
 	}
 
 	err = tw.Close()
@@ -108,7 +108,7 @@ func (*Platform) GetDeploymentPayload(_ string, replacer replacer.Func) ([]byte,
 		err = gw.Close()
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create tar for chaincode")
+		return nil, errors.Wrap(err, "failed to create tar for chaincode")
 	}
 
 	return payload.Bytes(), nil
@@ -132,7 +132,7 @@ func WriteBytesToPackage(raw []byte, packagepath string, tw *tar.Writer) error {
 
 	err := tw.WriteHeader(header)
 	if err != nil {
-		return errors.Wrapf(err, "failed to write header")
+		return errors.Wrap(err, "failed to write header")
 	}
 
 	_, err = io.Copy(tw, bytes.NewBuffer(raw))

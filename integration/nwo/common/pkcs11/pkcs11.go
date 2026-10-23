@@ -150,7 +150,7 @@ func DERToPublicKey(raw []byte) (pub interface{}, err error) {
 // ListTokens lists available tokens
 func ListTokens(opts *config.PKCS11) ([]pkcs11lib.TokenInfo, error) {
 	if opts.Library == "" {
-		return nil, errors.Errorf("pkcs11: library path not provided")
+		return nil, errors.New("pkcs11: library path not provided")
 	}
 
 	ctx := pkcs11lib.New(opts.Library)
@@ -183,7 +183,7 @@ func ListTokens(opts *config.PKCS11) ([]pkcs11lib.TokenInfo, error) {
 // If the token does not exist, it is created.
 func CheckToken(opts *config.PKCS11) error {
 	if opts.Library == "" {
-		return errors.Errorf("pkcs11: library path not provided")
+		return errors.New("pkcs11: library path not provided")
 	}
 
 	ctx := pkcs11lib.New(opts.Library)

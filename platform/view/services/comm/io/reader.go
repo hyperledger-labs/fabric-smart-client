@@ -134,10 +134,10 @@ type protoReader struct {
 func (r *protoReader) ReadMsg(msg proto.Message) error {
 	data, err := r.r.ReadData()
 	if err != nil {
-		return errors.Wrapf(err, "failed reading data")
+		return errors.Wrap(err, "failed reading data")
 	}
 	if err := proto.Unmarshal(data, msg); err != nil {
-		return errors.Wrapf(err, "failed unmarshalling message")
+		return errors.Wrap(err, "failed unmarshalling message")
 	}
 	return nil
 }

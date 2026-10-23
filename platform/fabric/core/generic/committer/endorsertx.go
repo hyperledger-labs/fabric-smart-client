@@ -54,7 +54,7 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 
 func MapFinalityEvent(ctx context.Context, block *common.BlockMetadata, txNum driver.TxNum, txID string) (uint8, *FinalityEvent, error) {
 	if len(block.Metadata) <= int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
-		return 0, nil, errors.Errorf("block metadata lacks transaction filter")
+		return 0, nil, errors.New("block metadata lacks transaction filter")
 	}
 
 	validationFlags := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])
@@ -81,7 +81,7 @@ func MapValidationCode(code int32) (int, string) {
 func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.BlockNum) error {
 	chaincodeEvent, err := readChaincodeEvent(env, blockNum)
 	if err != nil {
-		return errors.Wrapf(err, "error reading chaincode event")
+		return errors.Wrap(err, "error reading chaincode event")
 	}
 	if chaincodeEvent != nil {
 		logger.Debugf("Chaincode Event Received: ", chaincodeEvent)

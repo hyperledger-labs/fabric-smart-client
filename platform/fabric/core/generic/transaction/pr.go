@@ -32,14 +32,14 @@ func NewProposalResponseFromResponse(proposalResponse *peer.ProposalResponse) (*
 		return nil, errors.Wrapf(err, "GetProposalResponsePayload error %s", err)
 	}
 	if len(pRespPayload.Extension) == 0 {
-		return nil, errors.Errorf("empty pRespPayload.Extension")
+		return nil, errors.New("empty pRespPayload.Extension")
 	}
 	respPayload, err := protoutil.UnmarshalChaincodeAction(pRespPayload.Extension)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed GetChaincodeAction")
+		return nil, errors.Wrap(err, "failed GetChaincodeAction")
 	}
 	if len(respPayload.Results) == 0 {
-		return nil, errors.Errorf("empty results")
+		return nil, errors.New("empty results")
 	}
 
 	return &ProposalResponse{

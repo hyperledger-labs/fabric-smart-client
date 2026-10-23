@@ -67,12 +67,12 @@ func (p *populator) Populate(rwsetBytes []byte, namespaces ...driver.Namespace) 
 	txRWSet := &rwset.TxReadWriteSet{}
 	err := proto.Unmarshal(rwsetBytes, txRWSet)
 	if err != nil {
-		return vault.ReadWriteSet{}, errors.Wrapf(err, "provided invalid read-write set bytes, unmarshal failed")
+		return vault.ReadWriteSet{}, errors.Wrap(err, "provided invalid read-write set bytes, unmarshal failed")
 	}
 
 	rwsIn, err := rwsetutil.TxRwSetFromProtoMsg(txRWSet)
 	if err != nil {
-		return vault.ReadWriteSet{}, errors.Wrapf(err, "provided invalid read-write set bytes, TxRwSetFromProtoMsg failed")
+		return vault.ReadWriteSet{}, errors.Wrap(err, "provided invalid read-write set bytes, TxRwSetFromProtoMsg failed")
 	}
 
 	rws := vault.EmptyRWSet()

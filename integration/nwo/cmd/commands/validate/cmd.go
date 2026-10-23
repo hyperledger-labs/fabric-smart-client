@@ -36,7 +36,7 @@ func newConfigCmd() *cobra.Command {
 		Long:  `Validate a core.yaml configuration directory before starting a node.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return errors.Errorf("trailing args detected")
+				return errors.New("trailing args detected")
 			}
 			cmd.SilenceUsage = true
 

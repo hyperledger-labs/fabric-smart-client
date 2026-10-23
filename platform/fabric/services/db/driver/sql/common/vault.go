@@ -129,7 +129,7 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	defer db.GlobalLock.RUnlock()
 
 	if len(txIDs) == 0 {
-		return errors.Wrapf(sqlbuild.ErrNoValues, "failed to build query")
+		return errors.Wrap(sqlbuild.ErrNoValues, "failed to build query")
 	}
 	rows := make([]sqlbuild.Tuple, len(txIDs))
 	for i, txID := range txIDs {

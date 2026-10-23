@@ -95,7 +95,7 @@ func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 	}
 	rrRaw, err := rr.Bytes()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed marshalling recipient request")
+		return nil, errors.Wrap(err, "failed marshalling recipient request")
 	}
 	err = session.Send(viewCtx.Context(), rrRaw)
 	if err != nil {
@@ -139,7 +139,7 @@ func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (any, e
 
 	rr := &RecipientRequest{}
 	if err := rr.FromBytes(payload); err != nil {
-		return nil, errors.Wrapf(err, "failed unmarshalling recipient request")
+		return nil, errors.Wrap(err, "failed unmarshalling recipient request")
 	}
 
 	if s.Identity.IsNone() {
@@ -206,7 +206,7 @@ type ExchangeRecipientIdentitiesView struct {
 func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, opts ...ServiceOption) (sender, receiver view.Identity, err error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to compile service options")
+		return nil, nil, errors.Wrap(err, "failed to compile service options")
 	}
 	ids, err := viewCtx.RunView(&ExchangeRecipientIdentitiesView{
 		Network:       opt.Network,
@@ -303,7 +303,7 @@ type RespondExchangeRecipientIdentitiesView struct {
 func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOption) (sender, receiver view.Identity, err error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to compile service options")
+		return nil, nil, errors.Wrap(err, "failed to compile service options")
 	}
 	ids, err := viewCtx.RunView(&RespondExchangeRecipientIdentitiesView{
 		Network:       opt.Network,

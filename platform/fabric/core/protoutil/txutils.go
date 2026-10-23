@@ -210,7 +210,7 @@ func CreateSignedTx(
 	}
 
 	if len(endorsements) == 0 {
-		return nil, errors.Errorf("no endorsements")
+		return nil, errors.New("no endorsements")
 	}
 
 	// create ChaincodeEndorsedAction

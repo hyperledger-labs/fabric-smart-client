@@ -53,7 +53,7 @@ func newFinalityListenerManager[V comparable](logger Logger, tracer trace.Tracer
 
 func (c *finalityListenerManager[V]) AddListener(txID driver.TxID, toAdd driver.FinalityListener[V]) error {
 	if len(txID) == 0 {
-		return errors.Errorf("tx id must be not empty")
+		return errors.New("tx id must be not empty")
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

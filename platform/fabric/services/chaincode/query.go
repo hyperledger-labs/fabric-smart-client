@@ -34,7 +34,7 @@ func (i *queryChaincodeView) Call(viewCtx view.Context) (any, error) {
 
 func (i *queryChaincodeView) Query(viewCtx view.Context) ([]byte, error) {
 	if len(i.ChaincodeName) == 0 {
-		return nil, errors.Errorf("no chaincode specified")
+		return nil, errors.New("no chaincode specified")
 	}
 
 	fNetwork, err := fabric.GetFabricNetworkService(viewCtx, i.Network)

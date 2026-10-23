@@ -94,11 +94,11 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 	}
 	rwSet, err := rwset.NewEndorserTransactionReader(m.network).Read(payl, chdr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed extracting rwset")
+		return nil, errors.Wrap(err, "failed extracting rwset")
 	}
 	_, finalityEvent, err := committer.MapFinalityEvent(ctx, block, txNum, chdr.TxId)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed mapping finality event")
+		return nil, errors.Wrap(err, "failed mapping finality event")
 	}
 
 	txInfos := make(map[driver2.Namespace]txInfo, len(rwSet.Writes))

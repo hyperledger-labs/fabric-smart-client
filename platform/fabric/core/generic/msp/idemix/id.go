@@ -43,7 +43,7 @@ func NewMSPIdentityWithVerType(idemix *Idemix, nymPublicKey bccsp.Key, role *m.M
 
 	raw, err := nymPublicKey.Bytes()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to marshal nym public key")
+		return nil, errors.Wrap(err, "failed to marshal nym public key")
 	}
 	id.ID = &msp.IdentityIdentifier{
 		Mspid: idemix.Name,
@@ -85,7 +85,7 @@ func (id *MSPIdentity) GetOrganizationalUnits() []*msp.OUIdentifier {
 func (id *MSPIdentity) Validate() error {
 	// logger.Debugf("Validating identity %+v", id)
 	if id.GetMSPIdentifier() != id.Idemix.Name {
-		return errors.Errorf("the supplied identity does not belong to this msp")
+		return errors.New("the supplied identity does not belong to this msp")
 	}
 	return id.verifyProof()
 }
@@ -103,7 +103,7 @@ func (id *MSPIdentity) Verify(msg, sig []byte) error {
 }
 
 func (*MSPIdentity) SatisfiesPrincipal(_ *m.MSPPrincipal) error {
-	return errors.Errorf("not supported")
+	return errors.New("not supported")
 }
 
 func (id *MSPIdentity) Serialize() ([]byte, error) {
@@ -176,7 +176,7 @@ func (id *MSPIdentity) verifyProof() error {
 		},
 	)
 	if err == nil && !valid {
-		return errors.Errorf("unexpected condition, an error should be returned for an invalid signature")
+		return errors.New("unexpected condition, an error should be returned for an invalid signature")
 	}
 
 	return err

@@ -19,13 +19,13 @@ func MergeYAML(docs ...[]byte) ([]byte, error) {
 	for _, doc := range docs {
 		m := map[string]any{}
 		if err := yaml.Unmarshal(doc, &m); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal YAML document")
+			return nil, errors.Wrap(err, "failed to unmarshal YAML document")
 		}
 		deepMergeMap(merged, m)
 	}
 	out, err := yaml.Marshal(merged)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to marshal merged YAML")
+		return nil, errors.Wrap(err, "failed to marshal merged YAML")
 	}
 	return out, nil
 }

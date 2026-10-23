@@ -229,7 +229,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, session *NetworkStreamSession) error {
 	if len(streamHash) == 0 {
 		logger.Debugf("empty stream hash probably because of uninitialized data. New stream must be created.")
-		return errors.Wrapf(errStreamNotFound, "stream hash is empty")
+		return errors.Wrap(errStreamNotFound, "stream hash is empty")
 	}
 	p.streamsMutex.RLock()
 	streams := p.streams[streamHash]

@@ -41,7 +41,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 	logger.DebugfContext(viewCtx.Context(), "Get results to send")
 	res, err := c.tx.Results()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting tx results")
+		return nil, errors.Wrap(err, "failed getting tx results")
 	}
 
 	// Contact sequentially all parties.
@@ -113,7 +113,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		// The response contains an array of marshalled ProposalResponse message
 		var responses [][]byte
 		if err := json.Unmarshal(msg.Payload, &responses); err != nil {
-			return nil, errors.Wrapf(err, "failed unmarshalling response")
+			return nil, errors.Wrap(err, "failed unmarshalling response")
 		}
 
 		found := false
@@ -156,7 +156,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 			// Check the content of the response
 			// Now results can be equal to what this node has proposed or different
 			if !bytes.Equal(res, proposalResponse.Results()) {
-				return nil, errors.Errorf("received different results")
+				return nil, errors.New("received different results")
 			}
 
 			logger.DebugfContext(viewCtx.Context(), "append response from party [%s]", party)

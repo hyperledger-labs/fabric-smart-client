@@ -53,7 +53,7 @@ func startCmd(n Node) *cobra.Command {
 		Long:  `Starts the fabric smart client node that interacts with the network.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return errors.Errorf("trailing args detected")
+				return errors.New("trailing args detected")
 			}
 			cmd.SilenceUsage = true
 			return serve(n)

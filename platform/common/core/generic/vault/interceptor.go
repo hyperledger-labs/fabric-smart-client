@@ -429,7 +429,7 @@ func (i *Interceptor[V]) Done() {
 func (i *Interceptor[V]) Reopen(qe VersionedQueryExecutor) error {
 	i.logger.Debugf("Reopen with [%s], closed [%v]", i.txID, i.IsClosed())
 	if !i.IsClosed() {
-		return errors.Errorf("already open")
+		return errors.New("already open")
 	}
 	i.Lock()
 	defer i.Unlock()

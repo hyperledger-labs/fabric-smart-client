@@ -58,7 +58,7 @@ type Channel struct {
 
 func (c *Channel) Init() error {
 	if err := c.CommitterService.ReloadConfigTransactions(); err != nil {
-		return errors.WithMessagef(err, "failed reloading config transactions")
+		return errors.WithMessage(err, "failed reloading config transactions")
 	}
 	return nil
 }

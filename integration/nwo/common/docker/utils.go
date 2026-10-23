@@ -43,7 +43,7 @@ func GetInstance() (*Docker, error) {
 	once.Do(func() {
 		dockerClient, err := dcli.New(dcli.FromEnv)
 		if err != nil {
-			instanceError = errors.Wrapf(err, "failed to create new docker client instance")
+			instanceError = errors.Wrap(err, "failed to create new docker client instance")
 		}
 
 		singleInstance = &Docker{Client: dockerClient}
@@ -223,7 +223,7 @@ func (d *Docker) LocalIP(networkID string) (string, error) {
 	}
 
 	if len(ni.IPAM.Config) != 1 {
-		return "", errors.Errorf("IPAM.Config must be set")
+		return "", errors.New("IPAM.Config must be set")
 	}
 
 	var config network.IPAMConfig

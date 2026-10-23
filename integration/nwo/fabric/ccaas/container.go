@@ -45,7 +45,7 @@ type ContainerManager struct {
 func NewContainerManager() (*ContainerManager, error) {
 	cli, err := dcli.New(dcli.FromEnv)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create docker client")
+		return nil, errors.Wrap(err, "failed to create docker client")
 	}
 	return &ContainerManager{cli: cli}, nil
 }

@@ -156,7 +156,7 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 
 	filter := b.GetMetadata().GetMetadata()
 	if int(cb.BlockMetadataIndex_TRANSACTIONS_FILTER) >= len(filter) {
-		return nil, errors.Errorf("block metadata has no transactions filter entry")
+		return nil, errors.New("block metadata has no transactions filter entry")
 	}
 	txFilter := filter[cb.BlockMetadataIndex_TRANSACTIONS_FILTER]
 	if i >= len(txFilter) {

@@ -108,7 +108,7 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewCtx view.Context) error
 				originErr := ctx.Err()
 				logger.Debugf("context done with err [%s]", originErr)
 				_, err = r.CallBack(&committer.ChaincodeEvent{
-					Err: errors.Wrapf(originErr, "context done"),
+					Err: errors.Wrap(originErr, "context done"),
 				})
 				if err != nil {
 					logger.Errorf("callback failed [%s:%s:%s]: [%s]", r.Network, r.Channel, r.ChaincodeName, err)
@@ -118,7 +118,7 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewCtx view.Context) error
 				originErr := viewCtx.Context().Err()
 				logger.Debugf("view context done with err [%s]", originErr)
 				_, err = r.CallBack(&committer.ChaincodeEvent{
-					Err: errors.Wrapf(originErr, "view context done"),
+					Err: errors.Wrap(originErr, "view context done"),
 				})
 				if err != nil {
 					logger.Errorf("callback failed [%s:%s:%s]: [%s]", r.Network, r.Channel, r.ChaincodeName, err)
@@ -136,7 +136,7 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewCtx view.Context) error
 
 func getChaincode(viewCtx view.Context, info *info) (*fabric.Chaincode, error) {
 	if len(info.chaincodeName) == 0 {
-		return nil, errors.Errorf("no chaincode specified")
+		return nil, errors.New("no chaincode specified")
 	}
 
 	fNetwork, err := fabric.GetFabricNetworkService(viewCtx, info.network)

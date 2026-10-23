@@ -156,16 +156,16 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 // without a signed proposal.
 func (t *Transaction) SetFromBytes(raw []byte) error {
 	if err := json.Unmarshal(raw, t); err != nil {
-		return errors.Wrapf(err, "json unmarshal from bytes")
+		return errors.Wrap(err, "json unmarshal from bytes")
 	}
 
 	if t.TSignedProposal == nil && len(t.TProposalResponses) > 0 {
-		return errors.Errorf("proposal responses without a signed proposal")
+		return errors.New("proposal responses without a signed proposal")
 	}
 	if t.TSignedProposal != nil {
 		up, err := transaction.UnpackSignedProposal(t.TSignedProposal)
 		if err != nil {
-			return errors.Wrapf(err, "unpacking proposal")
+			return errors.Wrap(err, "unpacking proposal")
 		}
 		for _, r := range t.TProposalResponses {
 			if string(r.GetResponse().GetPayload()) != up.TxID() {
@@ -213,7 +213,7 @@ func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 		return errors.Wrap(err, "unpack envelope from bytes")
 	}
 	if !bytes.Equal(upe.ProposalHash, upe.EndorsedProposalHash) {
-		return errors.Errorf("envelope proposal hash does not match the endorsed proposal hash")
+		return errors.New("envelope proposal hash does not match the endorsed proposal hash")
 	}
 
 	t.TTxID = upe.TxID
@@ -430,7 +430,7 @@ func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 	// prepare signer
 	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {
-		return errors.Wrapf(err, "get signer identity")
+		return errors.Wrap(err, "get signer identity")
 	}
 	signer := &signerWrapper{creator: identity, signer: s}
 

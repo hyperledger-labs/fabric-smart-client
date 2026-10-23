@@ -49,7 +49,7 @@ func (db *BaseDB[T]) BeginUpdate() error {
 	tx, err := db.newTransaction()
 	if err != nil {
 		db.txLock.Unlock()
-		return errors.Wrapf(err, "error starting db transaction")
+		return errors.Wrap(err, "error starting db transaction")
 	}
 	db.Txn = tx
 	db.debugStack = debug.Stack()
@@ -71,7 +71,7 @@ func (db *BaseDB[T]) Commit() error {
 	db.Txn = db.zero
 	db.debugStack = nil
 	if err != nil {
-		return errors.Wrapf(err, "could not commit transaction")
+		return errors.Wrap(err, "could not commit transaction")
 	}
 
 	return nil

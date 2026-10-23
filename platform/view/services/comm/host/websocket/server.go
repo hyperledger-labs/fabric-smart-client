@@ -56,7 +56,7 @@ func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 
 	if !errors.Is(err, http.ErrServerClosed) {
 		logger.Errorf("HTTP server failed on [%s]: %s", s.srv.Addr, err.Error())
-		return errors.Wrapf(err, "failed to start http server")
+		return errors.Wrap(err, "failed to start http server")
 	}
 	return nil
 }
