@@ -43,7 +43,7 @@ Start with the [Fabric-x platform configuration](configuration.md) page for the 
 
 ## Notification Service (Transaction Finality)
 
-The notification service delivers realtime transaction finality events to FSC application nodes. It maintains a persistent bidirectional gRPC stream to the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s `Notifier` service, which pushes notifications as transactions are committed, invalidated, or timed out. The connection to the committer is re-used and shared among all active listeners for a given network and channel.
+The notification service delivers realtime transaction finality events to FSC application nodes. It maintains a persistent bidirectional gRPC stream to the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s `SidecarService` (`OpenNotificationStream`), which pushes notifications as transactions are committed, invalidated, or timed out. The connection to the committer is re-used and shared among all active listeners for a given network and channel.
 
 ### API
 
@@ -191,7 +191,7 @@ organisation, and — when running in a non-standard network layout — its host
 
 | Method | Default | Description |
 |---|---|---|
-| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.0` | Docker image for the committer container. |
+| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.7` | Docker image for the committer container. |
 | `WithCommitterEnv(key, value string)` | *(see below)* | Override or add a container environment variable. Pass an empty value to remove a default. |
 
 Default environment variables set by the test framework:
@@ -207,6 +207,7 @@ Default environment variables set by the test framework:
 | `SC_ORDERER_BLOCK_SIZE` | `1` |
 | `SC_SIDECAR_ORDERER_SIGNED_ENVELOPES` | `true` |
 | `SC_SIDECAR_SERVER_MAX_CONCURRENT_STREAMS` | `0` |
+| `SC_QUERY_SERVER_MAX_CONCURRENT_STREAMS` | `0` |
 | Endpoints and MSP dirs | *(derived from network)* |
 
 #### Example
@@ -215,8 +216,8 @@ Default environment variables set by the test framework:
 fxTopo := nwofabricx.NewDefaultTopology()
 fxTopo.AddOrganizationsByName("Org1", "Org2")
 
-// pin a specific committer image
-fxTopo.WithCommitterImage("hyperledger/fabric-x-committer-test-node:1.1.0")
+// run a committer image built locally from a fabric-x-committer checkout
+fxTopo.WithCommitterImage("hyperledger/fabric-x-committer-test-node:local")
 
 // increase block size and turn on debug logging for the orderer component
 fxTopo.

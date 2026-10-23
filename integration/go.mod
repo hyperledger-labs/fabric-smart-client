@@ -18,7 +18,7 @@ require (
 	github.com/hyperledger/fabric-contract-api-go/v2 v2.2.4
 	github.com/hyperledger/fabric-lib-go v1.1.5
 	github.com/hyperledger/fabric-protos-go-apiv2 v0.3.7
-	github.com/hyperledger/fabric-x-common v0.2.8
+	github.com/hyperledger/fabric-x-common v0.2.12
 	github.com/jaegertracing/jaeger-idl v0.14.0
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/file v1.2.1

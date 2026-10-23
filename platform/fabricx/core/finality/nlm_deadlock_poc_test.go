@@ -17,7 +17,7 @@ import (
 
 // TestAddFinalityListenerRecoversAfterStreamFailure proves the fix for the
 // permanent deadlock this manager used to suffer once the underlying gRPC
-// notification stream failed (e.g. a malicious/compromised Notifier endpoint
+// notification stream failed (e.g. a malicious/compromised committer endpoint
 // drops or errors the stream -- trivially triggerable by closing the
 // connection, and also naturally triggered by a normal server restart):
 //
@@ -33,8 +33,8 @@ import (
 //     AddFinalityListener/RemoveFinalityListener, for ANY txID on this
 //     manager, is never blocked behind it.
 //
-// Before the fix, a single dropped/failed gRPC connection to the Notifier
-// service permanently bricked finality tracking for the affected
+// Before the fix, a single dropped/failed gRPC connection to the committer's
+// notification stream permanently bricked finality tracking for the affected
 // network/channel. Now, AddFinalityListener fails fast with an error,
 // leaving the manager (and, crucially, handlersMu) usable.
 func TestAddFinalityListenerRecoversAfterStreamFailure(t *testing.T) {
@@ -42,7 +42,7 @@ func TestAddFinalityListenerRecoversAfterStreamFailure(t *testing.T) {
 
 	nlm, fakeStream := setupTest(t)
 
-	// Simulate the Notifier stream failing immediately, as a malicious or
+	// Simulate the notification stream failing immediately, as a malicious or
 	// restarting committer would.
 	fakeStream.RecvReturns(nil, errors.New("stream broken"))
 

@@ -27,8 +27,8 @@ var logger = logging.MustGetLogger()
 
 // ledger implements the driver.Ledger interface for FabricX.
 type ledger struct {
-	// client is the BlockQueryServiceClient for interacting with the committer.
-	client committerpb.BlockQueryServiceClient
+	// client is the SidecarServiceClient for interacting with the committer.
+	client committerpb.SidecarServiceClient
 	// queryService is the QueryService for querying transaction status.
 	queryService queryservice.QueryService
 	// baseCtx is the background context for RPC calls.
@@ -36,7 +36,7 @@ type ledger struct {
 }
 
 // New returns a new ledger instance with the given clients and base context.
-func New(client committerpb.BlockQueryServiceClient, queryService queryservice.QueryService, baseCtx context.Context) *ledger {
+func New(client committerpb.SidecarServiceClient, queryService queryservice.QueryService, baseCtx context.Context) *ledger {
 	return &ledger{
 		client:       client,
 		queryService: queryService,

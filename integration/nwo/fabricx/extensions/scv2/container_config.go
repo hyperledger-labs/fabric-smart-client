@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	committerImageName = "hyperledger/fabric-x-committer-test-node:1.0.4"
+	committerImageName = "hyperledger/fabric-x-committer-test-node:1.0.7"
 )
 
 type containerConfig struct {
@@ -55,6 +55,7 @@ func containerEnvVars(cfg containerConfig) []string {
 		"SC_SIDECAR_SERVER_ENDPOINT":               cfg.SidecarServerEndpoint,
 		"SC_SIDECAR_SERVER_MAX_CONCURRENT_STREAMS": "0",
 		"SC_QUERY_SERVER_ENDPOINT":                 cfg.QueryServerEndpoint,
+		"SC_QUERY_SERVER_MAX_CONCURRENT_STREAMS":   "0",
 		"SC_QUERY_LOGGING_LOGSPEC":                 "info:grpc=error",
 		"SC_COORDINATOR_LOGGING_LOGSPEC":           "info:grpc=error",
 		"SC_ORDERER_LOGGING_LOGSPEC":               "info:grpc=error",
