@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -67,6 +68,48 @@ func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	<-time.After(100 * time.Millisecond)
 
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 2)
+}
+
+func TestSessionChurn_NoLostReplies(t *testing.T) { //nolint:paralleltest
+	a, z := setupTwoNodes(t)
+	ctx := context.Background()
+	a.Start(ctx)
+	z.Start(ctx)
+	defer a.Stop()
+	defer z.Stop()
+
+	master, err := z.MasterSession()
+	require.NoError(t, err)
+	go func() {
+		for msg := range master.Receive() {
+			s, err := z.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil) //nolint:contextcheck // NewResponderSession takes no context, as in comm.SessionsMultipleMessagesTestRound
+			if err != nil {
+				continue
+			}
+			go func() {
+				_ = s.Send(ctx, msg.Payload)
+				for m := range s.Receive() {
+					if string(m.Payload) == "bye" {
+						z.DeleteSession(ctx, msg.SessionID, msg.FromPKID)
+						return
+					}
+				}
+			}()
+		}
+	}()
+
+	for i := range 200 {
+		s, err := a.NewSession("", "", z.Address, []byte(z.ID))
+		require.NoError(t, err)
+		require.NoError(t, s.Send(ctx, []byte("ping")))
+		select {
+		case <-s.Receive():
+		case <-time.After(5 * time.Second):
+			t.Fatalf("iteration %d: no reply", i)
+		}
+		_ = s.Send(ctx, []byte("bye"))
+		a.DeleteSession(ctx, s.Info().ID, []byte(z.ID))
+	}
 }
 
 func generateKey(t *testing.T) (crypto.PrivKey, string) {

@@ -88,12 +88,6 @@ func BenchmarkRoundTrip(b *testing.B) {
 func BenchmarkSessionSetup(b *testing.B) {
 	for _, t := range transports {
 		b.Run("transport="+t.name, func(b *testing.B) {
-			if t.name == "libp2p" && os.Getenv("COMM_BENCH_LIBP2P_SETUP") == "" {
-				// libp2p shares one cached stream per remote peer across all sessions. Closing a
-				// session can close the stream the responder is replying on for the next session,
-				// and that reply is lost, so this benchmark stalls in about half of runs.
-				b.Skip("libp2p loses replies under rapid session churn; set COMM_BENCH_LIBP2P_SETUP=1 to run")
-			}
 			a, z := t.pair(b)
 			serveEcho(b, z)
 			closeSession(b.Context(), a, z, openSession(b, a, z))
