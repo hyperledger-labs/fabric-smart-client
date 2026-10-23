@@ -151,8 +151,7 @@ func UpdateConfig(n *Network, o *topology.Orderer, channel string, current, upda
 			signConfigUpdate(peerAdminSigner(n, org), updateEnvelope.ConfigUpdate))
 	}
 
-	signedUpdate, err := protoutil.CreateSignedEnvelope(cb.HeaderType_CONFIG_UPDATE, channel, admin, updateEnvelope, 0, 0)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "cannot sign the configuration update")
+	signedUpdate := signedEnvelope(admin, cb.HeaderType_CONFIG_UPDATE, channel, updateEnvelope)
 
 	bundle, err := channelconfig.NewBundle(channel, current, factory.GetDefault())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "cannot build a bundle from the current configuration")
@@ -163,19 +162,20 @@ func UpdateConfig(n *Network, o *topology.Orderer, channel string, current, upda
 	configEnvelope, err := bundle.ConfigtxValidator().ProposeConfigUpdate(signedUpdate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "the current configuration rejected the update")
 
-	broadcast(n, o, signedConfigTx(admin, channel, configEnvelope))
+	broadcast(n, o, signedEnvelope(admin, cb.HeaderType_CONFIG, channel, configEnvelope))
 }
 
-// signedConfigTx wraps a ConfigEnvelope into the CONFIG envelope broadcast to the ordering
-// service.
+// signedEnvelope wraps data into an envelope of the given header type, signed by admin,
+// whose channel header carries the transaction ID derived from its nonce and creator.
 //
 // The envelope is assembled by hand rather than through protoutil.CreateSignedEnvelope
-// because that helper leaves the channel header's TxId empty, and the committer's sidecar
-// checks for a transaction ID (service/sidecar/mapping.go:119) before it dispatches on
-// header type (:125). A CONFIG envelope without one is excluded as
-// MALFORMED_MISSING_TX_ID, the config block commits carrying zero transactions, nothing is
-// logged at INFO level, and the configuration simply never changes.
-func signedConfigTx(admin *signer.Signer, channel string, configEnvelope *cb.ConfigEnvelope) *cb.Envelope {
+// because that helper leaves the channel header's TxId empty. The committer's sidecar takes
+// the ID of a config transaction from the CONFIG_UPDATE envelope nested in it
+// (ConfigEnvelope.LastUpdate), and fails the whole block with "no TX ID in the config
+// update" if that envelope has none, so the configuration never changes. The ID on the
+// outer CONFIG envelope is used only when it carries no LastUpdate, which UpdateConfig
+// never produces; it is set anyway so that every envelope this package signs is well formed.
+func signedEnvelope(admin *signer.Signer, txType cb.HeaderType, channel string, data proto.Message) *cb.Envelope {
 	creator, err := admin.Serialize()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "cannot serialize the signing identity")
 
@@ -183,16 +183,16 @@ func signedConfigTx(admin *signer.Signer, channel string, configEnvelope *cb.Con
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "cannot create a nonce")
 
 	signatureHeader := &cb.SignatureHeader{Creator: creator, Nonce: nonce}
-	channelHeader := protoutil.MakeChannelHeader(cb.HeaderType_CONFIG, 0, channel, 0)
+	channelHeader := protoutil.MakeChannelHeader(txType, 0, channel, 0)
 	protoutil.SetTxID(channelHeader, signatureHeader)
 
 	payload := protoutil.MarshalOrPanic(&cb.Payload{
 		Header: protoutil.MakePayloadHeader(channelHeader, signatureHeader),
-		Data:   protoutil.MarshalOrPanic(configEnvelope),
+		Data:   protoutil.MarshalOrPanic(data),
 	})
 
 	signature, err := admin.Sign(payload)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "cannot sign the configuration transaction")
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "cannot sign the [%s] envelope", txType)
 
 	return &cb.Envelope{Payload: payload, Signature: signature}
 }

@@ -10,7 +10,28 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
+
+func TestAddSystemNamespacePolicies(t *testing.T) {
+	t.Parallel()
+
+	readers := &topology.Policy{Name: "Readers"}
+	custom := &topology.Policy{Name: "SnapshotEndorsement", Type: "Signature", Rule: "OR('Org1MSP.member')"}
+
+	// A profile without the system namespace policies, as one read from YAML would be, and
+	// a profile that already defines one of them.
+	bare := &topology.Profile{Name: "OrgsChannel", Policies: []*topology.Policy{readers}}
+	defined := &topology.Profile{Name: "Other", Policies: []*topology.Policy{custom}}
+	profiles := []*topology.Profile{bare, defined}
+
+	addSystemNamespacePolicies(profiles)
+	addSystemNamespacePolicies(profiles) // CheckTopology may run more than once
+
+	require.Equal(t, []*topology.Policy{readers, implicitMetaSnapshotEndorsement, implicitMetaCheckpointEndorsement}, bare.Policies)
+	require.Equal(t, []*topology.Policy{custom, implicitMetaCheckpointEndorsement}, defined.Policies)
+}
 
 func TestParseNamespaceList(t *testing.T) {
 	t.Parallel()

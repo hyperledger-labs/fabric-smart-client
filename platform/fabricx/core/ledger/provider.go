@@ -23,7 +23,7 @@ import (
 
 //go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger.GRPCClientProvider
 //go:generate counterfeiter -o mock/service_provider.go --fake-name ServicesProvider github.com/hyperledger-labs/fabric-smart-client/platform/view/services.Provider
-//go:generate counterfeiter -o mock/block_query_client.go --fake-name BlockQueryServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.BlockQueryServiceClient
+//go:generate counterfeiter -o mock/sidecar_service_client.go --fake-name SidecarServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.SidecarServiceClient
 //go:generate counterfeiter -o mock/query_client.go --fake-name QueryServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
 //go:generate counterfeiter -o mock/config_provider.go --fake-name ConfigProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.Provider
 //go:generate counterfeiter -o mock/config_service.go --fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.ConfigService
@@ -116,7 +116,7 @@ func (p *Provider) buildLedger(network string) (driver.Ledger, error) {
 		return nil, err
 	}
 	// Create the gRPC client stubs
-	client := committerpb.NewBlockQueryServiceClient(cc)
+	client := committerpb.NewSidecarServiceClient(cc)
 
 	// get the query service
 	qs, err := p.queryServiceProvider.Get(network, "")

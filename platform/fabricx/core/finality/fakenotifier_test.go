@@ -19,11 +19,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-// fakeNotifier is a committerpb.NotifierClient whose streams a test can break and
+// fakeNotifier is a committerpb.SidecarServiceClient whose streams a test can break and
 // reopen, standing in for a committer that restarts. Every OpenNotificationStream
 // call gets a fresh fakeStream, published on opened.
 type fakeNotifier struct {
-	committerpb.NotifierClient // nil; only OpenNotificationStream is used
+	committerpb.SidecarServiceClient // nil; only OpenNotificationStream is used
 
 	opened chan *fakeStream
 
@@ -35,7 +35,7 @@ func newFakeNotifier() *fakeNotifier {
 	return &fakeNotifier{opened: make(chan *fakeStream, 16)}
 }
 
-func (f *fakeNotifier) OpenNotificationStream(ctx context.Context, _ ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
+func (f *fakeNotifier) OpenNotificationStream(ctx context.Context, _ ...grpc.CallOption) (committerpb.SidecarService_OpenNotificationStreamClient, error) {
 	f.mu.Lock()
 	err := f.openErr
 	f.mu.Unlock()

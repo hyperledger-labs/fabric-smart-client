@@ -9,6 +9,7 @@ package network
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -121,8 +122,32 @@ func (n *Network) CheckTopology() {
 	// remove fabric peers
 	n.removePeers()
 
+	addSystemNamespacePolicies(n.Profiles)
+
 	// cleanup chaincode
 	// TODO cleanup the chaincode
+}
+
+// The channel policies that authorize the committer's _snapshot and _checkpoint system
+// namespaces.
+var (
+	implicitMetaSnapshotEndorsement   = &topology.Policy{Name: "SnapshotEndorsement", Type: "ImplicitMeta", Rule: "MAJORITY Endorsement"}
+	implicitMetaCheckpointEndorsement = &topology.Policy{Name: "CheckpointEndorsement", Type: "ImplicitMeta", Rule: "MAJORITY Endorsement"}
+)
+
+// addSystemNamespacePolicies adds the SnapshotEndorsement and CheckpointEndorsement
+// policies to every profile that does not define them. The committer rejects a channel
+// configuration without them, so they are added here, right before the configtx is
+// generated, rather than when the topology is built: a profile read from YAML or replaced
+// by a suite would otherwise lack them. A profile's own definition takes precedence.
+func addSystemNamespacePolicies(profiles []*topology.Profile) {
+	for _, p := range profiles {
+		for _, policy := range []*topology.Policy{implicitMetaSnapshotEndorsement, implicitMetaCheckpointEndorsement} {
+			if !slices.ContainsFunc(p.Policies, func(q *topology.Policy) bool { return q.Name == policy.Name }) {
+				p.Policies = append(p.Policies, policy)
+			}
+		}
+	}
 }
 
 func (n *Network) removePeers() {
