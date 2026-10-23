@@ -992,6 +992,7 @@ persistence:
     maxOpenConns: 25  # optional: max open read connections to the database. Defaults to unlimited. 
     maxIdleConns: 25  # optional: max idle read connections to the database. Defaults to 2.
     maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
+    startupConnectTimeout: 60s  # optional: how long the node waits at startup for the database to accept connections. Defaults to 60s (also when 0); waiting cannot be disabled.
     tls:
       enabled: true              # when false (or omitted) the tls block is ignored and the dataSource is used as-is
       ssl_mode: verify-full      # optional: defaults to verify-full when empty. See the table below.

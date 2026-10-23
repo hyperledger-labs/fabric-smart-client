@@ -15,6 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
@@ -27,6 +28,10 @@ import (
 var logger = logging.MustGetLogger()
 
 const driverName = "pgx"
+
+// DefaultStartupConnectTimeout is how long Open waits for the database to become
+// reachable when Opts.StartupConnectTimeout is not set.
+const DefaultStartupConnectTimeout = 60 * time.Second
 
 // DbProvider returns the connection pool for a set of Opts. Implementations share one
 // pool among all callers that pass the same DataSource.
@@ -55,8 +60,12 @@ func NewDbProviderWithMetrics(m *connstate.Metrics, p metrics.Provider) DbProvid
 
 func key(o Opts) string { return o.DataSource }
 
-// Open opens a connection pool for opts.DataSource and pings it once; it returns an error
-// if the database is unreachable. ReadDB and WriteDB share the same pool.
+// Open opens a connection pool for opts.DataSource and waits until the database answers a
+// ping, so a node that starts together with its database does not fail. It retries with
+// jittered exponential backoff for opts.StartupConnectTimeout (DefaultStartupConnectTimeout
+// if zero or negative), logs each failed attempt, and then returns an error. Logs and the error
+// identify the database by its data-source label, never by the DSN. ReadDB and WriteDB share
+// the same pool.
 func Open(opts Opts) (*common.RWDB, error) {
 	db, err := sqlOpen(opts.DataSource, opts.Tracing)
 	if err != nil {
@@ -67,15 +76,43 @@ func Open(opts Opts) (*common.RWDB, error) {
 	db.SetMaxIdleConns(opts.MaxIdleConns)
 	db.SetConnMaxIdleTime(opts.MaxIdleTime)
 
-	if err = db.Ping(); err != nil {
+	timeout := opts.StartupConnectTimeout
+	if timeout <= 0 {
+		timeout = DefaultStartupConnectTimeout
+	}
+	label := dataSourceLabel(opts.DataSource)
+	if err := waitForDB(db, label, timeout); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
-	logger.Debugf("connected to [%s] for reads, max open connections: %d, max idle connections: %d, max idle time: %v", driverName, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+	logger.Debugf("connected to [%s] at [%s], max open connections: %d, max idle connections: %d, max idle time: %v", driverName, label, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 
 	return &common.RWDB{
 		ReadDB:  db,
 		WriteDB: db,
 	}, nil
+}
+
+// pingAttemptTimeout bounds a single ping, so a dial to a host that drops packets fails
+// and is retried instead of consuming the whole startup timeout.
+const pingAttemptTimeout = 5 * time.Second
+
+// waitForDB pings db until it answers or timeout elapses.
+func waitForDB(db *sql.DB, label string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	attempt := 0
+	err := utils.NewBackoffRetryRunner(utils.Infinitely, 100*time.Millisecond, 5*time.Second).RunContext(ctx, func() error {
+		attempt++
+		pingCtx, cancel := context.WithTimeout(ctx, pingAttemptTimeout)
+		err := db.PingContext(pingCtx)
+		cancel()
+		if err != nil {
+			logger.Warnf("database [%s] not reachable (attempt %d): %v", label, attempt, err)
+		}
+		return err
+	})
+	return errors.Wrapf(err, "database [%s] not reachable within %v", label, timeout)
 }
 
 func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, error) {
@@ -87,6 +124,7 @@ func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, er
 	)
 }
 
+// Opts are the connection options Open uses for one pool.
 type Opts struct {
 	DataSource      string
 	MaxOpenConns    int
@@ -95,4 +133,7 @@ type Opts struct {
 	TablePrefix     string
 	TableNameParams []string
 	Tracing         *common2.TracingConfig
+	// StartupConnectTimeout bounds how long Open waits for the database; zero or negative
+	// means DefaultStartupConnectTimeout.
+	StartupConnectTimeout time.Duration
 }
