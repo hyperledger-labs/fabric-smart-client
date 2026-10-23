@@ -188,14 +188,20 @@ func (o *KVS) Get(ctx context.Context, id string, state any) error {
 			logger.DebugfContext(ctx, "failed retrieving state [%s,%s]", o.namespace, id)
 			return errors.Wrapf(err, "failed retrieving state [%s,%s]", o.namespace, id)
 		}
-		if len(raw) == 0 {
-			return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
+		// Add to cache (write lock). An empty value is not cached here:
+		// GetExisting already caches those, and there is nothing to unmarshal.
+		if len(raw) > 0 {
+			o.putMutex.Lock()
+			o.cache.Put(id, raw)
+			o.putMutex.Unlock()
 		}
+	}
 
-		// Add to cache (write lock)
-		o.putMutex.Lock()
-		o.cache.Put(id, raw)
-		o.putMutex.Unlock()
+	// A cached entry can be empty, because GetExisting caches whatever the
+	// store iterator returns. Report that the same way as an empty read from
+	// the store, rather than failing to unmarshal it.
+	if len(raw) == 0 {
+		return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {
