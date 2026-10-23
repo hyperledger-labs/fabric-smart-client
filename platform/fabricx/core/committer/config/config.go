@@ -68,8 +68,8 @@ func DefaultConfig() Config {
 
 // Config holds the configuration for the gRPC client.
 type Config struct {
-	// Endpoints is a list of gRPC endpoints to connect to. Only one is supported today;
-	// see config.ClientProvider.
+	// Endpoints is a list of gRPC endpoints to connect to, tried in order until one
+	// connects; see ClientProvider.
 	//
 	// It is the shared ConnectionConfig rather than a Fabric-x type of its own: address,
 	// connection timeout, resolved TLS and message size are the same four things a Fabric

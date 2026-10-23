@@ -240,8 +240,8 @@ func TestCommitterFinalityUnknownTXTimeout(t *testing.T) {
 	})
 }
 
-func TestCreatePeerMapAndPickPeer(t *testing.T) {
-	t.Parallel()
+func newServiceWithPeers(t *testing.T, peers []*grpc.ConnectionConfig) *cfg.Service {
+	t.Helper()
 	m := &mock.Configuration{}
 	m.IsSetReturnsOnCall(0, true) // fabric.network present for NewService
 	m.GetStringReturnsOnCall(0, "")
@@ -253,17 +253,7 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 			if !ok {
 				return nil
 			}
-			*p = []*grpc.ConnectionConfig{
-				{Address: "p1", Usage: "query"},
-				{Address: "p2", Usage: "delivery"},
-			}
-			return nil
-		case "fabric.test.orderers", "fabric.testorderers":
-			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
-			if !ok {
-				return nil
-			}
-			*p = []*grpc.ConnectionConfig{{Address: "o1"}}
+			*p = peers
 			return nil
 		case "fabric.test.channels", "fabric.testchannels":
 			p, ok := rawVal.(*[]*cfg.Channel)
@@ -280,6 +270,17 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 	svc, err := cfg.NewService(m, "test", false)
 	require.NoError(t, err)
 
+	return svc
+}
+
+func TestCreatePeerMapAndPickPeer(t *testing.T) {
+	t.Parallel()
+
+	svc := newServiceWithPeers(t, []*grpc.ConnectionConfig{
+		{Address: "p1", Usage: "query"},
+		{Address: "p2", Usage: "delivery"},
+	})
+
 	// pick a peer for query — ensure non-nil
 	p := svc.PickPeer(driver.PeerForQuery)
 	require.NotNil(t, p)
@@ -288,10 +289,64 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 	require.Nil(t, svc.PickPeer(driver.PeerForFinality))
 }
 
+func TestPickPeer_SkipsCoolingDown(t *testing.T) {
+	t.Parallel()
+
+	svc := newServiceWithPeers(t, []*grpc.ConnectionConfig{
+		{Address: "A", Usage: "delivery"},
+		{Address: "B", Usage: "delivery"},
+	})
+	svc.ReportFailure("A")
+	for range 100 {
+		require.Equal(t, "B", svc.PickPeer(driver.PeerForDelivery).Address)
+	}
+}
+
+func TestPickPeer_AllCoolingFallsBack(t *testing.T) {
+	t.Parallel()
+
+	svc := newServiceWithPeers(t, []*grpc.ConnectionConfig{
+		{Address: "A", Usage: "delivery"},
+		{Address: "B", Usage: "delivery"},
+	})
+	svc.ReportFailure("A")
+	svc.ReportFailure("B")
+	seen := map[string]bool{}
+	for range 100 {
+		p := svc.PickPeer(driver.PeerForDelivery)
+		require.NotNil(t, p)
+		seen[p.Address] = true
+	}
+	require.True(t, seen["A"] && seen["B"], "fallback must pick from all endpoints")
+}
+
+func TestPickPeer_CooldownExpires(t *testing.T) {
+	t.Parallel()
+
+	svc := newServiceWithPeers(t, []*grpc.ConnectionConfig{
+		{Address: "A", Usage: "delivery"},
+		{Address: "B", Usage: "delivery"},
+	})
+	now := time.Now()
+	svc.SetNow(func() time.Time { return now })
+
+	svc.ReportFailure("A")
+	for range 100 {
+		require.Equal(t, "B", svc.PickPeer(driver.PeerForDelivery).Address)
+	}
+
+	// Exactly endpointCooldown later, A is eligible again.
+	now = now.Add(cfg.EndpointCooldown)
+	seen := map[string]bool{}
+	for range 100 {
+		seen[svc.PickPeer(driver.PeerForDelivery).Address] = true
+	}
+	require.True(t, seen["A"], "A must be picked again once its cooldown has expired")
+}
+
 func TestPickOrderer_nilAndSetConfigOrderers(t *testing.T) {
 	t.Parallel()
-	m := &mock.Configuration{}
-	svc := &cfg.Service{Configuration: m}
+	svc := newServiceWithPeers(t, nil)
 	// nil case
 	require.Nil(t, svc.PickOrderer())
 

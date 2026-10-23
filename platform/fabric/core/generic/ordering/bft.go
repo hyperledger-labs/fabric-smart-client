@@ -141,6 +141,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 				status, err := connection.SendAndRecv(sendRecvCtx, env)
 				cancel()
 				if err != nil {
+					o.ConfigService.ReportFailure(orderer.Address)
 					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, err.Error())
 					connection.State.Set(connstate.Reconnecting)
 					lock.Lock()
@@ -214,6 +215,7 @@ func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionC
 func (o *BFTBroadcaster) createConnectionWithSlot(to *grpc.ConnectionConfig, state *bftOrdererState) (*Connection, error) {
 	connection, err := o.createConnection(to)
 	if err != nil {
+		o.ConfigService.ReportFailure(to.Address)
 		o.releaseSlot(state)
 		return nil, err
 	}
