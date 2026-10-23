@@ -20,6 +20,7 @@ type config interface {
 	UnmarshalDriverOpts(name driver.PersistenceName, v any) error
 }
 
+// Config is the Postgres persistence configuration read from the persistence opts.
 type Config struct {
 	TablePrefix     string
 	DataSource      string
@@ -30,6 +31,9 @@ type Config struct {
 	TableNameParams []string
 	Tracing         *common2.TracingConfig
 	TLSConfig       *TLSConfig `yaml:"tls" mapstructure:"tls"`
+	// StartupConnectTimeout bounds how long opening the database waits for it to become
+	// reachable; zero or negative means DefaultStartupConnectTimeout.
+	StartupConnectTimeout time.Duration
 }
 
 func NewConfigProvider(config config) *ConfigProvider {

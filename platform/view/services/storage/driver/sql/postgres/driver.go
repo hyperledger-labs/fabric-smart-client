@@ -76,6 +76,8 @@ func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider 
 		TablePrefix:     o.TablePrefix,
 		TableNameParams: o.TableNameParams,
 		Tracing:         o.Tracing,
+
+		StartupConnectTimeout: o.StartupConnectTimeout,
 	}
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
