@@ -329,7 +329,7 @@ func (p *Provider) setupEnv() error {
 	// 3. Replacing "_" with "." to representing nesting using the . delimiter.
 	// Example: MYVAR_PARENT1_CHILD1_NAME becomes "parent1.child1.name"
 	if err := p.Backend.Load(env.Provider(".", env.Opt{
-		Prefix: "CORE",
+		Prefix: EnvCorePrefix,
 		TransformFunc: func(k, v string) (string, any) {
 			if len(v) == 0 {
 				// discard this
