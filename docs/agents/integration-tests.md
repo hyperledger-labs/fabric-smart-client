@@ -136,9 +136,18 @@ around it.
 | `EventuallyConnectionState(node, conn, want, timeout)` | poll the node's `/metrics` until every `fsc_connection_state` series that `conn` (an `fsc.Connection`) selects is `want`; see below |
 
 Peer and orderer names must be unique across the Fabric networks of the topology;
-the call fails otherwise. For Fabric-x, `fabricx.FxPlatform(ii).StopCommitter()` and
+the call fails otherwise. A Fabric topology may list several raft orderers; every one
+of them joins each channel at startup. For Fabric-x, `fabricx.FxPlatform(ii).StopCommitter()` and
 `StartCommitter()` stop and restart the all-in-one committer container; start waits
 until its sidecar, query and ordering services accept connections.
+
+Fault scenarios go in `integration/fabric/faultrecovery` and
+`integration/fabricx/faultrecovery` (targets `fabric-faultrecovery` and
+`fabricx-faultrecovery`). Both run the FSC nodes alice and bob on Postgres; the Fabric
+suite adds three raft orderers, named in its `Orderers`. What the two suites share lives
+in `integration/fabric/common/faultrecovery`: the nodes, their views, and
+`SubmitAndWaitFinal(ii, n)`, which runs `n` two-party transactions and waits until each
+is final on both nodes. A view or helper both suites need goes there.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.

@@ -237,8 +237,12 @@ func (n *Network) PostRun(load bool) {
 	if !load {
 		orderer := n.Orderer("orderer")
 		for _, channel := range n.Channels {
-			// orderer join the channel
-			n.OrdererJoinChannel(channel.Name, orderer)
+			// Every orderer of the channel's profile joins: with several raft
+			// consenters, the channel has no quorum, and so no blocks, until a
+			// majority of them has joined.
+			for _, o := range n.profileOrderers(n.ProfileForChannel(channel.Name)) {
+				n.OrdererJoinChannel(channel.Name, o)
+			}
 
 			// peers join the channel
 			n.JoinChannel(channel.Name, orderer, n.PeersWithChannel(channel.Name)...)
@@ -325,6 +329,20 @@ func nextChaincode(
 	topology.ApplyOptions(&next, opts...)
 
 	return &next
+}
+
+// profileOrderers returns the orderers the named profile lists.
+func (n *Network) profileOrderers(profile string) []*topology.Orderer {
+	var orderers []*topology.Orderer
+	for _, p := range n.Profiles {
+		if p.Name != profile {
+			continue
+		}
+		for _, name := range p.Orderers {
+			orderers = append(orderers, n.Orderer(name))
+		}
+	}
+	return orderers
 }
 
 func (n *Network) OrdererJoinChannel(channelID string, orderer *topology.Orderer) {

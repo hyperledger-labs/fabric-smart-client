@@ -233,6 +233,7 @@ INTEGRATION_TARGETS += fabric-atsa
 INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-configupdate
 INTEGRATION_TARGETS += fabric-events
+INTEGRATION_TARGETS += fabric-faultrecovery
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
 # them as parallel matrix entries rather than serially in one job.
@@ -251,6 +252,7 @@ INTEGRATION_TARGETS += fabricx-simple
 INTEGRATION_TARGETS += fabricx-deployment
 INTEGRATION_TARGETS += fabricx-multiendorsement
 INTEGRATION_TARGETS += fabricx-configupdate
+INTEGRATION_TARGETS += fabricx-faultrecovery
 
 # Targets are normally named <platform>-<suite> and map onto
 # ./integration/<platform>/<suite>. Targets that run one suite under a
