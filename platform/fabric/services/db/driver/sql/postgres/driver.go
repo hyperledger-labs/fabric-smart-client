@@ -77,6 +77,8 @@ func NewPersistenceWithOpts[V common2.DBObject](cfg *postgres2.ConfigProvider, d
 		TablePrefix:     o.TablePrefix,
 		TableNameParams: o.TableNameParams,
 		Tracing:         o.Tracing,
+
+		StartupConnectTimeout: o.StartupConnectTimeout,
 	}
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
