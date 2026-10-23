@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig/support/endpoint"
@@ -43,7 +42,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	viewgrpcserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 )
 
@@ -170,8 +168,12 @@ func (p *SDK) Install() error {
 		p.Container().Provide(viewgrpcserver.NewMetrics),
 		p.Container().Provide(connstate.NewMetrics),
 
-		// Web server
-		p.Container().Provide(NewWebServer),
+		// Listeners. A developer replaces one by decorating its constructor; the SDK calls the
+		// constructor only when the listener is enabled.
+		p.Container().Provide(func() WebServerConstructor { return NewWebServer }),
+		p.Container().Provide(func() GRPCServerConstructor { return NewGRPCServer }),
+		p.Container().Provide(enabledWebServer),
+		p.Container().Provide(enabledGRPCServer),
 		p.Container().Provide(NewOperationsServer),
 		// The operations endpoints are served on their own listener when fsc.metrics.address
 		// is set, and on the web listener otherwise.
@@ -180,8 +182,11 @@ func (p *SDK) Install() error {
 		// GRPC server
 		p.Container().Provide(viewgrpcserver.NewResponseMarshaler, dig.As(new(viewgrpcserver.Marshaller))),
 		p.Container().Provide(viewgrpcserver.NewAccessControlChecker, dig.As(new(viewgrpcserver.PolicyChecker))),
+		p.Container().Provide(LoadRemoteConfig),
 		p.Container().Provide(NewViewServiceServer, dig.As(new(viewgrpcserver.Service))),
-		p.Container().Provide(NewGRPCServer),
+		// Transports of the remote view API, mounted by Start as fsc.view.remote.backends lists.
+		p.Container().Provide(newGRPCBackend, dig.Group(BackendsGroup)),
+		p.Container().Provide(newWebBackend, dig.Group(BackendsGroup)),
 	)
 	if err != nil {
 		return err
@@ -220,24 +225,37 @@ func (p *SDK) Start(ctx context.Context) error {
 	}
 	return p.Container().Invoke(func(in struct {
 		dig.In
-		GRPCServer       *grpc.GRPCServer
+		GRPCServer       GRPCServer
 		ViewManager      viewgrpcserver.ViewManager
 		P2PService       *p2p.Service
 		ViewService      viewgrpcserver.Service
 		CommService      *comm.Service
-		WebServer        Server
+		WebServer        WebServer
 		OperationsServer OperationsServer
 		System           *operations.System
 		KVS              *kvs.KVS
 		ConfigService    driver.ConfigService
+		Remote           RemoteConfig
+		ConnStates       *connstate.Metrics
+		Backends         []Backend `group:"view-remote-backends"`
 	},
-	) error {
+	) (err error) {
+		// The gRPC listener bound its address when it was built. Until Serve takes it over,
+		// a failure here must release it, or a node that never serves keeps the port.
 		if in.GRPCServer != nil {
-			protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
+			defer func() {
+				if err != nil {
+					in.GRPCServer.Stop()
+				}
+			}()
+		}
+		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, RemoteViewTimeout(in.ConfigService))
+		mountHealth(in.WebServer, in.ConnStates)
+		if err := mountBackends(in.Remote, in.Backends, in.ViewService); err != nil {
+			return err
 		}
 		in.CommService.Start(ctx)
 
-		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, RemoteViewTimeout(in.ConfigService))
 		if err := in.P2PService.Start(ctx); err != nil {
 			return err
 		}

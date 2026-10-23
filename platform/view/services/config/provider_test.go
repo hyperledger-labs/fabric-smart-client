@@ -473,3 +473,24 @@ func TestLowercaseParserLowercasesKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"fabric": map[string]any{"net": map[string]any{"channels": []any{map[string]any{"name": "a"}}}}}, m)
 }
+
+// A list key set from an environment variable arrives as one string; GetStringSlice splits
+// it on commas, so CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web is the list [grpc web]. A YAML
+// list is returned as is.
+func TestGetStringSliceFromEnv(t *testing.T) { //nolint:paralleltest // t.Setenv
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"),
+		[]byte("fsc:\n  yamllist: [a, b]\n  replaced: [x]\n  scalar: one\n"), 0o600))
+	t.Setenv("CORE_FSC_REPLACED", "grpc, web")
+	t.Setenv("CORE_FSC_ENVONLY", "a.pem,b.pem")
+	t.Setenv("CORE_FSC_TRAILING", "grpc,,web,")
+	p, err := NewProvider(dir)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"a", "b"}, p.GetStringSlice("fsc.yamllist"))
+	require.Equal(t, []string{"grpc", "web"}, p.GetStringSlice("fsc.replaced"), "the env var replaces the whole list")
+	require.Equal(t, []string{"a.pem", "b.pem"}, p.GetStringSlice("fsc.envonly"))
+	require.Equal(t, []string{"grpc", "web"}, p.GetStringSlice("fsc.trailing"), "empty items are dropped")
+	require.Equal(t, []string{"one"}, p.GetStringSlice("fsc.scalar"))
+	require.Empty(t, p.GetStringSlice("fsc.absent"))
+}

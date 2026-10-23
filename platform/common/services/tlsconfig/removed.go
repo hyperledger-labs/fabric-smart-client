@@ -33,6 +33,10 @@ var removedNode = map[string]string{
 	// The view timeout belongs to the view service, whatever transport serves it, not to
 	// the web listener.
 	"fsc.web.viewtimeout": "fsc.view.remote.timeout",
+	// The command time window and the client allowlist belong to the remote view API,
+	// whatever transport serves it.
+	"fsc.grpc.authentication.timewindow": "fsc.view.remote.timeWindow",
+	"fsc.client.certs":                   "fsc.view.remote.clients",
 }
 
 // removedNetwork holds keys RELATIVE to one Fabric network, checked by

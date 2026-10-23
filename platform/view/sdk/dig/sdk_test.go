@@ -14,13 +14,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/dig"
 
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
@@ -281,26 +282,43 @@ func (*fakeHostProvider) GetNewHost() (host.P2PHost, error) {
 	return nil, errors.New("cannot get host")
 }
 
-func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2p.CommLayer) *fakeViewService {
+// sdkDeps overrides what wireSDKDeps provides; the zero value is no gRPC listener, the
+// remote view API disabled and no backends.
+type sdkDeps struct {
+	grpcServer GRPCServer
+	remote     RemoteConfig
+	backends   []Backend
+}
+
+func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2p.CommLayer, deps ...sdkDeps) *fakeViewService {
 	t.Helper()
+	var d sdkDeps
+	if len(deps) > 0 {
+		d = deps[0]
+	}
 
 	p2pSvc := p2p.NewService(&fakeP2PViewManager{}, &fakeIdentityProvider{}, commMock, nil, nil, nil)
 	commSvc := &comm.Service{HostProvider: &fakeHostProvider{}}
 	viewSvc := &fakeViewService{}
 
 	require.NoError(t, errors.Join(
-		c.Provide(func() *grpc.GRPCServer { return nil }),
+		c.Provide(func() GRPCServer { return d.grpcServer }),
 		c.Provide(func() viewgrpcserver.ViewManager { return &fakeViewManager{} }),
 		c.Provide(func() *p2p.Service { return p2pSvc }),
 		c.Provide(func() viewgrpcserver.Service { return viewSvc }),
 		c.Provide(func() *comm.Service { return commSvc }),
-		c.Provide(func() Server { return newFakeServer() }),
+		c.Provide(func() WebServer { return newFakeServer() }),
 		c.Provide(func() OperationsServer { return OperationsServer{} }),
 		c.Provide(func() *operations.System { return nil }),
 		c.Provide(func() *kvs.KVS { return nil }),
 		c.Provide(func() tracing.Provider { return tp.Default }),
 		c.Provide(func() viewgrpcserver.IdentityProvider { return &fakeIdentityProvider{} }),
+		c.Provide(func() RemoteConfig { return d.remote }),
+		c.Provide(func() *connstate.Metrics { return connstate.NewMetrics(&disabled.Provider{}) }),
 	))
+	for _, b := range d.backends {
+		require.NoError(t, c.Provide(func() Backend { return b }, dig.Group(BackendsGroup)))
+	}
 
 	return viewSvc
 }
@@ -376,4 +394,60 @@ func TestSDK_PostStart_ParentError(t *testing.T) {
 
 	err := s.PostStart(t.Context())
 	require.ErrorIs(t, err, parentErr)
+}
+
+// A Start that fails after the gRPC listener was built stops it, so its address is not left
+// bound by a node that never serves.
+func TestSDK_Start_FailureStopsGRPCServer(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		deps    sdkDeps
+		p2pErr  error
+		wantErr string
+	}{
+		{
+			name: "backend mount fails",
+			deps: sdkDeps{
+				remote:   RemoteConfig{Enabled: true, Backends: []string{"grpc", "broken"}},
+				backends: []Backend{&fakeBackend{name: "broken", err: errors.New("no route")}},
+			},
+			wantErr: "failed mounting backend [broken]",
+		},
+		{
+			name:    "p2p fails",
+			p2pErr:  errors.New("p2p-master-session-failure"),
+			wantErr: "failed getting master session",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := NewContainer()
+			registry := view.NewServiceProvider()
+			cfg := providerFrom(t, "")
+			require.NoError(t, registry.RegisterService(cfg))
+			s := NewSDKFrom(dig2.NewBaseSDK(c, cfg), registry)
+
+			commMock := &p2pmock.CommLayer{}
+			if tc.p2pErr != nil {
+				commMock.MasterSessionReturns(nil, tc.p2pErr)
+			} else {
+				sess := &viewmock.Session{}
+				sess.ReceiveReturns(make(chan *view2.Message))
+				commMock.MasterSessionReturns(sess, nil)
+			}
+			tp, err := newTracerProvider(&disabled.Provider{}, cfg)
+			require.NoError(t, err)
+
+			gs := &fakeGRPCServer{}
+			tc.deps.grpcServer = gs
+			if tc.deps.backends != nil {
+				tc.deps.backends = append(tc.deps.backends, newGRPCBackend(gs))
+			}
+			wireSDKDeps(t, c, tp, commMock, tc.deps)
+
+			require.ErrorContains(t, s.Start(t.Context()), tc.wantErr)
+			require.Equal(t, 1, gs.stopped, "the gRPC listener is stopped")
+		})
+	}
 }

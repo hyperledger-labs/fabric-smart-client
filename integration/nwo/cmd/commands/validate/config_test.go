@@ -109,6 +109,10 @@ func validConfigYAML(t *testing.T) string {
 	return "" +
 		"fsc:\n" +
 		"  id: node1\n" +
+		"  view:\n" +
+		"    remote:\n" +
+		"      enabled: true\n" +
+		"      backends: [grpc, web]\n" +
 		"  grpc:\n" +
 		"    enabled: true\n" +
 		"    address: 127.0.0.1:7051\n" +

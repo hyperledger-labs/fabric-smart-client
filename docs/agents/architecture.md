@@ -43,6 +43,49 @@ func (p *SDK) Start(ctx context.Context) error {
   collections (e.g. storage drivers register into the `db-drivers` group).
 - Dependencies are resolved automatically via constructor injection.
 
+## Listeners and view transports
+
+The view SDK (`platform/view/sdk/dig`) owns the `fsc.grpc.enabled`, `fsc.web.enabled` and
+`fsc.view.remote.enabled` flags: a disabled listener's constructor is never called, whatever
+implementation is installed, and with the remote view API disabled no backend is mounted.
+
+**Replacing a listener.** The `fsc.grpc` and `fsc.web` listeners are the `GRPCServer` and
+`WebServer` interfaces, built by a `GRPCServerConstructor` and a `WebServerConstructor`.
+Decorate the constructor in a child SDK's `Install`, after calling the parent. The decorator
+returns a constructor, not a server, so the built-in listener is never built and never binds
+a port, and the SDK still calls the replacement only when the listener is enabled:
+
+```go
+p.Container().Decorate(func(viewsdk.GRPCServerConstructor) viewsdk.GRPCServerConstructor {
+    return mygrpc.New // func(driver.ConfigService) (viewsdk.GRPCServer, error)
+})
+```
+
+A replacement must expose the connection's TLS state to handlers as the built-in listeners do
+(the view service binds commands to a verified client certificate), and `Stop` must wait for
+in-flight handlers.
+
+**Adding a view transport.** The remote view API is mounted by `Backend`s, collected from the
+`view-remote-backends` dig group. `SDK.Start` mounts the ones `fsc.view.remote.backends`
+lists, in list order, and fails on a listed name no backend has. Provide one and list its
+name:
+
+```go
+p.Container().Provide(newNATSBackend, dig.Group(viewsdk.BackendsGroup))
+```
+
+```yaml
+fsc:
+  view:
+    remote:
+      enabled: true
+      backends: [grpc, nats]
+```
+
+The SDK constructs every backend in the group to read its name, so a backend's constructor
+must be free of side effects; `Mount` acquires what the transport needs and returns an error
+if a prerequisite, such as its listener, is missing.
+
 ## Multi-network support
 
 FSC can run against multiple Fabric networks simultaneously. Network names are

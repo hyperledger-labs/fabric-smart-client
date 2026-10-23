@@ -42,6 +42,11 @@ func Marshal(m Message) ([]byte, error) {
 	return proto.Marshal(m)
 }
 
+// Size returns the size in bytes of the wire-format encoding of m.
+func Size(m Message) int {
+	return proto.Size(m)
+}
+
 // MarshalV1 returns the wire-format encoding of m.
 // The provided message is a v1 message.
 func MarshalV1(m MessageV1) ([]byte, error) {

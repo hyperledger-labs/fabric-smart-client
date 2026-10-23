@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -323,4 +324,75 @@ func TestTLSBinding(t *testing.T) {
 			require.Equal(t, int32(2), calls.Load())
 		})
 	}
+}
+
+// framesStreamServer delivers sc and then frames, one per RecvMsg.
+type framesStreamServer struct {
+	fakeStreamServer
+	frames []*protos.CallViewResponse
+}
+
+func (f *framesStreamServer) RecvMsg(m any) error {
+	if sc, ok := m.(*protos.SignedCommand); ok {
+		sc.Command, sc.Signature = f.sc.Command, f.sc.Signature
+		return nil
+	}
+	m.(*protos.CallViewResponse).Result = f.frames[0].Result
+	f.frames = f.frames[1:]
+	return nil
+}
+
+func TestMaxMessageSize(t *testing.T) {
+	t.Parallel()
+	const limit = 128
+	const tooLarge = "command exceeds fsc.view.remote.maxMessageSize"
+	newServer := func(t *testing.T) (*Server, *atomic.Int32) {
+		t.Helper()
+		srv, err := NewViewServiceServer(&stubMarshaller{}, YesPolicyChecker{}, NewMetrics(&disabled.Provider{}),
+			noop.NewTracerProvider(), BindToVerifiedClientCert, time.Minute, WithMaxMessageSize(limit))
+		require.NoError(t, err)
+		calls := &atomic.Int32{}
+		typ := reflect.TypeFor[*protos.Command_CallView]()
+		srv.RegisterProcessor(typ, func(context.Context, *protos.Command) (any, error) {
+			calls.Add(1)
+			return nil, nil
+		})
+		srv.RegisterStreamer(typ, func(_ *protos.SignedCommand, _ *protos.Command, s protos.ViewService_StreamCommandServer, _ Marshaller) error {
+			calls.Add(1)
+			return s.RecvMsg(&protos.CallViewResponse{})
+		})
+		return srv, calls
+	}
+	small := buildSignedCommand(t, nil)
+	large := buildSignedCommand(t, bytes.Repeat([]byte{1}, limit))
+
+	t.Run("unary", func(t *testing.T) {
+		t.Parallel()
+		srv, calls := newServer(t)
+		resp, err := srv.ProcessCommand(context.Background(), large)
+		require.NoError(t, err)
+		require.Equal(t, tooLarge, string(resp.Response))
+		resp, err = srv.ProcessCommand(context.Background(), small)
+		require.NoError(t, err)
+		require.Empty(t, resp.Response)
+		require.Equal(t, int32(1), calls.Load())
+	})
+
+	t.Run("stream command", func(t *testing.T) {
+		t.Parallel()
+		srv, calls := newServer(t)
+		stream := &framesStreamServer{ctx: context.Background(), sc: large}
+		require.EqualError(t, srv.StreamCommand(stream), tooLarge)
+		require.Zero(t, calls.Load())
+	})
+
+	t.Run("later stream frame", func(t *testing.T) {
+		t.Parallel()
+		srv, _ := newServer(t)
+		stream := &framesStreamServer{
+			ctx: context.Background(), sc: small,
+			frames: []*protos.CallViewResponse{{Result: bytes.Repeat([]byte{1}, limit)}},
+		}
+		require.ErrorContains(t, srv.StreamCommand(stream), tooLarge)
+	})
 }

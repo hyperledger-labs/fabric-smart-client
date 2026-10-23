@@ -15,10 +15,13 @@ fsc:
     # Private key matching the X.509 certificate
     key:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/keystore/priv_sk
-  # Client X.509 certificates
-  client:
-    certs:
-    - ./../../crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
+  # The remote view API, on the gRPC listener and the web server's HTTP binding.
+  view:
+    remote:
+      enabled: true
+      backends: [grpc, web]
+      clients:
+      - ./../../crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
   # Server-side TLS defaults, inherited field by field by every listener this node owns.
   # A service's own tls: block overrides only the fields it sets.
   tls:
