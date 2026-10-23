@@ -1087,3 +1087,26 @@ func TestKVS_CacheInvalidation(t *testing.T) {
 		require.Equal(t, 0, mockStore.GetStateCallCount())
 	})
 }
+
+func TestGetEmptyCachedValueReportsDoesNotExist(t *testing.T) {
+	t.Parallel()
+	mockStore := &mock.KeyValueStore{}
+	items := []*driver.UnversionedRead{
+		{Key: "k", Raw: []byte{}},
+	}
+	mockStore.GetStateSetIteratorReturns(iterators.Slice(items), nil)
+
+	k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+	require.NoError(t, err)
+
+	// GetExisting caches whatever the iterator returns, the empty value included,
+	// and reports the key as not existing.
+	require.Empty(t, k.GetExisting(context.Background(), "k"))
+
+	// Get now reads that empty value from the cache. It must report a missing
+	// state rather than failing to unmarshal it.
+	var state map[string]any
+	err = k.Get(context.Background(), "k", &state)
+	require.ErrorContains(t, err, "does not exist")
+	require.Equal(t, 0, mockStore.GetStateCallCount())
+}
