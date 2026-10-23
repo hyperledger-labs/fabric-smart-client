@@ -34,4 +34,6 @@ var _ = Describe("Fault Recovery with Fabric-x", Label(fsc.WebSocket), func() {
 	It("commits a transaction on a healthy network", func() {
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
+
+	faultrecovery.CrashSpecs(s)
 })

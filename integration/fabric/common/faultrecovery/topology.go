@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 // Package faultrecovery holds what the Fabric and Fabric-x faultrecovery suites share:
-// the FSC nodes, their views, and the helpers the specs drive them with.
+// the FSC nodes, their views, the helpers that drive them, and the specs both suites run.
 package faultrecovery
 
 import (
@@ -38,13 +38,16 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 	fscTopology.AddNodeByName("alice").
 		AddOptions(fabric.WithOrganization("Org1")).
 		AddOptions(db.For("alice")...).
-		RegisterViewFactory("submit", &views.SubmitViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		RegisterViewFactory("endorse", &views.EndorseViewFactory{}).
+		RegisterViewFactory("order", &views.OrderViewFactory{}).
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
+		RegisterViewFactory("query", &views.QueryViewFactory{})
 	fscTopology.AddNodeByName("bob").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(db.For("bob")...).
-		RegisterResponder(&views.ResponderView{}, &views.SubmitView{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		RegisterResponder(&views.ResponderView{}, &views.EndorseView{}).
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
+		RegisterViewFactory("query", &views.QueryViewFactory{})
 	fscTopology.AddSDK(sdk)
 
 	return fscTopology
