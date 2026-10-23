@@ -81,11 +81,11 @@ func UnpackProposal(prop *pb.Proposal) (*UnpackedProposal, error) {
 	}
 
 	if chaincodeHdrExt.ChaincodeId == nil {
-		return nil, errors.Errorf("ChaincodeHeaderExtension.ChaincodeId is nil")
+		return nil, errors.New("ChaincodeHeaderExtension.ChaincodeId is nil")
 	}
 
 	if chaincodeHdrExt.ChaincodeId.Name == "" {
-		return nil, errors.Errorf("ChaincodeHeaderExtension.ChaincodeId.Name is empty")
+		return nil, errors.New("ChaincodeHeaderExtension.ChaincodeId.Name is empty")
 	}
 
 	cpp, err := protoutil.UnmarshalChaincodeProposalPayload(prop.Payload)
@@ -99,15 +99,15 @@ func UnpackProposal(prop *pb.Proposal) (*UnpackedProposal, error) {
 	}
 
 	if cis.ChaincodeSpec == nil {
-		return nil, errors.Errorf("chaincode invocation spec did not contain chaincode spec")
+		return nil, errors.New("chaincode invocation spec did not contain chaincode spec")
 	}
 
 	if cis.ChaincodeSpec.Input == nil {
-		return nil, errors.Errorf("chaincode input did not contain any input")
+		return nil, errors.New("chaincode input did not contain any input")
 	}
 
 	if len(cis.ChaincodeSpec.Input.Args) == 0 {
-		return nil, errors.Errorf("chaincode input has no arguments")
+		return nil, errors.New("chaincode input has no arguments")
 	}
 
 	cppNoTransient := &pb.ChaincodeProposalPayload{Input: cpp.Input, TransientMap: nil}
@@ -165,12 +165,12 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 
 	// ensure the epoch is 0
 	if up.ChannelHeader.Epoch != 0 {
-		return errors.Errorf("epoch is non-zero")
+		return errors.New("epoch is non-zero")
 	}
 
 	// ensure that there is a nonce
 	if len(up.SignatureHeader.Nonce) == 0 {
-		return errors.Errorf("nonce is empty")
+		return errors.New("nonce is empty")
 	}
 
 	// ensure that there is a creator
@@ -184,11 +184,11 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 	}
 
 	if up.SignedProposal.ProposalBytes == nil {
-		return errors.Errorf("empty proposal bytes")
+		return errors.New("empty proposal bytes")
 	}
 
 	if up.SignedProposal.Signature == nil {
-		return errors.Errorf("empty signature bytes")
+		return errors.New("empty signature bytes")
 	}
 
 	sID, err := protoutil.UnmarshalSerializedIdentity(up.SignatureHeader.Creator)

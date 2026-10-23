@@ -64,7 +64,7 @@ func NewResolverService(config Config, service Service) (*ResolverService, error
 		service: service,
 	}
 	if err := service.AddPublicKeyExtractor(PublicKeyExtractor{}); err != nil {
-		return nil, errors.Wrapf(err, "failed adding fabric pki resolver")
+		return nil, errors.Wrap(err, "failed adding fabric pki resolver")
 	}
 	return er, nil
 }

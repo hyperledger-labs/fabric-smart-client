@@ -100,12 +100,12 @@ func newStateEP(policy []byte) (*stateEP, error) {
 func (s *stateEP) Policy() ([]byte, error) {
 	spe, err := s.policyFromMSPIDs()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed building policy")
+		return nil, errors.Wrap(err, "failed building policy")
 	}
 	logger.Debugf("StateEP Policy [\n%s\n]", spe.String())
 	spBytes, err := proto.Marshal(spe)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed marshalling policy")
+		return nil, errors.Wrap(err, "failed marshalling policy")
 	}
 	return spBytes, nil
 }

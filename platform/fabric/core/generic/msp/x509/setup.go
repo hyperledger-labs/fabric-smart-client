@@ -91,7 +91,7 @@ func LoadVerifyingMSPAt(dir, id, mspType string) (msp.MSP, error) {
 
 	cp, _, err := GetBCCSPFromConf(dir, "", nil)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to get bccsp")
+		return nil, errors.WithMessage(err, "failed to get bccsp")
 	}
 
 	mspOpts := &msp.BCCSPNewOpts{

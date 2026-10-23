@@ -226,7 +226,7 @@ func (o *KVS) Delete(ctx context.Context, id string) error {
 func (o *KVS) GetByPartialCompositeID(ctx context.Context, prefix string, attrs []string) (Iterator, error) {
 	startKey, endKey, err := CreateRangeKeysForPartialCompositeKey(prefix, attrs)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed building composite key")
+		return nil, errors.Wrap(err, "failed building composite key")
 	}
 
 	itr, err := o.store.GetStateRangeScanIterator(ctx, o.namespace, startKey, endKey)

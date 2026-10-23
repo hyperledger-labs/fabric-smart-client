@@ -44,11 +44,11 @@ type StreamProvider interface {
 func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) (*host, error) {
 	clientConfig, err := config.ClientTLSConfig()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build client TLS config")
+		return nil, errors.Wrap(err, "failed to build client TLS config")
 	}
 	serverConfig, err := config.ServerTLSConfig(caPoolProvider)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build server TLS config")
+		return nil, errors.Wrap(err, "failed to build server TLS config")
 	}
 	logger.Debugf("Create p2p client for node ID [%s] with TLS config [server: %v] [client: %v]", nodeID, serverConfig, clientConfig)
 
@@ -91,7 +91,7 @@ func (h *host) PeerID() host2.PeerID {
 
 func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	if err := h.server.Listen(); err != nil {
-		return errors.Wrapf(err, "failed to listen")
+		return errors.Wrap(err, "failed to listen")
 	}
 
 	errChan := make(chan error, 1)

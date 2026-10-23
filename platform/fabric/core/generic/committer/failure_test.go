@@ -37,10 +37,10 @@ func TestClassify(t *testing.T) {
 		// commitTxs and the handlers wrap every error on the way up, so
 		// classification has to survive wrapping or production would only ever
 		// see classDegrade.
-		{"wrapped deadlock is retryable", errors.Wrapf(dbdriver.DeadlockDetected, "failed committing tx"), classRetry},
-		{"deeply wrapped deadlock is retryable", errors.Wrapf(errors.Wrapf(dbdriver.DeadlockDetected, "inner"), "outer"), classRetry},
-		{"wrapped config rejection degrades", errors.Wrapf(driver.ErrConfigRejected, "failed updating membership"), classDegrade},
-		{"wrapped fatal is fatal", errors.Wrapf(ErrFatalCommit, "vault unreconcilable"), classFatal},
+		{"wrapped deadlock is retryable", errors.Wrap(dbdriver.DeadlockDetected, "failed committing tx"), classRetry},
+		{"deeply wrapped deadlock is retryable", errors.Wrap(errors.Wrap(dbdriver.DeadlockDetected, "inner"), "outer"), classRetry},
+		{"wrapped config rejection degrades", errors.Wrap(driver.ErrConfigRejected, "failed updating membership"), classDegrade},
+		{"wrapped fatal is fatal", errors.Wrap(ErrFatalCommit, "vault unreconcilable"), classFatal},
 		// Fatal outranks a retryable cause it happens to travel with, so a node
 		// that cannot trust its state never spins retrying instead.
 		{"fatal outranks retryable", errors.Wrapf(ErrFatalCommit, "after %v", dbdriver.DeadlockDetected), classFatal},
@@ -56,7 +56,7 @@ func TestClassify(t *testing.T) {
 		},
 		{
 			"exhausted outranks a wrapped transient cause",
-			errors.Wrapf(errors.Join(ErrRetriesExhausted, errors.Wrapf(dbdriver.SqlBusy, "still busy")), "block [1] failed"),
+			errors.Wrap(errors.Join(ErrRetriesExhausted, errors.Wrap(dbdriver.SqlBusy, "still busy")), "block [1] failed"),
 			classDegrade,
 		},
 		// Fatal still outranks exhaustion, so a node that cannot trust its state

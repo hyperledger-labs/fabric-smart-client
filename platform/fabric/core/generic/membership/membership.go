@@ -105,12 +105,12 @@ func (c *Service) Update(env *cb.Envelope) error {
 func parseConfig(env *cb.Envelope) (*configuration, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get payload from config transaction")
+		return nil, errors.Wrap(err, "cannot get payload from config transaction")
 	}
 
 	cenv, err := protoutil.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
+		return nil, errors.Wrap(err, "error unmarshalling config which passed initial validity checks")
 	}
 
 	if cenv.Config == nil {

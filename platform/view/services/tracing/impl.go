@@ -159,7 +159,7 @@ func buildProviderFromConfig(c Config, serviceName string) (Provider, error) {
 		return noop.NewTracerProvider(), nil
 	}
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to initialize span exporter")
+		return nil, errors.WithMessage(err, "failed to initialize span exporter")
 	}
 	logger.Debugf("Initializing tracing provider with sampling: %v", c.Sampling)
 	return providerWithExporter(context.Background(), exporter, c.Sampling, serviceName)

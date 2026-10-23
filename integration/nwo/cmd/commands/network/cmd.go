@@ -68,7 +68,7 @@ func GenerateCmd(topologies Topologies) *cobra.Command {
 		Long:  `Generate Artifacts.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return errors.Errorf("trailing args detected")
+				return errors.New("trailing args detected")
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
@@ -107,7 +107,7 @@ func CleanCmd() *cobra.Command {
 		Long:  `Clean Artifacts.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return errors.Errorf("trailing args detected")
+				return errors.New("trailing args detected")
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
@@ -143,7 +143,7 @@ func StartCmd(topologies Topologies) *cobra.Command {
 		Long:  `Start Artifacts.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return errors.Errorf("trailing args detected")
+				return errors.New("trailing args detected")
 			}
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true

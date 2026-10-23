@@ -72,7 +72,7 @@ func (i *Invoke) Endorse() (driver.Envelope, error) {
 		}
 		return res, nil
 	}
-	return nil, errors.Errorf("failed to perform endorse")
+	return nil, errors.New("failed to perform endorse")
 }
 
 func (i *Invoke) doEndorse() (driver.Envelope, error) {
@@ -107,7 +107,7 @@ func (i *Invoke) Query() ([]byte, error) {
 		}
 		return res, nil
 	}
-	return nil, errors.Errorf("failed to perform query")
+	return nil, errors.New("failed to perform query")
 }
 
 func (i *Invoke) doQuery() ([]byte, error) {
@@ -135,13 +135,13 @@ func (i *Invoke) doQuery() ([]byte, error) {
 			return nil, errors.Errorf("endorsement failure during query. response is nil: [%v]", resp.Endorsement)
 		}
 		if !bytes.Equal(responses[i].Response.Payload, resp.Response.Payload) {
-			return nil, errors.Errorf("endorsement failure during query. response payload does not match")
+			return nil, errors.New("endorsement failure during query. response payload does not match")
 		}
 		if responses[i].Response.Status != resp.Response.Status {
-			return nil, errors.Errorf("endorsement failure during query. response status does not match")
+			return nil, errors.New("endorsement failure during query. response status does not match")
 		}
 		if responses[i].Response.Message != resp.Response.Message {
-			return nil, errors.Errorf("endorsement failure during query. response message does not match")
+			return nil, errors.New("endorsement failure during query. response message does not match")
 		}
 	}
 
@@ -160,7 +160,7 @@ func (i *Invoke) Submit() (string, []byte, error) {
 		}
 		return txID, res, nil
 	}
-	return "", nil, errors.Errorf("failed to perform submit")
+	return "", nil, errors.New("failed to perform submit")
 }
 
 func (i *Invoke) doSubmit() (string, []byte, error) {
@@ -200,7 +200,7 @@ func (i *Invoke) WithTransientEntry(k string, v any) (driver.ChaincodeInvocation
 	}
 	b, err := i.toBytes(v)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "error converting transient entry to bytes")
+		return nil, errors.WithMessage(err, "error converting transient entry to bytes")
 	}
 	i.TransientMap[k] = b
 	return i, nil
@@ -267,10 +267,10 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	}()
 
 	if i.SignerIdentity.IsNone() {
-		return "", nil, nil, nil, errors.Errorf("no invoker specified")
+		return "", nil, nil, nil, errors.New("no invoker specified")
 	}
 	if len(i.ChaincodeName) == 0 {
-		return "", nil, nil, nil, errors.Errorf("no chaincode specified")
+		return "", nil, nil, nil, errors.New("no chaincode specified")
 	}
 
 	// load endorser clients
@@ -291,7 +291,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 			// retrieve invoker's MSP-ID
 			invokerMSPID, err := i.Chaincode.MSPProvider.MSPManager().DeserializeIdentity(i.SignerIdentity)
 			if err != nil {
-				return "", nil, nil, nil, errors.WithMessagef(err, "failed to deserializer the invoker identity")
+				return "", nil, nil, nil, errors.WithMessage(err, "failed to deserializer the invoker identity")
 			}
 			i.EndorsersMSPIDs = []string{invokerMSPID.GetMSPIdentifier()}
 		}
@@ -369,7 +369,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	// collect responses
 	responses, err := i.collectResponses(endorserClients, signedProp)
 	if err != nil {
-		return "", nil, nil, nil, errors.Wrapf(err, "failed collecting proposal responses")
+		return "", nil, nil, nil, errors.Wrap(err, "failed collecting proposal responses")
 	}
 
 	if len(responses) == 0 {

@@ -84,7 +84,7 @@ func (d *ecdsaVerifier) Verify(message, sigma []byte) error {
 
 	valid := ecdsa.Verify(d.pk, digest[:], signature.R, signature.S)
 	if !valid {
-		return errors.Errorf("signature not valid")
+		return errors.New("signature not valid")
 	}
 
 	return nil

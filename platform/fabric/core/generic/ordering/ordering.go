@@ -166,10 +166,10 @@ func (o *Service) SetConsensusType(consensusType ConsensusType) error {
 
 func (o *Service) Configure(consensusType string, orderers []*grpc.ConnectionConfig) error {
 	if err := o.SetConsensusType(consensusType); err != nil {
-		return errors.WithMessagef(err, "failed to set consensus type from channel config")
+		return errors.WithMessage(err, "failed to set consensus type from channel config")
 	}
 	if err := o.ConfigService.SetConfigOrderers(orderers); err != nil {
-		return errors.WithMessagef(err, "failed to set orderers")
+		return errors.WithMessage(err, "failed to set orderers")
 	}
 	return nil
 }

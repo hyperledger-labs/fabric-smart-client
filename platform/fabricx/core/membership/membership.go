@@ -117,12 +117,12 @@ func (s *Service) DryUpdate(env *cb.Envelope) error {
 func (s *Service) validateConfig(env *cb.Envelope, current channelconfig.Resources, loaded bool) (*channelconfig.Bundle, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unmarshal common payload")
+		return nil, errors.Wrap(err, "unmarshal common payload")
 	}
 
 	cenv, err := configtx.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unmarshal config envelope")
+		return nil, errors.Wrap(err, "unmarshal config envelope")
 	}
 
 	// The first configuration has nothing to be validated against.
@@ -134,12 +134,12 @@ func (s *Service) validateConfig(env *cb.Envelope, current channelconfig.Resourc
 
 	bundle, err := channelconfig.NewBundle(s.channelID, cenv.Config, factory.GetDefault())
 	if err != nil {
-		return nil, errors.Wrapf(err, "build a new bundle")
+		return nil, errors.Wrap(err, "build a new bundle")
 	}
 
 	channelconfig.LogSanityChecks(bundle)
 	if err := capabilitiesSupported(bundle); err != nil {
-		return nil, errors.Wrapf(err, "check bundle capabilities")
+		return nil, errors.Wrap(err, "check bundle capabilities")
 	}
 
 	return bundle, nil

@@ -59,7 +59,7 @@ func NewAnonymousTransaction(viewCtx view.Context) (*Transaction, error) {
 	}
 	anonIdentity, err := fns.LocalMembership().AnonymousIdentity()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting anonymous identity")
+		return nil, errors.WithMessage(err, "failed getting anonymous identity")
 	}
 	_, tx, err := endorser.NewTransactionWithSigner(
 		viewCtx,

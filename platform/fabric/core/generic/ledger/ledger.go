@@ -51,7 +51,7 @@ func New(
 func (c *Ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
 	raw, err := c.queryChaincode(GetChainInfo, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed querying chain info")
+		return nil, errors.Wrap(err, "failed querying chain info")
 	}
 	bi := &common.BlockchainInfo{}
 	if err := proto.Unmarshal(raw, bi); err != nil {
@@ -145,7 +145,7 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 		return nil, errors.Errorf("transaction index [%d] out of range [0,%d)", i, len(b.Data.GetData()))
 	}
 	if b.Metadata == nil || int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) >= len(b.Metadata.Metadata) {
-		return nil, errors.Errorf("block metadata missing transactions filter entry")
+		return nil, errors.New("block metadata missing transactions filter entry")
 	}
 	txFilter := b.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER]
 	if i >= len(txFilter) {

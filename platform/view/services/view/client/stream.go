@@ -70,7 +70,7 @@ func (c *Stream) Result() ([]byte, error) {
 	}
 	cvr := commandResp.GetCallViewResponse()
 	if cvr == nil {
-		return nil, errors.Errorf("no call view response found")
+		return nil, errors.New("no call view response found")
 	}
 	return cvr.Result, nil
 }

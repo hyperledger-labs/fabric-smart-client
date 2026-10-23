@@ -27,7 +27,7 @@ type Driver struct{}
 func (*Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driver.Signer, driver.Verifier, error) {
 	idPEM, err := os.ReadFile(configProvider.GetPath("fsc.identity.cert.file"))
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "failed loading SFC Node Identity")
+		return nil, nil, nil, errors.Wrap(err, "failed loading SFC Node Identity")
 	}
 	fileCont, err := os.ReadFile(configProvider.GetPath("fsc.identity.key.file"))
 	if err != nil {
@@ -39,7 +39,7 @@ func (*Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driver
 	}
 	signer, err := ecdsa.NewSignerFromPEM(fileCont)
 	if err != nil {
-		return id, nil, verifier, errors.Wrapf(err, "failed loading default signer")
+		return id, nil, verifier, errors.Wrap(err, "failed loading default signer")
 	}
 	return id, signer, verifier, nil
 }

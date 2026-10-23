@@ -57,40 +57,40 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 
 	tx, err := db.writeDB.BeginTx(ctx, nil)
 	if err != nil {
-		return errors.Wrapf(err, "failed to initiate db transaction")
+		return errors.Wrap(err, "failed to initiate db transaction")
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesBusy(txIDs)
 		if err != nil {
-			return errors.Wrapf(err, "failed building busy query")
+			return errors.Wrap(err, "failed building busy query")
 		}
 		logger.Debug(query, txIDs)
 		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-			return errors.Wrapf(err, "failed setting tx to busy")
+			return errors.Wrap(err, "failed setting tx to busy")
 		}
 	}
 
 	if len(writes) > 0 || len(metaWrites) > 0 {
 		query, params, err := db.UpsertStates(writes, metaWrites)
 		if err != nil {
-			return errors.Wrapf(err, "failed building upsert states query")
+			return errors.Wrap(err, "failed building upsert states query")
 		}
 		logger.Debug(query, logging.Keys(writes))
 		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-			return errors.Wrapf(err, "failed writing state")
+			return errors.Wrap(err, "failed writing state")
 		}
 	}
 
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesValid(txIDs)
 		if err != nil {
-			return errors.Wrapf(err, "failed building valid query")
+			return errors.Wrap(err, "failed building valid query")
 		}
 		logger.Debug(query, txIDs)
 		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-			return errors.Wrapf(err, "failed setting tx to valid")
+			return errors.Wrap(err, "failed setting tx to valid")
 		}
 	}
 

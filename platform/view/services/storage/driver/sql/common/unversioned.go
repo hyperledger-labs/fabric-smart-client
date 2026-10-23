@@ -114,7 +114,7 @@ func (db *KeyValueStore) Close() error {
 	logger.Info("closing database")
 	err := db.writeDB.Close()
 	if err != nil {
-		return errors.Wrapf(err, "could not close DB")
+		return errors.Wrap(err, "could not close DB")
 	}
 	return nil
 }
@@ -216,7 +216,7 @@ func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransactio
 
 	logger.Debug(query, params)
 	if _, execErr := tx.ExecContext(ctx, query, params...); execErr != nil {
-		return collections.RepeatValue(collections.Keys(vals), errors.Wrapf(db.errorWrapper.WrapError(execErr), "could not upsert"))
+		return collections.RepeatValue(collections.Keys(vals), errors.Wrap(db.errorWrapper.WrapError(execErr), "could not upsert"))
 	}
 	return nil
 }

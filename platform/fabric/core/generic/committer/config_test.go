@@ -600,7 +600,7 @@ func TestCommitConfigAppliesBeforeRecording(t *testing.T) {
 				ConfigureFn: func(string, []*grpc.ConnectionConfig) error {
 					// Fail the first attempt transiently, as a dial would, then succeed.
 					if configureCalls.Add(1) == 1 {
-						return errors.Wrapf(dbdriver.SqlBusy, "orderer connection busy")
+						return errors.Wrap(dbdriver.SqlBusy, "orderer connection busy")
 					}
 					return nil
 				},

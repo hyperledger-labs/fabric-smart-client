@@ -134,10 +134,10 @@ type ChaincodeCertifier struct{}
 func (*ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
 	typ, _, err := GetCertificationType(n.tx)
 	if err != nil {
-		return errors.Wrapf(err, "failed getting certification type")
+		return errors.Wrap(err, "failed getting certification type")
 	}
 	if len(typ) == 0 {
-		return errors.Errorf("no certification type found")
+		return errors.New("no certification type found")
 	}
 	switch typ {
 	case ChaincodeCertification:
@@ -220,10 +220,10 @@ func (*ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, k
 func (*ChaincodeCertifier) CertifyInput(n *Namespace, id string) error {
 	typ, _, err := GetCertificationType(n.tx)
 	if err != nil {
-		return errors.Wrapf(err, "failed getting certification type")
+		return errors.Wrap(err, "failed getting certification type")
 	}
 	if len(typ) == 0 {
-		return errors.Errorf("no certification type found")
+		return errors.New("no certification type found")
 	}
 	switch typ {
 	case ChaincodeCertification:
@@ -318,7 +318,7 @@ func (c *CertificationView) Call(viewCtx view.Context) (any, error) {
 	}
 	cert, err := vault.GetStateCertification(viewCtx.Context(), c.Namespace, c.Key)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting certification")
+		return nil, errors.Wrap(err, "failed getting certification")
 	}
 
 	return cert, nil
@@ -330,7 +330,7 @@ func (*CertificationViewFactory) NewView(in []byte) (view.View, error) {
 	f := &CertificationView{CertificationRequest: &CertificationRequest{}}
 	err := json.Unmarshal(in, f.CertificationRequest)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed unmarshalling input")
+		return nil, errors.Wrap(err, "failed unmarshalling input")
 	}
 	return f, nil
 }

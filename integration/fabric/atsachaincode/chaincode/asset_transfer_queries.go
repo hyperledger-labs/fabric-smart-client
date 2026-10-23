@@ -37,7 +37,7 @@ func (*SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, ass
 	// Since only public data is accessed in this function, no access control is required
 	assetJSON, err := ctx.GetStub().GetState(assetID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read from world state")
+		return nil, errors.Wrap(err, "failed to read from world state")
 	}
 	if assetJSON == nil {
 		return nil, errors.Errorf("%s does not exist", assetID)
@@ -61,7 +61,7 @@ func (*SmartContract) GetAssetPrivateProperties(ctx contractapi.TransactionConte
 
 	immutableProperties, err := ctx.GetStub().GetPrivateData(collection, assetID)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to read asset private properties from client org's collection")
+		return "", errors.Wrap(err, "failed to read asset private properties from client org's collection")
 	}
 	if immutableProperties == nil {
 		return "", errors.Errorf("asset private details does not exist in client org's collection: %s", assetID)
@@ -89,12 +89,12 @@ func getAssetPrice(ctx contractapi.TransactionContextInterface, assetID, priceTy
 
 	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(priceType, []string{assetID})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to create composite key")
+		return "", errors.Wrap(err, "failed to create composite key")
 	}
 
 	price, err := ctx.GetStub().GetPrivateData(collection, assetPriceKey)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to read asset price from implicit private data collection")
+		return "", errors.Wrap(err, "failed to read asset price from implicit private data collection")
 	}
 	if price == nil {
 		return "", errors.Errorf("asset price does not exist: %s", assetID)
@@ -122,7 +122,7 @@ func queryAgreementsByType(ctx contractapi.TransactionContextInterface, agreeTyp
 	// Query for any object type starting with `agreeType`
 	agreementsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, agreeType, []string{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read from private data collection")
+		return nil, errors.Wrap(err, "failed to read from private data collection")
 	}
 	defer func() { _ = agreementsIterator.Close() }()
 

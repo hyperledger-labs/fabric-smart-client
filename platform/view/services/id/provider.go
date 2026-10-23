@@ -55,7 +55,7 @@ func NewProvider(configProvider ConfigProvider, sigService SigService, endpointS
 		kms:             kms,
 	}
 	if err := p.Load(); err != nil {
-		return nil, errors.Wrapf(err, "failed loading identities")
+		return nil, errors.Wrap(err, "failed loading identities")
 	}
 	return p, nil
 }
@@ -74,11 +74,11 @@ func GetProvider(sp services.Provider) (*Provider, error) {
 
 func (p *Provider) Load() error {
 	if err := p.loadDefaultIdentity(); err != nil {
-		return errors.WithMessagef(err, "failed loading default identity")
+		return errors.WithMessage(err, "failed loading default identity")
 	}
 
 	if err := p.loadClientIdentities(); err != nil {
-		return errors.WithMessagef(err, "failed loading client identities")
+		return errors.WithMessage(err, "failed loading client identities")
 	}
 
 	return nil
@@ -104,11 +104,11 @@ func (p *Provider) Clients() []view.Identity {
 func (p *Provider) loadDefaultIdentity() error {
 	id, signer, verifier, err := p.kms.Load(p.configProvider)
 	if err != nil {
-		return errors.Wrapf(err, "failed loading default signer")
+		return errors.Wrap(err, "failed loading default signer")
 	}
 
 	if err := p.sigService.RegisterSigner(context.Background(), id, signer, verifier); err != nil {
-		return errors.Wrapf(err, "failed registering default identity signer")
+		return errors.Wrap(err, "failed registering default identity signer")
 	}
 	p.defaultID = id
 	return nil

@@ -182,7 +182,7 @@ func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs
 		return nil
 	}
 	if err := r.bindingKVS.PutBindings(ctx, longTerm, toBind...); err != nil {
-		return errors.WithMessagef(err, "failed storing bindings")
+		return errors.WithMessage(err, "failed storing bindings")
 	}
 	return nil
 }

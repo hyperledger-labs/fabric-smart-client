@@ -232,7 +232,7 @@ func newNotificationManagerWithGRPC(network string, grpcClientProvider GRPCClien
 func GetListenerManager(sp services.Provider, network, channel string) (ListenerManager, error) {
 	lmp, err := sp.GetService(reflect.TypeFor[*ListenerManagerProvider]())
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find provider")
+		return nil, errors.Wrap(err, "could not find provider")
 	}
 	provider, ok := lmp.(ListenerManagerProvider)
 	if !ok {

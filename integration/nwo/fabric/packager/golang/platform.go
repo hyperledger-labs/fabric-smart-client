@@ -193,7 +193,7 @@ func (*Platform) GetDeploymentPayload(codepath string, replacer replacer.Func) (
 		err = gw.Close()
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create tar for chaincode")
+		return nil, errors.Wrap(err, "failed to create tar for chaincode")
 	}
 
 	return payload.Bytes(), nil
