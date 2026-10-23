@@ -44,9 +44,10 @@ type KeyEncoder func(driver.PKey) any
 func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, encodeKey KeyEncoder, il common3.IsolationLevelMapper) *VaultStore {
 	return &VaultStore{
 		vaultReader: &vaultReader{
-			readDB:    readDB,
-			encodeKey: encodeKey,
-			tables:    tables,
+			readDB:       readDB,
+			encodeKey:    encodeKey,
+			tables:       tables,
+			errorWrapper: errorWrapper,
 		},
 		tables:       tables,
 		errorWrapper: errorWrapper,
@@ -96,12 +97,13 @@ func (db *VaultStore) buildTxLockVaultReader(ctx context.Context, isolationLevel
 		ReadOnly:  true,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, db.errorWrapper.WrapError(err)
 	}
 	return &vaultReader{
-		readDB:    tx,
-		encodeKey: db.encodeKey,
-		tables:    db.tables,
+		readDB:       tx,
+		encodeKey:    db.encodeKey,
+		tables:       db.tables,
+		errorWrapper: db.errorWrapper,
 	}, tx.Commit, nil
 }
 
@@ -118,9 +120,10 @@ func (db *VaultStore) buildGlobalLockVaultReader() (*vaultReader, releaseFunc, e
 		return nil
 	}
 	return &vaultReader{
-		readDB:    db.readDB,
-		encodeKey: db.encodeKey,
-		tables:    db.tables,
+		readDB:       db.readDB,
+		encodeKey:    db.encodeKey,
+		tables:       db.tables,
+		errorWrapper: db.errorWrapper,
 	}, release, nil
 }
 
@@ -351,11 +354,14 @@ func (db *txVaultReader) Done() error {
 	return db.release()
 }
 
-// vaultReader handles all read queries.
+// vaultReader runs the vault's read queries. Errors from the database are
+// returned through errorWrapper, so callers can match the backend-independent
+// sentinels of the storage driver package.
 type vaultReader struct {
-	readDB    dbReader
-	encodeKey KeyEncoder
-	tables    VaultTables
+	readDB       dbReader
+	encodeKey    KeyEncoder
+	tables       VaultTables
+	errorWrapper driver2.SQLErrorWrapper
 }
 
 func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
@@ -384,7 +390,7 @@ func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Names
 	logger.Debug(query, params)
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, err
+		return nil, db.errorWrapper.WrapError(err)
 	}
 	return common3.NewIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }), nil
 }
@@ -419,7 +425,7 @@ func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition)
 	logger.Debug(query, params)
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, err
+		return nil, db.errorWrapper.WrapError(err)
 	}
 	return common3.NewIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }), nil
 }
@@ -439,7 +445,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error querying db")
+		return nil, nil, errors.Wrap(db.errorWrapper.WrapError(err), "error querying db")
 	}
 	meta, err := unmarshalMetadata(m)
 	if err != nil {
@@ -502,7 +508,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where sqlbuild.Condition
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, err
+		return nil, db.errorWrapper.WrapError(err)
 	}
 	return common3.NewIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }), nil
 }

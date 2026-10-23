@@ -220,6 +220,21 @@ func TestRetryBlockTransient(t *testing.T) {
 		require.Equal(t, classDegrade, classify(err))
 	})
 
+	t.Run("recovers when a lost database connection comes back", func(t *testing.T) {
+		t.Parallel()
+		var calls atomic.Int32
+		c := newRetryCommitter(t)
+		c.commitBlock = func(context.Context, *common.Block) error {
+			if calls.Add(1) <= 2 {
+				return errors.Wrapf(dbdriver.ErrConnectionLost, "failed writing txids")
+			}
+			return nil
+		}
+
+		require.NoError(t, c.Commit(t.Context(), testBlock(31)))
+		require.Equal(t, int32(3), calls.Load())
+	})
+
 	t.Run("a zero budget commits once", func(t *testing.T) {
 		t.Parallel()
 		var calls atomic.Int32
