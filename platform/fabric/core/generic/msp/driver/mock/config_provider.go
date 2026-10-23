@@ -5,18 +5,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	drivera "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	driverb "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 type ConfigProvider struct {
 	BroadcastNumRetriesStub        func() int
 	broadcastNumRetriesMutex       sync.RWMutex
-	broadcastNumRetriesArgsForCall []struct {
-	}
-	broadcastNumRetriesReturns struct {
+	broadcastNumRetriesArgsForCall []struct{}
+	broadcastNumRetriesReturns     struct {
 		result1 int
 	}
 	broadcastNumRetriesReturnsOnCall map[int]struct {
@@ -24,9 +23,8 @@ type ConfigProvider struct {
 	}
 	BroadcastRetryIntervalStub        func() time.Duration
 	broadcastRetryIntervalMutex       sync.RWMutex
-	broadcastRetryIntervalArgsForCall []struct {
-	}
-	broadcastRetryIntervalReturns struct {
+	broadcastRetryIntervalArgsForCall []struct{}
+	broadcastRetryIntervalReturns     struct {
 		result1 time.Duration
 	}
 	broadcastRetryIntervalReturnsOnCall map[int]struct {
@@ -34,10 +32,8 @@ type ConfigProvider struct {
 	}
 	ChannelStub        func(string) drivera.ChannelConfig
 	channelMutex       sync.RWMutex
-	channelArgsForCall []struct {
-		arg1 string
-	}
-	channelReturns struct {
+	channelArgsForCall []ConfigProviderChannelArgs
+	channelReturns     struct {
 		result1 drivera.ChannelConfig
 	}
 	channelReturnsOnCall map[int]struct {
@@ -45,9 +41,8 @@ type ConfigProvider struct {
 	}
 	ChannelIDsStub        func() []string
 	channelIDsMutex       sync.RWMutex
-	channelIDsArgsForCall []struct {
-	}
-	channelIDsReturns struct {
+	channelIDsArgsForCall []struct{}
+	channelIDsReturns     struct {
 		result1 []string
 	}
 	channelIDsReturnsOnCall map[int]struct {
@@ -55,9 +50,8 @@ type ConfigProvider struct {
 	}
 	ClientConnTimeoutStub        func() time.Duration
 	clientConnTimeoutMutex       sync.RWMutex
-	clientConnTimeoutArgsForCall []struct {
-	}
-	clientConnTimeoutReturns struct {
+	clientConnTimeoutArgsForCall []struct{}
+	clientConnTimeoutReturns     struct {
 		result1 time.Duration
 	}
 	clientConnTimeoutReturnsOnCall map[int]struct {
@@ -65,9 +59,8 @@ type ConfigProvider struct {
 	}
 	ClientKeepAliveConfigStub        func() *grpc.ClientKeepAliveConfig
 	clientKeepAliveConfigMutex       sync.RWMutex
-	clientKeepAliveConfigArgsForCall []struct {
-	}
-	clientKeepAliveConfigReturns struct {
+	clientKeepAliveConfigArgsForCall []struct{}
+	clientKeepAliveConfigReturns     struct {
 		result1 *grpc.ClientKeepAliveConfig
 	}
 	clientKeepAliveConfigReturnsOnCall map[int]struct {
@@ -75,9 +68,8 @@ type ConfigProvider struct {
 	}
 	ConfigFileUsedStub        func() string
 	configFileUsedMutex       sync.RWMutex
-	configFileUsedArgsForCall []struct {
-	}
-	configFileUsedReturns struct {
+	configFileUsedArgsForCall []struct{}
+	configFileUsedReturns     struct {
 		result1 string
 	}
 	configFileUsedReturnsOnCall map[int]struct {
@@ -85,9 +77,8 @@ type ConfigProvider struct {
 	}
 	DefaultChannelStub        func() string
 	defaultChannelMutex       sync.RWMutex
-	defaultChannelArgsForCall []struct {
-	}
-	defaultChannelReturns struct {
+	defaultChannelArgsForCall []struct{}
+	defaultChannelReturns     struct {
 		result1 string
 	}
 	defaultChannelReturnsOnCall map[int]struct {
@@ -95,9 +86,8 @@ type ConfigProvider struct {
 	}
 	DriverNameStub        func() string
 	driverNameMutex       sync.RWMutex
-	driverNameArgsForCall []struct {
-	}
-	driverNameReturns struct {
+	driverNameArgsForCall []struct{}
+	driverNameReturns     struct {
 		result1 string
 	}
 	driverNameReturnsOnCall map[int]struct {
@@ -105,10 +95,8 @@ type ConfigProvider struct {
 	}
 	GetBoolStub        func(string) bool
 	getBoolMutex       sync.RWMutex
-	getBoolArgsForCall []struct {
-		arg1 string
-	}
-	getBoolReturns struct {
+	getBoolArgsForCall []ConfigProviderGetBoolArgs
+	getBoolReturns     struct {
 		result1 bool
 	}
 	getBoolReturnsOnCall map[int]struct {
@@ -116,10 +104,8 @@ type ConfigProvider struct {
 	}
 	GetDurationStub        func(string) time.Duration
 	getDurationMutex       sync.RWMutex
-	getDurationArgsForCall []struct {
-		arg1 string
-	}
-	getDurationReturns struct {
+	getDurationArgsForCall []ConfigProviderGetDurationArgs
+	getDurationReturns     struct {
 		result1 time.Duration
 	}
 	getDurationReturnsOnCall map[int]struct {
@@ -127,10 +113,8 @@ type ConfigProvider struct {
 	}
 	GetIntStub        func(string) int
 	getIntMutex       sync.RWMutex
-	getIntArgsForCall []struct {
-		arg1 string
-	}
-	getIntReturns struct {
+	getIntArgsForCall []ConfigProviderGetIntArgs
+	getIntReturns     struct {
 		result1 int
 	}
 	getIntReturnsOnCall map[int]struct {
@@ -138,10 +122,8 @@ type ConfigProvider struct {
 	}
 	GetPathStub        func(string) string
 	getPathMutex       sync.RWMutex
-	getPathArgsForCall []struct {
-		arg1 string
-	}
-	getPathReturns struct {
+	getPathArgsForCall []ConfigProviderGetPathArgs
+	getPathReturns     struct {
 		result1 string
 	}
 	getPathReturnsOnCall map[int]struct {
@@ -149,10 +131,8 @@ type ConfigProvider struct {
 	}
 	GetStringStub        func(string) string
 	getStringMutex       sync.RWMutex
-	getStringArgsForCall []struct {
-		arg1 string
-	}
-	getStringReturns struct {
+	getStringArgsForCall []ConfigProviderGetStringArgs
+	getStringReturns     struct {
 		result1 string
 	}
 	getStringReturnsOnCall map[int]struct {
@@ -160,10 +140,8 @@ type ConfigProvider struct {
 	}
 	GetStringSliceStub        func(string) []string
 	getStringSliceMutex       sync.RWMutex
-	getStringSliceArgsForCall []struct {
-		arg1 string
-	}
-	getStringSliceReturns struct {
+	getStringSliceArgsForCall []ConfigProviderGetStringSliceArgs
+	getStringSliceReturns     struct {
 		result1 []string
 	}
 	getStringSliceReturnsOnCall map[int]struct {
@@ -171,10 +149,8 @@ type ConfigProvider struct {
 	}
 	IsChannelQuietStub        func(string) bool
 	isChannelQuietMutex       sync.RWMutex
-	isChannelQuietArgsForCall []struct {
-		arg1 string
-	}
-	isChannelQuietReturns struct {
+	isChannelQuietArgsForCall []ConfigProviderIsChannelQuietArgs
+	isChannelQuietReturns     struct {
 		result1 bool
 	}
 	isChannelQuietReturnsOnCall map[int]struct {
@@ -182,10 +158,8 @@ type ConfigProvider struct {
 	}
 	IsSetStub        func(string) bool
 	isSetMutex       sync.RWMutex
-	isSetArgsForCall []struct {
-		arg1 string
-	}
-	isSetReturns struct {
+	isSetArgsForCall []ConfigProviderIsSetArgs
+	isSetReturns     struct {
 		result1 bool
 	}
 	isSetReturnsOnCall map[int]struct {
@@ -193,9 +167,8 @@ type ConfigProvider struct {
 	}
 	NetworkClientTLSStub        func() grpc.SecureOptions
 	networkClientTLSMutex       sync.RWMutex
-	networkClientTLSArgsForCall []struct {
-	}
-	networkClientTLSReturns struct {
+	networkClientTLSArgsForCall []struct{}
+	networkClientTLSReturns     struct {
 		result1 grpc.SecureOptions
 	}
 	networkClientTLSReturnsOnCall map[int]struct {
@@ -203,9 +176,8 @@ type ConfigProvider struct {
 	}
 	NetworkNameStub        func() string
 	networkNameMutex       sync.RWMutex
-	networkNameArgsForCall []struct {
-	}
-	networkNameReturns struct {
+	networkNameArgsForCall []struct{}
+	networkNameReturns     struct {
 		result1 string
 	}
 	networkNameReturnsOnCall map[int]struct {
@@ -213,9 +185,8 @@ type ConfigProvider struct {
 	}
 	OrdererConnectionPoolSizeStub        func() int
 	ordererConnectionPoolSizeMutex       sync.RWMutex
-	ordererConnectionPoolSizeArgsForCall []struct {
-	}
-	ordererConnectionPoolSizeReturns struct {
+	ordererConnectionPoolSizeArgsForCall []struct{}
+	ordererConnectionPoolSizeReturns     struct {
 		result1 int
 	}
 	ordererConnectionPoolSizeReturnsOnCall map[int]struct {
@@ -223,9 +194,8 @@ type ConfigProvider struct {
 	}
 	OrderersStub        func() []*grpc.ConnectionConfig
 	orderersMutex       sync.RWMutex
-	orderersArgsForCall []struct {
-	}
-	orderersReturns struct {
+	orderersArgsForCall []struct{}
+	orderersReturns     struct {
 		result1 []*grpc.ConnectionConfig
 	}
 	orderersReturnsOnCall map[int]struct {
@@ -233,9 +203,8 @@ type ConfigProvider struct {
 	}
 	PickOrdererStub        func() *grpc.ConnectionConfig
 	pickOrdererMutex       sync.RWMutex
-	pickOrdererArgsForCall []struct {
-	}
-	pickOrdererReturns struct {
+	pickOrdererArgsForCall []struct{}
+	pickOrdererReturns     struct {
 		result1 *grpc.ConnectionConfig
 	}
 	pickOrdererReturnsOnCall map[int]struct {
@@ -243,10 +212,8 @@ type ConfigProvider struct {
 	}
 	PickPeerStub        func(drivera.PeerFunctionType) *grpc.ConnectionConfig
 	pickPeerMutex       sync.RWMutex
-	pickPeerArgsForCall []struct {
-		arg1 drivera.PeerFunctionType
-	}
-	pickPeerReturns struct {
+	pickPeerArgsForCall []ConfigProviderPickPeerArgs
+	pickPeerReturns     struct {
 		result1 *grpc.ConnectionConfig
 	}
 	pickPeerReturnsOnCall map[int]struct {
@@ -254,10 +221,8 @@ type ConfigProvider struct {
 	}
 	RawSubtreeStub        func(string) (map[string]any, bool)
 	rawSubtreeMutex       sync.RWMutex
-	rawSubtreeArgsForCall []struct {
-		arg1 string
-	}
-	rawSubtreeReturns struct {
+	rawSubtreeArgsForCall []ConfigProviderRawSubtreeArgs
+	rawSubtreeReturns     struct {
 		result1 map[string]any
 		result2 bool
 	}
@@ -267,21 +232,20 @@ type ConfigProvider struct {
 	}
 	RawSubtreesStub        func(string) []map[string]any
 	rawSubtreesMutex       sync.RWMutex
-	rawSubtreesArgsForCall []struct {
-		arg1 string
-	}
-	rawSubtreesReturns struct {
+	rawSubtreesArgsForCall []ConfigProviderRawSubtreesArgs
+	rawSubtreesReturns     struct {
 		result1 []map[string]any
 	}
 	rawSubtreesReturnsOnCall map[int]struct {
 		result1 []map[string]any
 	}
+	ReportFailureStub            func(string)
+	reportFailureMutex           sync.RWMutex
+	reportFailureArgsForCall     []ConfigProviderReportFailureArgs
 	SetConfigOrderersStub        func([]*grpc.ConnectionConfig) error
 	setConfigOrderersMutex       sync.RWMutex
-	setConfigOrderersArgsForCall []struct {
-		arg1 []*grpc.ConnectionConfig
-	}
-	setConfigOrderersReturns struct {
+	setConfigOrderersArgsForCall []ConfigProviderSetConfigOrderersArgs
+	setConfigOrderersReturns     struct {
 		result1 error
 	}
 	setConfigOrderersReturnsOnCall map[int]struct {
@@ -289,10 +253,8 @@ type ConfigProvider struct {
 	}
 	TranslatePathStub        func(string) string
 	translatePathMutex       sync.RWMutex
-	translatePathArgsForCall []struct {
-		arg1 string
-	}
-	translatePathReturns struct {
+	translatePathArgsForCall []ConfigProviderTranslatePathArgs
+	translatePathReturns     struct {
 		result1 string
 	}
 	translatePathReturnsOnCall map[int]struct {
@@ -300,11 +262,8 @@ type ConfigProvider struct {
 	}
 	UnmarshalKeyStub        func(string, any) error
 	unmarshalKeyMutex       sync.RWMutex
-	unmarshalKeyArgsForCall []struct {
-		arg1 string
-		arg2 any
-	}
-	unmarshalKeyReturns struct {
+	unmarshalKeyArgsForCall []ConfigProviderUnmarshalKeyArgs
+	unmarshalKeyReturns     struct {
 		result1 error
 	}
 	unmarshalKeyReturnsOnCall map[int]struct {
@@ -312,9 +271,8 @@ type ConfigProvider struct {
 	}
 	VaultPersistenceNameStub        func() driverb.PersistenceName
 	vaultPersistenceNameMutex       sync.RWMutex
-	vaultPersistenceNameArgsForCall []struct {
-	}
-	vaultPersistenceNameReturns struct {
+	vaultPersistenceNameArgsForCall []struct{}
+	vaultPersistenceNameReturns     struct {
 		result1 driverb.PersistenceName
 	}
 	vaultPersistenceNameReturnsOnCall map[int]struct {
@@ -322,23 +280,103 @@ type ConfigProvider struct {
 	}
 	VaultTXStoreCacheSizeStub        func() int
 	vaultTXStoreCacheSizeMutex       sync.RWMutex
-	vaultTXStoreCacheSizeArgsForCall []struct {
-	}
-	vaultTXStoreCacheSizeReturns struct {
+	vaultTXStoreCacheSizeArgsForCall []struct{}
+	vaultTXStoreCacheSizeReturns     struct {
 		result1 int
 	}
 	vaultTXStoreCacheSizeReturnsOnCall map[int]struct {
 		result1 int
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
+}
+
+// ConfigProviderChannelArgs holds the arguments of one call to Channel.
+type ConfigProviderChannelArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderGetBoolArgs holds the arguments of one call to GetBool.
+type ConfigProviderGetBoolArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderGetDurationArgs holds the arguments of one call to GetDuration.
+type ConfigProviderGetDurationArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderGetIntArgs holds the arguments of one call to GetInt.
+type ConfigProviderGetIntArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderGetPathArgs holds the arguments of one call to GetPath.
+type ConfigProviderGetPathArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderGetStringArgs holds the arguments of one call to GetString.
+type ConfigProviderGetStringArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderGetStringSliceArgs holds the arguments of one call to GetStringSlice.
+type ConfigProviderGetStringSliceArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderIsChannelQuietArgs holds the arguments of one call to IsChannelQuiet.
+type ConfigProviderIsChannelQuietArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderIsSetArgs holds the arguments of one call to IsSet.
+type ConfigProviderIsSetArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderPickPeerArgs holds the arguments of one call to PickPeer.
+type ConfigProviderPickPeerArgs struct {
+	Arg1 drivera.PeerFunctionType
+}
+
+// ConfigProviderRawSubtreeArgs holds the arguments of one call to RawSubtree.
+type ConfigProviderRawSubtreeArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderRawSubtreesArgs holds the arguments of one call to RawSubtrees.
+type ConfigProviderRawSubtreesArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderReportFailureArgs holds the arguments of one call to ReportFailure.
+type ConfigProviderReportFailureArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderSetConfigOrderersArgs holds the arguments of one call to SetConfigOrderers.
+type ConfigProviderSetConfigOrderersArgs struct {
+	Arg1 []*grpc.ConnectionConfig
+}
+
+// ConfigProviderTranslatePathArgs holds the arguments of one call to TranslatePath.
+type ConfigProviderTranslatePathArgs struct {
+	Arg1 string
+}
+
+// ConfigProviderUnmarshalKeyArgs holds the arguments of one call to UnmarshalKey.
+type ConfigProviderUnmarshalKeyArgs struct {
+	Arg1 string
+	Arg2 any
 }
 
 func (fake *ConfigProvider) BroadcastNumRetries() int {
 	fake.broadcastNumRetriesMutex.Lock()
 	ret, specificReturn := fake.broadcastNumRetriesReturnsOnCall[len(fake.broadcastNumRetriesArgsForCall)]
-	fake.broadcastNumRetriesArgsForCall = append(fake.broadcastNumRetriesArgsForCall, struct {
-	}{})
+	fake.broadcastNumRetriesArgsForCall = append(fake.broadcastNumRetriesArgsForCall, struct{}{})
 	stub := fake.BroadcastNumRetriesStub
 	fakeReturns := fake.broadcastNumRetriesReturns
 	fake.recordInvocation("BroadcastNumRetries", []interface{}{})
@@ -390,8 +428,7 @@ func (fake *ConfigProvider) BroadcastNumRetriesReturnsOnCall(i int, result1 int)
 func (fake *ConfigProvider) BroadcastRetryInterval() time.Duration {
 	fake.broadcastRetryIntervalMutex.Lock()
 	ret, specificReturn := fake.broadcastRetryIntervalReturnsOnCall[len(fake.broadcastRetryIntervalArgsForCall)]
-	fake.broadcastRetryIntervalArgsForCall = append(fake.broadcastRetryIntervalArgsForCall, struct {
-	}{})
+	fake.broadcastRetryIntervalArgsForCall = append(fake.broadcastRetryIntervalArgsForCall, struct{}{})
 	stub := fake.BroadcastRetryIntervalStub
 	fakeReturns := fake.broadcastRetryIntervalReturns
 	fake.recordInvocation("BroadcastRetryInterval", []interface{}{})
@@ -443,9 +480,7 @@ func (fake *ConfigProvider) BroadcastRetryIntervalReturnsOnCall(i int, result1 t
 func (fake *ConfigProvider) Channel(arg1 string) drivera.ChannelConfig {
 	fake.channelMutex.Lock()
 	ret, specificReturn := fake.channelReturnsOnCall[len(fake.channelArgsForCall)]
-	fake.channelArgsForCall = append(fake.channelArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.channelArgsForCall = append(fake.channelArgsForCall, ConfigProviderChannelArgs{arg1})
 	stub := fake.ChannelStub
 	fakeReturns := fake.channelReturns
 	fake.recordInvocation("Channel", []interface{}{arg1})
@@ -475,7 +510,15 @@ func (fake *ConfigProvider) ChannelArgsForCall(i int) string {
 	fake.channelMutex.RLock()
 	defer fake.channelMutex.RUnlock()
 	argsForCall := fake.channelArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) ChannelArgs() []ConfigProviderChannelArgs {
+	fake.channelMutex.RLock()
+	defer fake.channelMutex.RUnlock()
+	args := make([]ConfigProviderChannelArgs, len(fake.channelArgsForCall))
+	copy(args, fake.channelArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) ChannelReturns(result1 drivera.ChannelConfig) {
@@ -504,8 +547,7 @@ func (fake *ConfigProvider) ChannelReturnsOnCall(i int, result1 drivera.ChannelC
 func (fake *ConfigProvider) ChannelIDs() []string {
 	fake.channelIDsMutex.Lock()
 	ret, specificReturn := fake.channelIDsReturnsOnCall[len(fake.channelIDsArgsForCall)]
-	fake.channelIDsArgsForCall = append(fake.channelIDsArgsForCall, struct {
-	}{})
+	fake.channelIDsArgsForCall = append(fake.channelIDsArgsForCall, struct{}{})
 	stub := fake.ChannelIDsStub
 	fakeReturns := fake.channelIDsReturns
 	fake.recordInvocation("ChannelIDs", []interface{}{})
@@ -557,8 +599,7 @@ func (fake *ConfigProvider) ChannelIDsReturnsOnCall(i int, result1 []string) {
 func (fake *ConfigProvider) ClientConnTimeout() time.Duration {
 	fake.clientConnTimeoutMutex.Lock()
 	ret, specificReturn := fake.clientConnTimeoutReturnsOnCall[len(fake.clientConnTimeoutArgsForCall)]
-	fake.clientConnTimeoutArgsForCall = append(fake.clientConnTimeoutArgsForCall, struct {
-	}{})
+	fake.clientConnTimeoutArgsForCall = append(fake.clientConnTimeoutArgsForCall, struct{}{})
 	stub := fake.ClientConnTimeoutStub
 	fakeReturns := fake.clientConnTimeoutReturns
 	fake.recordInvocation("ClientConnTimeout", []interface{}{})
@@ -610,8 +651,7 @@ func (fake *ConfigProvider) ClientConnTimeoutReturnsOnCall(i int, result1 time.D
 func (fake *ConfigProvider) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
 	fake.clientKeepAliveConfigMutex.Lock()
 	ret, specificReturn := fake.clientKeepAliveConfigReturnsOnCall[len(fake.clientKeepAliveConfigArgsForCall)]
-	fake.clientKeepAliveConfigArgsForCall = append(fake.clientKeepAliveConfigArgsForCall, struct {
-	}{})
+	fake.clientKeepAliveConfigArgsForCall = append(fake.clientKeepAliveConfigArgsForCall, struct{}{})
 	stub := fake.ClientKeepAliveConfigStub
 	fakeReturns := fake.clientKeepAliveConfigReturns
 	fake.recordInvocation("ClientKeepAliveConfig", []interface{}{})
@@ -663,8 +703,7 @@ func (fake *ConfigProvider) ClientKeepAliveConfigReturnsOnCall(i int, result1 *g
 func (fake *ConfigProvider) ConfigFileUsed() string {
 	fake.configFileUsedMutex.Lock()
 	ret, specificReturn := fake.configFileUsedReturnsOnCall[len(fake.configFileUsedArgsForCall)]
-	fake.configFileUsedArgsForCall = append(fake.configFileUsedArgsForCall, struct {
-	}{})
+	fake.configFileUsedArgsForCall = append(fake.configFileUsedArgsForCall, struct{}{})
 	stub := fake.ConfigFileUsedStub
 	fakeReturns := fake.configFileUsedReturns
 	fake.recordInvocation("ConfigFileUsed", []interface{}{})
@@ -716,8 +755,7 @@ func (fake *ConfigProvider) ConfigFileUsedReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) DefaultChannel() string {
 	fake.defaultChannelMutex.Lock()
 	ret, specificReturn := fake.defaultChannelReturnsOnCall[len(fake.defaultChannelArgsForCall)]
-	fake.defaultChannelArgsForCall = append(fake.defaultChannelArgsForCall, struct {
-	}{})
+	fake.defaultChannelArgsForCall = append(fake.defaultChannelArgsForCall, struct{}{})
 	stub := fake.DefaultChannelStub
 	fakeReturns := fake.defaultChannelReturns
 	fake.recordInvocation("DefaultChannel", []interface{}{})
@@ -769,8 +807,7 @@ func (fake *ConfigProvider) DefaultChannelReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) DriverName() string {
 	fake.driverNameMutex.Lock()
 	ret, specificReturn := fake.driverNameReturnsOnCall[len(fake.driverNameArgsForCall)]
-	fake.driverNameArgsForCall = append(fake.driverNameArgsForCall, struct {
-	}{})
+	fake.driverNameArgsForCall = append(fake.driverNameArgsForCall, struct{}{})
 	stub := fake.DriverNameStub
 	fakeReturns := fake.driverNameReturns
 	fake.recordInvocation("DriverName", []interface{}{})
@@ -822,9 +859,7 @@ func (fake *ConfigProvider) DriverNameReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) GetBool(arg1 string) bool {
 	fake.getBoolMutex.Lock()
 	ret, specificReturn := fake.getBoolReturnsOnCall[len(fake.getBoolArgsForCall)]
-	fake.getBoolArgsForCall = append(fake.getBoolArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.getBoolArgsForCall = append(fake.getBoolArgsForCall, ConfigProviderGetBoolArgs{arg1})
 	stub := fake.GetBoolStub
 	fakeReturns := fake.getBoolReturns
 	fake.recordInvocation("GetBool", []interface{}{arg1})
@@ -854,7 +889,15 @@ func (fake *ConfigProvider) GetBoolArgsForCall(i int) string {
 	fake.getBoolMutex.RLock()
 	defer fake.getBoolMutex.RUnlock()
 	argsForCall := fake.getBoolArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) GetBoolArgs() []ConfigProviderGetBoolArgs {
+	fake.getBoolMutex.RLock()
+	defer fake.getBoolMutex.RUnlock()
+	args := make([]ConfigProviderGetBoolArgs, len(fake.getBoolArgsForCall))
+	copy(args, fake.getBoolArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) GetBoolReturns(result1 bool) {
@@ -883,9 +926,7 @@ func (fake *ConfigProvider) GetBoolReturnsOnCall(i int, result1 bool) {
 func (fake *ConfigProvider) GetDuration(arg1 string) time.Duration {
 	fake.getDurationMutex.Lock()
 	ret, specificReturn := fake.getDurationReturnsOnCall[len(fake.getDurationArgsForCall)]
-	fake.getDurationArgsForCall = append(fake.getDurationArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.getDurationArgsForCall = append(fake.getDurationArgsForCall, ConfigProviderGetDurationArgs{arg1})
 	stub := fake.GetDurationStub
 	fakeReturns := fake.getDurationReturns
 	fake.recordInvocation("GetDuration", []interface{}{arg1})
@@ -915,7 +956,15 @@ func (fake *ConfigProvider) GetDurationArgsForCall(i int) string {
 	fake.getDurationMutex.RLock()
 	defer fake.getDurationMutex.RUnlock()
 	argsForCall := fake.getDurationArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) GetDurationArgs() []ConfigProviderGetDurationArgs {
+	fake.getDurationMutex.RLock()
+	defer fake.getDurationMutex.RUnlock()
+	args := make([]ConfigProviderGetDurationArgs, len(fake.getDurationArgsForCall))
+	copy(args, fake.getDurationArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) GetDurationReturns(result1 time.Duration) {
@@ -944,9 +993,7 @@ func (fake *ConfigProvider) GetDurationReturnsOnCall(i int, result1 time.Duratio
 func (fake *ConfigProvider) GetInt(arg1 string) int {
 	fake.getIntMutex.Lock()
 	ret, specificReturn := fake.getIntReturnsOnCall[len(fake.getIntArgsForCall)]
-	fake.getIntArgsForCall = append(fake.getIntArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.getIntArgsForCall = append(fake.getIntArgsForCall, ConfigProviderGetIntArgs{arg1})
 	stub := fake.GetIntStub
 	fakeReturns := fake.getIntReturns
 	fake.recordInvocation("GetInt", []interface{}{arg1})
@@ -976,7 +1023,15 @@ func (fake *ConfigProvider) GetIntArgsForCall(i int) string {
 	fake.getIntMutex.RLock()
 	defer fake.getIntMutex.RUnlock()
 	argsForCall := fake.getIntArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) GetIntArgs() []ConfigProviderGetIntArgs {
+	fake.getIntMutex.RLock()
+	defer fake.getIntMutex.RUnlock()
+	args := make([]ConfigProviderGetIntArgs, len(fake.getIntArgsForCall))
+	copy(args, fake.getIntArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) GetIntReturns(result1 int) {
@@ -1005,9 +1060,7 @@ func (fake *ConfigProvider) GetIntReturnsOnCall(i int, result1 int) {
 func (fake *ConfigProvider) GetPath(arg1 string) string {
 	fake.getPathMutex.Lock()
 	ret, specificReturn := fake.getPathReturnsOnCall[len(fake.getPathArgsForCall)]
-	fake.getPathArgsForCall = append(fake.getPathArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.getPathArgsForCall = append(fake.getPathArgsForCall, ConfigProviderGetPathArgs{arg1})
 	stub := fake.GetPathStub
 	fakeReturns := fake.getPathReturns
 	fake.recordInvocation("GetPath", []interface{}{arg1})
@@ -1037,7 +1090,15 @@ func (fake *ConfigProvider) GetPathArgsForCall(i int) string {
 	fake.getPathMutex.RLock()
 	defer fake.getPathMutex.RUnlock()
 	argsForCall := fake.getPathArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) GetPathArgs() []ConfigProviderGetPathArgs {
+	fake.getPathMutex.RLock()
+	defer fake.getPathMutex.RUnlock()
+	args := make([]ConfigProviderGetPathArgs, len(fake.getPathArgsForCall))
+	copy(args, fake.getPathArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) GetPathReturns(result1 string) {
@@ -1066,9 +1127,7 @@ func (fake *ConfigProvider) GetPathReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) GetString(arg1 string) string {
 	fake.getStringMutex.Lock()
 	ret, specificReturn := fake.getStringReturnsOnCall[len(fake.getStringArgsForCall)]
-	fake.getStringArgsForCall = append(fake.getStringArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.getStringArgsForCall = append(fake.getStringArgsForCall, ConfigProviderGetStringArgs{arg1})
 	stub := fake.GetStringStub
 	fakeReturns := fake.getStringReturns
 	fake.recordInvocation("GetString", []interface{}{arg1})
@@ -1098,7 +1157,15 @@ func (fake *ConfigProvider) GetStringArgsForCall(i int) string {
 	fake.getStringMutex.RLock()
 	defer fake.getStringMutex.RUnlock()
 	argsForCall := fake.getStringArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) GetStringArgs() []ConfigProviderGetStringArgs {
+	fake.getStringMutex.RLock()
+	defer fake.getStringMutex.RUnlock()
+	args := make([]ConfigProviderGetStringArgs, len(fake.getStringArgsForCall))
+	copy(args, fake.getStringArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) GetStringReturns(result1 string) {
@@ -1127,9 +1194,7 @@ func (fake *ConfigProvider) GetStringReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) GetStringSlice(arg1 string) []string {
 	fake.getStringSliceMutex.Lock()
 	ret, specificReturn := fake.getStringSliceReturnsOnCall[len(fake.getStringSliceArgsForCall)]
-	fake.getStringSliceArgsForCall = append(fake.getStringSliceArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.getStringSliceArgsForCall = append(fake.getStringSliceArgsForCall, ConfigProviderGetStringSliceArgs{arg1})
 	stub := fake.GetStringSliceStub
 	fakeReturns := fake.getStringSliceReturns
 	fake.recordInvocation("GetStringSlice", []interface{}{arg1})
@@ -1159,7 +1224,15 @@ func (fake *ConfigProvider) GetStringSliceArgsForCall(i int) string {
 	fake.getStringSliceMutex.RLock()
 	defer fake.getStringSliceMutex.RUnlock()
 	argsForCall := fake.getStringSliceArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) GetStringSliceArgs() []ConfigProviderGetStringSliceArgs {
+	fake.getStringSliceMutex.RLock()
+	defer fake.getStringSliceMutex.RUnlock()
+	args := make([]ConfigProviderGetStringSliceArgs, len(fake.getStringSliceArgsForCall))
+	copy(args, fake.getStringSliceArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) GetStringSliceReturns(result1 []string) {
@@ -1188,9 +1261,7 @@ func (fake *ConfigProvider) GetStringSliceReturnsOnCall(i int, result1 []string)
 func (fake *ConfigProvider) IsChannelQuiet(arg1 string) bool {
 	fake.isChannelQuietMutex.Lock()
 	ret, specificReturn := fake.isChannelQuietReturnsOnCall[len(fake.isChannelQuietArgsForCall)]
-	fake.isChannelQuietArgsForCall = append(fake.isChannelQuietArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.isChannelQuietArgsForCall = append(fake.isChannelQuietArgsForCall, ConfigProviderIsChannelQuietArgs{arg1})
 	stub := fake.IsChannelQuietStub
 	fakeReturns := fake.isChannelQuietReturns
 	fake.recordInvocation("IsChannelQuiet", []interface{}{arg1})
@@ -1220,7 +1291,15 @@ func (fake *ConfigProvider) IsChannelQuietArgsForCall(i int) string {
 	fake.isChannelQuietMutex.RLock()
 	defer fake.isChannelQuietMutex.RUnlock()
 	argsForCall := fake.isChannelQuietArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) IsChannelQuietArgs() []ConfigProviderIsChannelQuietArgs {
+	fake.isChannelQuietMutex.RLock()
+	defer fake.isChannelQuietMutex.RUnlock()
+	args := make([]ConfigProviderIsChannelQuietArgs, len(fake.isChannelQuietArgsForCall))
+	copy(args, fake.isChannelQuietArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) IsChannelQuietReturns(result1 bool) {
@@ -1249,9 +1328,7 @@ func (fake *ConfigProvider) IsChannelQuietReturnsOnCall(i int, result1 bool) {
 func (fake *ConfigProvider) IsSet(arg1 string) bool {
 	fake.isSetMutex.Lock()
 	ret, specificReturn := fake.isSetReturnsOnCall[len(fake.isSetArgsForCall)]
-	fake.isSetArgsForCall = append(fake.isSetArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.isSetArgsForCall = append(fake.isSetArgsForCall, ConfigProviderIsSetArgs{arg1})
 	stub := fake.IsSetStub
 	fakeReturns := fake.isSetReturns
 	fake.recordInvocation("IsSet", []interface{}{arg1})
@@ -1281,7 +1358,15 @@ func (fake *ConfigProvider) IsSetArgsForCall(i int) string {
 	fake.isSetMutex.RLock()
 	defer fake.isSetMutex.RUnlock()
 	argsForCall := fake.isSetArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) IsSetArgs() []ConfigProviderIsSetArgs {
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
+	args := make([]ConfigProviderIsSetArgs, len(fake.isSetArgsForCall))
+	copy(args, fake.isSetArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) IsSetReturns(result1 bool) {
@@ -1310,8 +1395,7 @@ func (fake *ConfigProvider) IsSetReturnsOnCall(i int, result1 bool) {
 func (fake *ConfigProvider) NetworkClientTLS() grpc.SecureOptions {
 	fake.networkClientTLSMutex.Lock()
 	ret, specificReturn := fake.networkClientTLSReturnsOnCall[len(fake.networkClientTLSArgsForCall)]
-	fake.networkClientTLSArgsForCall = append(fake.networkClientTLSArgsForCall, struct {
-	}{})
+	fake.networkClientTLSArgsForCall = append(fake.networkClientTLSArgsForCall, struct{}{})
 	stub := fake.NetworkClientTLSStub
 	fakeReturns := fake.networkClientTLSReturns
 	fake.recordInvocation("NetworkClientTLS", []interface{}{})
@@ -1363,8 +1447,7 @@ func (fake *ConfigProvider) NetworkClientTLSReturnsOnCall(i int, result1 grpc.Se
 func (fake *ConfigProvider) NetworkName() string {
 	fake.networkNameMutex.Lock()
 	ret, specificReturn := fake.networkNameReturnsOnCall[len(fake.networkNameArgsForCall)]
-	fake.networkNameArgsForCall = append(fake.networkNameArgsForCall, struct {
-	}{})
+	fake.networkNameArgsForCall = append(fake.networkNameArgsForCall, struct{}{})
 	stub := fake.NetworkNameStub
 	fakeReturns := fake.networkNameReturns
 	fake.recordInvocation("NetworkName", []interface{}{})
@@ -1416,8 +1499,7 @@ func (fake *ConfigProvider) NetworkNameReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) OrdererConnectionPoolSize() int {
 	fake.ordererConnectionPoolSizeMutex.Lock()
 	ret, specificReturn := fake.ordererConnectionPoolSizeReturnsOnCall[len(fake.ordererConnectionPoolSizeArgsForCall)]
-	fake.ordererConnectionPoolSizeArgsForCall = append(fake.ordererConnectionPoolSizeArgsForCall, struct {
-	}{})
+	fake.ordererConnectionPoolSizeArgsForCall = append(fake.ordererConnectionPoolSizeArgsForCall, struct{}{})
 	stub := fake.OrdererConnectionPoolSizeStub
 	fakeReturns := fake.ordererConnectionPoolSizeReturns
 	fake.recordInvocation("OrdererConnectionPoolSize", []interface{}{})
@@ -1469,8 +1551,7 @@ func (fake *ConfigProvider) OrdererConnectionPoolSizeReturnsOnCall(i int, result
 func (fake *ConfigProvider) Orderers() []*grpc.ConnectionConfig {
 	fake.orderersMutex.Lock()
 	ret, specificReturn := fake.orderersReturnsOnCall[len(fake.orderersArgsForCall)]
-	fake.orderersArgsForCall = append(fake.orderersArgsForCall, struct {
-	}{})
+	fake.orderersArgsForCall = append(fake.orderersArgsForCall, struct{}{})
 	stub := fake.OrderersStub
 	fakeReturns := fake.orderersReturns
 	fake.recordInvocation("Orderers", []interface{}{})
@@ -1522,8 +1603,7 @@ func (fake *ConfigProvider) OrderersReturnsOnCall(i int, result1 []*grpc.Connect
 func (fake *ConfigProvider) PickOrderer() *grpc.ConnectionConfig {
 	fake.pickOrdererMutex.Lock()
 	ret, specificReturn := fake.pickOrdererReturnsOnCall[len(fake.pickOrdererArgsForCall)]
-	fake.pickOrdererArgsForCall = append(fake.pickOrdererArgsForCall, struct {
-	}{})
+	fake.pickOrdererArgsForCall = append(fake.pickOrdererArgsForCall, struct{}{})
 	stub := fake.PickOrdererStub
 	fakeReturns := fake.pickOrdererReturns
 	fake.recordInvocation("PickOrderer", []interface{}{})
@@ -1575,9 +1655,7 @@ func (fake *ConfigProvider) PickOrdererReturnsOnCall(i int, result1 *grpc.Connec
 func (fake *ConfigProvider) PickPeer(arg1 drivera.PeerFunctionType) *grpc.ConnectionConfig {
 	fake.pickPeerMutex.Lock()
 	ret, specificReturn := fake.pickPeerReturnsOnCall[len(fake.pickPeerArgsForCall)]
-	fake.pickPeerArgsForCall = append(fake.pickPeerArgsForCall, struct {
-		arg1 drivera.PeerFunctionType
-	}{arg1})
+	fake.pickPeerArgsForCall = append(fake.pickPeerArgsForCall, ConfigProviderPickPeerArgs{arg1})
 	stub := fake.PickPeerStub
 	fakeReturns := fake.pickPeerReturns
 	fake.recordInvocation("PickPeer", []interface{}{arg1})
@@ -1607,7 +1685,15 @@ func (fake *ConfigProvider) PickPeerArgsForCall(i int) drivera.PeerFunctionType 
 	fake.pickPeerMutex.RLock()
 	defer fake.pickPeerMutex.RUnlock()
 	argsForCall := fake.pickPeerArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) PickPeerArgs() []ConfigProviderPickPeerArgs {
+	fake.pickPeerMutex.RLock()
+	defer fake.pickPeerMutex.RUnlock()
+	args := make([]ConfigProviderPickPeerArgs, len(fake.pickPeerArgsForCall))
+	copy(args, fake.pickPeerArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) PickPeerReturns(result1 *grpc.ConnectionConfig) {
@@ -1636,9 +1722,7 @@ func (fake *ConfigProvider) PickPeerReturnsOnCall(i int, result1 *grpc.Connectio
 func (fake *ConfigProvider) RawSubtree(arg1 string) (map[string]any, bool) {
 	fake.rawSubtreeMutex.Lock()
 	ret, specificReturn := fake.rawSubtreeReturnsOnCall[len(fake.rawSubtreeArgsForCall)]
-	fake.rawSubtreeArgsForCall = append(fake.rawSubtreeArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.rawSubtreeArgsForCall = append(fake.rawSubtreeArgsForCall, ConfigProviderRawSubtreeArgs{arg1})
 	stub := fake.RawSubtreeStub
 	fakeReturns := fake.rawSubtreeReturns
 	fake.recordInvocation("RawSubtree", []interface{}{arg1})
@@ -1668,7 +1752,15 @@ func (fake *ConfigProvider) RawSubtreeArgsForCall(i int) string {
 	fake.rawSubtreeMutex.RLock()
 	defer fake.rawSubtreeMutex.RUnlock()
 	argsForCall := fake.rawSubtreeArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) RawSubtreeArgs() []ConfigProviderRawSubtreeArgs {
+	fake.rawSubtreeMutex.RLock()
+	defer fake.rawSubtreeMutex.RUnlock()
+	args := make([]ConfigProviderRawSubtreeArgs, len(fake.rawSubtreeArgsForCall))
+	copy(args, fake.rawSubtreeArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) RawSubtreeReturns(result1 map[string]any, result2 bool) {
@@ -1700,9 +1792,7 @@ func (fake *ConfigProvider) RawSubtreeReturnsOnCall(i int, result1 map[string]an
 func (fake *ConfigProvider) RawSubtrees(arg1 string) []map[string]any {
 	fake.rawSubtreesMutex.Lock()
 	ret, specificReturn := fake.rawSubtreesReturnsOnCall[len(fake.rawSubtreesArgsForCall)]
-	fake.rawSubtreesArgsForCall = append(fake.rawSubtreesArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.rawSubtreesArgsForCall = append(fake.rawSubtreesArgsForCall, ConfigProviderRawSubtreesArgs{arg1})
 	stub := fake.RawSubtreesStub
 	fakeReturns := fake.rawSubtreesReturns
 	fake.recordInvocation("RawSubtrees", []interface{}{arg1})
@@ -1732,7 +1822,15 @@ func (fake *ConfigProvider) RawSubtreesArgsForCall(i int) string {
 	fake.rawSubtreesMutex.RLock()
 	defer fake.rawSubtreesMutex.RUnlock()
 	argsForCall := fake.rawSubtreesArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) RawSubtreesArgs() []ConfigProviderRawSubtreesArgs {
+	fake.rawSubtreesMutex.RLock()
+	defer fake.rawSubtreesMutex.RUnlock()
+	args := make([]ConfigProviderRawSubtreesArgs, len(fake.rawSubtreesArgsForCall))
+	copy(args, fake.rawSubtreesArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) RawSubtreesReturns(result1 []map[string]any) {
@@ -1758,6 +1856,44 @@ func (fake *ConfigProvider) RawSubtreesReturnsOnCall(i int, result1 []map[string
 	}{result1}
 }
 
+func (fake *ConfigProvider) ReportFailure(arg1 string) {
+	fake.reportFailureMutex.Lock()
+	fake.reportFailureArgsForCall = append(fake.reportFailureArgsForCall, ConfigProviderReportFailureArgs{arg1})
+	stub := fake.ReportFailureStub
+	fake.recordInvocation("ReportFailure", []interface{}{arg1})
+	fake.reportFailureMutex.Unlock()
+	if stub != nil {
+		stub(arg1)
+	}
+}
+
+func (fake *ConfigProvider) ReportFailureCallCount() int {
+	fake.reportFailureMutex.RLock()
+	defer fake.reportFailureMutex.RUnlock()
+	return len(fake.reportFailureArgsForCall)
+}
+
+func (fake *ConfigProvider) ReportFailureCalls(stub func(string)) {
+	fake.reportFailureMutex.Lock()
+	defer fake.reportFailureMutex.Unlock()
+	fake.ReportFailureStub = stub
+}
+
+func (fake *ConfigProvider) ReportFailureArgsForCall(i int) string {
+	fake.reportFailureMutex.RLock()
+	defer fake.reportFailureMutex.RUnlock()
+	argsForCall := fake.reportFailureArgsForCall[i]
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) ReportFailureArgs() []ConfigProviderReportFailureArgs {
+	fake.reportFailureMutex.RLock()
+	defer fake.reportFailureMutex.RUnlock()
+	args := make([]ConfigProviderReportFailureArgs, len(fake.reportFailureArgsForCall))
+	copy(args, fake.reportFailureArgsForCall)
+	return args
+}
+
 func (fake *ConfigProvider) SetConfigOrderers(arg1 []*grpc.ConnectionConfig) error {
 	var arg1Copy []*grpc.ConnectionConfig
 	if arg1 != nil {
@@ -1766,9 +1902,7 @@ func (fake *ConfigProvider) SetConfigOrderers(arg1 []*grpc.ConnectionConfig) err
 	}
 	fake.setConfigOrderersMutex.Lock()
 	ret, specificReturn := fake.setConfigOrderersReturnsOnCall[len(fake.setConfigOrderersArgsForCall)]
-	fake.setConfigOrderersArgsForCall = append(fake.setConfigOrderersArgsForCall, struct {
-		arg1 []*grpc.ConnectionConfig
-	}{arg1Copy})
+	fake.setConfigOrderersArgsForCall = append(fake.setConfigOrderersArgsForCall, ConfigProviderSetConfigOrderersArgs{arg1Copy})
 	stub := fake.SetConfigOrderersStub
 	fakeReturns := fake.setConfigOrderersReturns
 	fake.recordInvocation("SetConfigOrderers", []interface{}{arg1Copy})
@@ -1798,7 +1932,15 @@ func (fake *ConfigProvider) SetConfigOrderersArgsForCall(i int) []*grpc.Connecti
 	fake.setConfigOrderersMutex.RLock()
 	defer fake.setConfigOrderersMutex.RUnlock()
 	argsForCall := fake.setConfigOrderersArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) SetConfigOrderersArgs() []ConfigProviderSetConfigOrderersArgs {
+	fake.setConfigOrderersMutex.RLock()
+	defer fake.setConfigOrderersMutex.RUnlock()
+	args := make([]ConfigProviderSetConfigOrderersArgs, len(fake.setConfigOrderersArgsForCall))
+	copy(args, fake.setConfigOrderersArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) SetConfigOrderersReturns(result1 error) {
@@ -1827,9 +1969,7 @@ func (fake *ConfigProvider) SetConfigOrderersReturnsOnCall(i int, result1 error)
 func (fake *ConfigProvider) TranslatePath(arg1 string) string {
 	fake.translatePathMutex.Lock()
 	ret, specificReturn := fake.translatePathReturnsOnCall[len(fake.translatePathArgsForCall)]
-	fake.translatePathArgsForCall = append(fake.translatePathArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.translatePathArgsForCall = append(fake.translatePathArgsForCall, ConfigProviderTranslatePathArgs{arg1})
 	stub := fake.TranslatePathStub
 	fakeReturns := fake.translatePathReturns
 	fake.recordInvocation("TranslatePath", []interface{}{arg1})
@@ -1859,7 +1999,15 @@ func (fake *ConfigProvider) TranslatePathArgsForCall(i int) string {
 	fake.translatePathMutex.RLock()
 	defer fake.translatePathMutex.RUnlock()
 	argsForCall := fake.translatePathArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1
+}
+
+func (fake *ConfigProvider) TranslatePathArgs() []ConfigProviderTranslatePathArgs {
+	fake.translatePathMutex.RLock()
+	defer fake.translatePathMutex.RUnlock()
+	args := make([]ConfigProviderTranslatePathArgs, len(fake.translatePathArgsForCall))
+	copy(args, fake.translatePathArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) TranslatePathReturns(result1 string) {
@@ -1888,10 +2036,7 @@ func (fake *ConfigProvider) TranslatePathReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) UnmarshalKey(arg1 string, arg2 any) error {
 	fake.unmarshalKeyMutex.Lock()
 	ret, specificReturn := fake.unmarshalKeyReturnsOnCall[len(fake.unmarshalKeyArgsForCall)]
-	fake.unmarshalKeyArgsForCall = append(fake.unmarshalKeyArgsForCall, struct {
-		arg1 string
-		arg2 any
-	}{arg1, arg2})
+	fake.unmarshalKeyArgsForCall = append(fake.unmarshalKeyArgsForCall, ConfigProviderUnmarshalKeyArgs{arg1, arg2})
 	stub := fake.UnmarshalKeyStub
 	fakeReturns := fake.unmarshalKeyReturns
 	fake.recordInvocation("UnmarshalKey", []interface{}{arg1, arg2})
@@ -1921,7 +2066,15 @@ func (fake *ConfigProvider) UnmarshalKeyArgsForCall(i int) (string, any) {
 	fake.unmarshalKeyMutex.RLock()
 	defer fake.unmarshalKeyMutex.RUnlock()
 	argsForCall := fake.unmarshalKeyArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *ConfigProvider) UnmarshalKeyArgs() []ConfigProviderUnmarshalKeyArgs {
+	fake.unmarshalKeyMutex.RLock()
+	defer fake.unmarshalKeyMutex.RUnlock()
+	args := make([]ConfigProviderUnmarshalKeyArgs, len(fake.unmarshalKeyArgsForCall))
+	copy(args, fake.unmarshalKeyArgsForCall)
+	return args
 }
 
 func (fake *ConfigProvider) UnmarshalKeyReturns(result1 error) {
@@ -1950,8 +2103,7 @@ func (fake *ConfigProvider) UnmarshalKeyReturnsOnCall(i int, result1 error) {
 func (fake *ConfigProvider) VaultPersistenceName() driverb.PersistenceName {
 	fake.vaultPersistenceNameMutex.Lock()
 	ret, specificReturn := fake.vaultPersistenceNameReturnsOnCall[len(fake.vaultPersistenceNameArgsForCall)]
-	fake.vaultPersistenceNameArgsForCall = append(fake.vaultPersistenceNameArgsForCall, struct {
-	}{})
+	fake.vaultPersistenceNameArgsForCall = append(fake.vaultPersistenceNameArgsForCall, struct{}{})
 	stub := fake.VaultPersistenceNameStub
 	fakeReturns := fake.vaultPersistenceNameReturns
 	fake.recordInvocation("VaultPersistenceName", []interface{}{})
@@ -2003,8 +2155,7 @@ func (fake *ConfigProvider) VaultPersistenceNameReturnsOnCall(i int, result1 dri
 func (fake *ConfigProvider) VaultTXStoreCacheSize() int {
 	fake.vaultTXStoreCacheSizeMutex.Lock()
 	ret, specificReturn := fake.vaultTXStoreCacheSizeReturnsOnCall[len(fake.vaultTXStoreCacheSizeArgsForCall)]
-	fake.vaultTXStoreCacheSizeArgsForCall = append(fake.vaultTXStoreCacheSizeArgsForCall, struct {
-	}{})
+	fake.vaultTXStoreCacheSizeArgsForCall = append(fake.vaultTXStoreCacheSizeArgsForCall, struct{}{})
 	stub := fake.VaultTXStoreCacheSizeStub
 	fakeReturns := fake.vaultTXStoreCacheSizeReturns
 	fake.recordInvocation("VaultTXStoreCacheSize", []interface{}{})
@@ -2063,9 +2214,18 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *ConfigProvider) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *ConfigProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}
