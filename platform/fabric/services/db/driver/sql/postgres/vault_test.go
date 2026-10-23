@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
@@ -183,6 +184,79 @@ func TestPostgresVaultStoreUpsert(t *testing.T) {
 	require.Equal(t, driver.RawValue("second"), state.Raw)
 	require.Equal(t, driver.RawVersion("ver2"), state.Version)
 	require.NoError(t, r.Done())
+}
+
+// Storing the same transactions twice, as the committer does when it commits a
+// block again after a connection lost during COMMIT, succeeds and leaves one
+// valid status row per transaction and the same states.
+func TestPostgresVaultStoreRecommitIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStore(t)
+	ctx := t.Context()
+
+	txIDs := []driver.TxID{"tx1", "tx2"}
+	writes := driver.Writes{"ns": {"k": driver.VaultValue{Raw: []byte("v"), Version: []byte("ver")}}}
+	metaWrites := driver.MetaWrites{"ns": {"k": driver.VaultMetadataValue{
+		Version:  []byte("ver"),
+		Metadata: map[string][]byte{"m": []byte("meta")},
+	}}}
+	require.NoError(t, store.Store(ctx, txIDs, writes, metaWrites))
+	require.NoError(t, store.Store(ctx, txIDs, writes, metaWrites))
+
+	count := func(query string, args ...any) int {
+		var n int
+		require.NoError(t, store.writeDB.QueryRowContext(ctx, query, args...).Scan(&n))
+		return n
+	}
+	require.Equal(t, 2, count("SELECT count(*) FROM "+store.tables.StatusTable))
+	require.Equal(t, 2, count("SELECT count(*) FROM "+store.tables.StatusTable+" WHERE code = $1", driver.Valid))
+	require.Equal(t, 1, count("SELECT count(*) FROM "+store.tables.StateTable))
+
+	r, err := store.NewGlobalLockVaultReader(ctx)
+	require.NoError(t, err)
+	state, err := r.GetState(ctx, "ns", "k")
+	require.NoError(t, err)
+	require.Equal(t, driver.RawValue("v"), state.Raw)
+	meta, _, err := r.GetStateMetadata(ctx, "ns", "k")
+	require.NoError(t, err)
+	require.Equal(t, []byte("meta"), meta["m"])
+	require.NoError(t, r.Done())
+}
+
+// A Store whose connection is terminated mid-transaction returns
+// dbdriver.ErrConnectionLost, which the committer retries, and the next Store
+// succeeds on a fresh connection.
+func TestPostgresVaultStoreConnectionLost(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStore(t)
+	ctx := t.Context()
+
+	// An uncommitted insert of tx1 holds its row lock, so Store blocks on it
+	// inside its transaction until its backend is terminated.
+	lock, err := store.writeDB.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer func() { _ = lock.Rollback() }()
+	_, err = lock.ExecContext(ctx, "INSERT INTO "+store.tables.StatusTable+" (tx_id, code) VALUES ('tx1', $1)", driver.Busy)
+	require.NoError(t, err)
+
+	done := make(chan error, 1)
+	go func() { done <- store.Store(ctx, []driver.TxID{"tx1"}, nil, nil) }()
+
+	require.Eventually(t, func() bool {
+		var n int
+		err := store.writeDB.QueryRowContext(ctx,
+			"SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()",
+		).Scan(&n)
+		return err == nil && n > 0
+	}, 10*time.Second, 20*time.Millisecond)
+
+	err = <-done
+	require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
+	require.NoError(t, lock.Rollback())
+
+	require.NoError(t, store.Store(ctx, []driver.TxID{"tx1"}, nil, nil))
 }
 
 // CreateSchema is idempotent — every constructor runs it unless

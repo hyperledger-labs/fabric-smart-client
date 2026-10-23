@@ -49,7 +49,16 @@ func buildVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *Vault
 // key verbatim and compares bytewise, as Fabric orders keys.
 func encodeKey(k driver.PKey) any { return []byte(k) }
 
+// Store marks txIDs busy, upserts writes and metaWrites, and marks txIDs valid,
+// all in one database transaction. Every statement is an upsert, so storing the
+// same transactions again leaves the same rows; this makes a retry safe after a
+// connection lost during COMMIT, when the outcome is unknown. Database errors are
+// mapped by postgres.ErrorMapper.
 func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+	return (&postgres2.ErrorMapper{}).WrapError(db.storeTx(ctx, txIDs, writes, metaWrites))
+}
+
+func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
