@@ -68,10 +68,6 @@ func NewProviderWithEidRhNymPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.Sig
 	return NewProviderWithSigType(conf1, kvs, sp, bccsp.EidNymRhNym)
 }
 
-func NewProviderWithStandardPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService) (*Provider, error) {
-	return NewProviderWithSigType(conf1, kvs, sp, bccsp.Standard)
-}
-
 func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService) (*Provider, error) {
 	return NewProviderWithSigType(conf1, kvs, sp, Any)
 }

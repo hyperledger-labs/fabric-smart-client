@@ -79,19 +79,6 @@ func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 	}, nil
 }
 
-func (i *Deserializer) DeserializeVerifierAgainstNymEID(raw, nymEID []byte) (driver.Verifier, error) {
-	identity, err := i.DeserializeAgainstNymEID(raw, true, nymEID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &NymSignatureVerifier{
-		CSP:   i.Csp,
-		IPK:   i.IssuerPublicKey,
-		NymPK: identity.NymPublicKey,
-	}, nil
-}
-
 func (*Deserializer) DeserializeSigner(_ []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }

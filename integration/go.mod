@@ -9,7 +9,7 @@ replace (
 )
 
 require (
-	github.com/IBM/idemix v0.2.0
+	github.com/IBM/idemix v0.3.1
 	github.com/containerd/errdefs v1.0.0
 	github.com/hyperledger-labs/fabric-smart-client v0.0.0-00010101000000-000000000000
 	github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query v0.0.0-00010101000000-000000000000

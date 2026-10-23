@@ -160,6 +160,7 @@ func (id *MSPIdentity) verifyProof() error {
 		id.AssociationProof,
 		nil,
 		&bccsp.IdemixSignerOpts{
+			Nym:                 id.NymPublicKey,
 			RevocationPublicKey: id.Idemix.RevocationPK,
 			Attributes: []bccsp.IdemixAttribute{
 				{Type: bccsp.IdemixBytesAttribute, Value: []byte(id.OU.OrganizationalUnitIdentifier)},
