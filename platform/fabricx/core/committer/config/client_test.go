@@ -55,18 +55,16 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 		require.Nil(t, cc)
 	})
 
-	t.Run("not exactly one endpoint", func(t *testing.T) {
+	t.Run("no endpoints", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
 		fakeConfigProvider.QueryServiceConfigStub = func(string) (*config.Config, error) {
-			return &config.Config{Endpoints: []commongrpc.ConnectionConfig{
-				{Address: "localhost:1234"}, {Address: "localhost:5678"},
-			}}, nil
+			return &config.Config{Endpoints: []commongrpc.ConnectionConfig{}}, nil
 		}
 
 		cp := config.NewClientProvider(fakeConfigProvider)
 		_, err := cp.QueryServiceClient("test-network")
-		require.ErrorContains(t, err, "exactly one endpoint")
+		require.ErrorContains(t, err, "expected at least one endpoint")
 	})
 
 	t.Run("empty address", func(t *testing.T) {
@@ -80,6 +78,23 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 		_, err := cp.QueryServiceClient("test-network")
 		require.ErrorContains(t, err, "address is empty")
 	})
+}
+
+func TestDial_AcceptsMultipleEndpoints(t *testing.T) {
+	t.Parallel()
+	addr := startTestServer(t)
+	fakeConfigProvider := &mock.ServiceConfigProvider{}
+	fakeConfigProvider.QueryServiceConfigStub = func(string) (*config.Config, error) {
+		// Nothing listens on port 1, so the first endpoint is unreachable.
+		return &config.Config{Endpoints: []commongrpc.ConnectionConfig{
+			{Address: "127.0.0.1:1"}, {Address: addr},
+		}}, nil
+	}
+
+	cp := config.NewClientProvider(fakeConfigProvider)
+	cc, err := cp.QueryServiceClient("test-network")
+	require.NoError(t, err)
+	require.Equal(t, addr, cc.Target(), "the unreachable endpoint must be skipped for the next one")
 }
 
 func TestClientProvider_NotificationServiceClient(t *testing.T) {

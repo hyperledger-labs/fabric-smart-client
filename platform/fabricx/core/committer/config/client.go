@@ -59,25 +59,37 @@ func (c *ClientProvider) QueryServiceClient(network string) (*grpc.ClientConn, e
 
 // dial turns a per-network config lookup into the connection factory lazy.Provider caches.
 // CreateGRPCClient then NewConnection gives the committer's services TLS version selection
-// and message-size configuration through the shared client. Unlike the old dialer, this
-// connects eagerly: the first call per network blocks for up to connectionTimeout (default
-// 5s) if the sidecar isn't reachable, instead of dialing lazily and failing on the first RPC.
+// and message-size configuration through the shared client.
+//
+// The endpoints are tried in order and the first one that connects is returned. Connecting
+// is eager, so the first call per network blocks for up to each unreachable endpoint's
+// connectionTimeout (default 5s) before moving to the next. If no endpoint connects, the
+// error joins every endpoint's failure.
 func dial(loadCfg func(string) (*Config, error)) func(string) (*grpc.ClientConn, error) {
 	return func(network string) (*grpc.ClientConn, error) {
 		cfg, err := loadCfg(network)
 		if err != nil {
 			return nil, err
 		}
-		// Only a single endpoint per service is supported.
-		if len(cfg.Endpoints) != 1 {
-			return nil, errors.Errorf("expected exactly one endpoint for [%s], got %d",
-				network, len(cfg.Endpoints))
+		if len(cfg.Endpoints) == 0 {
+			return nil, errors.Errorf("expected at least one endpoint for [%s]", network)
 		}
-		endpoint := cfg.Endpoints[0]
-		client, err := commongrpc.CreateGRPCClient(&endpoint)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed creating grpc client for [%s]", endpoint.Address)
+
+		var errs []error
+		for _, endpoint := range cfg.Endpoints {
+			client, err := commongrpc.CreateGRPCClient(&endpoint)
+			if err != nil {
+				errs = append(errs, errors.Wrapf(err, "failed creating grpc client for [%s]", endpoint.Address))
+				continue
+			}
+
+			conn, err := client.NewConnection(endpoint.Address)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			return conn, nil
 		}
-		return client.NewConnection(endpoint.Address)
+		return nil, errors.Join(errs...)
 	}
 }
