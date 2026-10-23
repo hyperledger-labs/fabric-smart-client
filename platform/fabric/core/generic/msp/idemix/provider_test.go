@@ -155,24 +155,6 @@ func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithStandardPolicy(config, kvss, sigService)
-	require.NoError(t, err)
-	require.NotNil(t, p)
-
-	id, audit, err = p.Identity(nil)
-	require.NoError(t, err)
-	require.NotNil(t, id)
-	require.Nil(t, audit)
-
-	signer, err = p.DeserializeSigner(id)
-	require.NoError(t, err)
-	verifier, err = p.DeserializeVerifier(id)
-	require.NoError(t, err)
-
-	sigma, err = signer.Sign([]byte("hello world!!!"))
-	require.NoError(t, err)
-	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
-
 	p, err = idemix2.NewProviderWithAnyPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
