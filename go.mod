@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/IBM/idemix v0.2.0
+	github.com/IBM/idemix v0.3.1
 	github.com/IBM/mathlib v0.3.2
 	github.com/XSAM/otelsql v0.44.0
 	github.com/cockroachdb/errors v1.14.0
