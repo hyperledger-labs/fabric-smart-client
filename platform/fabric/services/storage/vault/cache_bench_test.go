@@ -74,6 +74,16 @@ func BenchmarkCachedStore(b *testing.B) {
 	}
 }
 
+// reReadLag returns how far back iteration i re-reads. It sweeps from a quarter
+// of the cache to a little past it, so hits/op reports what fraction of that
+// range the cache still holds. A fixed distance would not do: a miss re-inserts
+// through forceGet, which doubles the churn and pushes the next read of the same
+// distance out too, so the metric latches at all-hit or all-miss.
+func reReadLag(i, size int) int {
+	minLag, maxLag := max(size/4, 1), max(size*5/4, 2)
+	return minLag + (i*7919)%(maxLag-minLag)
+}
+
 // benchHotSet reads a small set of recent txIDs repeatedly while new txIDs keep
 // arriving through SetStatuses, so the cache is under constant eviction
 // pressure while callers keep asking for the hot set.
@@ -91,9 +101,7 @@ func benchHotSet(b *testing.B, size, buffer int) {
 	}
 
 	reads := 0
-	backed.getCalls.Store(0)
-	b.ResetTimer()
-	for i := range b.N {
+	for i := 0; b.Loop(); i++ {
 		// One new txID arrives for every four reads of the hot set.
 		if i%5 == 4 {
 			if err := s.SetStatuses(ctx, driver.Valid, "", ids[hot+(i/5)%(len(ids)-hot)]); err != nil {
@@ -106,29 +114,21 @@ func benchHotSet(b *testing.B, size, buffer int) {
 		}
 		reads++
 	}
-	b.StopTimer()
 	reportHitRate(b, reads, backed.getCalls.Load())
 }
 
-// benchStreaming writes each txID once and reads it back twice soon after, the
-// shape of a node following transactions as they commit. Hits depend on the
+// benchStreaming writes each txID once and reads it back twice, the shape of a
+// node following transactions as they commit. The first read follows the write
+// directly and always hits; only the second, reReadLag back, depends on the
 // cache still holding recent entries, which is what a large buffer gives up.
 func benchStreaming(b *testing.B, size, buffer int) {
 	b.Helper()
 	s, backed := newBenchStore(size, buffer)
 	ctx := context.Background()
 	ids := benchTxIDs(size * 8)
-	// The re-read distance sweeps from a quarter of the cache to a little past
-	// it, so hits/op reports what fraction of that range the cache still holds.
-	// A fixed distance would not do: a miss re-inserts through forceGet, which
-	// doubles the churn and pushes the next read of the same distance out too,
-	// so the metric latches at all-hit or all-miss instead of grading.
-	minLag, maxLag := max(size/4, 1), max(size*5/4, 2)
 
 	reads := 0
-	backed.getCalls.Store(0)
-	b.ResetTimer()
-	for i := range b.N {
+	for i := 0; b.Loop(); i++ {
 		id := ids[i%len(ids)]
 		if err := s.SetStatuses(ctx, driver.Valid, "", id); err != nil {
 			b.Fatal(err)
@@ -137,18 +137,15 @@ func benchStreaming(b *testing.B, size, buffer int) {
 			b.Fatal(err)
 		}
 		reads++
-		lag := minLag + (i*7919)%(maxLag-minLag)
+		lag := reReadLag(i, size)
 		if i < lag {
 			continue
 		}
-		// A second read further back, where a victim scan may already have
-		// reached it.
 		if _, err := s.GetTxStatus(ctx, ids[(i-lag)%len(ids)]); err != nil {
 			b.Fatal(err)
 		}
 		reads++
 	}
-	b.StopTimer()
 	reportHitRate(b, reads, backed.getCalls.Load())
 }
 
@@ -161,17 +158,9 @@ func benchMixed(b *testing.B, size, buffer int) {
 	s, backed := newBenchStore(size, buffer)
 	ctx := context.Background()
 	ids := benchTxIDs(size * 8)
-	// The re-read distance sweeps from a quarter of the cache to a little past
-	// it, so hits/op reports what fraction of that range the cache still holds.
-	// A fixed distance would not do: a miss re-inserts through forceGet, which
-	// doubles the churn and pushes the next read of the same distance out too,
-	// so the metric latches at all-hit or all-miss instead of grading.
-	minLag, maxLag := max(size/4, 1), max(size*5/4, 2)
 
 	reads := 0
-	backed.getCalls.Store(0)
-	b.ResetTimer()
-	for i := range b.N {
+	for i := 0; b.Loop(); i++ {
 		id := ids[i%len(ids)]
 		if err := s.SetStatuses(ctx, driver.Valid, "", id); err != nil {
 			b.Fatal(err)
@@ -179,7 +168,7 @@ func benchMixed(b *testing.B, size, buffer int) {
 		if i%8 == 0 {
 			s.Invalidate(id)
 		}
-		lag := minLag + (i*7919)%(maxLag-minLag)
+		lag := reReadLag(i, size)
 		if i < lag {
 			continue
 		}
@@ -188,18 +177,23 @@ func benchMixed(b *testing.B, size, buffer int) {
 		}
 		reads++
 	}
-	b.StopTimer()
 	reportHitRate(b, reads, backed.getCalls.Load())
 }
 
 // benchHotSetParallel runs the hot-set reads concurrently, since GetTxStatus is
-// called from many goroutines in a running node.
+// called from many goroutines in a running node. It measures contention, so
+// only its ns/op compares across buffers: one read in five is of a cold txID
+// from a pool far larger than the cache, so hits/op sits at 0.8 by design.
+//
+// All goroutines draw from one shared sequence. With a per-goroutine index they
+// would request the same cold txIDs in lockstep, and one goroutine's miss would
+// turn into hits for the others, inflating hits/op with GOMAXPROCS.
 //
 // mockVaultStore.statuses is a plain map, so this pattern cannot write through
 // SetStatuses while readers run without racing inside the mock itself. The
-// backing store is filled directly up front instead, and one read in five is of
-// a cold txID, which still drives misses, Puts and eviction concurrently.
-// Giving the mock a mutex would put it in the measurement path.
+// backing store is filled directly up front instead; the cold reads still drive
+// misses, Puts and eviction concurrently. Giving the mock a mutex would put it
+// in the measurement path.
 func benchHotSetParallel(b *testing.B, size, buffer int) {
 	b.Helper()
 	s, backed := newBenchStore(size, buffer)
@@ -217,24 +211,21 @@ func benchHotSetParallel(b *testing.B, size, buffer int) {
 		}
 	}
 
-	var reads atomic.Int64
+	var seq atomic.Int64
 	backed.getCalls.Store(0)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
-		n := int64(0)
-		for i := 0; pb.Next(); i++ {
+		for pb.Next() {
+			i := int(seq.Add(1) - 1)
 			id := ids[i%hot]
 			if i%5 == 4 {
 				id = ids[hot+i%(len(ids)-hot)]
 			}
 			if _, err := s.GetTxStatus(ctx, id); err != nil {
 				b.Error(err)
-				break
+				return
 			}
-			n++
 		}
-		reads.Add(n)
 	})
-	b.StopTimer()
-	reportHitRate(b, int(reads.Load()), backed.getCalls.Load())
+	reportHitRate(b, int(seq.Load()), backed.getCalls.Load())
 }
