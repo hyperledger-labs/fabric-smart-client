@@ -219,7 +219,7 @@ func (s *service) DefaultIdentity() view.Identity {
 func (s *service) AnonymousIdentity() (view.Identity, error) {
 	id, err := s.Identity("idemix")
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to get default anonymous identity labelled `idemix`")
+		return nil, errors.WithMessage(err, "failed to get default anonymous identity labelled `idemix`")
 	}
 	if err := s.binderService.Bind(context.Background(), s.defaultViewIdentity, id); err != nil {
 		return nil, errors.WithMessagef(err, "failed to bind identity [%s] to default [%s]", id, s.defaultViewIdentity)
@@ -458,7 +458,7 @@ func (s *service) Msps() []string {
 func (s *service) loadLocalMSPs() error {
 	configs, err := s.config.MSPs()
 	if err != nil {
-		return errors.WithMessagef(err, "failed loading local MSP configs")
+		return errors.WithMessage(err, "failed loading local MSP configs")
 	}
 	defaultMSP := s.config.DefaultMSP()
 	if len(defaultMSP) == 0 {

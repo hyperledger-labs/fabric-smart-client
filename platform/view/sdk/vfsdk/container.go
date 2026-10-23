@@ -118,10 +118,10 @@ func validateConstructorType(typ reflect.Type) error {
 		return errors.Errorf("wrong number of arguments returned: %d", typ.NumOut())
 	}
 	if !typ.Out(0).Implements(viewFactoryInterface) {
-		return errors.Errorf("first param should implement view.Factory")
+		return errors.New("first param should implement view.Factory")
 	}
 	if typ.NumOut() == 2 && !typ.Out(1).Implements(errorInterface) {
-		return errors.Errorf("constructor must either return one factory or one factory and an error")
+		return errors.New("constructor must either return one factory or one factory and an error")
 	}
 	return nil
 }

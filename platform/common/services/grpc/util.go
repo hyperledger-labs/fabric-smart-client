@@ -116,5 +116,5 @@ func GetLocalIP() (string, error) {
 			}
 		}
 	}
-	return "", errors.Errorf("no non-loopback, IPv4 interface detected")
+	return "", errors.New("no non-loopback, IPv4 interface detected")
 }

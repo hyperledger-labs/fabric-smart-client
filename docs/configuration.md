@@ -29,13 +29,6 @@ fsc:
     key:
       file: /path/to/key.pwm
 
-  # This is used to list the authorized clients of this FSC node.
-  # The view service, on fsc.grpc and fsc.web alike, accepts commands signed by the node's
-  # default identity (fsc.identity) or by one of the identities listed here.
-  client:
-    certs:
-    - path/to/client-cert.pem
-
   # ------------------- Shared server-side TLS defaults -------------------
   # Every listener this node owns (fsc.grpc and fsc.web) inherits from this
   # block FIELD BY FIELD: a service's own tls: block overrides only the fields it sets,
@@ -69,6 +62,8 @@ fsc:
     maxVersion: 771
 
   # ------------------- GRPC Server Configuration -------------------------
+  # The gRPC listener. It serves the remote view API when fsc.view.remote.backends lists
+  # grpc; enabling it without fsc.view.remote fails startup.
   grpc:
     enabled: true
     # The listen address of this server
@@ -107,14 +102,6 @@ fsc:
       clientRootCAs:
         files:
         - /path/to/client/tls/ca.crt
-
-    authentication:
-      # The view service accepts a signed command only if its timestamp is within this
-      # window of the local clock, and only once: it remembers accepted commands for twice
-      # the window. The memory is per process, so a restarted node, or another node serving
-      # the same identities, accepts a command again within its window.
-      # Format: Go duration string. Defaults to 15m when absent; an unparsable, zero or negative value fails startup.
-      timeWindow: 15m
 
     # GRPC Server keepalive parameters. 
     # This section can be omitted.
@@ -262,20 +249,48 @@ fsc:
         maxOpenConns: 20
   # ------------------- View Configuration -------------------------
   view:
+    # The remote view API: the view service as reachable from other processes. It is off
+    # unless enabled is true, and is never switched on by a listener's enabled flag. A key
+    # not listed here fails startup, so a misspelt key never leaves its default in place.
     remote:
-      # Execution timeout of views called remotely, on fsc.grpc and fsc.web alike; views
-      # called locally keep their caller's context. Default: 2m. Over gRPC, a view still
-      # running when it expires ends with the error "view execution timed out"; over REST, a
-      # view that fails with the deadline error gets HTTP 504 with the same text. Views must
-      # observe their context (e.g. ctx.Done()) for the timeout to take effect. Zero or
-      # negative values fall back to the default.
+      # false (the default): the remote view API is served on no listener, and no key of
+      # this block other than enabled may be set. Local view calls are unaffected.
+      enabled: true
+      # The transports the remote view API is served on: grpc (the fsc.grpc listener) and
+      # web (the HTTP binding on the fsc.web listener). Required when enabled; each listed
+      # transport needs its listener enabled. From the environment:
+      # CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web.
+      backends: [grpc, web]
+      # Execution timeout of views called remotely, on every backend; views called locally
+      # keep their caller's context. Default: 2m. A view still running when it expires ends
+      # with the error "view execution timed out". Views must observe their context (e.g.
+      # ctx.Done()) for the timeout to take effect. Zero or negative values fall back to the
+      # default.
       timeout: 2m
+      # A command is accepted only if its header timestamp is within this window of the
+      # local clock, and only once: accepted commands are remembered for twice the window.
+      # The memory is per process, so a restarted node, or another node serving the same
+      # identities, accepts a command again within its window. Default: 15m; must be a
+      # positive duration.
+      timeWindow: 15m
+      # Identities, besides the node's default identity (fsc.identity), allowed to call
+      # views. An entry that does not load as a certificate fails startup. From the
+      # environment, a comma-separated list of paths.
+      clients:
+      - path/to/client-cert.pem
+      # Largest SignedCommand, or later stream frame, the remote view API accepts, in bytes.
+      # Optional; must be positive when set. The view service rejects a larger command on
+      # every backend with "command exceeds fsc.view.remote.maxMessageSize". Each listener's
+      # own limit applies first: fsc.grpc.maxRecvMsgSize on fsc.grpc, fsc.web.maxRecvMsgSize
+      # on fsc.web.
+      maxMessageSize: 10485760
   # ------------------- Web Server Configuration -------------------------
-  # The web listener serves the view service's HTTP binding (POST
-  # /v1/ViewService/ProcessCommand and the WebSocket GET /v1/ViewService/StreamCommand; see
-  # docs/platform/view/services/view-service-http.md) and, without fsc.metrics.address, the
-  # operations endpoints /metrics and /logspec. Callers of the view service are
-  # authenticated and authorized by their signed commands exactly as on fsc.grpc.
+  # The web listener serves the view service's HTTP binding when fsc.view.remote.backends
+  # lists web (POST /v1/ViewService/ProcessCommand and the WebSocket GET
+  # /v1/ViewService/StreamCommand; see docs/platform/view/services/view-service-http.md)
+  # and, without fsc.metrics.address, the operations endpoints /metrics and /logspec.
+  # Callers of the view service are authenticated and authorized by their signed commands
+  # exactly as on fsc.grpc.
   #
   # The listener serves two probe endpoints that skip the client-certificate check of the
   # view endpoints. The TLS handshake still applies: with tls.clientAuthRequired: true, a
@@ -329,7 +344,7 @@ fsc:
       clientAuthRequired: false
       # Root certificates used to verify client TLS certificates, in the three states above.
       # The view service does not authorize callers by certificate: it authorizes the signer
-      # of each command against the node's identity and fsc.client.certs, and binds a
+      # of each command against the node's identity and fsc.view.remote.clients, and binds a
       # command to a verified client certificate when the connection carries one.
       clientRootCAs:
         files:
@@ -858,6 +873,13 @@ These keys sit outside every `tls:` block and fail startup with the same
 | Removed | Replacement |
 | --- | --- |
 | `fsc.web.viewTimeout` | `fsc.view.remote.timeout`, which bounds remote view calls on `fsc.grpc` and `fsc.web` alike |
+| `fsc.grpc.authentication.timeWindow` | `fsc.view.remote.timeWindow` |
+| `fsc.client.certs` | `fsc.view.remote.clients` |
+
+Two further checks stop a configuration that would otherwise silently serve no view API:
+`fsc.grpc.enabled: true` without `fsc.view.remote` (nothing else uses the gRPC listener), and
+any `fsc.view.remote` key without `fsc.view.remote.enabled: true`. A node that serves views
+adds the block explicitly, for example `fsc.view.remote: {enabled: true, backends: [grpc]}`.
 
 ## Overriding configuration keys
 
@@ -871,6 +893,16 @@ CORE_FSC_IDENTITY_KEY_FILE=/my/private.key
 CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE=/mydb.sqlite
 CORE_FSC_TRACING_OTLP_ADDRESS=jaeger.example.com:4318
 CORE_FABRIC_MYNETWORK_KEEPALIVE_TIME=120s
+```
+
+A key whose value is a list of strings, such as `fsc.view.remote.backends` or
+`fsc.view.remote.clients`, takes a comma-separated value; spaces around an item are
+trimmed and empty items are dropped. The variable replaces the whole list from the file,
+and an item cannot contain a comma:
+
+```sh
+CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web
+CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
 ```
 
 And so on.

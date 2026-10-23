@@ -51,6 +51,23 @@ type Server struct {
 	tracer     trace.Tracer
 	timeWindow time.Duration
 	accepted   *replayGuard
+	// maxMessageSize bounds a SignedCommand and every later stream frame, in bytes; 0 is
+	// no bound beyond the transport's own.
+	maxMessageSize int
+}
+
+// ErrMessageTooLarge is the error a command or stream frame larger than the configured
+// maximum ends with.
+var ErrMessageTooLarge = errors.New("command exceeds fsc.view.remote.maxMessageSize")
+
+// ServerOption configures a Server.
+type ServerOption func(*Server)
+
+// WithMaxMessageSize bounds every SignedCommand, and every later frame of a stream, to n
+// bytes; a non-positive n imposes no bound. The view service applies it whatever transport
+// delivered the message, so it holds on every backend; a transport may stop reading earlier.
+func WithMaxMessageSize(n int) ServerOption {
+	return func(s *Server) { s.maxMessageSize = n }
 }
 
 // NewViewServiceServer returns a new instance of the view service server.
@@ -66,11 +83,12 @@ func NewViewServiceServer(
 	tracerProvider tracing.Provider,
 	bindingInspector BindingInspector,
 	timeWindow time.Duration,
+	opts ...ServerOption,
 ) (*Server, error) {
 	if timeWindow <= 0 {
 		return nil, errors.Errorf("command time window must be positive, got [%s]", timeWindow)
 	}
-	return &Server{
+	s := &Server{
 		Marshaller:       marshaller,
 		PolicyChecker:    policyChecker,
 		bindingInspector: bindingInspector,
@@ -82,7 +100,40 @@ func NewViewServiceServer(
 		tracer: tracerProvider.Tracer("view_service", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{successLabel},
 		})),
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s, nil
+}
+
+// tooLarge reports whether m exceeds the configured maximum message size.
+func (s *Server) tooLarge(m proto.Message) bool {
+	return s.maxMessageSize > 0 && proto.Size(m) > s.maxMessageSize
+}
+
+// limitedStream is a stream whose later frames are bounded like its command.
+type limitedStream struct {
+	protos.ViewService_StreamCommandServer
+	s *Server
+}
+
+func (l limitedStream) Recv() (*protos.SignedCommand, error) {
+	m := &protos.SignedCommand{}
+	if err := l.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (l limitedStream) RecvMsg(m any) error {
+	if err := l.ViewService_StreamCommandServer.RecvMsg(m); err != nil {
+		return err
+	}
+	if pm, ok := m.(proto.Message); ok && l.s.tooLarge(pm) {
+		return ErrMessageTooLarge
+	}
+	return nil
 }
 
 // ProcessCommand processes the passed command ensuring proper access control.
@@ -96,6 +147,9 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 
 	logger.DebugfContext(ctx, "processCommand invoked...")
 
+	if s.tooLarge(sc) {
+		return s.MarshalErrorResponse(sc.Command, ErrMessageTooLarge)
+	}
 	command, err := UnmarshalCommand(sc.Command)
 	if err != nil {
 		return s.MarshalErrorResponse(sc.Command, err)
@@ -154,6 +208,12 @@ func (s *Server) StreamCommand(server protos.ViewService_StreamCommandServer) er
 	sc := &protos.SignedCommand{}
 	if err := server.RecvMsg(sc); err != nil {
 		return err
+	}
+	if s.tooLarge(sc) {
+		return s.streamError(ErrMessageTooLarge, sc, server)
+	}
+	if s.maxMessageSize > 0 {
+		server = limitedStream{ViewService_StreamCommandServer: server, s: s}
 	}
 	return s.handleStreamCommand(sc, server)
 }

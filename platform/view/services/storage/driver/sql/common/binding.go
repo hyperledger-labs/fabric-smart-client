@@ -62,7 +62,7 @@ func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Ide
 	logger.Debug(query, params)
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return false, errors.Wrapf(err, "error querying db")
+		return false, errors.Wrap(err, "error querying db")
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -75,7 +75,7 @@ func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Ide
 		longTermIDs = append(longTermIDs, longTerm)
 	}
 	if err := rows.Err(); err != nil {
-		return false, errors.Wrapf(err, "error iterating rows")
+		return false, errors.Wrap(err, "error iterating rows")
 	}
 	if len(longTermIDs) != 2 {
 		return false, errors.Errorf("%d entries found instead of 2", len(longTermIDs))

@@ -223,7 +223,7 @@ func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error 
 
 	if err := db.vaultStore.Store(ctx, txIDs, writes, metaWrites); err != nil {
 		db.vaultStore.Invalidate(txIDs...)
-		return errors.Wrapf(err, "failed writing txids")
+		return errors.Wrap(err, "failed writing txids")
 	}
 	return nil
 }
@@ -277,14 +277,14 @@ func (db *Vault[V]) buildRWSet(ctx context.Context, txID driver.TxID, rws ReadWr
 func (db *Vault[V]) InspectRWSet(_ context.Context, rwsetBytes []byte, namespaces ...driver.Namespace) (driver.RWSet, error) {
 	rwSet, err := db.populator.Populate(rwsetBytes, namespaces...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed populating ephemeral txID")
+		return nil, errors.Wrap(err, "failed populating ephemeral txID")
 	}
 	return &Inspector{Rws: rwSet}, nil
 }
 
 func (db *Vault[V]) Match(ctx context.Context, txID driver.TxID, rwsRaw []byte) error {
 	if len(rwsRaw) == 0 {
-		return errors.Errorf("passed empty rwset")
+		return errors.New("passed empty rwset")
 	}
 
 	db.logger.Debugf("UnmapInterceptor [%s]", txID)
@@ -308,10 +308,10 @@ func (db *Vault[V]) Match(ctx context.Context, txID driver.TxID, rwsRaw []byte) 
 	if !bytes.Equal(rwsRaw, rwsRaw2) {
 		target, err := db.InspectRWSet(ctx, rwsRaw)
 		if err != nil {
-			return errors.Wrapf(err, "rwsets do not match")
+			return errors.Wrap(err, "rwsets do not match")
 		}
 		if err2 := i.Equals(target); err2 != nil {
-			return errors.Wrapf(err2, "rwsets do not match")
+			return errors.Wrap(err2, "rwsets do not match")
 		}
 		// TODO: vault should support Fabric's rwset fully
 		db.logger.Debugf("byte representation differs, but rwsets match [%s]", txID)

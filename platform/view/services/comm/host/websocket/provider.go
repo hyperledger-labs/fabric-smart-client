@@ -58,22 +58,22 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 	nodeID := string(p.endpointService.ExtractPKI(raw))
 	clientTLSConfig, err := p.config.ClientTLSConfig()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build client TLS config")
+		return nil, errors.Wrap(err, "failed to build client TLS config")
 	}
 	serverTLSConfig, err := p.config.ServerTLSConfig(p)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build server TLS config")
+		return nil, errors.Wrap(err, "failed to build server TLS config")
 	}
 	if clientTLSConfig == nil || serverTLSConfig == nil {
-		return nil, errors.Errorf("websocket p2p communication requires TLS and mutual TLS configuration")
+		return nil, errors.New("websocket p2p communication requires TLS and mutual TLS configuration")
 	}
 	if serverTLSConfig.ClientAuth != tls.RequireAndVerifyClientCert {
-		return nil, errors.Errorf("websocket p2p communication requires mutual TLS (client certificates)")
+		return nil, errors.New("websocket p2p communication requires mutual TLS (client certificates)")
 	}
 
 	h, err := NewHost(nodeID, p.routing, p.streamProvider, p.config, p)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create p2p host")
+		return nil, errors.Wrap(err, "failed to create p2p host")
 	}
 	return &hostWrapper{
 		P2PHost:         h,

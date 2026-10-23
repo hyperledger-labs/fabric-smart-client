@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/IBM/idemix v0.2.0
+	github.com/IBM/idemix v0.3.1
 	github.com/IBM/mathlib v0.3.2
 	github.com/XSAM/otelsql v0.44.0
 	github.com/cockroachdb/errors v1.14.0
@@ -14,7 +14,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hyperledger/fabric-lib-go v1.1.5
 	github.com/hyperledger/fabric-protos-go-apiv2 v0.3.7
-	github.com/hyperledger/fabric-x-common v0.2.8
+	github.com/hyperledger/fabric-x-common v0.2.12
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jackc/pgxlisten v0.0.0-20250802141604-12b92425684c
 	github.com/knadh/koanf/maps v0.1.3
@@ -78,7 +78,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.32.0 // indirect
-	github.com/hyperledger-labs/SmartBFT v1.0.1 // indirect
+	github.com/hyperledger/SmartBFT v1.0.2 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

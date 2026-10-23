@@ -383,6 +383,7 @@ func TestVaultX_StatusMapping(t *testing.T) {
 		{committerpb.Status_COMMITTED, fdriver.Valid},
 		{committerpb.Status_STATUS_UNSPECIFIED, fdriver.Unknown},
 		{committerpb.Status_ABORTED_MVCC_CONFLICT, fdriver.Invalid},
+		{committerpb.Status_REJECTED_SNAPSHOT_IN_PROGRESS, fdriver.Invalid},
 	}
 	for _, tc := range tests {
 		t.Run(tc.status.String(), func(t *testing.T) {

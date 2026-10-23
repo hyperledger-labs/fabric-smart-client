@@ -111,9 +111,23 @@ func (p *Provider) GetInt(key string) int {
 	return p.Backend.Int(strings.ToLower(key))
 }
 
-// GetStringSlice returns the string slice associated with the given key.
+// GetStringSlice returns the string slice associated with the given key. A value that is a
+// single string, as every environment variable is, is split on commas, with surrounding
+// spaces trimmed and empty items dropped, so CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web sets the
+// list [grpc web]. An item cannot contain a comma.
 func (p *Provider) GetStringSlice(key string) []string {
-	return p.Backend.Strings(strings.ToLower(key))
+	k := strings.ToLower(key)
+	v, ok := p.Backend.Get(k).(string)
+	if !ok {
+		return p.Backend.Strings(k)
+	}
+	var out []string
+	for item := range strings.SplitSeq(v, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // UnmarshalKey unmarshals the configuration value associated with the given key into the raw value.

@@ -60,7 +60,7 @@ type FinalityViewFactory struct{}
 func (*FinalityViewFactory) NewView(in []byte) (view.View, error) {
 	f := &finalityView{Finality: &Finality{}}
 	if err := json.Unmarshal(in, f.Finality); err != nil {
-		return nil, errors.Wrapf(err, "failed unmarshalling input")
+		return nil, errors.Wrap(err, "failed unmarshalling input")
 	}
 	return f, nil
 }

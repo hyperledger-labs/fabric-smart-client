@@ -270,7 +270,7 @@ func TestToDiscoveredPeersTimedOutWaitPropagatesAsNotInitialized(t *testing.T) {
 	fix := setupDiscoveryTest(t)
 
 	mgr := &mock.MSPManager{}
-	mgr.DeserializeIdentityReturns(nil, errors.Wrapf(driver.ErrNotInitialized,
+	mgr.DeserializeIdentityReturns(nil, errors.Wrap(driver.ErrNotInitialized,
 		"channel [test-channel] configuration not loaded: timed out waiting for channel [test-channel] configuration: context deadline exceeded"))
 
 	fix.MSPProvider.MSPManagerReturns(mgr)

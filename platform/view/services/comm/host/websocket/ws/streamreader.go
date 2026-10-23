@@ -44,7 +44,7 @@ func newDelimitedReader(maxPayload int) *delimitedReader {
 func (r *delimitedReader) Read(p []byte) (int, error) {
 	if r.expectedLength == 0 {
 		if len(r.headerBuf)+len(p) > binary.MaxVarintLen64+r.maxPayload {
-			return 0, errors.Errorf("message header or payload too large")
+			return 0, errors.New("message header or payload too large")
 		}
 		r.headerBuf = append(r.headerBuf, p...)
 		length, n := binary.Uvarint(r.headerBuf)

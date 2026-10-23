@@ -205,7 +205,7 @@ func (c *config) ClientTLSConfig() (*tls.Config, error) {
 		pool, err := NewRootCAPoolFromPEM(c.clientTLS.ServerRootCAs)
 		if err != nil {
 			c.mu.Unlock()
-			return nil, errors.Wrapf(err, "failed to build client root CA pool")
+			return nil, errors.Wrap(err, "failed to build client root CA pool")
 		}
 		c.serverRootCAPool = pool
 	}
@@ -226,7 +226,7 @@ func (c *config) ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Confi
 		pool, err := NewRootCAPoolFromPEM(c.serverTLS.ClientRootCAs)
 		if err != nil {
 			c.mu.Unlock()
-			return nil, errors.Wrapf(err, "failed to build server root CA pool")
+			return nil, errors.Wrap(err, "failed to build server root CA pool")
 		}
 		c.clientRootCAPool = pool
 	}
@@ -242,7 +242,7 @@ func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	}
 
 	if len(opts.Certificate) == 0 || len(opts.Key) == 0 {
-		return nil, errors.Errorf("both client key and cert must be set for p2p TLS")
+		return nil, errors.New("both client key and cert must be set for p2p TLS")
 	}
 
 	cert, err := tls.X509KeyPair(opts.Certificate, opts.Key)
@@ -285,7 +285,7 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 	}
 
 	if len(opts.Certificate) == 0 || len(opts.Key) == 0 {
-		return nil, errors.Errorf("both server key and cert must be set for p2p TLS")
+		return nil, errors.New("both server key and cert must be set for p2p TLS")
 	}
 
 	cert, err := tls.X509KeyPair(opts.Certificate, opts.Key)

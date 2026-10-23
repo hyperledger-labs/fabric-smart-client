@@ -68,10 +68,6 @@ func NewProviderWithEidRhNymPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.Sig
 	return NewProviderWithSigType(conf1, kvs, sp, bccsp.EidNymRhNym)
 }
 
-func NewProviderWithStandardPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService) (*Provider, error) {
-	return NewProviderWithSigType(conf1, kvs, sp, bccsp.Standard)
-}
-
 func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService) (*Provider, error) {
 	return NewProviderWithSigType(conf1, kvs, sp, Any)
 }
@@ -104,7 +100,7 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 	logger.Debugf("Setting up Idemix-based MSP instance")
 
 	if conf1 == nil {
-		return nil, errors.Errorf("setup error: nil conf reference")
+		return nil, errors.New("setup error: nil conf reference")
 	}
 
 	// note that the idemix protos are still using proto v1
@@ -143,7 +139,7 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 
 	if conf.Signer == nil {
 		// No credential in config, so we don't setup a default signer
-		return nil, errors.Errorf("no signer information found")
+		return nil, errors.New("no signer information found")
 	}
 
 	var userKey bccsp.Key
@@ -232,7 +228,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 	}
 	NymPublicKey, err := nymKey.PublicKey()
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed getting public nym key")
+		return nil, nil, errors.Wrap(err, "failed getting public nym key")
 	}
 
 	role := &m.MSPRole{
@@ -434,7 +430,7 @@ func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 		return nil, errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
 	}
 	if serialized.NymX == nil || serialized.NymY == nil {
-		return nil, errors.Errorf("unable to deserialize idemix identity: pseudonym is invalid")
+		return nil, errors.New("unable to deserialize idemix identity: pseudonym is invalid")
 	}
 
 	// Import NymPublicKey

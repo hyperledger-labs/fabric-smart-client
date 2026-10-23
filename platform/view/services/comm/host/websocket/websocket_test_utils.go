@@ -57,11 +57,11 @@ func NewConfigFromProperties(listenAddress, privateKeyPath, certPath string, ser
 	}
 	clientRootCAsRaw, err := readAll(clientRootCAs)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read client root CAs")
+		return nil, errors.Wrap(err, "failed to read client root CAs")
 	}
 	serverRootCAsRaw, err := readAll(serverRootCAs)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read server root CAs")
+		return nil, errors.Wrap(err, "failed to read server root CAs")
 	}
 
 	return &config{

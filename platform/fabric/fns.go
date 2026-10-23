@@ -158,7 +158,7 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, error) {
 	s, err := sp.GetService(networkServiceProviderType)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting fabric network service provider")
+		return nil, errors.WithMessage(err, "failed getting fabric network service provider")
 	}
 	provider, ok := s.(*NetworkServiceProvider)
 	if !ok {

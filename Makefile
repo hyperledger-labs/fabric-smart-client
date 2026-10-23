@@ -8,8 +8,8 @@ TOP = .
 FABRIC_VERSION ?= 3.1.4
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 
-FABRIC_X_TOOLS_VERSION ?= v1.0.1
-FABRIC_X_COMMITTER_VERSION ?= 1.0.4
+FABRIC_X_TOOLS_VERSION ?= v1.0.3
+FABRIC_X_COMMITTER_VERSION ?= 1.0.7
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE ?= $(PWD)/../fabric
@@ -233,6 +233,7 @@ INTEGRATION_TARGETS += fabric-atsa
 INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-configupdate
 INTEGRATION_TARGETS += fabric-events
+INTEGRATION_TARGETS += fabric-faultrecovery
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
 # them as parallel matrix entries rather than serially in one job.
@@ -251,6 +252,7 @@ INTEGRATION_TARGETS += fabricx-simple
 INTEGRATION_TARGETS += fabricx-deployment
 INTEGRATION_TARGETS += fabricx-multiendorsement
 INTEGRATION_TARGETS += fabricx-configupdate
+INTEGRATION_TARGETS += fabricx-faultrecovery
 
 # Targets are normally named <platform>-<suite> and map onto
 # ./integration/<platform>/<suite>. Targets that run one suite under a

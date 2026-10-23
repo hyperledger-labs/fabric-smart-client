@@ -448,7 +448,7 @@ func unmarshalTxs(block *common.Block) ([]CommitTx, error) {
 	for i, tx := range block.Data.Data {
 		env, _, chdr, err := fabricutils.UnmarshalTx(tx)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unmarshal tx failed")
+			return nil, errors.Wrap(err, "unmarshal tx failed")
 		}
 		txs[i] = CommitTx{
 			BlkNum:   block.Header.Number,
@@ -627,23 +627,23 @@ func (c *Committer) applyConfigCommit(ctx context.Context, txID driver2.TxID, bl
 
 	rws, err := c.Vault.NewRWSet(ctx, txID)
 	if err != nil {
-		return errors.Wrapf(err, "cannot create rws for configtx")
+		return errors.Wrap(err, "cannot create rws for configtx")
 	}
 	defer rws.Done()
 
 	key, err := compose.CreateCompositeKey(&strings.Builder{}, channelConfigKey, strconv.FormatUint(seq, 10))
 	if err != nil {
-		return errors.Wrapf(err, "cannot create configtx rws key")
+		return errors.Wrap(err, "cannot create configtx rws key")
 	}
 	if err := rws.SetState(peerNamespace, key, envelope); err != nil {
-		return errors.Wrapf(err, "failed setting configtx state in rws")
+		return errors.Wrap(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
 	if err := c.CommitTX(ctx, txID, blockNumber, 0, nil); err != nil {
 		if err2 := c.DiscardTx(ctx, txID, err.Error()); err2 != nil {
 			c.logger.Errorf("failed committing configtx rws [%s]", err2)
 		}
-		return errors.Wrapf(err, "failed committing configtx rws")
+		return errors.Wrap(err, "failed committing configtx rws")
 	}
 	return nil
 }
@@ -667,7 +667,7 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 				// Then match rwsets
 				c.logger.DebugfContext(ctx, "Extract stored env to vault")
 				if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
-					return errors.WithMessagef(err, "failed to load stored envelope into the vault")
+					return errors.WithMessage(err, "failed to load stored envelope into the vault")
 				}
 				c.logger.DebugfContext(ctx, "Match RWSet")
 				if err := c.Vault.Match(ctx, txID, pt.Results()); err != nil {

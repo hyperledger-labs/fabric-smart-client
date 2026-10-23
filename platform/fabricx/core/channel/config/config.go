@@ -78,7 +78,7 @@ func NewConfig(configService driver.ConfigService) (*Config, error) {
 
 	// Validate configuration
 	if err := c.Validate(); err != nil {
-		return nil, errors.WithMessagef(err, "invalid channel configuration monitor")
+		return nil, errors.WithMessage(err, "invalid channel configuration monitor")
 	}
 
 	return c, nil

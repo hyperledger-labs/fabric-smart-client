@@ -70,7 +70,7 @@ func buildProvider(mspConfigPath, keyStorePath, mspID string, signerService Sign
 	if signerService != nil {
 		err = signerService.RegisterSigner(context.Background(), idRaw, sID, sID)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed registering x509 signer")
+			return nil, errors.Wrap(err, "failed registering x509 signer")
 		}
 	}
 	enrollmentID, err := GetEnrollmentID(idRaw)
@@ -88,7 +88,7 @@ func (p *Provider) IsRemote() bool {
 func (p *Provider) Identity(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 	revocationHandle, err := GetRevocationHandle(p.id)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed getting revocation handle")
+		return nil, nil, errors.Wrap(err, "failed getting revocation handle")
 	}
 	ai := &AuditInfo{
 		EnrollmentId:     p.enrollmentID,

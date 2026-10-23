@@ -177,7 +177,7 @@ func (s *Client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 func decodeResponse(sc *protos2.SignedCommand, scr *protos2.SignedCommandResponse) (*protos2.CommandResponse, error) {
 	commandResp := &protos2.CommandResponse{}
 	if err := proto.Unmarshal(scr.Response, commandResp); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal command response")
+		return nil, errors.Wrap(err, "failed to unmarshal command response")
 	}
 	want := sha256.Sum256(sc.Command)
 	if !bytes.Equal(commandResp.GetHeader().GetCommandHash(), want[:]) {
@@ -204,7 +204,7 @@ func (s *Client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (
 	if err := scc.Send(sc); err != nil {
 		_ = scc.CloseSend()
 		_ = closer.Close()
-		return nil, nil, errors.Wrapf(err, "failed to send signed command")
+		return nil, nil, errors.Wrap(err, "failed to send signed command")
 	}
 	return closer, scc, nil
 }

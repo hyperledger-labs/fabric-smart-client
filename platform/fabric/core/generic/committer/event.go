@@ -60,7 +60,7 @@ func readChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEve
 	}
 	chaincodeEventData, err := protoutil.UnmarshalChaincodeEvents(chaincodeAction.GetEvents())
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error getting chaincode event from chaincode actions")
+		return nil, errors.Wrap(err, "Error getting chaincode event from chaincode actions")
 	}
 
 	if !validChaincodeEvent(chaincodeEventData) {

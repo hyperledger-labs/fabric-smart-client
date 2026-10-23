@@ -78,7 +78,7 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 
 	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "VSCC error: GetPayload failed")
+		return nil, nil, errors.Wrap(err, "VSCC error: GetPayload failed")
 	}
 
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.GetHeader().GetChannelHeader())

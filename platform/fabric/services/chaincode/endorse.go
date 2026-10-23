@@ -34,7 +34,7 @@ func (i *endorseChaincodeView) Call(viewCtx view.Context) (any, error) {
 
 func (i *endorseChaincodeView) Endorse(viewCtx view.Context) (*fabric.Envelope, error) {
 	if len(i.ChaincodeName) == 0 {
-		return nil, errors.Errorf("no chaincode specified")
+		return nil, errors.New("no chaincode specified")
 	}
 
 	fNetwork, err := fabric.GetFabricNetworkService(viewCtx, i.Network)

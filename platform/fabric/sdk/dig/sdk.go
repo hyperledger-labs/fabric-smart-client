@@ -141,7 +141,7 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	}
 
 	if err := p.fnsProvider.Start(ctx); err != nil {
-		return errors.Wrapf(err, "failed starting fabric network service provider")
+		return errors.Wrap(err, "failed starting fabric network service provider")
 	}
 
 	go func() {
@@ -170,7 +170,7 @@ func registerProcessorsForDrivers(in struct {
 		logger.Infof("trying to install for driver: %s", d.Name)
 		c, err := in.CoreConfig.Config(in.CoreConfig.DefaultName())
 		if err != nil {
-			return errors.Wrapf(err, "failed getting config for default fabric network")
+			return errors.Wrap(err, "failed getting config for default fabric network")
 		}
 		if c.Driver != d.Name {
 			logger.Infof("Skipping registration of default network, because its driver is %s. We are registering %s", c.Driver, d.Name)

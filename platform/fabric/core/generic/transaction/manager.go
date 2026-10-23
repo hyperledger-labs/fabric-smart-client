@@ -75,7 +75,7 @@ func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, r
 func (m *Manager) NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
 	cht, err := GetChannelHeaderType(raw)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to extract channel header type")
+		return nil, errors.WithMessage(err, "failed to extract channel header type")
 	}
 
 	factory, ok := m.factories[driver.TransactionType(cht)]

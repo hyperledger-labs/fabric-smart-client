@@ -70,11 +70,11 @@ func NewCmd() *cobra.Command {
 
 func validateInput(config *Config) error {
 	if config.Address == "" {
-		return errors.Errorf("endpoint must be specified")
+		return errors.New("endpoint must be specified")
 	}
 
 	if function == "" {
-		return errors.Errorf("function name must be specified")
+		return errors.New("function name must be specified")
 	}
 
 	// Check if input is to be read from stdin

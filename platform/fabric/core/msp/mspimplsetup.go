@@ -31,7 +31,7 @@ func (msp *bccspmsp) getCertifiersIdentifier(certRaw []byte) ([]byte, error) {
 	// 2. Sanitize it to ensure like for like comparison
 	cert, err = msp.sanitizeCert(cert)
 	if err != nil {
-		return nil, errors.Wrapf(err, "sanitizeCert failed")
+		return nil, errors.Wrap(err, "sanitizeCert failed")
 	}
 
 	found := false
@@ -711,7 +711,7 @@ func (msp *bccspmsp) postSetupV11(conf *m.FabricMSPConfig) error {
 	// Check that admins are clients
 	principalBytes, err := proto.Marshal(&m.MSPRole{Role: m.MSPRole_CLIENT, MspIdentifier: msp.name})
 	if err != nil {
-		return errors.Wrapf(err, "failed creating MSPRole_CLIENT")
+		return errors.Wrap(err, "failed creating MSPRole_CLIENT")
 	}
 	principal := &m.MSPPrincipal{
 		PrincipalClassification: m.MSPPrincipal_ROLE,

@@ -74,7 +74,7 @@ var _ = Describe("EndToEnd", func() {
 
 			// A command signed by an identity the initiator does not authorize is rejected:
 			// the responder's identity is a valid certificate of the same organization, but
-			// neither the initiator's own nor on its fsc.client.certs.
+			// neither the initiator's own nor on its fsc.view.remote.clients.
 			crypto := "./testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/"
 			stranger, err := client3.NewX509SigningIdentity(crypto+"signcerts/responder.fsc.example.com-cert.pem", crypto+"keystore/priv_sk")
 			Expect(err).NotTo(HaveOccurred())

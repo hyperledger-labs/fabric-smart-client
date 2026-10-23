@@ -55,7 +55,7 @@ func NewProvider(configProvider ConfigProvider, sigService SigService, endpointS
 		kms:             kms,
 	}
 	if err := p.Load(); err != nil {
-		return nil, errors.Wrapf(err, "failed loading identities")
+		return nil, errors.Wrap(err, "failed loading identities")
 	}
 	return p, nil
 }
@@ -74,11 +74,11 @@ func GetProvider(sp services.Provider) (*Provider, error) {
 
 func (p *Provider) Load() error {
 	if err := p.loadDefaultIdentity(); err != nil {
-		return errors.WithMessagef(err, "failed loading default identity")
+		return errors.WithMessage(err, "failed loading default identity")
 	}
 
 	if err := p.loadClientIdentities(); err != nil {
-		return errors.WithMessagef(err, "failed loading client identities")
+		return errors.WithMessage(err, "failed loading client identities")
 	}
 
 	return nil
@@ -104,28 +104,28 @@ func (p *Provider) Clients() []view.Identity {
 func (p *Provider) loadDefaultIdentity() error {
 	id, signer, verifier, err := p.kms.Load(p.configProvider)
 	if err != nil {
-		return errors.Wrapf(err, "failed loading default signer")
+		return errors.Wrap(err, "failed loading default signer")
 	}
 
 	if err := p.sigService.RegisterSigner(context.Background(), id, signer, verifier); err != nil {
-		return errors.Wrapf(err, "failed registering default identity signer")
+		return errors.Wrap(err, "failed registering default identity signer")
 	}
 	p.defaultID = id
 	return nil
 }
 
 func (p *Provider) loadClientIdentities() error {
-	certs := p.configProvider.GetStringSlice("fsc.client.certs")
+	// fsc.view.remote can only hold clients when the remote view API is enabled; the SDK
+	// rejects the key otherwise before this runs.
+	certs := p.configProvider.GetStringSlice("fsc.view.remote.clients")
 	var clients []view.Identity
 	for _, cert := range certs {
-		// TODO: support cert as a folder
 		certPath := p.configProvider.TranslatePath(cert)
 		client, err := LoadIdentity(certPath)
 		if err != nil {
-			logger.Errorf("failed loading client cert at [%s]: [%s]", certPath, err)
-			continue
+			// A dropped allowlist entry would lock that caller out with no visible cause.
+			return errors.Wrapf(err, "failed loading client cert [%s]", certPath)
 		}
-		logger.Debugf("loaded client cert at [%s]: [%s]", certPath, err)
 		clients = append(clients, client)
 	}
 	logger.Debugf("loaded [%d] client identities", len(clients))

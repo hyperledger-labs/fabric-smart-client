@@ -51,7 +51,7 @@ func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID
 		return nil, errors.Wrap(err, "could not deserialize a SerializedIdemixIdentity")
 	}
 	if serialized.NymX == nil || serialized.NymY == nil {
-		return nil, errors.Errorf("unable to deserialize idemix identity: pseudonym is invalid")
+		return nil, errors.New("unable to deserialize idemix identity: pseudonym is invalid")
 	}
 
 	// Import NymPublicKey

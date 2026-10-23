@@ -193,7 +193,7 @@ func (p *FSNProvider) InitFabricLogging() {
 func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error) {
 	fnsConfig, err := NewConfig(p.configService)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to load configuration")
+		return nil, errors.WithMessage(err, "failed to load configuration")
 	}
 
 	netConfig, err := fnsConfig.Config(network)
@@ -235,7 +235,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 func GetFabricNetworkServiceProvider(sp services.Provider) (driver.FabricNetworkServiceProvider, error) {
 	s, err := sp.GetService(fabricNetworkServiceType)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting fabric network service provider")
+		return nil, errors.Wrap(err, "failed getting fabric network service provider")
 	}
 	provider, ok := s.(driver.FabricNetworkServiceProvider)
 	if !ok {

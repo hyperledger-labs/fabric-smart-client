@@ -36,7 +36,7 @@ func (*IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 			var err error
 			bccspOpts, err = ToBCCSPOpts(bccspOptsBoxed)
 			if err != nil {
-				return errors.Wrapf(err, "failed to unmarshal BCCSP opts")
+				return errors.Wrap(err, "failed to unmarshal BCCSP opts")
 			}
 			logger.Debugf("Options unmarshalled [%v]", bccspOpts)
 		}

@@ -32,11 +32,6 @@ func TestNewDeserializer(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 	require.Nil(t, verifier)
 
-	// Test DeserializeVerifierAgainstNymEID with invalid input
-	verifierEID, err := deserializer.DeserializeVerifierAgainstNymEID(nil, nil)
-	require.Error(t, err)
-	require.Nil(t, verifierEID)
-
 	// Test DeserializeAuditInfo with invalid input
 	auditInfo, err := deserializer.DeserializeAuditInfo(nil)
 	require.Error(t, err)

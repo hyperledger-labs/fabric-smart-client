@@ -53,7 +53,7 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error querying db")
+		return nil, errors.Wrap(err, "error querying db")
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -61,12 +61,12 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 	for rows.Next() {
 		var idHash string
 		if err := rows.Scan(&idHash); err != nil {
-			return nil, errors.Wrapf(err, "failed scanning row")
+			return nil, errors.Wrap(err, "failed scanning row")
 		}
 		existingSigners = append(existingSigners, inverseMap[idHash])
 	}
 	if err := rows.Err(); err != nil {
-		return nil, errors.Wrapf(err, "error iterating rows")
+		return nil, errors.Wrap(err, "error iterating rows")
 	}
 	logger.DebugfContext(ctx, "Found %d out of %d signers", len(existingSigners), len(ids))
 	return existingSigners, nil

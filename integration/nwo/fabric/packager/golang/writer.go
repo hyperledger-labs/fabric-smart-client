@@ -32,7 +32,7 @@ func WriteBytesToPackage(raw []byte, localpath, packagepath string, tw *tar.Writ
 
 	header, err := tar.FileInfoHeader(fi, localpath)
 	if err != nil {
-		return errors.Wrapf(err, "failed calculating FileInfoHeader")
+		return errors.Wrap(err, "failed calculating FileInfoHeader")
 	}
 
 	// Take the variance out of the tar by using zero time and fixed uid/gid.
@@ -76,7 +76,7 @@ func WriteFileToPackage(localpath, packagepath string, tw *tar.Writer) error {
 
 	header, err := tar.FileInfoHeader(fi, localpath)
 	if err != nil {
-		return errors.Wrapf(err, "failed calculating FileInfoHeader")
+		return errors.Wrap(err, "failed calculating FileInfoHeader")
 	}
 
 	// Take the variance out of the tar by using zero time and fixed uid/gid.

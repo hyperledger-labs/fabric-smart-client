@@ -82,7 +82,7 @@ func TestRetryBlockTransient(t *testing.T) {
 		c.commitBlock = func(context.Context, *common.Block) error {
 			// Fail twice with a wrapped deadlock, as the vault would, then succeed.
 			if calls.Add(1) <= 2 {
-				return errors.Wrapf(dbdriver.DeadlockDetected, "failed committing tx")
+				return errors.Wrap(dbdriver.DeadlockDetected, "failed committing tx")
 			}
 			return nil
 		}
@@ -130,7 +130,7 @@ func TestRetryBlockTransient(t *testing.T) {
 		c := newRetryCommitter(t)
 		c.commitBlock = func(context.Context, *common.Block) error {
 			calls.Add(1)
-			return errors.Wrapf(dbdriver.SqlBusy, "still busy")
+			return errors.Wrap(dbdriver.SqlBusy, "still busy")
 		}
 
 		err := c.Commit(t.Context(), testBlock(9))
@@ -157,7 +157,7 @@ func TestRetryBlockTransient(t *testing.T) {
 		c := newRetryCommitter(t)
 		c.commitBlock = func(context.Context, *common.Block) error {
 			calls.Add(1)
-			return errors.Wrapf(fdriver.ErrConfigRejected, "failed updating membership service")
+			return errors.Wrap(fdriver.ErrConfigRejected, "failed updating membership service")
 		}
 
 		err := c.Commit(t.Context(), testBlock(11))
@@ -206,7 +206,7 @@ func TestRetryBlockTransient(t *testing.T) {
 		c := newRetryCommitter(t)
 		c.commitBlock = func(context.Context, *common.Block) error {
 			cancel() // the caller gives up while a transient fault is in progress
-			return errors.Wrapf(dbdriver.DeadlockDetected, "vault contention")
+			return errors.Wrap(dbdriver.DeadlockDetected, "vault contention")
 		}
 
 		err := c.Commit(ctx, testBlock(25))

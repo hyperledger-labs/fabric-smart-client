@@ -78,7 +78,7 @@ The `P2PNode` uses a **bounded worker pool** to dispatch incoming messages. This
 The Comm layer uses an **atomic lease mechanism** to prevent race conditions between sending messages and closing streams. When a session attempts to use a cached stream, it must successfully "lease" the stream by atomically incrementing its reference counter (`refCtr`) using compare-and-swap operations. This ensures that:
 - A stream cannot be leased if it's already marked as closed or dead
 - Multiple sessions can safely share the same physical stream
-- Stream closure only occurs when all leases are released (refCtr reaches 0)
+- On a host with per-session streams (websocket), the stream is closed when all leases are released (refCtr reaches 0). A host whose streams are shared by all sessions to a peer (libp2p, see [libp2p.md](libp2p.md)) keeps the stream open, because the remote may still reply on it for another session
 - The first message sent over a freshly created stream is delivered reliably even if concurrent operations attempt to close it
 
 This prevents the race condition where a message appears to send successfully but the stream is closed immediately after, causing the remote peer to receive an EOF and drop the message.

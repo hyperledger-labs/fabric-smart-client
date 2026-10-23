@@ -27,7 +27,7 @@ type Deserializer struct {
 func NewDeserializer(ipk []byte) (*Deserializer, error) {
 	bccsp, err := NewBCCSP(math.FP256BN_AMCL)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to instantiate bccsp")
+		return nil, errors.WithMessage(err, "failed to instantiate bccsp")
 	}
 	return NewDeserializerWithBCCSP(ipk, csp.BestEffort, nil, bccsp)
 }
@@ -68,19 +68,6 @@ func NewDeserializerWithBCCSP(ipk []byte, verType csp.VerificationType, nymEID [
 
 func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	identity, err := i.Deserialize(raw, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return &NymSignatureVerifier{
-		CSP:   i.Csp,
-		IPK:   i.IssuerPublicKey,
-		NymPK: identity.NymPublicKey,
-	}, nil
-}
-
-func (i *Deserializer) DeserializeVerifierAgainstNymEID(raw, nymEID []byte) (driver.Verifier, error) {
-	identity, err := i.DeserializeAgainstNymEID(raw, true, nymEID)
 	if err != nil {
 		return nil, err
 	}

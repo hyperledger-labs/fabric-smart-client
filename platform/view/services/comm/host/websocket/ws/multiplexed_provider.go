@@ -239,7 +239,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	}
 	if err != nil {
 		logger.Errorf("Failed to open websocket connection from [%s] to [%s@%s]: %s", src, info.RemotePeerID, info.RemotePeerAddress, err.Error())
-		dialErr := errors.Wrapf(err, "failed to open websocket")
+		dialErr := errors.Wrap(err, "failed to open websocket")
 
 		c.mu.Lock()
 		delete(c.dialing, key)
@@ -305,12 +305,12 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
 	expectedPeerID, err := expectedPeerIDFromRequest(request)
 	if err != nil {
-		return errors.Wrapf(err, "failed extracting expected peerID from TLS certificate")
+		return errors.Wrap(err, "failed extracting expected peerID from TLS certificate")
 	}
 
 	conn, err := server.OpenWSServerConnWithLimit(writer, request, wireReadLimit(c.MaxRecvMsgSize))
 	if err != nil {
-		return errors.Wrapf(err, "failed to open websocket")
+		return errors.Wrap(err, "failed to open websocket")
 	}
 
 	c.mu.Lock()
@@ -383,7 +383,7 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	err = c.write(MultiplexedMessage{ID: sc.id, Msg: payload})
 	if err != nil {
 		_ = sc.Close()
-		return nil, errors.Wrapf(err, "failed to send meta message")
+		return nil, errors.Wrap(err, "failed to send meta message")
 	}
 	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
 	// The sub-connection is cached and reused across multiple calls (e.g. multiple rounds of

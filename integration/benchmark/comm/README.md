@@ -33,7 +33,3 @@ benchstat -col /transport comm.txt   # websocket vs libp2p side by side
 ```
 
 Logs are off by default so that they do not interleave with results; set `FSC_LOGSPEC` (e.g. `error` or `fsc.platform.view.services.comm=debug:error`) to see them.
-
-## Known libp2p limitation
-
-libp2p keys its stream cache by remote peer only (`streamHash` in `host/libp2p/stream.go`), so every session to a peer shares the same streams. When one session closes, it can close the stream on which the responder is about to reply to the next session, and that reply is lost. Opening and closing sessions back to back loses a reply in about half of runs, so `BenchmarkSessionSetup/transport=libp2p` is skipped unless `COMM_BENCH_LIBP2P_SETUP=1` is set. The other benchmarks keep their sessions open until the nodes stop and are not affected. Websocket keys streams per session and is not affected either.

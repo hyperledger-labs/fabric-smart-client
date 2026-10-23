@@ -99,7 +99,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	conn, err := web2.OpenWSClientConn(url.String(), config)
 	if err != nil {
 		logger.Errorf("Dial failed: %s", err.Error())
-		return nil, errors.Wrapf(err, "failed to open websocket")
+		return nil, errors.Wrap(err, "failed to open websocket")
 	}
 	if tlsEnabled {
 		if err := verifyServerPeerID(conn, info.RemotePeerID); err != nil {
@@ -125,7 +125,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	err = conn.WriteJSON(&meta)
 	if err != nil {
 		_ = conn.Close()
-		return nil, errors.Wrapf(err, "failed to send meta message")
+		return nil, errors.Wrap(err, "failed to send meta message")
 	}
 	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
 	// The stream is cached and reused across multiple calls (e.g. multiple rounds of a
@@ -144,12 +144,12 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
 	expectedPeerID, err := expectedPeerIDFromRequest(request)
 	if err != nil {
-		return errors.Wrapf(err, "failed extracting expected peerID from TLS certificate")
+		return errors.Wrap(err, "failed extracting expected peerID from TLS certificate")
 	}
 
 	conn, err := server.OpenWSServerConn(writer, request)
 	if err != nil {
-		return errors.Wrapf(err, "failed to open websocket")
+		return errors.Wrap(err, "failed to open websocket")
 	}
 	logger.Debugf("Successfully opened server-side websocket")
 	streamTransferred := false
@@ -161,7 +161,7 @@ func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *ht
 
 	var meta StreamMeta
 	if err := conn.ReadJSON(&meta); err != nil {
-		return errors.Wrapf(err, "failed to read meta info")
+		return errors.Wrap(err, "failed to read meta info")
 	}
 
 	// SECURITY INVARIANT: We MUST NOT trust the PeerID provided by the client in the metadata.

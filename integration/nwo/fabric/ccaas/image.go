@@ -40,7 +40,7 @@ func ensureImagePresentWith(ref string, inspect imageInspector) error {
 func dockerImageInspector(image string) (bool, error) {
 	cli, err := dcli.New(dcli.FromEnv)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to create docker client")
+		return false, errors.Wrap(err, "failed to create docker client")
 	}
 	defer func() { _ = cli.Close() }()
 	if _, err := cli.ImageInspect(context.Background(), image); err != nil {

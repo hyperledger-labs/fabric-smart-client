@@ -9,7 +9,7 @@ replace (
 )
 
 require (
-	github.com/IBM/idemix v0.2.0
+	github.com/IBM/idemix v0.3.1
 	github.com/containerd/errdefs v1.0.0
 	github.com/hyperledger-labs/fabric-smart-client v0.0.0-00010101000000-000000000000
 	github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query v0.0.0-00010101000000-000000000000
@@ -18,7 +18,7 @@ require (
 	github.com/hyperledger/fabric-contract-api-go/v2 v2.2.4
 	github.com/hyperledger/fabric-lib-go v1.1.5
 	github.com/hyperledger/fabric-protos-go-apiv2 v0.3.7
-	github.com/hyperledger/fabric-x-common v0.2.8
+	github.com/hyperledger/fabric-x-common v0.2.12
 	github.com/jaegertracing/jaeger-idl v0.14.0
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/file v1.2.1

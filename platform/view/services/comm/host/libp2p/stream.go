@@ -40,7 +40,10 @@ func (s *stream) Close() error {
 	return err
 }
 
+// streamHash keys streams by remote peer only, so all sessions to a peer share its streams.
+// An incoming stream carries no session metadata, so a per-session key would never match it and
+// every reply would open a second stream, quickly reaching libp2p's per-peer stream limit.
+// Shared streams are not closed when a session closes (see SharedStreams).
 func streamHash(info host2.StreamInfo) host2.StreamHash {
-	// This allows us to recycle the streams towards the same peer
 	return info.RemotePeerID
 }

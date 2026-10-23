@@ -58,6 +58,15 @@ type P2PHost interface {
 	io.Closer
 }
 
+// SharedStreamsHost is an optional interface for a P2PHost whose StreamHash ignores the session,
+// so one stream carries the messages of many sessions to the same peer. The comm layer does not
+// close such a stream when the last local session using it closes, because the remote may still
+// reply on it for another session. The stream is removed when reading from it fails and closed
+// when the node stops.
+type SharedStreamsHost interface {
+	SharedStreams() bool
+}
+
 type P2PStream interface {
 	// RemotePeerID returns the peerID of the peer we are connected to (passed with P2PHost.NewStream)
 	RemotePeerID() PeerID

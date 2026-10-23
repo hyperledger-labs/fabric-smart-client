@@ -37,7 +37,7 @@ func TestHandleIncoming_ReadErrorCounted(t *testing.T) {
 	}{
 		{name: "running", err: errors.New("read failed"), want: 1},
 		{name: "stopping", err: errors.New("read failed"), stopping: true, want: 0},
-		{name: "clean EOF", err: errors.Wrapf(io.EOF, "failed reading data"), want: 0},
+		{name: "clean EOF", err: errors.Wrap(io.EOF, "failed reading data"), want: 0},
 		{name: "truncated message", err: io.ErrUnexpectedEOF, want: 1},
 		{name: "already closed", err: errors.New("read failed"), closed: true, want: 0},
 	} {

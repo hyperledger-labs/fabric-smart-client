@@ -9,6 +9,7 @@ package vault
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,6 +23,10 @@ type mockVaultStore struct {
 	statuses map[driver.TxID]*driver.TxStatus
 	storeErr error
 	setErr   error
+	// getCalls counts GetTxStatus calls that reached the backing store, which
+	// is how the benchmarks derive a cache hit rate. Atomic because the
+	// parallel benchmark reads through this mock from many goroutines.
+	getCalls atomic.Int64
 }
 
 func newMockVaultStore() *mockVaultStore {
@@ -29,6 +34,8 @@ func newMockVaultStore() *mockVaultStore {
 }
 
 func (m *mockVaultStore) GetTxStatus(_ context.Context, txID driver.TxID) (*driver.TxStatus, error) {
+	m.getCalls.Add(1)
+
 	s, ok := m.statuses[txID]
 	if !ok {
 		return nil, nil

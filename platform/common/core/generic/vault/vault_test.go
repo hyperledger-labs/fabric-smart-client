@@ -106,7 +106,7 @@ func (*marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string) 
 	source := &ReadWriteSet{}
 	err := json.Unmarshal(raw, source)
 	if err != nil {
-		return errors.Wrapf(err, "provided invalid read-write set bytes, unmarshal failed")
+		return errors.Wrap(err, "provided invalid read-write set bytes, unmarshal failed")
 	}
 
 	namespaces := collections.NewSet(nss...)

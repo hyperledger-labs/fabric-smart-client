@@ -18,7 +18,7 @@ import (
 type IdentityProvider interface {
 	// DefaultIdentity returns the node's default identity, which is always authorized.
 	DefaultIdentity() view2.Identity
-	// Clients returns the additional identities authorized to submit commands (fsc.client.certs).
+	// Clients returns the additional identities authorized to submit commands (fsc.view.remote.clients).
 	Clients() []view2.Identity
 }
 

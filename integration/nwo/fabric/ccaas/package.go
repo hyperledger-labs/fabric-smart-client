@@ -41,12 +41,12 @@ type metadata struct {
 //	    connection.json     <conn>
 func BuildPackage(outputFile, label string, conn Connection) error {
 	if err := os.MkdirAll(filepath.Dir(outputFile), 0o755); err != nil {
-		return errors.Wrapf(err, "failed to create package dir")
+		return errors.Wrap(err, "failed to create package dir")
 	}
 
 	code, err := tarGz([]tarEntry{{Name: "connection.json", Data: mustJSON(conn)}})
 	if err != nil {
-		return errors.Wrapf(err, "failed to build code.tar.gz")
+		return errors.Wrap(err, "failed to build code.tar.gz")
 	}
 	md := mustJSON(metadata{Type: "ccaas", Label: label})
 	pkg, err := tarGz([]tarEntry{
@@ -54,7 +54,7 @@ func BuildPackage(outputFile, label string, conn Connection) error {
 		{Name: "code.tar.gz", Data: code},
 	})
 	if err != nil {
-		return errors.Wrapf(err, "failed to build package")
+		return errors.Wrap(err, "failed to build package")
 	}
 	if err := os.WriteFile(outputFile, pkg, 0o644); err != nil {
 		return errors.Wrapf(err, "failed to write package %s", outputFile)

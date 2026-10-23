@@ -83,7 +83,7 @@ func Deliver(n *Network, o *topology.Orderer, env *common.Envelope) (*common.Blo
 
 	blk := resp.GetBlock()
 	if blk == nil {
-		return nil, errors.Errorf("block not found")
+		return nil, errors.New("block not found")
 	}
 
 	return blk, nil

@@ -44,7 +44,7 @@ func NewFabricFinality(
 	useFiltered bool,
 ) (*FabricFinality, error) {
 	if len(channel) == 0 {
-		return nil, errors.Errorf("expected a channel, got empty string")
+		return nil, errors.New("expected a channel, got empty string")
 	}
 
 	d := &FabricFinality{

@@ -260,6 +260,43 @@ func TestStreamLeak(t *testing.T) { //nolint:paralleltest
 	assert.Equal(t, int64(0), sh.refCtr.Load(), "refCtr should be 0 after session close")
 }
 
+type sharedStreamsHost struct {
+	mockHost
+}
+
+func (*sharedStreamsHost) SharedStreams() bool { return true }
+
+func TestReleaseClosesOnlyUnsharedStreams(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name       string
+		host       host2.P2PHost
+		wantClosed bool
+	}{
+		{name: "per-session streams", host: &mockHost{}, wantClosed: true},
+		{name: "shared streams", host: &sharedStreamsHost{}, wantClosed: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p, err := NewNode(t.Context(), tc.host, &disabled.Provider{})
+			require.NoError(t, err)
+
+			session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
+			require.NoError(t, err)
+			require.NoError(t, session.Send(t.Context(), []byte("hello")))
+
+			p.streamsMutex.RLock()
+			require.Len(t, p.streams["hash"], 1)
+			sh := p.streams["hash"][0]
+			p.streamsMutex.RUnlock()
+
+			session.Close()
+			assert.Zero(t, sh.refCtr.Load())
+			assert.Equal(t, tc.wantClosed, sh.isClosed())
+		})
+	}
+}
+
 func TestDispatcherSkipsLeaseOnClosingSession(t *testing.T) { //nolint:paralleltest
 	metricsProvider := &mockMetricsProvider{counter: &mockCounter{}}
 	p, err := NewNode(context.Background(), &mockHost{}, metricsProvider)

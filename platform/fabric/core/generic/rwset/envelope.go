@@ -50,7 +50,7 @@ func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, 
 		return nil, err
 	}
 	if payl.Header == nil {
-		return nil, errors.Errorf("payload header is nil")
+		return nil, errors.New("payload header is nil")
 	}
 
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
@@ -86,7 +86,7 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 		return nil, err
 	}
 	if len(tx.Actions) == 0 {
-		return nil, errors.Errorf("VSCC error: transaction has no actions")
+		return nil, errors.New("VSCC error: transaction has no actions")
 	}
 
 	actionPayload, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
@@ -105,20 +105,20 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 		return nil, err
 	}
 	if cis.ChaincodeSpec == nil {
-		return nil, errors.Errorf("chaincode invocation spec did not contain chaincode spec")
+		return nil, errors.New("chaincode invocation spec did not contain chaincode spec")
 	}
 	if cis.ChaincodeSpec.Input == nil {
-		return nil, errors.Errorf("chaincode input did not contain any input")
+		return nil, errors.New("chaincode input did not contain any input")
 	}
 	if len(cis.ChaincodeSpec.Input.Args) == 0 {
-		return nil, errors.Errorf("chaincode input has no arguments")
+		return nil, errors.New("chaincode input has no arguments")
 	}
 	if cis.ChaincodeSpec.ChaincodeId == nil {
-		return nil, errors.Errorf("chaincode invocation spec did not contain chaincode id")
+		return nil, errors.New("chaincode invocation spec did not contain chaincode id")
 	}
 
 	if actionPayload.Action == nil {
-		return nil, errors.Errorf("VSCC error: chaincode action payload has no action")
+		return nil, errors.New("VSCC error: chaincode action payload has no action")
 	}
 	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(actionPayload.Action.ProposalResponsePayload)
 	if err != nil {
@@ -126,7 +126,7 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 		return nil, err
 	}
 	if pRespPayload.Extension == nil {
-		err = errors.Errorf("nil pRespPayload.Extension")
+		err = errors.New("nil pRespPayload.Extension")
 		return nil, err
 	}
 	respPayload, err := protoutil.UnmarshalChaincodeAction(pRespPayload.Extension)

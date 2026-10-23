@@ -22,7 +22,7 @@ func (PKIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 	case *ecdsa.PublicKey:
 		id, err := ecdsaPubKeyID(d)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to calculate ID of PK")
+			return nil, errors.Wrap(err, "failed to calculate ID of PK")
 		}
 		return id, nil
 	case []byte:
@@ -35,7 +35,7 @@ func (PKIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 func ecdsaPubKeyID(key *ecdsa.PublicKey) ([]byte, error) {
 	marshaledPubKey, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to marshal PK")
+		return nil, errors.Wrap(err, "failed to marshal PK")
 	}
 
 	h := sha256.Sum256(marshaledPubKey)

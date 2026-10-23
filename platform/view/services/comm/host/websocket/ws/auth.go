@@ -26,7 +26,7 @@ import (
 // verified that the client possesses the private key corresponding to this public key.
 func expectedPeerIDFromRequest(request *http.Request) (host2.PeerID, error) {
 	if request == nil {
-		return "", errors.Errorf("missing TLS connection state")
+		return "", errors.New("missing TLS connection state")
 	}
 	return peerIDFromConnectionState(request.TLS)
 }
@@ -44,7 +44,7 @@ func expectedPeerIDFromRequest(request *http.Request) (host2.PeerID, error) {
 func verifyServerPeerID(conn *websocket.Conn, expected host2.PeerID) error {
 	tlsConn, ok := conn.NetConn().(*tls.Conn)
 	if !ok {
-		return errors.Errorf("missing TLS connection state")
+		return errors.New("missing TLS connection state")
 	}
 	cs := tlsConn.ConnectionState()
 	actual, err := peerIDFromConnectionState(&cs)
@@ -59,24 +59,24 @@ func verifyServerPeerID(conn *websocket.Conn, expected host2.PeerID) error {
 
 func peerIDFromConnectionState(cs *tls.ConnectionState) (host2.PeerID, error) {
 	if cs == nil {
-		return "", errors.Errorf("missing TLS connection state")
+		return "", errors.New("missing TLS connection state")
 	}
 	if len(cs.PeerCertificates) == 0 {
-		return "", errors.Errorf("missing verified TLS peer certificate")
+		return "", errors.New("missing verified TLS peer certificate")
 	}
 	return peerIDFromCertificate(cs.PeerCertificates[0])
 }
 
 func peerIDFromCertificate(cert *x509.Certificate) (host2.PeerID, error) {
 	if cert == nil {
-		return "", errors.Errorf("nil certificate")
+		return "", errors.New("nil certificate")
 	}
 
 	switch k := cert.PublicKey.(type) {
 	case *ecdsa.PublicKey:
 		marshaledPubKey, err := x509.MarshalPKIXPublicKey(k)
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to marshal public key")
+			return "", errors.Wrap(err, "failed to marshal public key")
 		}
 		h := sha256.Sum256(marshaledPubKey)
 		return base64.StdEncoding.EncodeToString(h[:]), nil
