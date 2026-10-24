@@ -154,6 +154,37 @@ func TestVaultStoreRejectsMissingPrimaryKey(t *testing.T) {
 	require.ErrorContains(t, store.CreateSchema(), "has no primary key")
 }
 
+// A rebuild that fails partway rolls back: the staging table is gone, and the
+// state table keeps its rows and its (pkey, ns) key.
+func TestVaultStoreReorderFailureKeepsTable(t *testing.T) {
+	t.Parallel()
+
+	store := openSQLiteVault(t, "file:"+filepath.Join(t.TempDir(), "vault.db"), false)
+	ctx := t.Context()
+	table := store.tables.StateTable
+	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE "+table)
+	require.NoError(t, err)
+	// SQLite allows NULL in a non-integer primary key unless NOT NULL is
+	// declared, so the copy into the staging table, which declares it, fails
+	// after that table has been created.
+	_, err = store.writeDB.ExecContext(ctx, `CREATE TABLE `+table+` (
+		ns TEXT, pkey TEXT, val BYTEA, kversion BYTEA, metadata BYTEA,
+		PRIMARY KEY (pkey, ns)
+	)`)
+	require.NoError(t, err)
+	_, err = store.writeDB.ExecContext(ctx, "INSERT INTO "+table+" (ns, pkey, val, kversion) VALUES ('ns', 'k1', 'v', 'v'), (NULL, 'k2', 'v', 'v')")
+	require.NoError(t, err)
+
+	require.ErrorContains(t, store.CreateSchema(), "failed reordering primary key")
+	requireSQLitePrimaryKey(t, store, "pkey,ns")
+	requireState(t, store, "ns", "k1", "v")
+	var n int
+	require.NoError(t, store.readDB.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&n))
+	require.Equal(t, 2, n)
+	require.NoError(t, store.readDB.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_master WHERE name = ?", table+"_fsc_nskey").Scan(&n))
+	require.Zero(t, n)
+}
+
 // GetStateRange uses the (ns, pkey) index and does not sort.
 func TestVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	t.Parallel()
