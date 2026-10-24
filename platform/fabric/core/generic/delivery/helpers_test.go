@@ -174,6 +174,8 @@ func (m *mockConfigService) PickPeer(driver.PeerFunctionType) *grpc.ConnectionCo
 	return m.peerConf
 }
 
+func (*mockConfigService) ReportFailure(string) {}
+
 type mockServices struct {
 	peerClient services.PeerClient
 	err        error

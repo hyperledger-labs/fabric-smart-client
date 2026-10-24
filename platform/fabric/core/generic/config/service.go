@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -28,6 +29,8 @@ const (
 	defaultOrderingConnectionPoolSize = 10
 	defaultCacheSize                  = 100
 	defaultConnectionTimeout          = 10 * time.Second
+
+	endpointCooldown = 30 * time.Second
 
 	GenericDriver = "generic"
 )
@@ -62,6 +65,12 @@ type Service struct {
 	peerMapping        map[driver.PeerFunctionType][]*ConnectionConfig
 	channels           map[string]*Channel
 	defaultChannel     string
+
+	// mu guards failures, the time each endpoint address was last passed to ReportFailure.
+	mu       sync.Mutex
+	failures map[string]time.Time
+	// now is the clock the failure cooldown is measured against.
+	now func() time.Time
 }
 
 // NewService creates a new Service instance by reading and translating the
@@ -128,6 +137,8 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 		orderers:           orderers,
 		peerMapping:        peerMapping,
 		channels:           channelMap,
+		failures:           map[string]time.Time{},
+		now:                time.Now,
 		defaultChannel:     defaultChannel,
 	}, nil
 }
@@ -330,27 +341,61 @@ func (s *Service) SetConfigOrderers(orderers []*ConnectionConfig) error {
 	return nil
 }
 
+// PickOrderer returns a random orderer, skipping those in failure cooldown (see
+// ReportFailure). It returns nil if no orderer is configured.
 func (s *Service) PickOrderer() *ConnectionConfig {
-	if len(s.orderers) == 0 {
-		return nil
-	}
-	return s.orderers[rand.Intn(len(s.orderers))]
+	return s.pick(s.orderers)
 }
 
+// PickPeer returns a random peer serving ft, or any peer if none is configured for ft,
+// skipping those in failure cooldown (see ReportFailure). It returns nil if no peer is
+// configured.
 func (s *Service) PickPeer(ft driver.PeerFunctionType) *ConnectionConfig {
 	source, ok := s.peerMapping[ft]
 	if !ok {
 		source = s.peerMapping[driver.PeerForAnything]
 	}
-	if len(source) == 0 {
-		return nil
-	}
-	return source[rand.Intn(len(source))]
+	return s.pick(source)
+}
+
+// ReportFailure marks address as failed. For endpointCooldown after the call, PickPeer and
+// PickOrderer skip it, unless every candidate is cooling down, in which case any may be
+// picked. Safe for concurrent use.
+func (s *Service) ReportFailure(address string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failures[address] = s.now()
 }
 
 func (s *Service) IsChannelQuiet(name string) bool {
 	channel, ok := s.channels[name]
 	return ok && channel.Quiet
+}
+
+// pick returns a random entry of connections that is not in failure cooldown, falling back
+// to any entry when all are. It returns nil for an empty slice.
+func (s *Service) pick(connections []*ConnectionConfig) *ConnectionConfig {
+	if len(connections) == 0 {
+		return nil
+	}
+
+	var candidates []*ConnectionConfig
+	now := s.now()
+
+	s.mu.Lock()
+	for _, conn := range connections {
+		// An address never reported maps to the zero time, so it always passes.
+		if now.Sub(s.failures[conn.Address]) >= endpointCooldown {
+			candidates = append(candidates, conn)
+		}
+	}
+	s.mu.Unlock()
+
+	if len(candidates) == 0 {
+		return connections[rand.Intn(len(connections))]
+	}
+
+	return candidates[rand.Intn(len(candidates))]
 }
 
 // checkSizes rejects size settings the components built from this network cannot work with:

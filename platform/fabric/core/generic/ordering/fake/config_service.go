@@ -52,3 +52,5 @@ func (c *ConfigService) PickOrderer() *grpc.ConnectionConfig {
 	}
 	return nil
 }
+
+func (*ConfigService) ReportFailure(string) {}
