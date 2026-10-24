@@ -93,8 +93,12 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	return tx.Commit()
 }
 
-// CreateSchema creates the status and state tables if they do not exist, then
-// ensures the state table stores pkey as BYTEA (see convertTextKeys).
+// CreateSchema creates the status and state tables if they do not exist. The
+// state table's primary key is (ns, pkey). An existing table is then brought to
+// that layout: pkey is converted from TEXT to BYTEA when needed (see
+// convertTextKeys), and a primary key of (pkey, ns) is reordered to (ns, pkey).
+// Each step locks the table only when a change is required, and replicas
+// sharing the database perform each change once.
 func (db *VaultStore) CreateSchema() error {
 	if err := common.InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
@@ -111,14 +115,17 @@ func (db *VaultStore) CreateSchema() error {
 		val BYTEA,
 		kversion BYTEA,
 		metadata BYTEA,
-		PRIMARY KEY (pkey, ns)
+		PRIMARY KEY (ns, pkey)
 	);`, db.tables.StatusTable,
 		driver.Unknown,
 		db.tables.StatusTable, db.tables.StatusTable,
 		db.tables.StateTable)); err != nil {
 		return err
 	}
-	return db.convertTextKeys()
+	if err := db.convertTextKeys(); err != nil {
+		return err
+	}
+	return db.reorderPrimaryKey()
 }
 
 // convertTextKeys converts a state table whose pkey column is TEXT to BYTEA in
@@ -184,4 +191,65 @@ func (db *VaultStore) pkeyType(q rowQuerier) (string, error) {
 		return "", errors.Wrapf(err, "failed reading pkey type of state table [%s]", db.tables.StateTable)
 	}
 	return t, nil
+}
+
+// reorderPrimaryKey changes a primary key of (pkey, ns) to (ns, pkey). Every
+// state query filters on one namespace, and (ns, pkey) lets that scan start at
+// the namespace. The key order is read once without a lock, so an upgraded
+// table never blocks, and again under ACCESS EXCLUSIVE, so replicas sharing
+// the database reorder the table once. The constraint name comes from
+// pg_constraint, because the table name is configurable. Any other column
+// order is an error and the table is left unchanged.
+func (db *VaultStore) reorderPrimaryKey() error {
+	_, cols, err := db.primaryKey(db.writeDB)
+	if err != nil || cols == "ns,pkey" {
+		return err
+	}
+
+	tx, err := db.writeDB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "failed to initiate db transaction")
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec("LOCK TABLE " + db.tables.StateTable + " IN ACCESS EXCLUSIVE MODE"); err != nil {
+		return errors.Wrapf(err, "failed locking state table [%s]", db.tables.StateTable)
+	}
+	constraint, cols, err := db.primaryKey(tx)
+	if err != nil {
+		return err
+	}
+	if cols == "ns,pkey" {
+		return nil
+	}
+	if cols != "pkey,ns" {
+		return errors.Errorf("state table [%s] primary key is (%s), expected (ns, pkey)", db.tables.StateTable, cols)
+	}
+	logger.Infof("reordering primary key of state table [%s] to (ns, pkey)", db.tables.StateTable)
+	if _, err := tx.Exec("ALTER TABLE " + db.tables.StateTable + " DROP CONSTRAINT " + constraint); err != nil {
+		return errors.Wrapf(err, "failed dropping primary key of state table [%s]", db.tables.StateTable)
+	}
+	if _, err := tx.Exec("ALTER TABLE " + db.tables.StateTable + " ADD PRIMARY KEY (ns, pkey)"); err != nil {
+		return errors.Wrapf(err, "failed adding primary key (ns, pkey) on state table [%s]", db.tables.StateTable)
+	}
+	return tx.Commit()
+}
+
+// primaryKey returns the state table's primary-key constraint name, quoted
+// for use in DDL, and its columns in key order, joined by commas.
+func (db *VaultStore) primaryKey(q rowQuerier) (constraint, cols string, err error) {
+	if err := q.QueryRow(`
+		SELECT quote_ident(c.conname), string_agg(a.attname, ',' ORDER BY k.ord)
+		FROM pg_constraint c
+		CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+		JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+		WHERE c.conrelid = $1::regclass AND c.contype = 'p'
+		GROUP BY c.conname`,
+		db.tables.StateTable,
+	).Scan(&constraint, &cols); errors.Is(err, sql.ErrNoRows) {
+		return "", "", errors.Errorf("state table [%s] has no primary key", db.tables.StateTable)
+	} else if err != nil {
+		return "", "", errors.Wrapf(err, "failed reading primary key of state table [%s]", db.tables.StateTable)
+	}
+	return constraint, cols, nil
 }

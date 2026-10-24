@@ -1032,8 +1032,16 @@ On startup the vault checks the `pkey` column of its state table (the table whos
   start takes longer. Only the replica that gets the lock first converts the table.
 - any other type: the vault refuses to start.
 
-The conversion needs a database user that owns the state table. Without that privilege the vault fails to start and the table
-is left unchanged.
+The vault then checks the primary-key column order of that state table. Every state query filters on one namespace, so the primary key is `(ns, pkey)`.
+
+- `(ns, pkey)`: nothing to do.
+- `(pkey, ns)`: the vault reorders the key to `(ns, pkey)`. Only the replica that gets the lock first reorders the table, and on a large vault the first start takes longer.
+  - Postgres: the vault drops the primary-key constraint and adds it back under an exclusive lock, which rebuilds the index. The constraint name is read from the catalog, so it does not depend on the table name.
+  - SQLite: the vault rebuilds the table in one transaction, copying every row while it holds the write lock. Other writers on the same file wait; a replica that waits longer than its `busy_timeout` fails to start with `SQLITE_BUSY`, and finds the table reordered when it is restarted.
+- any other column order: the vault refuses to start and leaves the table unchanged.
+
+On Postgres the conversion and the reorder need a database user that owns the state table. Without that privilege the vault fails to
+start and the table is left unchanged.
 
 > [!WARNING]
 > An FSC version that stores `pkey` as `TEXT` still starts against a converted table, but it writes escaped keys that this
@@ -1041,8 +1049,8 @@ is left unchanged.
 > older version against a converted database, and back up the database before upgrading: downgrading means restoring the
 > backup.
 
-With `skipCreateTable: true` neither the check nor the conversion runs, so a schema managed outside FSC must declare `pkey` as
-`BYTEA`. To convert an existing `TEXT` column by hand, run:
+With `skipCreateTable: true` neither the column check, the conversion, nor the primary-key reorder runs, so a schema managed outside FSC must declare `pkey` as
+`BYTEA` with `PRIMARY KEY (ns, pkey)`. To convert an existing `TEXT` column by hand, run:
 
 ```sql
 ALTER TABLE <prefix>_vstate ALTER COLUMN pkey TYPE BYTEA USING
