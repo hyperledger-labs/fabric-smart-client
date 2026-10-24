@@ -468,7 +468,8 @@ func TestPostgresVaultStoreRejectsOtherPrimaryKey(t *testing.T) {
 	require.Equal(t, 1, n)
 }
 
-// GetStateRange uses the (ns, pkey) index and does not sort.
+// GetStateRange scans the (ns, pkey) index from the namespace and does not
+// sort.
 func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	t.Parallel()
 
@@ -501,7 +502,9 @@ func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 		plan.WriteByte('\n')
 	}
 	require.NoError(t, rows.Err())
-	require.Contains(t, plan.String(), "Index")
+	// The (pkey, ns) index also serves this query, with ns as a filter inside
+	// the index condition; only (ns, pkey) puts ns first.
+	require.Contains(t, plan.String(), "Index Cond: ((ns = ")
 	require.NotContains(t, plan.String(), "Sort")
 }
 

@@ -1035,11 +1035,13 @@ On startup the vault checks the `pkey` column of its state table (the table whos
 The vault then checks the primary-key column order of that state table. Every state query filters on one namespace, so the primary key is `(ns, pkey)`.
 
 - `(ns, pkey)`: nothing to do.
-- `(pkey, ns)`: the vault reorders the key to `(ns, pkey)`. On Postgres it drops the primary-key constraint and adds it back under an exclusive lock. The constraint name is read from the catalog, so it does not depend on the table name. On SQLite the table is rebuilt in one transaction, copying every row. Only the replica that gets the lock first reorders the table. On a vault of about 1 million rows with 128-byte values the Postgres reorder took about 4 seconds on a laptop SSD. A vault whose keys are still `TEXT` spends most of that first start in the conversion above; the reorder after that conversion was under a second on the same table.
+- `(pkey, ns)`: the vault reorders the key to `(ns, pkey)`. Only the replica that gets the lock first reorders the table, and on a large vault the first start takes longer.
+  - Postgres: the vault drops the primary-key constraint and adds it back under an exclusive lock, which rebuilds the index. The constraint name is read from the catalog, so it does not depend on the table name.
+  - SQLite: the vault rebuilds the table in one transaction, copying every row while it holds the write lock. Other writers on the same file wait; a replica that waits longer than its `busy_timeout` fails to start with `SQLITE_BUSY`, and finds the table reordered when it is restarted.
 - any other column order: the vault refuses to start and leaves the table unchanged.
 
-The conversion and the reorder need a database user that owns the state table. Without that privilege the vault fails to start and the table
-is left unchanged.
+On Postgres the conversion and the reorder need a database user that owns the state table. Without that privilege the vault fails to
+start and the table is left unchanged.
 
 > [!WARNING]
 > An FSC version that stores `pkey` as `TEXT` still starts against a converted table, but it writes escaped keys that this

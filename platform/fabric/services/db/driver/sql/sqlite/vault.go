@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
@@ -137,30 +136,19 @@ type rowQuerier interface {
 }
 
 // reorderPrimaryKey changes a primary key of (pkey, ns) to (ns, pkey) by
-// rebuilding the table. SQLite cannot replace a primary key in place. Any
-// other column order is an error and the table is left unchanged.
+// rebuilding the table in one transaction, copying every row. SQLite cannot
+// replace a primary key in place. Any other column order is an error and the
+// table is left unchanged.
 //
-// A replica that finds the write lock held past busy_timeout, because another
-// replica is rebuilding a large table, retries until the lock is released and
-// then finds the table already reordered.
+// The rebuild holds the write lock, so other writers wait for it. A replica
+// that waits longer than busy_timeout fails with SQLITE_BUSY and finds the
+// table already reordered on its next start.
 func (db *VaultStore) reorderPrimaryKey() error {
 	cols, err := db.primaryKeyColumns(db.readDB)
 	if err != nil || cols == "ns,pkey" {
 		return err
 	}
-	for {
-		err := db.rebuildState()
-		if !errors.Is((&sqlite2.ErrorMapper{}).WrapError(err), driver2.SqlBusy) {
-			return err
-		}
-		logger.Warnf("state table [%s] is locked, retrying primary key reorder", db.tables.StateTable)
-	}
-}
 
-// rebuildState copies the state table into one keyed by (ns, pkey) within a
-// single transaction, unless the key order read under the write lock shows
-// another replica has done so already.
-func (db *VaultStore) rebuildState() error {
 	tx, err := db.writeDB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate db transaction")
@@ -169,13 +157,13 @@ func (db *VaultStore) rebuildState() error {
 
 	// A write takes the reserved lock before the order is read again, so a
 	// replica that finishes the rebuild first is visible here. Do not remove
-	// it: a plain read does not lock, and two replicas would both rebuild.
+	// it: without it two replicas both read the order as readers, and the one
+	// that upgrades to a writer second fails with SQLITE_BUSY.
 	table := db.tables.StateTable
 	if _, err := tx.Exec("UPDATE " + table + " SET ns = ns WHERE 0"); err != nil { //nolint:gosec // table name comes from configuration, not user input
 		return errors.Wrapf(err, "failed locking state table [%s]", table)
 	}
-	cols, err := db.primaryKeyColumns(tx)
-	if err != nil {
+	if cols, err = db.primaryKeyColumns(tx); err != nil {
 		return err
 	}
 	if cols == "ns,pkey" {

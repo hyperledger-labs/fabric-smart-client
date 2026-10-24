@@ -239,9 +239,10 @@ func TestVaultStoreReordersPrimaryKeyConcurrently(t *testing.T) {
 	requireState(t, first, "ns", "k1", "v")
 }
 
-// A replica that finds the write lock held past its busy_timeout retries the
-// reorder rather than failing to start.
-func TestVaultStoreReorderRetriesWhenBusy(t *testing.T) {
+// A replica that finds the write lock held past its busy_timeout fails to
+// start with SQLITE_BUSY and leaves the table unchanged, rather than waiting
+// indefinitely.
+func TestVaultStoreReorderFailsWhenBusy(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "vault.db")
@@ -250,7 +251,7 @@ func TestVaultStoreReorderRetriesWhenBusy(t *testing.T) {
 
 	// Default pragmas would raise busy_timeout to 5s, so the DSN sets WAL itself.
 	cp := sqlite2.NewConfigProvider(testing2.MockConfig(sqlite2.Config{
-		DataSource:      "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(1)",
+		DataSource:      "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(50)",
 		SkipCreateTable: true,
 		SkipPragmas:     true,
 	}))
@@ -260,13 +261,20 @@ func TestVaultStoreReorderRetriesWhenBusy(t *testing.T) {
 
 	holder, err := setup.writeDB.Begin()
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = holder.Rollback() })
 	_, err = holder.Exec("UPDATE " + setup.tables.StateTable + " SET ns = ns WHERE 0")
 	require.NoError(t, err)
+
 	done := make(chan error, 1)
 	go func() { done <- store.CreateSchema() }()
-	time.Sleep(100 * time.Millisecond)
-	require.NoError(t, holder.Commit())
-
-	require.NoError(t, <-done)
+	select {
+	case err := <-done:
+		require.ErrorContains(t, err, "SQLITE_BUSY")
+	case <-time.After(10 * time.Second):
+		t.Fatal("CreateSchema did not return while the write lock was held")
+	}
+	require.NoError(t, holder.Rollback())
+	requireSQLitePrimaryKey(t, store, "pkey,ns")
+	require.NoError(t, store.CreateSchema())
 	requireSQLitePrimaryKey(t, store, "ns,pkey")
 }
