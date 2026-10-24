@@ -201,7 +201,7 @@ func (db *VaultStore) pkeyType(q rowQuerier) (string, error) {
 // pg_constraint, because the table name is configurable. Any other column
 // order is an error and the table is left unchanged.
 func (db *VaultStore) reorderPrimaryKey() error {
-	cols, err := db.primaryKeyColumns(db.writeDB)
+	_, cols, err := db.primaryKey(db.writeDB)
 	if err != nil || cols == "ns,pkey" {
 		return err
 	}
@@ -215,7 +215,8 @@ func (db *VaultStore) reorderPrimaryKey() error {
 	if _, err := tx.Exec("LOCK TABLE " + db.tables.StateTable + " IN ACCESS EXCLUSIVE MODE"); err != nil {
 		return errors.Wrapf(err, "failed locking state table [%s]", db.tables.StateTable)
 	}
-	if cols, err = db.primaryKeyColumns(tx); err != nil {
+	constraint, cols, err := db.primaryKey(tx)
+	if err != nil {
 		return err
 	}
 	if cols == "ns,pkey" {
@@ -223,10 +224,6 @@ func (db *VaultStore) reorderPrimaryKey() error {
 	}
 	if cols != "pkey,ns" {
 		return errors.Errorf("state table [%s] primary key is (%s), expected (ns, pkey)", db.tables.StateTable, cols)
-	}
-	constraint, err := db.primaryKeyConstraint(tx)
-	if err != nil {
-		return err
 	}
 	logger.Infof("reordering primary key of state table [%s] to (ns, pkey)", db.tables.StateTable)
 	if _, err := tx.Exec("ALTER TABLE " + db.tables.StateTable + " DROP CONSTRAINT " + constraint); err != nil {
@@ -238,35 +235,21 @@ func (db *VaultStore) reorderPrimaryKey() error {
 	return tx.Commit()
 }
 
-// primaryKeyColumns returns the state table's primary-key columns in index
-// order, joined by commas.
-func (db *VaultStore) primaryKeyColumns(q rowQuerier) (string, error) {
-	var cols sql.NullString
+// primaryKey returns the state table's primary-key constraint name, quoted
+// for use in DDL, and its columns in key order, joined by commas.
+func (db *VaultStore) primaryKey(q rowQuerier) (constraint, cols string, err error) {
 	if err := q.QueryRow(`
-		SELECT string_agg(a.attname, ',' ORDER BY cols.ord)
-		FROM pg_index i
-		CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS cols(attnum, ord)
-		JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = cols.attnum
-		WHERE i.indrelid = $1::regclass AND i.indisprimary`,
+		SELECT quote_ident(c.conname), string_agg(a.attname, ',' ORDER BY k.ord)
+		FROM pg_constraint c
+		CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+		JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+		WHERE c.conrelid = $1::regclass AND c.contype = 'p'
+		GROUP BY c.conname`,
 		db.tables.StateTable,
-	).Scan(&cols); err != nil {
-		return "", errors.Wrapf(err, "failed reading primary key of state table [%s]", db.tables.StateTable)
+	).Scan(&constraint, &cols); errors.Is(err, sql.ErrNoRows) {
+		return "", "", errors.Errorf("state table [%s] has no primary key", db.tables.StateTable)
+	} else if err != nil {
+		return "", "", errors.Wrapf(err, "failed reading primary key of state table [%s]", db.tables.StateTable)
 	}
-	if !cols.Valid || cols.String == "" {
-		return "", errors.Errorf("state table [%s] has no primary key", db.tables.StateTable)
-	}
-	return cols.String, nil
-}
-
-// primaryKeyConstraint returns the state table's primary-key constraint name,
-// quoted for use in DDL.
-func (db *VaultStore) primaryKeyConstraint(q rowQuerier) (string, error) {
-	var name string
-	if err := q.QueryRow(
-		"SELECT quote_ident(conname) FROM pg_constraint WHERE conrelid = $1::regclass AND contype = 'p'",
-		db.tables.StateTable,
-	).Scan(&name); err != nil {
-		return "", errors.Wrapf(err, "failed reading primary key constraint of state table [%s]", db.tables.StateTable)
-	}
-	return name, nil
+	return constraint, cols, nil
 }

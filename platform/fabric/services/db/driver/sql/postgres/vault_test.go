@@ -377,9 +377,28 @@ func TestPostgresVaultStoreCreateSchemaRejectsOtherKeyType(t *testing.T) {
 	requirePkeyType(t, store, "character varying(255)")
 }
 
+// recreateStateTable replaces the store's state table with a BYTEA-keyed one
+// declaring primaryKey, so tests can start from a layout CreateSchema no longer
+// creates.
+func recreateStateTable(t *testing.T, store *VaultStore, primaryKey string) {
+	t.Helper()
+	table := store.tables.StateTable
+	_, err := store.writeDB.ExecContext(t.Context(), "DROP TABLE "+table)
+	require.NoError(t, err)
+	_, err = store.writeDB.ExecContext(t.Context(), "CREATE TABLE "+table+` (
+		ns TEXT NOT NULL,
+		pkey BYTEA NOT NULL,
+		val BYTEA,
+		kversion BYTEA,
+		metadata BYTEA,
+		`+primaryKey+`
+	)`)
+	require.NoError(t, err)
+}
+
 func requirePrimaryKey(t *testing.T, store *VaultStore, want string) {
 	t.Helper()
-	got, err := store.primaryKeyColumns(store.writeDB)
+	_, got, err := store.primaryKey(store.writeDB)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -392,18 +411,7 @@ func TestPostgresVaultStoreReordersPrimaryKey(t *testing.T) {
 
 	store := newPostgresVaultStore(t)
 	ctx := t.Context()
-	table := store.tables.StateTable
-	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE "+table)
-	require.NoError(t, err)
-	_, err = store.writeDB.ExecContext(ctx, "CREATE TABLE "+table+` (
-		ns TEXT NOT NULL,
-		pkey BYTEA NOT NULL,
-		val BYTEA,
-		kversion BYTEA,
-		metadata BYTEA,
-		CONSTRAINT vault_state_old_pk PRIMARY KEY (pkey, ns)
-	)`)
-	require.NoError(t, err)
+	recreateStateTable(t, store, "CONSTRAINT vault_state_old_pk PRIMARY KEY (pkey, ns)")
 	require.NoError(t, store.Store(ctx, nil, driver.Writes{
 		"ns-a": {
 			"k2":                 {Raw: []byte("a2"), Version: []byte("v")},
@@ -436,11 +444,8 @@ func TestPostgresVaultStoreReordersPrimaryKey(t *testing.T) {
 	require.NoError(t, err)
 	reads, err := collections.ReadAll(it)
 	require.NoError(t, err)
-	got := make([]driver.PKey, len(reads))
-	for i, r := range reads {
-		got[i] = r.Key
-	}
-	require.Equal(t, []driver.PKey{"k1", "k2"}, got)
+	require.Len(t, reads, 2)
+	require.Equal(t, []driver.PKey{"k1", "k2"}, []driver.PKey{reads[0].Key, reads[1].Key})
 }
 
 // A primary key other than (pkey, ns) or (ns, pkey) is not rewritten.
@@ -449,19 +454,9 @@ func TestPostgresVaultStoreRejectsOtherPrimaryKey(t *testing.T) {
 
 	store := newPostgresVaultStore(t)
 	ctx := t.Context()
+	recreateStateTable(t, store, "PRIMARY KEY (pkey)")
 	table := store.tables.StateTable
-	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE "+table)
-	require.NoError(t, err)
-	_, err = store.writeDB.ExecContext(ctx, "CREATE TABLE "+table+` (
-		ns TEXT NOT NULL,
-		pkey BYTEA NOT NULL,
-		val BYTEA,
-		kversion BYTEA,
-		metadata BYTEA,
-		PRIMARY KEY (pkey)
-	)`)
-	require.NoError(t, err)
-	_, err = store.writeDB.ExecContext(ctx, "INSERT INTO "+table+" (ns, pkey, val, kversion) VALUES ($1, $2, $3, $4)",
+	_, err := store.writeDB.ExecContext(ctx, "INSERT INTO "+table+" (ns, pkey, val, kversion) VALUES ($1, $2, $3, $4)",
 		"ns", []byte("k1"), []byte("v"), []byte("v"))
 	require.NoError(t, err)
 
@@ -497,7 +492,7 @@ func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	rows, err := tx.Query("EXPLAIN SELECT pkey, kversion, val FROM "+store.tables.StateTable+
 		" WHERE (ns = $1 AND (pkey >= $2 AND pkey < $3)) ORDER BY pkey ASC", "ns-a", "k1", "k3")
 	require.NoError(t, err)
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var plan strings.Builder
 	for rows.Next() {
 		var line string

@@ -10,12 +10,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
@@ -131,21 +131,36 @@ func (db *VaultStore) CreateSchema() error {
 	return db.reorderPrimaryKey()
 }
 
-// queryer is satisfied by both *sql.DB and *sql.Tx.
-type queryer interface {
-	Query(query string, args ...any) (*sql.Rows, error)
+// rowQuerier is satisfied by both *sql.DB and *sql.Tx.
+type rowQuerier interface {
 	QueryRow(query string, args ...any) *sql.Row
 }
 
 // reorderPrimaryKey changes a primary key of (pkey, ns) to (ns, pkey) by
 // rebuilding the table. SQLite cannot replace a primary key in place. Any
 // other column order is an error and the table is left unchanged.
+//
+// A replica that finds the write lock held past busy_timeout, because another
+// replica is rebuilding a large table, retries until the lock is released and
+// then finds the table already reordered.
 func (db *VaultStore) reorderPrimaryKey() error {
 	cols, err := db.primaryKeyColumns(db.readDB)
 	if err != nil || cols == "ns,pkey" {
 		return err
 	}
+	for {
+		err := db.rebuildState()
+		if !errors.Is((&sqlite2.ErrorMapper{}).WrapError(err), driver2.SqlBusy) {
+			return err
+		}
+		logger.Warnf("state table [%s] is locked, retrying primary key reorder", db.tables.StateTable)
+	}
+}
 
+// rebuildState copies the state table into one keyed by (ns, pkey) within a
+// single transaction, unless the key order read under the write lock shows
+// another replica has done so already.
+func (db *VaultStore) rebuildState() error {
 	tx, err := db.writeDB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate db transaction")
@@ -153,12 +168,14 @@ func (db *VaultStore) reorderPrimaryKey() error {
 	defer func() { _ = tx.Rollback() }()
 
 	// A write takes the reserved lock before the order is read again, so a
-	// replica that finishes the rebuild first is visible here.
+	// replica that finishes the rebuild first is visible here. Do not remove
+	// it: a plain read does not lock, and two replicas would both rebuild.
 	table := db.tables.StateTable
-	if _, err := tx.Exec("UPDATE " + table + " SET ns = ns WHERE 0"); err != nil {
+	if _, err := tx.Exec("UPDATE " + table + " SET ns = ns WHERE 0"); err != nil { //nolint:gosec // table name comes from configuration, not user input
 		return errors.Wrapf(err, "failed locking state table [%s]", table)
 	}
-	if cols, err = db.primaryKeyColumns(tx); err != nil {
+	cols, err := db.primaryKeyColumns(tx)
+	if err != nil {
 		return err
 	}
 	if cols == "ns,pkey" {
@@ -194,34 +211,18 @@ func (db *VaultStore) reorderPrimaryKey() error {
 
 // primaryKeyColumns returns the state table's primary-key columns in index
 // order, joined by commas.
-func (db *VaultStore) primaryKeyColumns(q queryer) (string, error) {
-	table := quoteIdent(db.tables.StateTable)
-	var index string
-	if err := q.QueryRow("SELECT name FROM pragma_index_list(" + table + ") WHERE origin = 'pk'").Scan(&index); err != nil {
+func (db *VaultStore) primaryKeyColumns(q rowQuerier) (string, error) {
+	var cols sql.NullString
+	if err := q.QueryRow(`
+		SELECT group_concat(ii.name, ',' ORDER BY ii.seqno)
+		FROM pragma_index_list(?) il, pragma_index_info(il.name) ii
+		WHERE il.origin = 'pk'`,
+		db.tables.StateTable,
+	).Scan(&cols); err != nil {
 		return "", errors.Wrapf(err, "failed reading primary key of state table [%s]", db.tables.StateTable)
 	}
-	rows, err := q.Query("SELECT name FROM pragma_index_info(" + quoteIdent(index) + ") ORDER BY seqno")
-	if err != nil {
-		return "", errors.Wrapf(err, "failed reading primary key columns of state table [%s]", db.tables.StateTable)
-	}
-	defer rows.Close()
-	var cols []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return "", errors.Wrapf(err, "failed reading primary key columns of state table [%s]", db.tables.StateTable)
-		}
-		cols = append(cols, name)
-	}
-	if err := rows.Err(); err != nil {
-		return "", errors.Wrapf(err, "failed reading primary key columns of state table [%s]", db.tables.StateTable)
-	}
-	if len(cols) == 0 {
+	if !cols.Valid || cols.String == "" {
 		return "", errors.Errorf("state table [%s] has no primary key", db.tables.StateTable)
 	}
-	return strings.Join(cols, ","), nil
-}
-
-func quoteIdent(name string) string {
-	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+	return cols.String, nil
 }
