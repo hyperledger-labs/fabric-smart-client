@@ -334,6 +334,72 @@ func TestCFTBroadcaster_Broadcast_Retries(t *testing.T) {
 	})
 }
 
+// reportingConfigService records every address passed to ReportFailure.
+type reportingConfigService struct {
+	*fake.ConfigService
+	reported []string
+}
+
+func (r *reportingConfigService) ReportFailure(address string) {
+	r.reported = append(r.reported, address)
+}
+
+func TestCFTBroadcaster_Broadcast_ReportsFailures(t *testing.T) {
+	t.Parallel()
+
+	newConfig := func() *reportingConfigService {
+		return &reportingConfigService{ConfigService: &fake.ConfigService{
+			PoolSizeValue:    4,
+			RetriesValue:     2,
+			NetworkNameValue: "test-network",
+			OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
+		}}
+	}
+
+	t.Run("broken connection", func(t *testing.T) {
+		t.Parallel()
+		cfg := newConfig()
+		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, newTestMetrics())
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+
+		conn := <-b.connections
+		conn.Stream = &fakeCFTStream{sendErr: errors.New("orderer went away")}
+		b.connections <- conn
+
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		require.Equal(t, []string{"orderer-1"}, cfg.reported)
+	})
+
+	// Each step of opening a connection reports the orderer when it fails, once per retry.
+	for name, services := range map[string]*fakeCFTServices{
+		"client creation fails": {shouldFailClient: true},
+		"orderer client fails":  {shouldFailStream: true},
+		"stream fails":          {shouldFailBroadcast: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			cfg := newConfig()
+			b := NewCFTBroadcaster(cfg, services, nil)
+			require.Error(t, b.Broadcast(t.Context(), &common.Envelope{}))
+			require.Equal(t, []string{"orderer-1", "orderer-1"}, cfg.reported)
+		})
+	}
+
+	t.Run("rejection is not a failure", func(t *testing.T) {
+		t.Parallel()
+		cfg := newConfig()
+		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, newTestMetrics())
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+
+		conn := <-b.connections
+		conn.Stream = &fakeCFTStream{status: common.Status_BAD_REQUEST}
+		b.connections <- conn
+
+		require.Error(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		require.Empty(t, cfg.reported)
+	})
+}
+
 // TestCFTBroadcaster_Broadcast_ZeroRetries is a regression test: when
 // BroadcastNumRetries returns 0, the retry loop body never runs, so nothing
 // ever assigns lastErr. errors.Wrap(err, ...) with a nil err returns nil (per

@@ -801,6 +801,8 @@ func (m *mockPeerSequence) PickPeer(driver.PeerFunctionType) *grpc.ConnectionCon
 	return &grpc.ConnectionConfig{Address: addr}
 }
 
+func (*mockPeerSequence) ReportFailure(string) {}
+
 // newConnStateDelivery returns a Delivery that reports connection state into a
 // recorder and reads from stream through services.
 func newConnStateDelivery(t *testing.T, configService driver.ConfigService, svcs Services) (*Delivery, *connstatetest.Recorder) {
@@ -852,6 +854,47 @@ func TestRunReceiver_ReportsReconnectThenConnected(t *testing.T) {
 	close(recvChan)
 	<-done
 	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Reconnecting, connstate.Connected, connstate.Disconnected}, rec.States("peerA"))
+}
+
+// reportingConfigService forwards ReportFailure addresses to reports, dropping any that
+// do not fit so the receiver never blocks on a test that has stopped reading.
+type reportingConfigService struct {
+	mockConfigService
+	reports chan string
+}
+
+func (r *reportingConfigService) ReportFailure(address string) {
+	select {
+	case r.reports <- address:
+	default:
+	}
+}
+
+func TestRunReceiver_ReportsBrokenStream(t *testing.T) {
+	t.Parallel()
+	recvErrChan := make(chan error, 1)
+	recvErrChan <- errors.New("peer went away")
+	recvChan := make(chan *pb.DeliverResponse)
+	svcs := &mockServices{peerClient: &mockPeerClient{addr: "peerA", deliverCli: &mockDeliverClientRPC{
+		stream: &mockDeliverStream{recvChan: recvChan, recvErrChan: recvErrChan},
+	}}}
+	cs := &reportingConfigService{
+		peerConf: &grpc.ConnectionConfig{Address: "peerA"},
+		reports:  make(chan string, 1),
+	}
+	d, _ := newConnStateDelivery(t, cs, svcs)
+
+	done := runReceiverAsync(t.Context(), d, make(chan blockResponse, 1))
+	select {
+	case addr := <-cs.reports:
+		require.Equal(t, "peerA", addr)
+	case <-time.After(5 * time.Second):
+		t.Fatal("a stream that breaks must be reported")
+	}
+
+	d.Stop(nil)
+	close(recvChan)
+	<-done
 }
 
 func TestRunReceiver_CallbackErrorReportsStopped(t *testing.T) {

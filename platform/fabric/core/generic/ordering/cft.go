@@ -78,6 +78,7 @@ func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 		status, err := sendAndRecv(connection, env)
 		if err != nil {
 			// the connection is broken, throw it away and retry with a fresh one
+			o.ConfigService.ReportFailure(connection.Address)
 			logger.DebugfContext(ctx, "Discard connection")
 			connection.State.Set(connstate.Reconnecting)
 			o.discardConnection(connection)
@@ -139,12 +140,14 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 
 			client, err := o.ClientFactory.NewOrdererClient(*to)
 			if err != nil {
+				o.ConfigService.ReportFailure(to.Address)
 				o.connSem.Release(1)
 				return nil, errors.Wrapf(err, "failed creating orderer client for %s", to.Address)
 			}
 
 			oClient, err := client.OrdererClient()
 			if err != nil {
+				o.ConfigService.ReportFailure(to.Address)
 				o.connSem.Release(1)
 				client.Close()
 				rpcStatus, _ := status.FromError(err)
@@ -155,6 +158,7 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			// Notice that this stream is shared, therefore its context must be something different from the context of the current broadcast request
 			stream, err := oClient.Broadcast(context.Background()) //nolint:contextcheck // documented above: this stream is shared across broadcasts, so it deliberately does not use the current request's context
 			if err != nil {
+				o.ConfigService.ReportFailure(to.Address)
 				o.connSem.Release(1)
 				client.Close()
 				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
@@ -163,9 +167,10 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			state := connState(o.metrics).Tracker(o.NetworkID, "", connstate.ComponentOrderer, to.Address)
 			state.Set(connstate.Connected)
 			return &Connection{
-				Stream: stream,
-				Client: client,
-				State:  state,
+				Address: to.Address,
+				Stream:  stream,
+				Client:  client,
+				State:   state,
 			}, nil
 		}
 	}

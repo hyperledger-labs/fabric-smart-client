@@ -413,6 +413,11 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			resp, err := df.Recv()
 			span.AddEvent("received_message")
 			if err != nil {
+				// A stream that breaks while the context is live means the peer went away.
+				// Report it so the reconnect picks another peer.
+				if ctx.Err() == nil {
+					d.ConfigService.ReportFailure(d.client.Address())
+				}
 				if dfCancel != nil {
 					dfCancel()
 				}
@@ -546,6 +551,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	var err error
 	d.client, err = d.Services.NewPeerClient(*peerConnConf)
 	if err != nil {
+		d.ConfigService.ReportFailure(address)
 		return nil, nil, errors.WithMessagef(err, "failed creating peer client for address [%s][%s:%s]", address, d.NetworkName, d.channel)
 	}
 	deliverClient, err := NewDeliverClient(d.client)
@@ -556,6 +562,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	stream, err := deliverClient.NewDeliver(newCtx)
 	if err != nil {
 		cancel()
+		d.ConfigService.ReportFailure(address)
 		return nil, nil, errors.Wrap(err, "failed to get delivery stream")
 	}
 
@@ -572,6 +579,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	err = DeliverSend(stream, blockEnvelope)
 	if err != nil {
 		cancel()
+		d.ConfigService.ReportFailure(address)
 		return nil, nil, errors.Wrapf(err, "failed sending seek envelope to [%s]", address)
 	}
 

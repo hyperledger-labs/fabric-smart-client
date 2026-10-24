@@ -110,6 +110,9 @@ type ConfigService interface {
 	BroadcastRetryInterval() time.Duration
 	OrdererConnectionPoolSize() int
 	PickPeer(funcType PeerFunctionType) *grpc.ConnectionConfig
+	// ReportFailure marks the peer or orderer at address as failed so that PickPeer and
+	// PickOrderer avoid it for a cooldown period.
+	ReportFailure(address string)
 	IsChannelQuiet(name string) bool
 	VaultPersistenceName() driver2.PersistenceName
 	VaultTXStoreCacheSize() int
