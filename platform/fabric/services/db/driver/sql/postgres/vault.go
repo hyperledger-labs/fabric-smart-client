@@ -93,8 +93,12 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	return tx.Commit()
 }
 
-// CreateSchema creates the status and state tables if they do not exist, then
-// ensures the state table stores pkey as BYTEA (see convertTextKeys).
+// CreateSchema creates the status and state tables if they do not exist. The
+// state table's primary key is (ns, pkey). An existing table is then brought to
+// that layout: pkey is converted from TEXT to BYTEA when needed (see
+// convertTextKeys), and a primary key of (pkey, ns) is reordered to (ns, pkey).
+// Each step locks the table only when a change is required, and replicas
+// sharing the database perform each change once.
 func (db *VaultStore) CreateSchema() error {
 	if err := common.InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
@@ -111,14 +115,17 @@ func (db *VaultStore) CreateSchema() error {
 		val BYTEA,
 		kversion BYTEA,
 		metadata BYTEA,
-		PRIMARY KEY (pkey, ns)
+		PRIMARY KEY (ns, pkey)
 	);`, db.tables.StatusTable,
 		driver.Unknown,
 		db.tables.StatusTable, db.tables.StatusTable,
 		db.tables.StateTable)); err != nil {
 		return err
 	}
-	return db.convertTextKeys()
+	if err := db.convertTextKeys(); err != nil {
+		return err
+	}
+	return db.reorderPrimaryKey()
 }
 
 // convertTextKeys converts a state table whose pkey column is TEXT to BYTEA in
@@ -184,4 +191,82 @@ func (db *VaultStore) pkeyType(q rowQuerier) (string, error) {
 		return "", errors.Wrapf(err, "failed reading pkey type of state table [%s]", db.tables.StateTable)
 	}
 	return t, nil
+}
+
+// reorderPrimaryKey changes a primary key of (pkey, ns) to (ns, pkey). Every
+// state query filters on one namespace, and (ns, pkey) lets that scan start at
+// the namespace. The key order is read once without a lock, so an upgraded
+// table never blocks, and again under ACCESS EXCLUSIVE, so replicas sharing
+// the database reorder the table once. The constraint name comes from
+// pg_constraint, because the table name is configurable. Any other column
+// order is an error and the table is left unchanged.
+func (db *VaultStore) reorderPrimaryKey() error {
+	cols, err := db.primaryKeyColumns(db.writeDB)
+	if err != nil || cols == "ns,pkey" {
+		return err
+	}
+
+	tx, err := db.writeDB.Begin()
+	if err != nil {
+		return errors.Wrap(err, "failed to initiate db transaction")
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec("LOCK TABLE " + db.tables.StateTable + " IN ACCESS EXCLUSIVE MODE"); err != nil {
+		return errors.Wrapf(err, "failed locking state table [%s]", db.tables.StateTable)
+	}
+	if cols, err = db.primaryKeyColumns(tx); err != nil {
+		return err
+	}
+	if cols == "ns,pkey" {
+		return nil
+	}
+	if cols != "pkey,ns" {
+		return errors.Errorf("state table [%s] primary key is (%s), expected (ns, pkey)", db.tables.StateTable, cols)
+	}
+	constraint, err := db.primaryKeyConstraint(tx)
+	if err != nil {
+		return err
+	}
+	logger.Infof("reordering primary key of state table [%s] to (ns, pkey)", db.tables.StateTable)
+	if _, err := tx.Exec("ALTER TABLE " + db.tables.StateTable + " DROP CONSTRAINT " + constraint); err != nil {
+		return errors.Wrapf(err, "failed dropping primary key of state table [%s]", db.tables.StateTable)
+	}
+	if _, err := tx.Exec("ALTER TABLE " + db.tables.StateTable + " ADD PRIMARY KEY (ns, pkey)"); err != nil {
+		return errors.Wrapf(err, "failed adding primary key (ns, pkey) on state table [%s]", db.tables.StateTable)
+	}
+	return tx.Commit()
+}
+
+// primaryKeyColumns returns the state table's primary-key columns in index
+// order, joined by commas.
+func (db *VaultStore) primaryKeyColumns(q rowQuerier) (string, error) {
+	var cols sql.NullString
+	if err := q.QueryRow(`
+		SELECT string_agg(a.attname, ',' ORDER BY cols.ord)
+		FROM pg_index i
+		CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS cols(attnum, ord)
+		JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = cols.attnum
+		WHERE i.indrelid = $1::regclass AND i.indisprimary`,
+		db.tables.StateTable,
+	).Scan(&cols); err != nil {
+		return "", errors.Wrapf(err, "failed reading primary key of state table [%s]", db.tables.StateTable)
+	}
+	if !cols.Valid || cols.String == "" {
+		return "", errors.Errorf("state table [%s] has no primary key", db.tables.StateTable)
+	}
+	return cols.String, nil
+}
+
+// primaryKeyConstraint returns the state table's primary-key constraint name,
+// quoted for use in DDL.
+func (db *VaultStore) primaryKeyConstraint(q rowQuerier) (string, error) {
+	var name string
+	if err := q.QueryRow(
+		"SELECT quote_ident(conname) FROM pg_constraint WHERE conrelid = $1::regclass AND contype = 'p'",
+		db.tables.StateTable,
+	).Scan(&name); err != nil {
+		return "", errors.Wrapf(err, "failed reading primary key constraint of state table [%s]", db.tables.StateTable)
+	}
+	return name, nil
 }

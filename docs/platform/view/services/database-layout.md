@@ -223,7 +223,7 @@ Schema:
 
 Notes:
 
-- the primary key is `(pkey, ns)`
+- the primary key is `(ns, pkey)`
 - `metadata` is stored as encoded bytes
 - metadata values are marshaled from a `map[string][]byte`
 - unlike the View KVS, the vault state table is the main persisted application state surface for many Fabric applications
@@ -240,5 +240,5 @@ The logical layout is the same across supported SQL backends, but some physical 
 
 These differences do not change the logical meaning of the data, but they matter when directly inspecting tables or writing backend-specific SQL.
 
-On Postgres, the vault converts a state table whose `pkey` column is `TEXT` to `BYTEA` on startup; see
+On startup the vault converts a Postgres state table whose `pkey` column is `TEXT` to `BYTEA`, and on both Postgres and SQLite it reorders a primary key of `(pkey, ns)` to `(ns, pkey)`. See
 [Persistence: sqlite/postgres](../../../configuration.md#persistence-sqlitepostgres).
