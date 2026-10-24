@@ -88,9 +88,9 @@ func New(persistence driver.KeyValueStore, namespace string, cacheSize int) (*KV
 
 // GetExisting returns the subset of ids whose values are non-empty, looking them up
 // in the cache first and in the store for the rest. The lookup is best-effort: if the
-// store fails, GetExisting stops and returns the ids found so far. Ids read from the
-// store before the failure are cached; the remaining ids are not, so a later call
-// queries the store for them again.
+// store fails, GetExisting stops and returns the ids found so far. Non-empty values
+// read from the store before the failure are cached; empty values and the remaining
+// ids are not, so a later call queries the store for them again.
 func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 	result := make([]string, 0)
 	notFound := make([]string, 0)
@@ -139,8 +139,10 @@ func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 		if err != nil || v == nil {
 			break
 		}
-		o.cache.Put(v.Key, v.Raw)
+		// An empty value means the state does not exist. Caching it would make
+		// a later Get read it back from the cache and fail to unmarshal it.
 		if len(v.Raw) > 0 {
+			o.cache.Put(v.Key, v.Raw)
 			result = append(result, v.Key)
 		}
 	}
@@ -188,20 +190,14 @@ func (o *KVS) Get(ctx context.Context, id string, state any) error {
 			logger.DebugfContext(ctx, "failed retrieving state [%s,%s]", o.namespace, id)
 			return errors.Wrapf(err, "failed retrieving state [%s,%s]", o.namespace, id)
 		}
-		// Add to cache (write lock). An empty value is not cached here:
-		// GetExisting already caches those, and there is nothing to unmarshal.
-		if len(raw) > 0 {
-			o.putMutex.Lock()
-			o.cache.Put(id, raw)
-			o.putMutex.Unlock()
+		if len(raw) == 0 {
+			return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
 		}
-	}
 
-	// A cached entry can be empty, because GetExisting caches whatever the
-	// store iterator returns. Report that the same way as an empty read from
-	// the store, rather than failing to unmarshal it.
-	if len(raw) == 0 {
-		return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
+		// Add to cache (write lock)
+		o.putMutex.Lock()
+		o.cache.Put(id, raw)
+		o.putMutex.Unlock()
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {

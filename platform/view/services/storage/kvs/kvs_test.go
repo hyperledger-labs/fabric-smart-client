@@ -470,6 +470,25 @@ func TestKVS_Get_CacheBehavior(t *testing.T) {
 		require.Equal(t, 1, mockStore.GetStateCallCount())
 		require.Equal(t, result1, result2)
 	})
+
+	t.Run("GetExisting does not cache empty values", func(t *testing.T) {
+		t.Parallel()
+		mockStore := &mock.KeyValueStore{}
+		mockStore.GetStateSetIteratorReturns(iterators.Slice([]*driver.UnversionedRead{
+			{Key: "key1", Raw: []byte{}},
+		}), nil)
+
+		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		require.NoError(t, err)
+
+		require.Empty(t, k.GetExisting(context.Background(), "key1"))
+
+		// Get misses the cache, reads the store and reports a missing state
+		// instead of failing to unmarshal an empty cached value.
+		err = k.Get(context.Background(), "key1", &testStruct{})
+		require.ErrorContains(t, err, "does not exist")
+		require.Equal(t, 1, mockStore.GetStateCallCount())
+	})
 }
 
 func TestKVS_Delete(t *testing.T) {
@@ -1086,27 +1105,4 @@ func TestKVS_CacheInvalidation(t *testing.T) {
 		require.Equal(t, 42, result.Value)
 		require.Equal(t, 0, mockStore.GetStateCallCount())
 	})
-}
-
-func TestGetEmptyCachedValueReportsDoesNotExist(t *testing.T) {
-	t.Parallel()
-	mockStore := &mock.KeyValueStore{}
-	items := []*driver.UnversionedRead{
-		{Key: "k", Raw: []byte{}},
-	}
-	mockStore.GetStateSetIteratorReturns(iterators.Slice(items), nil)
-
-	k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
-	require.NoError(t, err)
-
-	// GetExisting caches whatever the iterator returns, the empty value included,
-	// and reports the key as not existing.
-	require.Empty(t, k.GetExisting(context.Background(), "k"))
-
-	// Get now reads that empty value from the cache. It must report a missing
-	// state rather than failing to unmarshal it.
-	var state map[string]any
-	err = k.Get(context.Background(), "k", &state)
-	require.ErrorContains(t, err, "does not exist")
-	require.Equal(t, 0, mockStore.GetStateCallCount())
 }
