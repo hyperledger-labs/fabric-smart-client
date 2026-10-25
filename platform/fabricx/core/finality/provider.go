@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
 // GRPCClientProvider provides gRPC client connections for a given network.
@@ -50,11 +51,13 @@ type ServiceConfigProvider interface {
 
 // NewListenerManagerProvider creates a new instance of the Provider, which implements ListenerManagerProvider.
 // This provider manages the lifecycle of ListenerManager instances, ensuring one per
-// network/channel combination.
-func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configProvider ServiceConfigProvider) *Provider {
+// network/channel combination. Each manager reports the state of its notification stream to
+// connState under the fabricx_notification component; a nil connState reports nothing.
+func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configProvider ServiceConfigProvider, connState *connstate.Metrics) *Provider {
 	return &Provider{
 		grpcClientProvider:     grpcClientProvider,
 		configProvider:         configProvider,
+		connState:              connState,
 		managers:               make(map[string]ListenerManager),
 		newNotificationManager: newNotificationManagerWithGRPC,
 		baseCtx:                deferred.NewHolder[context.Context]("finality listener manager provider base context"),
@@ -72,6 +75,7 @@ type Provider struct {
 	newNotificationManager func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error)
 	configProvider         ServiceConfigProvider
 	grpcClientProvider     GRPCClientProvider
+	connState              *connstate.Metrics
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
 	managersMu             sync.Mutex
 
@@ -165,6 +169,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	if err != nil {
 		return nil, err
 	}
+	lm.conn = p.connState.Tracker(network, channel, connstate.ComponentFabricxNotification, lm.endpoint)
 
 	// 4. Register the newly created instance
 	p.managers[key] = lm
@@ -205,6 +210,7 @@ func newNotificationManagerWithGRPC(network string, grpcClientProvider GRPCClien
 
 	nlm := &notificationListenerManager{
 		notifyClient:     notifyClient,
+		endpoint:         cc.Target(),
 		requestQueue:     make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:    make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:         make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline

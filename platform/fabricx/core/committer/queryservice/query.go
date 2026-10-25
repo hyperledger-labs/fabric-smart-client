@@ -8,11 +8,14 @@ package queryservice
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -21,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
 var (
@@ -32,12 +36,33 @@ var (
 type RemoteQueryService struct {
 	client committerpb.QueryServiceClient
 	config *config.Config
+	conn   func() *connstate.Tracker
 }
 
-func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient) *RemoteQueryService {
-	return &RemoteQueryService{
+// NewRemoteQueryService returns a query service that sends its queries through client.
+// The outcome of each query is reported to the tracker conn returns: reconnecting when the
+// query service cannot be reached, connected otherwise. conn is called once, on the first
+// completed query, so a query service that is never used reports nothing. A nil conn
+// reports nothing.
+func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient, conn func() *connstate.Tracker) *RemoteQueryService {
+	s := &RemoteQueryService{
 		client: client,
 		config: config,
+		conn:   func() *connstate.Tracker { return nil },
+	}
+	if conn != nil {
+		s.conn = sync.OnceValue(conn)
+	}
+	return s
+}
+
+// report records the connection state implied by the error of a query.
+func (s *RemoteQueryService) report(err error) {
+	switch status.Code(err) {
+	case codes.Unavailable, codes.DeadlineExceeded:
+		s.conn().Set(connstate.Reconnecting)
+	default:
+		s.conn().Set(connstate.Connected)
 	}
 }
 
@@ -82,6 +107,7 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{
 		TxIds: []string{txID},
 	})
+	s.report(err)
 	if err != nil {
 		return 0, errors.Wrap(err, "query transaction status")
 	}
@@ -117,6 +143,7 @@ func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]
 
 	now := time.Now()
 	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: unique})
+	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "query transaction statuses")
 	}
@@ -138,6 +165,7 @@ func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, err
 
 	now := time.Now()
 	res, err := s.client.GetConfigTransaction(ctx, &emptypb.Empty{})
+	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "get config transaction")
 	}
@@ -163,6 +191,7 @@ func (s *RemoteQueryService) GetNamespacePolicies() (*applicationpb.NamespacePol
 
 	now := time.Now()
 	res, err := s.client.GetNamespacePolicies(ctx, &emptypb.Empty{})
+	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "get namespace policies")
 	}
@@ -184,6 +213,7 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 
 	now := time.Now()
 	res, err := s.client.GetRows(ctx, q)
+	s.report(err)
 	if err != nil {
 		logger.Warnf("QS GetState: error calling getRows: %v", err)
 		return nil, errors.Wrap(err, "query get rows")

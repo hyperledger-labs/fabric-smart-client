@@ -36,7 +36,7 @@ func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *mock.FakeQuery
 	}
 
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice.NewRemoteQueryService(c, client)
+	qs := queryservice.NewRemoteQueryService(c, client, nil)
 
 	return qs, client
 }
