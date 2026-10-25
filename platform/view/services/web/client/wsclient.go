@@ -4,6 +4,8 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package client dials WebSocket connections for FSC's WebSocket-based transports: the p2p
+// WebSocket host and the view service's HTTP binding.
 package client
 
 import (
@@ -12,7 +14,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
+
+var logger = logging.MustGetLogger()
 
 const (
 	maxMessageSize          = 10 * 1024 * 1024

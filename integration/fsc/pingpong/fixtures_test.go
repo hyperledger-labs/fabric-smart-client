@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package pingpong_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -57,17 +56,16 @@ func TestFixturesExerciseTLSInheritance(t *testing.T) {
 
 // The web client must see TLS as enabled even though the fixtures inherit
 // fsc.web.tls.enabled from fsc.tls. Reading that key directly returns false for an
-// inheriting node, and the client then dials ws:// against a TLS listener and hangs on a
-// bad handshake — which is exactly how this broke once.
+// inheriting node, and the client then dials plaintext against a TLS listener and hangs on
+// a bad handshake.
 func TestWebClientConfigSeesInheritedTLS(t *testing.T) {
 	t.Parallel()
 	for _, dir := range fixtureNodeDirs {
-		cfg, err := nwoclient.NewWebClientConfigFromFSC(dir)
+		cc, err := nwoclient.NewWebConnectionConfigFromFSC(dir)
 		require.NoError(t, err, dir)
-		require.NotEmpty(t, cfg.CACertRaw, "%s: TLS must be detected through inheritance", dir)
-		require.NotEmpty(t, cfg.TLSCertRaw, dir)
-		require.NotEmpty(t, cfg.TLSKeyRaw, dir)
-		require.True(t, strings.HasPrefix(cfg.WsURL(), "wss://"),
-			"%s: must dial wss, got %s", dir, cfg.WsURL())
+		require.True(t, cc.TLS.UseTLS, "%s: TLS must be detected through inheritance", dir)
+		require.NotEmpty(t, cc.TLS.ServerRootCAs, dir)
+		require.NotEmpty(t, cc.TLS.Certificate, dir)
+		require.NotEmpty(t, cc.TLS.Key, dir)
 	}
 }
