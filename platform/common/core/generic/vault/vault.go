@@ -187,18 +187,13 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 		span.AddLink(trace.LinkFromContext(tx.ctx))
 	}
 
-	for {
-		err := db.commitRWs(ctx, inputs...)
-		if err == nil {
-			db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
-			return collections.Repeat[error](nil, len(txs))
-		}
-		// A deadlock is transient, so the whole batch is retried indefinitely; any other error fails every tx in the batch.
-		if !errors.HasCause(err, dbdriver.DeadlockDetected) {
-			return collections.Repeat(err, len(txs))
-		}
-		db.logger.Debugf("Deadlock detected. Retrying... [%v]", err)
+	// A failure fails every tx in the batch. Transient ones (deadlock, lost
+	// connection) are retried by the committer, within its retry budget.
+	if err := db.commitRWs(ctx, inputs...); err != nil {
+		return collections.Repeat(err, len(txs))
 	}
+	db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
+	return collections.Repeat[error](nil, len(txs))
 }
 
 func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error {
