@@ -25,6 +25,10 @@ var ErrSessionClosed = errors.New("session closed")
 
 const DefaultDrainTimeout = 500 * time.Millisecond
 
+// sessionStreamGrace is how long a session whose last stream died waits for a replacement
+// stream, opened by a send or by the remote, before it closes.
+const sessionStreamGrace = 5 * time.Second
+
 type sender interface {
 	sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error
 }
@@ -42,6 +46,10 @@ type NetworkStreamSession struct {
 	incoming        chan *view.Message
 	streams         map[*streamHandler]struct{}
 	mutex           sync.RWMutex
+	// streamGrace is how long the session waits for a replacement stream, see sessionStreamGrace.
+	streamGrace time.Duration
+	// orphanTimer closes the session when it stays without a stream for streamGrace. Guarded by mutex.
+	orphanTimer *time.Timer
 
 	startOnce sync.Once
 	middleCh  chan *view.Message
@@ -53,9 +61,6 @@ type NetworkStreamSession struct {
 func (n *NetworkStreamSession) tryStart() {
 	n.startOnce.Do(func() {
 		go func() {
-			ticker := time.NewTicker(5 * time.Minute)
-			defer ticker.Stop()
-
 			exit := func(v *view.Message, needSend bool) {
 				drainTimeout := DefaultDrainTimeout
 				if needSend {
@@ -95,24 +100,42 @@ func (n *NetworkStreamSession) tryStart() {
 						return
 					case n.incoming <- v:
 					}
-				case <-ticker.C:
-					n.cleanupStreams()
 				}
 			}
 		}()
 	})
 }
 
-func (n *NetworkStreamSession) cleanupStreams() {
+// dropDeadStream removes sh, whose reads failed, from the session. A session left without a
+// stream closes streamGrace after its last stream died, unless a replacement stream attaches in
+// the meantime, so a reader waiting on Receive() sees the closed channel instead of waiting for
+// a message that cannot arrive. Each time the session loses its last stream, the full grace
+// period starts again. The master session never closes this way.
+func (n *NetworkStreamSession) dropDeadStream(sh *streamHandler) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
+	if _, held := n.streams[sh]; !held {
+		return
+	}
+	sh.release()
+	delete(n.streams, sh)
+	if len(n.streams) > 0 || n.sessionID == masterSession {
+		return
+	}
+	if n.orphanTimer == nil {
+		n.orphanTimer = time.AfterFunc(n.streamGrace, n.closeIfOrphaned)
+	} else {
+		n.orphanTimer.Reset(n.streamGrace)
+	}
+}
 
-	for sh := range n.streams {
-		if sh.isClosed() {
-			logger.Debugf("session [%s] pruning closed stream [%s]", n.sessionID, sh.stream.Hash())
-			sh.release()
-			delete(n.streams, sh)
-		}
+func (n *NetworkStreamSession) closeIfOrphaned() {
+	n.mutex.RLock()
+	orphaned := len(n.streams) == 0
+	n.mutex.RUnlock()
+	if orphaned {
+		logger.Debugf("session [%s] has no live stream, closing", n.sessionID)
+		n.closeAsync()
 	}
 }
 

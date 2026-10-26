@@ -97,8 +97,12 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		// Wait for the answer
 		var msg *view.Message
 		select {
-		case msg = <-ch:
+		case m, ok := <-ch:
 			timeout.Stop()
+			if !ok {
+				return nil, errors.Errorf("session to party %s closed", party)
+			}
+			msg = m
 		case <-timeout.C:
 			timeout.Stop()
 			return nil, errors.Errorf("Timeout from party %s", party)
