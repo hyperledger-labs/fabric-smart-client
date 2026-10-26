@@ -55,13 +55,27 @@ func attachStream(t *testing.T, p *P2PNode, session *NetworkStreamSession) *kill
 	return stream
 }
 
-func newStreamTestSession(t *testing.T) (*P2PNode, *NetworkStreamSession) {
+// newStreamTestSession returns a session that waits grace for a replacement stream.
+func newStreamTestSession(t *testing.T, grace time.Duration) (*P2PNode, *NetworkStreamSession) {
 	t.Helper()
 	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
 	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
 	require.NoError(t, err)
+	session.mutex.Lock()
+	session.streamGrace = grace
+	session.mutex.Unlock()
 	return p, session
+}
+
+// waitNoStreams waits until session holds no stream.
+func waitNoStreams(t *testing.T, session *NetworkStreamSession) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		session.mutex.RLock()
+		defer session.mutex.RUnlock()
+		return len(session.streams) == 0
+	}, time.Second, tick, "a dead stream is removed from the session right away")
 }
 
 func receiveClosed(session *NetworkStreamSession) bool {
@@ -75,10 +89,11 @@ func receiveClosed(session *NetworkStreamSession) bool {
 
 func TestSession_ClosedWhenOnlyStreamDies(t *testing.T) {
 	t.Parallel()
-	p, session := newStreamTestSession(t)
+	const grace = 100 * time.Millisecond
+	p, session := newStreamTestSession(t, grace)
 	attachStream(t, p, session).kill()
 
-	require.Eventually(t, func() bool { return receiveClosed(session) }, sessionStreamGrace+100*time.Millisecond, tick)
+	require.Eventually(t, func() bool { return receiveClosed(session) }, grace+time.Second, tick)
 	session.mutex.RLock()
 	defer session.mutex.RUnlock()
 	require.Empty(t, session.streams)
@@ -86,17 +101,32 @@ func TestSession_ClosedWhenOnlyStreamDies(t *testing.T) {
 
 func TestSession_SurvivesWhenReplacementStreamAttaches(t *testing.T) {
 	t.Parallel()
-	p, session := newStreamTestSession(t)
-	dying := attachStream(t, p, session)
-	dying.kill()
-	require.Eventually(t, func() bool {
-		session.mutex.RLock()
-		defer session.mutex.RUnlock()
-		return len(session.streams) == 0
-	}, time.Second, tick, "a dead stream is removed from the session right away")
+	const grace = 100 * time.Millisecond
+	p, session := newStreamTestSession(t, grace)
+	attachStream(t, p, session).kill()
+	waitNoStreams(t, session)
 
 	attachStream(t, p, session)
-	time.Sleep(sessionStreamGrace + 100*time.Millisecond)
+	time.Sleep(3 * grace)
 	require.False(t, session.Info().Closed)
 	require.False(t, receiveClosed(session))
+}
+
+// TestSession_GraceRestartsWhenLastStreamDiesAgain checks that each loss of the last stream
+// gets the full grace period, rather than closing on the timer of an earlier loss.
+func TestSession_GraceRestartsWhenLastStreamDiesAgain(t *testing.T) {
+	t.Parallel()
+	const grace = 2 * time.Second
+	p, session := newStreamTestSession(t, grace)
+	attachStream(t, p, session).kill()
+	waitNoStreams(t, session)
+
+	time.Sleep(grace * 6 / 10)
+	attachStream(t, p, session).kill()
+	waitNoStreams(t, session)
+
+	// The first loss's grace period has ended, the second one's has not.
+	time.Sleep(grace * 6 / 10)
+	require.False(t, session.Info().Closed)
+	require.Eventually(t, func() bool { return receiveClosed(session) }, grace, tick)
 }

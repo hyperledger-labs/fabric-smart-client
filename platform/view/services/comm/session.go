@@ -46,6 +46,10 @@ type NetworkStreamSession struct {
 	incoming        chan *view.Message
 	streams         map[*streamHandler]struct{}
 	mutex           sync.RWMutex
+	// streamGrace is how long the session waits for a replacement stream, see sessionStreamGrace.
+	streamGrace time.Duration
+	// orphanTimer closes the session when it stays without a stream for streamGrace. Guarded by mutex.
+	orphanTimer *time.Timer
 
 	startOnce sync.Once
 	middleCh  chan *view.Message
@@ -103,30 +107,36 @@ func (n *NetworkStreamSession) tryStart() {
 }
 
 // dropDeadStream removes sh, whose reads failed, from the session. A session left without a
-// stream closes after sessionStreamGrace unless a replacement stream attaches in the meantime,
-// so a reader waiting on Receive() sees the closed channel instead of waiting for a message
-// that cannot arrive. The master session never closes this way.
+// stream closes streamGrace after its last stream died, unless a replacement stream attaches in
+// the meantime, so a reader waiting on Receive() sees the closed channel instead of waiting for
+// a message that cannot arrive. Each time the session loses its last stream, the full grace
+// period starts again. The master session never closes this way.
 func (n *NetworkStreamSession) dropDeadStream(sh *streamHandler) {
 	n.mutex.Lock()
-	_, held := n.streams[sh]
-	if held {
-		sh.release()
-		delete(n.streams, sh)
-	}
-	orphaned := held && len(n.streams) == 0
-	n.mutex.Unlock()
-	if !orphaned || n.sessionID == masterSession {
+	defer n.mutex.Unlock()
+	if _, held := n.streams[sh]; !held {
 		return
 	}
-	time.AfterFunc(sessionStreamGrace, func() {
-		n.mutex.RLock()
-		orphaned := len(n.streams) == 0
-		n.mutex.RUnlock()
-		if orphaned {
-			logger.Debugf("session [%s] has no live stream, closing", n.sessionID)
-			n.closeAsync()
-		}
-	})
+	sh.release()
+	delete(n.streams, sh)
+	if len(n.streams) > 0 || n.sessionID == masterSession {
+		return
+	}
+	if n.orphanTimer == nil {
+		n.orphanTimer = time.AfterFunc(n.streamGrace, n.closeIfOrphaned)
+	} else {
+		n.orphanTimer.Reset(n.streamGrace)
+	}
+}
+
+func (n *NetworkStreamSession) closeIfOrphaned() {
+	n.mutex.RLock()
+	orphaned := len(n.streams) == 0
+	n.mutex.RUnlock()
+	if orphaned {
+		logger.Debugf("session [%s] has no live stream, closing", n.sessionID)
+		n.closeAsync()
+	}
 }
 
 // Info returns a view.SessionInfo.
