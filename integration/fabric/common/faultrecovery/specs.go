@@ -55,12 +55,13 @@ func CrashSpecs(s *integration.TestSuite) {
 		}
 		s.II.StartFSCNode("bob")
 
-		gomega.Eventually(func(g gomega.Gomega) {
-			for i, txID := range txIDs {
+		// Each tx gets its own budget, so a failure names the tx bob has not settled.
+		for i, txID := range txIDs {
+			gomega.Eventually(func(g gomega.Gomega) {
 				res, err := Query(s.II, "bob", txID)
 				g.Expect(err).NotTo(gomega.HaveOccurred())
-				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}), "tx [%s] on bob", txID)
-			}
-		}, recoveryTimeout, time.Second).Should(gomega.Succeed())
+				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
+			}, recoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on bob", i, txID)
+		}
 	})
 }
