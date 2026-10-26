@@ -9,12 +9,18 @@ package common_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
@@ -236,4 +242,52 @@ func TestClose(t *testing.T) { //nolint:paralleltest
 
 func mockKeyValueStore(write, read *sql.DB) *common2.KeyValueStore {
 	return common2.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{})
+}
+
+// The range and set iterators pass query and row-read errors through the
+// store's SQLErrorWrapper.
+func TestKeyValueStoreIterators_WrapErrors(t *testing.T) {
+	t.Parallel()
+
+	iterate := map[string]func(s *common2.KeyValueStore) error{
+		"GetStateRangeScanIterator": func(s *common2.KeyValueStore) error {
+			it, err := s.GetStateRangeScanIterator(t.Context(), "ns", "a", "z")
+			if err != nil {
+				return err
+			}
+			_, err = iterators.ReadAllPointers(it)
+			return err
+		},
+		"GetStateSetIterator": func(s *common2.KeyValueStore) error {
+			it, err := s.GetStateSetIterator(t.Context(), "ns", "k")
+			if err != nil {
+				return err
+			}
+			_, err = iterators.ReadAllPointers(it)
+			return err
+		},
+	}
+	for name, run := range iterate {
+		for _, rowErr := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/rowErr=%t", name, rowErr), func(t *testing.T) {
+				t.Parallel()
+				db, sqlMock, err := sqlmock.New()
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = db.Close() })
+				dbErr := errors.New("connection reset by peer")
+				if rowErr {
+					sqlMock.ExpectQuery("SELECT").WillReturnRows(
+						sqlmock.NewRows([]string{"pkey", "val"}).AddRow("a", []byte("v")).RowError(0, dbErr))
+				} else {
+					sqlMock.ExpectQuery("SELECT").WillReturnError(dbErr)
+				}
+				wrapper := &mock.SQLErrorWrapper{}
+				wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(driver.ErrConnectionLost, err.Error()) }
+
+				err = run(common2.NewKeyValueStore(db, db, "kv_table", wrapper))
+				require.ErrorIs(t, err, driver.ErrConnectionLost)
+				require.ErrorContains(t, err, dbErr.Error())
+			})
+		}
+	}
 }

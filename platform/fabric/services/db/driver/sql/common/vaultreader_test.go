@@ -10,6 +10,7 @@ import (
 	"context"
 	dbsql "database/sql"
 	sqldriver "database/sql/driver"
+	"io"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -17,9 +18,12 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 var errIsoMap = errors.New("unsupported isolation level")
@@ -315,13 +319,16 @@ func TestVaultStore_Close(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
-func TestCreateSchema(t *testing.T) { //nolint:paralleltest
+func TestCreateSchema(t *testing.T) {
+	t.Parallel()
+
 	for name, create := range map[string]func(db *dbsql.DB) error{
 		"envelope":  func(db *dbsql.DB) error { return mockEnvelopeStore(db).CreateSchema() },
 		"endorsetx": func(db *dbsql.DB) error { return mockEndorseTXStore(db).CreateSchema() },
 		"metadata":  func(db *dbsql.DB) error { return mockMetadataStore(db).CreateSchema() },
 	} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			db, mockDB, err := sqlmock.New()
 			require.NoError(t, err)
 
@@ -513,4 +520,61 @@ func TestGetState_QueryFails(t *testing.T) { //nolint:paralleltest
 	_, err := store.GetState(context.Background(), "ns", "k1")
 	require.ErrorIs(t, err, queryErr)
 	require.NoError(t, mockDB.ExpectationsWereMet())
+}
+
+// A connection lost while reading rows reaches the caller through the store's
+// SQLErrorWrapper, so the committer sees driver.ErrConnectionLost and retries
+// the block instead of degrading it.
+func TestVaultReads_RowErrorIsWrapped(t *testing.T) {
+	t.Parallel()
+
+	reads := map[string]func(s *common2.VaultStore) error{
+		"GetTxStatus": func(s *common2.VaultStore) error {
+			_, err := s.GetTxStatus(context.Background(), "tx")
+			return err
+		},
+		"GetLast": func(s *common2.VaultStore) error {
+			_, err := s.GetLast(context.Background())
+			return err
+		},
+		"GetTxStatuses": func(s *common2.VaultStore) error {
+			it, err := s.GetTxStatuses(context.Background(), "tx")
+			if err != nil {
+				return err
+			}
+			_, err = iterators.ReadAllPointers(it)
+			return err
+		},
+		"GetStates": func(s *common2.VaultStore) error {
+			it, err := s.GetStates(context.Background(), "ns", "k")
+			if err != nil {
+				return err
+			}
+			_, err = iterators.ReadAllPointers(it)
+			return err
+		},
+		"GetStateRange": func(s *common2.VaultStore) error {
+			it, err := s.GetStateRange(context.Background(), "ns", "a", "z")
+			if err != nil {
+				return err
+			}
+			_, err = iterators.ReadAllPointers(it)
+			return err
+		},
+	}
+	for name, read := range reads {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			db, mockDB, err := sqlmock.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			store := common2.NewVaultStore(db, db, vaultTables, &postgres.ErrorMapper{}, idKey, defaultIsoMapper{})
+			mockDB.ExpectQuery("SELECT").WillReturnRows(
+				sqlmock.NewRows([]string{"a", "b", "c"}).AddRow("x", "y", "z").RowError(0, io.ErrUnexpectedEOF))
+
+			err = read(store)
+			require.ErrorContains(t, err, io.ErrUnexpectedEOF.Error())
+			require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
+		})
+	}
 }

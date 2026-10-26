@@ -78,10 +78,10 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns drive
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "query error: %s", query)
+		return nil, errors.Wrapf(db.errorWrapper.WrapError(err), "query error: %s", query)
 	}
 
-	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
+	return NewWrappedIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }, db.errorWrapper), nil
 }
 
 func (db *KeyValueStore) GetState(ctx context.Context, namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
@@ -104,10 +104,10 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Nam
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "query error: %s", query)
+		return nil, errors.Wrapf(db.errorWrapper.WrapError(err), "query error: %s", query)
 	}
 
-	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
+	return NewWrappedIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }, db.errorWrapper), nil
 }
 
 func (db *KeyValueStore) Close() error {

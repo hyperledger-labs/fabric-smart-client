@@ -392,7 +392,7 @@ func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Names
 	if err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
-	return common3.NewIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }), nil
+	return common3.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
@@ -427,7 +427,7 @@ func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition)
 	if err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
-	return common3.NewIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }), nil
+	return common3.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
 }
 
 func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
@@ -510,7 +510,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where sqlbuild.Condition
 	if err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
-	return common3.NewIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }), nil
+	return common3.NewWrappedIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }, db.errorWrapper), nil
 }
 
 func (db *VaultStore) Close() error {
