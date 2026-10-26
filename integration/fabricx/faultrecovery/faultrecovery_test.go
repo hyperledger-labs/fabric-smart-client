@@ -50,7 +50,7 @@ var _ = Describe("Fault Recovery with Fabric-x", Label(fsc.WebSocket), func() {
 	// blocks in memory only. After StartCommitter it restarts from the genesis block while
 	// the sidecar resumes from the block it recovered from its database, so a transaction
 	// ordered after the restart never commits. The spec runs once nwo can restart the
-	// committer without the orderer.
+	// committer without the orderer (#2268).
 	PIt("survives committer restart", func() {
 		notification := fsc.Connection{Component: connstate.ComponentFabricxNotification}
 		committer := nwofabricx.FxPlatform(s.II)
