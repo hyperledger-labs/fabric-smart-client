@@ -11,8 +11,8 @@ The FSC metrics surface has two layers:
 
 At the time of writing, the repository defines:
 
-- **33 explicit metric families**
-- **14 tracer bases**, which produce **28 trace-derived metric families** (`*_operations` and `*_duration`)
+- **41 explicit metric families**
+- **12 tracer bases**, which produce **24 trace-derived metric families** (`*_operations` and `*_duration`)
 
 This catalog is organized by subsystem and records the metric family names that Prometheus sees.
 
@@ -76,7 +76,7 @@ For trace-derived metrics, the namespace and subsystem are also fixed by `tracin
 
 The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
-- all 33 explicit metric families
+- all 41 explicit metric families
 - all trace-derived families except `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`
 
 The two caller-process families are exported only by the process that creates those tracers:
@@ -98,6 +98,21 @@ For node-level monitoring, the quickest way to interpret the FSC metrics surface
 - do not expect `fsc_view_services_view_client_client_*` or `fsc_view_services_view_client_node_view_client_*` on the node unless the node process itself is the tracer owner
 
 If a family is absent, check the matching runtime condition first: communication transport, ingress path, Fabric execution path, or caller-process ownership.
+
+`fsc_connection_state` has one series per connection, labeled with the `component` and the `endpoint` it connects to (see [Connection State](#connection-state)):
+
+- `2` (connected) is healthy.
+- `1` (connecting) and `3` (reconnecting) are transient. `delivery`, `fabricx_notification` and `database` retry on their own; `orderer` and `fabricx_query` stay at `3` until the next broadcast or query succeeds, so on an idle node a series can stay at `3` with nothing wrong. Alert when a retrying component stays at `3` longer than you can tolerate, or when `fsc_connection_reconnects` keeps rising.
+- `0` (disconnected) is expected after a clean shutdown, and for the previous peer after delivery moves to another one.
+- `4` (stopped) is terminal and only `delivery` reports it, after the committer rejects a block (see `commit_failures`): the channel's block stream no longer retries and `GET /readyz` returns 503. Check the series' endpoint in `core.yaml` and the cause in the node log, fix it, then restart the node.
+
+| `component` | Endpoint in `core.yaml` |
+| --- | --- |
+| `delivery` | `fabric.<network>.peers` |
+| `orderer` | `fabric.<network>.orderers`, plus the orderers in the channel configuration |
+| `fabricx_notification` | `fabric.<network>.notificationService.endpoints` |
+| `fabricx_query` | `fabric.<network>.queryService.endpoints` |
+| `database` | `fsc.persistences.<name>.opts.dataSource` of a `postgres` persistence |
 
 ## Explicit Metrics
 
@@ -194,8 +209,8 @@ Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, up
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `fsc_view_services_grpc_conn_opened` | counter | none | Number of gRPC connections opened. |
-| `fsc_view_services_grpc_conn_closed` | counter | none | Number of gRPC connections closed. |
+| `fsc_common_services_grpc_conn_opened` | counter | none | Number of gRPC connections opened. |
+| `fsc_common_services_grpc_conn_closed` | counter | none | Number of gRPC connections closed. |
 
 These counters are implemented by FSC's custom gRPC server stats handler. The handler itself is tested, but the default runtime currently wires the gRPC server through OpenTelemetry's server handler. See [Current Caveats](#current-caveats).
 
@@ -262,9 +277,9 @@ Primary implementation: `platform/view/services/storage/driver/sql/postgres/dbme
 | --- | --- | --- | --- |
 | `fsc_fabric_core_generic_ordering_ordered_transactions` | counter | `network` | Number of transactions that were successfully accepted by the ordering service. |
 
-This counter is incremented only after the orderer returns `Status_SUCCESS`.
+The CFT broadcaster increments this counter after the orderer returns `Status_SUCCESS`. The BFT broadcaster increments it once per envelope, after enough orderers return `Status_SUCCESS` to meet the threshold.
 
-Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updated in `platform/fabric/core/generic/ordering/cft.go`.
+Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updated in `platform/fabric/core/generic/ordering/cft.go` and `platform/fabric/core/generic/ordering/bft.go`.
 
 ### Fabric Committer
 
@@ -412,11 +427,11 @@ The following labels are part of the current FSC metric surface.
 | `channel` | Fabric channel name | deployment-specific channel name |
 | `class` | Committer commit-failure class that stopped the channel's block stream | `degrade`, `fatal` |
 | `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView` |
-| `component` | FSC component that owns a client connection | `orderer`, `delivery`, `fabricx_notification`, `fabricx_query`, `database`, `database_notifier` |
+| `component` | FSC component that owns a client connection | `orderer`, `delivery`, `fabricx_notification`, `fabricx_query`, `database` |
 | `context_id` | FSC context identifier used by the WebSocket multiplexer tracer | FSC context UUID or caller-provided context ID |
 | `data_source` | Postgres data source of a connection pool, without credentials | `host:port/dbname` |
 | `endpoint` | Remote address of a client connection | `host:port`; `host:port/dbname` for `database` |
-| `fid` | View factory identifier used by gRPC-oriented view tracers | application-defined factory ID |
+| `fid` | View factory identifier used by the local view client tracer | application-defined factory ID |
 | `initiator_view` | Initiator view identifier associated with a child view execution | fully qualified view identifier or empty |
 | `network` | Fabric network name | deployment-specific network name |
 | `peer` | Remote libp2p peer identifier | peer ID string |
@@ -437,7 +452,7 @@ The following families have implementation caveats:
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
 - `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.
-- `fsc_view_services_grpc_conn_opened` and `fsc_view_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
+- `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
 - `fsc_view_services_view_client_client_*`: these are caller-process metrics. The standard integration harness creates its external view clients with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
 - `fsc_view_services_view_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.
 
