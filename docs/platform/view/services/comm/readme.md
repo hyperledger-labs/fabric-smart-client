@@ -17,7 +17,7 @@ The Comm layer abstracts the underlying network transport and provides a session
 1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. It uses a **bounded worker pool** for concurrent message dispatching to prevent resource exhaustion.
 2.  **EndpointService**: The source of truth for peer identities and addresses. It manages resolvers that map PeerIDs to network endpoints and provides the public keys used for dynamic trust updates.
 3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket). The interface exposes `PeerID()`, which returns the local node's cryptographic peer identifier — the same value remote peers observe as `StreamInfo.RemotePeerID` and `SessionInfo.RemotePKID` when they connect to this node.
-4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `SendError`, `Receive`, `Close`) used by View developers. It includes **automatic cleanup** of dead stream references to prevent memory bloat.
+4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `SendError`, `Receive`, `Close`) used by View developers. A session drops a stream as soon as reading from it fails, and closes when it is left without one (see [Reliability and Stability](#reliability-and-stability)).
 
 ### Message Flow
 
@@ -93,7 +93,7 @@ A single dispatcher goroutine delivers incoming messages to every session, which
 
 - **Race-Free State Management**: All shared metadata are protected by synchronized mutexes and atomic flags. Stream handlers use atomic operations for lifecycle management (`closed`, `dead`, `refCtr`) to prevent race conditions between concurrent send and close operations.
 - **Synchronized Stream Operations**: The `streamHandler.close()` method acquires the stream lock to synchronize with concurrent `send()` operations, preventing corruption of in-flight messages.
-- **Automatic Resource Pruning**: Long-lived sessions periodically prune references to closed network streams (every 5 minutes), preventing memory bloat from accumulating dead stream references.
+- **Dead Stream Removal**: When reading from a stream fails, the stream is removed from every session holding it. A session left without a stream closes after a 5-second grace period unless a new stream to the same session attaches in the meantime, so a view waiting on `Receive()` gets a closed channel instead of waiting for a counterparty that is gone. The master session never closes this way.
 - **Stream Lifecycle Protection**: Streams are marked as "dead" immediately upon read errors, preventing new leases while allowing existing operations to complete gracefully.
 - **Deadlock Prevention**: The session shutdown process is hardened to prevent hangs. When a session is closed, it attempts to drain remaining messages to the consumer with a **500ms timeout per message**. This ensures that closing a session is never permanently blocked by an unresponsive consumer.
 

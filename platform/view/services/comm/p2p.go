@@ -448,6 +448,7 @@ func (s *streamHandler) handleIncoming() {
 			s.node.streamsMutex.Unlock()
 
 			logger.Debugf("stream handler to remove for hash [%s], found [%v]", streamHash, found)
+			s.dropFromSessions()
 			break
 		}
 		logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)
@@ -478,6 +479,20 @@ func (s *streamHandler) handleIncoming() {
 	// Ensure stream is closed when we break out of the loop
 	if !s.isStopping() {
 		s.close(context.Background())
+	}
+}
+
+// dropFromSessions removes the dead stream from every session holding it.
+// ponytail: scans all sessions per dead stream; index sessions by stream if that shows up in profiles.
+func (s *streamHandler) dropFromSessions() {
+	s.node.sessionsMutex.Lock()
+	sessions := make([]*NetworkStreamSession, 0, len(s.node.sessions))
+	for _, session := range s.node.sessions {
+		sessions = append(sessions, session)
+	}
+	s.node.sessionsMutex.Unlock()
+	for _, session := range sessions {
+		session.dropDeadStream(s)
 	}
 }
 
