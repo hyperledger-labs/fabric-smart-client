@@ -42,8 +42,7 @@ func (m *mockGRPCClientProvider) NotificationServiceClient(network string) (*grp
 	if m.notificationServiceClientFunc != nil {
 		return m.notificationServiceClientFunc(network)
 	}
-	// grpc.NewClient does not connect, so the address need not be served.
-	return grpc.NewClient("passthrough:///committer:7001", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	return nil, nil
 }
 
 // fakeServiceConfigProvider is a hand-written stand-in for ServiceConfigProvider.
@@ -622,7 +621,13 @@ func TestNewNotifiWithGRPC_HandlerPool(t *testing.T) {
 		cfg.HandlerWorkers = 3
 		cfg.HandlerQueueSize = 7
 
-		nlm, err := newNotificationManagerWithGRPC("network1", &mockGRPCClientProvider{}, cfg)
+		// grpc.NewClient does not connect, so the address need not be served.
+		cc, err := grpc.NewClient("passthrough:///committer:7001", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = cc.Close() })
+		gcp := &mockGRPCClientProvider{notificationServiceClientFunc: func(string) (*grpc.ClientConn, error) { return cc, nil }}
+
+		nlm, err := newNotificationManagerWithGRPC("network1", gcp, cfg)
 		require.NoError(t, err)
 		require.Equal(t, 3, nlm.handlerWorkers)
 		require.Equal(t, 7, nlm.handlerQueueSize)

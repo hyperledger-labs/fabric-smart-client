@@ -8,7 +8,7 @@ package queryservice
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -34,35 +34,41 @@ var (
 )
 
 type RemoteQueryService struct {
-	client committerpb.QueryServiceClient
-	config *config.Config
-	conn   func() *connstate.Tracker
+	client  committerpb.QueryServiceClient
+	config  *config.Config
+	newConn func() *connstate.Tracker
+	conn    atomic.Pointer[connstate.Tracker]
 }
 
 // NewRemoteQueryService returns a query service that sends its queries through client.
-// The outcome of each query is reported to the tracker conn returns: reconnecting when the
-// query service cannot be reached, connected otherwise. conn is called once, on the first
-// completed query, so a query service that is never used reports nothing. A nil conn
-// reports nothing.
-func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient, conn func() *connstate.Tracker) *RemoteQueryService {
-	s := &RemoteQueryService{
-		client: client,
-		config: config,
-		conn:   func() *connstate.Tracker { return nil },
+// The outcome of each query is reported to the tracker newConn returns: connected when the
+// query service answers, including with an error, and reconnecting when it is unavailable.
+// A query that times out does not change the state. newConn is called on the first answered
+// query, so the series exists only once the service has been reached, and a query service
+// that is unused or never reached reports nothing. A nil newConn reports nothing.
+func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient, newConn func() *connstate.Tracker) *RemoteQueryService {
+	return &RemoteQueryService{
+		client:  client,
+		config:  config,
+		newConn: newConn,
 	}
-	if conn != nil {
-		s.conn = sync.OnceValue(conn)
-	}
-	return s
 }
 
 // report records the connection state implied by the error of a query.
 func (s *RemoteQueryService) report(err error) {
 	switch status.Code(err) {
-	case codes.Unavailable, codes.DeadlineExceeded:
-		s.conn().Set(connstate.Reconnecting)
+	case codes.Unavailable:
+		s.conn.Load().Set(connstate.Reconnecting) // no-op until the first answer
+	case codes.DeadlineExceeded:
+		// A slow answer says nothing about the connection.
 	default:
-		s.conn().Set(connstate.Connected)
+		t := s.conn.Load()
+		if t == nil && s.newConn != nil {
+			// Concurrent first answers get the same tracker: Metrics.Tracker deduplicates.
+			t = s.newConn()
+			s.conn.Store(t)
+		}
+		t.Set(connstate.Connected)
 	}
 }
 

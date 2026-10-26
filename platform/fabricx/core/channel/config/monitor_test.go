@@ -518,7 +518,7 @@ func TestContextCancellation(t *testing.T) {
 	})
 }
 
-func TestQueryService_FailureReportsReconnecting(t *testing.T) {
+func TestQueryService_MonitorReportsConnected(t *testing.T) {
 	t.Parallel()
 	m, rec := connstatetest.NewMetrics()
 	client := &qsmock.FakeQueryServiceClient{}
@@ -538,6 +538,8 @@ func TestQueryService_FailureReportsReconnecting(t *testing.T) {
 	require.NoError(t, monitor.Start(t.Context()))
 	t.Cleanup(func() { _ = monitor.Stop() })
 
-	require.Eventually(t, func() bool { return len(rec.States("committer")) == 2 }, time.Second, 10*time.Millisecond)
-	require.Equal(t, []connstate.State{connstate.Reconnecting, connstate.Connected}, rec.States("committer"))
+	// The failed first poll reports nothing: the series is created by the first answer.
+	require.Eventually(t, func() bool { return len(rec.States("committer")) == 1 }, time.Second, 10*time.Millisecond)
+	require.Equal(t, 2, client.GetConfigTransactionCallCount())
+	require.Equal(t, []connstate.State{connstate.Connected}, rec.States("committer"))
 }
