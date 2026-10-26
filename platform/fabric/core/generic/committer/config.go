@@ -29,8 +29,35 @@ func (c *Committer) HandleConfig(ctx context.Context, _ *common.BlockMetadata, t
 	return &FinalityEvent{Ctx: ctx}, nil
 }
 
+// ReloadConfigTransactions applies the configurations recorded in the vault, in
+// sequence order up to the first one that is not Valid, so that the channel
+// starts with the configuration in force before block delivery begins.
 func (c *Committer) ReloadConfigTransactions() error {
-	ctx, span := c.tracer.Start(context.Background(), "reload_config_transactions")
+	return c.loadConfigs(context.Background(), 0)
+}
+
+// catchUpConfig applies the configurations recorded in the vault from the one
+// this process holds onwards. It runs before the first block this process
+// commits. The held configuration is applied again, which is idempotent, so a
+// retry after a failed orderer update completes it.
+//
+// Block delivery resumes from the vault's last transaction. With replicas
+// sharing the vault, another replica can record a config block and later blocks
+// between ReloadConfigTransactions and the start of delivery, so the resume point
+// lies past a config block this process never receives. Replicas commit blocks
+// in order, so every config block up to the resume point is Valid by then.
+func (c *Committer) catchUpConfig(ctx context.Context) error {
+	var from uint64
+	if seq, err := c.MembershipService.ConfigSequence(); err == nil {
+		from = seq
+	}
+	return c.loadConfigs(ctx, from)
+}
+
+// loadConfigs applies the Valid config transactions recorded in the vault,
+// starting at sequence from and stopping at the first one that is not Valid.
+func (c *Committer) loadConfigs(ctx context.Context, from uint64) error {
+	ctx, span := c.tracer.Start(ctx, "reload_config_transactions")
 	defer span.End()
 
 	qe, err := c.Vault.NewQueryExecutor(ctx)
@@ -43,16 +70,13 @@ func (c *Committer) ReloadConfigTransactions() error {
 		}
 	}()
 
-	c.logger.Debugf("looking up the latest config block available")
-	var sequence uint64 = 0
-	for {
+	c.logger.Debugf("loading config blocks from sequence [%d]", from)
+	for sequence := from; ; sequence++ {
 		txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 		vc, _, err := c.Vault.Status(ctx, txID)
 		if err != nil {
 			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
 		}
-		c.logger.Debugf("check config block at txID [%s], status [%v]...", txID, vc)
-		done := false
 		switch vc {
 		case driver.Valid:
 			c.logger.Debugf("config block available, txID [%s], loading...", txID)
@@ -63,7 +87,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 			}
 			envelope, err := qe.GetState(ctx, peerNamespace, key)
 			if err != nil {
-				return errors.Wrap(err, "failed setting configtx state in rws")
+				return errors.Wrap(err, "failed getting configtx state")
 			}
 			env, err := protoutil.UnmarshalEnvelope(envelope.Raw)
 			if err != nil {
@@ -77,39 +101,24 @@ func (c *Committer) ReloadConfigTransactions() error {
 			if err := c.applyConfigUpdates(); err != nil {
 				return err
 			}
-
-			sequence++
-			continue
 		case driver.Unknown:
 			if sequence == 0 {
 				// Give a chance to 1, in certain setting the first block starts with 1
-				sequence++
 				continue
 			}
-
 			c.logger.Debugf("config block at txID [%s] unavailable, stop loading", txID)
-			done = true
+			return nil
 		case driver.Busy:
-			// A config tx whose commit failed part-way. Block delivery resumes
-			// before it, so CommitConfig applies it again.
+			// A config tx whose commit failed part-way, or one another replica
+			// is committing. Delivery resumes from the last transaction that is
+			// not Busy, which lies before this one's block, so the block reaches
+			// this process and CommitConfig handles it.
 			c.logger.Debugf("config block at txID [%s] not committed, stop loading", txID)
-			done = true
+			return nil
 		default:
 			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}
-		if done {
-			c.logger.Debugf("loading config block done")
-			break
-		}
 	}
-	if sequence == 1 {
-		c.logger.Debugf("no config block available, must start from genesis")
-		// no configuration block found
-		return nil
-	}
-	c.logger.Debugf("latest config block available at sequence [%d]", sequence-1)
-
-	return nil
 }
 
 // configSequenceOf returns the sequence number carried by a channel
