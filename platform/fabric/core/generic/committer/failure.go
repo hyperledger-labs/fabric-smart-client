@@ -36,9 +36,11 @@ const (
 	classNone failureClass = iota
 
 	// classRetry is a non-deterministic failure that committing the same block
-	// again can clear, typically storage contention or an I/O fault in the vault.
-	// The block is re-committed with a delay between attempts; exhausting the
-	// budget wraps the failure in ErrRetriesExhausted, which classifies as
+	// again can clear: storage contention, a lost database connection or an
+	// expired context. The block is re-committed with a delay between attempts.
+	// A lost connection is retried until the block commits or the caller's
+	// context ends. Any other cause is retried within a bounded budget, and
+	// exhausting it wraps the failure in ErrRetriesExhausted, which classifies as
 	// classDegrade, because an unbounded retry on a fault that turns out to be
 	// permanent is a silent stall wearing a retry's clothes.
 	//
@@ -82,19 +84,27 @@ func (c failureClass) String() string {
 // these values, and adding them there would oblige every implementation and mock
 // to carry them.
 type retryConfig interface {
-	// CommitRetries is how many times a transiently failed block is committed
-	// again before the failure is treated as permanent. Zero commits once.
+	// CommitRetries is how many times a block failing with a transient cause
+	// other than a lost database connection is committed again before the
+	// failure is treated as permanent. Zero commits once.
 	CommitRetries() int
-	// CommitRetrySleep is the wait between attempts.
+	// CommitRetrySleep is the wait between attempts, and caps the first
+	// backoff delay while the database connection is lost.
 	CommitRetrySleep() time.Duration
 }
 
 const (
 	// Applied when the channel configuration carries no retry policy. Together,
-	// about a minute to recover: long enough for a storage failover, short enough
-	// that an operator sees a stopped channel rather than one retrying forever.
+	// about a minute for contention to clear: long enough for a transient burst,
+	// short enough that an operator sees a stopped channel rather than one
+	// retrying forever.
 	defaultCommitRetries    = 5
 	defaultCommitRetrySleep = 10 * time.Second
+
+	// maxConnectionLostDelay caps the backoff between attempts while the database
+	// connection is lost, so that the block commits within about a minute of the
+	// database coming back however long the outage lasted.
+	maxConnectionLostDelay = time.Minute
 )
 
 // retryPolicy returns this channel's retry budget and delay, defaulting only when
@@ -111,7 +121,9 @@ func (c *Committer) retryPolicy() (retries int, sleep time.Duration) {
 }
 
 // ErrRetriesExhausted marks a transient commit failure that did not clear within
-// its retry budget.
+// its retry budget, or whose retries ended because the caller's context did. A
+// lost database connection has no budget, so it reaches this sentinel only
+// through the context.
 //
 // It changes the failure's class rather than its cause. The error carrying it
 // classifies as classDegrade, because a fault that survived every retry is no
@@ -173,8 +185,9 @@ func classify(err error) failureClass {
 	// transient: database/sql opens a new connection on the next query. It may
 	// have broken during COMMIT after the transaction landed, so the block is
 	// committed again over state that may already hold it; Commit describes why
-	// that is safe, and the vault store's writes are upserts. It shares the
-	// contention budget, whose default spans a typical failover.
+	// that is safe, and the vault store's writes are upserts. retryBlock retries
+	// it until the context ends rather than within the contention budget,
+	// because how long the database stays away says nothing about the block.
 	if errors.HasCause(err, dbdriver.ErrConnectionLost) {
 		return classRetry
 	}

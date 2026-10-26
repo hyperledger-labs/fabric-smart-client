@@ -281,7 +281,7 @@ Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updat
 | `fsc_fabric_core_generic_committer_event_queue` | histogram | none | Time spent enqueueing a finality event into the committer's internal event channel. |
 | `fsc_fabric_core_generic_committer_event_queue_length` | gauge | none | Current number of pending events in the committer's event queue. |
 | `fsc_fabric_core_generic_committer_commit_retries` | counter | `network`, `channel` | Number of block commit attempts retried after a transient failure. |
-| `fsc_fabric_core_generic_committer_commit_failures` | counter | `network`, `channel`, `class` | Number of block commit failures returned to the caller, which stop that channel's block stream. |
+| `fsc_fabric_core_generic_committer_commit_failures` | counter | `network`, `channel`, `class` | Number of block commit failures returned to the caller, which stop that channel's block stream. A commit stopped by a shutdown is not counted. |
 
 Operational notes:
 
@@ -296,6 +296,11 @@ Operational notes:
 - `event_queue_length` is a manually maintained occupancy gauge.
 - `commit_retries` rising while `commit_failures` stays flat is a channel absorbing
   transient faults and recovering on its own. It is worth a dashboard, not a page.
+  While the database is unreachable the committer keeps retrying the same block
+  until the database comes back, so a long outage shows up as `commit_retries`
+  rising for as long as it lasts, not as a `commit_failures` increment. To page on
+  a long outage, alert on the `database` connection state staying `reconnecting`,
+  or on `commit_retries` rising for longer than the outage you tolerate.
 - **Any** increment of `commit_failures` means that channel has stopped ingesting
   blocks and will not resume without intervention. A stopped channel emits no
   further blocks and no further errors, so it does not show up in `block_commit` at
@@ -309,8 +314,10 @@ Operational notes:
     committing over untrustworthy state.
   - `retry` never appears here: a retryable failure that exhausts its budget is
     wrapped in `ErrRetriesExhausted`, which classifies as `degrade`, so an alert on
-    `degrade` catches the exhausted-storage-fault case as well as the deterministic
+    `degrade` catches the exhausted-contention case as well as the deterministic
     ones.
+- A commit that stops because the delivery stops or the node shuts down is not
+  counted in `commit_failures`: the block is committed again once delivery resumes.
 - Both counters carry `network` and `channel`, because the metrics provider is
   process-wide and a node serves several channels: without them every channel would
   increment one series and an operator would learn only that something stopped.

@@ -762,10 +762,13 @@ fabric:
           # Re-commit attempts for a transiently failed block, and the wait between
           # them. Transient failures are storage contention (deadlock, busy,
           # serialization failure), a lost database connection (Postgres restart or
-          # failover) and an expired context. Exhausting them stops this channel's
-          # block stream until restart, reported as
-          # fsc_fabric_core_generic_committer_commit_failures. The defaults allow
-          # about a minute; raise them if a database failover takes longer.
+          # failover) and an expired context. Exhausting the attempts stops this
+          # channel's block stream until restart, reported as
+          # fsc_fabric_core_generic_committer_commit_failures; the defaults allow
+          # about a minute. A lost database connection does not use up the
+          # attempts: the block is retried until the database comes back or the
+          # node shuts down, waiting a random delay of up to retrySleep at first
+          # and backing off to at most one minute between attempts.
           retries: 5
           retrySleep: 10s
         # section about the delivery service. The peer pushes blocks over a long-lived

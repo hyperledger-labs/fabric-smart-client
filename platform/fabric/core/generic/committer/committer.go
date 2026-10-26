@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -33,6 +34,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -306,6 +308,11 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 // driving the commit — the channel's block delivery — should stop rather than
 // inspect it. Every failure is counted before it is returned, so a stopped stream
 // shows up as a fault rather than as an absence of traffic.
+//
+// A commit that ends because ctx ended is not counted. The caller's context ends
+// when the delivery stops or the node shuts down, which is a deliberate stop
+// rather than a fault, so counting it would raise the same alert as a channel that
+// can no longer commit. The block is committed again once delivery resumes.
 func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 	newCtx, span := c.metrics.Commits.Start(ctx, "commit_block")
 	defer span.End()
@@ -313,6 +320,14 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 	err := c.retryBlock(newCtx, block)
 	if err == nil {
 		return nil
+	}
+
+	// Matched on the cause as well as on ctx: a deterministic failure that happens
+	// to return while the node shuts down is still a fault and is counted.
+	if ctx.Err() != nil && errors.HasCause(err, ctx.Err()) {
+		c.logger.Warnf("commit of block [%d] stopped because its context ended: [%v]",
+			block.GetHeader().GetNumber(), err)
+		return err
 	}
 
 	class := classify(err)
@@ -326,11 +341,23 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 // transient. It returns nil once the block is committed, or the error that ended
 // the attempts.
 //
-// The budget is bounded on purpose: an unbounded retry against a fault that turns
-// out to be permanent is a silent stall, which is the failure mode this path
-// exists to avoid. Exhausting it wraps the last error in ErrRetriesExhausted so
-// that it escalates out of the retry class, keeping the original cause matchable
-// underneath.
+// Two kinds of transient failure are retried differently:
+//
+//   - A lost database connection is retried until the block commits or ctx ends,
+//     waiting between attempts with exponential backoff and full jitter, starting
+//     at the retry delay and capped at maxConnectionLostDelay. A missing database
+//     says nothing about the block, so no budget would be right for every outage;
+//     ending ctx is what stops these retries.
+//   - Every other transient failure, such as contention, is retried at most
+//     `retries` times, with the retry delay between attempts. A fault that does
+//     not clear within that budget is unlikely to be transient, and retrying it
+//     forever would be a silent stall. Exhausting the budget wraps the last error
+//     in ErrRetriesExhausted so that it escalates out of the retry class, keeping
+//     the original cause matchable underneath.
+//
+// Attempts lost to the connection do not count against the budget, so a block
+// whose failures alternate between the two kinds gets the full budget for its
+// contention failures however long the outage lasts.
 func (c *Committer) retryBlock(ctx context.Context, block *common.Block) error {
 	blockNum := block.GetHeader().GetNumber()
 	retries, retrySleep := c.retryPolicy()
@@ -348,21 +375,15 @@ func (c *Committer) retryBlock(ctx context.Context, block *common.Block) error {
 	}
 
 	var err error
-	for attempt := 0; attempt <= retries; attempt++ {
-		if attempt > 0 {
-			c.metrics.CommitRetries.Add(1)
-			c.logger.Warnf("retrying block [%d] after transient commit failure, attempt [%d/%d]: [%v]",
-				blockNum, attempt, retries, err)
-			select {
-			case <-ctx.Done():
-				return abandon(err)
-			case <-time.After(retrySleep):
-			}
-		}
-
+	// nextConnDelay is created on the first lost connection and kept for the rest
+	// of the block, so the delay keeps growing across an outage even when other
+	// failures come in between.
+	var nextConnDelay func() time.Duration
+	budgeted := 0
+	for attempt := 1; ; attempt++ {
 		// Checked before every attempt, including the first: a caller that has
 		// already given up must not have this block committed on the way out, and
-		// a zero retry delay would otherwise let the select above fall straight
+		// a zero retry delay would otherwise let the wait below fall straight
 		// through to another attempt.
 		if ctx.Err() != nil {
 			return abandon(err)
@@ -372,15 +393,35 @@ func (c *Committer) retryBlock(ctx context.Context, block *common.Block) error {
 		if classify(err) != classRetry {
 			return err
 		}
-	}
 
-	// Wrapped rather than formatted in, so both stay matchable by errors.Is:
-	// ErrRetriesExhausted for the class, and whatever failed for the cause. The
-	// repo's errors.Wrapf is cockroachdb's and does not implement %w.
-	return errors.Wrapf(
-		errors.Join(ErrRetriesExhausted, err),
-		"block [%d] failed after [%d] retries", blockNum, retries,
-	)
+		delay := retrySleep
+		switch {
+		case errors.HasCause(err, dbdriver.ErrConnectionLost):
+			if nextConnDelay == nil {
+				nextConnDelay = utils.NewBackoffRetryRunner(utils.Infinitely, retrySleep, maxConnectionLostDelay).NextDelay
+			}
+			delay = nextConnDelay()
+		case budgeted == retries:
+			// Wrapped rather than formatted in, so both stay matchable by errors.Is:
+			// ErrRetriesExhausted for the class, and whatever failed for the cause.
+			// The repo's errors.Wrapf is cockroachdb's and does not implement %w.
+			return errors.Wrapf(
+				errors.Join(ErrRetriesExhausted, err),
+				"block [%d] failed after [%d] attempts, budget of [%d] retries exhausted", blockNum, attempt, retries,
+			)
+		default:
+			budgeted++
+		}
+
+		c.metrics.CommitRetries.Add(1)
+		c.logger.Warnf("retrying block [%d] in [%v] after transient commit failure, attempt [%d], budgeted retries [%d/%d]: [%v]",
+			blockNum, delay, attempt, budgeted, retries, err)
+		select {
+		case <-ctx.Done():
+			return abandon(err)
+		case <-time.After(delay):
+		}
+	}
 }
 
 // commitOnce makes a single attempt at committing every transaction in the block,

@@ -166,7 +166,9 @@ func (c *Channel) DeliverySleepAfterFailure() time.Duration {
 }
 
 // CommitRetries returns how many times a block whose commit failed transiently is
-// committed again before the failure is treated as permanent.
+// committed again before the failure is treated as permanent. A lost database
+// connection does not count against it: the committer retries that until the
+// block commits or the delivery stops.
 //
 // Zero is a meaningful setting — commit once and never retry — so it is
 // distinguished from an absent one: the field is only defaulted when the
@@ -184,7 +186,9 @@ func (c *Channel) CommitRetries() int {
 // same block.
 //
 // Together with CommitRetries this sets how long a channel is given to recover
-// from a transient fault on its own; with both defaults, about a minute.
+// from contention on its own; with both defaults, about a minute. While the
+// database connection is lost, it caps the first delay of a jittered backoff
+// that grows to at most one minute.
 func (c *Channel) CommitRetrySleep() time.Duration {
 	if c.Committer.RetrySleep <= 0 {
 		return defaultCommitRetrySleep

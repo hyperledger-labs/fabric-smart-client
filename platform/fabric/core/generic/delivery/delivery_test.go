@@ -446,7 +446,7 @@ func TestDeliveryLifecycle(t *testing.T) {
 			},
 		}
 		ch := make(chan blockResponse, 1)
-		ch <- blockResponse{block: &cb.Block{Header: &cb.BlockHeader{}}}
+		ch <- blockResponse{ctx: t.Context(), block: &cb.Block{Header: &cb.BlockHeader{}}}
 
 		d.readBlocks(ch)
 		<-d.stop // readBlocks must have stopped the service
@@ -463,7 +463,7 @@ func TestDeliveryLifecycle(t *testing.T) {
 			},
 		}
 		ch := make(chan blockResponse, 1)
-		ch <- blockResponse{block: &cb.Block{Header: &cb.BlockHeader{}}}
+		ch <- blockResponse{ctx: t.Context(), block: &cb.Block{Header: &cb.BlockHeader{}}}
 
 		d.readBlocks(ch)
 		<-d.stop // readBlocks must have stopped the service
@@ -1208,4 +1208,64 @@ func TestRunReceiver_WaitReportsReconnecting(t *testing.T) {
 		connstate.Reconnecting, connstate.Connected, // first wait, one reconnect
 		connstate.Reconnecting, connstate.Disconnected, // parked, then stopped
 	}, rec.States("peerA"))
+}
+
+// TestRun_CallbackContextEndsWithDelivery checks that the context handed to the
+// callback ends when the delivery stops, so a callback retrying a block until its
+// context ends, as the committer does while the database is unreachable, cannot
+// hold up Stop or node shutdown.
+func TestRun_CallbackContextEndsWithDelivery(t *testing.T) {
+	t.Parallel()
+
+	for name, end := range map[string]func(d *Delivery, cancel context.CancelFunc){
+		"on Stop":          func(d *Delivery, _ context.CancelFunc) { d.Stop(nil) },
+		"on ctx cancelled": func(_ *Delivery, cancel context.CancelFunc) { cancel() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			recvChan := make(chan *pb.DeliverResponse, 1)
+			svcs := &mockServices{peerClient: &mockPeerClient{deliverCli: &mockDeliverClientRPC{
+				stream: &mockDeliverStream{recvChan: recvChan},
+			}}}
+			d, rec := newConnStateDelivery(t, &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peerA"}}, svcs)
+
+			blocked, returned := make(chan struct{}), make(chan struct{})
+			d.callback = func(ctx context.Context, _ *cb.Block) (bool, error) {
+				defer close(returned)
+				close(blocked)
+				<-ctx.Done()
+				return false, ctx.Err()
+			}
+			recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+				Header:   &cb.BlockHeader{Number: 1},
+				Data:     &cb.BlockData{},
+				Metadata: &cb.BlockMetadata{},
+			}}}
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				_ = d.Run(ctx)
+			}()
+
+			<-blocked
+			end(d, cancel)
+			select {
+			case <-returned:
+			case <-time.After(5 * time.Second):
+				t.Fatal("the callback's context did not end")
+			}
+			// The callback's error stops the delivery, so Run returns as well.
+			<-done
+			// A shutdown is not a rejected block, so it must not leave the
+			// channel stopped and fail readiness.
+			last, _ := rec.Last("peerA")
+			require.Equal(t, connstate.Disconnected, last)
+			// The receiver is left in Recv on the mock stream; a real gRPC stream
+			// fails Recv once its context ends, the mock needs recvChan closed.
+			close(recvChan)
+		})
+	}
 }
