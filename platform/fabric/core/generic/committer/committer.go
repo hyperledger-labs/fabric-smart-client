@@ -302,7 +302,7 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 // component that can tell a fault worth retrying from one that will never clear:
 // it owns the vault, the membership service and the channel configuration. Committing a block again is safe:
 // CommitEndorserTransaction skips transactions already marked valid or invalid,
-// and CommitConfig skips a configuration already in the vault.
+// and CommitConfig does not reapply a configuration this process already holds.
 //
 // The error returned is therefore final. Retrying it will not help, and a caller
 // driving the commit — the channel's block delivery — should stop rather than

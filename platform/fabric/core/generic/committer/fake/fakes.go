@@ -443,8 +443,17 @@ func (q *QueryExecutor) Done() error {
 
 type MembershipService struct {
 	fdriver.MembershipService
-	OrdererConfigFn func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error)
-	UpdateFn        func(*common.Envelope) error
+	OrdererConfigFn  func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error)
+	UpdateFn         func(*common.Envelope) error
+	ConfigSequenceFn func() (uint64, error)
+}
+
+// ConfigSequence reports fdriver.ErrNotInitialized unless ConfigSequenceFn is set.
+func (m *MembershipService) ConfigSequence() (uint64, error) {
+	if m.ConfigSequenceFn == nil {
+		return 0, fdriver.ErrNotInitialized
+	}
+	return m.ConfigSequenceFn()
 }
 
 func (m *MembershipService) OrdererConfig(cs fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {

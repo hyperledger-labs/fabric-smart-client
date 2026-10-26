@@ -120,20 +120,6 @@ func TestCommitConfig(t *testing.T) {
 		require.ErrorContains(t, err, "failed getting tx's status")
 	})
 
-	t.Run("already committed", func(t *testing.T) {
-		t.Parallel()
-		c := &Committer{
-			logger: logger,
-			Vault: &fake.Vault{
-				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-					return fdriver.Valid, "", nil
-				},
-			},
-		}
-		err := c.CommitConfig(t.Context(), 1, []byte("raw"), configEnvelope(3))
-		require.NoError(t, err)
-	})
-
 	t.Run("invalid status", func(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
@@ -262,29 +248,34 @@ func TestCommitConfigKeysOnTheConfigSequence(t *testing.T) {
 }
 
 // TestCommitConfigSkipsAConfigItAlreadyHas asserts the guard still works for a
-// genuine replay: the same sequence arriving twice is committed once.
+// genuine replay: a config block already in the vault is not reapplied when this
+// process holds that configuration or a later one, which reapplying would roll
+// back.
 func TestCommitConfigSkipsAConfigItAlreadyHas(t *testing.T) {
 	t.Parallel()
 
-	updated := false
-	c := &Committer{
-		logger:        logger,
-		ChannelConfig: &fake.ChannelConfig{IDValue: "ch-replay"},
-		Vault: &fake.Vault{
-			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-				return fdriver.Valid, "", nil
+	for _, held := range []uint64{4, 5} {
+		updated := false
+		c := &Committer{
+			logger:        logger,
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-replay"},
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Valid, "", nil
+				},
 			},
-		},
-		MembershipService: &fake.MembershipService{
-			UpdateFn: func(*common.Envelope) error {
-				updated = true
-				return nil
+			MembershipService: &fake.MembershipService{
+				ConfigSequenceFn: func() (uint64, error) { return held, nil },
+				UpdateFn: func(*common.Envelope) error {
+					updated = true
+					return nil
+				},
 			},
-		},
-	}
+		}
 
-	require.NoError(t, c.CommitConfig(t.Context(), 12, []byte("raw"), configEnvelope(4)))
-	require.False(t, updated, "a config block already in the vault must not be reapplied")
+		require.NoError(t, c.CommitConfig(t.Context(), 12, []byte("raw"), configEnvelope(4)))
+		require.False(t, updated, "holding sequence %d, a replay of sequence 4 must not be reapplied", held)
+	}
 }
 
 // TestCommitConfigRejectsAnEnvelopeWithoutASequence covers an envelope whose
