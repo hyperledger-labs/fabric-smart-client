@@ -174,6 +174,10 @@ it applies to every spec that shares that generator. `Query` returns a node's
 status for a transaction and the value it wrote. On Fabric-x a node's vault is the
 committer's query service, so `Query` answers the same on every node and does not show
 whether a restarted node has recovered. A view or helper both suites need goes there.
+The helpers in `postgres.go` give a node's database a streaming-replication standby
+(`StartStandby`, `WaitReplicated`, `KillPostgres`, `Promote`) and point a stopped node at
+another `dataSource` (`DataSource`, `SetDataSource`), so a spec can fail a node over to a
+new Postgres primary.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.

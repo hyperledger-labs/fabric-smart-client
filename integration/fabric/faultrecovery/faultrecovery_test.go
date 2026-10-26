@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	fabricfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
@@ -143,6 +144,54 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 		// attempts, so the first commit after the restart can take that long.
 		for _, tx := range txs {
 			faultrecovery.WaitFinal(s.II, tx.TxID)
+		}
+		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
+		Expect(faultrecovery.CounterSum(s.II, "bob", commitFailures)).To(Equal(failures))
+	})
+
+	It("fails over to a promoted Postgres standby", func() {
+		db := faultrecovery.DataSource(s.II, "bob")
+		primary, standby := db.Container, db.Container+"-standby"
+		standbyPort := faultrecovery.StartStandby(primary, standby)
+
+		// Bob lists both hosts and accepts only the one that takes writes.
+		s.II.StopFSCNode("bob")
+		faultrecovery.SetDataSource(s.II, "bob", "postgres://"+db.User+":"+db.Pass+"@127.0.0.1:"+db.Port+",127.0.0.1:"+standbyPort+
+			"/"+db.DBName+"?target_session_attrs=read-write&connect_timeout=5&sslmode=disable")
+		s.II.StartFSCNode("bob")
+
+		// Endorsing writes to bob's database, so the txs are endorsed before the outage
+		// and ordered during it.
+		txs := make([]*views.Endorsed, 3)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+		faultrecovery.WaitReplicated(primary, standby)
+		retries := faultrecovery.CounterSum(s.II, "bob", commitRetries)
+		failures := faultrecovery.CounterSum(s.II, "bob", commitFailures)
+
+		faultrecovery.KillPostgres(primary)
+		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
+		for _, tx := range txs {
+			faultrecovery.Order(s.II, tx)
+		}
+
+		// Bob keeps retrying its block past the one-second budget while no host
+		// accepts writes.
+		Eventually(func() float64 {
+			return faultrecovery.CounterSum(s.II, "bob", commitRetries)
+		}, time.Minute, time.Second).Should(BeNumerically(">", retries+1))
+		Consistently(func() float64 {
+			return faultrecovery.CounterSum(s.II, "bob", commitFailures)
+		}, 10*time.Second, time.Second).Should(Equal(failures))
+
+		faultrecovery.Promote(standby)
+		for i, tx := range txs {
+			Eventually(func(g Gomega) {
+				res, err := faultrecovery.Query(s.II, "bob", tx.TxID)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(res).To(Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
+			}, 2*time.Minute, time.Second).Should(Succeed(), "tx %d [%s] not settled on bob", i, tx.TxID)
 		}
 		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
 		Expect(faultrecovery.CounterSum(s.II, "bob", commitFailures)).To(Equal(failures))

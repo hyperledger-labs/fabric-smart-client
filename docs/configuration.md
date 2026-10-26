@@ -935,7 +935,7 @@ The driver has been tested with the following sql drivers:
 - Postgres (pure Go): github.com/jackc/pgx/v5/stdlib
 
 In theory you can use any [sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in your application.
-To try a new sql driver, add a test here: `token/services/db/driver/sql/sql_test.go`.
+To try a new sql driver, add a test next to `platform/view/services/storage/driver/sql/postgres/sql_test.go`.
 
 ### Config example for sqlite:
 
@@ -1032,6 +1032,42 @@ than `disable`, the `sslmode` in the `dataSource` is ignored.
 > certificate is validated against the host's system CA pool. A server using an
 > internal/self-signed CA (the common case for Postgres) will therefore fail to
 > verify unless you point `root_cert_path` at that CA.
+
+#### Failover to a new primary
+
+To keep a node running through a Postgres primary failover, list every host that can become primary in the `dataSource`
+and set `target_session_attrs=read-write`:
+
+```yaml
+persistence:
+  type: postgres
+  opts:
+    dataSource: postgres://fsc:secret@pg-a:5432,pg-b:5432/fsc?target_session_attrs=read-write&connect_timeout=5&sslmode=verify-full&sslrootcert=/path/to/ca.crt
+```
+
+pgx tries the hosts in the order listed and keeps the first connection whose server accepts writes, so a new connection
+succeeds only on a primary. While no host has been promoted yet, connecting fails. The keyword/value form works the same
+way: `host=pg-a,pg-b port=5432,5432 ... target_session_attrs=read-write`.
+
+A commit on a Fabric channel that runs during a failover fails with a lost connection. The committer then retries the
+block until the database accepts writes again or the node shuts down: a lost connection does not count against
+`committer.retries` (see the channel's `committer` section above). Broken connections are dropped from the pool and the
+retry opens a new one, which goes to whichever host is primary by then. No `committer` setting needs to match the failover
+time of your Postgres setup. Because the wait between these retries backs off to at most one minute, commits resume up
+to a minute after the new primary is up. Other database operations, such as KVS access and queries from views, fail
+during the failover and return the error to their caller.
+
+The spec `fails over to a promoted Postgres standby` in `integration/fabric/faultrecovery` covers this: it kills a node's
+primary for longer than the node's commit retry budget, promotes a streaming-replication standby, and checks that the
+blocks delivered during the outage commit without a commit failure.
+
+- Set `connect_timeout` (in seconds). A host that drops packets instead of refusing the connection, such as a crashed
+  VM or a partitioned network, otherwise holds each connect until the operating system's TCP timeout before pgx tries the
+  next host. An expired `connect_timeout` is a lost connection, so it does not count against `committer.retries`.
+- TLS works with every host, configured either in the `dataSource` (`sslmode`, `sslrootcert`, `sslcert`, `sslkey`) or
+  with the `tls` block above. Each host's certificate is verified against that host's name.
+- The database metrics label a pool with the first host of the `dataSource`, whichever host it is connected to (see
+  `data_source` in [Monitoring Metrics](./platform/view/services/monitoring_metrics.md)).
 
 Postgres stores KVS and vault keys in `BYTEA` columns. Composite keys contain U+0000, which `TEXT` cannot hold, and range scans
 need keys ordered bytewise, as Fabric orders them, whatever the database collation.
