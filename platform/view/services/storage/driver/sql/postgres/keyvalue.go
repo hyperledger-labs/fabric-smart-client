@@ -40,5 +40,5 @@ func (db *KeyValueStoreNotifier) CreateSchema() error {
 func buildKeyValueStore(readDB, writeDB *sql.DB, table string) *common4.KeyValueStore {
 	errorWrapper := &ErrorMapper{}
 
-	return common4.NewKeyValueStore(readDB, writeDB, table, errorWrapper)
+	return common4.NewKeyValueStore(writeDB, readDB, table, errorWrapper)
 }

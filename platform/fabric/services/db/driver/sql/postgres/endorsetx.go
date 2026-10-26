@@ -23,5 +23,5 @@ func NewEndorseTxStore(dbs *common2.RWDB, tables common.TableNames) (*EndorseTxS
 }
 
 func buildEndorseTxStore(readDB, writeDB *sql.DB, table string) *EndorseTxStore {
-	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(readDB, writeDB, table, &postgres2.ErrorMapper{})}
+	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &postgres2.ErrorMapper{})}
 }

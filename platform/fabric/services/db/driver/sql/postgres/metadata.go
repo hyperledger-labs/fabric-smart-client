@@ -23,5 +23,5 @@ func NewMetadataStore(dbs *common2.RWDB, tables common.TableNames) (*MetadataSto
 }
 
 func buildMetadataStore(readDB, writeDB *sql.DB, table string) *MetadataStore {
-	return &MetadataStore{MetadataStore: common.NewMetadataStore(readDB, writeDB, table, &postgres2.ErrorMapper{})}
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &postgres2.ErrorMapper{})}
 }
