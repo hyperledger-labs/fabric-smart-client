@@ -529,12 +529,12 @@ func (r *Service) lookupResolver(ctx context.Context, party view.Identity) (*Res
 	if err == nil {
 		return resolver, nil
 	}
-	logger.DebugfContext(ctx, "resolving via binding for %s", party)
+	logger.Debugf("resolving via binding for %s", party)
 	party, err = r.bindingKVS.GetLongTerm(ctx, party)
 	if err != nil {
 		return nil, err
 	}
-	logger.DebugfContext(ctx, "continue to [%s]", party)
+	logger.Debugf("continue to [%s]", party)
 	resolver, err = r.resolverByIdentity(party)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)
