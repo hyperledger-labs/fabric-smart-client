@@ -23,9 +23,7 @@ import (
 func TestBuildPackage(t *testing.T) { //nolint:paralleltest
 	out := filepath.Join(t.TempDir(), "ns.tar.gz")
 	err := BuildPackage(out, "mycc", Connection{Address: "127.0.0.1:7052", DialTimeout: "10s"})
-	if err != nil {
-		t.Fatalf("BuildPackage: %v", err)
-	}
+	require.NoError(t, err, "BuildPackage")
 
 	files := readTarGz(t, out)
 	// metadata.json
@@ -89,9 +87,7 @@ func TestBuildPackageDiffersByAddress(t *testing.T) { //nolint:paralleltest
 func readTarGz(t *testing.T, path string) map[string][]byte {
 	t.Helper()
 	f, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
 	return readTarGzReader(t, f)
 }
@@ -104,9 +100,7 @@ func readTarGzBytes(t *testing.T, b []byte) map[string][]byte {
 func readTarGzReader(t *testing.T, r io.Reader) map[string][]byte {
 	t.Helper()
 	gr, err := gzip.NewReader(r)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	tr := tar.NewReader(gr)
 	out := map[string][]byte{}
 	for {
@@ -114,9 +108,7 @@ func readTarGzReader(t *testing.T, r io.Reader) map[string][]byte {
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		data, _ := io.ReadAll(tr)
 		out[h.Name] = data
 	}

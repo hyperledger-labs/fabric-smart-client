@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,9 +46,7 @@ func TestLazyHolderRaceCondition(t *testing.T) {
 	for range 10 {
 		wg.Go(func() {
 			v, err := holder.Get()
-			if err != nil {
-				t.Errorf("Get() error: %v", err)
-			}
+			assert.NoError(t, err) //nolint:testifylint // require's FailNow only works on the test's own goroutine
 			if v == nil {
 				t.Errorf("Get() returned nil value")
 			}

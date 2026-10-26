@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
 	viewpkg "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -30,8 +31,7 @@ func TestRunView_CancelStopsAsyncRun(t *testing.T) { //nolint:paralleltest // us
 	fake := &mock.Context{}
 	fake.RunViewStub = func(_ view.View, opts ...view.RunViewOption) (any, error) {
 		options, err := view.CompileRunViewOptions(opts...)
-		if err != nil {
-			t.Errorf("failed compiling options: %v", err)
+		if !assert.NoError(t, err, "failed compiling options") { //nolint:testifylint // require's FailNow only works on the test's own goroutine
 			return nil, err
 		}
 		if options.Ctx == nil {

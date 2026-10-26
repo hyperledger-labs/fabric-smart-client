@@ -96,10 +96,7 @@ func TestGetSigningIdentityFromConfWithWrongPrivateCert(t *testing.T) { //nolint
 func TestMSPSetupNoCryptoConf(t *testing.T) { //nolint:paralleltest
 	mspDir := "testdata/sampleconfig"
 	conf, err := GetLocalMspConfig(mspDir, nil, "SampleOrg")
-	if err != nil {
-		fmt.Printf("Setup should have succeeded, got err %s instead", err)
-		os.Exit(-1)
-	}
+	require.NoError(t, err, "Setup should have succeeded")
 
 	mspconf := &msp.FabricMSPConfig{}
 	err = proto.Unmarshal(conf.Config, mspconf)
@@ -203,10 +200,7 @@ func TestNotFoundInBCCSP(t *testing.T) { //nolint:paralleltest
 
 func TestGetIdentities(t *testing.T) { //nolint:paralleltest
 	_, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity failed with err %s", err)
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity failed")
 }
 
 func TestDeserializeIdentityFails(t *testing.T) { //nolint:paralleltest
@@ -232,10 +226,7 @@ func TestGetSigningIdentityFromVerifyingMSP(t *testing.T) { //nolint:paralleltes
 
 	mspDir := "testdata/sampleconfig"
 	conf, err = GetVerifyingMspConfig(mspDir, "SampleOrg", ProviderTypeToString(FABRIC))
-	if err != nil {
-		fmt.Printf("Setup should have succeeded, got err %s instead", err)
-		os.Exit(-1)
-	}
+	require.NoError(t, err, "Setup should have succeeded")
 
 	newmsp, err := newBccspMsp(MSPv1_0, cryptoProvider)
 	require.NoError(t, err)
@@ -256,28 +247,16 @@ func TestValidateDefaultSigningIdentity(t *testing.T) { //nolint:paralleltest
 
 func TestSerializeIdentities(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	serializedID, err := id.Serialize()
-	if err != nil {
-		t.Fatalf("Serialize should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "Serialize should have succeeded")
 
 	idBack, err := localMsp.DeserializeIdentity(serializedID)
-	if err != nil {
-		t.Fatalf("DeserializeIdentity should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "DeserializeIdentity should have succeeded")
 
 	err = localMsp.Validate(idBack)
-	if err != nil {
-		t.Fatalf("The identity should be valid, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "The identity should be valid")
 
 	if !reflect.DeepEqual(id.GetPublicVersion(), idBack) {
 		t.Fatalf("Identities should be equal (%s) (%s)", id, idBack)
@@ -455,16 +434,10 @@ func TestIsWellFormed(t *testing.T) { //nolint:paralleltest
 	mspMgr := NewMSPManager()
 
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	serializedID, err := id.Serialize()
-	if err != nil {
-		t.Fatalf("Serialize should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "Serialize should have succeeded")
 
 	sID := &msp.SerializedIdentity{}
 	err = proto.Unmarshal(serializedID, sID)
@@ -589,16 +562,10 @@ func TestValidateAdminIdentity(t *testing.T) { //nolint:paralleltest
 
 func TestSerializeIdentitiesWithWrongMSP(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	serializedID, err := id.Serialize()
-	if err != nil {
-		t.Fatalf("Serialize should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "Serialize should have succeeded")
 
 	sid := &msp.SerializedIdentity{}
 	err = proto.Unmarshal(serializedID, sid)
@@ -615,16 +582,10 @@ func TestSerializeIdentitiesWithWrongMSP(t *testing.T) { //nolint:paralleltest
 
 func TestSerializeIdentitiesWithMSPManager(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	serializedID, err := id.Serialize()
-	if err != nil {
-		t.Fatalf("Serialize should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "Serialize should have succeeded")
 
 	_, err = mspMgr.DeserializeIdentity(serializedID)
 	require.NoError(t, err)
@@ -649,10 +610,7 @@ func TestSerializeIdentitiesWithMSPManager(t *testing.T) { //nolint:paralleltest
 
 func TestIdentitiesGetters(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	idid := id.GetIdentifier()
 	require.NotNil(t, idid)
@@ -663,41 +621,23 @@ func TestIdentitiesGetters(t *testing.T) { //nolint:paralleltest
 
 func TestSignAndVerify(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	serializedID, err := id.Serialize()
-	if err != nil {
-		t.Fatalf("Serialize should have succeeded")
-		return
-	}
+	require.NoError(t, err, "Serialize should have succeeded")
 
 	idBack, err := localMsp.DeserializeIdentity(serializedID)
-	if err != nil {
-		t.Fatalf("DeserializeIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "DeserializeIdentity should have succeeded")
 
 	msg := []byte("foo")
 	sig, err := id.Sign(msg)
-	if err != nil {
-		t.Fatalf("Sign should have succeeded")
-		return
-	}
+	require.NoError(t, err, "Sign should have succeeded")
 
 	err = id.Verify(msg, sig)
-	if err != nil {
-		t.Fatalf("The signature should be valid")
-		return
-	}
+	require.NoError(t, err, "The signature should be valid")
 
 	err = idBack.Verify(msg, sig)
-	if err != nil {
-		t.Fatalf("The signature should be valid")
-		return
-	}
+	require.NoError(t, err, "The signature should be valid")
 
 	err = id.Verify(msg[1:], sig)
 	require.Error(t, err)
@@ -709,10 +649,7 @@ func TestSignAndVerifyFailures(t *testing.T) { //nolint:paralleltest
 	msg := []byte("foo")
 
 	id, err := localMspBad.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	hash := id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily
 	id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily = "barf"
@@ -723,10 +660,7 @@ func TestSignAndVerifyFailures(t *testing.T) { //nolint:paralleltest
 	id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily = hash
 
 	sig, err := id.Sign(msg)
-	if err != nil {
-		t.Fatalf("Sign should have succeeded")
-		return
-	}
+	require.NoError(t, err, "Sign should have succeeded")
 
 	id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily = "barf"
 
@@ -738,20 +672,14 @@ func TestSignAndVerifyFailures(t *testing.T) { //nolint:paralleltest
 
 func TestSignAndVerifyOtherHash(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	hash := id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily
 	id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily = bccsp.SHA3
 
 	msg := []byte("foo")
 	sig, err := id.Sign(msg)
-	if err != nil {
-		t.Fatalf("Sign should have succeeded")
-		return
-	}
+	require.NoError(t, err, "Sign should have succeeded")
 
 	err = id.Verify(msg, sig)
 	require.NoError(t, err)
@@ -761,59 +689,35 @@ func TestSignAndVerifyOtherHash(t *testing.T) { //nolint:paralleltest
 
 func TestSignAndVerify_longMessage(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	serializedID, err := id.Serialize()
-	if err != nil {
-		t.Fatalf("Serialize should have succeeded")
-		return
-	}
+	require.NoError(t, err, "Serialize should have succeeded")
 
 	idBack, err := localMsp.DeserializeIdentity(serializedID)
-	if err != nil {
-		t.Fatalf("DeserializeIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "DeserializeIdentity should have succeeded")
 
 	msg := []byte("ABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFGABCDEFG")
 	sig, err := id.Sign(msg)
-	if err != nil {
-		t.Fatalf("Sign should have succeeded")
-		return
-	}
+	require.NoError(t, err, "Sign should have succeeded")
 
 	err = id.Verify(msg, sig)
-	if err != nil {
-		t.Fatalf("The signature should be valid")
-		return
-	}
+	require.NoError(t, err, "The signature should be valid")
 
 	err = idBack.Verify(msg, sig)
-	if err != nil {
-		t.Fatalf("The signature should be valid")
-		return
-	}
+	require.NoError(t, err, "The signature should be valid")
 }
 
 func TestGetOU(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	require.Equal(t, "COP", id.GetOrganizationalUnits()[0].OrganizationalUnitIdentifier)
 }
 
 func TestGetOUFail(t *testing.T) { //nolint:paralleltest
 	id, err := localMspBad.GetDefaultSigningIdentity()
-	if err != nil {
-		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
-		return
-	}
+	require.NoError(t, err, "GetDefaultSigningIdentity should have succeeded")
 
 	certTmp := id.(*signingidentity).cert
 	id.(*signingidentity).cert = nil
