@@ -83,8 +83,8 @@ type EnvelopeService struct {
 	LoadErr     error
 }
 
-func (f *EnvelopeService) Exists(context.Context, string) bool {
-	return f.ExistsValue
+func (f *EnvelopeService) Exists(context.Context, string) (bool, error) {
+	return f.ExistsValue, nil
 }
 
 func (f *EnvelopeService) LoadEnvelope(context.Context, string) ([]byte, error) {

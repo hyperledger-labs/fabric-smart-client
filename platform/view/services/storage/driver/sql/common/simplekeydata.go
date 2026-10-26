@@ -41,7 +41,8 @@ func (db *SimpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, 
 		WriteWhere(sqlbuild.Eq("key", key)).
 		Build()
 	logger.Debug(query)
-	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
+	data, err := QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
+	return data, db.errorWrapper.WrapError(err)
 }
 
 func (db *SimpleKeyDataStore) ExistData(ctx context.Context, key string) (bool, error) {

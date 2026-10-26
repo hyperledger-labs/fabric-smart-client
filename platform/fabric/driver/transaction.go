@@ -67,8 +67,13 @@ type MetadataService interface {
 	GetFieldMapping(ctx context.Context, ns, key string, valueDigest []byte) (TransientMap, error)
 }
 
+// EnvelopeService stores the envelopes of a channel's transactions, keyed by
+// transaction ID.
 type EnvelopeService interface {
-	Exists(ctx context.Context, txid string) bool
+	// Exists reports whether an envelope is stored for txid. An error means the
+	// store could not be read, so the answer is unknown: callers must not treat
+	// it as a missing envelope.
+	Exists(ctx context.Context, txid string) (bool, error)
 	StoreEnvelope(ctx context.Context, txid string, env any) error
 	LoadEnvelope(ctx context.Context, txid string) ([]byte, error)
 }

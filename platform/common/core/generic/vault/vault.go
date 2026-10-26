@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -331,15 +332,16 @@ func (db *Vault[V]) Statuses(ctx context.Context, txIDs ...driver.TxID) ([]drive
 		return nil, err
 	}
 	statuses := make([]driver.TxValidationStatus[V], 0, len(txIDs))
-	for status, err := it.Next(); status != nil; status, err = it.Next() {
-		if err != nil {
-			return nil, err
-		}
+	err = iterators.ForEach(it, func(status *driver.TxStatus) error {
 		statuses = append(statuses, driver.TxValidationStatus[V]{
 			TxID:           status.TxID,
 			ValidationCode: db.vcProvider.FromInt32(status.Code),
 			Message:        status.Message,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return statuses, nil
 }

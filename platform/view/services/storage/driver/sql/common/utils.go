@@ -59,6 +59,13 @@ func QueryUniqueContext[T any](ctx context.Context, db *sql.DB, query string, ar
 	return result, err
 }
 
+// NewIterator returns an iterator over rows that decodes each row with scan.
+//
+// Next returns (nil, nil) once the result set is exhausted, and (nil, err) when
+// reading rows failed, for example because the connection broke mid-result, so
+// a truncated result is never mistaken for a complete one. The error is the
+// driver's own, not mapped by a driver.SQLErrorWrapper.
+// Close releases the underlying rows and must be called.
 func NewIterator[V any](rows *sql.Rows, scan func(*V) error) iterators.Iterator[*V] {
 	return &rowIterator[V]{rows: rows, scan: scan}
 }
@@ -74,7 +81,7 @@ func (it *rowIterator[V]) Close() {
 
 func (it *rowIterator[V]) Next() (*V, error) {
 	if !it.rows.Next() {
-		return nil, nil
+		return nil, it.rows.Err()
 	}
 	var r V
 	err := it.scan(&r)

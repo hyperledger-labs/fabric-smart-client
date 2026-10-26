@@ -65,7 +65,9 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	span.AddEvent("start_get_rwset_from_evn")
 	defer span.AddEvent("end_get_rwset_from_evn")
 
-	if !c.EnvelopeService.Exists(ctx, txID) {
+	if ok, err := c.EnvelopeService.Exists(ctx, txID); err != nil {
+		return nil, nil, errors.WithMessagef(err, "cannot check envelope [%s]", txID)
+	} else if !ok {
 		return nil, nil, errors.Errorf("envelope does not exists for [txID=%s]", txID)
 	}
 

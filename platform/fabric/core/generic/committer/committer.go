@@ -208,7 +208,11 @@ func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.Valid
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
-		if c.EnvelopeService.Exists(ctx, txID) {
+		exists, err := c.EnvelopeService.Exists(ctx, txID)
+		if err != nil {
+			return driver.Unknown, "", errors.WithMessagef(err, "failed checking stored envelope for [%s]", txID)
+		}
+		if exists {
 			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored envelope for [%s]", txID)
 			}
@@ -237,7 +241,11 @@ func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
-		if !c.EnvelopeService.Exists(ctx, txID) {
+		exists, err := c.EnvelopeService.Exists(ctx, txID)
+		if err != nil {
+			return errors.WithMessagef(err, "failed checking stored envelope for [%s]", txID)
+		}
+		if !exists {
 			c.logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
 			if err := c.Vault.SetDiscarded(ctx, txID, message); err != nil {
 				c.logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
@@ -639,10 +647,9 @@ func (c *Committer) applyConfigCommit(ctx context.Context, txID driver2.TxID, bl
 		return errors.Wrap(err, "failed setting configtx state in rws")
 	}
 	rws.Done()
+	// No discard on failure: the configuration is already in force, and the
+	// config tx left Busy lets CommitConfig try again on retry or replay.
 	if err := c.CommitTX(ctx, txID, blockNumber, 0, nil); err != nil {
-		if err2 := c.DiscardTx(ctx, txID, err.Error()); err2 != nil {
-			c.logger.Errorf("failed committing configtx rws [%s]", err2)
-		}
 		return errors.Wrap(err, "failed committing configtx rws")
 	}
 	return nil
@@ -663,7 +670,13 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
-			if !c.Vault.RWSExists(ctx, txID) && c.EnvelopeService.Exists(ctx, txID) {
+			envExists := false
+			if !c.Vault.RWSExists(ctx, txID) {
+				if envExists, err = c.EnvelopeService.Exists(ctx, txID); err != nil {
+					return errors.WithMessagef(err, "failed checking stored envelope for [%s]", txID)
+				}
+			}
+			if envExists {
 				// Then match rwsets
 				c.logger.DebugfContext(ctx, "Extract stored env to vault")
 				if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
@@ -712,12 +725,15 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 
 func (c *Committer) commitUnknown(ctx context.Context, txID string, block, indexInBlock uint64, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
-	if c.EnvelopeService.Exists(ctx, txID) {
+	exists, err := c.EnvelopeService.Exists(ctx, txID)
+	if err != nil {
+		return errors.WithMessagef(err, "failed checking stored envelope for [%s]", txID)
+	}
+	if exists {
 		return c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
 	}
 
 	var envelopeRaw []byte
-	var err error
 	if envelope != nil {
 		// Store it
 		envelopeRaw, err = proto.Marshal(envelope)
@@ -733,8 +749,13 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block, index
 	}
 
 	// shall we commit this unknown envelope
+	// A transient failure is returned so the block is retried; any other
+	// failure, like a rejection, skips a transaction this node does not track.
 	if ok, err := c.filterUnknownEnvelope(ctx, txID, envelopeRaw); err != nil || !ok {
-		c.logger.Debugf("[%s] unknown envelope will not be processed [%b,%s]", txID, ok, err)
+		if classify(err) == classRetry {
+			return errors.WithMessagef(err, "failed filtering unknown envelope [%s]", txID)
+		}
+		c.logger.Debugf("[%s] unknown envelope will not be processed [%t,%v]", txID, ok, err)
 		return nil
 	}
 
@@ -802,7 +823,10 @@ func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, enve
 		return ok, err
 	}
 
-	status, _, _ := c.Status(ctx, txID)
+	status, _, err := c.Status(ctx, txID)
+	if err != nil {
+		return false, err
+	}
 	return status == driver.Busy, nil
 }
 
