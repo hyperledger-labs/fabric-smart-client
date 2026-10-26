@@ -49,7 +49,7 @@ func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting wallet id for identity [%v]", ephemeral)
 	}
-	logger.DebugfContext(ctx, "found wallet id for identity [%v]: %v", ephemeral, result)
+	logger.Debugf("found wallet id for identity [%v]: %v", ephemeral, result)
 	return result, nil
 }
 
@@ -103,16 +103,16 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 		return nil
 	}
 
-	logger.DebugfContext(ctx, "put bindings for %d ephemeral(s) with long term [%s]", len(ephemerals), longTerm.UniqueID())
+	logger.Debugf("put bindings for %d ephemeral(s) with long term [%s]", len(ephemerals), longTerm.UniqueID())
 
 	// Resolve canonical long-term ID
 	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
 		return err
 	} else if lt != nil && !lt.IsNone() {
-		logger.DebugfContext(ctx, "replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
+		logger.Debugf("replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
 		longTerm = lt
 	} else {
-		logger.DebugfContext(ctx, "Id [%s] is an unregistered long term ID", longTerm.UniqueID())
+		logger.Debugf("Id [%s] is an unregistered long term ID", longTerm.UniqueID())
 	}
 
 	// One INSERT with a row per identity, the long-term id bound to itself first.
@@ -128,15 +128,15 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 		WriteString(" ON CONFLICT DO NOTHING;").
 		Build()
 
-	logger.DebugfContext(ctx, "executing bulk insert: %s", query)
+	logger.Debugf("executing bulk insert: %s", query)
 
 	_, err := db.writeDB.ExecContext(ctx, query, args...)
 	if err == nil {
-		logger.DebugfContext(ctx, "long-term and ephemeral ids registered [%s,%s]", longTerm, ephemerals)
+		logger.Debugf("long-term and ephemeral ids registered [%s,%s]", longTerm, ephemerals)
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.InfofContext(ctx, "some tuples [%v, %s] already in db. Skipping...", ephemerals, longTerm)
+		logger.Infof("some tuples [%v, %s] already in db. Skipping...", ephemerals, longTerm)
 		return nil
 	}
 	return errors.Wrapf(err, "failed executing query [%s]", query)
