@@ -68,17 +68,7 @@ func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider 
 		return zero, err
 	}
 
-	opts := Opts{
-		DataSource:      o.DataSource,
-		MaxOpenConns:    o.MaxOpenConns,
-		MaxIdleConns:    *o.MaxIdleConns,
-		MaxIdleTime:     *o.MaxIdleTime,
-		TablePrefix:     o.TablePrefix,
-		TableNameParams: o.TableNameParams,
-		Tracing:         o.Tracing,
-
-		StartupConnectTimeout: o.StartupConnectTimeout,
-	}
+	opts := o.Opts()
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
 		return zero, errors.Wrap(err, "error opening db")

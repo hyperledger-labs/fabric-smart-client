@@ -15,6 +15,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 )
 
 // freePort returns a local TCP port that nothing listens on.
@@ -64,4 +66,13 @@ func TestOpen_WaitsForDatabasePostgres(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = dbs.WriteDB.Close() })
 	require.NoError(t, dbs.WriteDB.PingContext(t.Context()))
+}
+
+func TestConfigOpts_CarriesStartupConnectTimeout(t *testing.T) {
+	t.Parallel()
+	cp := NewConfigProvider(testing2.MockConfig(Config{DataSource: "host=h dbname=db", StartupConnectTimeout: 2 * time.Second}))
+
+	o, err := cp.GetOpts("")
+	require.NoError(t, err)
+	assert.Equal(t, 2*time.Second, o.Opts().StartupConnectTimeout)
 }

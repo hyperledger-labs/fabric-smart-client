@@ -36,6 +36,21 @@ type Config struct {
 	StartupConnectTimeout time.Duration
 }
 
+// Opts returns the connection options for Open. c must come from ConfigProvider.GetOpts,
+// which fills in the pool defaults.
+func (c *Config) Opts() Opts {
+	return Opts{
+		DataSource:            c.DataSource,
+		MaxOpenConns:          c.MaxOpenConns,
+		MaxIdleConns:          *c.MaxIdleConns,
+		MaxIdleTime:           *c.MaxIdleTime,
+		TablePrefix:           c.TablePrefix,
+		TableNameParams:       c.TableNameParams,
+		Tracing:               c.Tracing,
+		StartupConnectTimeout: c.StartupConnectTimeout,
+	}
+}
+
 func NewConfigProvider(config config) *ConfigProvider {
 	return &ConfigProvider{config: config}
 }
