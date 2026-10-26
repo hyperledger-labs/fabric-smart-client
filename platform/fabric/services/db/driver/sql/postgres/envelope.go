@@ -23,5 +23,5 @@ func NewEnvelopeStore(dbs *common2.RWDB, tables common.TableNames) (*EnvelopeSto
 }
 
 func buildEnvelopeStore(readDB, writeDB *sql.DB, table string) *EnvelopeStore {
-	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(readDB, writeDB, table, &postgres2.ErrorMapper{})}
+	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &postgres2.ErrorMapper{})}
 }

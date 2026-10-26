@@ -283,3 +283,93 @@ func TestBuildStores(t *testing.T) {
 		require.Same(t, dbs.WriteDB, s.writeDB)
 	})
 }
+
+// TestBuildStoresUseReadAndWriteDBs pins which pool each store talks to.
+// TestBuildStores passes one mock as both ReadDB and WriteDB, so it cannot see
+// the two being swapped; these subtests give the store two distinct mocks and
+// fail if a read lands on the write pool or a write on the read pool.
+func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
+	t.Parallel()
+
+	tables, err := common3.GetTableNames("test", "chan")
+	require.NoError(t, err)
+
+	for name, tc := range map[string]struct {
+		table string
+		get   func(*common2.RWDB) error
+		put   func(*common2.RWDB) error
+	}{
+		"EndorseTx": {tables.EndorseTx, func(dbs *common2.RWDB) error {
+			s, err := NewEndorseTxStore(dbs, tables)
+			if err != nil {
+				return err
+			}
+			_, err = s.GetEndorseTx(context.Background(), "k")
+			return err
+		}, func(dbs *common2.RWDB) error {
+			s, err := NewEndorseTxStore(dbs, tables)
+			if err != nil {
+				return err
+			}
+			return s.PutEndorseTx(context.Background(), "k", []byte("v"))
+		}},
+		"Envelope": {tables.Envelope, func(dbs *common2.RWDB) error {
+			s, err := NewEnvelopeStore(dbs, tables)
+			if err != nil {
+				return err
+			}
+			_, err = s.GetEnvelope(context.Background(), "k")
+			return err
+		}, func(dbs *common2.RWDB) error {
+			s, err := NewEnvelopeStore(dbs, tables)
+			if err != nil {
+				return err
+			}
+			return s.PutEnvelope(context.Background(), "k", []byte("v"))
+		}},
+		"Metadata": {tables.Metadata, func(dbs *common2.RWDB) error {
+			s, err := NewMetadataStore(dbs, tables)
+			if err != nil {
+				return err
+			}
+			_, err = s.GetMetadata(context.Background(), "k")
+			return err
+		}, func(dbs *common2.RWDB) error {
+			s, err := NewMetadataStore(dbs, tables)
+			if err != nil {
+				return err
+			}
+			return s.PutMetadata(context.Background(), "k", []byte("v"))
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			readDB, readMock, err := sqlmock.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = readDB.Close() })
+
+			writeDB, writeMock, err := sqlmock.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = writeDB.Close() })
+
+			dbs := &common2.RWDB{ReadDB: readDB, WriteDB: writeDB}
+
+			// A read must go to the read pool. An unexpected call on either mock
+			// fails the call itself, so a read sent to writeMock errors here.
+			readMock.ExpectQuery("SELECT data FROM " + tc.table).
+				WithArgs("k").
+				WillReturnRows(sqlmock.NewRows([]string{"data"}).AddRow([]byte("v")))
+			require.NoError(t, tc.get(dbs))
+			require.NoError(t, readMock.ExpectationsWereMet())
+			require.NoError(t, writeMock.ExpectationsWereMet())
+
+			// And a write must go to the write pool.
+			writeMock.ExpectExec("INSERT INTO " + tc.table).
+				WillReturnResult(sqlmock.NewResult(1, 1))
+			require.NoError(t, tc.put(dbs))
+			require.NoError(t, writeMock.ExpectationsWereMet())
+			require.NoError(t, readMock.ExpectationsWereMet())
+		})
+	}
+}
