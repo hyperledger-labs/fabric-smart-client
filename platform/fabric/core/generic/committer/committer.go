@@ -97,6 +97,11 @@ type Committer struct {
 	TransactionManager driver.TransactionManager
 	DependencyResolver DependencyResolver
 
+	// configCaughtUp is set once catchUpConfig has succeeded. Only the
+	// channel's block delivery calls Commit, one block at a time, so it needs
+	// no lock.
+	configCaughtUp bool
+
 	events chan FinalityEvent
 
 	logger committer.Logger
@@ -439,6 +444,13 @@ func (c *Committer) commitBlockOnce(ctx context.Context, block *common.Block) er
 	txs, err := unmarshalTxs(block)
 	if err != nil {
 		return errors.Wrapf(err, "[%s] unmarshal tx failed", c.ChannelConfig.ID())
+	}
+
+	if !c.configCaughtUp {
+		if err := c.catchUpConfig(ctx); err != nil {
+			return errors.WithMessage(err, "failed catching up on config transactions")
+		}
+		c.configCaughtUp = true
 	}
 
 	resolvedTxs := c.DependencyResolver.Resolve(txs)

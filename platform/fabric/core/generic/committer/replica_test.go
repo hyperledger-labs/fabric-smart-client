@@ -58,11 +58,13 @@ func (m *sequenceMembership) ConfigSequence() (uint64, error) {
 func replica(store cdriver.VaultStore) (*Committer, *sequenceMembership) {
 	ms := &sequenceMembership{}
 	return &Committer{
-		logger:            logger,
-		tracer:            noop.NewTracerProvider().Tracer("test"),
-		Vault:             vault.NewVault(vault2.NewCachedVault(store, 0), &disabled.Provider{}, noop.NewTracerProvider()),
-		ChannelConfig:     &fake.ChannelConfig{IDValue: "ch"},
-		MembershipService: ms,
+		logger:             logger,
+		tracer:             noop.NewTracerProvider().Tracer("test"),
+		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
+		Vault:              vault.NewVault(vault2.NewCachedVault(store, 0), &disabled.Provider{}, noop.NewTracerProvider()),
+		ChannelConfig:      &fake.ChannelConfig{IDValue: "ch"},
+		MembershipService:  ms,
+		DependencyResolver: NewSerialDependencyResolver(),
 		ProcessorManager: &fake.ProcessorManager{
 			ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
 		},
@@ -148,5 +150,38 @@ func TestCommitConfigAcrossReplicasSharingAVault(t *testing.T) {
 		}
 		require.NoError(t, b.CommitConfig(t.Context(), 0, rawConfig(0), configEnvelope(0)))
 		requireSequence(t, msB, 0)
+	})
+
+	t.Run("a replica whose delivery resumes past a config block", func(t *testing.T) {
+		t.Parallel()
+		store := newStore(t, "replicas_resume")
+		a, _ := replica(store)
+		require.NoError(t, a.CommitConfig(t.Context(), 0, rawConfig(0), configEnvelope(0)))
+
+		// B restarts and loads configuration 0, the latest one recorded.
+		b, msB := replica(store)
+		require.NoError(t, b.ReloadConfigTransactions())
+		requireSequence(t, msB, 0)
+
+		// While B's delivery cannot reach a peer, A commits configuration 1 in
+		// block 100 and an endorser transaction in block 150.
+		require.NoError(t, a.CommitConfig(t.Context(), 100, rawConfig(1), configEnvelope(1)))
+		rws, err := a.Vault.NewRWSet(t.Context(), "tx150")
+		require.NoError(t, err)
+		rws.Done()
+		require.NoError(t, a.Vault.CommitTX(t.Context(), "tx150", 150, 0))
+
+		// B's delivery resumes from the vault's last transaction, past block
+		// 100, so the first block B commits is 151.
+		last, err := store.GetLast(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, "tx150", last.TxID)
+		block := &common.Block{
+			Header:   &common.BlockHeader{Number: 151},
+			Data:     &common.BlockData{},
+			Metadata: &common.BlockMetadata{},
+		}
+		require.NoError(t, b.Commit(t.Context(), block))
+		requireSequence(t, msB, 1)
 	})
 }
