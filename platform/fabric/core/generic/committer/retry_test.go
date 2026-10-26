@@ -10,6 +10,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,13 @@ func newRetryCommitter(t *testing.T) *Committer {
 		logger:  logger,
 		metrics: NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 	}
+}
+
+// withRetrySleep sets a short, non-zero retry delay, so that a test exercises
+// the waits, including the backoff on a lost connection, without slowing down.
+func withRetrySleep(c *Committer) *Committer {
+	c.ChannelConfig.(*fake.ChannelConfig).RetrySleep = time.Millisecond
+	return c
 }
 
 func testBlock(n uint64) *common.Block {
@@ -194,6 +202,28 @@ func TestRetryBlockTransient(t *testing.T) {
 		// classRetry, which both say never happens.
 		require.Equal(t, classDegrade, classify(err),
 			"an abandoned block must not report as retryable")
+		// A cancelled context is a deliberate stop, not a channel that cannot
+		// commit, so it must not raise the alert commit_failures drives.
+		require.Empty(t, counted, "an abandoned block must not be counted as a failure")
+	})
+
+	t.Run("counts a deterministic failure returned while the context ends", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(t.Context())
+		c := newRetryCommitter(t)
+		c.commitBlock = func(context.Context, *common.Block) error {
+			cancel() // the node shuts down while the block fails for good
+			return errors.Wrap(fdriver.ErrConfigRejected, "failed updating membership service")
+		}
+
+		var counted []string
+		c.metrics.CommitFailures = &countingCounter{onAdd: func(labels []string) {
+			counted = append(counted, labels...)
+		}}
+
+		err := c.Commit(ctx, testBlock(17))
+
+		require.ErrorIs(t, err, fdriver.ErrConfigRejected)
 		require.Equal(t, []string{failureClassLabel, classDegrade.String()}, counted)
 	})
 
@@ -233,6 +263,67 @@ func TestRetryBlockTransient(t *testing.T) {
 
 		require.NoError(t, c.Commit(t.Context(), testBlock(31)))
 		require.Equal(t, int32(3), calls.Load())
+	})
+
+	t.Run("keeps retrying a lost connection beyond the budget", func(t *testing.T) {
+		t.Parallel()
+		// An outage longer than the budget must not stop the channel: a missing
+		// database says nothing about the block.
+		const outage = testCommitRetries * 3
+		var calls atomic.Int32
+		c := withRetrySleep(newRetryCommitter(t))
+		c.commitBlock = func(context.Context, *common.Block) error {
+			if calls.Add(1) <= outage {
+				return errors.Wrap(dbdriver.ErrConnectionLost, "dial tcp: connect: connection refused")
+			}
+			return nil
+		}
+
+		// NoError also rules out ErrRetriesExhausted: the budget must not apply.
+		require.NoError(t, c.Commit(t.Context(), testBlock(33)))
+		require.Equal(t, int32(outage+1), calls.Load())
+	})
+
+	t.Run("abandons a lost connection that never clears once the context ends", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(t.Context())
+		var calls atomic.Int32
+		c := withRetrySleep(newRetryCommitter(t))
+		c.commitBlock = func(context.Context, *common.Block) error {
+			if calls.Add(1) == testCommitRetries*3 {
+				cancel()
+			}
+			return errors.Wrap(dbdriver.ErrConnectionLost, "connection refused")
+		}
+
+		err := c.Commit(ctx, testBlock(35))
+
+		require.ErrorIs(t, err, ErrRetriesExhausted)
+		require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, classDegrade, classify(err))
+		require.Equal(t, int32(testCommitRetries*3), calls.Load())
+	})
+
+	t.Run("contention after a lost connection keeps its own budget", func(t *testing.T) {
+		t.Parallel()
+		// Attempts lost to the connection do not use up the contention budget,
+		// so a block that loses its connection and then hits contention still
+		// gets every contention retry.
+		var calls atomic.Int32
+		c := withRetrySleep(newRetryCommitter(t))
+		c.commitBlock = func(context.Context, *common.Block) error {
+			if calls.Add(1) <= testCommitRetries {
+				return dbdriver.ErrConnectionLost
+			}
+			return dbdriver.DeadlockDetected
+		}
+
+		err := c.Commit(t.Context(), testBlock(37))
+
+		require.ErrorIs(t, err, ErrRetriesExhausted)
+		require.ErrorIs(t, err, dbdriver.DeadlockDetected)
+		require.Equal(t, int32(2*testCommitRetries+1), calls.Load())
 	})
 
 	t.Run("a zero budget commits once", func(t *testing.T) {

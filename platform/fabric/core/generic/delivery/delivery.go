@@ -276,11 +276,18 @@ func (d *Delivery) stopError() error {
 // cancelled. It blocks until then and returns the error that caused the
 // shutdown, or nil for a clean stop. A nil ctx is treated as
 // context.Background.
+//
+// The context handed to the callback derives from ctx and ends when ctx does or
+// when the service stops, whichever comes first, so a callback that retries a
+// block until its context ends cannot hold up Stop or node shutdown.
 func (d *Delivery) Run(ctx context.Context) error { //nolint:contextcheck // documented nil-ctx fallback above (nil is treated as context.Background), not an ignored inherited context
 	logger.Debugf("Running delivery service [%d]", ctr.Add(1))
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	// Cancelled once untilStop returns, which is after the service has stopped.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	ch := make(chan blockResponse, d.bufferSize)
 	go d.readBlocks(ch)
 	go d.runReceiver(ctx, ch) //nolint:gosec // G118: documented nil-ctx fallback, not a dropped request context
@@ -296,13 +303,24 @@ func (d *Delivery) Run(ctx context.Context) error { //nolint:contextcheck // doc
 // fault worth retrying from one that never clears. So an error arriving here is
 // final, and a Delivery neither inspects it nor tries again — it stops and reports
 // the cause. A callback that wants the stream to end without signalling a failure
-// returns true instead.
+// returns true instead. An error caused by the callback's context ending is a
+// shutdown rather than a failure, so it leaves the connection state disconnected,
+// not stopped.
 func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 	for {
 		select {
 		case b := <-ch:
 			logger.Debugf("Invoking callback for block [%d]", b.block.Header.Number)
 			stop, err := d.callback(b.ctx, b.block)
+			// The callback's context ends only when the service stops or the
+			// node shuts down, so an error it caused is a shutdown, not a
+			// rejected block, and must not leave the connection state stopped.
+			if err != nil && b.ctx.Err() != nil && errors.HasCause(err, b.ctx.Err()) {
+				logger.Debugf("callback for block [%d] on [%s:%s] ended with its context: [%v]",
+					b.block.Header.Number, d.NetworkName, d.channel, err)
+				d.stopWith(err, connstate.Disconnected)
+				return
+			}
 			if err != nil {
 				logger.Errorf("callback failed for block [%d] on [%s:%s], stopping delivery: [%v]",
 					b.block.Header.Number, d.NetworkName, d.channel, err)
@@ -390,7 +408,10 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 					continue
 				}
 			}
-			deliveryCtx, span := d.tracer.Start(context.Background(), "block_delivery", tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
+			// Each block gets its own root span, so block traces stay independent of
+			// one another and of whatever span ctx carries; ctx still bounds the
+			// lifetime of the callback that receives deliveryCtx.
+			deliveryCtx, span := d.tracer.Start(ctx, "block_delivery", trace.WithNewRoot(), tracing.WithAttributes(tracing.String(messageTypeLabel, unknown)))
 			if df == nil {
 				logger.Debugf("deliver service [%s:%s], connecting...", d.NetworkName, d.channel)
 				span.AddEvent("connect")
@@ -434,7 +455,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			case *pb.DeliverResponse_Block:
 				span.SetAttributes(tracing.String(messageTypeLabel, block))
 				prev := d.lastBlockReceived
-				if !d.handleBlockResponse(deliveryCtx, span, r, ch) { //nolint:contextcheck // deliveryCtx is a fresh root span per block-delivery attempt (context.Background(), see above), by design: block traces are independent per-attempt spans, not children of one span spanning the receiver's whole reconnect-loop lifetime
+				if !d.handleBlockResponse(deliveryCtx, span, r, ch) {
 					if dfCancel != nil {
 						dfCancel()
 					}
