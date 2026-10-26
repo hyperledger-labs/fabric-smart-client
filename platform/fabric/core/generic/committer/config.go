@@ -139,7 +139,13 @@ func configSequenceOf(env *common.Envelope) (uint64, error) {
 	return cenv.Config.Sequence, nil
 }
 
-// CommitConfig is used to validate and apply configuration transactions for a Channel.
+// CommitConfig applies a channel configuration transaction to this process and
+// records it in the vault.
+//
+// It is safe to call again for a configuration already recorded: that is what a
+// retry, a replay after restart, or another replica of the node sharing the
+// vault does. The configuration is applied to this process's membership service
+// unless it already holds the same or a later sequence.
 func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNum, raw []byte, env *common.Envelope) error {
 	logger.DebugfContext(ctx, "Start commit config")
 	defer logger.DebugfContext(ctx, "End commit config")
@@ -163,32 +169,60 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 	}
 	switch vc {
 	case driver.Valid:
-		c.logger.Debugf("config block [%s] already committed, skip it.", txID)
-		return nil
+		// Every replica of a node shares the vault, so Valid means some replica
+		// applied this configuration, not necessarily this process. Skip it only
+		// if this process already holds it or a later one: re-applying an older
+		// configuration would roll the membership service back. A held sequence
+		// stands for a fully applied one: applyConfigUpdates fails only on a
+		// configuration no replica could apply, so none would have recorded it.
+		if current, err := c.MembershipService.ConfigSequence(); err == nil && current >= sequence {
+			c.logger.Debugf("config block [%s] already committed, skip it.", txID)
+			return nil
+		}
+		c.logger.Debugf("config block [%s] committed by another replica, apply it.", txID)
+		return c.applyConfig(env, txID)
 	case driver.Unknown, driver.Busy:
 		// Busy is what an attempt that failed after opening the config tx's rwset
-		// leaves behind, so a retry or a replay after restart takes it over.
-		// commitConfigMutex rules out a concurrent attempt in this process.
+		// leaves behind, or another replica's attempt in progress; either way this
+		// process applies it and records it. commitConfigMutex rules out a
+		// concurrent attempt in this process only.
 		c.logger.Debugf("config block [%s] not committed [%d], continue.", txID, vc)
 	default:
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 	}
 
-	// Applied before the vault write, so a Valid entry means "in force" rather than
-	// "stored". Writing first would let a retry take the early return above and
-	// report success having applied nothing.
+	// Applied before the vault write, so a Valid entry means "in force on the
+	// replica that wrote it" rather than "stored". Writing first would let a
+	// failed apply leave a Valid entry that no process has acted on.
+	if err := c.applyConfig(env, txID); err != nil {
+		return err
+	}
+
+	// Recorded last: a crash before this replays the config on restart, which is
+	// idempotent. Skipping one that was never applied is not.
+	if err := c.applyConfigCommit(ctx, txID, blockNumber, sequence, raw); err != nil {
+		// The entry may be Valid anyway: another replica sharing the vault
+		// recorded it in the meantime, or this write landed before the
+		// connection broke. The configuration is applied here, so that is success.
+		if vc, _, serr := c.Vault.Status(ctx, txID); serr == nil && vc == driver.Valid {
+			c.logger.Debugf("config block [%s] already recorded.", txID)
+			return nil
+		}
+		return errors.Wrap(err, "failed committing configtx to the vault")
+	}
+
+	return nil
+}
+
+// applyConfig installs env in the membership service and reconfigures the
+// ordering service from it.
+func (c *Committer) applyConfig(env *common.Envelope, txID string) error {
 	if err := c.MembershipService.Update(env); err != nil {
 		return errors.Wrapf(err, "failed updating membership service for configtx [%s]", txID)
 	}
 
 	if err := c.applyConfigUpdates(); err != nil {
 		return errors.Wrapf(err, "failed applying config updates for configtx [%s]", txID)
-	}
-
-	// Recorded last: a crash before this replays the config on restart, which is
-	// idempotent. Skipping one that was never applied is not.
-	if err := c.applyConfigCommit(ctx, txID, blockNumber, sequence, raw); err != nil {
-		return errors.Wrap(err, "failed committing configtx to the vault")
 	}
 
 	return nil
