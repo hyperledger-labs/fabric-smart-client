@@ -15,8 +15,11 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	. "github.com/onsi/gomega"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 )
 
@@ -73,6 +76,22 @@ func TestVaultSQL_SetStatuses(t *testing.T) { //nolint:paralleltest
 
 	Expect(store.SetStatuses(context.Background(), driver.Valid, "msg", "tx1", "tx2")).To(Succeed())
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
+}
+
+// TestVaultSQL_SetStatuses_WrapsError checks that a failed status write passes
+// through the store's error wrapper, which maps a lost connection onto
+// ErrConnectionLost for the committer to retry.
+func TestVaultSQL_SetStatuses_WrapsError(t *testing.T) { //nolint:paralleltest
+	RegisterTestingT(t)
+	db, mockDB, err := sqlmock.New()
+	Expect(err).ToNot(HaveOccurred())
+	mockDB.ExpectExec("INSERT INTO status").WillReturnError(errors.New("connection reset by peer"))
+	wrapper := &mock.SQLErrorWrapper{}
+	wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(dbdriver.ErrConnectionLost, err.Error()) }
+	store := common2.NewVaultStore(db, db, vaultTables, wrapper, idKey, isoMapper{})
+
+	err = store.SetStatuses(context.Background(), driver.Invalid, "msg", "tx1")
+	Expect(err).To(MatchError(dbdriver.ErrConnectionLost))
 }
 
 func TestVaultSQL_SetStatusesBusy(t *testing.T) { //nolint:paralleltest

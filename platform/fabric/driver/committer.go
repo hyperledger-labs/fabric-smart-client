@@ -81,6 +81,8 @@ type Committer interface {
 	// RemoveFinalityListener unregisters the passed listener.
 	RemoveFinalityListener(txID string, listener FinalityListener) error
 
+	// DiscardTx marks the transaction Invalid in the vault, with message as the
+	// reason. It returns an error if the status cannot be written.
 	DiscardTx(ctx context.Context, txID driver.TxID, message string) error
 
 	CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) error

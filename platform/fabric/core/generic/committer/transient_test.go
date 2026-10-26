@@ -134,3 +134,72 @@ func TestCommitUnknownReturnsTransientFilterError(t *testing.T) {
 	require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
 	require.Equal(t, classRetry, classify(err))
 }
+
+// flakyStatusStore fails the first SetStatuses call with a lost connection and
+// passes every later call through.
+type flakyStatusStore struct {
+	cdriver.VaultStore
+	failed atomic.Bool
+}
+
+func (s *flakyStatusStore) SetStatuses(ctx context.Context, code cdriver.TxStatusCode, message string, txIDs ...cdriver.TxID) error {
+	if s.failed.CompareAndSwap(false, true) {
+		return errors.Wrap(dbdriver.ErrConnectionLost, "connection reset by peer")
+	}
+	return s.VaultStore.SetStatuses(ctx, code, message, txIDs...)
+}
+
+// TestDiscardEndorserTransactionRetriesATransientVaultFailure runs against a real
+// vault, because the first attempt releases the transaction's read-write set
+// before its status write fails, and the retry has to reach Invalid without it.
+func TestDiscardEndorserTransactionRetriesATransientVaultFailure(t *testing.T) {
+	t.Parallel()
+
+	store, err := vault2.OpenMemoryVault(t.Name())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+	v := vault.NewVault(vault2.NewCachedVault(&flakyStatusStore{VaultStore: store}, 0), &disabled.Provider{}, noop.NewTracerProvider())
+
+	// The transaction was endorsed by this node, so its read-write set is open
+	// and its status is Busy.
+	rws, err := v.NewRWSet(t.Context(), "tx1")
+	require.NoError(t, err)
+	rws.Done()
+
+	c := &Committer{logger: logger, Vault: v, EnvelopeService: &fake.EnvelopeService{}}
+	event := func() *FinalityEvent {
+		return &FinalityEvent{TxID: "tx1", ValidationCode: fdriver.Invalid, ValidationMessage: "MVCC_READ_CONFLICT"}
+	}
+
+	err = c.DiscardEndorserTransaction(t.Context(), "tx1", 1, nil, event())
+	require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
+	require.Equal(t, classRetry, classify(err), "a lost connection must stay retryable")
+
+	require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx1", 1, nil, event()),
+		"committing the block again must discard the transaction")
+	vc, msg, err := v.Status(t.Context(), "tx1")
+	require.NoError(t, err)
+	require.Equal(t, fdriver.Invalid, vc)
+	require.Equal(t, "MVCC_READ_CONFLICT", msg)
+}
+
+// TestDiscardEndorserTransactionLogsADeterministicFailure checks that a discard
+// failure no retry can clear is logged rather than returned, so it does not
+// stop the channel.
+func TestDiscardEndorserTransactionLogsADeterministicFailure(t *testing.T) {
+	t.Parallel()
+
+	c := &Committer{
+		logger: logger,
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				return fdriver.Busy, "", nil
+			},
+			RWSExistsFn: func(context.Context, cdriver.TxID) bool { return true },
+			DiscardTxFn: func(context.Context, cdriver.TxID, string) error {
+				return errors.New("attempted to retrieve read-write set when done has not been called")
+			},
+		},
+	}
+	require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx1", 1, nil, &FinalityEvent{TxID: "tx1"}))
+}
