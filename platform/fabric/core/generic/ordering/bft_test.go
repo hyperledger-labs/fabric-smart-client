@@ -20,6 +20,7 @@ import (
 	ggrpc "google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
@@ -100,7 +101,7 @@ func TestBFTBroadcaster_DiscardsFailedConnectionsOnPartialFailureSuccess(t *test
 		RetriesValue:  1,
 		OrderersValue: orderers,
 	}
-	b := NewBFTBroadcaster(cfg, nil, nil)
+	b := NewBFTBroadcaster(cfg, nil, newTestMetrics())
 
 	streams := map[string]*fakeBroadcastStream{
 		"o1": {status: common.Status_SUCCESS},
@@ -137,7 +138,7 @@ func TestBFTBroadcaster_GetConnectionHonorsContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	const poolSize = 4
-	b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, nil)
+	b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, newTestMetrics())
 	to := &grpc.ConnectionConfig{Address: "orderer-0"}
 
 	// Exhaust the target: create poolSize connections and keep them checked
@@ -198,10 +199,10 @@ func TestBFTBroadcaster_NewBFTBroadcaster(t *testing.T) {
 
 			if tt.shouldPanic {
 				require.Panics(t, func() {
-					NewBFTBroadcaster(cfg, fakeServices{}, nil)
+					NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
 				})
 			} else {
-				b := NewBFTBroadcaster(cfg, fakeServices{}, nil)
+				b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
 				require.NotNil(t, b)
 				require.Equal(t, tt.poolSize, b.poolSize)
 				require.NotNil(t, b.states)
@@ -216,7 +217,7 @@ func TestBFTBroadcaster_OrdererState(t *testing.T) {
 	t.Parallel()
 
 	const poolSize = 4
-	b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, nil)
+	b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, newTestMetrics())
 
 	t.Run("creates new state", func(t *testing.T) {
 		t.Parallel()
@@ -256,7 +257,7 @@ func TestBFTBroadcaster_Broadcast_Success(t *testing.T) {
 			RetriesValue:  1,
 			OrderersValue: orderers,
 		}
-		b := NewBFTBroadcaster(cfg, fakeServices{}, nil)
+		b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
 
 		err := b.Broadcast(t.Context(), &common.Envelope{})
 		require.NoError(t, err)
@@ -272,7 +273,7 @@ func TestBFTBroadcaster_Broadcast_Success(t *testing.T) {
 			RetriesValue:  1,
 			OrderersValue: orderers,
 		}
-		b := NewBFTBroadcaster(cfg, nil, nil)
+		b := NewBFTBroadcaster(cfg, nil, newTestMetrics())
 
 		streams := map[string]*fakeBroadcastStream{
 			"o1": {status: common.Status_SUCCESS},
@@ -307,7 +308,7 @@ func TestBFTBroadcaster_Broadcast_Success(t *testing.T) {
 			RetriesValue:  1,
 			OrderersValue: orderers,
 		}
-		b := NewBFTBroadcaster(cfg, nil, nil)
+		b := NewBFTBroadcaster(cfg, nil, newTestMetrics())
 
 		// n=7, f=2, threshold=5
 		// 5 successes, 2 failures should succeed
@@ -405,7 +406,7 @@ func TestBFTBroadcaster_Broadcast_Failures(t *testing.T) {
 				OrderersValue: tt.orderers,
 			}
 
-			b := NewBFTBroadcaster(cfg, fakeServices{}, nil)
+			b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
 
 			// Pre-populate pool with custom streams if provided
 			if tt.streams != nil {
@@ -451,7 +452,7 @@ func TestBFTBroadcaster_Broadcast_Retries(t *testing.T) {
 			},
 		}
 
-		b := NewBFTBroadcaster(cfg, retryServices, nil)
+		b := NewBFTBroadcaster(cfg, retryServices, newTestMetrics())
 
 		// First attempt will fail (all connections fail), second will succeed
 		err := b.Broadcast(t.Context(), &common.Envelope{})
@@ -468,7 +469,7 @@ func TestBFTBroadcaster_GetConnection(t *testing.T) {
 
 	t.Run("reuses pooled connection", func(t *testing.T) {
 		t.Parallel()
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, newTestMetrics())
 		to := &grpc.ConnectionConfig{Address: "orderer-1"}
 
 		// Create and pool a connection
@@ -484,7 +485,7 @@ func TestBFTBroadcaster_GetConnection(t *testing.T) {
 
 	t.Run("creates new connection when pool empty", func(t *testing.T) {
 		t.Parallel()
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, newTestMetrics())
 		to := &grpc.ConnectionConfig{Address: "orderer-2"}
 
 		conn, err := b.getConnection(t.Context(), to)
@@ -496,7 +497,7 @@ func TestBFTBroadcaster_GetConnection(t *testing.T) {
 	t.Run("blocks when pool and slots exhausted", func(t *testing.T) {
 		t.Parallel()
 		const poolSize = 2
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, newTestMetrics())
 		to := &grpc.ConnectionConfig{Address: "orderer-3"}
 
 		// Exhaust all slots
@@ -521,7 +522,7 @@ func TestBFTBroadcaster_CreateConnection(t *testing.T) {
 
 	t.Run("creates valid connection", func(t *testing.T) {
 		t.Parallel()
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, newTestMetrics())
 		to := &grpc.ConnectionConfig{Address: "orderer-1"}
 
 		conn, err := b.createConnection(to)
@@ -579,7 +580,7 @@ func TestBFTBroadcaster_DiscardConnection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			const poolSize = 4
-			b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, nil)
+			b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, newTestMetrics())
 			conn := tt.setupConn(t, b)
 
 			var slotsBeforeDiscard int
@@ -607,7 +608,7 @@ func TestBFTBroadcaster_ReleaseConnection(t *testing.T) {
 
 	t.Run("returns connection to pool", func(t *testing.T) {
 		t.Parallel()
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, newTestMetrics())
 		to := &grpc.ConnectionConfig{Address: "orderer-1"}
 
 		conn, err := b.getConnection(t.Context(), to)
@@ -624,7 +625,7 @@ func TestBFTBroadcaster_ReleaseConnection(t *testing.T) {
 	t.Run("discards when pool full", func(t *testing.T) {
 		t.Parallel()
 		const poolSize = 2
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, newTestMetrics())
 		to := &grpc.ConnectionConfig{Address: "orderer-1"}
 
 		state := b.ordererState(to.Address)
@@ -659,7 +660,7 @@ func TestBFTBroadcaster_ReleaseSlot(t *testing.T) {
 
 	t.Run("releases slot successfully", func(t *testing.T) {
 		t.Parallel()
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, newTestMetrics())
 		state := b.ordererState("orderer-1")
 
 		// Take a slot
@@ -675,7 +676,7 @@ func TestBFTBroadcaster_ReleaseSlot(t *testing.T) {
 	t.Run("handles full slot channel", func(t *testing.T) {
 		t.Parallel()
 		const poolSize = 2
-		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, nil)
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: poolSize}, fakeServices{}, newTestMetrics())
 		state := b.ordererState("orderer-1")
 
 		// Slots should already be full
@@ -734,7 +735,7 @@ func TestBFTBroadcaster_ConcurrentBroadcasts(t *testing.T) {
 		RetriesValue:  1,
 		OrderersValue: orderers,
 	}
-	b := NewBFTBroadcaster(cfg, fakeServices{}, nil)
+	b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
 
 	const numGoroutines = 10
 	errChan := make(chan error, numGoroutines)
@@ -757,7 +758,9 @@ func TestBFTBroadcast_BrokenConnectionReportsReconnecting(t *testing.T) {
 	orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
 	cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers, NetworkNameValue: "test-network"}
 	connState, rec := connstatetest.NewMetrics()
-	b := NewBFTBroadcaster(cfg, fakeServices{}, &metrics.Metrics{ConnState: connState})
+	m := newTestMetrics()
+	m.ConnState = connState
+	b := NewBFTBroadcaster(cfg, fakeServices{}, m)
 
 	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
 	conn := <-b.ordererState("o1").pool
@@ -770,4 +773,26 @@ func TestBFTBroadcast_BrokenConnectionReportsReconnecting(t *testing.T) {
 	require.Equal(t, connstate.Reconnecting, last)
 	// connect, then one accepted envelope per broadcast
 	require.Equal(t, []connstate.State{connstate.Connected, connstate.Connected, connstate.Connected}, rec.States("o2"))
+}
+
+func TestBFTBroadcast_CountsOrderedTransactions(t *testing.T) {
+	t.Parallel()
+	orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
+	cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers, NetworkNameValue: "test-network"}
+	counter := &mock.Counter{}
+	counter.WithReturns(counter)
+	b := NewBFTBroadcaster(cfg, fakeServices{}, &metrics.Metrics{OrderedTransactions: counter})
+
+	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+	require.Equal(t, 1, counter.AddCallCount(), "one envelope, counted once however many orderers accepted it")
+	require.Equal(t, []string{"network", "test-network"}, counter.WithArgsForCall(0))
+
+	// Below the threshold the envelope is not ordered and not counted.
+	for _, o := range orderers[:2] {
+		conn := <-b.ordererState(o.Address).pool
+		conn.Stream = &fakeBroadcastStream{status: common.Status_SERVICE_UNAVAILABLE}
+		b.ordererState(o.Address).pool <- conn
+	}
+	require.Error(t, b.Broadcast(t.Context(), &common.Envelope{}))
+	require.Equal(t, 1, counter.AddCallCount())
 }

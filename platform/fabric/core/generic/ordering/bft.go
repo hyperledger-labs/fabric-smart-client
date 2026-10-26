@@ -33,7 +33,8 @@ type bftOrdererState struct {
 // ordering service and succeeds once enough of them acknowledge it. It keeps a
 // pool of broadcast streams per orderer.
 //
-// It reports the state of each orderer: connected when a stream is opened and
+// It counts each envelope that reaches the threshold in OrderedTransactions, and
+// reports the state of each orderer: connected when a stream is opened and
 // after each envelope the orderer accepts, reconnecting when a failed stream is
 // discarded. A send that times out or is cancelled counts as failed. A stream
 // discarded after a rejection does not change the state: the orderer answered.
@@ -176,6 +177,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 
 		if counter >= threshold {
 			// success
+			o.metrics.OrderedTransactions.With("network", o.ConfigService.NetworkName()).Add(1)
 			return nil
 		}
 
