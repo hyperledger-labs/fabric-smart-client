@@ -40,7 +40,7 @@ func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *mock.FakeQuery
 	}
 
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice.NewRemoteQueryService(c, client, nil)
+	qs := queryservice.NewRemoteQueryService(c, func() (committerpb.QueryServiceClient, error) { return client, nil }, nil)
 
 	return qs, client
 }
@@ -594,11 +594,52 @@ func TestQueryService(t *testing.T) {
 	})
 }
 
+// RemoteQueryService asks its client factory for a stub on every request, so consecutive
+// requests can go to different endpoints, and a factory error fails only that request.
+func TestQueryService_ClientPerRequest(t *testing.T) {
+	t.Parallel()
+	committed := &committerpb.TxStatusResponse{Statuses: []*committerpb.TxStatus{{Status: committerpb.Status_COMMITTED}}}
+
+	t.Run("each request uses the client the factory returns", func(t *testing.T) {
+		t.Parallel()
+		clientA, clientB := &mock.FakeQueryServiceClient{}, &mock.FakeQueryServiceClient{}
+		clientA.GetTransactionStatusReturns(committed, nil)
+		clientB.GetTransactionStatusReturns(committed, nil)
+		clients := []committerpb.QueryServiceClient{clientA, clientB}
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, error) {
+			next := clients[0]
+			clients = clients[1:]
+			return next, nil
+		}, nil)
+
+		_, err := qs.GetTransactionStatus("tx1")
+		require.NoError(t, err)
+		_, err = qs.GetTransactionStatus("tx2")
+		require.NoError(t, err)
+
+		require.Equal(t, 1, clientA.GetTransactionStatusCallCount())
+		require.Equal(t, 1, clientB.GetTransactionStatusCallCount())
+	})
+
+	t.Run("factory error fails the request", func(t *testing.T) {
+		t.Parallel()
+		expectedError := errors.New("no endpoint available")
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, error) {
+			return nil, expectedError
+		}, nil)
+
+		_, err := qs.GetTransactionStatus("tx1")
+		require.ErrorIs(t, err, expectedError)
+		_, err = qs.GetState("ns", "key")
+		require.ErrorIs(t, err, expectedError)
+	})
+}
+
 func TestQueryService_ReportsConnectionState(t *testing.T) {
 	t.Parallel()
 	m, rec := connstatetest.NewMetrics()
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: time.Second}, client, func() *connstate.Tracker {
+	qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: time.Second}, func() (committerpb.QueryServiceClient, error) { return client, nil }, func() *connstate.Tracker {
 		return m.Tracker("net", "ch", connstate.ComponentFabricxQuery, "committer")
 	})
 	answer := &committerpb.TxStatusResponse{Statuses: []*committerpb.TxStatus{{}}}

@@ -13,6 +13,7 @@ import (
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -524,7 +525,7 @@ func TestQueryService_MonitorReportsConnected(t *testing.T) {
 	client := &qsmock.FakeQueryServiceClient{}
 	client.GetConfigTransactionReturnsOnCall(0, nil, status.Error(codes.Unavailable, "committer down"))
 	client.GetConfigTransactionReturns(&applicationpb.ConfigTransaction{Version: 1}, nil)
-	qs := queryservice.NewRemoteQueryService(&committerconfig.Config{RequestTimeout: time.Second}, client, func() *connstate.Tracker {
+	qs := queryservice.NewRemoteQueryService(&committerconfig.Config{RequestTimeout: time.Second}, func() (committerpb.QueryServiceClient, error) { return client, nil }, func() *connstate.Tracker {
 		return m.Tracker("testnet", "mychannel", connstate.ComponentFabricxQuery, "committer")
 	})
 

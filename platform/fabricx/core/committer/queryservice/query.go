@@ -34,23 +34,26 @@ var (
 )
 
 type RemoteQueryService struct {
-	client  committerpb.QueryServiceClient
-	config  *config.Config
-	newConn func() *connstate.Tracker
-	conn    atomic.Pointer[connstate.Tracker]
+	// newClient returns the stub for one request. It is called per request, so each
+	// request can land on a different endpoint (see config.ClientProvider).
+	newClient func() (committerpb.QueryServiceClient, error)
+	config    *config.Config
+	newConn   func() *connstate.Tracker
+	conn      atomic.Pointer[connstate.Tracker]
 }
 
-// NewRemoteQueryService returns a query service that sends its queries through client.
+// NewRemoteQueryService returns a query service that calls clientFactory for the stub of
+// every request, and returns its error unchanged when it fails.
 // The outcome of each query is reported to the tracker newConn returns: connected when the
 // query service answers, including with an error, and reconnecting when it is unavailable.
 // A query that times out does not change the state. newConn is called on the first answered
 // query, so the series exists only once the service has been reached, and a query service
 // that is unused or never reached reports nothing. A nil newConn reports nothing.
-func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient, newConn func() *connstate.Tracker) *RemoteQueryService {
+func NewRemoteQueryService(config *config.Config, clientFactory func() (committerpb.QueryServiceClient, error), newConn func() *connstate.Tracker) *RemoteQueryService {
 	return &RemoteQueryService{
-		client:  client,
-		config:  config,
-		newConn: newConn,
+		newClient: clientFactory,
+		config:    config,
+		newConn:   newConn,
 	}
 }
 
@@ -106,11 +109,16 @@ func (s *RemoteQueryService) GetStates(m map[driver.Namespace][]driver.PKey) (ma
 }
 
 func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
+	client, err := s.newClient()
+	if err != nil {
+		return 0, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()
-	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{
+	res, err := client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{
 		TxIds: []string{txID},
 	})
 	s.report(err)
@@ -144,11 +152,16 @@ func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]
 		unique = append(unique, txID)
 	}
 
+	client, err := s.newClient()
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()
-	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: unique})
+	res, err := client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: unique})
 	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "query transaction statuses")
@@ -166,11 +179,16 @@ func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]
 
 // GetConfigTransaction returns the envelope and version of the most recent config transaction
 func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, error) {
+	client, err := s.newClient()
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()
-	res, err := s.client.GetConfigTransaction(ctx, &emptypb.Empty{})
+	res, err := client.GetConfigTransaction(ctx, &emptypb.Empty{})
 	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "get config transaction")
@@ -192,11 +210,16 @@ func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, err
 // GetNamespacePolicies returns the endorsement policies currently registered
 // for every namespace, together with their version.
 func (s *RemoteQueryService) GetNamespacePolicies() (*applicationpb.NamespacePolicies, error) {
+	client, err := s.newClient()
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()
-	res, err := s.client.GetNamespacePolicies(ctx, &emptypb.Empty{})
+	res, err := client.GetNamespacePolicies(ctx, &emptypb.Empty{})
 	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "get namespace policies")
@@ -209,6 +232,11 @@ func (s *RemoteQueryService) GetNamespacePolicies() (*applicationpb.NamespacePol
 func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error) {
 	logger.Debugf("QS GetState: query input %v", m)
 
+	client, err := s.newClient()
+	if err != nil {
+		return nil, err
+	}
+
 	q, err := createQuery(m)
 	if err != nil {
 		return nil, err
@@ -218,7 +246,7 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 	defer cancel()
 
 	now := time.Now()
-	res, err := s.client.GetRows(ctx, q)
+	res, err := client.GetRows(ctx, q)
 	s.report(err)
 	if err != nil {
 		logger.Warnf("QS GetState: error calling getRows: %v", err)
