@@ -14,7 +14,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	. "github.com/onsi/gomega"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -55,5 +54,5 @@ func TestPutAuditInfo(t *testing.T) { //nolint:paralleltest
 }
 
 func mockAuditInfoStore(db *sql.DB) *common2.AuditInfoStore {
-	return common2.NewAuditInfoStore(db, db, "audit_info", &mock.SQLErrorWrapper{})
+	return common2.NewAuditInfoStore(db, db, "audit_info", passthroughErrorWrapper())
 }

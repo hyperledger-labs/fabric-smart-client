@@ -44,7 +44,7 @@ func CrashSpecs(s *integration.TestSuite) {
 
 	ginkgo.It("catches up blocks committed while down", func() {
 		// Bob endorses every tx, then misses the blocks that commit them.
-		txs := make([][]byte, 20)
+		txs := make([]*views.Endorsed, 20)
 		for i := range txs {
 			txs[i] = Endorse(s.II, i)
 		}
@@ -63,5 +63,30 @@ func CrashSpecs(s *integration.TestSuite) {
 				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
 			}, recoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on bob", i, txID)
 		}
+	})
+}
+
+// DependencySpecs registers the specs that take down a dependency both suites share: bob's
+// Postgres database, named DBName(dbPrefix, "bob").
+func DependencySpecs(s *integration.TestSuite, dbPrefix string) {
+	ginkgo.It("starts before Postgres is up", func() {
+		db := DBName(dbPrefix, "bob")
+		s.II.StopFSCNode("bob")
+		s.II.StopPostgres(db)
+
+		// StartFSCNode returns only once bob has started, which it cannot do without its
+		// database, so the database comes back from another goroutine.
+		started := make(chan struct{})
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			defer close(started)
+			time.Sleep(10 * time.Second)
+			s.II.StartPostgres(db)
+		}()
+		s.II.StartFSCNode("bob")
+		<-started
+
+		gomega.Eventually(s.II.WebClient("bob").Ready, recoveryTimeout, time.Second).Should(gomega.Succeed())
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 	})
 }

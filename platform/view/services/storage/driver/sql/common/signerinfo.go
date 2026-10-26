@@ -85,13 +85,14 @@ func (db *SignerInfoStore) PutSigner(ctx context.Context, id view.Identity) erro
 
 		return nil
 	}
-	if errors.Is(db.errorWrapper.WrapError(execErr), driver.UniqueKeyViolation) {
+	err := db.errorWrapper.WrapError(execErr)
+	if errors.Is(err, driver.UniqueKeyViolation) {
 		logger.InfofContext(ctx, "signer [%s] already in db. Skipping...", id)
 
 		return nil
 	}
 
-	return errors.Wrapf(execErr, "failed executing query [%s]", query)
+	return errors.Wrapf(err, "failed executing query [%s]", query)
 }
 
 func (db *SignerInfoStore) CreateSchema() error {

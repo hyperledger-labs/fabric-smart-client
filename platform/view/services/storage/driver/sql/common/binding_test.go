@@ -15,7 +15,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	. "github.com/onsi/gomega"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -172,5 +171,5 @@ func expectPutBindings(t *testing.T, query string, ephemerals ...view.Identity) 
 }
 
 func mockBindingStore(db *sql.DB) *common2.BindingStore {
-	return common2.NewBindingStore(db, db, "bindings", &mock.SQLErrorWrapper{})
+	return common2.NewBindingStore(db, db, "bindings", passthroughErrorWrapper())
 }

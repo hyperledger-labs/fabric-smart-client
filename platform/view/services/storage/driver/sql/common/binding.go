@@ -135,7 +135,8 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 		logger.Debugf("long-term and ephemeral ids registered [%s,%s]", longTerm, ephemerals)
 		return nil
 	}
-	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
+	err = db.errorWrapper.WrapError(err)
+	if errors.Is(err, driver.UniqueKeyViolation) {
 		logger.Infof("some tuples [%v, %s] already in db. Skipping...", ephemerals, longTerm)
 		return nil
 	}

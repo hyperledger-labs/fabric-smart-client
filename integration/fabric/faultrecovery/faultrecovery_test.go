@@ -7,23 +7,44 @@ SPDX-License-Identifier: Apache-2.0
 package faultrecovery_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	fabricfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
+const (
+	dbPrefix = "fr"
+	// bobPeer is the only peer bob's delivery attaches to: an FSC node is configured
+	// with the peers of its own organization.
+	bobPeer = "Org2_peer_0"
+
+	commitRetries  = "fsc_fabric_core_generic_committer_commit_retries"
+	commitFailures = "fsc_fabric_core_generic_committer_commit_failures"
+)
+
+var (
+	delivery = fsc.Connection{Component: connstate.ComponentDelivery}
+	database = fsc.Connection{Component: connstate.ComponentDatabase}
+)
+
+func newInfrastructure() (*integration.Infrastructure, error) {
+	return integration.Generate(
+		integration.FabricFaultRecoveryPort.StartPortForNode(),
+		integration.WithRaceDetection,
+		fabricfaultrecovery.Topology(dbPrefix)...,
+	)
+}
+
 var _ = Describe("Fault Recovery with Fabric", Label(fsc.WebSocket), func() {
-	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(
-			integration.FabricFaultRecoveryPort.StartPortForNode(),
-			integration.WithRaceDetection,
-			fabricfaultrecovery.Topology("fr")...,
-		)
-	})
+	s := integration.NewTestSuite(newInfrastructure)
 	BeforeEach(s.Setup)
 	AfterEach(s.TearDown)
 
@@ -32,4 +53,98 @@ var _ = Describe("Fault Recovery with Fabric", Label(fsc.WebSocket), func() {
 	})
 
 	faultrecovery.CrashSpecs(s)
+	faultrecovery.DependencySpecs(s, dbPrefix)
+
+	It("survives delivery peer restart", func() {
+		// Endorsing needs bob's peer for service discovery, so the tx is endorsed first.
+		tx := faultrecovery.Endorse(s.II, 1)
+		s.II.StopPeer(bobPeer)
+		s.II.EventuallyConnectionState("bob", delivery, connstate.Reconnecting, time.Minute)
+
+		// Alice orders through the orderers and learns finality from Org1's peer, so only
+		// bob misses the block.
+		faultrecovery.Order(s.II, tx)
+		s.II.StartPeer(bobPeer)
+
+		faultrecovery.WaitFinal(s.II, tx.TxID)
+		s.II.EventuallyConnectionState("bob", delivery, connstate.Connected, time.Minute)
+	})
+
+	It("broadcasts via remaining orderers", func() {
+		// Which orderer leads raft is not known, so the stopped one may be the leader:
+		// OrderEventually rides out the election that follows.
+		stopped := fabricfaultrecovery.Orderers[0]
+		s.II.StopOrderer(stopped)
+		tx := faultrecovery.Endorse(s.II, 1)
+		faultrecovery.OrderEventually(s.II, tx)
+		faultrecovery.WaitFinal(s.II, tx.TxID)
+
+		for _, o := range fabricfaultrecovery.Orderers {
+			if o != stopped {
+				s.II.StopOrderer(o)
+			}
+		}
+		for _, o := range fabricfaultrecovery.Orderers {
+			s.II.StartOrderer(o)
+		}
+		tx = faultrecovery.Endorse(s.II, 2)
+		faultrecovery.OrderEventually(s.II, tx)
+		faultrecovery.WaitFinal(s.II, tx.TxID)
+	})
+})
+
+// Its own Describe, so the shortened commit retry budget applies to these specs only.
+var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Label(fsc.WebSocket), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		ii, err := newInfrastructure()
+		if err != nil {
+			return nil, err
+		}
+		// A one-second commit retry budget, so a Postgres outage of a few seconds
+		// already outlasts it.
+		fabricfaultrecovery.SetCommitRetries(ii, "bob", 1, time.Second)
+		return ii, nil
+	})
+	BeforeEach(s.Setup)
+	AfterEach(s.TearDown)
+
+	It("resumes commits after Postgres restart", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+
+		// Endorsing writes to bob's database, so the txs are endorsed before the outage
+		// and ordered during it.
+		txs := make([]*views.Endorsed, 5)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+		retries := faultrecovery.CounterSum(s.II, "bob", commitRetries)
+		failures := faultrecovery.CounterSum(s.II, "bob", commitFailures)
+
+		s.II.StopPostgres(db)
+		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
+		for _, tx := range txs {
+			faultrecovery.Order(s.II, tx)
+		}
+
+		// Bob keeps retrying its block past the one-second budget instead of stopping
+		// delivery.
+		Eventually(func() float64 {
+			return faultrecovery.CounterSum(s.II, "bob", commitRetries)
+		}, time.Minute, time.Second).Should(BeNumerically(">", retries+1))
+		Consistently(func(g Gomega) {
+			g.Expect(faultrecovery.CounterSum(s.II, "bob", commitFailures)).To(Equal(failures))
+			families, err := s.II.WebClient("bob").Metrics()
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(fsc.ParseConnectionState(families, delivery)).To(HaveEach(connstate.Connected))
+		}, 10*time.Second, time.Second).Should(Succeed())
+
+		s.II.StartPostgres(db)
+		// While the database is down the committer backs off for up to a minute between
+		// attempts, so the first commit after the restart can take that long.
+		for _, tx := range txs {
+			faultrecovery.WaitFinal(s.II, tx.TxID)
+		}
+		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
+		Expect(faultrecovery.CounterSum(s.II, "bob", commitFailures)).To(Equal(failures))
+	})
 })

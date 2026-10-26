@@ -7,8 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package faultrecovery
 
 import (
+	"os"
 	"slices"
+	"time"
 
+	"github.com/onsi/gomega"
+	"go.yaml.in/yaml/v3"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -38,4 +44,43 @@ func Topology(dbPrefix string) []api.Topology {
 	}
 
 	return []api.Topology{fabricTopology, faultrecovery.FSCTopology(&fabricsdk.SDK{}, dbPrefix)}
+}
+
+// SetCommitRetries sets committer.retries and committer.retrySleep of every channel in
+// the core.yaml of node, so a spec can outlast the commit retry budget without waiting
+// for the defaults. Call it after the network is generated and before it starts.
+func SetCommitRetries(ii *integration.Infrastructure, node string, retries int, sleep time.Duration) {
+	patched := 0
+	for _, r := range ii.FscPlatform.Peers {
+		if r.Name != node {
+			continue
+		}
+		path := ii.FscPlatform.NodeConfigPath(r)
+		raw, err := os.ReadFile(path)
+		gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
+		core := map[string]any{}
+		gomega.ExpectWithOffset(1, yaml.Unmarshal(raw, &core)).To(gomega.Succeed())
+
+		// fabric holds one map per network, next to scalars such as enabled.
+		fabricSection, _ := core["fabric"].(map[string]any)
+		for _, network := range fabricSection {
+			n, _ := network.(map[string]any)
+			channels, _ := n["channels"].([]any)
+			for _, ch := range channels {
+				c, _ := ch.(map[string]any)
+				committer, ok := c["committer"].(map[string]any)
+				if !ok {
+					continue
+				}
+				committer["retries"] = retries
+				committer["retrySleep"] = sleep.String()
+				patched++
+			}
+		}
+
+		raw, err = yaml.Marshal(core)
+		gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
+		gomega.ExpectWithOffset(1, os.WriteFile(path, raw, 0o600)).To(gomega.Succeed())
+	}
+	gomega.ExpectWithOffset(1, patched).To(gomega.BeNumerically(">", 0), "no channel committer configuration found for FSC node [%s]", node)
 }

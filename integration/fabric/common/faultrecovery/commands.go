@@ -30,14 +30,19 @@ const (
 
 // SubmitAndWaitFinal endorses and orders n transactions between alice and bob, one
 // after the other, and returns their IDs once each is final on both nodes.
-//
-// Finality is polled, so a node that is still restarting is retried until viewTimeout.
 func SubmitAndWaitFinal(ii *integration.Infrastructure, n int) []string {
 	txIDs := make([]string, 0, n)
 	for i := range n {
 		txIDs = append(txIDs, Order(ii, Endorse(ii, i)))
 	}
+	WaitFinal(ii, txIDs...)
+	return txIDs
+}
 
+// WaitFinal returns once every transaction in txIDs is final on alice and on bob.
+//
+// Finality is polled, so a node that is still restarting is retried until viewTimeout.
+func WaitFinal(ii *integration.Infrastructure, txIDs ...string) {
 	for _, node := range []string{"alice", "bob"} {
 		for _, txID := range txIDs {
 			gomega.EventuallyWithOffset(1, func() error {
@@ -48,21 +53,34 @@ func SubmitAndWaitFinal(ii *integration.Infrastructure, n int) []string {
 			}, viewTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not final on [%s]", txID, node)
 		}
 	}
-	return txIDs
 }
 
 // Endorse runs alice's endorse view with bob as responder and returns the endorsed
 // transaction, not yet ordered, for Order. On Fabric, bob's vault then holds the
 // transaction as Busy.
-func Endorse(ii *integration.Infrastructure, value int) []byte {
-	// A view's []byte result reaches the client as is, not JSON-encoded.
-	return callView(ii, "alice", "endorse", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte)
+func Endorse(ii *integration.Infrastructure, value int) *views.Endorsed {
+	tx := &views.Endorsed{}
+	common.JSONUnmarshal(callView(ii, "alice", "endorse", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), tx)
+	return tx
 }
 
 // Order runs alice's order view on a transaction Endorse returned and returns its ID
 // once it is final on alice.
-func Order(ii *integration.Infrastructure, tx []byte) string {
-	return common.JSONUnmarshalString(callView(ii, "alice", "order", &views.Order{Tx: tx}))
+func Order(ii *integration.Infrastructure, tx *views.Endorsed) string {
+	return common.JSONUnmarshalString(callView(ii, "alice", "order", &views.Order{Tx: tx.Tx}))
+}
+
+// OrderEventually is Order for a network that rejects broadcasts while it recovers,
+// such as raft orderers electing a new leader: it retries the order view until it
+// succeeds. An attempt can take as long as the view's own finality timeout, so the
+// retries get several attempts' worth of time.
+func OrderEventually(ii *integration.Infrastructure, tx *views.Endorsed) {
+	gomega.EventuallyWithOffset(1, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+		defer cancel()
+		_, err := ii.Client("alice").CallViewWithContext(ctx, "order", common.JSONMarshall(&views.Order{Tx: tx.Tx}))
+		return err
+	}, 3*viewTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not ordered", tx.TxID)
 }
 
 // Query returns what node knows about the transaction txID; see views.QueryView.
@@ -78,6 +96,19 @@ func Query(ii *integration.Infrastructure, node, txID string) (*views.QueryResul
 		return nil, err
 	}
 	return res, nil
+}
+
+// CounterSum returns the sum of every series of the counter family name on node's
+// metrics endpoint; zero if the node exports none, as it does for a counter never
+// incremented.
+func CounterSum(ii *integration.Infrastructure, node, name string) float64 {
+	families, err := ii.WebClient(node).Metrics()
+	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
+	var sum float64
+	for _, m := range families[name].GetMetric() {
+		sum += m.GetCounter().GetValue()
+	}
+	return sum
 }
 
 func callView(ii *integration.Infrastructure, node, fid string, in any) any {

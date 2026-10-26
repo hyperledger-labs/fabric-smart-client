@@ -26,6 +26,14 @@ func (*dummyUniqueErrorWrapper) WrapError(_ error) error {
 	return driver.UniqueKeyViolation
 }
 
+// passthroughErrorWrapper returns a wrapper that maps no error, as a real wrapper does
+// for an error it does not recognize.
+func passthroughErrorWrapper() *mock.SQLErrorWrapper {
+	w := &mock.SQLErrorWrapper{}
+	w.WrapErrorStub = func(err error) error { return err }
+	return w
+}
+
 func TestFilterExistingSigners(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
@@ -165,5 +173,5 @@ func mockSignerInfoStore(db *sql.DB, isdummyUniqueErrorWrapper bool) *common2.Si
 	if isdummyUniqueErrorWrapper {
 		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{})
 	}
-	return common2.NewSignerInfoStore(db, db, "signer_info", &mock.SQLErrorWrapper{})
+	return common2.NewSignerInfoStore(db, db, "signer_info", passthroughErrorWrapper())
 }

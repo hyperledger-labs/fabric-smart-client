@@ -149,6 +149,7 @@ around it.
 | `StopOrderer(name)` / `StartOrderer(name)` | the same for a Fabric orderer, e.g. `orderer` |
 | `StopPostgres(dbName)` / `StartPostgres(dbName)` | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive |
 | `EventuallyConnectionState(node, conn, want, timeout)` | poll the node's `/metrics` until every `fsc_connection_state` series that `conn` (an `fsc.Connection`) selects is `want`; see below |
+| `WebClient(node).Ready()` | `nil` once the node's `GET /readyz` answers 200 |
 
 Peer and orderer names must be unique across the Fabric networks of the topology;
 the call fails otherwise. A Fabric topology may list several raft orderers; every one
@@ -161,10 +162,15 @@ Fault scenarios go in `integration/fabric/faultrecovery` and
 `fabricx-faultrecovery`). Both run the FSC nodes alice and bob on Postgres; the Fabric
 suite adds three raft orderers, named in its `Orderers`. What the two suites share lives
 in `integration/fabric/common/faultrecovery`: the nodes, their views, the specs both
-suites run (`CrashSpecs`), and the helpers that drive them. `SubmitAndWaitFinal(ii, n)`
-runs `n` two-party transactions and waits until each is final on both nodes.
-`Endorse` and `Order` split one transaction in two, so a spec can stop or kill a node
-after it has endorsed and before the transaction is ordered; `Query` returns a node's
+suites run (`CrashSpecs`, `DependencySpecs`), and the helpers that drive them.
+`SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final
+on both nodes; `WaitFinal` does the waiting alone. `Endorse` and `Order` split one
+transaction in two, so a spec can stop or kill a node after it has endorsed and before the
+transaction is ordered. `OrderEventually` retries `Order` while the orderers reject
+broadcasts, for example during a raft leader election. `CounterSum` reads a counter from a
+node's metrics. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
+budget before the network starts; call it in the generator of a `Describe` of its own, since
+it applies to every spec that shares that generator. `Query` returns a node's
 status for a transaction and the value it wrote. On Fabric-x a node's vault is the
 committer's query service, so `Query` answers the same on every node and does not show
 whether a restarted node has recovered. A view or helper both suites need goes there.

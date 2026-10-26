@@ -98,11 +98,13 @@ type RemoteViewClient interface {
 	StreamCallView(fid string, input []byte) (*client2.Stream, error)
 }
 
-// WebClient calls a node's views through the view service's HTTP binding and reads the
-// node's metrics from its operations endpoint.
+// WebClient calls a node's views through the view service's HTTP binding, reads the
+// node's metrics from its operations endpoint, and probes its readiness.
 type WebClient interface {
 	RemoteViewClient
 	Metrics() (map[string]*dto.MetricFamily, error)
+	// Ready returns nil when the node's GET /readyz answers 200.
+	Ready() error
 }
 
 type Platform interface {
