@@ -9,10 +9,7 @@ The FSC metrics surface has two layers:
 - **Explicit metrics**: Counters, gauges, and histograms that are declared directly in service packages.
 - **Trace-derived metrics**: Operation counters and duration histograms that are generated automatically by FSC's tracing wrapper whenever FSC code creates a tracer through the tracing provider.
 
-At the time of writing, the repository defines:
-
-- **41 explicit metric families**
-- **12 tracer bases**, which produce **24 trace-derived metric families** (`*_operations` and `*_duration`)
+Each tracer base produces two trace-derived families, `*_operations` and `*_duration`.
 
 This catalog is organized by subsystem and records the metric family names that Prometheus sees.
 
@@ -76,7 +73,7 @@ For trace-derived metrics, the namespace and subsystem are also fixed by `tracin
 
 The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
-- all 41 explicit metric families
+- the explicit metric families, except `fsc_common_services_grpc_conn_*` (see [Current Caveats](#current-caveats)) and the families of the communication transport the node does not use (libp2p or WebSocket)
 - all trace-derived families except `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`
 
 The two caller-process families are exported only by the process that creates those tracers:
@@ -99,20 +96,7 @@ For node-level monitoring, the quickest way to interpret the FSC metrics surface
 
 If a family is absent, check the matching runtime condition first: communication transport, ingress path, Fabric execution path, or caller-process ownership.
 
-`fsc_connection_state` has one series per connection, labeled with the `component` and the `endpoint` it connects to (see [Connection State](#connection-state)):
-
-- `2` (connected) is healthy.
-- `1` (connecting) and `3` (reconnecting) are transient. `delivery`, `fabricx_notification` and `database` retry on their own; `orderer` and `fabricx_query` stay at `3` until the next broadcast or query succeeds, so on an idle node a series can stay at `3` with nothing wrong. Alert when a retrying component stays at `3` longer than you can tolerate, or when `fsc_connection_reconnects` keeps rising.
-- `0` (disconnected) is expected after a clean shutdown, and for the previous peer after delivery moves to another one.
-- `4` (stopped) is terminal and only `delivery` reports it, after the committer rejects a block (see `commit_failures`): the channel's block stream no longer retries and `GET /readyz` returns 503. Check the series' endpoint in `core.yaml` and the cause in the node log, fix it, then restart the node.
-
-| `component` | Endpoint in `core.yaml` |
-| --- | --- |
-| `delivery` | `fabric.<network>.peers` |
-| `orderer` | `fabric.<network>.orderers`, plus the orderers in the channel configuration |
-| `fabricx_notification` | `fabric.<network>.notificationService.endpoints` |
-| `fabricx_query` | `fabric.<network>.queryService.endpoints` |
-| `database` | `fsc.persistences.<name>.opts.dataSource` of a `postgres` persistence |
+`fsc_connection_state` reports the health of each client connection; see [Connection State](#connection-state) for what each value means and when to alert.
 
 ## Explicit Metrics
 
@@ -238,14 +222,18 @@ Components that report connection state:
 
 | `component` | `network` / `channel` | `endpoint` | Reported states |
 | --- | --- | --- | --- |
-| `delivery` | Fabric network and channel | Peer the channel's block stream is attached to | `connecting` on the first connection attempt, `reconnecting` on every later attempt, `connected` once the Deliver stream is open. `stopped` when the committer rejects a block, which stops the channel's block stream (see `commit_failures` below). `disconnected` on a clean shutdown. |
-| `orderer` | Fabric network, empty channel | Orderer a broadcast stream is open to | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state. |
-| `fabricx_notification` | Fabric-x network and channel | Notification service endpoint the channel's finality listener manager is connected to | `connecting` on the first stream attempt, `connected` once a notification stream opens, `reconnecting` while the manager backs off before the next attempt, `disconnected` once the node's context ends. |
-| `fabricx_query` | Fabric-x network and channel; empty channel for queries made by the ledger | Query service endpoint | `connected` after each query the service answers, including with an error, `reconnecting` after a query that fails with `Unavailable`. A query that times out does not change the state. The series is created by the first answered query. |
-| `database` | empty | `host:port/dbname` of a Postgres data source (see `data_source` below) | `connected` after a successful liveness ping, `reconnecting` after a failed one, `disconnected` on a clean shutdown. Each connection pool is pinged every 10 s. SQLite reports no state. |
+| `delivery` | Fabric network and channel | Peer the channel's block stream is attached to, from `fabric.<network>.peers`: the peers with `usage: delivery`, or the peers without a `usage` if none has it | `connecting` on the first connection attempt, `reconnecting` on every later attempt, `connected` once the Deliver stream is open. `stopped` when the committer rejects a block, which stops the channel's block stream (see `commit_failures` below). `disconnected` on a clean shutdown. |
+| `orderer` | Fabric network, empty channel | Orderer a broadcast stream is open to, from `fabric.<network>.orderers` or the channel configuration | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state. |
+| `fabricx_notification` | Fabric-x network and channel | Notification service endpoint the channel's finality listener manager is connected to, from `fabric.<network>.notificationService.endpoints` | `connecting` on the first stream attempt, `connected` once a notification stream opens, `reconnecting` while the manager backs off before the next attempt, `disconnected` once the node's context ends. |
+| `fabricx_query` | Fabric-x network and channel; empty channel for queries made by the ledger | Query service endpoint, from `fabric.<network>.queryService.endpoints` | `connected` after each query the service answers, including with an error, `reconnecting` after a query that fails with `Unavailable`. A query that times out does not change the state. The series is created by the first answered query. |
+| `database` | empty | `host:port/dbname` of a Postgres data source, from `fsc.persistences.<name>.opts.dataSource` (see `data_source` below) | `connected` after a successful liveness ping, `reconnecting` after a failed one, `disconnected` on a clean shutdown. Each connection pool is pinged every 10 s. SQLite reports no state. |
 
 Operational notes:
 
+- Each series is keyed by all four labels, so a node serving several channels or networks has one series per channel for the same endpoint. Group alerts by `network` and `channel` as well as `component`.
+- `delivery`, `fabricx_notification` and `database` retry on their own: alert when one of them stays at `reconnecting` longer than you can tolerate, or when `fsc_connection_reconnects` keeps rising. `orderer` and `fabricx_query` change state only on traffic, so on an idle node a series can stay at `reconnecting` with nothing wrong.
+- Only Fabric reports `delivery`. A Fabric-x node runs no long-running delivery stream and has no `delivery` series.
+- `stopped` means the committer rejected a block, not that the peer is unreachable. Check `commit_failures{class}` and the node log for the cause. A restart re-delivers the same block, so after a `degrade` failure the channel stops again until the cause is fixed.
 - Delivery picks a random peer on every connection attempt. When it moves to another peer, the previous peer's series drops to `disconnected`, so at most one peer per channel shows a live state. The attempt is counted against the peer being tried.
 - Only the channel's long-running block stream reports. Historical scans (`ScanBlock`, `Scan`) open their own streams and do not report.
 - The `orderer` series is updated only by broadcasts. A node that broadcasts nothing keeps the last reported state, and an orderer whose stream broke stays `reconnecting` until a broadcast connects to it again. An orderer no stream was ever opened to has no series. For orderers, `fsc_connection_last_connected_timestamp_seconds` is the time of the last stream opened or envelope accepted.
