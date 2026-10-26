@@ -183,9 +183,7 @@ func TestPostgresKVS(t *testing.T) {
 	t.Parallel()
 	t.Log("starting postgres")
 	terminate, pgConnStr, err := postgres2.StartPostgres(t.Context(), postgres2.ConfigFromEnv(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(terminate)
 	t.Log("postgres ready")
 

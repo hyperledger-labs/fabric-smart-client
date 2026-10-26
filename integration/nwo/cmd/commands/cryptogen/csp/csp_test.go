@@ -29,9 +29,7 @@ func TestLoadPrivateKey(t *testing.T) {
 	t.Parallel()
 	testDir := t.TempDir()
 	priv, err := csp.GeneratePrivateKey(testDir)
-	if err != nil {
-		t.Fatalf("Failed to generate private key: %s", err)
-	}
+	require.NoError(t, err, "Failed to generate private key")
 	pkFile := filepath.Join(testDir, "priv_sk")
 	require.True(t, checkForFile(pkFile), "Expected to find private key file")
 	loadedPriv, err := csp.LoadPrivateKey(testDir)
@@ -46,14 +44,10 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
 	badPEMFile := filepath.Join(testDir, "badpem_sk")
 
 	rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		t.Fatalf("Failed to generate RSA key: %s", err)
-	}
+	require.NoError(t, err, "Failed to generate RSA key")
 
 	pkcs8Encoded, err := x509.MarshalPKCS8PrivateKey(rsaKey)
-	if err != nil {
-		t.Fatalf("Failed to PKCS8 encode RSA private key: %s", err)
-	}
+	require.NoError(t, err, "Failed to PKCS8 encode RSA private key")
 	pkcs8RSAPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8Encoded})
 
 	pkcs1Encoded := x509.MarshalPKCS1PrivateKey(rsaKey)
@@ -116,9 +110,7 @@ func TestGeneratePrivateKey(t *testing.T) {
 func TestECDSASigner(t *testing.T) {
 	t.Parallel()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("Failed to generate private key: %s", err)
-	}
+	require.NoError(t, err, "Failed to generate private key")
 
 	signer := csp.ECDSASigner{
 		PrivateKey: priv,
@@ -126,16 +118,12 @@ func TestECDSASigner(t *testing.T) {
 	require.Equal(t, priv.Public(), signer.Public().(*ecdsa.PublicKey))
 	digest := []byte{1}
 	sig, err := signer.Sign(rand.Reader, digest, nil)
-	if err != nil {
-		t.Fatalf("Failed to create signature: %s", err)
-	}
+	require.NoError(t, err, "Failed to create signature")
 
 	// unmarshal signature
 	ecdsaSig := &csp.ECDSASignature{}
 	_, err = asn1.Unmarshal(sig, ecdsaSig)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal signature: %s", err)
-	}
+	require.NoError(t, err, "Failed to unmarshal signature")
 	// s should not be greater than half order of curve
 	halfOrder := new(big.Int).Div(priv.PublicKey.Curve.Params().N, big.NewInt(2))
 

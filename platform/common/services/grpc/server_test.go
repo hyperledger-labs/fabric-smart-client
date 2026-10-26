@@ -967,9 +967,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 	require.NoError(t, err)
 
 	intermediatePEMBlock, err := os.ReadFile(filepath.Join("testdata", "certs", fileBase+"-child1-cert.pem"))
-	if err != nil {
-		t.Fatalf("Failed to load test certificates: %v", err)
-	}
+	require.NoError(t, err, "Failed to load test certificates")
 
 	// create our listener
 	lis := createListener(t)

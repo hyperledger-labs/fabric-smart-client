@@ -26,9 +26,7 @@ func TestCreds(t *testing.T) {
 	t.Parallel()
 
 	caPEM, err := os.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
-	if err != nil {
-		t.Fatalf("failed to read root certificate: %v", err)
-	}
+	require.NoError(t, err, "failed to read root certificate")
 	certPool := x509.NewCertPool()
 	ok := certPool.AppendCertsFromPEM(caPEM)
 	if !ok {
@@ -38,9 +36,7 @@ func TestCreds(t *testing.T) {
 		filepath.Join("testdata", "certs", "Org1-server1-cert.pem"),
 		filepath.Join("testdata", "certs", "Org1-server1-key.pem"),
 	)
-	if err != nil {
-		t.Fatalf("failed to load TLS certificate [%s]", err)
-	}
+	require.NoError(t, err, "failed to load TLS certificate")
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
@@ -126,9 +122,7 @@ func TestAddRootCA(t *testing.T) {
 	t.Parallel()
 
 	caPEM, err := os.ReadFile(filepath.Join("testdata", "certs", "Org1-cert.pem"))
-	if err != nil {
-		t.Fatalf("failed to read root certificate: %v", err)
-	}
+	require.NoError(t, err, "failed to read root certificate")
 
 	cert := &x509.Certificate{
 		EmailAddresses: []string{"test@foobar.com"},

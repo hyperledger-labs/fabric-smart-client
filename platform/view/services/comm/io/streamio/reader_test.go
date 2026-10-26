@@ -8,6 +8,8 @@ package streamio
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type MockMsgReader struct {
@@ -52,9 +54,7 @@ func TestRead(t *testing.T) {
 	// We are doing 4 reads of at most 7 characters
 	for range 4 {
 		n, err := reader.Read(buf)
-		if err != nil {
-			t.Errorf("Expected err to be nil but was %v", err)
-		}
+		require.NoError(t, err)
 
 		if n <= 0 || n > len(buf) {
 			t.Errorf("The returned length should be > 0 and <= %v, but was %v", len(buf), n)

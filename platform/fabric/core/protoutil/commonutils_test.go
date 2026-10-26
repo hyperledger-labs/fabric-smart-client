@@ -22,13 +22,9 @@ import (
 func TestNonceRandomness(t *testing.T) {
 	t.Parallel()
 	n1, err := CreateNonce()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	n2, err := CreateNonce()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if bytes.Equal(n1, n2) {
 		t.Fatalf("Expected nonces to be different, got %x and %x", n1, n2)
 	}
@@ -37,9 +33,7 @@ func TestNonceRandomness(t *testing.T) {
 func TestNonceLength(t *testing.T) {
 	t.Parallel()
 	n, err := CreateNonce()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	actual := len(n)
 	expected := NonceSize
 	if actual != expected {
