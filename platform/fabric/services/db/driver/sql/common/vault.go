@@ -148,7 +148,7 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	logger.Debug(query, params)
 
 	if _, err := db.writeDB.ExecContext(ctx, query, params...); err != nil {
-		return errors.Wrapf(err, "failed updating statuses for %d txids", len(txIDs))
+		return errors.Wrapf(db.errorWrapper.WrapError(err), "failed updating statuses for %d txids", len(txIDs))
 	}
 	return nil
 }

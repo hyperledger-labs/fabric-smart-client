@@ -9,6 +9,7 @@ package committer
 import (
 	"context"
 	stderrors "errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -839,7 +840,7 @@ func TestDiscardTxAdditionalBranches(t *testing.T) {
 		require.ErrorContains(t, err, "failed to extract stored envelope")
 	})
 
-	t.Run("known status discards tx in vault", func(t *testing.T) {
+	t.Run("busy tx with rwset discards it in vault", func(t *testing.T) {
 		t.Parallel()
 		discarded := false
 		c := &Committer{
@@ -848,6 +849,7 @@ func TestDiscardTxAdditionalBranches(t *testing.T) {
 				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Busy, "", nil
 				},
+				RWSExistsFn: func(context.Context, cdriver.TxID) bool { return true },
 				DiscardTxFn: func(context.Context, cdriver.TxID, string) error {
 					discarded = true
 					return nil
@@ -856,6 +858,79 @@ func TestDiscardTxAdditionalBranches(t *testing.T) {
 		}
 		require.NoError(t, c.DiscardTx(t.Context(), "tx-discard", "invalid"))
 		require.True(t, discarded)
+	})
+
+	t.Run("busy tx without rwset sets discarded", func(t *testing.T) {
+		t.Parallel()
+		setDiscarded := false
+		c := &Committer{
+			logger: logger,
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Busy, "", nil
+				},
+				SetDiscardedFn: func(context.Context, cdriver.TxID, string) error {
+					setDiscarded = true
+					return nil
+				},
+				DiscardTxFn: func(context.Context, cdriver.TxID, string) error {
+					return stderrors.New("read-write set could not be found")
+				},
+			},
+		}
+		require.NoError(t, c.DiscardTx(t.Context(), "tx-discard", "invalid"))
+		require.True(t, setDiscarded)
+	})
+
+	for _, vc := range []fdriver.ValidationCode{fdriver.Valid, fdriver.Invalid} {
+		t.Run(fmt.Sprintf("final status %d without rwset is left unchanged", vc), func(t *testing.T) {
+			t.Parallel()
+			c := &Committer{
+				logger: logger,
+				Vault: &fake.Vault{
+					StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+						return vc, "", nil
+					},
+					SetDiscardedFn: func(context.Context, cdriver.TxID, string) error {
+						return stderrors.New("unexpected status write")
+					},
+				},
+			}
+			require.NoError(t, c.DiscardTx(t.Context(), "tx-final", "invalid"))
+		})
+	}
+
+	t.Run("vault discard error is returned", func(t *testing.T) {
+		t.Parallel()
+		c := &Committer{
+			logger: logger,
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Busy, "", nil
+				},
+				RWSExistsFn: func(context.Context, cdriver.TxID) bool { return true },
+				DiscardTxFn: func(context.Context, cdriver.TxID, string) error {
+					return stderrors.New("write-failed")
+				},
+			},
+		}
+		require.ErrorContains(t, c.DiscardTx(t.Context(), "tx-discard", "invalid"), "write-failed")
+	})
+
+	t.Run("set discarded error is returned", func(t *testing.T) {
+		t.Parallel()
+		c := &Committer{
+			logger: logger,
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Busy, "", nil
+				},
+				SetDiscardedFn: func(context.Context, cdriver.TxID, string) error {
+					return stderrors.New("write-failed")
+				},
+			},
+		}
+		require.ErrorContains(t, c.DiscardTx(t.Context(), "tx-discard", "invalid"), "write-failed")
 	})
 }
 

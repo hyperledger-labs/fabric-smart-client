@@ -232,6 +232,15 @@ func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 	return nil
 }
 
+// DiscardTx marks txID Invalid in the vault, recording message as the reason.
+//
+// If the vault holds the transaction's read-write set (opened locally, or loaded
+// from a stored envelope by Status), the set is released, then the status is
+// written. Otherwise only the status is written: the transaction is unknown to
+// this node, or its set was released by an earlier attempt whose status write
+// failed, or lost in a restart, so a retry still reaches Invalid. A Valid or
+// Invalid transaction without a set is left unchanged. Any failure is returned,
+// so a transient vault failure reaches the commit retry.
 func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
@@ -239,28 +248,14 @@ func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting tx's status in state db [%s]", txID)
 	}
-	if vc == driver.Unknown {
-		// give it a second chance
-		exists, err := c.EnvelopeService.Exists(ctx, txID)
-		if err != nil {
-			return errors.WithMessagef(err, "failed checking stored envelope for [%s]", txID)
-		}
-		if !exists {
-			c.logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
-			if err := c.Vault.SetDiscarded(ctx, txID, message); err != nil {
-				c.logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
-			}
-			return nil
-		}
-		if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
-			return errors.WithMessagef(err, "failed to extract stored envelope for [%s]", txID)
-		}
+	if c.Vault.RWSExists(ctx, txID) {
+		return errors.WithMessagef(c.Vault.DiscardTx(ctx, txID, message), "failed discarding tx [%s] in vault", txID)
 	}
-
-	if err := c.Vault.DiscardTx(ctx, txID, message); err != nil {
-		c.logger.Errorf("failed discarding tx [%s] in vault: %s", txID, err)
+	if vc == driver.Valid || vc == driver.Invalid {
+		c.logger.Debugf("transaction [%s] already has final status [%d], nothing to discard", txID, vc)
+		return nil
 	}
-	return nil
+	return errors.WithMessagef(c.Vault.SetDiscarded(ctx, txID, message), "failed setting tx [%s] discarded in vault", txID)
 }
 
 func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
