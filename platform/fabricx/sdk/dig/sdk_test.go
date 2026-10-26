@@ -135,7 +135,7 @@ fabric:
 `))
 	require.NoError(t, err)
 
-	finalityProvider := finality.NewListenerManagerProvider(nil, nil)
+	finalityProvider := finality.NewListenerManagerProvider(nil, nil, nil)
 	ledgerProvider := ledger.NewProvider(nil, nil)
 
 	c := sdk.NewContainer()
@@ -162,7 +162,7 @@ fabric:
 `))
 	require.NoError(t, err)
 
-	finalityProvider := finality.NewListenerManagerProvider(nil, nil)
+	finalityProvider := finality.NewListenerManagerProvider(nil, nil, nil)
 	ledgerProvider := ledger.NewProvider(nil, nil)
 
 	c := sdk.NewContainer()

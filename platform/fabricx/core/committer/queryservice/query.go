@@ -8,11 +8,14 @@ package queryservice
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -21,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
 var (
@@ -30,14 +34,41 @@ var (
 )
 
 type RemoteQueryService struct {
-	client committerpb.QueryServiceClient
-	config *config.Config
+	client  committerpb.QueryServiceClient
+	config  *config.Config
+	newConn func() *connstate.Tracker
+	conn    atomic.Pointer[connstate.Tracker]
 }
 
-func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient) *RemoteQueryService {
+// NewRemoteQueryService returns a query service that sends its queries through client.
+// The outcome of each query is reported to the tracker newConn returns: connected when the
+// query service answers, including with an error, and reconnecting when it is unavailable.
+// A query that times out does not change the state. newConn is called on the first answered
+// query, so the series exists only once the service has been reached, and a query service
+// that is unused or never reached reports nothing. A nil newConn reports nothing.
+func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient, newConn func() *connstate.Tracker) *RemoteQueryService {
 	return &RemoteQueryService{
-		client: client,
-		config: config,
+		client:  client,
+		config:  config,
+		newConn: newConn,
+	}
+}
+
+// report records the connection state implied by the error of a query.
+func (s *RemoteQueryService) report(err error) {
+	switch status.Code(err) {
+	case codes.Unavailable:
+		s.conn.Load().Set(connstate.Reconnecting) // no-op until the first answer
+	case codes.DeadlineExceeded:
+		// A slow answer says nothing about the connection.
+	default:
+		t := s.conn.Load()
+		if t == nil && s.newConn != nil {
+			// Concurrent first answers get the same tracker: Metrics.Tracker deduplicates.
+			t = s.newConn()
+			s.conn.Store(t)
+		}
+		t.Set(connstate.Connected)
 	}
 }
 
@@ -82,6 +113,7 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{
 		TxIds: []string{txID},
 	})
+	s.report(err)
 	if err != nil {
 		return 0, errors.Wrap(err, "query transaction status")
 	}
@@ -117,6 +149,7 @@ func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]
 
 	now := time.Now()
 	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: unique})
+	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "query transaction statuses")
 	}
@@ -138,6 +171,7 @@ func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, err
 
 	now := time.Now()
 	res, err := s.client.GetConfigTransaction(ctx, &emptypb.Empty{})
+	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "get config transaction")
 	}
@@ -163,6 +197,7 @@ func (s *RemoteQueryService) GetNamespacePolicies() (*applicationpb.NamespacePol
 
 	now := time.Now()
 	res, err := s.client.GetNamespacePolicies(ctx, &emptypb.Empty{})
+	s.report(err)
 	if err != nil {
 		return nil, errors.Wrap(err, "get namespace policies")
 	}
@@ -184,6 +219,7 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 
 	now := time.Now()
 	res, err := s.client.GetRows(ctx, q)
+	s.report(err)
 	if err != nil {
 		logger.Warnf("QS GetState: error calling getRows: %v", err)
 		return nil, errors.Wrap(err, "query get rows")

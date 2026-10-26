@@ -12,13 +12,20 @@ import (
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config/mock"
+	committerconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
+	qsmock "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate/connstatetest"
 )
 
 func TestNewChannelConfigMonitor(t *testing.T) {
@@ -509,4 +516,30 @@ func TestContextCancellation(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, monitor.IsRunning())
 	})
+}
+
+func TestQueryService_MonitorReportsConnected(t *testing.T) {
+	t.Parallel()
+	m, rec := connstatetest.NewMetrics()
+	client := &qsmock.FakeQueryServiceClient{}
+	client.GetConfigTransactionReturnsOnCall(0, nil, status.Error(codes.Unavailable, "committer down"))
+	client.GetConfigTransactionReturns(&applicationpb.ConfigTransaction{Version: 1}, nil)
+	qs := queryservice.NewRemoteQueryService(&committerconfig.Config{RequestTimeout: time.Second}, client, func() *connstate.Tracker {
+		return m.Tracker("testnet", "mychannel", connstate.ComponentFabricxQuery, "committer")
+	})
+
+	monitor, err := channelconfig.NewChannelConfigMonitor(&channelconfig.Config{
+		PollInterval:      time.Hour,
+		MaxRetries:        2,
+		InitialRetryDelay: 10 * time.Millisecond,
+		MaxRetryDelay:     10 * time.Millisecond,
+	}, qs, &mock.MembershipService{}, &mock.OrderingService{}, &mock.ConfigService{}, "testnet", "mychannel")
+	require.NoError(t, err)
+	require.NoError(t, monitor.Start(t.Context()))
+	t.Cleanup(func() { _ = monitor.Stop() })
+
+	// The failed first poll reports nothing: the series is created by the first answer.
+	require.Eventually(t, func() bool { return len(rec.States("committer")) == 1 }, time.Second, 10*time.Millisecond)
+	require.Equal(t, 2, client.GetConfigTransactionCallCount())
+	require.Equal(t, []connstate.State{connstate.Connected}, rec.States("committer"))
 }

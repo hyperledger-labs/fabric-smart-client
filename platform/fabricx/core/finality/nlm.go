@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
 var logger = logging.MustGetLogger()
@@ -96,6 +97,11 @@ type notificationListenerManager struct {
 	// stopped is set, under handlersMu, before serve returns, once nothing will settle
 	// a new entry. AddFinalityListener rejects registrations from then on.
 	stopped bool
+
+	// endpoint is the address of the notification service; conn reports the state of
+	// the stream to it. A nil conn reports nothing.
+	endpoint string
+	conn     *connstate.Tracker
 }
 
 // Default reconnect backoff bounds. The delay is jittered and doubles per failed
@@ -116,6 +122,9 @@ const maxTxIDsPerRequest = 1000
 // backoff whenever it fails. Pending listeners survive a stream failure: the next
 // stream requests their txIDs again, and the sweeper keeps expiring them in the
 // meantime. Only the end of ctx settles what is left, with Unknown.
+//
+// The stream is reported connecting before the first attempt, connected once a stream
+// opens, reconnecting before each later attempt, and disconnected once ctx ends.
 func (n *notificationListenerManager) run(ctx context.Context) error {
 	minDelay, maxDelay := n.reconnectMinDelay, n.reconnectMaxDelay
 	if minDelay <= 0 {
@@ -125,6 +134,8 @@ func (n *notificationListenerManager) run(ctx context.Context) error {
 		maxDelay = defaultReconnectMaxDelay
 	}
 	return n.serve(ctx, func(ctx context.Context) error {
+		defer n.conn.Set(connstate.Disconnected)
+		n.conn.Set(connstate.Connecting)
 		backoff := utils.NewBackoffRetryRunner(utils.Infinitely, minDelay, maxDelay)
 		for {
 			start := time.Now()
@@ -137,6 +148,7 @@ func (n *notificationListenerManager) run(ctx context.Context) error {
 			}
 			delay := backoff.NextDelay()
 			logger.Warnf("Notification stream failed, reconnecting in %s: %v", delay, err)
+			n.conn.Set(connstate.Reconnecting)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -222,6 +234,7 @@ func (n *notificationListenerManager) stream(ctx context.Context) error {
 		_ = g.Wait() // releases gCtx; nothing was started on g
 		return err
 	}
+	n.conn.Set(connstate.Connected)
 
 	pending := n.attach(gCtx)
 

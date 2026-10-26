@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
 // GRPCClientProvider provides gRPC client connections for a given network.
@@ -55,16 +56,20 @@ type Provider interface {
 	Get(network, channel string) (QueryService, error)
 }
 
-func NewProvider(grpcClientProvider GRPCClientProvider, configProvider ServiceConfigProvider) Provider {
+// NewProvider returns a Provider whose query services report their connection state to
+// connState under the fabricx_query component; a nil connState reports nothing.
+func NewProvider(grpcClientProvider GRPCClientProvider, configProvider ServiceConfigProvider, connState *connstate.Metrics) Provider {
 	return &RemoteQueryServiceProvider{
 		GRPCClientProvider: grpcClientProvider,
 		ConfigProvider:     configProvider,
+		ConnState:          connState,
 	}
 }
 
 type RemoteQueryServiceProvider struct {
 	GRPCClientProvider GRPCClientProvider
 	ConfigProvider     ServiceConfigProvider
+	ConnState          *connstate.Metrics
 }
 
 func (r *RemoteQueryServiceProvider) Get(network, channel string) (QueryService, error) {
@@ -80,7 +85,9 @@ func (r *RemoteQueryServiceProvider) Get(network, channel string) (QueryService,
 	}
 
 	client := committerpb.NewQueryServiceClient(cc)
-	return NewRemoteQueryService(config, client), nil
+	return NewRemoteQueryService(config, client, func() *connstate.Tracker {
+		return r.ConnState.Tracker(network, channel, connstate.ComponentFabricxQuery, cc.Target())
+	}), nil
 }
 
 func GetQueryService(sp services.Provider, network, channel string) (QueryService, error) {

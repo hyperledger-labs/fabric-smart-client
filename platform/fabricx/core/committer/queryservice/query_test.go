@@ -14,6 +14,8 @@ import (
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
@@ -22,6 +24,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate/connstatetest"
 )
 
 // To re-generate the mock/ run "go generate" directive
@@ -36,7 +40,7 @@ func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *mock.FakeQuery
 	}
 
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice.NewRemoteQueryService(c, client)
+	qs := queryservice.NewRemoteQueryService(c, client, nil)
 
 	return qs, client
 }
@@ -588,4 +592,30 @@ func TestQueryService(t *testing.T) {
 			require.ErrorIs(t, err, expectedError)
 		})
 	})
+}
+
+func TestQueryService_ReportsConnectionState(t *testing.T) {
+	t.Parallel()
+	m, rec := connstatetest.NewMetrics()
+	client := &mock.FakeQueryServiceClient{}
+	qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: time.Second}, client, func() *connstate.Tracker {
+		return m.Tracker("net", "ch", connstate.ComponentFabricxQuery, "committer")
+	})
+	answer := &committerpb.TxStatusResponse{Statuses: []*committerpb.TxStatus{{}}}
+
+	for _, call := range []struct {
+		res *committerpb.TxStatusResponse
+		err error
+	}{
+		{nil, status.Error(codes.Unavailable, "down")}, // never answered: no series yet
+		{answer, nil}, // connected
+		{nil, status.Error(codes.DeadlineExceeded, "slow")},       // unchanged
+		{nil, status.Error(codes.Unavailable, "down")},            // reconnecting
+		{nil, status.Error(codes.InvalidArgument, "bad request")}, // answered: connected
+	} {
+		client.GetTransactionStatusReturns(call.res, call.err)
+		_, _ = qs.GetTransactionStatus("tx1")
+	}
+
+	require.Equal(t, []connstate.State{connstate.Connected, connstate.Reconnecting, connstate.Connected}, rec.States("committer"))
 }

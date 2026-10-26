@@ -225,6 +225,8 @@ Components that report connection state:
 | --- | --- | --- | --- |
 | `delivery` | Fabric network and channel | Peer the channel's block stream is attached to | `connecting` on the first connection attempt, `reconnecting` on every later attempt, `connected` once the Deliver stream is open. `stopped` when the committer rejects a block, which stops the channel's block stream (see `commit_failures` below). `disconnected` on a clean shutdown. |
 | `orderer` | Fabric network, empty channel | Orderer a broadcast stream is open to | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state. |
+| `fabricx_notification` | Fabric-x network and channel | Notification service endpoint the channel's finality listener manager is connected to | `connecting` on the first stream attempt, `connected` once a notification stream opens, `reconnecting` while the manager backs off before the next attempt, `disconnected` once the node's context ends. |
+| `fabricx_query` | Fabric-x network and channel; empty channel for queries made by the ledger | Query service endpoint | `connected` after each query the service answers, including with an error, `reconnecting` after a query that fails with `Unavailable`. A query that times out does not change the state. The series is created by the first answered query. |
 | `database` | empty | `host:port/dbname` of a Postgres data source (see `data_source` below) | `connected` after a successful liveness ping, `reconnecting` after a failed one, `disconnected` on a clean shutdown. Each connection pool is pinged every 10 s. SQLite reports no state. |
 
 Operational notes:
@@ -233,9 +235,10 @@ Operational notes:
 - Only the channel's long-running block stream reports. Historical scans (`ScanBlock`, `Scan`) open their own streams and do not report.
 - The `orderer` series is updated only by broadcasts. A node that broadcasts nothing keeps the last reported state, and an orderer whose stream broke stays `reconnecting` until a broadcast connects to it again. An orderer no stream was ever opened to has no series. For orderers, `fsc_connection_last_connected_timestamp_seconds` is the time of the last stream opened or envelope accepted.
 - A shutdown, including the cancellation of the node's context, ends delivery in `disconnected`. Only a rejected block ends it in `stopped`.
+- The `fabricx_query` series is updated only by queries, so it keeps the last reported state while the node queries nothing and is not set to `disconnected` on shutdown. The channel config monitor queries the service once per poll interval. A query service that has never answered has no series, so it never holds `GET /readyz` at 503 as never connected; an unreachable committer shows on `fabricx_notification` instead.
 - `GET /readyz` on the web listener is derived from the same state: it returns 503 while a component (network, channel, component) has not been `connected` through any endpoint since startup, or while any connection is `stopped`. See [configuration](../../../configuration.md).
 
-Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go`, `platform/fabric/core/generic/ordering/` and `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
+Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go`, `platform/fabric/core/generic/ordering/`, `platform/fabricx/core/finality/nlm.go`, `platform/fabricx/core/committer/queryservice/query.go` and `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
 
 ### Database Pool
 
@@ -430,7 +433,7 @@ The following labels are part of the current FSC metric surface.
 
 The following families have implementation caveats:
 
-- `fsc_connection_*`: only the `delivery`, `orderer` and `database` components report connection state, so no series are exported for the other `component` values.
+- `fsc_connection_*`: the `database_notifier` component reports no connection state, so no series are exported for it.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
 - `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.

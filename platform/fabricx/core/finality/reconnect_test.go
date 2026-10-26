@@ -20,6 +20,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate/connstatetest"
 )
 
 // startReconnecting runs nlm over fn with run(), the reconnect loop, and returns the
@@ -95,6 +97,26 @@ func TestReconnect_PendingListenersSurvive(t *testing.T) {
 	s2.respond(t, committed("tx1"))
 	require.Eventually(t, func() bool { return l.calls.Load() == 1 }, timeout, tick)
 	require.Equal(t, int32(fdriver.Valid), l.status.Load())
+}
+
+func TestListenLoop_ReportsStateTransitions(t *testing.T) {
+	t.Parallel()
+	m, rec := connstatetest.NewMetrics()
+	nlm, _ := setupTest(t)
+	nlm.conn = m.Tracker("net", "ch", connstate.ComponentFabricxNotification, "committer")
+	fn := newFakeNotifier()
+	s1, stop := startReconnecting(t, nlm, fn)
+	states := func() []connstate.State { return rec.States("committer") }
+	require.Eventually(t, func() bool { return len(states()) == 2 }, timeout, tick)
+
+	s1.fail()
+	fn.next(t)
+	require.Eventually(t, func() bool { return len(states()) == 4 }, timeout, tick)
+	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Connected, connstate.Reconnecting, connstate.Connected}, states())
+
+	stop()
+	last, _ := rec.Last("committer")
+	require.Equal(t, connstate.Disconnected, last)
 }
 
 func TestReconnect_ReRequestsPending(t *testing.T) {
@@ -238,7 +260,7 @@ func TestShutdown_SettlesUnknown(t *testing.T) {
 func TestProvider_ManagerKeptAfterStreamFailure(t *testing.T) {
 	t.Parallel()
 	fn := newFakeNotifier()
-	p := NewListenerManagerProvider(&mockGRPCClientProvider{}, nil)
+	p := NewListenerManagerProvider(&mockGRPCClientProvider{}, nil, nil)
 	p.newNotificationManager = func(string, GRPCClientProvider, config.Config) (*notificationListenerManager, error) {
 		nlm, _ := setupTest(t)
 		nlm.notifyClient = fn
