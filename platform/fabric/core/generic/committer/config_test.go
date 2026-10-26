@@ -140,7 +140,7 @@ func TestCommitConfig(t *testing.T) {
 			logger: logger,
 			Vault: &fake.Vault{
 				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-					return fdriver.Busy, "", nil
+					return fdriver.Invalid, "", nil
 				},
 			},
 		}
@@ -407,6 +407,26 @@ func TestReloadConfigTransactionsAdditionalBranches(t *testing.T) {
 		}
 		err := c.ReloadConfigTransactions()
 		require.ErrorContains(t, err, "invalid configtx")
+	})
+
+	// A config tx left Busy by a failed commit ends the reload; its block is
+	// replayed and committed again.
+	t.Run("stops at a busy config tx", func(t *testing.T) {
+		t.Parallel()
+		c := &Committer{
+			logger: logger,
+			tracer: noop.NewTracerProvider().Tracer("test"),
+			Vault: &fake.VaultWithQuery{
+				StatusFn: func(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					if txID == "configtx_1" {
+						return fdriver.Busy, "", nil
+					}
+					return fdriver.Unknown, "", nil
+				},
+				QE: &fake.QueryExecutor{},
+			},
+		}
+		require.NoError(t, c.ReloadConfigTransactions())
 	})
 
 	t.Run("loads valid config block and applies updates", func(t *testing.T) {

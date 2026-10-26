@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -137,11 +138,19 @@ func TestEnvelopeService(t *testing.T) {
 
 	// Exists
 	mockStore.ExistsEnvelopeReturns(true, nil)
-	require.True(t, envs.Exists(ctx, "txid"))
+	exists, err := envs.Exists(ctx, "txid")
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	// A store error is returned, not reported as a missing envelope.
+	storeErr := errors.New("connection lost")
+	mockStore.ExistsEnvelopeReturns(false, storeErr)
+	_, err = envs.Exists(ctx, "txid")
+	require.ErrorIs(t, err, storeErr)
 
 	// StoreEnvelope with byte slice
 	mockStore.PutEnvelopeReturns(nil)
-	err := envs.StoreEnvelope(ctx, "txid", []byte("envelope"))
+	err = envs.StoreEnvelope(ctx, "txid", []byte("envelope"))
 	require.NoError(t, err)
 
 	// StoreEnvelope with common.Envelope

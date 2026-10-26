@@ -184,11 +184,11 @@ type EnvelopeService struct {
 	LoadEnvelopeFn  func(context.Context, string) ([]byte, error)
 }
 
-func (s *EnvelopeService) Exists(ctx context.Context, txid string) bool {
+func (s *EnvelopeService) Exists(ctx context.Context, txid string) (bool, error) {
 	if s.ExistsFn == nil {
-		return false
+		return false, nil
 	}
-	return s.ExistsFn(ctx, txid)
+	return s.ExistsFn(ctx, txid), nil
 }
 
 func (s *EnvelopeService) StoreEnvelope(ctx context.Context, txid string, env any) error {

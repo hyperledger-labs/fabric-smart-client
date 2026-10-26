@@ -402,4 +402,8 @@ func TestEnvelopeService(t *testing.T) {
 
 	ctx := t.Context()
 	require.True(t, es.Exists(ctx, "txid"))
+
+	// A read failure is reported as "not found", never as "found".
+	mes.existsErr = errors.New("connection lost")
+	require.False(t, es.Exists(ctx, "txid"))
 }

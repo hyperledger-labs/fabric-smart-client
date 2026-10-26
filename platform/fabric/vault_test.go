@@ -90,7 +90,8 @@ func TestRWSet(t *testing.T) {
 
 type mockEnvSvc struct {
 	fdriver.EnvelopeService
-	count int
+	count     int
+	existsErr error
 }
 
 func (m *mockEnvSvc) StoreEnvelope(_ context.Context, _ string, _ any) error {
@@ -98,8 +99,8 @@ func (m *mockEnvSvc) StoreEnvelope(_ context.Context, _ string, _ any) error {
 	return nil
 }
 
-func (*mockEnvSvc) Exists(_ context.Context, _ string) bool {
-	return true
+func (m *mockEnvSvc) Exists(_ context.Context, _ string) (bool, error) {
+	return m.existsErr == nil, m.existsErr
 }
 
 type mockTxSvc struct {

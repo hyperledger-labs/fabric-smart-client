@@ -71,9 +71,8 @@ func NewEnvelopeService(envelopeKVS driver.EnvelopeStore, network, channel strin
 	return &envs{envelopeKVS: envelopeKVS, key: keyMapper(network, channel)}
 }
 
-func (s *envs) Exists(ctx context.Context, txid string) bool {
-	ok, _ := s.envelopeKVS.ExistsEnvelope(ctx, s.key(txid))
-	return ok
+func (s *envs) Exists(ctx context.Context, txid string) (bool, error) {
+	return s.envelopeKVS.ExistsEnvelope(ctx, s.key(txid))
 }
 
 func (s *envs) StoreEnvelope(ctx context.Context, txID string, env any) error {

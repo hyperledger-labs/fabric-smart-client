@@ -62,10 +62,15 @@ func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID
 	req := &request{id: txID}
 	logger.Debugf("load transaction content [%s,%s]", channel, txID)
 
+	envExists, err := ch.EnvelopeService().Exists(ctx, txID)
+	if err != nil {
+		return errors.WithMessagef(err, "cannot check envelope for [%s,%s]", channel, txID)
+	}
+
 	var rws driver.RWSet
 	var tx driver.ProcessTransaction
 	switch {
-	case ch.EnvelopeService().Exists(ctx, txID):
+	case envExists:
 		rws, tx, err = ch.RWSetLoader().GetRWSetFromEvn(ctx, txID)
 	case ch.TransactionService().Exists(ctx, txID):
 		rws, tx, err = ch.RWSetLoader().GetRWSetFromETx(ctx, txID)

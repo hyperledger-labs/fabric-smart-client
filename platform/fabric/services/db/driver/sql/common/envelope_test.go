@@ -10,7 +10,12 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 )
 
@@ -52,4 +57,22 @@ func TestEndorseTX_PutData_Conflict(t *testing.T) { //nolint:paralleltest
 
 func mockEndorseTXStore(db *sql.DB) *common.EndorseTxStore {
 	return common.NewEndorseTxStore(db, db, "test_table", &mock.SQLErrorWrapper{})
+}
+
+// TestEnvelope_ExistData_WrapsError checks that a read failure passes through
+// the store's error wrapper, which is what maps a lost connection onto
+// driver.ErrConnectionLost for the committer to retry.
+func TestEnvelope_ExistData_WrapsError(t *testing.T) {
+	t.Parallel()
+
+	db, mockDB, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	mockDB.ExpectQuery("SELECT data").WillReturnError(errors.New("connection reset by peer"))
+
+	wrapper := &mock.SQLErrorWrapper{}
+	wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(dbdriver.ErrConnectionLost, err.Error()) }
+
+	_, err = common.NewEnvelopeStore(db, db, "test_table", wrapper).ExistsEnvelope(t.Context(), "k")
+	require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
 }

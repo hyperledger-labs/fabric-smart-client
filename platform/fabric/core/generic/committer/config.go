@@ -10,7 +10,6 @@ import (
 	"context"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
@@ -91,9 +90,10 @@ func (c *Committer) ReloadConfigTransactions() error {
 			c.logger.Debugf("config block at txID [%s] unavailable, stop loading", txID)
 			done = true
 		case driver.Busy:
-			c.logger.Debugf("someone else is modifying it. retry...")
-			time.Sleep(1 * time.Second)
-			continue
+			// A config tx whose commit failed part-way. Block delivery resumes
+			// before it, so CommitConfig applies it again.
+			c.logger.Debugf("config block at txID [%s] not committed, stop loading", txID)
+			done = true
 		default:
 			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 		}
@@ -165,9 +165,11 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 	case driver.Valid:
 		c.logger.Debugf("config block [%s] already committed, skip it.", txID)
 		return nil
-	case driver.Unknown:
-		c.logger.Debugf("config block [%s] not committed, continue.", txID)
-		// this is okay
+	case driver.Unknown, driver.Busy:
+		// Busy is what an attempt that failed after opening the config tx's rwset
+		// leaves behind, so a retry or a replay after restart takes it over.
+		// commitConfigMutex rules out a concurrent attempt in this process.
+		c.logger.Debugf("config block [%s] not committed [%d], continue.", txID, vc)
 	default:
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 	}

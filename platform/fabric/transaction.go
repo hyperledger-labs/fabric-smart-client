@@ -490,10 +490,15 @@ func (m *MetadataService) LoadTransient(ctx context.Context, txid string) (Trans
 	return TransientMap(res), nil
 }
 
+// EnvelopeService gives access to the transaction envelopes stored for a channel.
 type EnvelopeService struct {
 	ms driver.EnvelopeService
 }
 
+// Exists reports whether an envelope is stored for txid. It returns false when
+// the store cannot be read; code that must tell a read failure from a missing
+// envelope uses the channel's driver.EnvelopeService instead.
 func (m *EnvelopeService) Exists(ctx context.Context, txid string) bool {
-	return m.ms.Exists(ctx, txid)
+	ok, err := m.ms.Exists(ctx, txid)
+	return ok && err == nil
 }
