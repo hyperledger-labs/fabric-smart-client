@@ -120,6 +120,27 @@ func TestCommitConfig(t *testing.T) {
 		require.ErrorContains(t, err, "failed getting tx's status")
 	})
 
+	// A config another replica recorded but this process refuses must stop
+	// delivery: returning nil would leave this replica on a stale configuration
+	// with no error.
+	t.Run("refused config recorded by another replica", func(t *testing.T) {
+		t.Parallel()
+		c := &Committer{
+			logger: logger,
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Valid, "", nil
+				},
+			},
+			MembershipService: &fake.MembershipService{
+				UpdateFn: func(*common.Envelope) error { return stderrors.New("refused") },
+			},
+		}
+		err := c.CommitConfig(t.Context(), 1, []byte("raw"), configEnvelope(3))
+		require.ErrorContains(t, err, "failed updating membership service")
+		require.Equal(t, classDegrade, classify(err))
+	})
+
 	t.Run("invalid status", func(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
