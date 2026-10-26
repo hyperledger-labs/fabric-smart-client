@@ -69,15 +69,7 @@ func NewPersistenceWithOpts[V common2.DBObject](cfg *postgres2.ConfigProvider, d
 		return zero, err
 	}
 
-	opts := postgres2.Opts{
-		DataSource:      o.DataSource,
-		MaxOpenConns:    o.MaxOpenConns,
-		MaxIdleConns:    *o.MaxIdleConns,
-		MaxIdleTime:     *o.MaxIdleTime,
-		TablePrefix:     o.TablePrefix,
-		TableNameParams: o.TableNameParams,
-		Tracing:         o.Tracing,
-	}
+	opts := o.Opts()
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
 		return zero, errors.Wrap(err, "error opening db")
