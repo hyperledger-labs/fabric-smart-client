@@ -138,7 +138,7 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.SidecarServic
 	// with no capacity and no one to drain it. Tests that care about the pool's bounds
 	// override these.
 	nlm := &notificationListenerManager{
-		notifyClient:     fakeClient,
+		newNotifyClient:  staticClient(fakeClient),
 		requestQueue:     make(chan *committerpb.NotificationRequest),
 		responseQueue:    make(chan *committerpb.NotificationResponse),
 		handlers:         make(map[driver.TxID]*handlerEntry),
@@ -148,6 +148,10 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.SidecarServic
 	}
 
 	return nlm, fakeStream
+}
+
+func staticClient(c committerpb.SidecarServiceClient) func() (committerpb.SidecarServiceClient, error) {
+	return func() (committerpb.SidecarServiceClient, error) { return c, nil }
 }
 
 // seedHandlers registers listeners directly, bypassing AddFinalityListener, to

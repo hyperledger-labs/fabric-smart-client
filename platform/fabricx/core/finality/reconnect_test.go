@@ -28,7 +28,7 @@ import (
 // first stream. Cancelling the returned function stops the manager and waits for it.
 func startReconnecting(t *testing.T, nlm *notificationListenerManager, fn *fakeNotifier) (*fakeStream, context.CancelFunc) {
 	t.Helper()
-	nlm.notifyClient = fn
+	nlm.newNotifyClient = staticClient(fn)
 	if nlm.handlerTimeout == 0 {
 		nlm.handlerTimeout = time.Second
 	}
@@ -166,7 +166,7 @@ func TestReconnect_AddBeforeFirstStreamDoesNotBlock(t *testing.T) {
 	nlm, _ := setupTest(t)
 	fn := newFakeNotifier()
 	fn.setOpenErr(errors.New("committer down at startup"))
-	nlm.notifyClient = fn
+	nlm.newNotifyClient = staticClient(fn)
 	go func() { _ = nlm.run(t.Context()) }()
 
 	done := make(chan error, 1)
@@ -180,6 +180,55 @@ func TestReconnect_AddBeforeFirstStreamDoesNotBlock(t *testing.T) {
 
 	fn.setOpenErr(nil)
 	fn.next(t).requested(t, "tx1")
+}
+
+// Each reconnect asks newNotifyClient again, so a stream that breaks can reopen on another
+// endpoint, and the txIDs still pending are requested there.
+func TestReconnect_UsesNewClientAfterStreamFailure(t *testing.T) {
+	t.Parallel()
+	nlm, _ := setupTest(t)
+	fnA, fnB := newFakeNotifier(), newFakeNotifier()
+	var calls atomic.Int32
+	nlm.newNotifyClient = func() (committerpb.SidecarServiceClient, error) {
+		// simulates "A was healthy at first, then A died, so pick now returns B
+		if calls.Add(1) == 1 {
+			return fnA, nil
+		}
+		return fnB, nil
+	}
+	// Short enough that the reconnect never outgrows fakeNotifier.next's wait.
+	// It starts the reconnect loop (run) in the background, as the node does
+	nlm.reconnectMaxDelay = 50 * time.Millisecond
+	go func() { _ = nlm.run(t.Context()) }()
+
+	sA := fnA.next(t)
+	require.Eventually(t, func() bool { return nlm.streamCtx.Load() != nil }, timeout, tick)
+	require.NoError(t, nlm.AddFinalityListener("tx1", &countingListener{}))
+	sA.requested(t, "tx1")
+
+	sA.fail()
+	fnB.next(t).requested(t, "tx1")
+}
+
+// A failing newNotifyClient is one more failed attempt: run backs off and asks again
+// rather than stopping the manager, and the stream opens once a client is available.
+func TestReconnect_RetriesFailingClientFactory(t *testing.T) {
+	t.Parallel()
+	nlm, _ := setupTest(t)
+	fn := newFakeNotifier()
+	var calls atomic.Int32
+	nlm.newNotifyClient = func() (committerpb.SidecarServiceClient, error) {
+		if calls.Add(1) <= 2 {
+			return nil, errors.New("no endpoint available")
+		}
+		return fn, nil
+	}
+	nlm.reconnectMaxDelay = 50 * time.Millisecond
+	go func() { _ = nlm.run(t.Context()) }()
+
+	require.NoError(t, nlm.AddFinalityListener("tx1", &countingListener{}))
+	fn.next(t).requested(t, "tx1")
+	require.Equal(t, int32(3), calls.Load(), "the stream opens on the first call that returns a client")
 }
 
 // The committer answers a tx that committed while the stream was down with a timeout,
@@ -263,7 +312,7 @@ func TestProvider_ManagerKeptAfterStreamFailure(t *testing.T) {
 	p := NewListenerManagerProvider(&mockGRPCClientProvider{}, nil, nil)
 	p.newNotificationManager = func(string, GRPCClientProvider, config.Config) (*notificationListenerManager, error) {
 		nlm, _ := setupTest(t)
-		nlm.notifyClient = fn
+		nlm.newNotifyClient = staticClient(fn)
 		nlm.handlerTimeout = time.Second
 		return nlm, nil
 	}

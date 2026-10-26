@@ -55,10 +55,12 @@ type handlerEntry struct {
 }
 
 type notificationListenerManager struct {
-	notifyClient   committerpb.SidecarServiceClient
-	requestQueue   chan *committerpb.NotificationRequest
-	responseQueue  chan *committerpb.NotificationResponse
-	handlerTimeout time.Duration
+	// newNotifyClient returns the stub to open a stream on. stream calls it once per
+	// attempt, so each reconnect can land on a different endpoint (see config.ClientProvider).
+	newNotifyClient func() (committerpb.SidecarServiceClient, error)
+	requestQueue    chan *committerpb.NotificationRequest
+	responseQueue   chan *committerpb.NotificationResponse
+	handlerTimeout  time.Duration
 
 	// handlerWorkers is how many OnStatus callbacks may run at once, and so also how
 	// many stuck listeners it takes to stop delivering notifications on this manager.
@@ -226,10 +228,14 @@ func (n *notificationListenerManager) serve(ctx context.Context, connect func(co
 // relays requests and responses until the stream fails or ctx ends.
 func (n *notificationListenerManager) stream(ctx context.Context) error {
 	logger.Debugf("Notification listener stream starting.")
+	notifyClient, err := n.newNotifyClient()
+	if err != nil {
+		return err
+	}
 	// The stream runs on gCtx so that the first goroutine to fail also cancels the
 	// gRPC call, which unblocks the other one.
 	g, gCtx := errgroup.WithContext(ctx)
-	notifyStream, err := n.notifyClient.OpenNotificationStream(gCtx)
+	notifyStream, err := notifyClient.OpenNotificationStream(gCtx)
 	if err != nil {
 		_ = g.Wait() // releases gCtx; nothing was started on g
 		return err

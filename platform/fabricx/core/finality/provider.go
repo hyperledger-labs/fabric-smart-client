@@ -200,16 +200,24 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 // config.DefaultConfig). The pool sizes are clamped anyway: they reach make() and the
 // worker loop directly, where zero leaves nothing to drain the queue and negative panics.
 func newNotificationManagerWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
+	newNotifyClient := func() (committerpb.SidecarServiceClient, error) {
+		cc, err := grpcClientProvider.NotificationServiceClient(network)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
+		}
+		// Create the gRPC client stub for the committer sidecar service
+		return committerpb.NewSidecarServiceClient(cc), nil
+	}
+	// Fail now on a broken configuration: run retries a failing newNotifyClient forever,
+	// where the error would only ever surface as reconnect warnings. The endpoint picked
+	// here labels the connection-state series.
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
 	}
 
-	// Create the gRPC client stub for the committer sidecar service
-	notifyClient := committerpb.NewSidecarServiceClient(cc)
-
 	nlm := &notificationListenerManager{
-		notifyClient:     notifyClient,
+		newNotifyClient:  newNotifyClient,
 		endpoint:         cc.Target(),
 		requestQueue:     make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:    make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
