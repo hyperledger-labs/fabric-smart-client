@@ -67,7 +67,7 @@ Explicit overrides are used in the following places within the current catalog:
 
 Only the labels registered with the metric family are part of the exported schema. For trace-derived metrics, this means that only the label names declared in `tracing.WithMetricsOpts(...)` are guaranteed to appear in Prometheus. A span sets a label from the span attribute with the same key, rendering non-string values as text (`true`, `false`, `3`). Attributes whose key is not a declared label name are recorded on the trace only.
 
-For trace-derived metrics, the namespace and subsystem are also fixed by `tracing.WithMetricsOpts(...)`. If a tracer is created without that option, the wrapper registers the metric family under the tracing package. The concrete case in this catalog is `fsc_view_services_tracing_listens_*`: the tracer is declared in the Fabric committer package, but the exported family name is derived from `platform/view/services/tracing`.
+For trace-derived metrics, the namespace and subsystem are also fixed by `tracing.WithMetricsOpts(...)`. If a tracer is created without that option, the wrapper registers the metric family under the tracing package.
 
 ### Node Export vs. Library Metrics
 
@@ -376,7 +376,6 @@ Primary implementation: `platform/view/services/comm/host/websocket/ws/multiplex
 | --- | --- | --- |
 | `fsc_fabric_core_generic_delivery_delivery` | `type` | Delivery service tracer for received messages from Fabric deliver. |
 | `fsc_fabric_core_generic_committer_commits` | none | Committer tracer for `commit_block` and `commit_tx` spans. |
-| `fsc_view_services_tracing_listens` | none | Committer listener tracer. The tracer is declared in the Fabric committer package but created without `tracing.WithMetricsOpts(...)`, so the exported family name is derived from `platform/view/services/tracing`. No span start was found on the current implementation path. |
 | `fsc_fabric_core_generic_committer_committer` | none | Committer tracer used for operations such as waiting for finality and reloading config transactions. |
 
 The delivery tracer uses the label `type`, with the currently observed values:
@@ -438,7 +437,6 @@ The following families have implementation caveats:
 
 - `fsc_connection_*`: the `database_notifier` component reports no connection state, so no series are exported for it.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
-- `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.
 - `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
 - `fsc_view_services_view_client_client_*`: these are caller-process metrics. The standard integration harness creates its external view clients with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.

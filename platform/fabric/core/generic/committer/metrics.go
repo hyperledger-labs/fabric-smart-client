@@ -50,7 +50,6 @@ type Metrics struct {
 	CommitFailures metrics.Counter
 
 	Commits trace.Tracer
-	Listens trace.Tracer
 }
 
 // NewMetrics builds the committer's metrics. network and channel are bound as
@@ -108,6 +107,5 @@ func NewMetrics(p tracing.Provider, m metrics.Provider, network, channel string)
 		Commits: p.Tracer("commits", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []string{},
 		})),
-		Listens: p.Tracer("listens"),
 	}
 }
