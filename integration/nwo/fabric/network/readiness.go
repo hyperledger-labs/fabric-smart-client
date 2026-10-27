@@ -27,7 +27,10 @@ const raftIsLeaderMetric = "consensus_etcdraft_is_leader"
 // transactions only once it has a leader; the channel participation API
 // reports a joined channel as active before the election completes, so its
 // status is no substitute. The leader is read from the orderers' operations
-// endpoint. It returns at once for networks that do not run etcdraft.
+// endpoint; an orderer whose endpoint fails does not hide a leader reported by
+// another. It returns at once for networks that do not run etcdraft: a BFT
+// orderer reports its configured leader as soon as the chain starts, so its
+// leader metric says nothing about readiness.
 func (n *Network) WaitForRaftLeader(channel string, orderers ...*topology.Orderer) {
 	if n.Consensus == nil || n.Consensus.Type != "etcdraft" {
 		return
@@ -39,10 +42,12 @@ func (n *Network) WaitForRaftLeader(channel string, orderers ...*topology.Ordere
 		clients[i] = c
 	}
 	isLeader := func() (bool, error) {
+		var lastErr error
 		for _, c := range clients {
 			families, err := c.Metrics()
 			if err != nil {
-				return false, err
+				lastErr = err
+				continue
 			}
 			for _, m := range families[raftIsLeaderMetric].GetMetric() {
 				for _, l := range m.GetLabel() {
@@ -52,7 +57,7 @@ func (n *Network) WaitForRaftLeader(channel string, orderers ...*topology.Ordere
 				}
 			}
 		}
-		return false, nil
+		return false, lastErr
 	}
 	gomega.Eventually(isLeader, n.EventuallyTimeout, 100*time.Millisecond).Should(
 		gomega.BeTrue(), "no raft leader for channel [%s]", channel)

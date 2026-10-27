@@ -234,7 +234,13 @@ func (n *Network) Members() []grouper.Member {
 func (n *Network) PostRun(load bool) {
 	logger.Infof("Post execution [%s]...", n.Prefix)
 
-	if !load {
+	if load {
+		// Load does not restore the network's port assignments, so the waits
+		// below cannot reach a loaded network's orderers and peers. Its
+		// processes get a fixed time to elect a raft leader and form gossip
+		// membership instead.
+		time.Sleep(5 * time.Second)
+	} else {
 		orderer := n.Orderer("orderer")
 		for _, channel := range n.Channels {
 			// Every orderer of the channel's profile joins: with several raft
@@ -248,7 +254,6 @@ func (n *Network) PostRun(load bool) {
 			n.WaitForRaftLeader(channel.Name, orderers...)
 			logger.Infof("Raft leader of [%s] on [%s] elected in %s", channel.Name, n.Prefix, time.Since(start))
 
-			// peers join the channel
 			n.JoinChannel(channel.Name, orderer, n.PeersWithChannel(channel.Name)...)
 		}
 
