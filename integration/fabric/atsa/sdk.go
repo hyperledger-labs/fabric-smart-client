@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fsc
 
 import (
-	"errors"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"

@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package atsa
 
 import (
-	"errors"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
