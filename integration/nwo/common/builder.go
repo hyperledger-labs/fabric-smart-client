@@ -149,10 +149,12 @@ func (a *artifact) gBuild(input string, args ...string) (string, error) {
 	output := filepath.Join(dir, hex.EncodeToString(h[:8]), path.Base(input))
 
 	logger.Infof("building [%s,%s] ", input, args)
+	start := time.Now()
 	cmd := exec.Command("go", append(append([]string{"build"}, args...), "-o", output, input)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", errors.Wrapf(err, "failed to build %s:\n%s", input, out)
 	}
+	logger.Infof("built [%s] in %s", input, time.Since(start))
 	return output, nil
 }
 
@@ -179,7 +181,8 @@ func artifactsDir() (string, error) {
 // CleanupBuildArtifacts deletes the binaries built by every build server of
 // the process. Stopping a network keeps them, so that the next network of the
 // process does not rebuild unchanged binaries; call it once the process needs
-// no more networks, for example in a ginkgo AfterSuite.
+// no more networks, for example in a ginkgo AfterSuite. A build server still
+// in use afterwards returns paths of deleted binaries.
 func CleanupBuildArtifacts() {
 	artifactsMutex.Lock()
 	defer artifactsMutex.Unlock()

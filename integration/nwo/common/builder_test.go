@@ -49,7 +49,7 @@ func newServer(t *testing.T) *BuildServer {
 // its own sources.
 func TestBuildServerSharesBinaries(t *testing.T) { //nolint:paralleltest
 	gomega.RegisterTestingT(t)
-	t.Cleanup(func() { _ = os.RemoveAll("out") })
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Join("out", "cmd", "buildertest")) })
 	t.Cleanup(CleanupBuildArtifacts)
 
 	writeMain(t, "v1")
