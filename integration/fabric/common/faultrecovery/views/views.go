@@ -205,9 +205,9 @@ func (*QueryViewFactory) NewView(in []byte) (view.View, error) {
 	return f, nil
 }
 
-// EchoTimeout bounds how long EchoView waits for the reply. It is well above the time a
+// echoTimeout bounds how long EchoView waits for the reply. It is well above the time a
 // session takes to close after its counterparty dies, so a spec can tell the two apart.
-const EchoTimeout = time.Minute
+const echoTimeout = time.Minute
 
 // blockMessage asks EchoResponderView to hold the session open without replying.
 const blockMessage = "block"
@@ -239,7 +239,7 @@ func (v *EchoView) Call(viewCtx view.Context) (any, error) {
 	if err := s.Send(viewCtx.Context(), msg); err != nil {
 		return nil, errors.WithMessage(err, "failed sending")
 	}
-	reply, err := session.ReadMessageWithTimeout(s, EchoTimeout)
+	reply, err := session.ReadMessageWithTimeout(s, echoTimeout)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed waiting for the echo")
 	}

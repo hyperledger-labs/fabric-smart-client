@@ -27,18 +27,18 @@ const recoveryTimeout = 2 * time.Minute
 const startupOutage = 10 * time.Second
 
 // sessionCloseTimeout bounds how long a view waiting on a session takes to fail after its
-// counterparty dies: the comm layer closes a session 5 s after its last stream died
-// (sessionStreamGrace), plus 10 s for the survivor to see the dead stream and for the
-// error to reach the client.
+// counterparty dies: the comm package closes a session 5 s after its last stream died
+// (comm's sessionStreamGrace), plus 10 s for the survivor to see the dead stream and for
+// the error to reach the client.
 const sessionCloseTimeout = 15 * time.Second
 
 // viewContexts is the gauge of the view contexts a node holds, a responder's included.
 const viewContexts = "fsc_view_services_view_contexts"
 
 // CrashSpecs registers the node crash and catch-up specs for the suite s. The recovery
-// specs check bob through QueryView: on Fabric that reads bob's own vault, so the specs prove that
-// bob recovers its local state; on Fabric-x, where bob has no local ledger state, they
-// prove only that bob restarts and serves views again.
+// specs check bob through QueryView: on Fabric that reads bob's own vault, so the specs
+// prove that bob recovers its local state; on Fabric-x, where bob has no local ledger
+// state, they prove only that bob restarts and serves views again.
 func CrashSpecs(s *integration.TestSuite) {
 	ginkgo.It("fails fast when the responder dies", func() {
 		contexts := MetricSum(s.II, "bob", viewContexts)
@@ -48,14 +48,22 @@ func CrashSpecs(s *integration.TestSuite) {
 			echo <- Echo(s.II, true)
 		}()
 		// Bob creates a responder context when alice's message arrives and holds it while
-		// the responder blocks, so the kill lands mid-view.
-		gomega.Eventually(func() float64 {
-			return MetricSum(s.II, "bob", viewContexts)
+		// the responder blocks, so the kill lands mid-view. An echo that ends before then
+		// stops the wait with its own error.
+		gomega.Eventually(func(g gomega.Gomega) float64 {
+			select {
+			case err := <-echo:
+				gomega.StopTrying("echo returned before bob's responder blocked").Wrap(err).Now()
+			default:
+			}
+			families, err := s.II.WebClient("bob").Metrics()
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			return sumFamily(families, viewContexts)
 		}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", contexts))
 
 		s.II.KillFSCNode("bob")
-		// The echo view waits up to views.EchoTimeout for the reply, so only the closed
-		// session ends it this early.
+		// The echo view waits a minute for the reply, so only the closed session ends it
+		// this early.
 		var err error
 		gomega.Eventually(echo, sessionCloseTimeout).Should(gomega.Receive(&err))
 		gomega.Expect(err).To(gomega.MatchError(view.ErrViewExecutionFailed))

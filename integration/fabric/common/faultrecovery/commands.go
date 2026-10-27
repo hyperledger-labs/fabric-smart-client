@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
@@ -104,6 +105,12 @@ func Query(ii *integration.Infrastructure, node, txID string) (*views.QueryResul
 func MetricSum(ii *integration.Infrastructure, node, name string) float64 {
 	families, err := ii.WebClient(node).Metrics()
 	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
+	return sumFamily(families, name)
+}
+
+// sumFamily returns the sum of every series of the counter or gauge family name in
+// families; zero if families has none.
+func sumFamily(families map[string]*dto.MetricFamily, name string) float64 {
 	var sum float64
 	for _, m := range families[name].GetMetric() {
 		// A family holds one metric type; the getter of the other returns zero.
