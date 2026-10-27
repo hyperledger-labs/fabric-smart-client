@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,13 +30,20 @@ const (
 	maxIdleTimeWrite  time.Duration = 0
 )
 
-const sqlitePragmas = `
-	PRAGMA journal_mode = WAL;
-	PRAGMA busy_timeout = 5000;
-	PRAGMA synchronous = NORMAL;
-	PRAGMA cache_size = 1000000000;
-	PRAGMA temp_store = memory;
-	PRAGMA foreign_keys = ON;`
+// defaultPragmas are added to the data source unless skipPragmas is set. modernc
+// runs every _pragma DSN parameter on each new connection, so they hold for the
+// whole pool. A pragma the data source already sets, as _pragma=name(...) or as
+// one of the driver's shorthand keys, is left alone.
+var defaultPragmas = []struct {
+	name, value string
+	shorthands  []string
+}{
+	{"busy_timeout", "5000", []string{"_busy_timeout", "_timeout"}},
+	{"journal_mode", "WAL", []string{"_journal_mode", "_journal"}},
+	{"synchronous", "NORMAL", []string{"_synchronous", "_sync"}},
+	{"temp_store", "memory", nil},
+	{"foreign_keys", "ON", []string{"_foreign_keys", "_fk"}},
+}
 
 const driverName = "sqlite"
 
@@ -84,6 +92,15 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 		logger.Warnf("failed creating dir [%s]: %s", path, err)
 	}
 
+	// sqlite can handle concurrent reads in WAL mode if the writes are throttled in 1 connection
+	if skipPragmas {
+		if !strings.Contains(strings.ToUpper(dataSourceName), "WAL") {
+			logger.Warn("skipping default pragmas. Set at least ?_pragma=journal_mode(WAL) or similar in the dataSource to prevent SQLITE_BUSY errors")
+		}
+	} else {
+		dataSourceName = withDefaultPragmas(dataSourceName)
+	}
+
 	db, err := sqlOpen(dataSourceName, tracing)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't open %s database", driverName)
@@ -99,19 +116,41 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 	}
 	logger.Debugf("connected to [%s], max open connections: %d", driverName, maxOpenConns)
 
-	// sqlite can handle concurrent reads in WAL mode if the writes are throttled in 1 connection
-	if skipPragmas {
-		if !strings.Contains(dataSourceName, "WAL") {
-			logger.Warn("skipping default pragmas. Set at least ?_pragma=journal_mode(WAL) or similar in the dataSource to prevent SQLITE_BUSY errors")
-		}
-		return db, nil
-	}
-	logger.Debug(sqlitePragmas)
-	if _, err = db.Exec(sqlitePragmas); err != nil {
-		return nil, errors.Wrap(err, "error setting pragmas")
-	}
-
 	return db, nil
+}
+
+// withDefaultPragmas appends each of defaultPragmas that dataSourceName does not
+// already set as a _pragma query parameter. A query that does not parse gets no
+// defaults; the driver reports it when the first connection opens.
+func withDefaultPragmas(dataSourceName string) string {
+	_, query, _ := strings.Cut(dataSourceName, "?")
+	q, err := url.ParseQuery(query)
+	if err != nil {
+		return dataSourceName
+	}
+	set := make(map[string]bool)
+	for _, p := range q["_pragma"] {
+		name, _, _ := strings.Cut(p, "(")
+		name, _, _ = strings.Cut(name, "=")
+		if _, n, ok := strings.Cut(name, "."); ok { // schema-qualified, e.g. main.synchronous
+			name = n
+		}
+		set[strings.ToLower(strings.TrimSpace(name))] = true
+	}
+	var b strings.Builder
+	b.WriteString(dataSourceName)
+	sep := "?"
+	if strings.Contains(dataSourceName, "?") {
+		sep = "&"
+	}
+	for _, p := range defaultPragmas {
+		if set[p.name] || slices.ContainsFunc(p.shorthands, q.Has) {
+			continue
+		}
+		b.WriteString(sep + "_pragma=" + p.name + "(" + p.value + ")")
+		sep = "&"
+	}
+	return b.String()
 }
 
 func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, error) {
