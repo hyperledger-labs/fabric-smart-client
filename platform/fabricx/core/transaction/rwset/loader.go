@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -60,7 +60,7 @@ func (*Loader) AddHandlerProvider(cb.HeaderType, driver.RWSetPayloadHandlerProvi
 	return nil
 }
 
-func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID cdriver.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_rwset_from_evn")
 	defer span.AddEvent("end_get_rwset_from_evn")
@@ -102,7 +102,7 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	return rws, pt, nil
 }
 
-func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromETx(ctx context.Context, txID cdriver.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_rwset_from_etx")
 	defer span.AddEvent("end_get_rwset_from_etx")
@@ -129,7 +129,7 @@ func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver
 	return rws, tx, nil
 }
 
-func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxID, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID cdriver.TxID, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_inspecting_rwset_from_evn")
 	defer span.AddEvent("end_get_inspecting_rwset_from_evn")
@@ -164,7 +164,7 @@ func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxI
 
 // unmarshalEnvelope parses raw and checks that it is a fabricx transaction envelope for
 // txID on the loader's channel.
-func (c *Loader) unmarshalEnvelope(txID driver2.TxID, raw []byte) (*cb.Payload, *cb.ChannelHeader, error) {
+func (c *Loader) unmarshalEnvelope(txID cdriver.TxID, raw []byte) (*cb.Payload, *cb.ChannelHeader, error) {
 	_, payl, chdr, err := fabricutils.UnmarshalTx(raw)
 	if err != nil {
 		return nil, nil, err

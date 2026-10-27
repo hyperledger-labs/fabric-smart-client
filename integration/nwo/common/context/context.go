@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -128,11 +128,11 @@ func (c *NWOContext) SetConnectionConfig(name string, cc *grpc.ConnectionConfig)
 	c.ConnectionConfigs[name] = cc
 }
 
-func (c *NWOContext) SetClientSigningIdentity(name string, id view2.SigningIdentity) {
+func (c *NWOContext) SetClientSigningIdentity(name string, id client.SigningIdentity) {
 	c.ClientSigningIdentities[name] = id
 }
 
-func (c *NWOContext) SetAdminSigningIdentity(name string, id view2.SigningIdentity) {
+func (c *NWOContext) SetAdminSigningIdentity(name string, id client.SigningIdentity) {
 	c.AdminSigningIdentities[name] = id
 }
 
@@ -144,7 +144,7 @@ func (c *NWOContext) ConnectionConfig(name string) *grpc.ConnectionConfig {
 	return c.ConnectionConfigs[name]
 }
 
-func (c *NWOContext) ClientSigningIdentity(name string) view2.SigningIdentity {
+func (c *NWOContext) ClientSigningIdentity(name string) client.SigningIdentity {
 	return c.ClientSigningIdentities[name]
 }
 
@@ -164,7 +164,7 @@ func (c *NWOContext) GetViewIdentityAliases(name string) []string {
 	return c.ViewIdentityAliases[name]
 }
 
-func (c *NWOContext) AdminSigningIdentity(name string) view2.SigningIdentity {
+func (c *NWOContext) AdminSigningIdentity(name string) client.SigningIdentity {
 	return c.AdminSigningIdentities[name]
 }
 

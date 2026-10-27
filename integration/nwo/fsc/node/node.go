@@ -20,7 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -77,7 +77,7 @@ func (o *Options) PutPersistenceKey(k PersistenceKey) {
 	}
 }
 
-func (o *Options) PutPostgresPersistenceName(k PersistenceKey, p driver2.PersistenceName) {
+func (o *Options) PutPostgresPersistenceName(k PersistenceKey, p dbdriver.PersistenceName) {
 	o.PutPersistenceKey(k)
 
 	o.Put(fmt.Sprintf("%s.persistence", k), p)
@@ -91,36 +91,36 @@ func (o *Options) GetAllPersistenceKeys() []PersistenceKey {
 	return persistences.([]PersistenceKey)
 }
 
-func (o *Options) GetPersistenceName(k PersistenceKey) (driver2.PersistenceName, bool) {
+func (o *Options) GetPersistenceName(k PersistenceKey) (dbdriver.PersistenceName, bool) {
 	if name := o.Get(fmt.Sprintf("%s.persistence", k)); name != nil {
-		return name.(driver2.PersistenceName), true
+		return name.(dbdriver.PersistenceName), true
 	}
 	return "", false
 }
 
-func (o *Options) PutPostgresPersistence(k driver2.PersistenceName, p SQLOpts) {
+func (o *Options) PutPostgresPersistence(k dbdriver.PersistenceName, p SQLOpts) {
 	if persistences := o.Get("postgres_persistences"); persistences != nil {
-		o.Put("postgres_persistences", append(persistences.([]driver2.PersistenceName), k))
+		o.Put("postgres_persistences", append(persistences.([]dbdriver.PersistenceName), k))
 	} else {
-		o.Put("postgres_persistences", []driver2.PersistenceName{k})
+		o.Put("postgres_persistences", []dbdriver.PersistenceName{k})
 	}
 
 	o.Put(fmt.Sprintf("fsc.persistences.%s.persistence.sql", k), p.DataSource)
 }
 
-func (o *Options) GetPostgresPersistences() map[driver2.PersistenceName]*SQLOpts {
+func (o *Options) GetPostgresPersistences() map[dbdriver.PersistenceName]*SQLOpts {
 	persistences := o.Get("postgres_persistences")
 	if persistences == nil {
 		return nil
 	}
-	r := make(map[driver2.PersistenceName]*SQLOpts)
-	for _, k := range persistences.([]driver2.PersistenceName) {
+	r := make(map[dbdriver.PersistenceName]*SQLOpts)
+	for _, k := range persistences.([]dbdriver.PersistenceName) {
 		r[k] = o.GetPostgresPersistence(k)
 	}
 	return r
 }
 
-func (o *Options) GetPostgresPersistence(k driver2.PersistenceName) *SQLOpts {
+func (o *Options) GetPostgresPersistence(k dbdriver.PersistenceName) *SQLOpts {
 	if v := o.Get(fmt.Sprintf("fsc.persistences.%s.persistence.sql", k)); v != nil {
 		return &SQLOpts{
 			DataSource: v.(string),

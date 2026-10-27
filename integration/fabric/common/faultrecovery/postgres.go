@@ -18,7 +18,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -107,8 +107,8 @@ func SetDataSource(ii *integration.Infrastructure, node, dataSource string) {
 }
 
 // replica returns the FSC node named node.
-func replica(ii *integration.Infrastructure, node string) *node2.Replica {
-	i := slices.IndexFunc(ii.FscPlatform.Peers, func(p *node2.Replica) bool { return p.Name == node })
+func replica(ii *integration.Infrastructure, node string) *nwonode.Replica {
+	i := slices.IndexFunc(ii.FscPlatform.Peers, func(p *nwonode.Replica) bool { return p.Name == node })
 	gomega.ExpectWithOffset(1, i).NotTo(gomega.Equal(-1), "no FSC node named [%s]", node)
 	return ii.FscPlatform.Peers[i]
 }

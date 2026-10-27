@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
+	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -26,7 +26,7 @@ const (
 )
 
 type Provider struct {
-	p *driver2.Provider
+	p *gdriver.Provider
 }
 
 func NewProvider(
@@ -42,7 +42,7 @@ func NewProvider(
 	auditInfoKVS driver.AuditInfoStore,
 ) *Provider {
 	return &Provider{
-		p: driver2.NewProvider(
+		p: gdriver.NewProvider(
 			configProvider,
 			metricsProvider,
 			connState,

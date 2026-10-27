@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
-	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -87,7 +87,7 @@ func (i *CreateView) Call(viewCtx view.Context) (any, error) {
 	lm := ch.Committer()
 
 	logger.Infof("Setup finality listener for txID=%v", tx.ID())
-	listener := views2.NewFinalityListener(tx.ID())
+	listener := views.NewFinalityListener(tx.ID())
 	if err = lm.AddFinalityListener(tx.ID(), listener); err != nil {
 		return nil, err
 	}

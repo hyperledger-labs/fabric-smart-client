@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -103,7 +103,7 @@ func runRound(viewCtx view.Context, v view.View) (any, error) {
 	ctx, cancel := context.WithTimeout(viewCtx.Context(), roundTimeout)
 	defer cancel()
 
-	return view2.WrapContext(viewCtx, ctx).RunView(v)
+	return viewservice.WrapContext(viewCtx, ctx).RunView(v)
 }
 
 func ping(viewCtx view.Context, responder view.Identity) (any, error) {

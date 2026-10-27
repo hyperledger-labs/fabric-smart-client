@@ -26,7 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
@@ -748,7 +748,7 @@ func TestService_CheckACL_IdemixSignedProposal(t *testing.T) { //nolint:parallel
 
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
-	provider, err := idemix2.NewProviderWithAnyPolicy(mspConf, kvss, sigService)
+	provider, err := idemix.NewProviderWithAnyPolicy(mspConf, kvss, sigService)
 	require.NoError(t, err)
 
 	identityBytes, _, err := provider.Identity(nil)

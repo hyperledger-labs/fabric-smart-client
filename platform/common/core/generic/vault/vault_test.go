@@ -16,19 +16,19 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
+	fvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
 type testArtifactProvider struct {
-	removeNils func([]driver2.VaultRead) []driver2.VaultRead
+	removeNils func([]cdriver.VaultRead) []cdriver.VaultRead
 }
 
-func (p *testArtifactProvider) RemoveNils(items []driver2.VaultRead) []driver2.VaultRead {
+func (p *testArtifactProvider) RemoveNils(items []cdriver.VaultRead) []cdriver.VaultRead {
 	return p.removeNils(items)
 }
 
@@ -36,7 +36,7 @@ func (*testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Valid
 	vaultLogger := logging.MustGetLogger()
 	return New[ValidationCode](
 		vaultLogger,
-		vault2.NewCachedVault(ddb, 100),
+		fvault.NewCachedVault(ddb, 100),
 		VCProvider,
 		newVaultInterceptor,
 		&populator{},
@@ -49,7 +49,7 @@ func (*testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Valid
 func (*testArtifactProvider) NewNonCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
 	return New[ValidationCode](
 		logging.MustGetLogger(),
-		vault2.NewCachedVault(ddb, 0),
+		fvault.NewCachedVault(ddb, 0),
 		VCProvider,
 		newVaultInterceptor,
 		&populator{},
@@ -69,7 +69,7 @@ func newVaultInterceptor(
 	rwSet ReadWriteSet,
 	qe VersionedQueryExecutor,
 	txidStore TxStatusStore,
-	txid driver2.TxID,
+	txid cdriver.TxID,
 ) TxInterceptor {
 	return NewInterceptor[ValidationCode](
 		logger,
@@ -88,7 +88,7 @@ type populator struct {
 	marshaller marshaller
 }
 
-func (p *populator) Populate(rwsetBytes []byte, namespaces ...driver2.Namespace) (ReadWriteSet, error) {
+func (p *populator) Populate(rwsetBytes []byte, namespaces ...cdriver.Namespace) (ReadWriteSet, error) {
 	rwSet := EmptyRWSet()
 	if err := p.marshaller.Append(&rwSet, rwsetBytes, namespaces...); err != nil {
 		return ReadWriteSet{}, err
@@ -163,11 +163,11 @@ func (*marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string) 
 func TestMemory(t *testing.T) { //nolint:tparallel
 	t.Parallel()
 	artifactProvider := &testArtifactProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead { return items },
+		removeNils: func(items []cdriver.VaultRead) []cdriver.VaultRead { return items },
 	}
 	for _, c := range SingleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			ddb, err := vault2.OpenMemoryVault(c.Name)
+			ddb, err := fvault.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
 			require.NotNil(t, ddb)
 			defer func() { _ = ddb.Close() }()
@@ -177,9 +177,9 @@ func TestMemory(t *testing.T) { //nolint:tparallel
 
 	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			db1, err := vault2.OpenMemoryVault(c.Name)
+			db1, err := fvault.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
-			db2, err := vault2.OpenMemoryVault(c.Name)
+			db2, err := fvault.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
 			defer func() { _ = db1.Close() }()
 			defer func() { _ = db2.Close() }()
@@ -191,14 +191,14 @@ func TestMemory(t *testing.T) { //nolint:tparallel
 func TestSqlite(t *testing.T) { //nolint:tparallel
 	t.Parallel()
 	artifactProvider := &testArtifactProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
+		removeNils: func(items []cdriver.VaultRead) []cdriver.VaultRead {
+			return slices.DeleteFunc(items, func(e cdriver.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 
 	for _, c := range SingleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
+			ddb, err := fvault.OpenSqliteVault("node1", t.TempDir())
 			require.NoError(t, err)
 			defer func() { _ = ddb.Close() }()
 			c.Fn(xt, ddb, artifactProvider)
@@ -207,9 +207,9 @@ func TestSqlite(t *testing.T) { //nolint:tparallel
 
 	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
+			db1, err := fvault.OpenSqliteVault("node1", t.TempDir())
 			require.NoError(t, err)
-			db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
+			db2, err := fvault.OpenSqliteVault("node2", t.TempDir())
 			require.NoError(t, err)
 			defer func() { _ = db1.Close() }()
 			defer func() { _ = db2.Close() }()
@@ -221,14 +221,14 @@ func TestSqlite(t *testing.T) { //nolint:tparallel
 func TestPostgres(t *testing.T) { //nolint:tparallel
 	t.Parallel()
 	artifactProvider := &testArtifactProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
+		removeNils: func(items []cdriver.VaultRead) []cdriver.VaultRead {
+			return slices.DeleteFunc(items, func(e cdriver.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 
 	for _, c := range append(SingleDBCases, ReadCommittedDBCases...) { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			ddb, terminate, err := vault2.OpenPostgresVault("common-sdk-node1")
+			ddb, terminate, err := fvault.OpenPostgresVault("common-sdk-node1")
 			require.NoError(t, err)
 			defer func() { _ = ddb.Close() }()
 			defer terminate()
@@ -238,9 +238,9 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 
 	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			db1, terminate1, err := vault2.OpenPostgresVault("common-sdk-node1")
+			db1, terminate1, err := fvault.OpenPostgresVault("common-sdk-node1")
 			require.NoError(t, err)
-			db2, terminate2, err := vault2.OpenPostgresVault("common-sdk-node2")
+			db2, terminate2, err := fvault.OpenPostgresVault("common-sdk-node2")
 			require.NoError(t, err)
 			defer func() { _ = db1.Close() }()
 			defer func() { _ = db2.Close() }()
@@ -256,13 +256,13 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 func newMemoryVault(t *testing.T) (*Vault[ValidationCode], driver.VaultStore) {
 	t.Helper()
 
-	ddb, err := vault2.OpenMemoryVault(t.Name())
+	ddb, err := fvault.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 	require.NotNil(t, ddb)
 	t.Cleanup(func() { _ = ddb.Close() })
 
 	provider := &testArtifactProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead { return items },
+		removeNils: func(items []cdriver.VaultRead) []cdriver.VaultRead { return items },
 	}
 	v, err := provider.NewNonCachedVault(ddb)
 	require.NoError(t, err)
@@ -308,12 +308,12 @@ func TestVaultNewRWSetWithIsolationLevel(t *testing.T) { //nolint:paralleltest
 	v, _ := newMemoryVault(t)
 	ctx := t.Context()
 
-	rws, err := v.NewRWSetWithIsolationLevel(ctx, "tx1", driver2.LevelDefault)
+	rws, err := v.NewRWSetWithIsolationLevel(ctx, "tx1", cdriver.LevelDefault)
 	require.NoError(t, err)
 	require.NotNil(t, rws)
 	require.True(t, v.RWSExists(ctx, "tx1"))
 
-	_, err = v.NewRWSetWithIsolationLevel(ctx, "tx1", driver2.LevelDefault)
+	_, err = v.NewRWSetWithIsolationLevel(ctx, "tx1", cdriver.LevelDefault)
 	require.Error(t, err, "a second rwset for the same transaction is rejected")
 }
 
@@ -333,7 +333,7 @@ func TestVaultSetStatusAndStatuses(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.Len(t, statuses, 2)
 
-	byTxID := map[driver2.TxID]driver2.TxValidationStatus[ValidationCode]{}
+	byTxID := map[cdriver.TxID]cdriver.TxValidationStatus[ValidationCode]{}
 	for _, s := range statuses {
 		byTxID[s.TxID] = s
 	}
@@ -370,11 +370,11 @@ func TestVaultSetDiscarded(t *testing.T) { //nolint:paralleltest
 
 // TestVaultClose closes the underlying store.
 func TestVaultClose(t *testing.T) { //nolint:paralleltest
-	ddb, err := vault2.OpenMemoryVault(t.Name())
+	ddb, err := fvault.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 
 	provider := &testArtifactProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead { return items },
+		removeNils: func(items []cdriver.VaultRead) []cdriver.VaultRead { return items },
 	}
 	v, err := provider.NewNonCachedVault(ddb)
 	require.NoError(t, err)

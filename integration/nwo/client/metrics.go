@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	viewclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
@@ -72,7 +72,7 @@ func (c *MetricsClient) Metrics() (map[string]*dto.MetricFamily, error) {
 // listener of its own, that certificate must chain to the listener's clientRootCAs and
 // allow client authentication.
 func NewMetricsClientConfigFromFSC(confDir string) (*grpc.ConnectionConfig, error) {
-	configProvider, err := config2.NewProvider(confDir)
+	configProvider, err := config.NewProvider(confDir)
 	if err != nil {
 		return nil, err
 	}

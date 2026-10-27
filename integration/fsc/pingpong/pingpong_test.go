@@ -24,8 +24,8 @@ import (
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -61,9 +61,9 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
-			err = view2.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})
+			err = view.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(view2.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
+			Expect(view.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
 
@@ -76,7 +76,7 @@ var _ = Describe("EndToEnd", func() {
 			// the responder's identity is a valid certificate of the same organization, but
 			// neither the initiator's own nor on its fsc.view.remote.clients.
 			crypto := "./testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/"
-			stranger, err := client3.NewX509SigningIdentity(crypto+"signcerts/responder.fsc.example.com-cert.pem", crypto+"keystore/priv_sk")
+			stranger, err := viewclient.NewX509SigningIdentity(crypto+"signcerts/responder.fsc.example.com-cert.pem", crypto+"keystore/priv_sk")
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient.SigningIdentity = stranger
 			_, err = initiatorWebClient.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 5}))
@@ -92,7 +92,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
-			err = view2.GetRegistry(initiator).RegisterFactory("stream", &pingpong.StreamerViewFactory{})
+			err = view.GetRegistry(initiator).RegisterFactory("stream", &pingpong.StreamerViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
@@ -124,13 +124,13 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
-			err = view2.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})
+			err = view.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(view2.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
+			Expect(view.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
 			// Initiate a view and check the output
-			res, err := client3.NewLocalClient(initiator).CallView("init", nil)
+			res, err := viewclient.NewLocalClient(initiator).CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
@@ -271,7 +271,7 @@ func (s *TestSuite) TestStreamWebsocket(clients ...string) {
 		// server (topology.WebEnabled), not Prometheus metrics, so there is no
 		// /metrics route to probe. An attempt that errors yields no usable
 		// stream, so retrying is safe.
-		var channel *client3.Stream
+		var channel *viewclient.Stream
 		Eventually(func() error {
 			var err error
 			channel, err = initiator.StreamCallView("stream", nil)
@@ -315,7 +315,7 @@ func (s *TestSuite) TestMockPingPong() {
 
 // newWebClient returns a view client that reaches the node in confDir over HTTP, signed as
 // the node itself.
-func newWebClient(confDir string) *client3.Client {
+func newWebClient(confDir string) *viewclient.Client {
 	c, err := client.NewHTTPViewClient(confDir, noop.NewTracerProvider())
 	Expect(err).NotTo(HaveOccurred())
 	return c

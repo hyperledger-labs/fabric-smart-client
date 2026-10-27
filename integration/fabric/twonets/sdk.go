@@ -8,7 +8,7 @@ package twonets
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
@@ -16,7 +16,7 @@ import (
 )
 
 type SDK struct {
-	dig2.SDK
+	dig.SDK
 }
 
 func NewSDK(registry services.Registry) *SDK {

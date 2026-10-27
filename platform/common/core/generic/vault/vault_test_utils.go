@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 )
 
 type ValidationCode = int
@@ -42,15 +42,15 @@ var VCProvider = driver.NewValidationCodeProvider(map[ValidationCode]driver.TxSt
 })
 
 type artifactsProvider interface {
-	NewCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
-	NewNonCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
+	NewCachedVault(ddb fdbdriver.VaultStore) (*Vault[ValidationCode], error)
+	NewNonCachedVault(ddb fdbdriver.VaultStore) (*Vault[ValidationCode], error)
 	NewMarshaller() Marshaller
 	RemoveNils(items []driver.VaultRead) []driver.VaultRead
 }
 
 var SingleDBCases = []struct {
 	Name string
-	Fn   func(*testing.T, driver2.VaultStore, artifactsProvider)
+	Fn   func(*testing.T, fdbdriver.VaultStore, artifactsProvider)
 }{
 	{"Merge", TTestMerge},
 	{"Inspector", TTestInspector},
@@ -64,19 +64,19 @@ var SingleDBCases = []struct {
 
 var ReadCommittedDBCases = []struct {
 	Name string
-	Fn   func(*testing.T, driver2.VaultStore, artifactsProvider)
+	Fn   func(*testing.T, fdbdriver.VaultStore, artifactsProvider)
 }{
 	{"InterceptorConcurrencyNoConsistency", TTestInterceptorConcurrencyNoConsistency},
 }
 
 var DoubleDBCases = []struct {
 	Name string
-	Fn   func(*testing.T, driver2.VaultStore, driver2.VaultStore, artifactsProvider)
+	Fn   func(*testing.T, fdbdriver.VaultStore, fdbdriver.VaultStore, artifactsProvider)
 }{
 	{"Run", TTestRun},
 }
 
-func TTestInterceptorErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestInterceptorErr(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	vault1, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TTestInterceptorErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvi
 	rws.Done()
 }
 
-func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestInterceptorConcurrency(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	ns := "namespace"
 	k := "key1"
@@ -154,7 +154,7 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultStore, vp artifa
 	require.Equal(t, []byte("val"), state.Raw)
 }
 
-func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	ns := "namespace"
 	k := "key1"
@@ -200,7 +200,7 @@ func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultSto
 	require.EqualError(t, err, "invalid metadata read: previous value returned at version [[]], current value at version [[0 0 0 36 0 0 0 1]]")
 }
 
-func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestQueryExecutor(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	ns := "namespace"
 
@@ -271,7 +271,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvid
 	require.Equal(t, expected, res)
 }
 
-func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestShardLikeCommit(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	ns := "namespace"
 	k1 := "key1"
@@ -383,7 +383,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultStore, vp artifactsProv
 	require.Empty(t, aVault.interceptors)
 }
 
-func TTestVaultErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestVaultErr(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	vault1, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)
@@ -434,7 +434,7 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 // spells out a textual escape of it are separate states, a key that looks like a
 // Postgres bytea literal is stored verbatim, and a partial-composite-key range
 // scan returns every child whatever its next character.
-func TTestKeyEncoding(t *testing.T, ddb driver2.VaultStore, _ artifactsProvider) {
+func TTestKeyEncoding(t *testing.T, ddb fdbdriver.VaultStore, _ artifactsProvider) {
 	t.Helper()
 	ctx := t.Context()
 	const ns = "ns"
@@ -477,7 +477,7 @@ func TTestKeyEncoding(t *testing.T, ddb driver2.VaultStore, _ artifactsProvider)
 	require.Equal(t, []driver.PKey{composite, childDigit, childLetter}, got)
 }
 
-func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestMerge(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	ns := "namespace"
 	k1 := "key1"
@@ -594,7 +594,7 @@ func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	require.EqualError(t, err, "duplicate metadata write entry for key namespace:key3")
 }
 
-func TTestInspector(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+func TTestInspector(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	txid := "txid"
 	ns := "ns"
@@ -662,7 +662,7 @@ func TTestInspector(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) 
 	i.Done()
 }
 
-func TTestRun(t *testing.T, db1, db2 driver2.VaultStore, vp artifactsProvider) {
+func TTestRun(t *testing.T, db1, db2 fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	ns := "namespace"
 	k1 := "key1"
@@ -1061,7 +1061,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultStore, vp artifactsProvider) {
 	require.Equal(t, t1, t2)
 }
 
-func compare(t *testing.T, ns string, db1, db2 driver2.VaultStore) {
+func compare(t *testing.T, ns string, db1, db2 fdbdriver.VaultStore) {
 	t.Helper()
 	// we expect the underlying databases to be identical
 	itr, err := db1.GetAllStates(context.Background(), ns)

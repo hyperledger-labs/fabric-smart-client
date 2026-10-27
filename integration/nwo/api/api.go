@@ -14,7 +14,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
 type (
@@ -70,16 +70,16 @@ type Context interface {
 	AddIdentityAlias(name, alias string)
 	TopologyByName(name string) Topology
 	SetConnectionConfig(name string, cc *grpc.ConnectionConfig)
-	SetClientSigningIdentity(name string, id client2.SigningIdentity)
-	SetAdminSigningIdentity(name string, id client2.SigningIdentity)
+	SetClientSigningIdentity(name string, id client.SigningIdentity)
+	SetAdminSigningIdentity(name string, id client.SigningIdentity)
 	SetViewIdentity(name string, cert []byte)
 	ConnectionConfig(name string) *grpc.ConnectionConfig
-	ClientSigningIdentity(name string) client2.SigningIdentity
+	ClientSigningIdentity(name string) client.SigningIdentity
 	SetViewClient(name string, c RemoteViewClient)
 	SetWebClient(name string, c WebClient)
 	SetCLI(name string, client ViewClient)
 	GetViewIdentityAliases(name string) []string
-	AdminSigningIdentity(name string) client2.SigningIdentity
+	AdminSigningIdentity(name string) client.SigningIdentity
 	IgnoreSigHUP() bool
 }
 
@@ -95,7 +95,7 @@ type ViewClient interface {
 // RemoteViewClient calls a node's views through its view service, over gRPC or HTTP.
 type RemoteViewClient interface {
 	ViewClient
-	StreamCallView(fid string, input []byte) (*client2.Stream, error)
+	StreamCallView(fid string, input []byte) (*client.Stream, error)
 }
 
 // WebClient calls a node's views through the view service's HTTP binding, reads the

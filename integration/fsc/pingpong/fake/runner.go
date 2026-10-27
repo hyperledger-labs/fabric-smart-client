@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -105,7 +105,7 @@ func (c *DelegatedContext) GetSession(caller view.View, party view.Identity, _ .
 			}
 			left := biChannel.LeftSession()
 			right := biChannel.RightSession()
-			view2.RunView(c.Context(), c, responder.ResponderView, view.AsResponder(right))
+			viewservice.RunView(c.Context(), c, responder.ResponderView, view.AsResponder(right))
 
 			responder.Channel = biChannel
 			return left, nil

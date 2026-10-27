@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -228,13 +228,13 @@ func (db *Vault[V]) SetDiscarded(ctx context.Context, txID driver.TxID, message 
 	return db.vaultStore.SetStatuses(ctx, driver.Invalid, message, txID)
 }
 
-func (db *Vault[V]) NewRWSet(ctx context.Context, txID driver.TxID) (api2.RWSet, error) {
+func (db *Vault[V]) NewRWSet(ctx context.Context, txID driver.TxID) (fdriver.RWSet, error) {
 	db.logger.Debugf("NewRWSet[%s]", txID)
 
 	return db.buildRWSet(ctx, txID, EmptyRWSet(), driver.LevelDefault)
 }
 
-func (db *Vault[V]) NewRWSetWithIsolationLevel(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (api2.RWSet, error) {
+func (db *Vault[V]) NewRWSetWithIsolationLevel(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (fdriver.RWSet, error) {
 	db.logger.Debugf("NewRWSet[%s]", txID)
 
 	return db.buildRWSet(ctx, txID, EmptyRWSet(), isolationLevel)

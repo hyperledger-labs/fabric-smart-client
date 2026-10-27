@@ -25,7 +25,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -47,35 +47,35 @@ func TestNewGRPCClient_GoodConfig(t *testing.T) {
 	t.Parallel()
 	testCerts := loadCerts(t)
 
-	config := grpc3.ClientConfig{}
-	client, err := grpc3.NewGRPCClient(config)
+	config := commongrpc.ClientConfig{}
+	client, err := commongrpc.NewGRPCClient(config)
 	require.NoError(t, err)
 	require.Equal(t, tls.Certificate{}, client.Certificate())
 	require.False(t, client.TLSEnabled())
 	require.False(t, client.MutualTLSRequired())
 
-	secOpts := grpc3.SecureOptions{
+	secOpts := commongrpc.SecureOptions{
 		UseTLS: false,
 	}
 	config.SecOpts = secOpts
-	client, err = grpc3.NewGRPCClient(config)
+	client, err = commongrpc.NewGRPCClient(config)
 	require.NoError(t, err)
 	require.Equal(t, tls.Certificate{}, client.Certificate())
 	require.False(t, client.TLSEnabled())
 	require.False(t, client.MutualTLSRequired())
 
-	secOpts = grpc3.SecureOptions{
+	secOpts = commongrpc.SecureOptions{
 		UseTLS:            true,
 		ServerRootCAs:     [][]byte{testCerts.caPEM},
 		RequireClientCert: false,
 	}
 	config.SecOpts = secOpts
-	client, err = grpc3.NewGRPCClient(config)
+	client, err = commongrpc.NewGRPCClient(config)
 	require.NoError(t, err)
 	require.True(t, client.TLSEnabled())
 	require.False(t, client.MutualTLSRequired())
 
-	secOpts = grpc3.SecureOptions{
+	secOpts = commongrpc.SecureOptions{
 		Certificate:       testCerts.certPEM,
 		Key:               testCerts.keyPEM,
 		UseTLS:            true,
@@ -83,7 +83,7 @@ func TestNewGRPCClient_GoodConfig(t *testing.T) {
 		RequireClientCert: true,
 	}
 	config.SecOpts = secOpts
-	client, err = grpc3.NewGRPCClient(config)
+	client, err = commongrpc.NewGRPCClient(config)
 	require.NoError(t, err)
 	require.True(t, client.TLSEnabled())
 	require.True(t, client.MutualTLSRequired())
@@ -95,13 +95,13 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 	testCerts := loadCerts(t)
 
 	// bad root cert
-	config := grpc3.ClientConfig{
-		SecOpts: grpc3.SecureOptions{
+	config := commongrpc.ClientConfig{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:        true,
 			ServerRootCAs: [][]byte{[]byte(badPEM)},
 		},
 	}
-	_, err := grpc3.NewGRPCClient(config)
+	_, err := commongrpc.NewGRPCClient(config)
 	require.Error(t, err)
 	// TLSConfig names which pool failed and why, rather than just "error adding root
 	// certificate".
@@ -110,45 +110,45 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 
 	// missing key
 	missing := "both Key and Certificate are required when using mutual TLS"
-	config.SecOpts = grpc3.SecureOptions{
+	config.SecOpts = commongrpc.SecureOptions{
 		Certificate:       []byte("cert"),
 		UseTLS:            true,
 		RequireClientCert: true,
 	}
-	_, err = grpc3.NewGRPCClient(config)
+	_, err = commongrpc.NewGRPCClient(config)
 	require.Error(t, err)
 	require.Equal(t, missing, err.Error())
 
 	// missing cert
-	config.SecOpts = grpc3.SecureOptions{
+	config.SecOpts = commongrpc.SecureOptions{
 		Key:               []byte("key"),
 		UseTLS:            true,
 		RequireClientCert: true,
 	}
-	_, err = grpc3.NewGRPCClient(config)
+	_, err = commongrpc.NewGRPCClient(config)
 	require.Error(t, err)
 	require.Equal(t, missing, err.Error())
 
 	// bad key
 	failed := "failed loading TLS key pair"
-	config.SecOpts = grpc3.SecureOptions{
+	config.SecOpts = commongrpc.SecureOptions{
 		Certificate:       testCerts.certPEM,
 		Key:               []byte(badPEM),
 		UseTLS:            true,
 		RequireClientCert: true,
 	}
-	_, err = grpc3.NewGRPCClient(config)
+	_, err = commongrpc.NewGRPCClient(config)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), failed)
 
 	// bad cert
-	config.SecOpts = grpc3.SecureOptions{
+	config.SecOpts = commongrpc.SecureOptions{
 		Certificate:       []byte(badPEM),
 		Key:               testCerts.keyPEM,
 		UseTLS:            true,
 		RequireClientCert: true,
 	}
-	_, err = grpc3.NewGRPCClient(config)
+	_, err = commongrpc.NewGRPCClient(config)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), failed)
 }
@@ -169,14 +169,14 @@ func TestNewConnection(t *testing.T) {
 	tests := []struct {
 		name          string
 		clientAddress string
-		config        grpc3.ClientConfig
+		config        commongrpc.ClientConfig
 		serverTLS     *tls.Config
 		success       bool
 		errorMsg      string
 	}{
 		{
 			name: "client / server same port",
-			config: grpc3.ClientConfig{
+			config: commongrpc.ClientConfig{
 				Timeout: testTimeout,
 			},
 			success: true,
@@ -184,7 +184,7 @@ func TestNewConnection(t *testing.T) {
 		{
 			name:          "client / server wrong port",
 			clientAddress: badAddress,
-			config: grpc3.ClientConfig{
+			config: commongrpc.ClientConfig{
 				Timeout: time.Second,
 			},
 			success:  false,
@@ -193,7 +193,7 @@ func TestNewConnection(t *testing.T) {
 		{
 			name:          "client / server wrong port but with asynchronous should succeed",
 			clientAddress: badAddress,
-			config: grpc3.ClientConfig{
+			config: commongrpc.ClientConfig{
 				AsyncConnect: true,
 				Timeout:      testTimeout,
 			},
@@ -201,8 +201,8 @@ func TestNewConnection(t *testing.T) {
 		},
 		{
 			name: "client TLS / server no TLS",
-			config: grpc3.ClientConfig{
-				SecOpts: grpc3.SecureOptions{
+			config: commongrpc.ClientConfig{
+				SecOpts: commongrpc.SecureOptions{
 					Certificate:       testCerts.certPEM,
 					Key:               testCerts.keyPEM,
 					UseTLS:            true,
@@ -216,8 +216,8 @@ func TestNewConnection(t *testing.T) {
 		},
 		{
 			name: "client TLS / server TLS match",
-			config: grpc3.ClientConfig{
-				SecOpts: grpc3.SecureOptions{
+			config: commongrpc.ClientConfig{
+				SecOpts: commongrpc.SecureOptions{
 					Certificate:   testCerts.certPEM,
 					Key:           testCerts.keyPEM,
 					UseTLS:        true,
@@ -232,8 +232,8 @@ func TestNewConnection(t *testing.T) {
 		},
 		{
 			name: "client TLS / server TLS no server roots",
-			config: grpc3.ClientConfig{
-				SecOpts: grpc3.SecureOptions{
+			config: commongrpc.ClientConfig{
+				SecOpts: commongrpc.SecureOptions{
 					Certificate:   testCerts.certPEM,
 					Key:           testCerts.keyPEM,
 					UseTLS:        true,
@@ -249,8 +249,8 @@ func TestNewConnection(t *testing.T) {
 		},
 		{
 			name: "client TLS / server TLS missing client cert",
-			config: grpc3.ClientConfig{
-				SecOpts: grpc3.SecureOptions{
+			config: commongrpc.ClientConfig{
+				SecOpts: commongrpc.SecureOptions{
 					Certificate:   testCerts.certPEM,
 					Key:           testCerts.keyPEM,
 					UseTLS:        true,
@@ -268,8 +268,8 @@ func TestNewConnection(t *testing.T) {
 		},
 		{
 			name: "client TLS / server TLS client cert",
-			config: grpc3.ClientConfig{
-				SecOpts: grpc3.SecureOptions{
+			config: commongrpc.ClientConfig{
+				SecOpts: commongrpc.SecureOptions{
 					Certificate:       testCerts.certPEM,
 					Key:               testCerts.keyPEM,
 					UseTLS:            true,
@@ -287,8 +287,8 @@ func TestNewConnection(t *testing.T) {
 		},
 		{
 			name: "server TLS pinning success",
-			config: grpc3.ClientConfig{
-				SecOpts: grpc3.SecureOptions{
+			config: commongrpc.ClientConfig{
+				SecOpts: commongrpc.SecureOptions{
 					VerifyCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 						if bytes.Equal(rawCerts[0], testCerts.serverCert.Certificate[0]) {
 							return nil
@@ -312,8 +312,8 @@ func TestNewConnection(t *testing.T) {
 		},
 		{
 			name: "server TLS pinning failure",
-			config: grpc3.ClientConfig{
-				SecOpts: grpc3.SecureOptions{
+			config: commongrpc.ClientConfig{
+				SecOpts: commongrpc.SecureOptions{
 					VerifyCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
 						return errors.New("TLS certificate mismatch")
 					},
@@ -348,7 +348,7 @@ func TestNewConnection(t *testing.T) {
 			go func() {
 				_ = srv.Serve(lis)
 			}()
-			client, err := grpc3.NewGRPCClient(test.config)
+			client, err := commongrpc.NewGRPCClient(test.config)
 			require.NoError(t, err, "error creating client for test")
 			address := lis.Addr().String()
 			if test.clientAddress != "" {
@@ -374,9 +374,9 @@ func TestNewConnection(t *testing.T) {
 func TestClientPresentsKeypairOnlyForMutualTLS(t *testing.T) {
 	t.Parallel()
 	testCerts := loadCerts(t)
-	dial := func(requireClientCert bool) *grpc3.Client {
-		c, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
-			SecOpts: grpc3.SecureOptions{
+	dial := func(requireClientCert bool) *commongrpc.Client {
+		c, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:            true,
 				Certificate:       testCerts.certPEM,
 				Key:               testCerts.keyPEM,
@@ -424,8 +424,8 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 	// Create a client that will connect to the server
 	// The client expects "correct-hostname.example.com" but will connect to 127.0.0.1
 	// This should cause a SAN mismatch error
-	client, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
-		SecOpts: grpc3.SecureOptions{
+	client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:        true,
 			ServerRootCAs: [][]byte{ca.CertBytes()},
 		},
@@ -457,14 +457,14 @@ func TestSetServerRootCAs(t *testing.T) {
 	t.Parallel()
 	testCerts := loadCerts(t)
 
-	config := grpc3.ClientConfig{
-		SecOpts: grpc3.SecureOptions{
+	config := commongrpc.ClientConfig{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:        true,
 			ServerRootCAs: [][]byte{testCerts.caPEM},
 		},
 		Timeout: testTimeout,
 	}
-	client, err := grpc3.NewGRPCClient(config)
+	client, err := commongrpc.NewGRPCClient(config)
 	require.NoError(t, err, "error creating base client")
 
 	// set up test TLS server
@@ -521,7 +521,7 @@ func TestSetMessageSize(t *testing.T) {
 	// setup test server
 	lis := createListener(t)
 	address := lis.Addr().String()
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{HealthCheckEnabled: true})
 	require.NoError(t, err, "failed to create test server")
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 	go func() { _ = srv.Start() }()
@@ -569,7 +569,7 @@ func TestSetMessageSize(t *testing.T) {
 			t.Parallel()
 			t.Log(test.name)
 			// set up test client
-			client, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
+			client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{
 				Timeout: testTimeout,
 			})
 			require.NoError(t, err)
@@ -619,7 +619,7 @@ func TestClientConfigMessageSize(t *testing.T) {
 
 	lis := createListener(t)
 	address := lis.Addr().String()
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{HealthCheckEnabled: true})
 	require.NoError(t, err)
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 	go func() { _ = srv.Start() }()
@@ -628,21 +628,21 @@ func TestClientConfigMessageSize(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  grpc3.ClientConfig
+		config  commongrpc.ClientConfig
 		wantErr string
 	}{
 		{
 			name:   "unset falls back to the package default",
-			config: grpc3.ClientConfig{Timeout: testTimeout},
+			config: commongrpc.ClientConfig{Timeout: testTimeout},
 		},
 		{
 			name:    "explicit recv limit is honored",
-			config:  grpc3.ClientConfig{Timeout: testTimeout, MaxRecvMsgSize: 1},
+			config:  commongrpc.ClientConfig{Timeout: testTimeout, MaxRecvMsgSize: 1},
 			wantErr: "received message larger than max",
 		},
 		{
 			name:    "explicit send limit is honored",
-			config:  grpc3.ClientConfig{Timeout: testTimeout, MaxSendMsgSize: 1},
+			config:  commongrpc.ClientConfig{Timeout: testTimeout, MaxSendMsgSize: 1},
 			wantErr: "trying to send message larger than max",
 		},
 	}
@@ -651,7 +651,7 @@ func TestClientConfigMessageSize(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			client, err := grpc3.NewGRPCClient(test.config)
+			client, err := commongrpc.NewGRPCClient(test.config)
 			require.NoError(t, err)
 			conn, err := client.NewConnection(address)
 			require.NoError(t, err)
@@ -680,14 +680,14 @@ func TestCreateGRPCClientCarriesMessageSize(t *testing.T) {
 
 	lis := createListener(t)
 	address := lis.Addr().String()
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{HealthCheckEnabled: true})
 	require.NoError(t, err)
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 	go func() { _ = srv.Start() }()
 	t.Cleanup(srv.Stop)
 	waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	client, err := grpc3.CreateGRPCClient(&grpc3.ConnectionConfig{
+	client, err := commongrpc.CreateGRPCClient(&commongrpc.ConnectionConfig{
 		Address:           address,
 		ConnectionTimeout: testTimeout,
 		MaxRecvMsgSize:    1,
@@ -747,10 +747,10 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	serverKP, err := ca2.NewServerCertKeyPair("127.0.0.1")
 	require.NoError(t, err)
 
-	client, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
+	client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{
 		AsyncConnect: true,
 		Timeout:      time.Second * 1,
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:        true,
 			ServerRootCAs: [][]byte{ca1.CertBytes()},
 			Certificate:   clientKP.Cert,
@@ -759,10 +759,10 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	server, err := grpc3.NewGRPCServer("127.0.0.1:0", grpc3.ServerConfig{
+	server, err := commongrpc.NewGRPCServer("127.0.0.1:0", commongrpc.ServerConfig{
 		HealthCheckEnabled: true,
 		Logger:             logging.MustGetLogger(),
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:      true,
 			Key:         serverKP.Key,
 			Certificate: serverKP.Cert,

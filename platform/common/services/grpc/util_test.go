@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
 
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 )
 
 func waitServerReady(t *testing.T, address string, dialOptions ...grpc.DialOption) {
@@ -44,19 +44,19 @@ func waitServerReady(t *testing.T, address string, dialOptions ...grpc.DialOptio
 
 func TestExtractCertificateHashFromContext(t *testing.T) {
 	t.Parallel()
-	require.Nil(t, grpc3.ExtractCertificateHashFromContext(t.Context()))
+	require.Nil(t, commongrpc.ExtractCertificateHashFromContext(t.Context()))
 
 	p := &peer.Peer{}
 	ctx := peer.NewContext(t.Context(), p)
-	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Nil(t, commongrpc.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = &nonTLSConnection{}
 	ctx = peer.NewContext(t.Context(), p)
-	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Nil(t, commongrpc.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = credentials.TLSInfo{}
 	ctx = peer.NewContext(t.Context(), p)
-	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Nil(t, commongrpc.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = credentials.TLSInfo{
 		State: tls.ConnectionState{
@@ -68,7 +68,7 @@ func TestExtractCertificateHashFromContext(t *testing.T) {
 	ctx = peer.NewContext(t.Context(), p)
 	h := sha256.New()
 	h.Write([]byte{1, 2, 3})
-	require.Equal(t, h.Sum(nil), grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Equal(t, h.Sum(nil), commongrpc.ExtractCertificateHashFromContext(ctx))
 }
 
 type nonTLSConnection struct{}
@@ -79,7 +79,7 @@ func (*nonTLSConnection) AuthType() string {
 
 func TestGetLocalIP(t *testing.T) {
 	t.Parallel()
-	ip, err := grpc3.GetLocalIP()
+	ip, err := commongrpc.GetLocalIP()
 	require.NoError(t, err)
 	t.Log(ip)
 }
@@ -87,6 +87,6 @@ func TestGetLocalIP(t *testing.T) {
 func TestAddPemToCertPoolIgnoresNonPEM(t *testing.T) {
 	t.Parallel()
 	pool := x509.NewCertPool()
-	require.NoError(t, grpc3.AddPemToCertPool([]byte("badcert"), pool))
+	require.NoError(t, commongrpc.AddPemToCertPool([]byte("badcert"), pool))
 	require.True(t, pool.Equal(x509.NewCertPool()))
 }

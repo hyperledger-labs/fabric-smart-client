@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/stats"
 
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -33,7 +33,7 @@ func TestConnectionCounters(t *testing.T) {
 
 	openConn := &mock.Counter{}
 	closedConn := &mock.Counter{}
-	sh := &grpc3.ServerStatsHandler{
+	sh := &commongrpc.ServerStatsHandler{
 		OpenConnCounter:   openConn,
 		ClosedConnCounter: closedConn,
 	}
@@ -69,11 +69,11 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	gt.Expect(err).NotTo(HaveOccurred())
-	srv, err := grpc3.NewGRPCServerFromListener(
+	srv, err := commongrpc.NewGRPCServerFromListener(
 		listener,
-		grpc3.ServerConfig{
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
-			ServerStatsHandler: grpc3.NewServerStatsHandler(fakeProvider),
+		commongrpc.ServerConfig{
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
+			ServerStatsHandler: commongrpc.NewServerStatsHandler(fakeProvider),
 		},
 	)
 	gt.Expect(err).NotTo(HaveOccurred())

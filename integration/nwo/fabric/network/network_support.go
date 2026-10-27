@@ -30,7 +30,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
-	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -894,7 +894,7 @@ func (n *Network) Osnadmin(command common.Command) (*gexec.Session, error) {
 
 // OrdererRunner returns an ifrit.Runner for the specified orderer. The runner
 // can be used to start and manage an orderer process.
-func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
+func (n *Network) OrdererRunner(o *topology.Orderer) *runner.Runner {
 	cmdPath := n.findCmdAtEnv(ordererCMD)
 	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", ordererCMD, FabricBinsPathEnvKey, n.binDir())
 
@@ -903,7 +903,7 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.OrdererDir(o)))
 	cmd.Env = append(cmd.Env, "FABRIC_LOGGING_SPEC="+n.Logging.Spec)
 
-	config := runner2.Config{
+	config := runner.Config{
 		AnsiColorCode:     n.nextColor(),
 		Name:              n.Prefix + "-" + o.ID(),
 		Command:           cmd,
@@ -925,12 +925,12 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 		config.Stderr = f
 	}
 
-	return runner2.New(config)
+	return runner.New(config)
 }
 
 // PeerRunner returns an ifrit.Runner for the specified peer. The runner can be
 // used to start and manage a peer process.
-func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
+func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner.Runner {
 	cmd := n.peerCommand(commands.NodeStart{
 		NetworkPrefix: n.Prefix,
 		PeerID:        p.ID(),
@@ -946,7 +946,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("CORE_VM_ENDPOINT=%s", dockerEndpoint))
 	}
 
-	config := runner2.Config{
+	config := runner.Config{
 		AnsiColorCode:     n.nextColor(),
 		Name:              n.Prefix + "-" + p.ID(),
 		Command:           cmd,
@@ -967,7 +967,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		config.Stderr = f
 	}
 
-	return runner2.New(config)
+	return runner.New(config)
 }
 
 func (n *Network) PeerLogsFolder() string {

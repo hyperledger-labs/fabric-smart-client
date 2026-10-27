@@ -8,14 +8,14 @@ package pingpong
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type StreamerView struct{}
 
 func (*StreamerView) Call(viewCtx view.Context) (any, error) {
-	stream := view2.GetStream(viewCtx)
+	stream := viewservice.GetStream(viewCtx)
 	assert.NoError(stream.Send("hello"), "failed to send hello")
 	var msg string
 	assert.NoError(stream.Recv(&msg), "failed to receive message")
