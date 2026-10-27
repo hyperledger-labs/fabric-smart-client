@@ -33,13 +33,15 @@ For background on these concepts, see [Database drivers](db-driver.md).
 
 ## Table Naming
 
-Table names are built from:
+A table name is `<prefix>_<params>_<suffix>`, or `<prefix>_<suffix>` for a store without parameters:
 
 1. the configured `tablePrefix` for the selected persistence
-2. a store-specific suffix such as `kvs`, `bind`, `env`, or `vstate`
-3. optional naming parameters such as `default`, network name, or channel name
+2. optional naming parameters such as `default`, network name, or channel name, joined with `_` and then escaped as below, so the separator appears as `__`
+3. a store-specific suffix such as `kvs`, `bind`, `env`, or `vstate`
 
-If no `tablePrefix` is set, FSC uses `fsc`.
+If no `tablePrefix` is set, FSC uses `fsc`. A prefix may contain only letters and underscores, may be at most 100 characters
+long, and is lowercased. After escaping, the parameters may contain only letters and underscores, so a network or channel name
+with a digit (such as `channel1`) is rejected and the store fails to open.
 
 ### Parameter Escaping
 

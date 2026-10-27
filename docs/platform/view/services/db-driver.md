@@ -23,9 +23,10 @@ We support the following types:
 * The `dataSource` defines the concrete underlying DB.
 Two persistences that share the same `type` but not `dataSource`, have different underlying databases (although both of these database are of the same type).
 
-* Further properties such as `tablePrefix`, `maxIdleConns` defines the persistence.
-Two persistences can share the same `type` and `dataSource`, but not the rest of the options.
-In this case, separate connections will be opened for each persistence and different table prefixes will be used (if defined so).
+* Further properties such as `tablePrefix` and `maxIdleConns` complete the persistence.
+Two persistences can share the same `type` and `dataSource` and differ in the rest of the options.
+Connection pools are cached by `dataSource` (on Postgres, by `dataSource` and `tls` block), so such persistences share one pool, and the pool settings (`maxOpenConns`, `maxIdleConns`, `maxIdleTime`, and `skipPragmas` on SQLite or `startupConnectTimeout` on Postgres) of the first store opened on it apply to all of them.
+`tablePrefix` and `skipCreateTable` stay per persistence.
 
 We can have one or more persistences in a project, as well as one optional fallback persistence (`default`).
 
@@ -42,16 +43,18 @@ However, they all share one common interface such as the following:
 
 ```go
 type BindingStore interface {
-    GetLongTerm(ephemeral view.Identity) (view.Identity, error)
-    HaveSameBinding(this, that view.Identity) (bool, error)
-    PutBindings(longTerm view.Identity, ephemeral ...view.Identity) error
+	GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error)
+	HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error)
+	PutBindings(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 }
 
 type AuditInfoStore interface {
-    GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error)
-    PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error
+	GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error)
+	PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error
 }
 ```
+
+The store interfaces are defined in `platform/common/driver/kvs.go`.
 
 ### Driver
 A driver is responsible for the instantiation of multiple (or usually all) stores.
@@ -60,20 +63,26 @@ It has multiple implementations: one for each persistence type.
 * `postgres.Driver`: Postgres DB via remote connection to standalone running DB (e.g. container)
 * `sqlite.Driver`: Sqlite DB in the local filesystem
 
-Aside to the database-related implementations of the `Driver` interface (i.e. `memory.Driver`, `postgres.Driver`, `sqlite.Driver`), there is a `multiplexer.Driver` that reads the underlying configuration and instantiates the store using the correct driver.
+Aside to the database-related implementations of the `Driver` interface (i.e. `memory.Driver`, `postgres.Driver`, `sqlite.Driver`), there is a `multiplexed.Driver` that reads the underlying configuration and instantiates the store using the correct driver.
 
 During instantiation, the driver has access to the persistence `opts`.
 This way, it takes care of:
-* opening the connection to the DB (unless we are re-using the same `dataSource`)
-* the creation of the schema (unless it has already been created by another store before)
+* opening the connection pool to the DB (unless a pool for the same `dataSource` is already open)
+* the creation of the schema (`CREATE TABLE IF NOT EXISTS`), skipped for every store of the persistence when `skipCreateTable: true`
 * the instantiation of the service that builds and executes the queries to the database
-The driver interface of an application has the following format:
+
+The driver interface, from `platform/view/services/storage/driver/driver.go`:
 
 ```go
 type Driver interface {
-    NewBindingStore(name PersistenceName, params ...string) (BindingStore, error)
-    NewAuditInfoStore(name PersistenceName, params ...string) (AuditInfoStore, error)
-	...
+	// NewKVS returns a new KeyValueStore for the passed data source and config
+	NewKVS(PersistenceName, ...string) (KeyValueStore, error)
+	// NewBinding returns a new BindingStore for the passed data source and config
+	NewBinding(PersistenceName, ...string) (BindingStore, error)
+	// NewSignerInfo returns a new SignerInfoStore for the passed data source and config
+	NewSignerInfo(PersistenceName, ...string) (SignerInfoStore, error)
+	// NewAuditInfo returns a new AuditInfoStore for the passed data source and config
+	NewAuditInfo(PersistenceName, ...string) (AuditInfoStore, error)
 }
 ```
 
@@ -100,7 +109,7 @@ fsc.persistences:
   my_custom_postgres_2:
     type: postgres
     opts:
-      dataSource: dataSource1   # Reuses the same connection as default, but opens a new connection
+      dataSource: dataSource1   # Shares the connection pool of default
       tablePrefix: non_default
   my_custom_mem:
     type: memory                # No options required for memory
@@ -118,18 +127,23 @@ If there is no `default`, the FSC stores fall back to `memory` and log a warning
 Creating a store fails if it references a name that is not defined under `fsc.persistences`, or if the referenced persistence sets no `type`.
 
 ```yaml
-fabric:
-  my_network:
-    metadata:
-      persistence: my_custom_postgres
-    audit:
-      persistence:  # The default will be chosen
 fsc:
-  signer:
+  metadata:
+    persistence: my_custom_postgres
+  auditinfo:
+    persistence:  # The default will be chosen
+  signerinfo:
     persistence: my_custom_postgres # Will re-use the same persistence
 ```
 
-The `Config` passed into the driver for the instantiation of a store, must be prefixed so that `Config.IsSet("type")` returns true.
+The drivers resolve a persistence name to its `fsc.persistences.<name>` block through `platform/view/services/storage/driver/common/config.go`.
+
+`CORE_FSC_PERSISTENCES_<NAME>_OPTS_<KEY>` overrides a persistence option for a name without underscores; see [Overriding configuration keys](../../../configuration.md#overriding-configuration-keys).
+
+### Transaction isolation levels
+
+Postgres accepts every `driver.IsolationLevel` except `LevelWriteCommitted` and `LevelLinearizable`, which the pgx driver rejects when the transaction begins; `LevelSnapshot` runs as `REPEATABLE READ`.
+SQLite accepts only `LevelDefault` and `LevelSerializable` and rejects any other level.
 
 ## Extending the Driver on the same Project
 
@@ -137,10 +151,9 @@ If you want to add a new store (e.g. `TransactionStore`), you will need to:
 * extend the `Driver` interface with one more method that has the same inputs
 ```go
 type Driver interface {
-    NewBindingStore(name PersistenceName, params ...string) (BindingStore, error)
-    NewAuditInfoStore(name PersistenceName, params ...string) (AuditInfoStore, error)
-    ...
-	NewTransactionStore(name PersistenceName, params ...string) (TransactionStore, error)
+	NewKVS(PersistenceName, ...string) (KeyValueStore, error)
+	...
+	NewTransaction(PersistenceName, ...string) (TransactionStore, error)
 }
 ```
 * implement it for all 4 drivers (DB specific and multiplexed)
@@ -151,6 +164,6 @@ Although in the scope of this project, it is sufficient to extend the existing D
 
 In that case, you will need to create a new Driver interface that follows the same principles as before (containing only the new stores) and make sure that:
 * the `Driver` is implemented by all necessary DBs. If you do not support `memory` in your `core.yaml`, then there is no need to create an extending `Driver`. Similarly, if you want to support more DBs, you will need to extend them accordingly.
-* there is a new `multiplexer.Driver` that combines the rest of the `Driver` implementations
+* there is a new `multiplexed.Driver` that combines the rest of the `Driver` implementations
 * the `Driver` implementations are wired in the SDK
 * there is a section in the `core.yaml` that follows the same format and defines the characteristics of the store

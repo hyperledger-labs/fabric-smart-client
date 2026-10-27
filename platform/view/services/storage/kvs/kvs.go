@@ -22,10 +22,8 @@ import (
 var logger = logging.MustGetLogger()
 
 const (
-	cacheSizeConfigKey       = "fsc.kvs.cache.size"
-	persistenceType          = "fsc.kvs.persistence.type"
-	persistenceOptsConfigKey = "fsc.kvs.persistence.opts"
-	DefaultCacheSize         = 100
+	cacheSizeConfigKey = "fsc.kvs.cache.size"
+	DefaultCacheSize   = 100
 )
 
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider

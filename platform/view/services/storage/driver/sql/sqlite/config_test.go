@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	fscconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
@@ -75,4 +78,33 @@ func TestGetOptsUnmarshalError(t *testing.T) {
 	_, err := cp.GetOpts("")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bad config")
+}
+
+// TestGetOptsFromEnv checks that CORE_FSC_PERSISTENCES_<NAME>_OPTS_DATASOURCE overrides the
+// data source of a persistence, and that a variable under the store key that names the
+// persistence replaces the name, so the store can no longer resolve its persistence.
+func TestGetOptsFromEnv(t *testing.T) { //nolint:paralleltest // t.Setenv
+	t.Setenv("CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE", "from-env")
+	t.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "ignored")
+	dir := t.TempDir()
+	yaml := `
+fsc:
+  persistences:
+    default:
+      type: sqlite
+      opts:
+        dataSource: from-file
+  kvs:
+    persistence: default
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(yaml), 0o600))
+	p, err := fscconfig.NewProvider(dir)
+	require.NoError(t, err)
+
+	o, err := NewConfigProvider(common3.NewConfig(p)).GetOpts("default")
+	require.NoError(t, err)
+	assert.Equal(t, "from-env", o.DataSource)
+
+	_, err = common3.GetPersistenceName(p, "fsc.kvs.persistence")
+	require.Error(t, err)
 }

@@ -43,12 +43,13 @@ The environment variable `CORE_FABRIC_NETWORK1_NAME` maps to the configuration k
 ```yaml
 fsc:
   id: node1
-  kvs:
-    persistence:
-      type: sql
+  persistences:
+    mydb:
+      type: sqlite
       opts:
-        driver: sqlite
         dataSource: ./db/kvs.db
+  kvs:
+    persistence: mydb
 
 logging:
   spec: info
@@ -75,7 +76,7 @@ func (s *MyService) DoSomething(config *config.Provider) {
     enabled := config.GetBool("fabric.network1.enabled")
     
     // Get a path (automatically translated if relative)
-    dbPath := config.GetPath("fsc.kvs.persistence.opts.dataSource")
+    dbPath := config.GetPath("fsc.persistences.mydb.opts.dataSource")
     
     // Unmarshal a sub-tree into a struct
     var opts MyOptions

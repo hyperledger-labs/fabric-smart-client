@@ -366,7 +366,7 @@ with `encode(pkey, 'escape')`.
 - `tx_id`, `code`, `message`, `pos`
 
 **Vault state** (`fsc_<network>__<channel>_vstate`):
-- `ns`, `pkey`, `val`, `metadata`, `version`
+- `ns`, `pkey`, `val`, `metadata`, `kversion`
 
 **Envelopes** (`fsc_default_env`):
 - `key` (format: `network.channel.txid`), `data`

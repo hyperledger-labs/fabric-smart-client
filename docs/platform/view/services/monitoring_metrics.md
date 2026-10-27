@@ -226,7 +226,7 @@ Components that report connection state:
 | `orderer` | Fabric network, empty channel | Orderer a broadcast stream is open to, from `fabric.<network>.orderers` or the channel configuration | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state. |
 | `fabricx_notification` | Fabric-x network and channel | Notification service endpoint the channel's finality listener manager is connected to, from `fabric.<network>.notificationService.endpoints` | `connecting` on the first stream attempt, `connected` once a notification stream opens, `reconnecting` while the manager backs off before the next attempt, `disconnected` once the node's context ends. |
 | `fabricx_query` | Fabric-x network and channel; empty channel for queries made by the ledger | Query service endpoint, from `fabric.<network>.queryService.endpoints` | `connected` after each query the service answers, including with an error, `reconnecting` after a query that fails with `Unavailable`. A query that times out does not change the state. The series is created by the first answered query. |
-| `database` | empty | `host:port/dbname` of a Postgres data source, from `fsc.persistences.<name>.opts.dataSource` (see `data_source` below) | `connected` after a successful liveness ping, `reconnecting` after a failed one, `disconnected` on a clean shutdown. Each connection pool is pinged every 10 s. SQLite reports no state. |
+| `database` | empty | `host:port/dbname` of a Postgres data source, from `fsc.persistences.<name>.opts.dataSource` (see `data_source` below) | `connected` after a successful liveness ping, `reconnecting` after a failed one. Never `disconnected`: pools are never closed, so each pool is pinged every 10 s until the process exits. SQLite reports no state. |
 
 Operational notes:
 
@@ -253,7 +253,7 @@ Primary implementation: `platform/view/services/metrics/connstate/connstate.go`,
 | `fsc_database_wait_count` | gauge | `data_source` | Total number of times a caller waited for a connection. |
 | `fsc_database_wait_duration_seconds` | gauge | `data_source` | Total time callers waited for a connection. |
 
-The values are `sql.DBStats` of each Postgres connection pool, sampled every 10 s. `wait_count` and `wait_duration_seconds` only grow; alert on their rate. The liveness ping keeps one connection open, so `open_connections` stays at 1 or more. While every connection is in use, the ping is skipped and the state stays `connected`.
+The values are `sql.DBStats` of each Postgres connection pool, sampled every 10 s. `wait_count` and `wait_duration_seconds` only grow; alert on their rate. The liveness ping keeps one connection open, so `open_connections` stays at 1 or more. When `maxOpenConns` is set and every connection is in use, the ping is skipped and the state stays `connected`.
 
 The `data_source` label is `host:port/dbname` of the first host in the data source; for a unix socket, `host` is the socket directory, and a data source that cannot be parsed is labeled `unknown`. Pools whose data sources differ only in user or connection options share the label and therefore one series.
 
@@ -298,7 +298,9 @@ Operational notes:
   transient faults and recovering on its own. It is worth a dashboard, not a page.
   While the database is unreachable the committer keeps retrying the same block
   until the database comes back, so a long outage shows up as `commit_retries`
-  rising for as long as it lasts, not as a `commit_failures` increment. To page on
+  rising for as long as it lasts, not as a `commit_failures` increment. Which
+  Postgres errors count as an unreachable database is listed in
+  [Postgres errors](../../../configuration.md#postgres-errors). To page on
   a long outage, alert on the `database` connection state staying `reconnecting`,
   or on `commit_retries` rising for longer than the outage you tolerate.
 - **Any** increment of `commit_failures` means that channel has stopped ingesting
