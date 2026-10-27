@@ -525,4 +525,6 @@ fsc:
 	tls, ok := p.RawSubtree("fsc.persistences.default.opts.tls")
 	require.True(t, ok)
 	assert.Equal(t, map[string]any{"ssl_mode": "require"}, tls)
+	// "___" reads as "__" then "_", so no level after the first can start with "_".
+	assert.Equal(t, "a_.b", envKeyReplacer.Replace("a___b"))
 }

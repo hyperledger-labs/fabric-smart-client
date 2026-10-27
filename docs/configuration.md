@@ -902,18 +902,6 @@ CORE_FSC_TRACING_OTLP_ADDRESS=jaeger.example.com:4318
 CORE_FABRIC_MYNETWORK_KEEPALIVE_TIME=120s
 ```
 
-A key whose value is a list of strings, such as `fsc.view.remote.backends` or
-`fsc.view.remote.clients`, takes a comma-separated value; spaces around an item are
-trimmed and empty items are dropped. The variable replaces the whole list from the file,
-and an item cannot contain a comma:
-
-```sh
-CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web
-CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
-```
-
-And so on.
-
 A single `_` in a variable name separates two levels of the key, and `__` stands for a
 literal `_` within one level. This reaches persistence names and keys that contain an
 underscore:
@@ -926,6 +914,16 @@ CORE_FSC_PERSISTENCES_DEFAULT_OPTS_TLS_SSL__MODE=require
 ```
 
 A key level that starts with `_`, other than the first, cannot be set from the environment.
+
+A key whose value is a list of strings, such as `fsc.view.remote.backends` or
+`fsc.view.remote.clients`, takes a comma-separated value; spaces around an item are
+trimmed and empty items are dropped. The variable replaces the whole list from the file,
+and an item cannot contain a comma:
+
+```sh
+CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web
+CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
+```
 
 ## HSM Support
 
