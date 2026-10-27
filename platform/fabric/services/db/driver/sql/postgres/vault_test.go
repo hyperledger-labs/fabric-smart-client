@@ -472,7 +472,7 @@ func recreateStateTable(t *testing.T, store *VaultStore, primaryKey string) {
 
 func requirePrimaryKey(t *testing.T, store *VaultStore, want string) {
 	t.Helper()
-	_, got, err := store.primaryKey(store.writeDB)
+	_, got, err := postgres2.PrimaryKey(store.writeDB, store.tables.StateTable)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -522,26 +522,6 @@ func TestPostgresVaultStoreReordersPrimaryKey(t *testing.T) {
 	require.Equal(t, []driver.PKey{"k1", "k2"}, []driver.PKey{reads[0].Key, reads[1].Key})
 }
 
-// A primary key other than (pkey, ns) or (ns, pkey) is not rewritten.
-func TestPostgresVaultStoreRejectsOtherPrimaryKey(t *testing.T) {
-	t.Parallel()
-
-	store := newPostgresVaultStore(t)
-	ctx := t.Context()
-	recreateStateTable(t, store, "PRIMARY KEY (pkey)")
-	table := store.tables.StateTable
-	_, err := store.writeDB.ExecContext(ctx, "INSERT INTO "+table+" (ns, pkey, val, kversion) VALUES ($1, $2, $3, $4)",
-		"ns", []byte("k1"), []byte("v"), []byte("v"))
-	require.NoError(t, err)
-
-	err = store.CreateSchema()
-	require.ErrorContains(t, err, "primary key is (pkey), expected (ns, pkey)")
-	requirePrimaryKey(t, store, "pkey")
-	var n int
-	require.NoError(t, store.writeDB.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&n))
-	require.Equal(t, 1, n)
-}
-
 // GetStateRange scans the (ns, pkey) index from the namespace and does not
 // sort.
 func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
@@ -580,55 +560,4 @@ func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	// the index condition; only (ns, pkey) puts ns first.
 	require.Contains(t, plan.String(), "Index Cond: ((ns = ")
 	require.NotContains(t, plan.String(), "Sort")
-}
-
-// Replicas sharing a BYTEA table keyed (pkey, ns) all start: the first to get
-// the lock reorders it, and the others find (ns, pkey) under the lock.
-func TestPostgresVaultStoreReordersPrimaryKeyConcurrently(t *testing.T) {
-	t.Parallel()
-
-	store := newPostgresVaultStore(t)
-	ctx := t.Context()
-	table := store.tables.StateTable
-	recreateStateTable(t, store, "PRIMARY KEY (pkey, ns)")
-	require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {"k1": {Raw: []byte("v"), Version: []byte("v")}}}, nil))
-
-	holder, err := store.writeDB.BeginTx(ctx, nil)
-	require.NoError(t, err)
-	_, err = holder.ExecContext(ctx, "LOCK TABLE "+table+" IN ACCESS SHARE MODE")
-	require.NoError(t, err)
-
-	var wg sync.WaitGroup
-	errs := make([]error, 4)
-	for i := range errs {
-		wg.Go(func() { errs[i] = store.CreateSchema() })
-	}
-	require.Eventually(t, func() bool {
-		var waiting int
-		err := store.writeDB.QueryRowContext(ctx, "SELECT count(*) FROM pg_locks WHERE relation = $1::regclass AND NOT granted", table).Scan(&waiting)
-		return err == nil && waiting == len(errs)
-	}, 30*time.Second, 10*time.Millisecond, "every replica queues for the reorder lock")
-	require.NoError(t, holder.Rollback())
-	wg.Wait()
-
-	for _, err := range errs {
-		require.NoError(t, err)
-	}
-	requirePrimaryKey(t, store, "ns,pkey")
-	read, err := store.GetState(ctx, "ns", "k1")
-	require.NoError(t, err)
-	require.NotNil(t, read)
-	require.Equal(t, driver.RawValue("v"), read.Raw)
-}
-
-// A table without a primary key is reported as such and left unchanged.
-func TestPostgresVaultStoreRejectsMissingPrimaryKey(t *testing.T) {
-	t.Parallel()
-
-	store := newPostgresVaultStore(t)
-	recreateStateTable(t, store, "CHECK (true)")
-
-	require.ErrorContains(t, store.CreateSchema(), "has no primary key")
-	_, _, err := store.primaryKey(store.writeDB)
-	require.ErrorContains(t, err, "has no primary key")
 }

@@ -93,7 +93,8 @@ Schema:
 
 Notes:
 
-- the primary key is `(pkey, ns)`
+- the primary key is `(ns, pkey)`
+- on startup a primary key of `(pkey, ns)` is reordered to `(ns, pkey)`
 - the database layer stores raw bytes
 - at the higher `kvs.KVS` API layer, values are often JSON-marshaled before they are persisted
 
@@ -240,5 +241,5 @@ The logical layout is the same across supported SQL backends, but some physical 
 
 These differences do not change the logical meaning of the data, but they matter when directly inspecting tables or writing backend-specific SQL.
 
-On startup the vault converts a Postgres state table whose `pkey` column is `TEXT` to `BYTEA`, and on both Postgres and SQLite it reorders a primary key of `(pkey, ns)` to `(ns, pkey)`. See
+On startup the vault converts a Postgres state table whose `pkey` column is `TEXT` to `BYTEA`, and on both Postgres and SQLite the vault and the key-value store reorder a primary key of `(pkey, ns)` to `(ns, pkey)`. See
 [Persistence: sqlite/postgres](../../../configuration.md#persistence-sqlitepostgres).

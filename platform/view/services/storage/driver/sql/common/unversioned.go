@@ -232,12 +232,15 @@ func (db *KeyValueStore) Stats() any {
 	return nil
 }
 
+// CreateSchema creates the key-value table if it does not exist, with primary
+// key (ns, pkey). A table created by an older version, whose primary key is
+// (pkey, ns), is reordered by the Postgres and SQLite stores that wrap this one.
 func (db *KeyValueStore) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
 		pkey BYTEA NOT NULL,
 		val BYTEA NOT NULL DEFAULT '',
-		PRIMARY KEY (pkey, ns)
+		PRIMARY KEY (ns, pkey)
 	);`, db.table))
 }
