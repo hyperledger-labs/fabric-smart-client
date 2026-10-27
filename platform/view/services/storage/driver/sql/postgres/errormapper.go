@@ -40,37 +40,50 @@ type ErrorMapper struct{}
 // WrapError returns err wrapped around the matching sentinel, or err unchanged
 // when none matches.
 //
-// A server error is matched by its SQLSTATE. An error the server did not report
-// is driver.ErrConnectionLost when it is a failed connect, a closed or bad
-// connection, a network error or an EOF on the socket; a failed connect includes
-// DNS and TLS failures, which a retry clears only if their cause is transient. A
-// context error is returned unchanged, although context.DeadlineExceeded is a
-// net.Error, because the context expired and not the connection.
+// A server error is matched by its SQLSTATE, also when the server reported it
+// while connecting: a rejected password or a missing database is returned
+// unchanged, because retrying it cannot succeed. An error the server did not
+// report is driver.ErrConnectionLost when it is a failed connect, a closed or
+// bad connection, a network error or an EOF on the socket; a failed connect
+// includes DNS and TLS failures, which a retry clears only if their cause is
+// transient.
+//
+// A cancelled context is returned unchanged, so that a caller shutting down is
+// not told to retry. A failed connect is a lost connection even when it ended
+// with context.DeadlineExceeded: pgx reports a connect_timeout that way, and
+// because the connect_timeout context derives from the caller's, a caller
+// deadline that expires while connecting produces the same error. A caller that
+// owns a deadline checks its own context before retrying. Any other context.DeadlineExceeded is
+// returned unchanged, although it is a net.Error, because the context expired
+// and not the connection.
 func (*ErrorMapper) WrapError(err error) error {
-	if err == nil || stderrors.Is(err, context.DeadlineExceeded) || stderrors.Is(err, context.Canceled) {
+	if err == nil || stderrors.Is(err, context.Canceled) {
 		return err
 	}
-	var pgErr *pgconn.PgError
-	if !stderrors.As(err, &pgErr) {
-		if isConnectionLost(err) {
-			return errors.Wrapf(driver.ErrConnectionLost, "%s", err)
+	if pgErr, ok := stderrors.AsType[*pgconn.PgError](err); ok {
+		mappedErr, ok := errorMap[pgErr.Code]
+		if !ok {
+			logger.Debugf("unmapped postgres error with code [%s]", pgErr.Code)
+			return err
 		}
-		logger.Debugf("error of type [%T] not pgError", err)
+		return errors.Wrapf(mappedErr, "%s", err)
+	}
+	if _, ok := stderrors.AsType[*pgconn.ConnectError](err); ok {
+		return errors.Wrapf(driver.ErrConnectionLost, "%s", err)
+	}
+	if stderrors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
-	mappedErr, ok := errorMap[pgErr.Code]
-	if !ok {
-		logger.Debugf("unmapped postgres error with code [%s]", pgErr.Code)
-		return err
+	if isConnectionLost(err) {
+		return errors.Wrapf(driver.ErrConnectionLost, "%s", err)
 	}
-	return errors.Wrapf(mappedErr, "%s", err)
+	logger.Debugf("error of type [%T] not pgError", err)
+	return err
 }
 
 func isConnectionLost(err error) bool {
-	var connectErr *pgconn.ConnectError
 	var netErr net.Error
-	return stderrors.As(err, &connectErr) ||
-		stderrors.As(err, &netErr) ||
+	return stderrors.As(err, &netErr) ||
 		stderrors.Is(err, pgconn.ErrConnClosed) ||
 		stderrors.Is(err, sqldriver.ErrBadConn) ||
 		stderrors.Is(err, io.EOF) ||
