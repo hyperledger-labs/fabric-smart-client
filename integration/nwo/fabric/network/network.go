@@ -240,9 +240,13 @@ func (n *Network) PostRun(load bool) {
 			// Every orderer of the channel's profile joins: with several raft
 			// consenters, the channel has no quorum, and so no blocks, until a
 			// majority of them has joined.
-			for _, o := range n.profileOrderers(n.ProfileForChannel(channel.Name)) {
+			orderers := n.profileOrderers(n.ProfileForChannel(channel.Name))
+			for _, o := range orderers {
 				n.OrdererJoinChannel(channel.Name, o)
 			}
+			start := time.Now()
+			n.WaitForRaftLeader(channel.Name, orderers...)
+			logger.Infof("Raft leader of [%s] on [%s] elected in %s", channel.Name, n.Prefix, time.Since(start))
 
 			// peers join the channel
 			n.JoinChannel(channel.Name, orderer, n.PeersWithChannel(channel.Name)...)
@@ -250,9 +254,16 @@ func (n *Network) PostRun(load bool) {
 
 		// Peers dial the other orgs' anchor peers as soon as they join, so the
 		// peers that have not joined yet reject the handshake and membership
-		// starts out empty. Gossip recovers on its own via reconnectInterval,
-		// which core_template.go keeps short for this reason.
-		time.Sleep(5 * time.Second)
+		// starts out empty. Gossip recovers on its own via reconnectInterval and
+		// spreads membership via the alive and state info messages, whose
+		// intervals core_template.go keeps short for this reason. Discovery, and
+		// so endorser selection, sees a peer only once gossip has, so wait for
+		// every peer to see all the others.
+		for _, channel := range n.Channels {
+			start := time.Now()
+			n.VerifyMembership(n.joinedPeers(channel.Name), channel.Name)
+			logger.Infof("Gossip membership of [%s] on [%s] formed in %s", channel.Name, n.Prefix, time.Since(start))
+		}
 
 		// Install chaincodes, if needed
 		if len(n.topology.Chaincodes) != 0 {
@@ -270,8 +281,6 @@ func (n *Network) PostRun(load bool) {
 		extension.PostRun(load)
 	}
 
-	// Wait a few second to let Fabric stabilize
-	time.Sleep(5 * time.Second)
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
 
@@ -345,6 +354,20 @@ func (n *Network) profileOrderers(profile string) []*topology.Orderer {
 	return orderers
 }
 
+// joinedPeers returns the Fabric peers JoinChannel joins to channelID.
+func (n *Network) joinedPeers(channelID string) []*topology.Peer {
+	var peers []*topology.Peer
+	for _, p := range n.PeersWithChannel(channelID) {
+		if !p.SkipInit {
+			peers = append(peers, p)
+		}
+	}
+	return peers
+}
+
+// OrdererJoinChannel joins orderer to channelID through its channel
+// participation API. It returns once the join is accepted, which is before the
+// channel has a raft leader; WaitForRaftLeader waits for that.
 func (n *Network) OrdererJoinChannel(channelID string, orderer *topology.Orderer) {
 	cmd := commands.OSNAdminChannelJoin{
 		NetworkPrefix:  n.Prefix,
@@ -364,9 +387,4 @@ func (n *Network) OrdererJoinChannel(channelID string, orderer *topology.Orderer
 
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-
-	time.Sleep(4 * time.Second)
-	// TODO: get the orderer process so we can check when the msg has been processed
-	// gomega.Eventually(ordererRunner.Err(), n.EventuallyTimeout, time.Second).Should(
-	//	gbytes.Say(fmt.Sprintf("Raft leader changed: 0 -> 1 channel=%s node=1", channelID)))
 }

@@ -40,8 +40,11 @@ peer:
     propagatePeerNum: 3
     pullInterval: 4s
     pullPeerNum: 3
-    requestStateInfoInterval: 4s
-    publishStateInfoInterval: 4s
+    # Network.PostRun waits until every peer discovers all the others. The short
+    # state info, alive and reconnect intervals let that membership form in
+    # about a second after the peers join the channel.
+    requestStateInfoInterval: 1s
+    publishStateInfoInterval: 1s
     stateInfoRetentionInterval:
     publishCertPeriod: 10s
     dialTimeout: 3s
@@ -51,9 +54,9 @@ peer:
     digestWaitTime: 1s
     requestWaitTime: 1500ms
     responseWaitTime: 2s
-    aliveTimeInterval: 5s
+    aliveTimeInterval: 1s
     aliveExpirationTimeout: 25s
-    reconnectInterval: 5s
+    reconnectInterval: 1s
     election:
       startupGracePeriod: 15s
       membershipSampleInterval: 1s

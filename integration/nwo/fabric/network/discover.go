@@ -10,15 +10,12 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-// DiscoveredPeer defines a struct for discovering peers using discovery service.
-// each peer in the result will have these fields
+// DiscoveredPeer is one peer of the result of a discovery peers query.
 type DiscoveredPeer struct {
 	MSPID      string   `yaml:"mspid,omitempty"`
 	Endpoint   string   `yaml:"endpoint,omitempty"`
@@ -26,10 +23,12 @@ type DiscoveredPeer struct {
 	Chaincodes []string `yaml:"chaincodes,omitempty"`
 }
 
-// running discovery service command discover peers against peer using channel name and user as specified in the
-// function arguments. return a slice of the discovered peers
-func DiscoverPeers(n *Network, p *topology.Peer, user, channelName string) func() []DiscoveredPeer {
-	return func() []DiscoveredPeer {
+// DiscoverPeers returns a function that asks p's discovery service, as user,
+// for the peers of channelName. The function returns an error when the query
+// fails, as it does while p has not joined the channel yet, so it can be
+// polled with gomega.Eventually.
+func DiscoverPeers(n *Network, p *topology.Peer, user, channelName string) func() ([]DiscoveredPeer, error) {
+	return func() ([]DiscoveredPeer, error) {
 		peers := commands.Peers{
 			NetworkPrefix: n.Prefix,
 			UserCert:      n.PeerUserCert(p, user),
@@ -43,12 +42,17 @@ func DiscoverPeers(n *Network, p *topology.Peer, user, channelName string) func(
 			peers.ClientKey = filepath.Join(n.PeerUserTLSDir(p, user), "client.key")
 		}
 		sess, err := n.Discover(peers)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		if err != nil {
+			return nil, err
+		}
+		if code := sess.Wait(n.EventuallyTimeout).ExitCode(); code != 0 {
+			return nil, errors.Errorf("discover peers on [%s] exited with [%d]: %s", p.Name, code, sess.Err.Contents())
+		}
 
 		var discovered []DiscoveredPeer
-		err = json.Unmarshal(sess.Out.Contents(), &discovered)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		return discovered
+		if err := json.Unmarshal(sess.Out.Contents(), &discovered); err != nil {
+			return nil, errors.Wrapf(err, "failed parsing discover peers output of [%s]", p.Name)
+		}
+		return discovered, nil
 	}
 }
