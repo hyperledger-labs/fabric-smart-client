@@ -8,6 +8,8 @@ package client
 
 import (
 	"context"
+	"io"
+	"net/http"
 
 	dto "github.com/prometheus/client_model/go"
 
@@ -19,11 +21,12 @@ import (
 	viewclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
-// WebClient calls an FSC node's views through the view service's HTTP binding and reads the
-// node's metrics from its operations endpoint.
+// WebClient calls an FSC node's views through the view service's HTTP binding, reads the
+// node's metrics from its operations endpoint, and probes its readiness.
 type WebClient struct {
 	view    *viewclient.Client
 	metrics *MetricsClient
+	web     *viewclient.HTTPClient
 }
 
 // NewWebClient returns a WebClient for the FSC node whose configuration directory is
@@ -42,7 +45,15 @@ func NewWebClient(confDir string, tracerProvider tracing.Provider) (*WebClient, 
 	if err != nil {
 		return nil, err
 	}
-	return &WebClient{view: view, metrics: metrics}, nil
+	cc, err := NewWebConnectionConfigFromFSC(confDir)
+	if err != nil {
+		return nil, err
+	}
+	web, err := viewclient.NewHTTPClient(cc)
+	if err != nil {
+		return nil, err
+	}
+	return &WebClient{view: view, metrics: metrics, web: web}, nil
 }
 
 // NewHTTPViewClient returns a view client that reaches the view service of the FSC node
@@ -80,6 +91,26 @@ func (c *WebClient) StreamCallView(fid string, in []byte) (*viewclient.Stream, e
 
 // Metrics returns the metric families the node exposes on its operations endpoint.
 func (c *WebClient) Metrics() (map[string]*dto.MetricFamily, error) { return c.metrics.Metrics() }
+
+// Ready returns nil when the node's GET /readyz answers 200, and an error quoting the
+// unready components otherwise.
+func (c *WebClient) Ready() error {
+	url := c.web.URL + "/readyz"
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return errors.Wrapf(err, "failed creating request to [%s]", url)
+	}
+	resp, err := c.web.Do(req)
+	if err != nil {
+		return errors.Wrapf(err, "failed calling [%s]", url)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, maxMetricsErrorBody))
+		return errors.Errorf("[%s] answered [%s]: %s", url, resp.Status, msg)
+	}
+	return nil
+}
 
 // NewWebConnectionConfigFromFSC returns the connection to an FSC node's web listener, read
 // from the node's configuration directory.

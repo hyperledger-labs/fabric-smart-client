@@ -19,18 +19,17 @@ import (
 )
 
 // FSCTopology returns the FSC nodes alice (Org1, initiator) and bob (Org2, responder),
-// installing sdk on both. Each node runs on its own Postgres database, named
-// dbPrefix-alice and dbPrefix-bob.
+// installing sdk on both. Each node runs on its own Postgres database, named by DBName.
 //
 // A node receives only the data source of its database. nwo starts each container
 // from that data source (postgres.ConfigFromDataSource), which names the container
-// after the database, so StopPostgres(dbPrefix+"-bob") finds bob's container. For the
+// after the database, so StopPostgres(DBName(dbPrefix, "bob")) finds bob's container. For the
 // same reason a container name set on the ContainerConfig here would not reach the
 // container. Suites that may run at the same time need different prefixes.
 func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 	db := &integration.ReplicationOptions{SQLConfigs: map[string]*postgres.ContainerConfig{
-		"alice": postgres.DefaultConfig(postgres.WithDBName(dbPrefix + "-alice")),
-		"bob":   postgres.DefaultConfig(postgres.WithDBName(dbPrefix + "-bob")),
+		"alice": postgres.DefaultConfig(postgres.WithDBName(DBName(dbPrefix, "alice"))),
+		"bob":   postgres.DefaultConfig(postgres.WithDBName(DBName(dbPrefix, "bob"))),
 	}}
 
 	fscTopology := fsc.NewTopology()
@@ -52,3 +51,6 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 
 	return fscTopology
 }
+
+// DBName returns the name of node's Postgres database in an FSCTopology built with dbPrefix.
+func DBName(dbPrefix, node string) string { return dbPrefix + "-" + node }

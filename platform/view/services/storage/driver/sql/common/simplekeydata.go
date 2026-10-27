@@ -59,7 +59,7 @@ func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []by
 	logger.Debug(query, string(data))
 	result, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err != nil {
-		return errors.Wrapf(err, "failed executing query [%s]", query)
+		return errors.Wrapf(db.errorWrapper.WrapError(err), "failed executing query [%s]", query)
 	}
 
 	if rowsAffected, err := result.RowsAffected(); err == nil && rowsAffected == 0 {

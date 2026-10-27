@@ -44,9 +44,17 @@ type Submit struct {
 	Responder view.Identity
 }
 
+// Endorsed is what EndorseView returns.
+type Endorsed struct {
+	// Tx is the serialized transaction, the input of OrderView.
+	Tx []byte
+	// TxID is the transaction's ID, so a spec can wait for it before it is ordered.
+	TxID string
+}
+
 // EndorseView creates an Asset and collects the initiator's and the responder's
-// endorsements without ordering the transaction. It returns the serialized
-// transaction for OrderView, so a spec can act on the network between the two steps.
+// endorsements without ordering the transaction. It returns the transaction as
+// Endorsed, so a spec can act on the network between endorsing and ordering it.
 type EndorseView struct {
 	Submit
 }
@@ -66,7 +74,11 @@ func (v *EndorseView) Call(viewCtx view.Context) (any, error) {
 	if _, err := viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, v.Responder)); err != nil {
 		return nil, err
 	}
-	return tx.Bytes()
+	raw, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return &Endorsed{Tx: raw, TxID: tx.ID()}, nil
 }
 
 type EndorseViewFactory struct{}
@@ -81,7 +93,7 @@ func (*EndorseViewFactory) NewView(in []byte) (view.View, error) {
 
 // Order is the input of OrderView.
 type Order struct {
-	// Tx is the serialized transaction EndorseView returned.
+	// Tx is the serialized transaction of Endorsed.
 	Tx []byte
 }
 

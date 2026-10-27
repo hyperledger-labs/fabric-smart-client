@@ -55,14 +55,14 @@ func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, in
 
 	logger.Debug(query, params)
 	_, execErr := db.writeDB.ExecContext(ctx, query, params...)
-	if execErr != nil && errors.Is(db.errorWrapper.WrapError(execErr), driver.UniqueKeyViolation) {
-		logger.Infof("Audit info [%s] already in db. Skipping...", id)
+	if execErr == nil {
+		logger.DebugfContext(ctx, "signer [%s] registered", id)
 		return nil
 	}
-	if execErr != nil {
-		return errors.Wrapf(execErr, "failed executing query [%s]", query)
+	if err := db.errorWrapper.WrapError(execErr); !errors.Is(err, driver.UniqueKeyViolation) {
+		return errors.Wrapf(err, "failed executing query [%s]", query)
 	}
-	logger.DebugfContext(ctx, "signer [%s] registered", id)
+	logger.Infof("Audit info [%s] already in db. Skipping...", id)
 	return nil
 }
 

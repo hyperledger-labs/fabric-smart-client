@@ -20,6 +20,11 @@ import (
 // recoveryTimeout bounds how long a restarted node may take to settle a transaction.
 const recoveryTimeout = 2 * time.Minute
 
+// startupOutage is how long a node's database stays down after the node starts. It must
+// stay below the time postgres.Open waits for the database at startup
+// (postgres.DefaultStartupConnectTimeout, 60 s), or the node gives up and exits.
+const startupOutage = 10 * time.Second
+
 // CrashSpecs registers the node crash and catch-up specs for the suite s. They check
 // bob through QueryView: on Fabric that reads bob's own vault, so the specs prove that
 // bob recovers its local state; on Fabric-x, where bob has no local ledger state, they
@@ -44,7 +49,7 @@ func CrashSpecs(s *integration.TestSuite) {
 
 	ginkgo.It("catches up blocks committed while down", func() {
 		// Bob endorses every tx, then misses the blocks that commit them.
-		txs := make([][]byte, 20)
+		txs := make([]*views.Endorsed, 20)
 		for i := range txs {
 			txs[i] = Endorse(s.II, i)
 		}
@@ -63,5 +68,31 @@ func CrashSpecs(s *integration.TestSuite) {
 				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
 			}, recoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on bob", i, txID)
 		}
+	})
+}
+
+// DependencySpecs registers the specs that take down a dependency both suites share: bob's
+// Postgres database, named DBName(dbPrefix, "bob").
+func DependencySpecs(s *integration.TestSuite, dbPrefix string) {
+	ginkgo.It("starts before Postgres is up", func() {
+		db := DBName(dbPrefix, "bob")
+		s.II.StopFSCNode("bob")
+		s.II.StopPostgres(db)
+
+		// StartFSCNode returns only once bob has started, which it cannot do without its
+		// database, so the database comes back from another goroutine. The sleep is the
+		// outage itself: no signal reports that bob is waiting for its database.
+		started := make(chan struct{})
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			defer close(started)
+			time.Sleep(startupOutage)
+			s.II.StartPostgres(db)
+		}()
+		s.II.StartFSCNode("bob")
+		<-started
+
+		gomega.Eventually(s.II.WebClient("bob").Ready, recoveryTimeout, time.Second).Should(gomega.Succeed())
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 	})
 }
