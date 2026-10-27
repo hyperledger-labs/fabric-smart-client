@@ -52,6 +52,21 @@ opts := &Opts{
 }
 ```
 
+### Raising the p2p message-size limits
+
+`fscTopology.SetP2PMessageSizeLimits(recv, send)` sets `fsc.p2p.maxRecvMsgSize` and
+`fsc.p2p.maxSendMsgSize` (bytes) in the `core.yaml` of every FSC node in the topology:
+
+```go
+fscTopology := fsc.NewTopology()
+fscTopology.SetP2PMessageSizeLimits(20<<20, 20<<20) // recv, send
+```
+
+A zero or negative value leaves that key out, so the node default applies; with neither
+set, the generated `core.yaml` has no size keys. Use it instead of replacing
+`fscTopology.Templates.Core`: a copied template keeps emitting configuration keys that
+FSC later renames or removes. The setting is topology-wide and applies to every node.
+
 ### Choosing a p2p comm type
 
 New suites use `fsc.WebSocket`. Add a `fsc.LibP2P` variant only when the suite

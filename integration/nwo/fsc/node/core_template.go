@@ -75,6 +75,12 @@ fsc:
     type: {{ .P2PCommunicationType }}
     # Listening address
     listenAddress: /ip4/0.0.0.0/tcp/{{ .NodePort Replica "P2P" }}
+    {{- if gt Topology.P2P.MaxRecvMsgSize 0 }}
+    maxRecvMsgSize: {{ Topology.P2P.MaxRecvMsgSize }}
+    {{- end }}
+    {{- if gt Topology.P2P.MaxSendMsgSize 0 }}
+    maxSendMsgSize: {{ Topology.P2P.MaxSendMsgSize }}
+    {{- end }}
     opts:
       # Only needed when type == libp2p
       # If empty, this is a P2P bootstrap node. Otherwise, it contains the name of the FSC node that is a bootstrap node
