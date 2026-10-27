@@ -20,6 +20,8 @@ func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RunSpecs(t, "Channel Config Update Suite")
 }
 
+var _ = AfterSuite(integration.CleanupBuildArtifacts)
+
 func StartPort() int {
 	return integration.FabricConfigUpdatePort.StartPortForNode()
 }

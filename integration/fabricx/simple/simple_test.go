@@ -28,6 +28,8 @@ func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RunSpecs(t, "simple suite")
 }
 
+var _ = AfterSuite(integration.CleanupBuildArtifacts)
+
 type TestSuite struct {
 	*integration.TestSuite
 }

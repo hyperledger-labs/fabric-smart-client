@@ -8,8 +8,18 @@ Ginkgo v2 + Gomega.
 1. Create the directory `integration/<platform>/<test-name>/`.
 2. Define the topology in `topology.go` (via `integration.Generate()`).
 3. Implement the test logic in `<test-name>.go`.
-4. Add the Ginkgo suite entry point in `<test-name>_test.go`.
+4. Add the Ginkgo suite entry point in `<test-name>_suite_test.go`, with
+   `var _ = AfterSuite(integration.CleanupBuildArtifacts)` — see below.
 5. Register the target in the `Makefile` — see below.
+
+### Deleting the built binaries
+
+nwo builds `fsccli` and every FSC node binary into one temporary directory per test
+process. `Infrastructure.Stop` keeps them, so the next network of the process reuses
+them, and `go build` relinks only the ones whose sources changed (nwo regenerates each
+node's `main` package from the topology). `integration.CleanupBuildArtifacts` deletes
+the directory; without it in `AfterSuite`, the binaries (about 100 MB each with
+`-race`) stay in the temp directory after the suite exits.
 
 ### Registering the target
 

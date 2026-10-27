@@ -22,6 +22,8 @@ func TestEndToEnd(t *testing.T) {
 	RunSpecs(t, "IOU (With HSM) Suite")
 }
 
+var _ = AfterSuite(integration.CleanupBuildArtifacts)
+
 func StartPort() int {
 	return integration.IOUHSMPort.StartPortForNode()
 }

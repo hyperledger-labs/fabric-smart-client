@@ -255,17 +255,24 @@ func (i *Infrastructure) Start() {
 	i.NWO.Start()
 }
 
+// Stop stops the network and, if DeleteOnStop is set, deletes its test
+// directory. It keeps the built binaries for the next network of the process;
+// call CleanupBuildArtifacts once the process needs no more networks.
 func (i *Infrastructure) Stop() {
 	logger.Infof("stopping ...")
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}
-	defer i.BuildServer.Shutdown(i.DeleteOnStop)
+	defer i.BuildServer.Shutdown(false)
 	if i.DeleteOnStop {
 		defer func() { _ = os.RemoveAll(i.TestDir) }()
 	}
 	i.NWO.Stop()
 }
+
+// CleanupBuildArtifacts deletes the binaries built for the networks of the
+// process. Call it from the AfterSuite of every suite that starts a network.
+func CleanupBuildArtifacts() { common.CleanupBuildArtifacts() }
 
 func (*Infrastructure) Serve() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

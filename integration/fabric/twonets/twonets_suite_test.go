@@ -20,6 +20,8 @@ func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RunSpecs(t, "Two Fabric Networks Suite")
 }
 
+var _ = AfterSuite(integration.CleanupBuildArtifacts)
+
 func StartPort() int {
 	return integration.TwoFabricNetworksPort.StartPortForNode()
 }

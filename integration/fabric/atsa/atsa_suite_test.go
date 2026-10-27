@@ -20,6 +20,8 @@ func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RunSpecs(t, "Asset Transfer Secured Agreement (With Approvers)")
 }
 
+var _ = AfterSuite(integration.CleanupBuildArtifacts)
+
 func StartPort() int {
 	return integration.AssetTransferSecuredAgreementWithApprovers.StartPortForNode()
 }
