@@ -20,6 +20,11 @@ import (
 // recoveryTimeout bounds how long a restarted node may take to settle a transaction.
 const recoveryTimeout = 2 * time.Minute
 
+// startupOutage is how long a node's database stays down after the node starts. It must
+// stay below the time postgres.Open waits for the database at startup
+// (postgres.DefaultStartupConnectTimeout, 60 s), or the node gives up and exits.
+const startupOutage = 10 * time.Second
+
 // CrashSpecs registers the node crash and catch-up specs for the suite s. They check
 // bob through QueryView: on Fabric that reads bob's own vault, so the specs prove that
 // bob recovers its local state; on Fabric-x, where bob has no local ledger state, they
@@ -75,12 +80,13 @@ func DependencySpecs(s *integration.TestSuite, dbPrefix string) {
 		s.II.StopPostgres(db)
 
 		// StartFSCNode returns only once bob has started, which it cannot do without its
-		// database, so the database comes back from another goroutine.
+		// database, so the database comes back from another goroutine. The sleep is the
+		// outage itself: no signal reports that bob is waiting for its database.
 		started := make(chan struct{})
 		go func() {
 			defer ginkgo.GinkgoRecover()
 			defer close(started)
-			time.Sleep(10 * time.Second)
+			time.Sleep(startupOutage)
 			s.II.StartPostgres(db)
 		}()
 		s.II.StartFSCNode("bob")
