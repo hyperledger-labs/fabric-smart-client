@@ -142,7 +142,7 @@ The drivers resolve a persistence name to its `fsc.persistences.<name>` block th
 
 ### Transaction isolation levels
 
-Postgres accepts every `driver.IsolationLevel` except `LevelWriteCommitted` and `LevelLinearizable`, which the pgx driver rejects when the transaction begins; `LevelSnapshot` runs as `REPEATABLE READ`.
+Postgres accepts every `driver.IsolationLevel` except `LevelWriteCommitted` and `LevelLinearizable`, which the pgx driver does not support; FSC rejects both before it begins the transaction. `LevelSnapshot` runs as `REPEATABLE READ`.
 SQLite accepts only `LevelDefault` and `LevelSerializable` and rejects any other level.
 
 ## Extending the Driver on the same Project
