@@ -17,6 +17,29 @@ import (
 
 type KeyValueStore struct {
 	*common2.KeyValueStore
+
+	readDB  *sql.DB
+	writeDB common2.WriteDB
+	table   string
+}
+
+// CreateSchema creates the key-value table and reorders a primary key of
+// (pkey, ns) to (ns, pkey). The staging table uses the KVS columns: pkey is
+// BYTEA and val is BYTEA NOT NULL.
+func (db *KeyValueStore) CreateSchema() error {
+	if err := db.KeyValueStore.CreateSchema(); err != nil {
+		return err
+	}
+	return ReorderPrimaryKey(db.readDB, db.writeDB, db.table, "ns, pkey, val", kvsStagingDDL)
+}
+
+func kvsStagingDDL(staging string) string {
+	return `CREATE TABLE ` + staging + ` (
+		ns TEXT NOT NULL,
+		pkey BYTEA NOT NULL,
+		val BYTEA NOT NULL DEFAULT '',
+		PRIMARY KEY (ns, pkey)
+	)`
 }
 
 func NewKeyValueStore(dbs *common3.RWDB, tables common2.TableNames) (*KeyValueStore, error) {
@@ -31,5 +54,8 @@ func buildKeyValueStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *
 	var wrapper driver.SQLErrorWrapper = &ErrorMapper{}
 	return &KeyValueStore{
 		KeyValueStore: common2.NewKeyValueStore(writeDB, readDB, table, wrapper),
+		readDB:        readDB,
+		writeDB:       writeDB,
+		table:         table,
 	}
 }

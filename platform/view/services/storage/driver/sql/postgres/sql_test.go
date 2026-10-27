@@ -54,7 +54,7 @@ func TestPostgres(t *testing.T) {
 			}, nil
 		})
 	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
-		return p.(*common3.KeyValueStore)
+		return p.(*KeyValueStore).KeyValueStore
 	})
 	t.Run("DBMonitor", func(t *testing.T) {
 		t.Parallel()
@@ -138,7 +138,7 @@ func TestPostgresWithTLS(t *testing.T) {
 			}, nil
 		})
 	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
-		return p.(*common3.KeyValueStore)
+		return p.(*KeyValueStore).KeyValueStore
 	})
 }
 
