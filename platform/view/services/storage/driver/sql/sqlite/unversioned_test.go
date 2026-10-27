@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 )
 
@@ -98,4 +99,26 @@ func TestKVSRangePlanUsesNamespaceKey(t *testing.T) {
 	require.Contains(t, plan, "ns=")
 	require.NotContains(t, plan, "USE TEMP B-TREE FOR ORDER BY")
 	require.NotContains(t, plan, "SCAN")
+}
+
+// TestKVSRetriesBusyWrite checks a KVS write rejected with SQLITE_BUSY is retried
+// rather than failing at once: the write lock is held from another connection, so
+// every attempt is busy and the store reports it only after the retries are spent.
+func TestKVSRetriesBusyWrite(t *testing.T) {
+	t.Parallel()
+
+	store := openSQLiteKVS(t, "file:"+filepath.Join(t.TempDir(), "kvs.db")+"?_pragma=busy_timeout(0)", false)
+	retry, ok := store.writeDB.(*retryWriteDB)
+	require.True(t, ok, "KVS write DB is %T, want *retryWriteDB", store.writeDB)
+	hook := &busyHook{}
+	retry.errorWrapper = hook
+
+	locker, err := store.readDB.Conn(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = locker.Close() })
+	_, err = locker.ExecContext(t.Context(), "BEGIN EXCLUSIVE")
+	require.NoError(t, err)
+
+	require.ErrorIs(t, store.SetState(t.Context(), "ns", "k", []byte("v")), driver.SqlBusy)
+	require.Equal(t, maxBusyRetries, hook.busy)
 }

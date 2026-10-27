@@ -949,8 +949,10 @@ persistence:
 ```
 
 
-We use one connection for writes, and an unlimited number for concurrent read connections 
-(see the excellent https://kerkour.com/sqlite-for-servers for more information).
+The parent directory of the data source file is created when the database is opened. FSC opens two connection pools on the
+file: a write pool with exactly one connection, and a read pool for concurrent reads (see
+https://kerkour.com/sqlite-for-servers for why SQLite works well this way). `maxOpenConns`, `maxIdleConns` and `maxIdleTime`
+apply to the read pool only.
 
 Advanced, more customized settings:
 
@@ -958,24 +960,32 @@ Advanced, more customized settings:
 persistence:
   type: sqlite
   opts:
-    dataSource: file:/some/path/fsc.sqlite&_txlock=immediate
+    dataSource: file:/some/path/fsc.sqlite?_txlock=immediate
     tablePrefix: fsc  # optional
     skipCreateTable: true # tells FSC _not_ to create a table when starting up (because it already exists).
-    skipPragmas: true # if this is false, the pragmas we set in the datasource will be overridden with the defaults (sqlite specific).
+    skipPragmas: true # optional: do not add the default pragmas below; only the pragmas in the dataSource apply.
     maxOpenConns: 20  # optional: max open read connections to the database. Defaults to unlimited. See https://go.dev/doc/database/manage-connections.
     maxIdleConns: 20  # optional: max idle read connections to the database. Defaults to 2.
     maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
 ```
 
-By default we set the following pragmas (unless you do `skipPragmas: true`. Make sure you always have `_pragma=journal_mode(WAL`):
+Unless `skipPragmas` is `true`, FSC adds these pragmas to the dataSource as `_pragma` parameters:
 
-```sql
-  PRAGMA journal_mode = WAL;
-  PRAGMA busy_timeout = 5000;
-  PRAGMA synchronous = NORMAL;
-  PRAGMA cache_size = 1000000000;
-  PRAGMA temp_store = memory;
 ```
+_pragma=busy_timeout(5000)
+_pragma=journal_mode(WAL)
+_pragma=synchronous(NORMAL)
+_pragma=temp_store(memory)
+_pragma=foreign_keys(ON)
+```
+
+The driver runs them on every new connection in both pools. A pragma the dataSource already sets, as `_pragma=name(...)`
+or as a driver shorthand such as `_busy_timeout` or `_journal_mode`, takes precedence over the default. With
+`skipPragmas: true`, set at least `_pragma=journal_mode(WAL)` and `_pragma=busy_timeout(...)`: without them, readers and
+the writer block each other and fail with `SQLITE_BUSY`.
+
+A write outside a transaction that fails with `SQLITE_BUSY` is retried up to 3 times; each attempt waits up to
+`busy_timeout` for the lock. Statements inside a transaction are not retried.
 
 ### Config example for postgres
 
