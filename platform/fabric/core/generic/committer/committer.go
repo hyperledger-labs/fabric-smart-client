@@ -540,6 +540,9 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 			return errors.Errorf("transaction [%s] is not valid", txID)
 		case driver.Busy:
 			c.logger.Debugf("Tx [%s] is known", txID)
+			if iter < c.ChannelConfig.CommitterFinalityNumRetries()-1 {
+				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
+			}
 			continue
 		case driver.Unknown:
 			if iter <= 1 {
@@ -639,6 +642,10 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 	if iterations == 0 {
 		iterations = 1
 	}
+	lastStatus := driver.Unknown
+	if vd, _, err := c.Status(ctx, txID); err == nil {
+		lastStatus = vd
+	}
 	for i := 0; i < iterations; i++ {
 		timeout := time.NewTimer(c.pollingTimeout)
 
@@ -659,6 +666,7 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 			c.logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			vd, _, err := c.Status(ctx, txID)
 			if err == nil {
+				lastStatus = vd
 				switch vd {
 				case driver.Valid:
 					c.logger.Debugf("Listen to finality of [%s]. VALID", txID)
@@ -675,7 +683,7 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 		}
 	}
 	c.logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
-	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
+	return errors.Wrapf(driver.ErrFinalityTimeout, "failed to listen to transaction [%s] for timeout, last known status [%s]", txID, driver.StatusName(lastStatus))
 }
 
 func (c *Committer) applyConfigCommit(ctx context.Context, txID driver2.TxID, blockNumber driver2.BlockNum, seq driver2.TxNum, envelope []byte) error {

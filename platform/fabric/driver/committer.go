@@ -8,6 +8,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
@@ -31,6 +32,22 @@ var ValidationCodeProvider = driver.NewValidationCodeProvider(map[ValidationCode
 	Busy:    driver.Busy,
 	Unknown: driver.Unknown,
 })
+
+// StatusName returns a human-readable name for code.
+func StatusName(code ValidationCode) string {
+	switch code {
+	case Valid:
+		return "valid"
+	case Invalid:
+		return "invalid"
+	case Busy:
+		return "busy"
+	case Unknown:
+		return "unknown"
+	default:
+		return fmt.Sprintf("unknown(%d)", code)
+	}
+}
 
 // TransactionStatusChanged is sent when the status of a transaction changes
 type TransactionStatusChanged struct {

@@ -1254,5 +1254,74 @@ func TestIsFinalAdditionalBranches(t *testing.T) {
 		}
 		err := c.IsFinal(t.Context(), "tx-final-busy")
 		require.ErrorContains(t, err, "failed to listen to transaction")
+		require.ErrorIs(t, err, fdriver.ErrFinalityTimeout)
+		require.Contains(t, err.Error(), "busy")
 	})
+}
+
+func TestIsFinal_BusyTimesOutWithStatus(t *testing.T) {
+	t.Parallel()
+
+	c := &Committer{
+		logger: logger,
+		ChannelConfig: &fake.ChannelConfig{
+			FinalityRetries:     1,
+			WaitForEventTimeout: 20 * time.Millisecond,
+		},
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				return fdriver.Busy, "", nil
+			},
+		},
+		tracer:          noop.NewTracerProvider().Tracer("test"),
+		listeners:       map[string][]chan FinalityEvent{},
+		pollingTimeout:  5 * time.Millisecond,
+		EnvelopeService: &fake.EnvelopeService{},
+	}
+
+	err := c.IsFinal(t.Context(), "tx-busy-timeout")
+	require.Error(t, err)
+	require.ErrorIs(t, err, fdriver.ErrFinalityTimeout)
+	require.Contains(t, err.Error(), "busy")
+}
+
+func TestIsFinal_BusyRetriesSleep(t *testing.T) {
+	t.Parallel()
+
+	const (
+		retries = 3
+		delay   = 20 * time.Millisecond
+	)
+
+	statusCalls := 0
+	c := &Committer{
+		logger: logger,
+		ChannelConfig: &fake.ChannelConfig{
+			FinalityRetries:        retries,
+			FinalityUnknownTimeout: delay,
+			WaitForEventTimeout:    10 * time.Millisecond,
+		},
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				statusCalls++
+				return fdriver.Busy, "", nil
+			},
+		},
+		tracer:          noop.NewTracerProvider().Tracer("test"),
+		listeners:       map[string][]chan FinalityEvent{},
+		pollingTimeout:  5 * time.Millisecond,
+		EnvelopeService: &fake.EnvelopeService{},
+	}
+
+	start := time.Now()
+	err := c.IsFinal(t.Context(), "tx-busy-sleep")
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, fdriver.ErrFinalityTimeout)
+	require.Contains(t, err.Error(), "busy")
+
+	expectedMinSleep := time.Duration(retries-1) * delay
+	require.GreaterOrEqual(t, elapsed, expectedMinSleep, "expected %d retries with delay %v to take at least %v, took %v", retries, delay, expectedMinSleep, elapsed)
+	require.GreaterOrEqual(t, statusCalls, retries)
 }
