@@ -33,17 +33,23 @@ func (templateData) NodePort(*node.Replica, api.PortName) int  { return 1234 }
 func (templateData) ClientAuthRequired() bool                  { return false }
 func (templateData) BootstrapNode(*node.Peer) string           { return "" }
 
-func renderCoreTemplate(t *testing.T, tmpl string, topology *Topology) string {
+func renderCoreTemplate(t *testing.T, tmpl string, topology *Topology, opts ...node.Option) string {
 	t.Helper()
 
 	peer := &node.Peer{Node: node.NewNode("alice"), Name: "alice", Organization: "org"}
+	require.NoError(t, peer.Options.Parse(opts...))
 	replica := node.NewReplica(peer, "alice.0")
 	funcs := template.FuncMap{
-		"Replica":         func() *node.Replica { return replica },
-		"Peer":            func() *node.Peer { return peer },
-		"Topology":        func() *Topology { return topology },
-		"Extensions":      func() []string { return nil },
-		"Persistences":    func() map[driver.PersistenceName]node.PersistenceOpts { return nil },
+		"Replica":    func() *node.Replica { return replica },
+		"Peer":       func() *node.Peer { return peer },
+		"Topology":   func() *Topology { return topology },
+		"Extensions": func() []string { return nil },
+		"Persistences": func() map[driver.PersistenceName]node.PersistenceOpts {
+			return GetPersistences(peer.Options, "storage")
+		},
+		"StorePersistences": func() map[string]driver.PersistenceName {
+			return StorePersistences(peer.Options, "fsc")
+		},
 		"Resolvers":       func() []*Resolver { return nil },
 		"WebEnabled":      func() bool { return false },
 		"TracingEndpoint": func() string { return "0.0.0.0:4317" },

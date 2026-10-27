@@ -92,14 +92,20 @@ fsc:
       opts:
         {{- if eq $value.Type "postgres" }}
         dataSource: {{ $value.SQL.DataSource }}
-        tablePrefix:
+        tablePrefix: {{ $value.SQL.TablePrefix }}
         maxOpenConns: 90
         maxIdleConns: 3
         maxIdleTime: 45s
         skipCreateTable: false
+        {{- if $value.SQL.TLS }}
+        tls:
+          enabled: true
+          ssl_mode: verify-full
+          root_cert_path: {{ $value.SQL.TLSRootCertPath }}
+        {{- end }}
         {{- else if eq $value.Type "sqlite" }}
         dataSource: {{ $value.SQL.DataSource }}
-        tablePrefix:    
+        tablePrefix:
         maxOpenConns: 90
         maxIdleConns: 3
         maxIdleTime: 45s
@@ -113,9 +119,19 @@ fsc:
   {{- end }}
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
+    {{- with index StorePersistences "kvs" }}
+    persistence: {{ . }}
+    {{- end }}
     cache:
         # Sets the maximum number of cached items 
         size: 200
+  # Stores routed to a persistence other than the default one
+  {{- range $store, $name := StorePersistences }}
+  {{- if ne $store "kvs" }}
+  {{ $store }}:
+    persistence: {{ $name }}
+  {{- end }}
+  {{- end }}
   # HTML Server configuration for REST calls
   web:
     enabled: {{ WebEnabled }}

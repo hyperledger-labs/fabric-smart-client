@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
 func (n *Network) LogSpec() string {
@@ -1331,6 +1332,8 @@ const (
 	AdminPort      api.PortName = "Admin"
 )
 
+// VaultPersistenceKey is the store key of the vault of every Fabric network of an FSC node,
+// rendered as fabric.<network>.vault.persistence.
 const VaultPersistenceKey = "fabric_vault"
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
@@ -1568,6 +1571,7 @@ func (n *Network) RenderFSCFabricExtension(p *topology.Peer) (string, error) {
 	defaultNetwork := p.DefaultNetwork
 	driver := n.topology.Driver
 	tlsEnabled := n.topology.TLSEnabled
+	vaultPersistence := fsc.StorePersistences(p.FSCNode.Options, "fabric")["vault"]
 	for _, peer := range n.PeersInOrg(p.Organization) {
 		if peer.Type == topology.FabricPeer {
 			refPeers = append(refPeers, peer)
@@ -1594,6 +1598,7 @@ func (n *Network) RenderFSCFabricExtension(p *topology.Peer) (string, error) {
 		"Driver":                    func() string { return driver },
 		"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
 		"TLSEnabled":                func() bool { return tlsEnabled },
+		"VaultPersistence":          func() string { return string(vaultPersistence) },
 	}).Parse(n.Templates.FSCFabricExtensionTemplate())
 	if err != nil {
 		return "", err

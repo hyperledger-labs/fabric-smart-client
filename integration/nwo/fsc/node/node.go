@@ -60,8 +60,17 @@ func (o *Options) Get(k string) any {
 	return o.Mapping[k]
 }
 
+// SQLOpts is the SQL configuration nwo renders into a persistence block of core.yaml.
 type SQLOpts struct {
 	DataSource string
+	// TablePrefix is rendered as tablePrefix of a Postgres persistence; empty selects the
+	// driver's default prefix.
+	TablePrefix string
+	// TLS makes nwo start the Postgres database with TLS and the node verify it with
+	// ssl_mode verify-full against TLSRootCertPath, which nwo sets when it generates the
+	// configuration. Only Postgres persistences use them.
+	TLS             bool
+	TLSRootCertPath string
 }
 
 type PersistenceOpts struct {
@@ -71,12 +80,16 @@ type PersistenceOpts struct {
 
 func (o *Options) PutPersistenceKey(k PersistenceKey) {
 	if persistences := o.Get("all_persistence_keys"); persistences != nil {
-		o.Put("all_persistence_keys", append(persistences.([]PersistenceKey), k))
+		o.Put("all_persistence_keys", append(stringList[PersistenceKey](persistences), k))
 	} else {
 		o.Put("all_persistence_keys", []PersistenceKey{k})
 	}
 }
 
+// PutPostgresPersistenceName routes the store identified by k to the persistence p. k has the
+// form <platform>_<store>, such as "fsc_kvs" for fsc.kvs or "fabric_vault" for the vault of
+// every Fabric network of the node. p may name any persistence of the node, not only a
+// Postgres one.
 func (o *Options) PutPostgresPersistenceName(k PersistenceKey, p dbdriver.PersistenceName) {
 	o.PutPersistenceKey(k)
 
@@ -88,24 +101,30 @@ func (o *Options) GetAllPersistenceKeys() []PersistenceKey {
 	if persistences == nil {
 		return []PersistenceKey{}
 	}
-	return persistences.([]PersistenceKey)
+	return stringList[PersistenceKey](persistences)
 }
 
 func (o *Options) GetPersistenceName(k PersistenceKey) (dbdriver.PersistenceName, bool) {
 	if name := o.Get(fmt.Sprintf("%s.persistence", k)); name != nil {
-		return name.(dbdriver.PersistenceName), true
+		return asString[dbdriver.PersistenceName](name), true
 	}
 	return "", false
 }
 
+// PutPostgresPersistence adds the Postgres persistence k, or replaces its options.
 func (o *Options) PutPostgresPersistence(k dbdriver.PersistenceName, p SQLOpts) {
 	if persistences := o.Get("postgres_persistences"); persistences != nil {
-		o.Put("postgres_persistences", append(persistences.([]dbdriver.PersistenceName), k))
+		if names := stringList[dbdriver.PersistenceName](persistences); !slices.Contains(names, k) {
+			o.Put("postgres_persistences", append(names, k))
+		}
 	} else {
 		o.Put("postgres_persistences", []dbdriver.PersistenceName{k})
 	}
 
 	o.Put(fmt.Sprintf("fsc.persistences.%s.persistence.sql", k), p.DataSource)
+	o.Put(fmt.Sprintf("fsc.persistences.%s.persistence.tablePrefix", k), p.TablePrefix)
+	o.Put(fmt.Sprintf("fsc.persistences.%s.persistence.tls", k), p.TLS)
+	o.Put(fmt.Sprintf("fsc.persistences.%s.persistence.tlsRootCertPath", k), p.TLSRootCertPath)
 }
 
 func (o *Options) GetPostgresPersistences() map[dbdriver.PersistenceName]*SQLOpts {
@@ -114,7 +133,7 @@ func (o *Options) GetPostgresPersistences() map[dbdriver.PersistenceName]*SQLOpt
 		return nil
 	}
 	r := make(map[dbdriver.PersistenceName]*SQLOpts)
-	for _, k := range persistences.([]dbdriver.PersistenceName) {
+	for _, k := range stringList[dbdriver.PersistenceName](persistences) {
 		r[k] = o.GetPostgresPersistence(k)
 	}
 	return r
@@ -122,11 +141,38 @@ func (o *Options) GetPostgresPersistences() map[dbdriver.PersistenceName]*SQLOpt
 
 func (o *Options) GetPostgresPersistence(k dbdriver.PersistenceName) *SQLOpts {
 	if v := o.Get(fmt.Sprintf("fsc.persistences.%s.persistence.sql", k)); v != nil {
+		prefix, _ := o.Get(fmt.Sprintf("fsc.persistences.%s.persistence.tablePrefix", k)).(string)
+		tls, _ := o.Get(fmt.Sprintf("fsc.persistences.%s.persistence.tls", k)).(bool)
+		caPath, _ := o.Get(fmt.Sprintf("fsc.persistences.%s.persistence.tlsRootCertPath", k)).(string)
 		return &SQLOpts{
-			DataSource: v.(string),
+			DataSource:      v.(string),
+			TablePrefix:     prefix,
+			TLS:             tls,
+			TLSRootCertPath: caPath,
 		}
 	}
 	return nil
+}
+
+// asString returns v, a T or the string that cloneOptions turns a T into, as a T.
+func asString[T ~string](v any) T {
+	if s, ok := v.(T); ok {
+		return s
+	}
+	return T(v.(string))
+}
+
+// stringList returns v, a []T or the []any that cloneOptions turns a []T into, as a []T.
+func stringList[T ~string](v any) []T {
+	if l, ok := v.([]T); ok {
+		return l
+	}
+	boxed := v.([]any)
+	l := make([]T, len(boxed))
+	for i, e := range boxed {
+		l[i] = asString[T](e)
+	}
+	return l
 }
 
 func (o *Options) ReplicationFactor() int {

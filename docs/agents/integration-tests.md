@@ -62,6 +62,39 @@ opts := &Opts{
 }
 ```
 
+### Storage options
+
+A node listed in `SQLConfigs` keeps all its stores in a Postgres default persistence.
+Any other node keeps them in its own SQLite file, `default.sqlite`. The vault is the
+exception: it goes in `fabric_vault.sqlite`, so `DeleteVault` can remove it without
+touching the other stores. nwo starts each Postgres database once, however many nodes or
+persistences share it. Use `NodeOptions` to adjust a node's storage with the options below
+from `integration/nwo/fabric`. `WithTablePrefix` and `WithPostgresTLS` fail unless an
+earlier option defined the persistence they name. `WithStorePersistence` accepts any name,
+so a misspelled one fails only when the node starts:
+
+| Option | Effect |
+|---|---|
+| `WithPostgresPersistence(name, cfg)` | defines another Postgres persistence, on the database of `cfg` |
+| `WithStorePersistence(key, name)` | moves one store there; `key` is `fsc_<store>` (`fsc_kvs`, `fsc_binding`, …) or `fabric_vault` |
+| `WithTablePrefix(name, prefix)` | renders `tablePrefix`, so the persistence's tables are named `<prefix>_…` |
+| `WithPostgresTLS(name)` | starts the database with a generated CA and server certificate, and the node connects with `ssl_mode: verify-full` |
+
+```go
+NodeOptions: map[string][]node.Option{
+    "borrower": {
+        fabric.WithTablePrefix(common.DefaultPersistence, "borrower"),
+        fabric.WithPostgresPersistence("kvs", postgres.DefaultConfig(postgres.WithDBName("borrower-kvs-db"))),
+        fabric.WithStorePersistence("fsc_kvs", "kvs"),
+    },
+    "lender": {fabric.WithPostgresTLS(common.DefaultPersistence)},
+},
+```
+
+The replicas variant of `integration/fabric/iou` exercises all four and checks the
+resulting tables with `iou.Tables`. A unit test that needs only a Postgres container with
+TLS can call `postgres.EnableTLS` on its `ContainerConfig` before `postgres.StartPostgres`.
+
 ### Raising the p2p message-size limits
 
 `fscTopology.SetP2PMessageSizeLimits(recv, send)` sets `fsc.p2p.maxRecvMsgSize` and

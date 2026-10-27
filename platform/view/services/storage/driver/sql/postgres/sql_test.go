@@ -7,15 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
@@ -65,52 +61,15 @@ func TestPostgres(t *testing.T) {
 func setupDBWithTLS(tb testing.TB) (pgConnStr, caPath string) {
 	tb.Helper()
 
-	tempDir := tb.TempDir()
-	ca, err := tlsgen.NewCA()
-	require.NoError(tb, err)
-	serverKeyPair, err := ca.NewServerCertKeyPair("localhost")
-	require.NoError(tb, err)
-
-	certPath := filepath.Join(tempDir, "server.crt")
-	err = os.WriteFile(certPath, serverKeyPair.Cert, 0o644)
-	require.NoError(tb, err)
-
-	keyPath := filepath.Join(tempDir, "server.key")
-	err = os.WriteFile(keyPath, serverKeyPair.Key, 0o644)
-	require.NoError(tb, err)
-
-	scriptPath := filepath.Join(tempDir, "init-ssl.sh")
-	script := `#!/bin/bash
-cp /tmp/certs/server.key /var/lib/postgresql/server.key
-cp /tmp/certs/server.crt /var/lib/postgresql/server.crt
-chmod 0600 /var/lib/postgresql/server.key
-echo "ssl = on" >> "$PGDATA/postgresql.conf"
-echo "ssl_cert_file = '/var/lib/postgresql/server.crt'" >> "$PGDATA/postgresql.conf"
-echo "ssl_key_file = '/var/lib/postgresql/server.key'" >> "$PGDATA/postgresql.conf"
-`
-	// Ensure Unix line endings even if cloned on Windows with CRLF
-	script = strings.ReplaceAll(script, "\r\n", "\n")
-	err = os.WriteFile(scriptPath, []byte(script), 0o755)
-	require.NoError(tb, err)
-
 	cfg := ConfigFromEnv()
-	WithBinds(
-		filepath.ToSlash(tempDir)+":/tmp/certs:ro",
-		filepath.ToSlash(scriptPath)+":/docker-entrypoint-initdb.d/init-ssl.sh:ro",
-	)(cfg)
+	caPath, err := EnableTLS(cfg, tb.TempDir())
+	require.NoError(tb, err)
 
-	logger := &testLogger{tb}
-	var terminate func()
-	terminate, pgConnStr, err = StartPostgres(tb.Context(), cfg, logger)
+	terminate, pgConnStr, err := StartPostgres(tb.Context(), cfg, &testLogger{tb})
 	if err != nil {
 		tb.Fatal(err)
 	}
 	tb.Cleanup(terminate)
-
-	// Since we are creating a CA from scratch, write it for the client to use.
-	caPath = filepath.Join(tempDir, "ca.crt")
-	err = os.WriteFile(caPath, ca.CertBytes(), 0o644)
-	require.NoError(tb, err)
 
 	return pgConnStr, caPath
 }

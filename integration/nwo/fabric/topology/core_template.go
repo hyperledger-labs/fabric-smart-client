@@ -334,6 +334,9 @@ fabric:
         {{- end }}
     {{- end }}
     vault:
+      {{- with VaultPersistence }}
+      persistence: {{ . }}
+      {{- end }}
       txidstore:
         cache:
           # Sets the maximum number of cached items 
