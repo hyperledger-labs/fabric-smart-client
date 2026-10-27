@@ -27,6 +27,15 @@ type Logging struct {
 	OtelSanitize bool   `yaml:"otelSanitize,omitempty"`
 }
 
+// P2P holds the topology-wide P2P settings rendered into every node's core.yaml under fsc.p2p.
+// A zero or negative value leaves the key out, so the node default applies.
+type P2P struct {
+	// MaxRecvMsgSize is the largest incoming P2P message in bytes (fsc.p2p.maxRecvMsgSize).
+	MaxRecvMsgSize int `yaml:"maxRecvMsgSize,omitempty"`
+	// MaxSendMsgSize is the largest outgoing P2P message in bytes (fsc.p2p.maxSendMsgSize).
+	MaxSendMsgSize int `yaml:"maxSendMsgSize,omitempty"`
+}
+
 type P2PCommunicationType = string
 
 const (
@@ -44,6 +53,8 @@ type Topology struct {
 	Templates            Templates            `yaml:"templates,omitempty"`
 	Monitoring           Monitoring           `yaml:"monitoring,omitempty"`
 	P2PCommunicationType P2PCommunicationType `yaml:"p2p_communication_type,omitempty"`
+	// P2P holds the P2P message-size limits applied to every FSC node of the topology.
+	P2P P2P `yaml:"p2p,omitempty"`
 	// WebEnabled is used to activate the FSC web server
 	WebEnabled bool `yaml:"web_enabled,omitempty"`
 }
@@ -89,6 +100,15 @@ func (t *Topology) SetLogging(spec, format string) {
 	}
 	l.OtelSanitize = t.Logging.OtelSanitize
 	t.Logging = l
+}
+
+// SetP2PMessageSizeLimits sets, in bytes, the maximum incoming and outgoing P2P message sizes
+// (fsc.p2p.maxRecvMsgSize and fsc.p2p.maxSendMsgSize) for every FSC node of the topology.
+// A zero or negative value leaves the corresponding limit at the node default.
+// It must be called before the network is generated.
+func (t *Topology) SetP2PMessageSizeLimits(maxRecv, maxSend int) {
+	t.P2P.MaxRecvMsgSize = max(maxRecv, 0)
+	t.P2P.MaxSendMsgSize = max(maxSend, 0)
 }
 
 func (t *Topology) Name() string {
