@@ -29,6 +29,10 @@ const (
 
 	commitRetries  = "fsc_fabric_core_generic_committer_commit_retries"
 	commitFailures = "fsc_fabric_core_generic_committer_commit_failures"
+
+	// postgresOutage labels the long Postgres outage specs, which run in a target of
+	// their own.
+	postgresOutage = "postgres-outage"
 )
 
 var (
@@ -44,10 +48,10 @@ func newInfrastructure() (*integration.Infrastructure, error) {
 	)
 }
 
-var _ = Describe("Fault Recovery with Fabric", Label(fsc.WebSocket), func() {
+// The specs share one network: each must leave it healthy, see faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label(fsc.WebSocket), func() {
 	s := integration.NewTestSuite(newInfrastructure)
-	BeforeEach(s.Setup)
-	AfterEach(s.TearDown)
+	faultrecovery.ShareNetwork(s)
 
 	It("commits a transaction on a healthy network", func() {
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
@@ -69,6 +73,8 @@ var _ = Describe("Fault Recovery with Fabric", Label(fsc.WebSocket), func() {
 
 		faultrecovery.WaitFinal(s.II, tx.TxID)
 		s.II.EventuallyConnectionState("bob", delivery, connstate.Connected, time.Minute)
+		// The next spec endorses through bob's peer, so the spec ends only once it endorses.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
 	It("broadcasts via remaining orderers", func() {
@@ -94,8 +100,10 @@ var _ = Describe("Fault Recovery with Fabric", Label(fsc.WebSocket), func() {
 	})
 })
 
-// Its own Describe, so the shortened commit retry budget applies to these specs only.
-var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Label(fsc.WebSocket), func() {
+// Its own Describe, so the shortened commit retry budget applies to these specs only. Each
+// spec gets its own network: the failover spec kills bob's primary and points bob at the
+// standby for good.
+var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Label(fsc.WebSocket, postgresOutage), func() {
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		ii, err := newInfrastructure()
 		if err != nil {

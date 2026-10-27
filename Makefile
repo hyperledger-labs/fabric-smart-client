@@ -234,6 +234,9 @@ INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-configupdate
 INTEGRATION_TARGETS += fabric-events
 INTEGRATION_TARGETS += fabric-faultrecovery
+# fabric/faultrecovery runs the specs that need a network of their own in a
+# second target, so CI runs them in parallel with the ones that share one.
+INTEGRATION_TARGETS += fabric-faultrecovery-postgres-outage
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
 # them as parallel matrix entries rather than serially in one job.
@@ -258,13 +261,16 @@ INTEGRATION_TARGETS += fabricx-faultrecovery
 # ./integration/<platform>/<suite>. Targets that run one suite under a
 # different name need an explicit directory.
 INTEGRATION_DIR_fabric-iou-libp2p = fabric/iou
+INTEGRATION_DIR_fabric-faultrecovery-postgres-outage = fabric/faultrecovery
 
-# Per-target ginkgo flags. A suite that declares more than one p2p comm type is
-# split into one target per type. The websocket target uses a negative filter
-# so a spec added later without a comm-type label still runs there, rather
-# than silently running in neither job.
+# Per-target ginkgo flags. A suite split into several targets selects each
+# target's specs by label. The suite's default target uses a negative filter
+# so a spec added later without the other targets' labels still runs there,
+# rather than silently running in neither job.
 INTEGRATION_FLAGS_fabric-iou        = --label-filter='!libp2p'
 INTEGRATION_FLAGS_fabric-iou-libp2p = --label-filter=libp2p
+INTEGRATION_FLAGS_fabric-faultrecovery                 = --label-filter='!postgres-outage'
+INTEGRATION_FLAGS_fabric-faultrecovery-postgres-outage = --label-filter=postgres-outage
 
 integration_default_dir = $(firstword $(subst -, ,$(1)))/$(subst $(firstword $(subst -, ,$(1)))-,,$(1))
 integration_dir = $(or $(INTEGRATION_DIR_$(1)),$(call integration_default_dir,$(1)))
@@ -307,7 +313,7 @@ clean: $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) ## 
 	rm -rf ./out
 
 $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) : clean-%:
-	rm -rf ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*)/out
+	rm -rf ./integration/$(call integration_dir,$*)/out
 
 .PHONY: tidy
 tidy: ## Run go mod tidy everywhere
