@@ -357,7 +357,7 @@ func TestIsFinalForKnownStatuses(t *testing.T) {
 	})
 }
 
-func TestListenToReturnsTimeoutWhenContextIsCanceled(t *testing.T) {
+func TestListenToReturnsContextErrorWhenCanceled(t *testing.T) {
 	t.Parallel()
 
 	c := &Committer{
@@ -372,8 +372,10 @@ func TestListenToReturnsTimeoutWhenContextIsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	err := c.listenTo(ctx, "tx13", 20*time.Millisecond)
-	require.ErrorContains(t, err, "failed to listen to transaction")
+	err := c.listenTo(ctx, "tx13", 20*time.Millisecond, fdriver.Busy)
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotErrorIs(t, err, fdriver.ErrFinalityTimeout)
+	require.ErrorContains(t, err, "last known status [busy]")
 }
 
 func TestCommitTXBusyPath(t *testing.T) {
@@ -1161,7 +1163,7 @@ func TestListenToAdditionalBranches(t *testing.T) {
 			EnvelopeService: &fake.EnvelopeService{},
 		}
 
-		err := c.listenTo(t.Context(), "tx-listen-timeout", 50*time.Millisecond)
+		err := c.listenTo(t.Context(), "tx-listen-timeout", 50*time.Millisecond, fdriver.Unknown)
 		require.ErrorContains(t, err, "failed to listen to transaction")
 	})
 
@@ -1179,7 +1181,7 @@ func TestListenToAdditionalBranches(t *testing.T) {
 			},
 			EnvelopeService: &fake.EnvelopeService{},
 		}
-		require.NoError(t, c.listenTo(t.Context(), "tx-listen-valid", 20*time.Millisecond))
+		require.NoError(t, c.listenTo(t.Context(), "tx-listen-valid", 20*time.Millisecond, fdriver.Unknown))
 	})
 
 	t.Run("timeout check sees invalid tx", func(t *testing.T) {
@@ -1196,7 +1198,7 @@ func TestListenToAdditionalBranches(t *testing.T) {
 			},
 			EnvelopeService: &fake.EnvelopeService{},
 		}
-		err := c.listenTo(t.Context(), "tx-listen-invalid", 20*time.Millisecond)
+		err := c.listenTo(t.Context(), "tx-listen-invalid", 20*time.Millisecond, fdriver.Unknown)
 		require.ErrorContains(t, err, "is not valid")
 	})
 }
@@ -1255,4 +1257,95 @@ func TestIsFinalAdditionalBranches(t *testing.T) {
 		err := c.IsFinal(t.Context(), "tx-final-busy")
 		require.ErrorContains(t, err, "failed to listen to transaction")
 	})
+}
+
+func TestIsFinal_BusyTimesOutWithStatus(t *testing.T) {
+	t.Parallel()
+
+	c := &Committer{
+		logger: logger,
+		ChannelConfig: &fake.ChannelConfig{
+			FinalityRetries:     1,
+			WaitForEventTimeout: 20 * time.Millisecond,
+		},
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				return fdriver.Busy, "", nil
+			},
+		},
+		tracer:          noop.NewTracerProvider().Tracer("test"),
+		listeners:       map[string][]chan FinalityEvent{},
+		pollingTimeout:  5 * time.Millisecond,
+		EnvelopeService: &fake.EnvelopeService{},
+	}
+
+	err := c.IsFinal(t.Context(), "tx-busy-timeout")
+	require.Error(t, err)
+	require.ErrorIs(t, err, fdriver.ErrFinalityTimeout)
+	require.Contains(t, err.Error(), "busy")
+}
+
+func TestIsFinal_BusyRetriesSleep(t *testing.T) {
+	t.Parallel()
+
+	const (
+		retries = 3
+		delay   = 20 * time.Millisecond
+	)
+
+	statusCalls := 0
+	c := &Committer{
+		logger: logger,
+		ChannelConfig: &fake.ChannelConfig{
+			FinalityRetries:        retries,
+			FinalityUnknownTimeout: delay,
+			WaitForEventTimeout:    10 * time.Millisecond,
+		},
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				statusCalls++
+				return fdriver.Busy, "", nil
+			},
+		},
+		tracer:          noop.NewTracerProvider().Tracer("test"),
+		listeners:       map[string][]chan FinalityEvent{},
+		pollingTimeout:  5 * time.Millisecond,
+		EnvelopeService: &fake.EnvelopeService{},
+	}
+
+	start := time.Now()
+	err := c.IsFinal(t.Context(), "tx-busy-sleep")
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, fdriver.ErrFinalityTimeout)
+	require.Contains(t, err.Error(), "busy")
+
+	expectedMinSleep := time.Duration(retries-1) * delay
+	require.GreaterOrEqual(t, elapsed, expectedMinSleep, "expected %d retries with delay %v to take at least %v, took %v", retries, delay, expectedMinSleep, elapsed)
+	require.GreaterOrEqual(t, statusCalls, retries)
+}
+
+func TestIsFinal_BusyRetryStopsOnCancel(t *testing.T) {
+	t.Parallel()
+
+	c := &Committer{
+		logger: logger,
+		ChannelConfig: &fake.ChannelConfig{
+			FinalityRetries:        3,
+			FinalityUnknownTimeout: time.Minute,
+		},
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				return fdriver.Busy, "", nil
+			},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	err := c.IsFinal(ctx, "tx-busy-cancel")
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorContains(t, err, "last known status [busy]")
 }

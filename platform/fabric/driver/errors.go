@@ -14,6 +14,12 @@ import (
 // ErrNotImplemented signals that a function is not implemented
 var ErrNotImplemented = errors.New("not implemented")
 
+// ErrFinalityTimeout signals that waiting for transaction finality timed out.
+//
+// The timeout error returned by IsFinal wraps it and names the last known
+// status of the transaction.
+var ErrFinalityTimeout = errors.New("finality timeout")
+
 // ErrNotInitialized signals that a service cannot answer yet because the
 // configuration it depends on has not been loaded.
 //
