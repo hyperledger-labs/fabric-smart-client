@@ -40,8 +40,8 @@ type TLSConfig struct {
 // datasource sslmode: each host gets the attempts its mode requires (TLS then
 // plaintext for prefer, plaintext then TLS for allow), and its TLS config
 // verifies against that host's name unless ServerName is set. A unix-socket
-// host gets a single plaintext attempt, as in pgx. The settings
-// pgx parses besides hosts and TLS, such as target_session_attrs, are kept.
+// host gets a single plaintext attempt, as in pgx. The settings pgx parses
+// besides hosts and TLS, such as target_session_attrs, are kept.
 func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, error) {
 	connConfig, err := pgx.ParseConfig(dataSource)
 	if err != nil {
