@@ -21,7 +21,9 @@ var (
 	// DeadlockDetected happens when two transactions are taking place at the same time and interact with the same rows
 	//nolint:revive // error-naming: renaming this exported error var to the ErrFoo form is an API break; see follow-up
 	DeadlockDetected = errors.New("deadlock detected")
-	// SqlBusy happens when two transactions are trying to write at the same time. Can be avoided by opening the database in exclusive mode
+	// SqlBusy means the database rejected the statement because of a concurrent
+	// transaction: a write lock held by another connection or a read snapshot made
+	// stale by another commit. Re-running the statement or transaction may succeed.
 	//nolint:revive // var-naming: renaming this exported error var is an API break; see follow-up
 	SqlBusy = errors.New("sql is busy")
 	// ErrConnectionLost means the connection to the database broke or could not be
