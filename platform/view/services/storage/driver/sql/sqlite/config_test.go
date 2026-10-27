@@ -85,7 +85,7 @@ func TestGetOptsUnmarshalError(t *testing.T) {
 // persistence replaces the name, so the store can no longer resolve its persistence.
 func TestGetOptsFromEnv(t *testing.T) { //nolint:paralleltest // t.Setenv
 	t.Setenv("CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE", "from-env")
-	t.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "ignored")
+	t.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "replaces-the-name")
 	dir := t.TempDir()
 	yaml := `
 fsc:
@@ -106,5 +106,5 @@ fsc:
 	assert.Equal(t, "from-env", o.DataSource)
 
 	_, err = common.GetPersistenceName(p, "fsc.kvs.persistence")
-	require.Error(t, err)
+	require.ErrorContains(t, err, "unconvertible type")
 }

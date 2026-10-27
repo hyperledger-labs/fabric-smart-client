@@ -897,7 +897,7 @@ and traversing the path in the yaml with underscores. This means that a key like
 CORE_LOGGING_LEVEL=debug
 CORE_FSC_P2P_LISTENADDRESS=/ip4/0.0.0.0/tcp/9001
 CORE_FSC_IDENTITY_KEY_FILE=/my/private.key
-CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE=/mydb.sqlite
+CORE_FSC_PERSISTENCES_MYSQLITE_OPTS_DATASOURCE=/mydb.sqlite
 CORE_FSC_TRACING_OTLP_ADDRESS=jaeger.example.com:4318
 CORE_FABRIC_MYNETWORK_KEEPALIVE_TIME=120s
 ```
@@ -914,9 +914,18 @@ CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
 
 And so on.
 
-Every `_` in a variable name becomes a `.`, so a variable cannot reach a key whose name
-contains an underscore, such as a persistence named `my_postgres`. Name a persistence
-without underscores to override its options from the environment.
+A single `_` in a variable name separates two levels of the key, and `__` stands for a
+literal `_` within one level. This reaches persistence names and keys that contain an
+underscore:
+
+```sh
+# fsc.persistences.token_persistence.opts.dataSource
+CORE_FSC_PERSISTENCES_TOKEN__PERSISTENCE_OPTS_DATASOURCE=postgres://...
+# fsc.persistences.default.opts.tls.ssl_mode
+CORE_FSC_PERSISTENCES_DEFAULT_OPTS_TLS_SSL__MODE=require
+```
+
+A key level that starts with `_`, other than the first, cannot be set from the environment.
 
 ## HSM Support
 
@@ -1006,10 +1015,11 @@ The same configuration flags as above apply, except `skipPragmas`. For Postgres 
 > [!WARNING]
 > The 'dataSource' field is sensitive because it contains a password. Instead of in this file, set it in the
 > `CORE_FSC_PERSISTENCES_<NAME>_OPTS_DATASOURCE` environment variable, where `<NAME>` is the persistence name in
-> uppercase (for example `CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE`). Stores such as `fsc.kvs` and
+> uppercase and each `_` doubled (for example `CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE`, or
+> `CORE_FSC_PERSISTENCES_MY__PG_OPTS_DATASOURCE` for a persistence named `my_pg`). Stores such as `fsc.kvs` and
 > `fabric.<network>.vault` only name a persistence, so they take no `opts` of their own: a variable such as
 > `CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE` replaces the persistence name with a map, and the store fails to open. See
-> [Overriding configuration keys](#overriding-configuration-keys) for names that contain an underscore.
+> [Overriding configuration keys](#overriding-configuration-keys).
 
 ```yaml
 fsc:

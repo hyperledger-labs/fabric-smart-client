@@ -321,13 +321,16 @@ func (p *Provider) loadFromRaw(raw []byte) error {
 	return nil
 }
 
+// envKeyReplacer maps an environment variable name, without its prefix, to a configuration
+// key: "__" stands for a literal "_" and every other "_" for the "." between nesting levels.
+// A Replacer tries its pairs in order at each position, so "__" wins over "_".
+var envKeyReplacer = strings.NewReplacer("__", "_", "_", ".")
+
+// setupEnv loads every non-empty CORE_ environment variable on top of the loaded
+// configuration. CORE_FSC_PERSISTENCES_TOKEN__PERSISTENCE_OPTS_DATASOURCE sets
+// fsc.persistences.token_persistence.opts.datasource. A variable keeps the type of an existing
+// int, bool or float value when it parses as one, and never replaces a map.
 func (p *Provider) setupEnv() error {
-	// Load only environment variables with prefix "CORE_" and merge into config.
-	// Transform var names by:
-	// 1. Converting to lowercase
-	// 2. Removing "MYVAR_" prefix
-	// 3. Replacing "_" with "." to representing nesting using the . delimiter.
-	// Example: MYVAR_PARENT1_CHILD1_NAME becomes "parent1.child1.name"
 	if err := p.Backend.Load(env.Provider(".", env.Opt{
 		Prefix: "CORE",
 		TransformFunc: func(k, v string) (string, any) {
@@ -336,14 +339,12 @@ func (p *Provider) setupEnv() error {
 				return "", ""
 			}
 
-			// Transform the key.
-			k = strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(k, EnvCorePrefix)), "_", ".")
+			k = envKeyReplacer.Replace(strings.ToLower(strings.TrimPrefix(k, EnvCorePrefix)))
 
 			// Get the existing value from koanf to check its type
 			existingValue := p.Backend.Get(k)
 
-			// SCENARIO 2: Prevent the env var (which is a string) from changing
-			// the type of an existing int, float, or bool.
+			// Keep the type of an existing int, bool or float; an unparsable value stays a string.
 			switch existingValue.(type) {
 			case map[string]any:
 				// should not replace
