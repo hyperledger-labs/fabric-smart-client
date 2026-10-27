@@ -223,7 +223,7 @@ fsc:
 
   # ------------------- Persistence Configuration -------------------------
   # All persistence configurations of the application are defined here
-  # Then each store chooses a configuration by referencing it by the key (e.g. my_sqlite_persistence)
+  # Then each store chooses a configuration by referencing it by the key (e.g. mysqlite)
   # If a store does not define one, the 'default' will be picked if it is defined.
   # Creating a store fails if it references a key that is not defined here,
   # or if the referenced configuration does not set a type.
@@ -234,15 +234,15 @@ fsc:
       # The type can be memory, sqlite, postgres. Required.
       type: memory
     # The persistence configuration for all stores that define the option
-    # persistence: my_sqlite_persistence
+    # persistence: mysqlite
     # See more details on available options below
-    my_sqlite_persistence:
+    mysqlite:
       type: sqlite
       opts:
         dataSource: /path/to/sqlite
         maxIdleConns: 10
         skipPragmas: false
-    my_postgres_persistence:
+    mypostgres:
       type: postgres
       opts:
         dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
@@ -794,7 +794,7 @@ fabric:
     # ----------------------- Fabric Driver Configuration ---------------------------
     # Internal vault used to keep track of the RW sets assembled by this node during in progress transactions
     vault:
-      persistence: my_postgres_persistence
+      persistence: mypostgres
       txidstore:
         cache:
           # TBD: What does this cache, what does 0 mean and what is the scale
@@ -897,7 +897,7 @@ and traversing the path in the yaml with underscores. This means that a key like
 CORE_LOGGING_LEVEL=debug
 CORE_FSC_P2P_LISTENADDRESS=/ip4/0.0.0.0/tcp/9001
 CORE_FSC_IDENTITY_KEY_FILE=/my/private.key
-CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE=/mydb.sqlite
+CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE=/mydb.sqlite
 CORE_FSC_TRACING_OTLP_ADDRESS=jaeger.example.com:4318
 CORE_FABRIC_MYNETWORK_KEEPALIVE_TIME=120s
 ```
@@ -913,6 +913,10 @@ CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
 ```
 
 And so on.
+
+Every `_` in a variable name becomes a `.`, so a variable cannot reach a key whose name
+contains an underscore, such as a persistence named `my_postgres`. Name a persistence
+without underscores to override its options from the environment.
 
 ## HSM Support
 
@@ -935,17 +939,23 @@ The driver has been tested with the following sql drivers:
 - Postgres (pure Go): github.com/jackc/pgx/v5/stdlib
 
 In theory you can use any [sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in your application.
-To try a new sql driver, add a test next to `platform/view/services/storage/driver/sql/postgres/sql_test.go`.
+To try a new sql driver, add a test next to `platform/view/services/storage/driver/sql/sqlite/sql_test.go`
+and `platform/view/services/storage/driver/sql/postgres/sql_test.go`.
+
+Each example below is a persistence block under `fsc.persistences`, selected by a store through its
+`persistence` key (for example `fsc.kvs.persistence: default`).
 
 ### Config example for sqlite:
 
 Simple:
 
 ```yaml
-persistence:
-  type: sqlite
-  opts:
-    dataSource: /some/path/fsc.sqlite
+fsc:
+  persistences:
+    default:
+      type: sqlite
+      opts:
+        dataSource: /some/path/fsc.sqlite
 ```
 
 
@@ -957,16 +967,18 @@ apply to the read pool only.
 Advanced, more customized settings:
 
 ```yaml
-persistence:
-  type: sqlite
-  opts:
-    dataSource: file:/some/path/fsc.sqlite?_txlock=immediate
-    tablePrefix: fsc  # optional
-    skipCreateTable: true # tells FSC _not_ to create a table when starting up (because it already exists).
-    skipPragmas: true # optional: do not add the default pragmas below; only the pragmas in the dataSource apply.
-    maxOpenConns: 20  # optional: max open read connections to the database. Defaults to unlimited. See https://go.dev/doc/database/manage-connections.
-    maxIdleConns: 20  # optional: max idle read connections to the database. Defaults to 2.
-    maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
+fsc:
+  persistences:
+    default:
+      type: sqlite
+      opts:
+        dataSource: file:/some/path/fsc.sqlite?_txlock=immediate
+        tablePrefix: fsc  # optional
+        skipCreateTable: true # tells FSC _not_ to create its tables at startup (because they already exist), for every store on this persistence.
+        skipPragmas: true # optional, SQLite only: do not add the default pragmas below; only the pragmas in the dataSource apply.
+        maxOpenConns: 20  # optional: max open read connections to the database. Defaults to unlimited. See https://go.dev/doc/database/manage-connections.
+        maxIdleConns: 20  # optional: max idle read connections to the database. Defaults to 2.
+        maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
 ```
 
 Unless `skipPragmas` is `true`, FSC adds these pragmas to the dataSource as `_pragma` parameters:
@@ -989,30 +1001,34 @@ A write outside a transaction that fails with `SQLITE_BUSY` is retried up to 3 t
 
 ### Config example for postgres
 
-The same configuration flags as above apply, but for Postgres we always use one connection pool for reads and writes,
-and the sqlite pragmas don't apply.
+The same configuration flags as above apply, except `skipPragmas`. For Postgres we always use one connection pool for reads and writes.
 
 > [!WARNING]
 > The 'dataSource' field is sensitive because it contains a password. Instead of in this file, set it in the
-> `CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE` and `CORE_FABRIC_MYNETWORK_VAULT_PERSISTENCE_OPTS_DATASOURCE` environment
-> variables (where mynetwork is the name of your network in core.yaml).
+> `CORE_FSC_PERSISTENCES_<NAME>_OPTS_DATASOURCE` environment variable, where `<NAME>` is the persistence name in
+> uppercase (for example `CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE`). Stores such as `fsc.kvs` and
+> `fabric.<network>.vault` only name a persistence, so they take no `opts` of their own: a variable such as
+> `CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE` replaces the persistence name with a map, and the store fails to open. See
+> [Overriding configuration keys](#overriding-configuration-keys) for names that contain an underscore.
 
 ```yaml
-persistence:
-  type: postgres
-  opts:
-    dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
-    maxOpenConns: 25  # optional: max open read connections to the database. Defaults to unlimited. 
-    maxIdleConns: 25  # optional: max idle read connections to the database. Defaults to 2.
-    maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
-    startupConnectTimeout: 60s  # optional: how long the node waits at startup for the database to accept connections. Defaults to 60s (also when 0); waiting cannot be disabled.
-    tls:
-      enabled: true              # when false (or omitted) the tls block is ignored and the dataSource is used as-is
-      ssl_mode: verify-full      # optional: defaults to verify-full when empty. See the table below.
-      server_name: db.example.com # optional: overrides the hostname used for verify-full verification/SNI. Defaults to the host being connected to.
-      cert_path: /path/to/client.crt      # optional: client certificate for mutual TLS
-      key_path: /path/to/client.key       # optional: client private key for mutual TLS
-      root_cert_path: /path/to/ca.crt     # optional: CA used to verify the server certificate (verify-ca / verify-full)
+fsc:
+  persistences:
+    default:
+      type: postgres
+      opts:
+        dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
+        maxOpenConns: 25  # optional: max open connections to the database. Defaults to unlimited.
+        maxIdleConns: 25  # optional: max idle connections to the database. Defaults to 2.
+        maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
+        startupConnectTimeout: 60s  # optional: how long the node waits at startup for the database to accept connections. Defaults to 60s (also when 0); waiting cannot be disabled.
+        tls:
+          enabled: true              # when false (or omitted) the tls block is ignored and the dataSource is used as-is
+          ssl_mode: verify-full      # optional: defaults to verify-full when empty. See the table below.
+          server_name: db.example.com # optional: overrides the hostname used for verify-full verification/SNI. Defaults to the host being connected to.
+          cert_path: /path/to/client.crt      # optional: client certificate for mutual TLS
+          key_path: /path/to/client.key       # optional: client private key for mutual TLS
+          root_cert_path: /path/to/ca.crt     # optional: CA used to verify the server certificate (verify-ca / verify-full)
 ```
 
 `ssl_mode` follows the standard PostgreSQL/libpq semantics
@@ -1049,14 +1065,16 @@ To keep a node running through a Postgres primary failover, list every host that
 and set `target_session_attrs=read-write`:
 
 ```yaml
-persistence:
-  type: postgres
-  opts:
-    dataSource: postgres://fsc:secret@pg-a:5432,pg-b:5432/fsc?target_session_attrs=read-write&connect_timeout=5
-    tls:
-      enabled: true
-      ssl_mode: verify-full
-      root_cert_path: /path/to/ca.crt
+fsc:
+  persistences:
+    default:
+      type: postgres
+      opts:
+        dataSource: postgres://fsc:secret@pg-a:5432,pg-b:5432/fsc?target_session_attrs=read-write&connect_timeout=5
+        tls:
+          enabled: true
+          ssl_mode: verify-full
+          root_cert_path: /path/to/ca.crt
 ```
 
 pgx tries the hosts in the order listed and keeps the first connection whose server accepts writes, so a new connection
@@ -1113,7 +1131,7 @@ The vault then checks the primary-key column order of that state table. Every st
   - SQLite: the vault rebuilds the table in one transaction, copying every row while it holds the write lock. Other writers on the same file wait; a replica that waits longer than its `busy_timeout` fails to start with `SQLITE_BUSY`, and finds the table reordered when it is restarted.
 - any other column order: the vault refuses to start and leaves the table unchanged.
 
-The key-value store table (default `fsc_kvs`) uses the same primary key. Its `pkey` column is `BYTEA` on Postgres and on SQLite, so startup does not convert it. A primary key of `(pkey, ns)` is reordered to `(ns, pkey)` the same way as the vault: Postgres replaces the constraint under an exclusive lock, and SQLite rebuilds the table in one transaction. The notify trigger reads `ns` and `pkey` from the row, so replacing the constraint leaves it in place. An upsert uses `ON CONFLICT (ns, pkey)`, which matches either column order, so a node that has not been upgraded keeps writing to a reordered table.
+The key-value store table (default `fsc_kvs`) uses the same primary key. Its `pkey` column is `BYTEA` on Postgres and on SQLite, so startup does not convert it. A primary key of `(pkey, ns)` is reordered to `(ns, pkey)` the same way as the vault: Postgres replaces the constraint under an exclusive lock, and SQLite rebuilds the table in one transaction. An upsert uses `ON CONFLICT (ns, pkey)`, which matches either column order, so a node that has not been upgraded keeps writing to a reordered table.
 
 On Postgres the conversion and the reorder need a database user that owns the state table and the key-value store table.
 Without that privilege the node fails to start and the table is left unchanged.
@@ -1132,6 +1150,26 @@ ALTER TABLE <prefix>_vstate ALTER COLUMN pkey TYPE BYTEA USING
   decode(replace(replace(encode(convert_to(pkey, 'UTF8'), 'hex'), '3f303f', '00'), '3f313f', 'f48fbfbf'), 'hex');
 ```
 
-For more info about managing connections, see https://go.dev/doc/database/manage-connections. Keep in mind that Fabric Smart Client
-maintains two independent database instances: one for KVS and one for the Vault. The combined maxOpenConns should not exceed the
-configured max_connections in the postgres server (100 by default).
+For more info about managing connections, see https://go.dev/doc/database/manage-connections. Fabric Smart Client
+opens one connection pool per distinct `dataSource` (on Postgres, per distinct `dataSource` and `tls` block), shared by
+every store and persistence that uses it, including the Fabric vault. The pool settings of the first store opened on a pool
+apply to all of them. On Postgres, the sum of `maxOpenConns` over the distinct data sources, across all replicas, should not
+exceed the server's `max_connections` (100 by default). SQLite opens two pools per data source: one for reads, limited by
+`maxOpenConns`, and one with a single connection for writes.
+
+### Postgres errors
+
+The Postgres driver maps server and connection errors onto the sentinels in
+`platform/view/services/storage/driver`, so callers match them with `errors.Is`:
+
+- `ErrConnectionLost`: a dropped or closed connection, a network error, an expired `connect_timeout`, any other failed
+  connect without a SQLSTATE (including DNS and TLS failures), and SQLSTATE `08000`, `08001`, `08003`, `08006`, `08007`,
+  `57P01`, `57P02`, `57P03` and `53300` (too_many_connections). The Fabric committer retries a block that fails with it
+  until the database is back (see [Failover to a new primary](#failover-to-a-new-primary) and `commit_retries` in
+  [monitoring](platform/view/services/monitoring_metrics.md#fabric-committer)).
+- `UniqueKeyViolation` (`23505`), `SqlBusy` (`40001`), `DeadlockDetected` (`40P01`).
+
+Any other SQLSTATE, including one the server returns while connecting such as `28P01` (wrong password) or `3D000` (missing
+database), is returned unchanged, unless another host of a multi-host `dataSource` reported a code that maps to
+`ErrConnectionLost`. The committer does not retry it and degrades the channel. At startup the node instead
+retries every failed ping for `startupConnectTimeout`, then fails.

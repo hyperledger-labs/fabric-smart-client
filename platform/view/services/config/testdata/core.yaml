@@ -7,14 +7,15 @@ path:
   dir: /absolute/path/dir
   trailing: /absolute/path/dir/
 fsc:
-  kvs:
-    keyexists: true
-    persistence:
-      type: sql
+  persistences:
+    mydb:
+      type: sqlite
       opts:
-        driver: sqlite
         skipPragmas: true
         dataSource: ds
+  kvs:
+    keyexists: true
+    persistence: mydb
 emptyKey:
 nested:
   keys:

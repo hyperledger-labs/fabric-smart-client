@@ -47,14 +47,17 @@ documentation short, precise, and behavior-focused.
 
 ## Storage drivers
 
-Registered into the `db-drivers` DI group:
+Registered into the `db-drivers` DI group (view stores) and the
+`fabric-db-drivers` group (Fabric stores):
 
-- **SQLite** (`modernc.org/sqlite`) — default for development.
+- **SQLite** (`modernc.org/sqlite`) — development.
 - **PostgreSQL** (`github.com/jackc/pgx/v5`) — production.
-- **Memory** — tests only.
+- **Memory** — tests; also the fallback for a store that names no persistence
+  when `fsc.persistences.default` is not defined.
 
 Keys are compared bytewise and may contain U+0000 (composite keys). Bind them so
-the column stores them verbatim — `BYTEA` on Postgres, `TEXT` on SQLite — rather
+the column stores them verbatim — `BYTEA` on Postgres and for the SQLite KVS,
+`TEXT` for the SQLite vault — rather
 than escaping them into another string: an escape scheme must stay injective and
 order-preserving, and range scans silently break when it is not. A range query
 needs `ORDER BY pkey`: without it SQL returns rows in whatever order the plan

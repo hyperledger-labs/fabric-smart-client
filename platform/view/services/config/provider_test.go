@@ -18,12 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type DriverType string
-
 type Opts struct {
-	// DriverType has on purpose a different name from what we expect in the configuration file as signaled by the yaml tag.
-	DriverType   DriverType `yaml:"driver"`
-	DataSource   string
+	// Source has on purpose a different name from what we expect in the configuration file as signaled by the yaml tag.
+	Source       string `yaml:"dataSource"`
 	SkipPragmas  bool
 	MaxOpenConns int
 }
@@ -52,7 +49,7 @@ func TestProvideFromRaw(t *testing.T) { //nolint:paralleltest
 }
 
 func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest
-	t.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "new data source")
+	t.Setenv("CORE_FSC_PERSISTENCES_MYDB_OPTS_DATASOURCE", "new data source")
 	t.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
 	t.Setenv("CORE_NUMBER", "10")
 	t.Setenv("CORE_DURATION", "10s")
@@ -72,21 +69,19 @@ func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest
 	assert.Equal(t, path, p.GetPath("path.relative"))
 	assert.Equal(t, "/absolute/path/file.name", p.GetPath("path.absolute"))
 
-	assert.Equal(t, "new data source", p.GetString("fsc.kvs.persistence.opts.datasource"))
+	assert.Equal(t, "new data source", p.GetString("fsc.persistences.mydb.opts.datasource"))
 
 	var db Opts
-	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
+	assert.Equal(t, "sqlite", p.GetString("fsc.persistences.mydb.type"))
 
-	err = p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
+	err = p.UnmarshalKey("fsc.persistences.mydb.opts", &db)
 	require.NoError(t, err)
-	assert.Equal(t, DriverType("sqlite"), db.DriverType)
-	assert.Equal(t, "new data source", db.DataSource)
+	assert.Equal(t, "new data source", db.Source)
 	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
-	err = p.UnmarshalKey("FSC.kvs.PerSistEnce.opTs", &db)
+	err = p.UnmarshalKey("FSC.PerSistEnces.MyDb.opTs", &db)
 	require.NoError(t, err)
-	assert.Equal(t, DriverType("sqlite"), db.DriverType)
-	assert.Equal(t, "new data source", db.DataSource)
+	assert.Equal(t, "new data source", db.Source)
 	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
 
@@ -165,11 +160,10 @@ func testBasics(t *testing.T, p *Provider) {
 	assert.True(t, p.GetBool("capitals"))
 
 	var db Opts
-	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
-	err := p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
+	assert.Equal(t, "sqlite", p.GetString("fsc.persistences.mydb.type"))
+	err := p.UnmarshalKey("fsc.persistences.mydb.opts", &db)
 	require.NoError(t, err)
-	assert.Equal(t, DriverType("sqlite"), db.DriverType)
-	assert.Equal(t, "ds", db.DataSource)
+	assert.Equal(t, "ds", db.Source)
 	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
 }
