@@ -9,12 +9,16 @@ package postgres
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -268,6 +272,119 @@ func TestCreateTLSConnConfig(t *testing.T) {
 			tt.verify(t, connConfig, err)
 		})
 	}
+}
+
+// TestCreateTLSConnConfigMultiHost asserts that every host of a multi-host
+// dataSource is tried, in order, with a TLS config whose ServerName is that
+// host, and that prefer and allow give each host its TLS and plaintext attempt
+// in the order pgx uses for a dataSource sslmode.
+func TestCreateTLSConnConfigMultiHost(t *testing.T) {
+	t.Parallel()
+
+	type attempt struct {
+		host       string
+		port       uint16
+		tls        bool
+		serverName string
+	}
+	tlsTo := func(host string, port uint16) attempt { return attempt{host, port, true, host} }
+	plain := func(host string, port uint16) attempt { return attempt{host: host, port: port} }
+
+	const dataSource = "postgres://u:p@pg-a:5432,pg-b:5433/db?target_session_attrs=read-write"
+	tests := []struct {
+		sslMode string
+		want    []attempt
+	}{
+		{"", []attempt{tlsTo("pg-a", 5432), tlsTo("pg-b", 5433)}},
+		{"require", []attempt{tlsTo("pg-a", 5432), tlsTo("pg-b", 5433)}},
+		{"verify-ca", []attempt{tlsTo("pg-a", 5432), tlsTo("pg-b", 5433)}},
+		{"verify-full", []attempt{tlsTo("pg-a", 5432), tlsTo("pg-b", 5433)}},
+		{"prefer", []attempt{tlsTo("pg-a", 5432), plain("pg-a", 5432), tlsTo("pg-b", 5433), plain("pg-b", 5433)}},
+		{"allow", []attempt{plain("pg-a", 5432), tlsTo("pg-a", 5432), plain("pg-b", 5433), tlsTo("pg-b", 5433)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.sslMode, func(t *testing.T) {
+			t.Parallel()
+			connConfig, err := createTLSConnConfig(dataSource, TLSConfig{SSLMode: tt.sslMode})
+			require.NoError(t, err)
+
+			got := []attempt{{connConfig.Host, connConfig.Port, connConfig.TLSConfig != nil, serverName(connConfig.TLSConfig)}}
+			for _, f := range connConfig.Fallbacks {
+				got = append(got, attempt{f.Host, f.Port, f.TLSConfig != nil, serverName(f.TLSConfig)})
+			}
+			assert.Equal(t, tt.want, got)
+			assert.NotNil(t, connConfig.ValidateConnect, "target_session_attrs must be kept")
+		})
+	}
+
+	t.Run("unix socket host stays plaintext", func(t *testing.T) {
+		t.Parallel()
+		connConfig, err := createTLSConnConfig("host=/var/run/postgresql,pg-b user=u dbname=db", TLSConfig{SSLMode: "prefer"})
+		require.NoError(t, err)
+		assert.Equal(t, "/var/run/postgresql", connConfig.Host)
+		assert.Nil(t, connConfig.TLSConfig)
+		require.Len(t, connConfig.Fallbacks, 2)
+		assert.Equal(t, "pg-b", connConfig.Fallbacks[0].Host)
+		require.NotNil(t, connConfig.Fallbacks[0].TLSConfig)
+		assert.Nil(t, connConfig.Fallbacks[1].TLSConfig)
+	})
+
+	t.Run("server_name overrides every host", func(t *testing.T) {
+		t.Parallel()
+		connConfig, err := createTLSConnConfig(dataSource, TLSConfig{SSLMode: "verify-full", ServerName: "db.example.com"})
+		require.NoError(t, err)
+		require.NotNil(t, connConfig.TLSConfig)
+		assert.Equal(t, "db.example.com", connConfig.TLSConfig.ServerName)
+		require.Len(t, connConfig.Fallbacks, 1)
+		assert.Equal(t, "pg-b", connConfig.Fallbacks[0].Host)
+		assert.Equal(t, "db.example.com", connConfig.Fallbacks[0].TLSConfig.ServerName)
+	})
+}
+
+// TestTLSConnConfigConnectsToSecondHost asserts that a connection built from a
+// multi-host dataSource reaches the second host when the first one refuses
+// the connection.
+func TestTLSConnConfigConnectsToSecondHost(t *testing.T) {
+	t.Parallel()
+
+	// A port with nothing listening: the first host refuses the connection.
+	closed, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	refusedPort := closed.Addr().(*net.TCPAddr).Port
+	require.NoError(t, closed.Close())
+
+	second, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = second.Close() }()
+	reached := make(chan struct{})
+	go func() {
+		conn, err := second.Accept()
+		if err != nil {
+			return
+		}
+		close(reached)
+		_ = conn.Close()
+	}()
+
+	dataSource := fmt.Sprintf("postgres://u:p@127.0.0.1:%d,127.0.0.1:%d/db?connect_timeout=5",
+		refusedPort, second.Addr().(*net.TCPAddr).Port)
+	connConfig, err := createTLSConnConfig(dataSource, TLSConfig{SSLMode: "require"})
+	require.NoError(t, err)
+
+	// The second host is not a Postgres server, so the connect itself fails.
+	_, _ = pgconn.ConnectConfig(t.Context(), &connConfig.Config)
+	select {
+	case <-reached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the second host of the dataSource was never dialed")
+	}
+}
+
+func serverName(c *tls.Config) string {
+	if c == nil {
+		return ""
+	}
+	return c.ServerName
 }
 
 // TestVerifyCAIgnoresHostname asserts that verify-ca validates the server
