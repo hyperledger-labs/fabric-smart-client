@@ -9,12 +9,16 @@ package postgres
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -268,6 +272,158 @@ func TestCreateTLSConnConfig(t *testing.T) {
 			tt.verify(t, connConfig, err)
 		})
 	}
+}
+
+// TestCreateTLSConnConfigMultiHost asserts that every host of a multi-host
+// dataSource is tried, in order, with a TLS config whose ServerName is that
+// host and whose verification settings and credentials match the ssl_mode, and
+// that prefer and allow give each host its TLS and plaintext attempt in the
+// order pgx uses for a dataSource sslmode.
+func TestCreateTLSConnConfigMultiHost(t *testing.T) {
+	t.Parallel()
+	certPath, keyPath := generateSelfSignedCert(t, t.TempDir())
+
+	const (
+		noVerify    = "no verification"
+		chainOnly   = "chain only"
+		chainAndSAN = "chain and hostname"
+	)
+	plain := func(host string, port uint16) attempt { return attempt{host: host, port: port} }
+	tlsTo := func(verify string) func(string, uint16) attempt {
+		return func(host string, port uint16) attempt {
+			return attempt{host: host, port: port, serverName: host, verify: verify, credentials: true}
+		}
+	}
+
+	const dataSource = "postgres://u:p@pg-a:5432,pg-b:5433/db?target_session_attrs=read-write"
+	tests := []struct {
+		name    string
+		sslMode string
+		want    []attempt
+	}{
+		{"empty", "", []attempt{tlsTo(chainAndSAN)("pg-a", 5432), tlsTo(chainAndSAN)("pg-b", 5433)}},
+		{"require", "require", []attempt{tlsTo(noVerify)("pg-a", 5432), tlsTo(noVerify)("pg-b", 5433)}},
+		{"verify-ca", "verify-ca", []attempt{tlsTo(chainOnly)("pg-a", 5432), tlsTo(chainOnly)("pg-b", 5433)}},
+		{"verify-full", "verify-full", []attempt{tlsTo(chainAndSAN)("pg-a", 5432), tlsTo(chainAndSAN)("pg-b", 5433)}},
+		{"prefer", "prefer", []attempt{
+			tlsTo(noVerify)("pg-a", 5432), plain("pg-a", 5432), tlsTo(noVerify)("pg-b", 5433), plain("pg-b", 5433),
+		}},
+		{"allow", "allow", []attempt{
+			plain("pg-a", 5432), tlsTo(noVerify)("pg-a", 5432), plain("pg-b", 5433), tlsTo(noVerify)("pg-b", 5433),
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			connConfig, err := createTLSConnConfig(dataSource, TLSConfig{
+				SSLMode:      tt.sslMode,
+				RootCertPath: certPath,
+				CertPath:     certPath,
+				KeyPath:      keyPath,
+			})
+			require.NoError(t, err)
+
+			got := []attempt{describeAttempt(connConfig.Host, connConfig.Port, connConfig.TLSConfig)}
+			for _, f := range connConfig.Fallbacks {
+				got = append(got, describeAttempt(f.Host, f.Port, f.TLSConfig))
+			}
+			assert.Equal(t, tt.want, got)
+			assert.NotNil(t, connConfig.ValidateConnect, "target_session_attrs must be kept")
+		})
+	}
+
+	t.Run("unix socket host stays plaintext", func(t *testing.T) {
+		t.Parallel()
+		connConfig, err := createTLSConnConfig("host=/var/run/postgresql,pg-b user=u dbname=db", TLSConfig{SSLMode: "prefer"})
+		require.NoError(t, err)
+		assert.Equal(t, "/var/run/postgresql", connConfig.Host)
+		assert.Nil(t, connConfig.TLSConfig)
+		require.Len(t, connConfig.Fallbacks, 2)
+		assert.Equal(t, "pg-b", connConfig.Fallbacks[0].Host)
+		require.NotNil(t, connConfig.Fallbacks[0].TLSConfig)
+		assert.Nil(t, connConfig.Fallbacks[1].TLSConfig)
+	})
+
+	t.Run("server_name overrides every host", func(t *testing.T) {
+		t.Parallel()
+		connConfig, err := createTLSConnConfig(dataSource, TLSConfig{SSLMode: "verify-full", ServerName: "db.example.com"})
+		require.NoError(t, err)
+		require.NotNil(t, connConfig.TLSConfig)
+		assert.Equal(t, "db.example.com", connConfig.TLSConfig.ServerName)
+		require.Len(t, connConfig.Fallbacks, 1)
+		assert.Equal(t, "pg-b", connConfig.Fallbacks[0].Host)
+		require.NotNil(t, connConfig.Fallbacks[0].TLSConfig)
+		assert.Equal(t, "db.example.com", connConfig.Fallbacks[0].TLSConfig.ServerName)
+	})
+}
+
+// TestTLSConnConfigConnectsToSecondHost asserts that a connection built from a
+// multi-host dataSource reaches the second host when the first one refuses
+// the connection.
+func TestTLSConnConfigConnectsToSecondHost(t *testing.T) {
+	t.Parallel()
+
+	// A port with nothing listening: the first host refuses the connection.
+	closed, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	refusedPort := closed.Addr().(*net.TCPAddr).Port
+	require.NoError(t, closed.Close())
+
+	second, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = second.Close() }()
+	reached := make(chan struct{})
+	go func() {
+		conn, err := second.Accept()
+		if err != nil {
+			return
+		}
+		close(reached)
+		_ = conn.Close()
+	}()
+
+	dataSource := fmt.Sprintf("postgres://u:p@127.0.0.1:%d,127.0.0.1:%d/db?connect_timeout=5",
+		refusedPort, second.Addr().(*net.TCPAddr).Port)
+	connConfig, err := createTLSConnConfig(dataSource, TLSConfig{SSLMode: "require"})
+	require.NoError(t, err)
+
+	// The second host is not a Postgres server, so the connect itself fails.
+	_, _ = pgconn.ConnectConfig(t.Context(), &connConfig.Config)
+	select {
+	case <-reached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the second host of the dataSource was never dialed")
+	}
+}
+
+// attempt is the part of one connection attempt that TestCreateTLSConnConfigMultiHost
+// compares. verify is empty for a plaintext attempt.
+type attempt struct {
+	host        string
+	port        uint16
+	serverName  string
+	verify      string
+	credentials bool
+}
+
+// describeAttempt summarizes a connection attempt to host:port with the given
+// TLS config, nil for plaintext.
+func describeAttempt(host string, port uint16, c *tls.Config) attempt {
+	a := attempt{host: host, port: port}
+	if c == nil {
+		return a
+	}
+	a.serverName = c.ServerName
+	switch {
+	case !c.InsecureSkipVerify:
+		a.verify = "chain and hostname"
+	case c.VerifyConnection != nil:
+		a.verify = "chain only"
+	default:
+		a.verify = "no verification"
+	}
+	a.credentials = c.RootCAs != nil && len(c.Certificates) == 1
+	return a
 }
 
 // TestVerifyCAIgnoresHostname asserts that verify-ca validates the server

@@ -999,7 +999,7 @@ persistence:
     tls:
       enabled: true              # when false (or omitted) the tls block is ignored and the dataSource is used as-is
       ssl_mode: verify-full      # optional: defaults to verify-full when empty. See the table below.
-      server_name: db.example.com # optional: overrides the hostname used for verify-full verification/SNI. Defaults to the dataSource host.
+      server_name: db.example.com # optional: overrides the hostname used for verify-full verification/SNI. Defaults to the host being connected to.
       cert_path: /path/to/client.crt      # optional: client certificate for mutual TLS
       key_path: /path/to/client.key       # optional: client private key for mutual TLS
       root_cert_path: /path/to/ca.crt     # optional: CA used to verify the server certificate (verify-ca / verify-full)
@@ -1020,6 +1020,12 @@ persistence:
 > [!NOTE]
 > Unlike libpq (whose default is `prefer`), an empty `ssl_mode` defaults to the
 > strictest mode, `verify-full`. Set it explicitly if you need a more permissive mode.
+
+With a multi-host `dataSource` (`postgres://u:p@pg-a:5432,pg-b:5432/db`), every host
+is tried in order with the attempts its `ssl_mode` requires, and each host's
+certificate is verified against that host's name unless `server_name` is set. A
+unix-socket host is always connected to in plaintext. With any `ssl_mode` other
+than `disable`, the `sslmode` in the `dataSource` is ignored.
 
 > [!NOTE]
 > For `verify-ca` and `verify-full`, if `root_cert_path` is omitted the server

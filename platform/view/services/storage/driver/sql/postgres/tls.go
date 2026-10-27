@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/jackc/pgx/v5"
@@ -34,6 +35,13 @@ type TLSConfig struct {
 // (https://www.postgresql.org/docs/current/libpq-ssl.html), except that an
 // empty ssl_mode defaults to the strictest mode, verify-full, rather than to
 // libpq's default of prefer.
+//
+// Every host of a multi-host datasource is tried in order, as pgx does for a
+// datasource sslmode: each host gets the attempts its mode requires (TLS then
+// plaintext for prefer, plaintext then TLS for allow), and its TLS config
+// verifies against that host's name unless ServerName is set. A unix-socket
+// host gets a single plaintext attempt, as in pgx. The settings pgx parses
+// besides hosts and TLS, such as target_session_attrs, are kept.
 func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, error) {
 	connConfig, err := pgx.ParseConfig(dataSource)
 	if err != nil {
@@ -41,12 +49,6 @@ func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, 
 	}
 
 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-
-	if tlsCfg.ServerName != "" {
-		tlsConfig.ServerName = tlsCfg.ServerName
-	} else {
-		tlsConfig.ServerName = connConfig.Host
-	}
 
 	if tlsCfg.RootCertPath != "" {
 		caCert, err := os.ReadFile(tlsCfg.RootCertPath)
@@ -68,64 +70,81 @@ func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, 
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
-	// pgx.ParseConfig has already derived TLSConfig and Fallbacks from the
-	// datasource's own sslmode (defaulting to prefer). Reset them so the mode
-	// below is authoritative.
-	connConfig.TLSConfig = nil
-	connConfig.Fallbacks = nil
-
+	// order lists, per host, whether each attempt uses TLS.
+	var order []bool
 	switch tlsCfg.SSLMode {
 	case "disable":
 		// No encryption.
+		order = []bool{false}
 	case "allow":
 		// Try a plaintext connection first; fall back to TLS without verifying
 		// the server certificate or hostname.
 		tlsConfig.InsecureSkipVerify = true
-		connConfig.Fallbacks = tlsFallback(connConfig, tlsConfig)
+		order = []bool{false, true}
 	case "prefer":
 		// Try TLS without verification first; fall back to a plaintext connection.
 		tlsConfig.InsecureSkipVerify = true
-		connConfig.TLSConfig = tlsConfig
-		connConfig.Fallbacks = plaintextFallback(connConfig)
+		order = []bool{true, false}
 	case "require":
 		// Encrypt, but do not verify the server certificate or hostname.
 		tlsConfig.InsecureSkipVerify = true
-		connConfig.TLSConfig = tlsConfig
+		order = []bool{true}
 	case "verify-ca":
 		// Verify the certificate chain against the CA, but not the hostname. Go
 		// performs the default hostname check unless InsecureSkipVerify is set,
 		// so we skip it and delegate the chain check to VerifyConnection.
 		tlsConfig.InsecureSkipVerify = true
 		tlsConfig.VerifyConnection = verifyChain(tlsConfig.RootCAs)
-		connConfig.TLSConfig = tlsConfig
+		order = []bool{true}
 	case "verify-full", "":
 		// Verify both the certificate chain and the hostname (against ServerName).
-		connConfig.TLSConfig = tlsConfig
+		order = []bool{true}
 	default:
 		return nil, errors.Errorf("unsupported ssl mode: %s", tlsCfg.SSLMode)
 	}
 
+	// pgx.ParseConfig has already expanded every host into attempts derived
+	// from the datasource's own sslmode (defaulting to prefer). Rebuild them
+	// from the hosts so the mode above is authoritative.
+	var attempts []*pgconn.FallbackConfig
+	for _, host := range hosts(connConfig) {
+		hostTLS := tlsConfig.Clone()
+		hostTLS.ServerName = host.Host
+		if tlsCfg.ServerName != "" {
+			hostTLS.ServerName = tlsCfg.ServerName
+		}
+		hostOrder := order
+		if network, _ := pgconn.NetworkAddress(host.Host, host.Port); network == "unix" {
+			// Postgres does not offer TLS on a unix socket; pgx and libpq
+			// connect to it in plaintext whatever the sslmode.
+			hostOrder = []bool{false}
+		}
+		for _, useTLS := range hostOrder {
+			attempt := &pgconn.FallbackConfig{Host: host.Host, Port: host.Port}
+			if useTLS {
+				attempt.TLSConfig = hostTLS
+			}
+			attempts = append(attempts, attempt)
+		}
+	}
+
+	connConfig.Host = attempts[0].Host
+	connConfig.Port = attempts[0].Port
+	connConfig.TLSConfig = attempts[0].TLSConfig
+	connConfig.Fallbacks = attempts[1:]
+
 	return connConfig, nil
 }
 
-// tlsFallback returns a fallback to the same host that upgrades to TLS, used to
-// implement the sslmode=allow behaviour (plaintext primary, TLS fallback).
-func tlsFallback(connConfig *pgx.ConnConfig, tlsConfig *tls.Config) []*pgconn.FallbackConfig {
-	return []*pgconn.FallbackConfig{{
-		Host:      connConfig.Host,
-		Port:      connConfig.Port,
-		TLSConfig: tlsConfig,
-	}}
-}
-
-// plaintextFallback returns a fallback to the same host without TLS, used to
-// implement the sslmode=prefer behaviour (TLS primary, plaintext fallback).
-func plaintextFallback(connConfig *pgx.ConnConfig) []*pgconn.FallbackConfig {
-	return []*pgconn.FallbackConfig{{
-		Host:      connConfig.Host,
-		Port:      connConfig.Port,
-		TLSConfig: nil,
-	}}
+// hosts returns the hosts of the datasource in order. pgx stores the first
+// attempt in Host/Port and the rest in Fallbacks, with consecutive entries for
+// the same host when its sslmode tries it twice; those collapse into one, as
+// does a host the datasource lists twice in a row.
+func hosts(connConfig *pgx.ConnConfig) []*pgconn.FallbackConfig {
+	all := append([]*pgconn.FallbackConfig{{Host: connConfig.Host, Port: connConfig.Port}}, connConfig.Fallbacks...)
+	return slices.CompactFunc(all, func(a, b *pgconn.FallbackConfig) bool {
+		return a.Host == b.Host && a.Port == b.Port
+	})
 }
 
 // verifyChain returns a tls.Config.VerifyConnection callback that validates the
