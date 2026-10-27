@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -147,22 +146,27 @@ func TestPostgresKVSNotifierAfterReorder(t *testing.T) {
 	ch := make(chan driver.Operation, 1)
 	require.NoError(t, store.Subscribe(func(op driver.Operation, m map[driver.ColumnKey]string) {
 		if m["ns"] == "ns" {
-			ch <- op
+			select {
+			case ch <- op:
+			default:
+			}
 		}
 	}))
-	time.Sleep(time.Second)
 
-	ctx := context.Background()
-	require.NoError(t, store.BeginUpdate())
-	require.NoError(t, store.SetState(ctx, "ns", "k2", []byte("v2")))
-	require.NoError(t, store.Commit())
-
-	select {
-	case op := <-ch:
-		require.Contains(t, []driver.Operation{driver.Insert, driver.Update}, op)
-	case <-time.After(5 * time.Second):
-		t.Fatal("no notification after reorder")
-	}
+	// Subscribe starts listening in the background, so a write can land before
+	// LISTEN runs. Retry the write until a notification arrives.
+	ctx := t.Context()
+	require.Eventually(t, func() bool {
+		if store.BeginUpdate() != nil || store.SetState(ctx, "ns", "k2", []byte("v2")) != nil || store.Commit() != nil {
+			return false
+		}
+		select {
+		case op := <-ch:
+			return op == driver.Insert || op == driver.Update
+		case <-time.After(100 * time.Millisecond):
+			return false
+		}
+	}, 10*time.Second, 10*time.Millisecond, "no notification after reorder")
 	got, err := store.GetState(ctx, "ns", "k1")
 	require.NoError(t, err)
 	require.Equal(t, []byte("v1"), got)

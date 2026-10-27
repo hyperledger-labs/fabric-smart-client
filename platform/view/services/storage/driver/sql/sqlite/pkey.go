@@ -20,10 +20,10 @@ type rowQuerier interface {
 
 // ReorderPrimaryKey changes table's primary key from (pkey, ns) to (ns, pkey)
 // by rebuilding the table in one transaction. SQLite cannot replace a primary
-// key in place. copyColumns is the column list copied, in the same order on
-// both tables, such as "ns, pkey, val". stagingDDL returns the CREATE TABLE
-// statement for the staging table, which must declare PRIMARY KEY (ns, pkey),
-// because the caller's columns differ from table to table.
+// key in place. columnDefs declares the staging table's columns, without a
+// primary key, such as "ns TEXT NOT NULL, pkey BYTEA NOT NULL"; the staging
+// table gets PRIMARY KEY (ns, pkey). copyColumns is the column list copied, in
+// the same order on both tables, such as "ns, pkey, val".
 //
 // The order is read once before the transaction, so a table that already has
 // (ns, pkey) is left alone, and again after a write lock, so replicas sharing
@@ -34,7 +34,7 @@ type rowQuerier interface {
 // that waits longer than busy_timeout fails with SQLITE_BUSY and finds the
 // table already reordered on its next start. This function does not retry
 // that error.
-func ReorderPrimaryKey(readDB *sql.DB, writeDB common.WriteDB, table, copyColumns string, stagingDDL func(staging string) string) error {
+func ReorderPrimaryKey(readDB *sql.DB, writeDB common.WriteDB, table, columnDefs, copyColumns string) error {
 	cols, err := PrimaryKeyColumns(readDB, table)
 	if err != nil || cols == "ns,pkey" {
 		return err
@@ -66,7 +66,7 @@ func ReorderPrimaryKey(readDB *sql.DB, writeDB common.WriteDB, table, copyColumn
 	logger.Infof("reordering primary key of table [%s] to (ns, pkey)", table)
 	staging := table + "_fsc_nskey"
 	statements := []string{
-		stagingDDL(staging),
+		"CREATE TABLE " + staging + " (" + columnDefs + ", PRIMARY KEY (ns, pkey))",
 		"INSERT INTO " + staging + " (" + copyColumns + ") SELECT " + copyColumns + " FROM " + table,
 		"DROP TABLE " + table,
 		"ALTER TABLE " + staging + " RENAME TO " + table,

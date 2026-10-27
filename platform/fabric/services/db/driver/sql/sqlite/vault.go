@@ -127,16 +127,7 @@ func (db *VaultStore) CreateSchema() error {
 		db.tables.StateTable)); err != nil {
 		return err
 	}
-	return sqlite2.ReorderPrimaryKey(db.readDB, db.writeDB, db.tables.StateTable, "ns, pkey, val, kversion, metadata", vaultStateStaging)
-}
-
-func vaultStateStaging(staging string) string {
-	return `CREATE TABLE ` + staging + ` (
-		ns TEXT NOT NULL,
-		pkey TEXT NOT NULL,
-		val BYTEA DEFAULT '',
-		kversion BYTEA DEFAULT '',
-		metadata BYTEA DEFAULT '',
-		PRIMARY KEY (ns, pkey)
-	)`
+	return sqlite2.ReorderPrimaryKey(db.readDB, db.writeDB, db.tables.StateTable,
+		"ns TEXT NOT NULL, pkey TEXT NOT NULL, val BYTEA DEFAULT '', kversion BYTEA DEFAULT '', metadata BYTEA DEFAULT ''",
+		"ns, pkey, val, kversion, metadata")
 }

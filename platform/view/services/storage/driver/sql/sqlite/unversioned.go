@@ -30,16 +30,7 @@ func (db *KeyValueStore) CreateSchema() error {
 	if err := db.KeyValueStore.CreateSchema(); err != nil {
 		return err
 	}
-	return ReorderPrimaryKey(db.readDB, db.writeDB, db.table, "ns, pkey, val", kvsStagingDDL)
-}
-
-func kvsStagingDDL(staging string) string {
-	return `CREATE TABLE ` + staging + ` (
-		ns TEXT NOT NULL,
-		pkey BYTEA NOT NULL,
-		val BYTEA NOT NULL DEFAULT '',
-		PRIMARY KEY (ns, pkey)
-	)`
+	return ReorderPrimaryKey(db.readDB, db.writeDB, db.table, "ns TEXT NOT NULL, pkey BYTEA NOT NULL, val BYTEA NOT NULL DEFAULT ''", "ns, pkey, val")
 }
 
 func NewKeyValueStore(dbs *common3.RWDB, tables common2.TableNames) (*KeyValueStore, error) {

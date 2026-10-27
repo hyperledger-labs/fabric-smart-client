@@ -1050,8 +1050,8 @@ The vault then checks the primary-key column order of that state table. Every st
 
 The key-value store table (default `fsc_kvs`) uses the same primary key. Its `pkey` column is `BYTEA` on Postgres and on SQLite, so startup does not convert it. A primary key of `(pkey, ns)` is reordered to `(ns, pkey)` the same way as the vault: Postgres replaces the constraint under an exclusive lock, and SQLite rebuilds the table in one transaction. The notify trigger reads `ns` and `pkey` from the row, so replacing the constraint leaves it in place. An upsert uses `ON CONFLICT (ns, pkey)`, which matches either column order, so a node that has not been upgraded keeps writing to a reordered table.
 
-On Postgres the conversion and the reorder need a database user that owns the state table. Without that privilege the vault fails to
-start and the table is left unchanged.
+On Postgres the conversion and the reorder need a database user that owns the state table and the key-value store table.
+Without that privilege the node fails to start and the table is left unchanged.
 
 > [!WARNING]
 > An FSC version that stores `pkey` as `TEXT` still starts against a converted table, but it writes escaped keys that this

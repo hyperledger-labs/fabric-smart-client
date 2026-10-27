@@ -26,14 +26,8 @@ func openReorderDB(t *testing.T, dsn string) *sql.DB {
 	return db
 }
 
-func textStaging(staging string) string {
-	return `CREATE TABLE ` + staging + ` (
-		ns TEXT NOT NULL,
-		pkey TEXT NOT NULL,
-		val BYTEA NOT NULL DEFAULT '',
-		PRIMARY KEY (ns, pkey)
-	)`
-}
+// textColumns declares the columns of the test table t.
+const textColumns = "ns TEXT NOT NULL, pkey TEXT NOT NULL, val BYTEA NOT NULL DEFAULT ''"
 
 func createKeyedTable(t *testing.T, db *sql.DB, primaryKey string) {
 	t.Helper()
@@ -57,11 +51,11 @@ func TestReorderPrimaryKey(t *testing.T) {
 	_, err := db.Exec("INSERT INTO t (ns, pkey, val) VALUES ('ns-a', 'k1', 'a1'), ('ns-b', 'k1', 'b1')")
 	require.NoError(t, err)
 
-	require.NoError(t, ReorderPrimaryKey(db, db, "t", "ns, pkey, val", textStaging))
+	require.NoError(t, ReorderPrimaryKey(db, db, "t", textColumns, "ns, pkey, val"))
 	cols, err := PrimaryKeyColumns(db, "t")
 	require.NoError(t, err)
 	require.Equal(t, "ns,pkey", cols)
-	require.NoError(t, ReorderPrimaryKey(db, db, "t", "ns, pkey, val", textStaging))
+	require.NoError(t, ReorderPrimaryKey(db, db, "t", textColumns, "ns, pkey, val"))
 
 	var val string
 	require.NoError(t, db.QueryRow("SELECT val FROM t WHERE ns = 'ns-b' AND pkey = 'k1'").Scan(&val))
@@ -77,7 +71,7 @@ func TestReorderRejectsOtherPrimaryKey(t *testing.T) {
 	_, err := db.Exec("INSERT INTO t (ns, pkey, val) VALUES ('ns', 'k1', 'v')")
 	require.NoError(t, err)
 
-	err = ReorderPrimaryKey(db, db, "t", "ns, pkey, val", textStaging)
+	err = ReorderPrimaryKey(db, db, "t", textColumns, "ns, pkey, val")
 	require.ErrorContains(t, err, "primary key is (pkey), expected (ns, pkey)")
 	cols, err := PrimaryKeyColumns(db, "t")
 	require.NoError(t, err)
@@ -95,7 +89,7 @@ func TestReorderRejectsMissingPrimaryKey(t *testing.T) {
 	_, err := db.Exec(`CREATE TABLE t (ns TEXT NOT NULL, pkey TEXT NOT NULL, val BYTEA NOT NULL DEFAULT '')`)
 	require.NoError(t, err)
 
-	require.ErrorContains(t, ReorderPrimaryKey(db, db, "t", "ns, pkey, val", textStaging), "has no primary key")
+	require.ErrorContains(t, ReorderPrimaryKey(db, db, "t", textColumns, "ns, pkey, val"), "has no primary key")
 }
 
 // A rebuild that fails partway rolls back: the staging table is gone, and the
@@ -115,7 +109,7 @@ func TestReorderFailureKeepsTable(t *testing.T) {
 	_, err = db.Exec("INSERT INTO t (ns, pkey, val) VALUES ('ns', 'k1', 'v'), (NULL, 'k2', 'v')")
 	require.NoError(t, err)
 
-	require.ErrorContains(t, ReorderPrimaryKey(db, db, "t", "ns, pkey, val", textStaging), "failed reordering primary key")
+	require.ErrorContains(t, ReorderPrimaryKey(db, db, "t", textColumns, "ns, pkey, val"), "failed reordering primary key")
 	cols, err := PrimaryKeyColumns(db, "t")
 	require.NoError(t, err)
 	require.Equal(t, "pkey,ns", cols)
@@ -139,8 +133,8 @@ func TestReorderPrimaryKeyConcurrently(t *testing.T) {
 	second := openReorderDB(t, "file:"+path+"?_pragma=busy_timeout(5000)&mode=rw")
 	var wg sync.WaitGroup
 	errs := make([]error, 2)
-	wg.Go(func() { errs[0] = ReorderPrimaryKey(first, first, "t", "ns, pkey, val", textStaging) })
-	wg.Go(func() { errs[1] = ReorderPrimaryKey(second, second, "t", "ns, pkey, val", textStaging) })
+	wg.Go(func() { errs[0] = ReorderPrimaryKey(first, first, "t", textColumns, "ns, pkey, val") })
+	wg.Go(func() { errs[1] = ReorderPrimaryKey(second, second, "t", textColumns, "ns, pkey, val") })
 	wg.Wait()
 	for _, err := range errs {
 		require.NoError(t, err)
@@ -169,7 +163,7 @@ func TestReorderFailsWhenBusy(t *testing.T) {
 
 	db := openReorderDB(t, "file:"+path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(50)")
 	done := make(chan error, 1)
-	go func() { done <- ReorderPrimaryKey(db, db, "t", "ns, pkey, val", textStaging) }()
+	go func() { done <- ReorderPrimaryKey(db, db, "t", textColumns, "ns, pkey, val") }()
 	select {
 	case err := <-done:
 		require.ErrorContains(t, err, "SQLITE_BUSY")
@@ -180,7 +174,7 @@ func TestReorderFailsWhenBusy(t *testing.T) {
 	cols, err := PrimaryKeyColumns(db, "t")
 	require.NoError(t, err)
 	require.Equal(t, "pkey,ns", cols)
-	require.NoError(t, ReorderPrimaryKey(db, db, "t", "ns, pkey, val", textStaging))
+	require.NoError(t, ReorderPrimaryKey(db, db, "t", textColumns, "ns, pkey, val"))
 	cols, err = PrimaryKeyColumns(db, "t")
 	require.NoError(t, err)
 	require.Equal(t, "ns,pkey", cols)
