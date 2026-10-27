@@ -12,23 +12,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// TestDriverAuditInfoPostgres round-trips audit info through a store whose schema was
-// created on a real Postgres. A second put for the same identity is not an error and
+// TestDriverAuditInfoPostgres round-trips audit info through a store built with NewDriver
+// on a real Postgres. A second put for the same identity is not an error and
 // keeps the first value, which relies on ErrorMapper turning the primary-key violation
 // into driver.UniqueKeyViolation.
 func TestDriverAuditInfoPostgres(t *testing.T) {
 	t.Parallel()
 
-	cp := NewConfigProvider(testing2.MockConfig(Config{DataSource: setupDB(t)}))
-	s, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", NewAuditInfoStore)
+	d := NewDriver(multiplexed.MockTypeConfig(Persistence, Config{DataSource: setupDB(t)}))
+	s, err := d.NewAuditInfo("")
 	require.NoError(t, err)
 
 	alice := view.Identity("alice")
-	info := []byte("audit info")
+	// Not valid UTF-8 and containing a NUL, so a column that is not BYTEA rejects it.
+	info := []byte{0x00, 0xff, 'a'}
 
 	require.NoError(t, s.PutAuditInfo(t.Context(), alice, info))
 	require.NoError(t, s.PutAuditInfo(t.Context(), alice, []byte("other")), "putting existing audit info is not an error")

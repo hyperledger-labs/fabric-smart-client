@@ -12,19 +12,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// TestDriverSignerInfoPostgres round-trips signers through a store whose schema was
-// created on a real Postgres: only signers that were put are reported as existing, and
+// TestDriverSignerInfoPostgres round-trips signers through a store built with NewDriver
+// on a real Postgres: only signers that were put are reported as existing, and
 // putting one twice is not an error, which relies on ErrorMapper turning the
 // primary-key violation into driver.UniqueKeyViolation.
 func TestDriverSignerInfoPostgres(t *testing.T) {
 	t.Parallel()
 
-	cp := NewConfigProvider(testing2.MockConfig(Config{DataSource: setupDB(t)}))
-	s, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", NewSignerInfoStore)
+	d := NewDriver(multiplexed.MockTypeConfig(Persistence, Config{DataSource: setupDB(t)}))
+	s, err := d.NewSignerInfo("")
 	require.NoError(t, err)
 
 	alice, bob := view.Identity("alice"), view.Identity("bob")

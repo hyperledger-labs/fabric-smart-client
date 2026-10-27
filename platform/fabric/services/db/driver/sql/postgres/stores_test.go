@@ -63,13 +63,15 @@ func TestKeyDataStoresPostgres(t *testing.T) {
 
 			s := open(t)
 			ctx := t.Context()
+			// Not valid UTF-8 and containing a NUL, so a column that is not BYTEA rejects it.
+			first := []byte{0x00, 0xff, 'f'}
 
-			require.NoError(t, s.put(ctx, "tx1", []byte("first")))
+			require.NoError(t, s.put(ctx, "tx1", first))
 			require.NoError(t, s.put(ctx, "tx1", []byte("second")), "putting an existing key is not an error")
 
 			got, err := s.get(ctx, "tx1")
 			require.NoError(t, err)
-			assert.Equal(t, []byte("first"), got, "the first put wins")
+			assert.Equal(t, first, got, "the first put wins")
 
 			exists, err := s.exists(ctx, "tx1")
 			require.NoError(t, err)
