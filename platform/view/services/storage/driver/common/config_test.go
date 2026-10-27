@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -83,4 +86,49 @@ fsc:
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestGetPersistenceName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   string
+		want    dbdriver.PersistenceName
+		wantErr string
+	}{
+		{name: "unset", value: "{}"},
+		{name: "name", value: "{persistence: token_persistence}", want: "token_persistence"},
+		{name: "map", value: "{persistence: {opts: {dataSource: host=db password=SECRET}}}", wantErr: "failed to unmarshal"},
+		{name: "dsn from file", value: "{persistence: {file: " + writeFile(t, "host=db password=SECRET\n") + "}}", wantErr: "is not a valid persistence name"},
+		{name: "dsn", value: "{persistence: 'host=db password=SECRET'}", wantErr: "is not a valid persistence name"},
+		{name: "url dsn", value: "{persistence: 'postgres://u:SECRET@db/x'}", wantErr: "is not a valid persistence name"},
+		{name: "dotted", value: "{persistence: a.b}", wantErr: "is not a valid persistence name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cp, err := (&config.Provider{}).ProvideFromRaw([]byte("store: " + tt.value))
+			require.NoError(t, err)
+
+			got, err := GetPersistenceName(cp, "store.persistence")
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				require.ErrorContains(t, err, "store.persistence")
+				assert.NotContains(t, err.Error(), "SECRET")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// writeFile writes content to a new file in a test temp dir and returns its path.
+func writeFile(t *testing.T, content string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "f")
+	require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+	return p
 }

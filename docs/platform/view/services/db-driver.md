@@ -91,7 +91,7 @@ type Driver interface {
 
 ## Config
 
-All persistences are defined under `fsc.persistences` in the `core.yaml`. Each persistence has a unique persistence name and there can be one `default` persistence.
+All persistences are defined under `fsc.persistences` in the `core.yaml`. Each persistence has a unique persistence name and there can be one `default` persistence. A name contains only letters, digits, `_` and `-`; a store that references any other name fails to start, and the error does not print the value, which keeps a dataSource placed there by mistake out of the logs.
 
 ```yaml
 fsc.persistences:

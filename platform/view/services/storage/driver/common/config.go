@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -29,12 +30,22 @@ type ConfigProvider interface {
 	UnmarshalKey(key string, rawVal any) error
 }
 
-// GetPersistenceName returns the persistence name configured under prefix. It returns an error
-// if the configured value cannot be unmarshalled into a dbdriver.PersistenceName.
+// validPersistenceName matches the names a block under fsc.persistences can have. Rejecting
+// anything else catches a dataSource placed where a name belongs, directly or through a
+// file: reference, before an error message prints it.
+var validPersistenceName = regexp.MustCompile(`^[A-Za-z0-9_-]*$`)
+
+// GetPersistenceName returns the persistence name configured under prefix. An unset key returns
+// an empty name, which selects the default persistence. It returns an error if the value is not
+// a string, or if it contains a character other than a letter, digit, '_' or '-'. Neither error
+// includes the configured value, since a misplaced value is often a dataSource with a password.
 func GetPersistenceName(cs ConfigProvider, prefix string) (dbdriver.PersistenceName, error) {
 	var persistence dbdriver.PersistenceName
 	if err := cs.UnmarshalKey(prefix, &persistence); err != nil {
 		return "", errors.Wrapf(err, "failed to unmarshal persistence name for key [%s]", prefix)
+	}
+	if !validPersistenceName.MatchString(string(persistence)) {
+		return "", errors.Errorf("value of [%s] is not a valid persistence name: use only letters, digits, '_' and '-'", prefix)
 	}
 	return persistence, nil
 }

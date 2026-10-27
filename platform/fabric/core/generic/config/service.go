@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	sdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 )
 
 const (
@@ -65,6 +66,7 @@ type Service struct {
 	peerMapping        map[driver.PeerFunctionType][]*ConnectionConfig
 	channels           map[string]*Channel
 	defaultChannel     string
+	vaultPersistence   sdriver.PersistenceName
 
 	// mu guards failures, the time each endpoint address was last passed to ReportFailure.
 	mu       sync.Mutex
@@ -127,6 +129,11 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 		return nil, errors.WithMessagef(err, "invalid fabric.%schannels", prefix)
 	}
 
+	vaultPersistence, err := common.GetPersistenceName(configService, fmt.Sprintf("fabric.%svault.persistence", prefix))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		Configuration:      configService,
 		networkTLS:         networkTLS,
@@ -137,6 +144,7 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 		orderers:           orderers,
 		peerMapping:        peerMapping,
 		channels:           channelMap,
+		vaultPersistence:   vaultPersistence,
 		failures:           map[string]time.Time{},
 		now:                time.Now,
 		defaultChannel:     defaultChannel,
@@ -196,8 +204,11 @@ func (s *Service) Orderers() []*ConnectionConfig {
 	return s.orderers
 }
 
+// VaultPersistenceName returns the name of the fsc.persistences block that backs the vault, as
+// read from fabric.<network>.vault.persistence by NewService. An empty name selects the default
+// persistence.
 func (s *Service) VaultPersistenceName() sdriver.PersistenceName {
-	return sdriver.PersistenceName(s.GetString("vault.persistence"))
+	return s.vaultPersistence
 }
 
 func (s *Service) VaultTXStoreCacheSize() int {
