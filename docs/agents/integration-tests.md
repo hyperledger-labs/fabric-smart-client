@@ -171,8 +171,8 @@ Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
 `fabric-faultrecovery-postgres-outage` and `fabricx-faultrecovery`). Both run the FSC
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
-`Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`: the nodes, their views, the specs both
-suites run (`CrashSpecs`, `DependencySpecs`), and the helpers that drive them.
+`Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
+the nodes, their views, the specs both suites run (`CrashSpecs`, `DependencySpecs`), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final
 on both nodes; `WaitFinal` does the waiting alone. `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the

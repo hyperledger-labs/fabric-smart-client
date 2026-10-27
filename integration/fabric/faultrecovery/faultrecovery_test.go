@@ -73,7 +73,7 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 
 		faultrecovery.WaitFinal(s.II, tx.TxID)
 		s.II.EventuallyConnectionState("bob", delivery, connstate.Connected, time.Minute)
-		// The next spec endorses through bob's peer, so the spec ends only once it endorses.
+		// A full transaction proves that bob's peer endorses again before the next spec runs.
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 

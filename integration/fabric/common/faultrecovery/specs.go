@@ -42,7 +42,8 @@ const viewContexts = "fsc_view_services_view_contexts"
 // may leave the network broken, so the network is rebuilt before the next spec runs; if
 // the rebuild fails, that spec fails before its body runs and the next one tries again.
 // A spec that changes the network for good goes in a Describe with its own network per
-// spec.
+// spec. When the suite timeout expires, ginkgo skips the remaining specs without running
+// AfterAll, so the network is left running.
 func ShareNetwork(s *integration.TestSuite) {
 	var broken bool
 	ginkgo.BeforeAll(s.Setup)
@@ -59,10 +60,15 @@ func ShareNetwork(s *integration.TestSuite) {
 // CrashSpecs registers the node crash and catch-up specs for the suite s. The recovery
 // specs check bob through QueryView: on Fabric that reads bob's own vault, so the specs
 // prove that bob recovers its local state; on Fabric-x, where bob has no local ledger
-// state, they prove only that bob restarts and serves views again.
+// state, they prove only that bob restarts and serves views again. Each spec leaves the
+// network healthy, so the specs can run under ShareNetwork.
 func CrashSpecs(s *integration.TestSuite) {
 	ginkgo.It("fails fast when the responder dies", func() {
-		contexts := MetricSum(s.II, "bob", viewContexts)
+		// On a shared network the previous spec's responder may still hold its context for
+		// a moment after its transaction is final, so the baseline waits for it.
+		gomega.Eventually(func() float64 {
+			return MetricSum(s.II, "bob", viewContexts)
+		}, pollTimeout, 100*time.Millisecond).Should(gomega.BeZero())
 		echo := make(chan error, 1)
 		go func() {
 			defer ginkgo.GinkgoRecover()
@@ -80,7 +86,7 @@ func CrashSpecs(s *integration.TestSuite) {
 			families, err := s.II.WebClient("bob").Metrics()
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 			return sumFamily(families, viewContexts)
-		}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", contexts))
+		}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", 0))
 
 		s.II.KillFSCNode("bob")
 		// The echo view waits a minute for the reply, so only the closed session ends it
@@ -154,7 +160,7 @@ func DependencySpecs(s *integration.TestSuite, dbPrefix string) {
 			time.Sleep(startupOutage)
 			s.II.StartPostgres(db)
 		}()
-		// Waits even if StartFSCNode fails, so the goroutine never outlives the spec.
+		// Waits even if StartFSCNode fails, so the goroutine does not outlive a failing spec.
 		defer func() { <-started }()
 		s.II.StartFSCNode("bob")
 
