@@ -40,11 +40,13 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 		RegisterViewFactory("endorse", &views.EndorseViewFactory{}).
 		RegisterViewFactory("order", &views.OrderViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{})
+		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("echo", &views.EchoViewFactory{})
 	fscTopology.AddNodeByName("bob").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(db.For("bob")...).
 		RegisterResponder(&views.ResponderView{}, &views.EndorseView{}).
+		RegisterResponder(&views.EchoResponderView{}, &views.EchoView{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{})
 	fscTopology.AddSDK(sdk)

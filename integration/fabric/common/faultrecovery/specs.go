@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 // recoveryTimeout bounds how long a restarted node may take to settle a transaction.
@@ -25,11 +26,45 @@ const recoveryTimeout = 2 * time.Minute
 // (postgres.DefaultStartupConnectTimeout, 60 s), or the node gives up and exits.
 const startupOutage = 10 * time.Second
 
-// CrashSpecs registers the node crash and catch-up specs for the suite s. They check
-// bob through QueryView: on Fabric that reads bob's own vault, so the specs prove that
+// sessionCloseTimeout bounds how long a view waiting on a session takes to fail after its
+// counterparty dies: the comm layer closes a session 5 s after its last stream died
+// (sessionStreamGrace), plus 10 s for the survivor to see the dead stream and for the
+// error to reach the client.
+const sessionCloseTimeout = 15 * time.Second
+
+// viewContexts is the gauge of the view contexts a node holds, a responder's included.
+const viewContexts = "fsc_view_services_view_contexts"
+
+// CrashSpecs registers the node crash and catch-up specs for the suite s. The recovery
+// specs check bob through QueryView: on Fabric that reads bob's own vault, so the specs prove that
 // bob recovers its local state; on Fabric-x, where bob has no local ledger state, they
 // prove only that bob restarts and serves views again.
 func CrashSpecs(s *integration.TestSuite) {
+	ginkgo.It("fails fast when the responder dies", func() {
+		contexts := MetricSum(s.II, "bob", viewContexts)
+		echo := make(chan error, 1)
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			echo <- Echo(s.II, true)
+		}()
+		// Bob creates a responder context when alice's message arrives and holds it while
+		// the responder blocks, so the kill lands mid-view.
+		gomega.Eventually(func() float64 {
+			return MetricSum(s.II, "bob", viewContexts)
+		}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", contexts))
+
+		s.II.KillFSCNode("bob")
+		// The echo view waits up to views.EchoTimeout for the reply, so only the closed
+		// session ends it this early.
+		var err error
+		gomega.Eventually(echo, sessionCloseTimeout).Should(gomega.Receive(&err))
+		gomega.Expect(err).To(gomega.MatchError(view.ErrViewExecutionFailed))
+		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("session receive channel is closed")))
+
+		s.II.StartFSCNode("bob")
+		gomega.Expect(Echo(s.II, false)).To(gomega.Succeed())
+	})
+
 	ginkgo.It("recovers a node killed mid-transaction", func() {
 		// Bob has endorsed and stored the tx; alice has not ordered it yet.
 		tx := Endorse(s.II, 42)
