@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
+	fvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
@@ -36,7 +36,7 @@ func (*testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Valid
 	vaultLogger := logging.MustGetLogger()
 	return New[ValidationCode](
 		vaultLogger,
-		vault.NewCachedVault(ddb, 100),
+		fvault.NewCachedVault(ddb, 100),
 		VCProvider,
 		newVaultInterceptor,
 		&populator{},
@@ -49,7 +49,7 @@ func (*testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Valid
 func (*testArtifactProvider) NewNonCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
 	return New[ValidationCode](
 		logging.MustGetLogger(),
-		vault.NewCachedVault(ddb, 0),
+		fvault.NewCachedVault(ddb, 0),
 		VCProvider,
 		newVaultInterceptor,
 		&populator{},
@@ -167,7 +167,7 @@ func TestMemory(t *testing.T) { //nolint:tparallel
 	}
 	for _, c := range SingleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			ddb, err := vault.OpenMemoryVault(c.Name)
+			ddb, err := fvault.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
 			require.NotNil(t, ddb)
 			defer func() { _ = ddb.Close() }()
@@ -177,9 +177,9 @@ func TestMemory(t *testing.T) { //nolint:tparallel
 
 	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			db1, err := vault.OpenMemoryVault(c.Name)
+			db1, err := fvault.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
-			db2, err := vault.OpenMemoryVault(c.Name)
+			db2, err := fvault.OpenMemoryVault(c.Name)
 			require.NoError(t, err)
 			defer func() { _ = db1.Close() }()
 			defer func() { _ = db2.Close() }()
@@ -198,7 +198,7 @@ func TestSqlite(t *testing.T) { //nolint:tparallel
 
 	for _, c := range SingleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			ddb, err := vault.OpenSqliteVault("node1", t.TempDir())
+			ddb, err := fvault.OpenSqliteVault("node1", t.TempDir())
 			require.NoError(t, err)
 			defer func() { _ = ddb.Close() }()
 			c.Fn(xt, ddb, artifactProvider)
@@ -207,9 +207,9 @@ func TestSqlite(t *testing.T) { //nolint:tparallel
 
 	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			db1, err := vault.OpenSqliteVault("node1", t.TempDir())
+			db1, err := fvault.OpenSqliteVault("node1", t.TempDir())
 			require.NoError(t, err)
-			db2, err := vault.OpenSqliteVault("node2", t.TempDir())
+			db2, err := fvault.OpenSqliteVault("node2", t.TempDir())
 			require.NoError(t, err)
 			defer func() { _ = db1.Close() }()
 			defer func() { _ = db2.Close() }()
@@ -228,7 +228,7 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 
 	for _, c := range append(SingleDBCases, ReadCommittedDBCases...) { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")
+			ddb, terminate, err := fvault.OpenPostgresVault("common-sdk-node1")
 			require.NoError(t, err)
 			defer func() { _ = ddb.Close() }()
 			defer terminate()
@@ -238,9 +238,9 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 
 	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
-			db1, terminate1, err := vault.OpenPostgresVault("common-sdk-node1")
+			db1, terminate1, err := fvault.OpenPostgresVault("common-sdk-node1")
 			require.NoError(t, err)
-			db2, terminate2, err := vault.OpenPostgresVault("common-sdk-node2")
+			db2, terminate2, err := fvault.OpenPostgresVault("common-sdk-node2")
 			require.NoError(t, err)
 			defer func() { _ = db1.Close() }()
 			defer func() { _ = db2.Close() }()
@@ -256,7 +256,7 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 func newMemoryVault(t *testing.T) (*Vault[ValidationCode], driver.VaultStore) {
 	t.Helper()
 
-	ddb, err := vault.OpenMemoryVault(t.Name())
+	ddb, err := fvault.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 	require.NotNil(t, ddb)
 	t.Cleanup(func() { _ = ddb.Close() })
@@ -370,7 +370,7 @@ func TestVaultSetDiscarded(t *testing.T) { //nolint:paralleltest
 
 // TestVaultClose closes the underlying store.
 func TestVaultClose(t *testing.T) { //nolint:paralleltest
-	ddb, err := vault.OpenMemoryVault(t.Name())
+	ddb, err := fvault.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 
 	provider := &testArtifactProvider{

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jaegertracing/jaeger-idl/model/v1"
+	model "github.com/jaegertracing/jaeger-idl/model/v1"
 	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
 	"github.com/onsi/gomega"
 
