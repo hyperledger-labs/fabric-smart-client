@@ -524,12 +524,14 @@ func unmarshalTxs(block *common.Block) ([]CommitTx, error) {
 func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	c.logger.Debugf("Is [%s] final?", txID)
 
+	lastStatus := driver.Unknown
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
 		vd, _, err := c.Status(ctx, txID)
 		if err != nil {
 			c.logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
+		lastStatus = vd
 
 		switch vd {
 		case driver.Valid:
@@ -541,13 +543,17 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 		case driver.Busy:
 			c.logger.Debugf("Tx [%s] is known", txID)
 			if iter < c.ChannelConfig.CommitterFinalityNumRetries()-1 {
-				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
+				if err := sleep(ctx, c.ChannelConfig.CommitterFinalityUnknownTXTimeout()); err != nil {
+					return errors.Wrapf(err, "stopped waiting for finality of [%s], last known status [%s]", txID, driver.StatusName(vd))
+				}
 			}
 			continue
 		case driver.Unknown:
 			if iter <= 1 {
 				c.logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
-				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
+				if err := sleep(ctx, c.ChannelConfig.CommitterFinalityUnknownTXTimeout()); err != nil {
+					return errors.Wrapf(err, "stopped waiting for finality of [%s], last known status [%s]", txID, driver.StatusName(vd))
+				}
 			}
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
@@ -563,13 +569,23 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				return err
 			}
 		default:
-			return errors.Errorf("invalid status code, got [%c]", vd)
+			return errors.Errorf("invalid status code, got [%s]", driver.StatusName(vd))
 		}
 	}
 
 	c.logger.Debugf("Tx [%s] start listening...", txID)
 	// Listen to the event
-	return c.listenTo(ctx, txID, c.ChannelConfig.CommitterWaitForEventTimeout())
+	return c.listenTo(ctx, txID, c.ChannelConfig.CommitterWaitForEventTimeout(), lastStatus)
+}
+
+// sleep waits for d, or returns ctx.Err() if ctx is done first.
+func sleep(ctx context.Context, d time.Duration) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(d):
+		return nil
+	}
 }
 
 func (c *Committer) GetProcessNamespace() []string {
@@ -626,7 +642,11 @@ func (c *Committer) notifyChaincodeListeners(event *ChaincodeEvent) {
 	c.EventsPublisher.Publish(event)
 }
 
-func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Duration) error {
+// listenTo waits up to timeout for the finality of txID. lastStatus is the vault
+// status the caller last observed; it is updated on every poll and named in the
+// returned error. The error wraps ctx.Err() if ctx is done first, and
+// driver.ErrFinalityTimeout if the timeout elapses.
+func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Duration, lastStatus driver.ValidationCode) error {
 	_, span := c.tracer.Start(ctx, "listen_for_transaction")
 	defer span.End()
 
@@ -641,10 +661,6 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 	iterations := int(timeout.Milliseconds() / c.pollingTimeout.Milliseconds())
 	if iterations == 0 {
 		iterations = 1
-	}
-	lastStatus := driver.Unknown
-	if vd, _, err := c.Status(ctx, txID); err == nil {
-		lastStatus = vd
 	}
 	for i := 0; i < iterations; i++ {
 		timeout := time.NewTimer(c.pollingTimeout)
@@ -681,6 +697,9 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 		if stop {
 			break
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return errors.Wrapf(err, "stopped listening to transaction [%s], last known status [%s]", txID, driver.StatusName(lastStatus))
 	}
 	c.logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
 	return errors.Wrapf(driver.ErrFinalityTimeout, "failed to listen to transaction [%s] for timeout, last known status [%s]", txID, driver.StatusName(lastStatus))
