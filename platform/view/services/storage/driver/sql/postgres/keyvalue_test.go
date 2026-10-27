@@ -67,7 +67,7 @@ func TestPostgresKVSReordersPrimaryKey(t *testing.T) {
 
 	got, err := store.GetState(ctx, "ns-b", "k1")
 	require.NoError(t, err)
-	require.Equal(t, []byte("b1"), []byte(got))
+	require.Equal(t, []byte("b1"), got)
 	it, err := store.GetStateRangeScanIterator(ctx, "ns-a", "k1", "k3")
 	require.NoError(t, err)
 	reads, err := collections.ReadAll(it)
@@ -165,5 +165,5 @@ func TestPostgresKVSNotifierAfterReorder(t *testing.T) {
 	}
 	got, err := store.GetState(ctx, "ns", "k1")
 	require.NoError(t, err)
-	require.Equal(t, []byte("v1"), []byte(got))
+	require.Equal(t, []byte("v1"), got)
 }
