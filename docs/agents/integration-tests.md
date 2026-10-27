@@ -167,7 +167,9 @@ suites run (`CrashSpecs`, `DependencySpecs`), and the helpers that drive them.
 on both nodes; `WaitFinal` does the waiting alone. `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
 transaction is ordered. `OrderEventually` retries `Order` while the orderers reject
-broadcasts, for example during a raft leader election. `CounterSum` reads a counter from a
+broadcasts, for example during a raft leader election. `Echo` runs a two-party view that
+touches no ledger; with `block` set, bob's responder receives the message and never
+replies, so a spec can kill bob mid-view. `MetricSum` reads a counter or gauge from a
 node's metrics. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
 budget before the network starts; call it in the generator of a `Describe` of its own, since
 it applies to every spec that shares that generator. `Query` returns a node's

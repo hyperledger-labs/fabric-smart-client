@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
@@ -98,15 +99,22 @@ func Query(ii *integration.Infrastructure, node, txID string) (*views.QueryResul
 	return res, nil
 }
 
-// CounterSum returns the sum of every series of the counter family name on node's
-// metrics endpoint; zero if the node exports none, as it does for a counter never
-// incremented.
-func CounterSum(ii *integration.Infrastructure, node, name string) float64 {
+// MetricSum returns the sum of every series of the counter or gauge family name on
+// node's metrics endpoint; zero if the node exports none, as it does for a counter
+// never incremented.
+func MetricSum(ii *integration.Infrastructure, node, name string) float64 {
 	families, err := ii.WebClient(node).Metrics()
 	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
+	return sumFamily(families, name)
+}
+
+// sumFamily returns the sum of every series of the counter or gauge family name in
+// families; zero if families has none.
+func sumFamily(families map[string]*dto.MetricFamily, name string) float64 {
 	var sum float64
 	for _, m := range families[name].GetMetric() {
-		sum += m.GetCounter().GetValue()
+		// A family holds one metric type; the getter of the other returns zero.
+		sum += m.GetCounter().GetValue() + m.GetGauge().GetValue()
 	}
 	return sum
 }
@@ -117,4 +125,13 @@ func callView(ii *integration.Infrastructure, node, fid string, in any) any {
 	res, err := ii.Client(node).CallViewWithContext(ctx, fid, common.JSONMarshall(in))
 	gomega.ExpectWithOffset(2, err).NotTo(gomega.HaveOccurred(), "view [%s] on [%s] failed", fid, node)
 	return res
+}
+
+// Echo runs alice's echo view against bob; with block, bob's responder holds the session
+// open without replying. It returns the view's error.
+func Echo(ii *integration.Infrastructure, block bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+	defer cancel()
+	_, err := ii.Client("alice").CallViewWithContext(ctx, "echo", common.JSONMarshall(&views.Echo{Responder: ii.Identity("bob"), Block: block}))
+	return err
 }

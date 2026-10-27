@@ -4,8 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package views holds the two-party transaction the faultrecovery suites run while
-// they take parts of the network down. The Fabric and Fabric-x suites share it.
+// Package views holds the two-party views the faultrecovery suites run while they take
+// parts of the network down: a transaction, and an echo that touches no ledger. The
+// Fabric and Fabric-x suites share it.
 package views
 
 import (
@@ -16,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -201,4 +203,71 @@ func (*QueryViewFactory) NewView(in []byte) (view.View, error) {
 		return nil, err
 	}
 	return f, nil
+}
+
+// echoTimeout bounds how long EchoView waits for the reply. It is well above the time a
+// session takes to close after its counterparty dies, so a spec can tell the two apart.
+const echoTimeout = time.Minute
+
+// blockMessage asks EchoResponderView to hold the session open without replying.
+const blockMessage = "block"
+
+// Echo is the input of EchoView.
+type Echo struct {
+	// Responder is the FSC node that answers.
+	Responder view.Identity
+	// Block makes the responder receive the message and then wait, without replying,
+	// until its view context ends, so a spec can kill the responder's node mid-view.
+	Block bool
+}
+
+// EchoView sends one message to the responder and returns once the responder echoes it.
+// It touches no ledger, so a spec can run a two-party view without Fabric in the way.
+type EchoView struct {
+	Echo
+}
+
+func (v *EchoView) Call(viewCtx view.Context) (any, error) {
+	s, err := viewCtx.GetSession(viewCtx.Initiator(), v.Responder)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed getting session to [%s]", v.Responder)
+	}
+	msg := []byte("echo")
+	if v.Block {
+		msg = []byte(blockMessage)
+	}
+	if err := s.Send(viewCtx.Context(), msg); err != nil {
+		return nil, errors.WithMessage(err, "failed sending")
+	}
+	reply, err := session.ReadMessageWithTimeout(s, echoTimeout)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed waiting for the echo")
+	}
+	return string(reply), nil
+}
+
+type EchoViewFactory struct{}
+
+func (*EchoViewFactory) NewView(in []byte) (view.View, error) {
+	f := &EchoView{}
+	if err := json.Unmarshal(in, &f.Echo); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// EchoResponderView answers EchoView: it sends the message back, or, when asked to block,
+// waits until its view context ends.
+type EchoResponderView struct{}
+
+func (*EchoResponderView) Call(viewCtx view.Context) (any, error) {
+	s, msg, err := session.ReadFirstMessage(viewCtx)
+	if err != nil {
+		return nil, err
+	}
+	if string(msg) == blockMessage {
+		<-viewCtx.Context().Done()
+		return nil, viewCtx.Context().Err()
+	}
+	return nil, s.Send(viewCtx.Context(), msg)
 }

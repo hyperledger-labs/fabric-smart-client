@@ -118,8 +118,8 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 		for i := range txs {
 			txs[i] = faultrecovery.Endorse(s.II, i)
 		}
-		retries := faultrecovery.CounterSum(s.II, "bob", commitRetries)
-		failures := faultrecovery.CounterSum(s.II, "bob", commitFailures)
+		retries := faultrecovery.MetricSum(s.II, "bob", commitRetries)
+		failures := faultrecovery.MetricSum(s.II, "bob", commitFailures)
 
 		s.II.StopPostgres(db)
 		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
@@ -130,10 +130,10 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 		// Bob keeps retrying its block past the one-second budget instead of stopping
 		// delivery.
 		Eventually(func() float64 {
-			return faultrecovery.CounterSum(s.II, "bob", commitRetries)
+			return faultrecovery.MetricSum(s.II, "bob", commitRetries)
 		}, time.Minute, time.Second).Should(BeNumerically(">", retries+1))
 		Consistently(func(g Gomega) {
-			g.Expect(faultrecovery.CounterSum(s.II, "bob", commitFailures)).To(Equal(failures))
+			g.Expect(faultrecovery.MetricSum(s.II, "bob", commitFailures)).To(Equal(failures))
 			families, err := s.II.WebClient("bob").Metrics()
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(fsc.ParseConnectionState(families, delivery)).To(HaveEach(connstate.Connected))
@@ -146,7 +146,7 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 			faultrecovery.WaitFinal(s.II, tx.TxID)
 		}
 		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
-		Expect(faultrecovery.CounterSum(s.II, "bob", commitFailures)).To(Equal(failures))
+		Expect(faultrecovery.MetricSum(s.II, "bob", commitFailures)).To(Equal(failures))
 	})
 
 	It("fails over to a promoted Postgres standby", func() {
@@ -167,8 +167,8 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 			txs[i] = faultrecovery.Endorse(s.II, i)
 		}
 		faultrecovery.WaitReplicated(primary, standby)
-		retries := faultrecovery.CounterSum(s.II, "bob", commitRetries)
-		failures := faultrecovery.CounterSum(s.II, "bob", commitFailures)
+		retries := faultrecovery.MetricSum(s.II, "bob", commitRetries)
+		failures := faultrecovery.MetricSum(s.II, "bob", commitFailures)
 
 		faultrecovery.KillPostgres(primary)
 		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
@@ -179,10 +179,10 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 		// Bob keeps retrying its block past the one-second budget while no host
 		// accepts writes.
 		Eventually(func() float64 {
-			return faultrecovery.CounterSum(s.II, "bob", commitRetries)
+			return faultrecovery.MetricSum(s.II, "bob", commitRetries)
 		}, time.Minute, time.Second).Should(BeNumerically(">", retries+1))
 		Consistently(func() float64 {
-			return faultrecovery.CounterSum(s.II, "bob", commitFailures)
+			return faultrecovery.MetricSum(s.II, "bob", commitFailures)
 		}, 10*time.Second, time.Second).Should(Equal(failures))
 
 		faultrecovery.Promote(standby)
@@ -194,6 +194,6 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 			}, 2*time.Minute, time.Second).Should(Succeed(), "tx %d [%s] not settled on bob", i, tx.TxID)
 		}
 		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
-		Expect(faultrecovery.CounterSum(s.II, "bob", commitFailures)).To(Equal(failures))
+		Expect(faultrecovery.MetricSum(s.II, "bob", commitFailures)).To(Equal(failures))
 	})
 })
