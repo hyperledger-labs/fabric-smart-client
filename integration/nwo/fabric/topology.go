@@ -196,7 +196,9 @@ func WithDefaultPostgresPersistence(config DataSourceProvider) node.Option {
 }
 
 // WithPostgresPersistence defines the Postgres persistence name with config as its database. nwo
-// starts that database with the network. A nil config leaves the node as is.
+// starts that database with the network. Defining a name again replaces its options, including
+// any table prefix or TLS set on it, so WithTablePrefix and WithPostgresTLS go after it. A nil
+// config leaves the node as is.
 func WithPostgresPersistence(name driver.PersistenceName, config DataSourceProvider) node.Option {
 	return func(o *node.Options) error {
 		if config != nil {
@@ -225,7 +227,8 @@ func WithTablePrefix(name driver.PersistenceName, prefix string) node.Option {
 
 // WithPostgresTLS makes nwo start the database of the Postgres persistence name, which an
 // earlier option must define, with TLS, and the node connect to it with ssl_mode verify-full.
-// Every persistence that shares the database is then served over TLS.
+// The database keeps accepting plaintext connections, so another persistence on the same
+// database connects without TLS unless it sets this option too.
 func WithPostgresTLS(name driver.PersistenceName) node.Option {
 	return updatePostgresPersistence(name, func(opts *node.SQLOpts) { opts.TLS = true })
 }

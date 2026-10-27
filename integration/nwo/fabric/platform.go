@@ -254,11 +254,13 @@ func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	p.Network.DeployChaincode(chaincode)
 }
 
-// DeleteVault removes the vault of the FSC node id, for every replica, so that the node
-// rebuilds it from the ledger when it restarts. The node must be stopped. Only a vault in a
-// SQLite file of its own, as WithDefaultSqlitePersistence configures, is removed; a vault
-// that shares its persistence with other stores, such as a Postgres one, is kept, since
-// removing it would remove those stores too.
+// DeleteVault removes the vaults of the FSC node id, for every replica, so that the node
+// rebuilds them from the ledger when it restarts. The node must be stopped. The vaults of all
+// Fabric networks of the node share one store, so this removes every one of them, not only
+// the vault of this platform's network. Only vaults in a SQLite file of their own, as
+// WithDefaultSqlitePersistence configures, are removed; vaults that share their persistence
+// with other stores, such as a Postgres one, are kept, since removing them would remove those
+// stores too.
 func (p *Platform) DeleteVault(id string) {
 	fscPeer := p.Network.FSCPeerByName(id)
 	gomega.Expect(fscPeer).ToNot(gomega.BeNil())

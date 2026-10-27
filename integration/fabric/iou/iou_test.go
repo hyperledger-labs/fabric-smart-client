@@ -125,13 +125,19 @@ func (s *TestSuite) TestSucceededWithReplicas() {
 	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
 
 	// The borrower's vault and other stores are in its prefixed default database, its KVS in
-	// the second one; the lender reached its database over TLS.
+	// the second one.
 	borrowerTables := iou.Tables(s.II, "borrower.0", common.DefaultPersistence)
 	gomega.Expect(borrowerTables).To(gomega.ContainElement(gomega.HavePrefix("borrower_default__testchannel_vstate")))
 	gomega.Expect(borrowerTables).To(gomega.HaveEach(gomega.HavePrefix("borrower_")))
 	gomega.Expect(borrowerTables).NotTo(gomega.ContainElement(gomega.HaveSuffix("_kvs")))
 	gomega.Expect(iou.Tables(s.II, "borrower.0", borrowerKVS)).To(gomega.ConsistOf("fsc_kvs"))
 	gomega.Expect(iou.Tables(s.II, "lender.0", common.DefaultPersistence)).To(gomega.ContainElement("fsc_kvs"))
+
+	// The lender's database also accepts plaintext, so check that the lender's replicas, the
+	// only clients of that database, connect over TLS.
+	total, tls := iou.Connections(s.II, "lender.0", common.DefaultPersistence)
+	gomega.Expect(total).To(gomega.BeNumerically(">", 0))
+	gomega.Expect(tls).To(gomega.Equal(total), "every lender connection uses TLS")
 }
 
 // borrowerKVS is the persistence that holds the borrower's KVS in the replicas variant.
