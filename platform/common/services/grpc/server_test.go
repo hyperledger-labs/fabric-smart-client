@@ -32,7 +32,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 )
@@ -200,7 +200,7 @@ var (
 )
 
 type testServer struct {
-	config grpc3.ServerConfig
+	config commongrpc.ServerConfig
 }
 
 type serverCert struct {
@@ -230,10 +230,10 @@ func (org *testOrg) testServers(clientRootCAs [][]byte) []testServer {
 	testServers := []testServer{}
 	for _, serverCert := range org.serverCerts {
 		testServer := testServer{
-			grpc3.ServerConfig{
+			commongrpc.ServerConfig{
 				ConnectionTimeout:  250 * time.Millisecond,
 				HealthCheckEnabled: true,
-				SecOpts: grpc3.SecureOptions{
+				SecOpts: commongrpc.SecureOptions{
 					UseTLS:            true,
 					Certificate:       serverCert.certPEM,
 					Key:               serverCert.keyPEM,
@@ -387,32 +387,32 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	t.Parallel()
 
 	// missing address
-	_, err := grpc3.NewGRPCServer(
+	_, err := commongrpc.NewGRPCServer(
 		"",
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	require.EqualError(t, err, "missing address parameter")
 
 	// missing port
-	_, err = grpc3.NewGRPCServer(
+	_, err = commongrpc.NewGRPCServer(
 		"abcdef",
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	require.Error(t, err, "Expected error with missing port")
 	require.Contains(t, err.Error(), "missing port in address")
 
 	// bad port
-	_, err = grpc3.NewGRPCServer(
+	_, err = commongrpc.NewGRPCServer(
 		"127.0.0.1:1BBB",
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	// check for possible errors based on platform and Go release
@@ -433,11 +433,11 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	}, "unexpected error: %v", err)
 
 	// bad hostname
-	_, err = grpc3.NewGRPCServer(
+	_, err = commongrpc.NewGRPCServer(
 		"hostdoesnotexist.localdomain:9050",
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	// We cannot check for a specific error message due to the fact that some
@@ -447,20 +447,20 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 
 	// address in use
 	lis := createListener(t)
-	_, err = grpc3.NewGRPCServerFromListener(
+	_, err = commongrpc.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	require.NoError(t, err, "failed to create grpc server")
 
-	_, err = grpc3.NewGRPCServer(
+	_, err = commongrpc.NewGRPCServer(
 		lis.Addr().String(),
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	require.Error(t, err)
@@ -478,21 +478,21 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	}, "unexpected error: %v", err)
 
 	// missing server Certificate
-	_, err = grpc3.NewGRPCServerFromListener(
+	_, err = commongrpc.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: true, Key: []byte{}},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: true, Key: []byte{}},
 		},
 	)
 	require.EqualError(t, err, "serverConfig.SecOpts must contain both Key and Certificate when UseTLS is true")
 
 	// missing server Key
-	_, err = grpc3.NewGRPCServerFromListener(
+	_, err = commongrpc.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts: grpc3.SecureOptions{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte{},
 			},
@@ -501,11 +501,11 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	require.EqualError(t, err, "serverConfig.SecOpts must contain both Key and Certificate when UseTLS is true")
 
 	// bad server Key
-	_, err = grpc3.NewGRPCServerFromListener(
+	_, err = commongrpc.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts: grpc3.SecureOptions{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte(selfSignedCertPEM),
 				Key:         []byte{},
@@ -515,11 +515,11 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	require.EqualError(t, err, "tls: failed to find any PEM data in key input")
 
 	// bad server Certificate
-	_, err = grpc3.NewGRPCServerFromListener(
+	_, err = commongrpc.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts: grpc3.SecureOptions{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte{},
 				Key:         []byte(selfSignedKeyPEM),
@@ -528,11 +528,11 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	)
 	require.EqualError(t, err, "tls: failed to find any PEM data in certificate input")
 
-	srv, err := grpc3.NewGRPCServerFromListener(
+	srv, err := commongrpc.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts: grpc3.SecureOptions{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:            true,
 				Certificate:       []byte(selfSignedCertPEM),
 				Key:               []byte(selfSignedKeyPEM),
@@ -550,11 +550,11 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 func TestNewGRPCServer(t *testing.T) {
 	t.Parallel()
 
-	srv, err := grpc3.NewGRPCServer(
+	srv, err := commongrpc.NewGRPCServer(
 		"127.0.0.1:0",
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	require.NoError(t, err, "failed to create new GRPC server")
@@ -591,11 +591,11 @@ func TestNewGRPCServerFromListener(t *testing.T) {
 	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
-	srv, err := grpc3.NewGRPCServerFromListener(
+	srv, err := commongrpc.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{
+		commongrpc.ServerConfig{
 			HealthCheckEnabled: true,
-			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+			SecOpts:            commongrpc.SecureOptions{UseTLS: false},
 		},
 	)
 	require.NoError(t, err, "failed to create new GRPC server")
@@ -626,10 +626,10 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{
 		ConnectionTimeout:  250 * time.Millisecond,
 		HealthCheckEnabled: true,
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:      true,
 			Certificate: []byte(selfSignedCertPEM),
 			Key:         []byte(selfSignedKeyPEM),
@@ -721,8 +721,8 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 		lis := createListener(t)
 		testAddress := lis.Addr().String()
 
-		srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
-			SecOpts: grpc3.SecureOptions{
+		srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte(selfSignedCertPEM),
 				Key:         []byte(selfSignedKeyPEM),
@@ -748,8 +748,8 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 		t.Parallel()
 		lis := createListener(t)
 
-		_, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
-			SecOpts: grpc3.SecureOptions{
+		_, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte(selfSignedCertPEM),
 				Key:         []byte(selfSignedKeyPEM),
@@ -766,8 +766,8 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 
 		// SecOpts sets neither MinVersion nor MaxVersion, the case every deployment
 		// that omits both from its tls block reaches.
-		srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
-			SecOpts: grpc3.SecureOptions{
+		srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte(selfSignedCertPEM),
 				Key:         []byte(selfSignedKeyPEM),
@@ -802,8 +802,8 @@ func TestNewGRPCServerVersionRange(t *testing.T) {
 		lis := createListener(t)
 		testAddress := lis.Addr().String()
 
-		srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
-			SecOpts: grpc3.SecureOptions{
+		srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{
+			SecOpts: commongrpc.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte(selfSignedCertPEM),
 				Key:         []byte(selfSignedKeyPEM),
@@ -868,9 +868,9 @@ func TestVerifyCertificateCallback(t *testing.T) {
 		return nil
 	}
 
-	gRPCServer, err := grpc3.NewGRPCServer("127.0.0.1:", grpc3.ServerConfig{
+	gRPCServer, err := commongrpc.NewGRPCServer("127.0.0.1:", commongrpc.ServerConfig{
 		HealthCheckEnabled: true,
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			ClientRootCAs:     [][]byte{ca.CertBytes()},
 			Key:               serverKeyPair.Key,
 			Certificate:       serverKeyPair.Cert,
@@ -915,9 +915,9 @@ func TestWithSignedRootCertificates(t *testing.T) {
 	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{
 		HealthCheckEnabled: true,
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:      true,
 			Certificate: certPEMBlock,
 			Key:         keyPEMBlock,
@@ -973,9 +973,9 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{
 		HealthCheckEnabled: true,
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:      true,
 			Certificate: certPEMBlock,
 			Key:         keyPEMBlock,
@@ -1026,7 +1026,7 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 		srvAddr := lis.Addr().String()
 
 		// create GRPCServer
-		srv, err := grpc3.NewGRPCServerFromListener(lis, servers[i].config)
+		srv, err := commongrpc.NewGRPCServerFromListener(lis, servers[i].config)
 		if err != nil {
 			return err
 		}
@@ -1138,7 +1138,7 @@ func TestSetClientRootCAs(t *testing.T) {
 	address := lis.Addr().String()
 
 	// create a GRPCServer
-	srv, err := grpc3.NewGRPCServerFromListener(lis, serverConfig)
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, serverConfig)
 	require.NoError(t, err, "failed to create GRPCServer")
 
 	// register the GRPC test server and start the GRPCServer
@@ -1219,9 +1219,9 @@ func TestUpdateTLSCert(t *testing.T) {
 
 	key, cert, caCert := loadBytes("notlocalhost")
 
-	cfg := grpc3.ServerConfig{
+	cfg := commongrpc.ServerConfig{
 		HealthCheckEnabled: true,
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			UseTLS:      true,
 			Key:         key,
 			Certificate: cert,
@@ -1232,7 +1232,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
-	srv, err := grpc3.NewGRPCServerFromListener(lis, cfg)
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, cfg)
 	require.NoError(t, err)
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
@@ -1281,7 +1281,7 @@ func TestCipherSuites(t *testing.T) {
 
 	// The server's default set. Referenced, not copied: this list used to be a hand-kept
 	// duplicate, and it silently went stale the moment DefaultTLSCipherSuites changed.
-	defaultCipherSuites := grpc3.DefaultTLSCipherSuites
+	defaultCipherSuites := commongrpc.DefaultTLSCipherSuites
 	// TLS 1.2 suites deliberately NOT in the default set, so a client offering only these
 	// must fail to handshake. Includes the static-RSA suites, which the default set dropped
 	// for having no forward secrecy.
@@ -1312,9 +1312,9 @@ func TestCipherSuites(t *testing.T) {
 	certPool, err := createCertPool([][]byte{caPEM})
 	require.NoError(t, err)
 
-	serverConfig := grpc3.ServerConfig{
+	serverConfig := commongrpc.ServerConfig{
 		HealthCheckEnabled: true,
-		SecOpts: grpc3.SecureOptions{
+		SecOpts: commongrpc.SecureOptions{
 			Certificate: certPEM,
 			Key:         keyPEM,
 			UseTLS:      true,
@@ -1345,7 +1345,7 @@ func TestCipherSuites(t *testing.T) {
 	// create our listener
 	lis := createListener(t)
 	testAddress := lis.Addr().String()
-	srv, err := grpc3.NewGRPCServerFromListener(lis, serverConfig)
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, serverConfig)
 	require.NoError(t, err)
 	go func() { _ = srv.Start() }()
 
@@ -1393,13 +1393,13 @@ func TestServerInterceptors(t *testing.T) {
 		return status.Error(codes.Aborted, msg)
 	}
 
-	srvConfig := grpc3.ServerConfig{HealthCheckEnabled: true}
+	srvConfig := commongrpc.ServerConfig{HealthCheckEnabled: true}
 	srvConfig.UnaryInterceptors = append(srvConfig.UnaryInterceptors, usi1)
 	srvConfig.UnaryInterceptors = append(srvConfig.UnaryInterceptors, usi2)
 	srvConfig.StreamInterceptors = append(srvConfig.StreamInterceptors, ssi1)
 	srvConfig.StreamInterceptors = append(srvConfig.StreamInterceptors, ssi2)
 
-	srv, err := grpc3.NewGRPCServerFromListener(lis, srvConfig)
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, srvConfig)
 	require.NoError(t, err, "failed to create gRPC server")
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 	go func() { _ = srv.Start() }()
@@ -1441,21 +1441,21 @@ func TestServerConfigMessageSize(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		config  grpc3.ServerConfig
+		config  commongrpc.ServerConfig
 		wantErr string
 	}{
 		{
 			name:   "unset falls back to the package default",
-			config: grpc3.ServerConfig{HealthCheckEnabled: true},
+			config: commongrpc.ServerConfig{HealthCheckEnabled: true},
 		},
 		{
 			name:    "explicit recv limit is honored",
-			config:  grpc3.ServerConfig{HealthCheckEnabled: true, MaxRecvMsgSize: 1},
+			config:  commongrpc.ServerConfig{HealthCheckEnabled: true, MaxRecvMsgSize: 1},
 			wantErr: "received message larger than max",
 		},
 		{
 			name:   "generous explicit limits pass",
-			config: grpc3.ServerConfig{HealthCheckEnabled: true, MaxRecvMsgSize: 1024, MaxSendMsgSize: 1024},
+			config: commongrpc.ServerConfig{HealthCheckEnabled: true, MaxRecvMsgSize: 1024, MaxSendMsgSize: 1024},
 		},
 	}
 
@@ -1465,7 +1465,7 @@ func TestServerConfigMessageSize(t *testing.T) {
 
 			lis := createListener(t)
 			address := lis.Addr().String()
-			srv, err := grpc3.NewGRPCServerFromListener(lis, test.config)
+			srv, err := commongrpc.NewGRPCServerFromListener(lis, test.config)
 			require.NoError(t, err)
 			testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 			go func() { _ = srv.Start() }()
@@ -1497,7 +1497,7 @@ func TestSetClientRootCAsNoTLS(t *testing.T) {
 	t.Parallel()
 
 	lis := createListener(t)
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{})
+	srv, err := commongrpc.NewGRPCServerFromListener(lis, commongrpc.ServerConfig{})
 	require.NoError(t, err, "failed to create GRPCServer")
 	require.False(t, srv.TLSEnabled())
 

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	model2 "github.com/jaegertracing/jaeger-idl/model/v1"
+	"github.com/jaegertracing/jaeger-idl/model/v1"
 	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
 	"github.com/onsi/gomega"
 
@@ -109,7 +109,7 @@ func CheckJaegerTraces(ii *integration.Infrastructure, nodeName, viewName string
 	// and the stream may send one, so drop the empty chunks first: otherwise the
 	// spans behind them never reach the matcher below.
 	nonEmpty := iterators.Filter(it, func(c *api_v2.SpansResponseChunk) bool { return len(c.Spans) > 0 })
-	spans, err := iterators.ReadAllPointers(iterators.FlattenValues(nonEmpty, func(c *api_v2.SpansResponseChunk) ([]model2.Span, error) { return c.Spans, nil }))
+	spans, err := iterators.ReadAllPointers(iterators.FlattenValues(nonEmpty, func(c *api_v2.SpansResponseChunk) ([]model.Span, error) { return c.Spans, nil }))
 
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	logger.Infof("Received jaeger %d spans for [%s:%s]: %s", len(spans), nodeName, viewName, spans)

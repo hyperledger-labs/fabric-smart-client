@@ -19,7 +19,7 @@ import (
 	another_fake "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/fake/another"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
-	initiator2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
+	testdatainitiator "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/responder"
 )
 
@@ -46,11 +46,11 @@ var _ = Describe("EndToEnd", func() {
 			n.AddSDK(&DummySDK{})
 			n.AddSDK(&fake.SDK{})
 			n.AddSDK(&another_fake.SDK{})
-			n.RegisterViewFactory("initiator", &initiator2.Factory{})
+			n.RegisterViewFactory("initiator", &testdatainitiator.Factory{})
 			n.RegisterViewFactory("initiator", &initiator.Factory{})
 			n.RegisterViewFactory("responder", &responder.Factory{})
-			n.RegisterViewFactory("initiator2", &initiator2.Factory{})
-			n.RegisterResponder(&responder.Responder{}, &initiator2.Initiator{})
+			n.RegisterViewFactory("initiator2", &testdatainitiator.Factory{})
+			n.RegisterResponder(&responder.Responder{}, &testdatainitiator.Initiator{})
 			buf := bytes.NewBuffer(nil)
 			p.GenerateCmd(buf, node.NewReplica(&node.Peer{
 				Name:         "initiator",
@@ -68,11 +68,11 @@ var _ = Describe("EndToEnd", func() {
 			p := NewPlatform(nwocontext.New("", 0, nil), NewTopology(), nil)
 
 			template := node.NewNode("test")
-			template.RegisterViewFactory("initiator", &initiator2.Factory{})
+			template.RegisterViewFactory("initiator", &testdatainitiator.Factory{})
 			template.RegisterViewFactory("initiator", &initiator.Factory{})
 			template.RegisterViewFactory("responder", &responder.Factory{})
-			template.RegisterViewFactory("initiator2", &initiator2.Factory{})
-			template.RegisterResponder(&responder.Responder{}, &initiator2.Initiator{})
+			template.RegisterViewFactory("initiator2", &testdatainitiator.Factory{})
+			template.RegisterResponder(&responder.Responder{}, &testdatainitiator.Initiator{})
 
 			n := node.NewNodeFromTemplate("test", template)
 			n.AddSDK(&DummySDK{})

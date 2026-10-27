@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
-	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -72,7 +72,7 @@ func (i *CreateIOUView) Call(viewCtx view.Context) (any, error) {
 	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
 	committer := ch.Committer()
-	listener := views2.NewFinalityListener(tx.ID())
+	listener := views.NewFinalityListener(tx.ID())
 	assert.NoError(committer.AddFinalityListener(tx.ID(), listener), "failed to add committer listener")
 	defer func() { _ = committer.RemoveFinalityListener(tx.ID(), listener) }()
 
@@ -140,7 +140,7 @@ func (u UpdateIOUView) Call(viewCtx view.Context) (any, error) {
 	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
 	committer := ch.Committer()
-	listener := views2.NewFinalityListener(tx.ID())
+	listener := views.NewFinalityListener(tx.ID())
 	assert.NoError(committer.AddFinalityListener(tx.ID(), listener), "failed to add committer listener")
 	defer func() { _ = committer.RemoveFinalityListener(tx.ID(), listener) }()
 
@@ -151,7 +151,7 @@ func (u UpdateIOUView) Call(viewCtx view.Context) (any, error) {
 
 	// Registering a listener for a transaction that is already final must report its
 	// status: see the contract in platform/common/driver/committer.go and issue #1714.
-	postListener := views2.NewFinalityListener(tx.ID())
+	postListener := views.NewFinalityListener(tx.ID())
 	assert.NoError(committer.AddFinalityListener(tx.ID(), postListener), "failed to add committer listener")
 	defer func() { _ = committer.RemoveFinalityListener(tx.ID(), postListener) }()
 	assert.NoError(postListener.Expect(viewCtx.Context(), driver.Valid, time.Minute), "already-final listener did not report Valid")

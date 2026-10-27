@@ -8,7 +8,7 @@ package iou
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -70,7 +70,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(replicationOpts.For("lender")...).
 		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
-		RegisterViewFactory("finality", &views2.FinalityViewFactory{}).
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{})
 
 	// Monitoring

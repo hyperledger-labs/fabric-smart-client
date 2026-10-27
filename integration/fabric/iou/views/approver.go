@@ -9,7 +9,7 @@ package views
 import (
 	"time"
 
-	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
@@ -97,10 +97,10 @@ func (*ApproverView) Call(viewCtx view.Context) (any, error) {
 
 	// Check committer events
 	committer := ch.Committer()
-	listener := views2.NewFinalityListener(tx.ID())
+	listener := views.NewFinalityListener(tx.ID())
 	assert.NoError(committer.AddFinalityListener(tx.ID(), listener), "failed to add committer listener")
 	defer func() { _ = committer.RemoveFinalityListener(tx.ID(), listener) }()
-	assert.Error(committer.AddFinalityListener("", views2.NewFinalityListener(tx.ID())), "must have failed")
+	assert.Error(committer.AddFinalityListener("", views.NewFinalityListener(tx.ID())), "must have failed")
 
 	// Finally, the approver waits that the transaction completes its lifecycle
 	_, err = viewCtx.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
@@ -109,7 +109,7 @@ func (*ApproverView) Call(viewCtx view.Context) (any, error) {
 
 	// Registering a listener for a transaction that is already final must report its
 	// status: see the contract in platform/common/driver/committer.go and issue #1714.
-	postListener := views2.NewFinalityListener(tx.ID())
+	postListener := views.NewFinalityListener(tx.ID())
 	assert.NoError(committer.AddFinalityListener(tx.ID(), postListener), "failed to add committer listener")
 	defer func() { _ = committer.RemoveFinalityListener(tx.ID(), postListener) }()
 	assert.NoError(postListener.Expect(viewCtx.Context(), driver.Valid, time.Minute), "already-final listener did not report Valid")

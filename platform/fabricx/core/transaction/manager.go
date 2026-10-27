@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -57,7 +57,7 @@ func (m *Manager) transactionFactory(transactionType driver.TransactionType) (dr
 	return txFactory, nil
 }
 
-func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view.Identity, nonce []byte, txID driver2.TxID, channel string, rawRequest []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view.Identity, nonce []byte, txID cdriver.TxID, channel string, rawRequest []byte) (driver.Transaction, error) {
 	txFactory, err := m.transactionFactory(transactionType)
 	if err != nil {
 		return nil, err

@@ -37,19 +37,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	viewclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/view"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
-	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/otlp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	viewserviceclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
 
 var logger = logging.MustGetLogger()
@@ -61,15 +61,15 @@ const (
 	WebPort    api.PortName = "Web"    // Port at which the Web Server respond
 )
 
-func WithReplicationFactor(factor int) node2.Option {
-	return func(o *node2.Options) error {
+func WithReplicationFactor(factor int) nwonode.Option {
+	return func(o *nwonode.Options) error {
 		o.Put("Replication", factor)
 		return nil
 	}
 }
 
-func WithAlias(alias string) node2.Option {
-	return func(o *node2.Options) error {
+func WithAlias(alias string) nwonode.Option {
+	return func(o *nwonode.Options) error {
 		o.AddAlias(alias)
 		return nil
 	}
@@ -82,8 +82,8 @@ type Platform struct {
 	Topology          *Topology
 	EventuallyTimeout time.Duration
 
-	Organizations            []*node2.Organization
-	Peers                    []*node2.Replica
+	Organizations            []*nwonode.Organization
+	Peers                    []*nwonode.Replica
 	Resolvers                []*Resolver
 	Routing                  map[string][]string
 	colorIndex               int
@@ -172,7 +172,7 @@ func (p *Platform) generatePostgresConfiguration() {
 	// search all unique postgres instances available in our topology
 	for _, peer := range p.Peers {
 		for n, pp := range peer.Options.GetPostgresPersistences() {
-			cfg, err := postgres2.ConfigFromDataSource(pp.DataSource)
+			cfg, err := postgres.ConfigFromDataSource(pp.DataSource)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			// if we have seen this db already, we update the node's configuration; otherwise reserve a free port
@@ -191,7 +191,7 @@ func (p *Platform) generatePostgresConfiguration() {
 	}
 }
 
-func (p *Platform) setIdentities(address string, peer *node2.Replica) {
+func (p *Platform) setIdentities(address string, peer *nwonode.Replica) {
 	caPath := path.Join(p.NodeLocalTLSDir(peer.Peer), "ca.crt")
 	caPEM, err := os.ReadFile(caPath)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed reading %s", caPath)
@@ -243,11 +243,11 @@ func (p *Platform) PreRun() {
 // It sets Platform.cleanDB function to allow shutdown of all spawned databases. If an error occurs, we panic
 func startPostgres(p *Platform) {
 	// find all postgres databases we need to start via node configurations
-	configs := make(map[string]*postgres2.ContainerConfig)
+	configs := make(map[string]*postgres.ContainerConfig)
 	for _, node := range p.Peers {
 		for _, sqlOpts := range node.Options.GetPostgresPersistences() {
 			if _, ok := configs[sqlOpts.DataSource]; !ok {
-				c, err := postgres2.ConfigFromDataSource(sqlOpts.DataSource)
+				c, err := postgres.ConfigFromDataSource(sqlOpts.DataSource)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				configs[sqlOpts.DataSource] = c
 			}
@@ -264,7 +264,7 @@ func startPostgres(p *Platform) {
 		l := logging.MustGetLogger(c.DBName)
 
 		// we ignore the returned connection str
-		closeFunc, _, err := postgres2.StartPostgres(context.TODO(), c, l)
+		closeFunc, _, err := postgres.StartPostgres(context.TODO(), c, l)
 		if err != nil {
 			// close all started instances
 			for _, f := range closeFuncs {
@@ -296,15 +296,15 @@ func (p *Platform) PostRun(bool) {
 		address := k.String("fsc.grpc.address")
 		p.setIdentities(address, peer)
 	}
-	tracerProvider, err := tracing2.NewProviderFromConfig(tracing2.Config{
+	tracerProvider, err := tracing.NewProviderFromConfig(tracing.Config{
 		Provider: p.Topology.Monitoring.TracingType,
-		File: tracing2.FileConfig{
+		File: tracing.FileConfig{
 			Path: "./client-trace.out",
 		},
-		Otlp: tracing2.OtlpConfig{
+		Otlp: tracing.OtlpConfig{
 			Address: fmt.Sprintf("0.0.0.0:%d", otlp.JaegerCollectorPort),
 		},
-		Sampling: tracing2.SamplingConfig{Ratio: p.Topology.Monitoring.TracingSamplingRatio},
+		Sampling: tracing.SamplingConfig{Ratio: p.Topology.Monitoring.TracingSamplingRatio},
 	})
 	if err != nil {
 		panic(err)
@@ -317,8 +317,8 @@ func (p *Platform) PostRun(bool) {
 		// Prepare GRPC Client, Web Client, and CLI
 
 		// GRPC client
-		grpcClient, err := client3.NewClient(
-			&client3.Config{
+		grpcClient, err := viewserviceclient.NewClient(
+			&viewserviceclient.Config{
 				ID:               k.String("fsc.id"),
 				ConnectionConfig: p.Context.ConnectionConfig(node.UniqueName),
 			},
@@ -370,7 +370,7 @@ func (p *Platform) PostRun(bool) {
 	}
 }
 
-func (p *Platform) koanf(peer *node2.Replica) *koanf.Koanf {
+func (p *Platform) koanf(peer *nwonode.Replica) *koanf.Koanf {
 	k := koanf.New(".")
 	err := k.Load(file.Provider(p.NodeConfigPath(peer)), yaml.Parser())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -390,7 +390,7 @@ func (p *Platform) Cleanup() {
 func (p *Platform) CheckTopology() {
 	orgName := "fsc"
 
-	org := &node2.Organization{
+	org := &nwonode.Organization{
 		ID:            orgName,
 		Name:          orgName,
 		MSPID:         orgName + "MSP",
@@ -412,8 +412,8 @@ func (p *Platform) CheckTopology() {
 			panic("replication only supported for websocket p2p communication")
 		}
 		for _, uniqueName := range node.ReplicaUniqueNames() {
-			var extraIdentities []*node2.PeerIdentity
-			peer := node2.NewReplica(&node2.Peer{
+			var extraIdentities []*nwonode.PeerIdentity
+			peer := nwonode.NewReplica(&nwonode.Peer{
 				Name:            node.Name,
 				Organization:    org.Name,
 				Bootstrap:       node.Bootstrap,
@@ -452,7 +452,7 @@ func (p *Platform) CheckTopology() {
 	}
 }
 
-func (p *Platform) OperationAddress(peer *node2.Replica) string {
+func (p *Platform) OperationAddress(peer *nwonode.Replica) string {
 	fabricHost := "fabric"
 	if runtime.GOOS == "darwin" {
 		fabricHost = "host.docker.internal"
@@ -531,13 +531,13 @@ func (p *Platform) GenerateRoutingConfig() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer func() { _ = routing.Close() }()
 
-	t, err := template.New("routing").Parse(node2.RoutingTemplate)
+	t, err := template.New("routing").Parse(nwonode.RoutingTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	gomega.Expect(t.Execute(io.MultiWriter(routing), p)).NotTo(gomega.HaveOccurred())
 }
 
-func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
+func (p *Platform) GenerateCoreConfig(peer *nwonode.Replica) {
 	err := os.MkdirAll(p.NodeDir(peer), 0o755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -572,14 +572,14 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 	persistences := GetPersistences(peer.Options, p.NodeStorages(peer.UniqueName))
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
-		"Replica":      func() *node2.Replica { return peer },
-		"Peer":         func() *node2.Peer { return peer.Peer },
+		"Replica":      func() *nwonode.Replica { return peer },
+		"Peer":         func() *nwonode.Peer { return peer.Peer },
 		"NetworkID":    func() string { return p.NetworkID },
 		"Topology":     func() *Topology { return p.Topology },
 		"Extensions":   func() []string { return extensions },
 		"ToLower":      strings.ToLower,
 		"ReplaceAll":   strings.ReplaceAll,
-		"Persistences": func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
+		"Persistences": func() map[driver.PersistenceName]nwonode.PersistenceOpts { return persistences },
 		"Resolvers":    func() []*Resolver { return resolvers },
 		"WebEnabled":   func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
@@ -592,8 +592,8 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 	gomega.Expect(t.Execute(io.MultiWriter(core), p)).NotTo(gomega.HaveOccurred())
 }
 
-func GetPersistenceNames(o *node2.Options, prefixes ...node2.PersistenceKey) map[node2.PersistenceKey]driver.PersistenceName {
-	names := make(map[node2.PersistenceKey]driver.PersistenceName, len(prefixes))
+func GetPersistenceNames(o *nwonode.Options, prefixes ...nwonode.PersistenceKey) map[nwonode.PersistenceKey]driver.PersistenceName {
+	names := make(map[nwonode.PersistenceKey]driver.PersistenceName, len(prefixes))
 	// Complete all missing persistences with ad hoc sqlite local persistences
 	for _, prefix := range prefixes {
 		if name, ok := o.GetPersistenceName(prefix); !ok {
@@ -606,13 +606,13 @@ func GetPersistenceNames(o *node2.Options, prefixes ...node2.PersistenceKey) map
 	return names
 }
 
-func GetPersistences(o *node2.Options, dir string) map[driver.PersistenceName]node2.PersistenceOpts {
+func GetPersistences(o *nwonode.Options, dir string) map[driver.PersistenceName]nwonode.PersistenceOpts {
 	// First map all existing postgres configurations
 	ps := o.GetPostgresPersistences()
-	persistences := make(map[driver.PersistenceName]node2.PersistenceOpts, len(ps))
+	persistences := make(map[driver.PersistenceName]nwonode.PersistenceOpts, len(ps))
 	for name, opt := range ps {
-		persistences[name] = node2.PersistenceOpts{
-			Type: postgres2.Persistence,
+		persistences[name] = nwonode.PersistenceOpts{
+			Type: postgres.Persistence,
 			SQL:  opt,
 		}
 	}
@@ -621,9 +621,9 @@ func GetPersistences(o *node2.Options, dir string) map[driver.PersistenceName]no
 	prefixes := o.GetAllPersistenceKeys()
 	for _, prefix := range prefixes {
 		if _, ok := o.GetPersistenceName(prefix); !ok {
-			persistences[sqliteName(prefix)] = node2.PersistenceOpts{
+			persistences[sqliteName(prefix)] = nwonode.PersistenceOpts{
 				Type: sqlite.Persistence,
-				SQL: &node2.SQLOpts{
+				SQL: &nwonode.SQLOpts{
 					DataSource: SqlitePath(dir, prefix),
 				},
 			}
@@ -633,13 +633,13 @@ func GetPersistences(o *node2.Options, dir string) map[driver.PersistenceName]no
 	return persistences
 }
 
-func SqlitePath(storages string, prefix node2.PersistenceKey) string {
+func SqlitePath(storages string, prefix nwonode.PersistenceKey) string {
 	return path.Join(storages, fmt.Sprintf("%s.sqlite", prefix))
 }
 
-func sqliteName(prefix node2.PersistenceKey) driver.PersistenceName {
-	if driver.PersistenceName(prefix) == common2.DefaultPersistence {
-		return common2.DefaultPersistence
+func sqliteName(prefix nwonode.PersistenceKey) driver.PersistenceName {
+	if driver.PersistenceName(prefix) == drivercommon.DefaultPersistence {
+		return drivercommon.DefaultPersistence
 	}
 	return driver.PersistenceName(fmt.Sprintf("%s_persistence", prefix))
 }
@@ -652,7 +652,7 @@ func (p *Platform) FSCNodeGroupRunner() ifrit.Runner {
 	return grouper.NewParallel(syscall.SIGTERM, p.membersFiltered(false))
 }
 
-func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Runner {
+func (p *Platform) FSCNodeRunner(node *nwonode.Replica, env ...string) *runner.Runner {
 	// set config path
 	env = append(env, fmt.Sprintf("FSCNODE_CFG_PATH=%s", p.NodeDir(node)))
 
@@ -667,7 +667,7 @@ func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Ru
 		env...,
 	)
 
-	config := runner2.Config{
+	config := runner.Config{
 		AnsiColorCode:     common.NextColor(),
 		Name:              node.ID(),
 		Command:           cmd,
@@ -690,10 +690,10 @@ func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Ru
 		config.Stderr = f
 	}
 
-	return runner2.New(config)
+	return runner.New(config)
 }
 
-func (p *Platform) fscNodeCommand(node *node2.Replica, command common.Command, tlsDir string, env ...string) *exec.Cmd {
+func (p *Platform) fscNodeCommand(node *nwonode.Replica, command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	if len(node.ExecutablePath) == 0 {
 		node.ExecutablePath = p.GenerateCmd(nil, node)
 	}
@@ -722,7 +722,7 @@ func (p *Platform) fscNodeCommand(node *node2.Replica, command common.Command, t
 	return cmd
 }
 
-func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
+func (p *Platform) GenerateCmd(output io.Writer, node *nwonode.Replica) string {
 	err := os.MkdirAll(p.NodeCmdDir(node), 0o755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -741,17 +741,17 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
 
 	gomega.Expect(t.Execute(io.MultiWriter(output), struct {
 		*Platform
-		*node2.Replica
+		*nwonode.Replica
 	}{p, node})).NotTo(gomega.HaveOccurred())
 
 	return p.NodeCmdPackage(node)
 }
 
-func (p *Platform) NodeDir(peer *node2.Replica) string {
+func (p *Platform) NodeDir(peer *nwonode.Replica) string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.UniqueName)
 }
 
-func (p *Platform) NodeClientConfigPath(peer *node2.Replica) string {
+func (p *Platform) NodeClientConfigPath(peer *nwonode.Replica) string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", peer.UniqueName, "client-config.yaml")
 }
 
@@ -763,18 +763,18 @@ func (p *Platform) NodeStorageDir(uniqueName, dirName string) string {
 	return filepath.Join(p.NodeStorages(uniqueName), dirName)
 }
 
-func (p *Platform) NodeConfigPath(peer *node2.Replica) string {
+func (p *Platform) NodeConfigPath(peer *nwonode.Replica) string {
 	return filepath.Join(p.NodeDir(peer), "core.yaml")
 }
 
-func (*Platform) NodeCmdDir(peer *node2.Replica) string {
+func (*Platform) NodeCmdDir(peer *nwonode.Replica) string {
 	wd, err := os.Getwd()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return filepath.Join(wd, "out", "cmd", peer.Name)
 }
 
-func (*Platform) NodeCmdPackage(peer *node2.Replica) string {
+func (*Platform) NodeCmdPackage(peer *nwonode.Replica) string {
 	wd, err := os.Getwd()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "Failed to get working directory: %s", err)
 
@@ -818,17 +818,17 @@ func goModuleInfo(dir string) (modPath, modDir string, err error) {
 	return parts[0], parts[1], nil
 }
 
-func (p *Platform) NodeCmdPath(peer *node2.Replica) string {
+func (p *Platform) NodeCmdPath(peer *nwonode.Replica) string {
 	return filepath.Join(p.NodeCmdDir(peer), "main.go")
 }
 
-func (p *Platform) NodePort(node *node2.Replica, portName api.PortName) uint16 {
+func (p *Platform) NodePort(node *nwonode.Replica, portName api.PortName) uint16 {
 	peerPorts := p.Context.PortsByPeerID("fsc", node.ID())
 	gomega.Expect(peerPorts).NotTo(gomega.BeNil(), "cannot find ports for [%s][%v]", node.ID(), p.Context.PortsByPeerID)
 	return peerPorts[portName]
 }
 
-func (p *Platform) BootstrapNode(me *node2.Peer) string {
+func (p *Platform) BootstrapNode(me *nwonode.Peer) string {
 	for _, node := range p.Topology.Nodes {
 		if node.Bootstrap {
 			if node.Name == me.Name {
@@ -848,19 +848,19 @@ func (p *Platform) CACertsBundlePath() string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "crypto", "ca-certs.pem")
 }
 
-func (p *Platform) NodeLocalTLSDir(peer *node2.Peer) string {
+func (p *Platform) NodeLocalTLSDir(peer *nwonode.Peer) string {
 	return p.peerLocalCryptoDir(peer, "tls")
 }
 
-func (p *Platform) NodeLocalCertPath(node *node2.Peer) string {
+func (p *Platform) NodeLocalCertPath(node *nwonode.Peer) string {
 	return p.LocalMSPIdentityCert(node)
 }
 
-func (p *Platform) NodeLocalPrivateKeyPath(node *node2.Peer) string {
+func (p *Platform) NodeLocalPrivateKeyPath(node *nwonode.Peer) string {
 	return p.LocalMSPPrivateKey(node)
 }
 
-func (p *Platform) LocalMSPIdentityCert(peer *node2.Peer) string {
+func (p *Platform) LocalMSPIdentityCert(peer *nwonode.Peer) string {
 	return filepath.Join(
 		p.peerLocalCryptoDir(peer, "msp"),
 		"signcerts",
@@ -868,7 +868,7 @@ func (p *Platform) LocalMSPIdentityCert(peer *node2.Peer) string {
 	)
 }
 
-func (p *Platform) AdminLocalMSPIdentityCert(peer *node2.Peer) string {
+func (p *Platform) AdminLocalMSPIdentityCert(peer *nwonode.Peer) string {
 	return filepath.Join(
 		p.userLocalCryptoDir(peer, "Admin", "msp"),
 		"signcerts",
@@ -876,7 +876,7 @@ func (p *Platform) AdminLocalMSPIdentityCert(peer *node2.Peer) string {
 	)
 }
 
-func (p *Platform) LocalMSPPrivateKey(peer *node2.Peer) string {
+func (p *Platform) LocalMSPPrivateKey(peer *nwonode.Peer) string {
 	return filepath.Join(
 		p.peerLocalCryptoDir(peer, "msp"),
 		"keystore",
@@ -884,7 +884,7 @@ func (p *Platform) LocalMSPPrivateKey(peer *node2.Peer) string {
 	)
 }
 
-func (p *Platform) AdminLocalMSPPrivateKey(peer *node2.Peer) string {
+func (p *Platform) AdminLocalMSPPrivateKey(peer *nwonode.Peer) string {
 	return filepath.Join(
 		p.userLocalCryptoDir(peer, "Admin", "msp"),
 		"keystore",
@@ -896,7 +896,7 @@ func (p *Platform) CryptoPath() string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "crypto")
 }
 
-func (p *Platform) Organization(orgName string) *node2.Organization {
+func (p *Platform) Organization(orgName string) *nwonode.Organization {
 	for _, org := range p.Organizations {
 		if org.Name == orgName {
 			return org
@@ -920,22 +920,22 @@ func (p *Platform) ConcatenateTLSCACertificates() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func (p *Platform) PeerOrgs() []*node2.Organization {
-	orgsByName := map[string]*node2.Organization{}
+func (p *Platform) PeerOrgs() []*nwonode.Organization {
+	orgsByName := map[string]*nwonode.Organization{}
 	for _, peer := range p.Peers {
 		orgsByName[peer.Organization] = p.Organization(peer.Organization)
 	}
 
-	var orgs []*node2.Organization
+	var orgs []*nwonode.Organization
 	for _, org := range orgsByName {
 		orgs = append(orgs, org)
 	}
 	return orgs
 }
 
-func (p *Platform) PeersInOrg(orgName string) []*node2.Peer {
+func (p *Platform) PeersInOrg(orgName string) []*nwonode.Peer {
 	included := map[string]bool{}
-	var peers []*node2.Peer
+	var peers []*nwonode.Peer
 	for _, o := range p.Peers {
 		if o.Organization == orgName && !included[o.Name] {
 			peers = append(peers, o.Peer)
@@ -945,30 +945,30 @@ func (p *Platform) PeersInOrg(orgName string) []*node2.Peer {
 	return peers
 }
 
-func (p *Platform) PeerAddress(peer *node2.Replica, portName api.PortName) string {
+func (p *Platform) PeerAddress(peer *nwonode.Replica, portName api.PortName) string {
 	return fmt.Sprintf("%s:%d", p.PeerHost(peer), p.PeerPort(peer, portName))
 }
 
-func (p *Platform) PeerHost(peer *node2.Replica) string {
+func (p *Platform) PeerHost(peer *nwonode.Replica) string {
 	return p.Context.HostByPeerID("fsc", peer.ID())
 }
 
-func (*Platform) GetReplicas(peer *node2.Peer) []*node2.Replica {
+func (*Platform) GetReplicas(peer *nwonode.Peer) []*nwonode.Replica {
 	uniqueNames := peer.ReplicaUniqueNames()
-	replicas := make([]*node2.Replica, len(uniqueNames))
+	replicas := make([]*nwonode.Replica, len(uniqueNames))
 	for i, uniqueName := range uniqueNames {
-		replicas[i] = &node2.Replica{Peer: peer, UniqueName: uniqueName}
+		replicas[i] = &nwonode.Replica{Peer: peer, UniqueName: uniqueName}
 	}
 	return replicas
 }
 
-func (p *Platform) PeerPort(peer *node2.Replica, portName api.PortName) uint16 {
+func (p *Platform) PeerPort(peer *nwonode.Replica, portName api.PortName) uint16 {
 	peerPorts := p.Context.PortsByPeerID("fsc", peer.ID())
 	gomega.Expect(peerPorts).NotTo(gomega.BeNil())
 	return peerPorts[portName]
 }
 
-func (p *Platform) Peer(orgName, peerName string) *node2.Peer {
+func (p *Platform) Peer(orgName, peerName string) *nwonode.Peer {
 	for _, p := range p.PeersInOrg(orgName) {
 		if p.Name == peerName {
 			return p
@@ -977,12 +977,12 @@ func (p *Platform) Peer(orgName, peerName string) *node2.Peer {
 	return nil
 }
 
-func (p *Platform) GetSigningIdentity(peer *node2.Peer) (client3.SigningIdentity, error) {
-	return client3.NewX509SigningIdentity(p.LocalMSPIdentityCert(peer), p.LocalMSPPrivateKey(peer))
+func (p *Platform) GetSigningIdentity(peer *nwonode.Peer) (viewserviceclient.SigningIdentity, error) {
+	return viewserviceclient.NewX509SigningIdentity(p.LocalMSPIdentityCert(peer), p.LocalMSPPrivateKey(peer))
 }
 
-func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (client3.SigningIdentity, error) {
-	return client3.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
+func (p *Platform) GetAdminSigningIdentity(peer *nwonode.Peer) (viewserviceclient.SigningIdentity, error) {
+	return viewserviceclient.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
 }
 
 func (p *Platform) listTLSCACertificates() []string {
@@ -1006,7 +1006,7 @@ func (p *Platform) listTLSCACertificates() []string {
 	return tlsCACertificates
 }
 
-func (p *Platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) string {
+func (p *Platform) peerLocalCryptoDir(peer *nwonode.Peer, cryptoType string) string {
 	org := p.Organization(peer.Organization)
 	gomega.Expect(org).NotTo(gomega.BeNil())
 
@@ -1022,7 +1022,7 @@ func (p *Platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) strin
 	)
 }
 
-func (p *Platform) userLocalCryptoDir(peer *node2.Peer, user, cryptoMaterialType string) string {
+func (p *Platform) userLocalCryptoDir(peer *nwonode.Peer, user, cryptoMaterialType string) string {
 	org := p.Organization(peer.Organization)
 	gomega.Expect(org).NotTo(gomega.BeNil())
 

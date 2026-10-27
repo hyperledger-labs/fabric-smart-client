@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -116,9 +116,9 @@ func MakeGRPCCaller(tb testing.TB, cli *benchmark.ViewClient, fid string, input 
 }
 
 // buildCommand creates a CallView command for the given view ID and input.
-func buildCommand(fid string, input []byte) *protos2.Command {
-	return &protos2.Command{
-		Payload: &protos2.Command_CallView{CallView: &protos2.CallView{Fid: fid, Input: input}},
+func buildCommand(fid string, input []byte) *protos.Command {
+	return &protos.Command{
+		Payload: &protos.Command_CallView{CallView: &protos.CallView{Fid: fid, Input: input}},
 	}
 }
 
@@ -132,13 +132,13 @@ func signAndExecute(cli *benchmark.ViewClient, fid string, input []byte, ctx con
 }
 
 // executeSignedCommand sends a pre-signed command and validates the response.
-func executeSignedCommand(cli *benchmark.ViewClient, sc *protos2.SignedCommand, ctx context.Context) error {
+func executeSignedCommand(cli *benchmark.ViewClient, sc *protos.SignedCommand, ctx context.Context) error {
 	resp, err := cli.Client.ProcessCommand(ctx, sc)
 	if err != nil {
 		return err
 	}
 
-	commandResp := &protos2.CommandResponse{}
+	commandResp := &protos.CommandResponse{}
 	err = proto.Unmarshal(resp.Response, commandResp)
 	if err != nil {
 		return err

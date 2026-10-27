@@ -16,14 +16,14 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
 type ViewClient struct {
 	SignF       func(msg []byte) ([]byte, error)
 	Creator     []byte
 	TLSCertHash []byte
-	Client      protos2.ViewServiceClient
+	Client      protos.ViewServiceClient
 }
 
 func (vc *ViewClient) CallView(fid string, input []byte) (any, error) {
@@ -31,7 +31,7 @@ func (vc *ViewClient) CallView(fid string, input []byte) (any, error) {
 }
 
 func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input []byte) (any, error) {
-	c := &protos2.Command{Payload: &protos2.Command_CallView{CallView: &protos2.CallView{Fid: fid, Input: input}}}
+	c := &protos.Command{Payload: &protos.Command_CallView{CallView: &protos.CallView{Fid: fid, Input: input}}}
 
 	sc, err := vc.CreateSignedCommand(c)
 	if err != nil {
@@ -43,7 +43,7 @@ func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input
 		return nil, err
 	}
 
-	commandResp := &protos2.CommandResponse{}
+	commandResp := &protos.CommandResponse{}
 	err = proto.Unmarshal(scr.Response, commandResp)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input
 	return commandResp.GetCallViewResponse().GetResult(), nil
 }
 
-func (vc *ViewClient) CreateSignedCommand(command *protos2.Command) (*protos2.SignedCommand, error) {
+func (vc *ViewClient) CreateSignedCommand(command *protos.Command) (*protos.SignedCommand, error) {
 	nonce := make([]byte, 32)
 	_, err := io.ReadFull(rand.Reader, nonce)
 	if err != nil {
@@ -68,7 +68,7 @@ func (vc *ViewClient) CreateSignedCommand(command *protos2.Command) (*protos2.Si
 		return nil, err
 	}
 
-	command.Header = &protos2.Header{
+	command.Header = &protos.Header{
 		Timestamp:   ts,
 		Nonce:       nonce,
 		Creator:     vc.Creator,
@@ -85,7 +85,7 @@ func (vc *ViewClient) CreateSignedCommand(command *protos2.Command) (*protos2.Si
 		return nil, err
 	}
 
-	return &protos2.SignedCommand{
+	return &protos.SignedCommand{
 		Command:   raw,
 		Signature: signature,
 	}, nil

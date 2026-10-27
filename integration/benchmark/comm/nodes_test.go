@@ -20,8 +20,8 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
-	comm2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
@@ -33,9 +33,9 @@ import (
 
 // node is a started comm node together with the address and ID a peer dials it by.
 type node struct {
-	*comm2.P2PNode
-	ID      host2.PeerID
-	Address host2.PeerIPAddress
+	*comm.P2PNode
+	ID      host.PeerID
+	Address host.PeerIPAddress
 }
 
 // transport starts n nodes, each able to open sessions to every other, over one P2P transport.
@@ -105,9 +105,9 @@ func freePorts(b *testing.B, n int) []int {
 	return ports
 }
 
-func startNode(b *testing.B, h host2.P2PHost, id host2.PeerID, address host2.PeerIPAddress) *node {
+func startNode(b *testing.B, h host.P2PHost, id host.PeerID, address host.PeerIPAddress) *node {
 	b.Helper()
-	p, err := comm2.NewNode(context.Background(), h, &disabled.Provider{})
+	p, err := comm.NewNode(context.Background(), h, &disabled.Provider{})
 	require.NoError(b, err)
 	p.Start(context.Background())
 	b.Cleanup(p.Stop)
@@ -121,22 +121,22 @@ func setupWebsocket(b *testing.B, n int) []*node {
 	caPath, keys := generateKeys(b, n)
 	ports := freePorts(b, n)
 
-	ids := make([]host2.PeerID, n)
-	addresses := make([]host2.PeerIPAddress, n)
+	ids := make([]host.PeerID, n)
+	addresses := make([]host.PeerIPAddress, n)
 	router := routing.StaticIDRouter{}
 	for i, k := range keys {
 		id, err := websocket.PKIDSynthesizer{}.PublicKeyID(k.pub)
 		require.NoError(b, err)
 		ids[i] = string(id)
 		addresses[i] = fmt.Sprintf("127.0.0.1:%d", ports[i])
-		router[ids[i]] = []host2.PeerIPAddress{addresses[i]}
+		router[ids[i]] = []host.PeerIPAddress{addresses[i]}
 	}
 
 	nodes := make([]*node, n)
 	for i, k := range keys {
 		cfg, err := websocket.NewConfigFromProperties(addresses[i], k.keyPath, k.certPath, []string{caPath}, []string{caPath}, true, 100, nil)
 		require.NoError(b, err)
-		discovery := routing.NewServiceDiscovery(&router, routing.RoundRobin[host2.PeerIPAddress]())
+		discovery := routing.NewServiceDiscovery(&router, routing.RoundRobin[host.PeerIPAddress]())
 		h, err := websocket.NewHost(ids[i], discovery, ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0), cfg, noExtraCAs{})
 		require.NoError(b, err)
 		nodes[i] = startNode(b, h, ids[i], addresses[i])
@@ -177,19 +177,19 @@ type libp2pConfig struct {
 	keyPath, listen, bootstrap string
 }
 
-func (c *libp2pConfig) PrivateKeyPath() string                      { return c.keyPath }
-func (c *libp2pConfig) Bootstrap() bool                             { return c.bootstrap == "" }
-func (c *libp2pConfig) ListenAddress() host2.PeerIPAddress          { return c.listen }
-func (c *libp2pConfig) BootstrapListenAddress() host2.PeerIPAddress { return c.bootstrap }
-func (*libp2pConfig) ConnManagerLowWater() int                      { return 100 }
-func (*libp2pConfig) ConnManagerHighWater() int                     { return 400 }
-func (*libp2pConfig) ConnManagerGracePeriod() time.Duration         { return time.Minute }
+func (c *libp2pConfig) PrivateKeyPath() string                     { return c.keyPath }
+func (c *libp2pConfig) Bootstrap() bool                            { return c.bootstrap == "" }
+func (c *libp2pConfig) ListenAddress() host.PeerIPAddress          { return c.listen }
+func (c *libp2pConfig) BootstrapListenAddress() host.PeerIPAddress { return c.bootstrap }
+func (*libp2pConfig) ConnManagerLowWater() int                     { return 100 }
+func (*libp2pConfig) ConnManagerHighWater() int                    { return 400 }
+func (*libp2pConfig) ConnManagerGracePeriod() time.Duration        { return time.Minute }
 
 // bootstrapResolver resolves any party to the bootstrap node, which is all a joining libp2p
 // host asks the endpoint service for.
 type bootstrapResolver struct {
 	address string
-	id      host2.PeerID
+	id      host.PeerID
 }
 
 func (*bootstrapResolver) GetIdentity(string, []byte) (view.Identity, error) {

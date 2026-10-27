@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger/fabric-x-common/protoutil"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	ftransaction "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -24,7 +24,7 @@ func NewFactory(fns driver.FabricNetworkService) *Factory {
 	return &Factory{fns: fns}
 }
 
-func (e *Factory) NewTransaction(ctx context.Context, channelName string, nonce, creator []byte, txID driver2.TxID, _ []byte) (driver.Transaction, error) {
+func (e *Factory) NewTransaction(ctx context.Context, channelName string, nonce, creator []byte, txID cdriver.TxID, _ []byte) (driver.Transaction, error) {
 	ch, err := e.fns.Channel(channelName)
 	if err != nil {
 		return nil, err

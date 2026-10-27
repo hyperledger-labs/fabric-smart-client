@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
@@ -24,10 +24,10 @@ import (
 )
 
 type stubTransactionFactory struct {
-	newTransaction func(ctx context.Context, channel string, nonce, creator []byte, txID driver2.TxID, rawRequest []byte) (driver.Transaction, error)
+	newTransaction func(ctx context.Context, channel string, nonce, creator []byte, txID cdriver.TxID, rawRequest []byte) (driver.Transaction, error)
 }
 
-func (s *stubTransactionFactory) NewTransaction(ctx context.Context, channel string, nonce, creator []byte, txID driver2.TxID, rawRequest []byte) (driver.Transaction, error) {
+func (s *stubTransactionFactory) NewTransaction(ctx context.Context, channel string, nonce, creator []byte, txID cdriver.TxID, rawRequest []byte) (driver.Transaction, error) {
 	return s.newTransaction(ctx, channel, nonce, creator, txID, rawRequest)
 }
 
@@ -110,12 +110,12 @@ func TestManagerNewTransaction(t *testing.T) {
 		expectedTx := &Transaction{TTxID: "tx1", TChannel: "ch1"}
 
 		factory := &stubTransactionFactory{
-			newTransaction: func(gotCtx context.Context, channel string, gotNonce, gotCreator []byte, txID driver2.TxID, gotRawRequest []byte) (driver.Transaction, error) {
+			newTransaction: func(gotCtx context.Context, channel string, gotNonce, gotCreator []byte, txID cdriver.TxID, gotRawRequest []byte) (driver.Transaction, error) {
 				require.Equal(t, ctx, gotCtx)
 				require.Equal(t, "ch1", channel)
 				require.Equal(t, nonce, gotNonce)
 				require.Equal(t, []byte(creator), gotCreator)
-				require.Equal(t, driver2.TxID("tx1"), txID)
+				require.Equal(t, cdriver.TxID("tx1"), txID)
 				require.Equal(t, rawRequest, gotRawRequest)
 				return expectedTx, nil
 			},
@@ -146,7 +146,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
-			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
+			newTransaction: func(context.Context, string, []byte, []byte, cdriver.TxID, []byte) (driver.Transaction, error) {
 				return nil, assertErr("boom")
 			},
 		})
@@ -160,7 +160,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
-			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
+			newTransaction: func(context.Context, string, []byte, []byte, cdriver.TxID, []byte) (driver.Transaction, error) {
 				return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
 			},
 		})
@@ -175,7 +175,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
-			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
+			newTransaction: func(context.Context, string, []byte, []byte, cdriver.TxID, []byte) (driver.Transaction, error) {
 				return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
 			},
 		})
@@ -211,7 +211,7 @@ func TestManagerNewTransactionFromEnvelopeBytes(t *testing.T) {
 		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
-			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
+			newTransaction: func(context.Context, string, []byte, []byte, cdriver.TxID, []byte) (driver.Transaction, error) {
 				return nil, assertErr("boom")
 			},
 		})
@@ -225,7 +225,7 @@ func TestManagerNewTransactionFromEnvelopeBytes(t *testing.T) {
 		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
-			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
+			newTransaction: func(context.Context, string, []byte, []byte, cdriver.TxID, []byte) (driver.Transaction, error) {
 				return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
 			},
 		})

@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	viewclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 )
@@ -64,7 +64,7 @@ func NewHTTPViewClient(confDir string, tracerProvider tracing.Provider) (*viewcl
 	if err != nil {
 		return nil, err
 	}
-	configProvider, err := config2.NewProvider(confDir)
+	configProvider, err := config.NewProvider(confDir)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (c *WebClient) Ready() error {
 // false for a node that inherits the field, and the client would then dial plaintext against
 // a TLS listener.
 func NewWebConnectionConfigFromFSC(confDir string) (*grpc.ConnectionConfig, error) {
-	configProvider, err := config2.NewProvider(confDir)
+	configProvider, err := config.NewProvider(confDir)
 	if err != nil {
 		return nil, err
 	}

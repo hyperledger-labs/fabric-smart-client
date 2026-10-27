@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	pkgerrors "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	config "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	identity "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -43,11 +43,11 @@ func (*fakeSigningIdentity) Sign([]byte) ([]byte, error) { return []byte("fake-s
 
 type fakeListenerManager struct{}
 
-func (*fakeListenerManager) AddFinalityListener(driver2.TxID, fdriver.FinalityListener) error {
+func (*fakeListenerManager) AddFinalityListener(driver.TxID, fdriver.FinalityListener) error {
 	return nil
 }
 
-func (*fakeListenerManager) RemoveFinalityListener(driver2.TxID, fdriver.FinalityListener) error {
+func (*fakeListenerManager) RemoveFinalityListener(driver.TxID, fdriver.FinalityListener) error {
 	return nil
 }
 
@@ -96,8 +96,8 @@ func TestNewDriver(t *testing.T) {
 		EndpointService identity.EndpointService
 		IDProvider      identity.ViewIdentityProvider
 		KVS             *kvs.KVS
-		SignerInfoStore driver2.SignerInfoStore
-		AuditInfoStore  driver2.AuditInfoStore
+		SignerInfoStore driver.SignerInfoStore
+		AuditInfoStore  driver.AuditInfoStore
 		ChannelProvider ChannelProvider
 		IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
 	}{

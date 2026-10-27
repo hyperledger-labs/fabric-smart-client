@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 )
@@ -83,7 +83,7 @@ func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID 
 
 	ctx2, cancel2 := context.WithTimeout(context.Background(), defaultViewTimeout)
 	defer cancel2()
-	_, err = ii.Client("lender").CallViewWithContext(ctx2, "finality", common.JSONMarshall(views2.Finality{TxID: txID}))
+	_, err = ii.Client("lender").CallViewWithContext(ctx2, "finality", common.JSONMarshall(cviews.Finality{TxID: txID}))
 	Expect(err).NotTo(HaveOccurred())
 }
 
