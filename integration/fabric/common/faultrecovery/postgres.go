@@ -42,7 +42,7 @@ func StartStandby(primary, standby string) string {
 	user := psql(primary, "SELECT current_user")
 	db := psql(primary, "SELECT current_database()")
 
-	removeStandby := func() { _ = exec.Command("docker", "rm", "-f", standby).Run() }
+	removeStandby := func() { _ = exec.Command("docker", "rm", "-f", "-v", standby).Run() }
 	removeStandby()
 	ginkgo.DeferCleanup(removeStandby)
 	docker("run", "-d", "--name", standby, "-p", "127.0.0.1::5432",
@@ -52,7 +52,10 @@ func StartStandby(primary, standby string) string {
 			`exec su-exec postgres postgres`)
 	gomega.Eventually(func() error {
 		return exec.Command("docker", "exec", standby, "pg_isready", "-q").Run()
-	}, time.Minute, time.Second).Should(gomega.Succeed(), "standby [%s] did not start", standby)
+	}, time.Minute, time.Second).Should(gomega.Succeed(), func() string {
+		logs, _ := exec.Command("docker", "logs", "--tail", "20", standby).CombinedOutput()
+		return "standby [" + standby + "] did not start:\n" + string(logs)
+	})
 
 	_, port, _ := strings.Cut(docker("port", standby, "5432"), ":")
 	return port
@@ -61,8 +64,10 @@ func StartStandby(primary, standby string) string {
 // WaitReplicated returns once standby has replayed everything primary has written so far.
 func WaitReplicated(primary, standby string) {
 	lsn := psql(primary, "SELECT pg_current_wal_lsn()")
-	gomega.Eventually(func() string {
-		return psql(standby, "SELECT pg_last_wal_replay_lsn() >= '"+lsn+"'::pg_lsn")
+	gomega.Eventually(func() (string, error) {
+		out, err := exec.Command("docker", "exec", standby, "sh", "-c", psqlCmd,
+			"SELECT pg_last_wal_replay_lsn() >= '"+lsn+"'::pg_lsn").Output()
+		return strings.TrimSpace(string(out)), err
 	}, time.Minute, 500*time.Millisecond).Should(gomega.Equal("t"), "standby [%s] did not catch up", standby)
 }
 
@@ -118,9 +123,13 @@ func at(m map[string]any, keys ...string) map[string]any {
 	return m
 }
 
-// psql runs query as the container's Postgres superuser and returns the bare result.
+// psqlCmd runs the query passed as $0 as the container's Postgres superuser and prints
+// the bare result.
+const psqlCmd = `psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$0"`
+
+// psql runs query in container with psqlCmd.
 func psql(container, query string) string {
-	return docker("exec", container, "sh", "-c", `psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$0"`, query)
+	return docker("exec", container, "sh", "-c", psqlCmd, query)
 }
 
 func docker(args ...string) string {

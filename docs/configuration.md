@@ -1042,30 +1042,43 @@ and set `target_session_attrs=read-write`:
 persistence:
   type: postgres
   opts:
-    dataSource: postgres://fsc:secret@pg-a:5432,pg-b:5432/fsc?target_session_attrs=read-write&connect_timeout=5&sslmode=verify-full&sslrootcert=/path/to/ca.crt
+    dataSource: postgres://fsc:secret@pg-a:5432,pg-b:5432/fsc?target_session_attrs=read-write&connect_timeout=5
+    tls:
+      enabled: true
+      ssl_mode: verify-full
+      root_cert_path: /path/to/ca.crt
 ```
 
 pgx tries the hosts in the order listed and keeps the first connection whose server accepts writes, so a new connection
-succeeds only on a primary. While no host has been promoted yet, connecting fails. The keyword/value form works the same
-way: `host=pg-a,pg-b port=5432,5432 ... target_session_attrs=read-write`.
+succeeds only on a primary. While no host has been promoted yet, connecting fails.
 
 A commit on a Fabric channel that runs during a failover fails with a lost connection. The committer then retries the
 block until the database accepts writes again or the node shuts down: a lost connection does not count against
 `committer.retries` (see the channel's `committer` section above). Broken connections are dropped from the pool and the
 retry opens a new one, which goes to whichever host is primary by then. No `committer` setting needs to match the failover
 time of your Postgres setup. Because the wait between these retries backs off to at most one minute, commits resume up
-to a minute after the new primary is up. Other database operations, such as KVS access and queries from views, fail
-during the failover and return the error to their caller.
+to a minute after the new primary is up. Only the committer retries a lost connection; any other database operation
+during the failover returns the error to its caller.
 
-The spec `fails over to a promoted Postgres standby` in `integration/fabric/faultrecovery` covers this: it kills a node's
-primary for longer than the node's commit retry budget, promotes a streaming-replication standby, and checks that the
-blocks delivered during the outage commit without a commit failure.
+The spec `fails over to a promoted Postgres standby` in `integration/fabric/faultrecovery` covers the commit path: it
+kills a node's primary for longer than the node's commit retry budget, promotes a streaming-replication standby, and
+checks that the blocks delivered during the outage commit without a commit failure. It connects without TLS and does
+not exercise database operations outside the committer.
+
+> [!WARNING]
+> Use synchronous replication (`synchronous_commit` with `synchronous_standby_names`) for the standby that is promoted.
+> With asynchronous replication, a commit the old primary acknowledged but had not yet streamed is missing after
+> promotion. The node does not detect this: delivery continues after the last block it received, so the vault silently
+> lacks the transactions of the lost commits. The spec waits for the standby to replay the primary's WAL before the
+> primary fails, so it does not cover this case.
 
 - Set `connect_timeout` (in seconds). A host that drops packets instead of refusing the connection, such as a crashed
   VM or a partitioned network, otherwise holds each connect until the operating system's TCP timeout before pgx tries the
   next host. An expired `connect_timeout` is a lost connection, so it does not count against `committer.retries`.
-- TLS works with every host, configured either in the `dataSource` (`sslmode`, `sslrootcert`, `sslcert`, `sslkey`) or
-  with the `tls` block above. Each host's certificate is verified against that host's name.
+- With the `tls` block above, every host is tried and each host's certificate is verified against that host's name,
+  unless `server_name` is set: then every host's certificate must match `server_name`. The unit tests
+  `TestCreateTLSConnConfigMultiHost` and `TestTLSConnConfigConnectsToSecondHost` in
+  `platform/view/services/storage/driver/sql/postgres` cover this.
 - The database metrics label a pool with the first host of the `dataSource`, whichever host it is connected to (see
   `data_source` in [Monitoring Metrics](./platform/view/services/monitoring_metrics.md)).
 
