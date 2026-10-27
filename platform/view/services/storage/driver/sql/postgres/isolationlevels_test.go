@@ -17,21 +17,28 @@ import (
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-// TestIsolationLevelsMap checks the defined levels map to their sql equivalents, and
-// undefined levels and levels pgx does not support are rejected.
+// TestIsolationLevelsMap checks every level pgx supports maps to its sql equivalent,
+// and undefined levels and levels pgx does not support are rejected.
 func TestIsolationLevelsMap(t *testing.T) {
 	t.Parallel()
 
-	il, err := IsolationLevels.Map(cdriver.LevelDefault)
-	require.NoError(t, err)
-	assert.Equal(t, sql.LevelDefault, il)
-
-	il, err = IsolationLevels.Map(cdriver.LevelReadCommitted)
-	require.NoError(t, err)
-	assert.Equal(t, sql.LevelReadCommitted, il)
+	supported := map[cdriver.IsolationLevel]sql.IsolationLevel{
+		cdriver.LevelDefault:         sql.LevelDefault,
+		cdriver.LevelReadUncommitted: sql.LevelReadUncommitted,
+		cdriver.LevelReadCommitted:   sql.LevelReadCommitted,
+		cdriver.LevelRepeatableRead:  sql.LevelRepeatableRead,
+		cdriver.LevelSnapshot:        sql.LevelSnapshot,
+		cdriver.LevelSerializable:    sql.LevelSerializable,
+	}
+	require.Len(t, IsolationLevels, len(supported))
+	for level, want := range supported {
+		il, err := IsolationLevels.Map(level)
+		require.NoError(t, err)
+		assert.Equal(t, want, il)
+	}
 
 	for _, level := range []cdriver.IsolationLevel{cdriver.LevelWriteCommitted, cdriver.LevelLinearizable, 99} {
-		_, err = IsolationLevels.Map(level)
+		_, err := IsolationLevels.Map(level)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("[%d]", level), "the requested level is reported")
 	}
