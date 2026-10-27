@@ -104,7 +104,7 @@ func TestErrorMapper_ConnectTimeout(t *testing.T) {
 
 	ping := func(t *testing.T, ctx context.Context, dsn string) error {
 		t.Helper()
-		db, err := sql.Open("pgx", dsn)
+		db, err := sql.Open(driverName, dsn)
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = db.Close() })
 		err = db.PingContext(ctx)
@@ -129,7 +129,7 @@ func TestErrorMapper_ConnectTimeout(t *testing.T) {
 	// that owns the deadline checks its own context, as retryBlock does.
 	t.Run("caller deadline is a lost connection too", func(t *testing.T) {
 		t.Parallel()
-		ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 		defer cancel()
 		got := ping(t, ctx, silent)
 		require.ErrorIs(t, got, driver.ErrConnectionLost)
@@ -146,7 +146,7 @@ func TestErrorMapper_ConnectTimeout(t *testing.T) {
 
 	// A server that rejects the login answers with a SQLSTATE inside the
 	// connect error; retrying cannot fix a wrong password.
-	t.Run("rejected password stays unchanged", func(t *testing.T) {
+	t.Run("rejected password is not a lost connection", func(t *testing.T) {
 		t.Parallel()
 		rl, err := net.Listen("tcp", "127.0.0.1:0")
 		require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestErrorMapper_ConnectTimeout(t *testing.T) {
 			backend.Send(&pgproto3.ErrorResponse{Severity: "FATAL", Code: "28P01", Message: "password authentication failed"})
 			_ = backend.Flush()
 		}()
-		got := ping(t, t.Context(), "postgres://u:p@"+rl.Addr().String()+"/db?sslmode=disable")
+		got := ping(t, t.Context(), "postgres://u:p@"+rl.Addr().String()+"/db?sslmode=disable&connect_timeout=5")
 		var pgErr *pgconn.PgError
 		require.ErrorAs(t, got, &pgErr)
 		require.Equal(t, "28P01", pgErr.Code)

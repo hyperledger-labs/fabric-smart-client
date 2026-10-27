@@ -51,9 +51,9 @@ type ErrorMapper struct{}
 // A cancelled context is returned unchanged, so that a caller shutting down is
 // not told to retry. A failed connect is a lost connection even when it ended
 // with context.DeadlineExceeded: pgx reports a connect_timeout that way, and
-// because the connect_timeout context derives from the caller's, an expired
-// caller deadline produces the same error. A caller that owns a deadline checks
-// its own context before retrying. Any other context.DeadlineExceeded is
+// because the connect_timeout context derives from the caller's, a caller
+// deadline that expires while connecting produces the same error. A caller that
+// owns a deadline checks its own context before retrying. Any other context.DeadlineExceeded is
 // returned unchanged, although it is a net.Error, because the context expired
 // and not the connection.
 func (*ErrorMapper) WrapError(err error) error {
