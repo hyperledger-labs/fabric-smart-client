@@ -85,6 +85,10 @@ func TestOpenAppliesPragmasToEveryConnection(t *testing.T) {
 				assert.Equal(t, 1, pragmaInt(t, conn, "foreign_keys"), "foreign_keys on connection %d", i)
 				assert.Equal(t, 1, pragmaInt(t, conn, "synchronous"), "synchronous on connection %d", i)
 				assert.Equal(t, 2, pragmaInt(t, conn, "temp_store"), "temp_store on connection %d", i)
+
+				var journalMode string
+				require.NoError(t, conn.QueryRowContext(t.Context(), "PRAGMA journal_mode").Scan(&journalMode))
+				assert.Equal(t, "wal", journalMode, "journal_mode on connection %d", i)
 			}
 		})
 	}

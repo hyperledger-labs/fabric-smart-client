@@ -94,7 +94,7 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 
 	// sqlite can handle concurrent reads in WAL mode if the writes are throttled in 1 connection
 	if skipPragmas {
-		if !strings.Contains(strings.ToUpper(dataSourceName), "WAL") {
+		if !strings.Contains(dataSourceName, "WAL") {
 			logger.Warn("skipping default pragmas. Set at least ?_pragma=journal_mode(WAL) or similar in the dataSource to prevent SQLITE_BUSY errors")
 		}
 	} else {
@@ -112,7 +112,7 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 	if err = db.Ping(); err != nil && strings.Contains(err.Error(), "out of memory (14)") {
 		return nil, errors.Errorf("can't open %s database, does the folder exist?", driverName)
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "can't connect to %s database, check the pragmas in the data source", driverName)
 	}
 	logger.Debugf("connected to [%s], max open connections: %d", driverName, maxOpenConns)
 
