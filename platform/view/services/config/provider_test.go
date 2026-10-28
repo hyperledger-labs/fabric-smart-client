@@ -27,14 +27,18 @@ type Opts struct {
 	MaxOpenConns int
 }
 
-func TestReadFile(t *testing.T) { //nolint:paralleltest
+func TestReadFile(t *testing.T) {
+	t.Parallel()
+
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
 	testBasics(t, p)
 	testMerge(t, p)
 }
 
-func TestProvideFromRaw(t *testing.T) { //nolint:paralleltest
+func TestProvideFromRaw(t *testing.T) {
+	t.Parallel()
+
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
 
@@ -50,7 +54,7 @@ func TestProvideFromRaw(t *testing.T) { //nolint:paralleltest
 	testMerge(t, newProvider)
 }
 
-func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest
+func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest // t.Setenv
 	t.Setenv("CORE_FSC_PERSISTENCES_MYDB_OPTS_DATASOURCE", "new data source")
 	t.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
 	t.Setenv("CORE_NUMBER", "10")
@@ -200,7 +204,9 @@ func TestGetProvider(t *testing.T) {
 	})
 }
 
-func TestGetPath(t *testing.T) { //nolint:paralleltest
+func TestGetPath(t *testing.T) {
+	t.Parallel()
+
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
 
@@ -208,7 +214,9 @@ func TestGetPath(t *testing.T) { //nolint:paralleltest
 	assert.Equal(t, filepath.Join(filepath.Dir(p.ConfigFileUsed()), "file.name"), p.GetPath("path.relative"))
 }
 
-func TestInvalidYAML(t *testing.T) { //nolint:paralleltest
+func TestInvalidYAML(t *testing.T) {
+	t.Parallel()
+
 	raw := []byte("a: [unclosed")
 
 	p, err := NewProvider("./testdata")
@@ -219,7 +227,7 @@ func TestInvalidYAML(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "failed to read configuration from raw")
 }
 
-func TestConfigPathEnv(t *testing.T) { //nolint:paralleltest
+func TestConfigPathEnv(t *testing.T) { //nolint:paralleltest // t.Setenv
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte("fsc:\n  id: from-env\n"), 0o600))
 
@@ -238,7 +246,7 @@ func TestConfigPathEnv(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "does not exist")
 }
 
-func TestConfigFileWithCollidingKeys(t *testing.T) { //nolint:paralleltest
+func TestConfigFileWithCollidingKeys(t *testing.T) { //nolint:paralleltest // t.Setenv
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte("fsc:\n  Id: a\n  id: b\n"), 0o600))
 
@@ -251,7 +259,7 @@ func TestConfigFileWithCollidingKeys(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "configuration keys [fsc.Id] and [fsc.id] collide after lowercasing")
 }
 
-func TestEnvCollidingWithDottedKey(t *testing.T) { //nolint:paralleltest
+func TestEnvCollidingWithDottedKey(t *testing.T) { //nolint:paralleltest // t.Setenv
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte("fsc.id: a\n"), 0o600))
 	t.Setenv("CORE_FSC_ID", "b")
@@ -287,7 +295,7 @@ func TestMergeConfigRejectsCollisionWithLoadedKeys(t *testing.T) {
 	}
 }
 
-func TestProviderMore(t *testing.T) { //nolint:paralleltest
+func TestProviderMore(t *testing.T) { //nolint:paralleltest // t.Setenv
 	t.Setenv("CORE_FSC_ID", "node1")
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
@@ -331,7 +339,7 @@ func TestProviderError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestEnvConversions(t *testing.T) { //nolint:paralleltest
+func TestEnvConversions(t *testing.T) { //nolint:paralleltest // t.Setenv
 	t.Setenv("CORE_ENV_INT", "123")
 	t.Setenv("CORE_ENV_BOOL", "true")
 	t.Setenv("CORE_ENV_FLOAT", "1.23")

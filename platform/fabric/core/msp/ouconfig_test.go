@@ -25,7 +25,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBadConfigOU(t *testing.T) { //nolint:paralleltest
+func TestBadConfigOU(t *testing.T) {
+	t.Parallel()
+
 	// testdata/badconfigou:
 	// the configuration is such that only identities
 	// with OU=COP2 and signed by the root ca should be validated
@@ -40,7 +42,9 @@ func TestBadConfigOU(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-func TestBadConfigOUCert(t *testing.T) { //nolint:paralleltest
+func TestBadConfigOUCert(t *testing.T) {
+	t.Parallel()
+
 	// testdata/badconfigoucert:
 	// the configuration of the OU identifier points to a
 	// certificate that is neither a CA nor an intermediate CA for the msp.
@@ -56,7 +60,9 @@ func TestBadConfigOUCert(t *testing.T) { //nolint:paralleltest
 	require.Contains(t, err.Error(), "] not in root or intermediate certs")
 }
 
-func TestValidateIntermediateConfigOU(t *testing.T) { //nolint:paralleltest
+func TestValidateIntermediateConfigOU(t *testing.T) {
+	t.Parallel()
+
 	// testdata/external:
 	// the configuration is such that only identities with
 	// OU=Hyperledger Testing and signed by the intermediate ca should be validated

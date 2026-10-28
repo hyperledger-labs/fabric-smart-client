@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMSPWithIntermediateCAs(t *testing.T) { //nolint:paralleltest
+func TestMSPWithIntermediateCAs(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	// testdata/intermediate contains the credentials for a test MSP setup that has
 	// 1) a key and a signcert (used to populate the default signing identity);
 	//    signcert is not signed by a CA directly but by an intermediate CA
@@ -60,7 +60,9 @@ func TestMSPWithIntermediateCAs(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-func TestMSPWithExternalIntermediateCAs(t *testing.T) { //nolint:paralleltest
+func TestMSPWithExternalIntermediateCAs(t *testing.T) {
+	t.Parallel()
+
 	// testdata/external contains the credentials for a test MSP setup
 	// identical to testdata/intermediate with the exception that it has
 	// been generated independently of the fabric environment using
@@ -82,7 +84,9 @@ func TestMSPWithExternalIntermediateCAs(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 }
 
-func TestIntermediateCAIdentityValidity(t *testing.T) { //nolint:paralleltest
+func TestIntermediateCAIdentityValidity(t *testing.T) {
+	t.Parallel()
+
 	// testdata/intermediate contains the credentials for a test MSP setup that has
 	// 1) a key and a signcert (used to populate the default signing identity);
 	//    signcert is not signed by a CA directly but by an intermediate CA
@@ -94,7 +98,9 @@ func TestIntermediateCAIdentityValidity(t *testing.T) { //nolint:paralleltest
 	require.Error(t, id.Validate())
 }
 
-func TestMSPWithIntermediateCAs2(t *testing.T) { //nolint:paralleltest
+func TestMSPWithIntermediateCAs2(t *testing.T) {
+	t.Parallel()
+
 	// testdata/intermediate2 contains the credentials for a test MSP setup that has
 	// 1) a key and a signcert (used to populate the default signing identity);
 	//    signcert is not signed by a CA directly but by an intermediate CA

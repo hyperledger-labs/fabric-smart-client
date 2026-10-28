@@ -38,7 +38,9 @@ func TestDataSourceLabel_StripsCredentials(t *testing.T) {
 	assert.Equal(t, "unknown", dataSourceLabel("postgres://u:secret@h:notaport/db"))
 }
 
-func TestDataSourceLabel_ResolvesTLSRegisteredName(t *testing.T) { //nolint:paralleltest
+func TestDataSourceLabel_ResolvesTLSRegisteredName(t *testing.T) {
+	t.Parallel()
+
 	name, err := RegisterTLSConnection("postgres://u:secret@h:5432/db", TLSConfig{Enabled: true, SSLMode: "require"})
 	require.NoError(t, err)
 	t.Cleanup(func() { stdlib.UnregisterConnConfig(name) })

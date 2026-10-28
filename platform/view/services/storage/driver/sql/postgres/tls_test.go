@@ -473,7 +473,9 @@ func TestVerifyCAIgnoresHostname(t *testing.T) {
 // keeps the DB provider's pool cache (keyed on the datasource) deduplicating
 // stores that share a database, and prevents registrations from accumulating.
 // Distinct inputs must yield distinct names.
-func TestRegisterTLSConnectionMemoized(t *testing.T) { //nolint:paralleltest
+func TestRegisterTLSConnectionMemoized(t *testing.T) {
+	t.Parallel()
+
 	tempDir := t.TempDir()
 	certPath, _ := generateSelfSignedCert(t, tempDir)
 

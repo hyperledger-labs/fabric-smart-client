@@ -84,14 +84,16 @@ func allNodeOUs() *msp.FabricNodeOUs {
 	}
 }
 
-func TestMSPSetupInvalidConfig(t *testing.T) { //nolint:paralleltest
+func TestMSPSetupInvalidConfig(t *testing.T) {
+	t.Parallel()
+
 	thisMSP, err := newBccspMsp(MSPv1_0, factory.GetDefault())
 	require.NoError(t, err)
 	require.EqualError(t, thisMSP.Setup(nil), "Setup error: nil conf reference")
 	require.ErrorContains(t, thisMSP.Setup(&msp.MSPConfig{Config: []byte{0xff}}), "failed unmarshalling fabric msp config")
 }
 
-func TestMSPSetupStageErrors(t *testing.T) { //nolint:paralleltest
+func TestMSPSetupStageErrors(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	base := &msp.FabricMSPConfig{}
 	require.NoError(t, proto.Unmarshal(conf.Config, base))
 	foreignOU := &msp.FabricOUIdentifier{OrganizationalUnitIdentifier: "COP", Certificate: []byte(caCert)}
@@ -103,7 +105,7 @@ func TestMSPSetupStageErrors(t *testing.T) { //nolint:paralleltest
 	}
 	bothVersions := []MSPVersion{MSPv1_1, MSPv1_4_3}
 
-	for _, tc := range []struct { //nolint:paralleltest
+	for _, tc := range []struct { //nolint:paralleltest // parent shares the MSPs TestMain sets up
 		name     string
 		versions []MSPVersion
 		mutate   func(*msp.FabricMSPConfig)
@@ -129,7 +131,7 @@ func TestMSPSetupStageErrors(t *testing.T) { //nolint:paralleltest
 		{"no admins and no admin node OU", []MSPVersion{MSPv1_4_3}, func(c *msp.FabricMSPConfig) { c.Admins = nil }, "administrators must be declared when no admin ou classification is set"},
 	} {
 		for _, version := range tc.versions {
-			t.Run(fmt.Sprintf("%s/v%d", tc.name, version), func(t *testing.T) { //nolint:paralleltest
+			t.Run(fmt.Sprintf("%s/v%d", tc.name, version), func(t *testing.T) { //nolint:paralleltest // parent shares the MSPs TestMain sets up
 				c := proto.CloneOf(base)
 				tc.mutate(c)
 				_, err := setupFabricMSP(t, version, c)
@@ -139,7 +141,7 @@ func TestMSPSetupStageErrors(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestSetupOUsIgnoresDuplicates(t *testing.T) { //nolint:paralleltest
+func TestSetupOUsIgnoresDuplicates(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	c := &msp.FabricMSPConfig{}
 	require.NoError(t, proto.Unmarshal(conf.Config, c))
 	ou := &msp.FabricOUIdentifier{OrganizationalUnitIdentifier: "COP", Certificate: c.RootCerts[0]}
@@ -150,7 +152,9 @@ func TestSetupOUsIgnoresDuplicates(t *testing.T) { //nolint:paralleltest
 	require.Len(t, thisMSP.ouIdentifiers["COP"], 1)
 }
 
-func TestValidateIdentityOUsV1(t *testing.T) { //nolint:paralleltest
+func TestValidateIdentityOUsV1(t *testing.T) {
+	t.Parallel()
+
 	ca := newTestCA(t)
 	thisMSP, err := setupFabricMSP(t, MSPv1_0, &msp.FabricMSPConfig{
 		Name:                          "TestOrg",
@@ -164,7 +168,9 @@ func TestValidateIdentityOUsV1(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, thisMSP.Validate(newLeafIdentity(t, thisMSP, ca, "other")), "none of the identity's organizational units")
 }
 
-func TestValidateIdentityNodeOUs(t *testing.T) { //nolint:paralleltest
+func TestValidateIdentityNodeOUs(t *testing.T) {
+	t.Parallel()
+
 	for _, version := range []MSPVersion{MSPv1_1, MSPv1_4_3} {
 		ca := newTestCA(t)
 		thisMSP, err := setupFabricMSP(t, version, &msp.FabricMSPConfig{
@@ -183,7 +189,7 @@ func TestValidateIdentityNodeOUs(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestHasOURole(t *testing.T) { //nolint:paralleltest
+func TestHasOURole(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	require.EqualError(t, localMsp.(*bccspmsp).hasOURole(getIdentity(t, signcerts), msp.MSPRole_CLIENT), "nodeOUs not activated. Cannot tell apart identities")
 
 	ca := newTestCA(t)
@@ -208,7 +214,7 @@ func principal(t *testing.T, classification msp.MSPPrincipal_Classification, m p
 	return &msp.MSPPrincipal{PrincipalClassification: classification, Principal: raw}
 }
 
-func TestSatisfiesPrincipalInternalV13(t *testing.T) { //nolint:paralleltest
+func TestSatisfiesPrincipalInternalV13(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	id := getIdentity(t, signcerts)
 	anonymity := func(typ msp.MSPIdentityAnonymity_MSPIdentityAnonymityType) *msp.MSPPrincipal {
 		return principal(t, msp.MSPPrincipal_ANONYMITY, &msp.MSPIdentityAnonymity{AnonymityType: typ})
@@ -217,7 +223,7 @@ func TestSatisfiesPrincipalInternalV13(t *testing.T) { //nolint:paralleltest
 		return &msp.MSPPrincipal{PrincipalClassification: classification, Principal: []byte{0xff}}
 	}
 
-	for _, tc := range []struct { //nolint:paralleltest
+	for _, tc := range []struct { //nolint:paralleltest // parent shares the MSPs TestMain sets up
 		name      string
 		principal *msp.MSPPrincipal
 		msg       string
@@ -231,7 +237,7 @@ func TestSatisfiesPrincipalInternalV13(t *testing.T) { //nolint:paralleltest
 		{"invalid OU", garbage(msp.MSPPrincipal_ORGANIZATION_UNIT), "could not unmarshal OrganizationUnit from principal"},
 		{"OU of another MSP", principal(t, msp.MSPPrincipal_ORGANIZATION_UNIT, &msp.OrganizationUnit{MspIdentifier: "OtherOrg"}), "the identity is a member of a different MSP"},
 	} {
-		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest
+		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest // parent shares the MSPs TestMain sets up
 			err := localMspV13.(*bccspmsp).satisfiesPrincipalInternalV13(id, tc.principal)
 			if tc.msg == "" {
 				require.NoError(t, err)
@@ -242,7 +248,9 @@ func TestSatisfiesPrincipalInternalV13(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestSatisfiesPrincipalInternalV142(t *testing.T) { //nolint:paralleltest
+func TestSatisfiesPrincipalInternalV142(t *testing.T) {
+	t.Parallel()
+
 	thisMSP := getLocalMSPWithVersion(t, "testdata/nodeouadmin", MSPv1_4_3).(*bccspmsp)
 	signer, err := thisMSP.GetDefaultSigningIdentity()
 	require.NoError(t, err)
@@ -251,7 +259,7 @@ func TestSatisfiesPrincipalInternalV142(t *testing.T) { //nolint:paralleltest
 		return principal(t, msp.MSPPrincipal_ROLE, &msp.MSPRole{Role: r, MspIdentifier: mspID})
 	}
 
-	for _, tc := range []struct { //nolint:paralleltest
+	for _, tc := range []struct {
 		name      string
 		id        Identity
 		principal *msp.MSPPrincipal
@@ -265,7 +273,9 @@ func TestSatisfiesPrincipalInternalV142(t *testing.T) { //nolint:paralleltest
 		{"peer is a peer", peer, role(msp.MSPRole_PEER, thisMSP.name), ""},
 		{"nominal", peer, principal(t, msp.MSPPrincipal_ANONYMITY, &msp.MSPIdentityAnonymity{AnonymityType: msp.MSPIdentityAnonymity_NOMINAL}), ""},
 	} {
-		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := thisMSP.satisfiesPrincipalInternalV142(tc.id, tc.principal)
 			if tc.msg == "" {
 				require.NoError(t, err)
@@ -276,7 +286,7 @@ func TestSatisfiesPrincipalInternalV142(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestIsWellFormedCertificates(t *testing.T) { //nolint:paralleltest
+func TestIsWellFormedCertificates(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	ca := newTestCA(t)
 	edPub, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
@@ -291,7 +301,7 @@ func TestIsWellFormedCertificates(t *testing.T) { //nolint:paralleltest
 	badSig.Raw = nil
 	badSig.SignatureValue = asn1.BitString{Bytes: []byte{1, 2, 3}, BitLength: 24}
 
-	for _, tc := range []struct { //nolint:paralleltest
+	for _, tc := range []struct { //nolint:paralleltest // parent shares the MSPs TestMain sets up
 		name    string
 		idBytes []byte
 		msg     string
@@ -301,7 +311,7 @@ func TestIsWellFormedCertificates(t *testing.T) { //nolint:paralleltest
 		{"non-ECDSA certificate", issueCert(t, ca, edPub), ""},
 		{"ECDSA signature not DER encoded", []byte(badSig.String()), "asn1"},
 	} {
-		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest
+		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest // parent shares the MSPs TestMain sets up
 			err := localMsp.IsWellFormed(&msp.SerializedIdentity{Mspid: "SampleOrg", IdBytes: tc.idBytes})
 			if tc.msg == "" {
 				require.NoError(t, err)
@@ -312,7 +322,9 @@ func TestIsWellFormedCertificates(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestCertificationChainErrors(t *testing.T) { //nolint:paralleltest
+func TestCertificationChainErrors(t *testing.T) {
+	t.Parallel()
+
 	ca := newTestCA(t)
 	thisMSP, err := setupFabricMSP(t, MSPv1_0, &msp.FabricMSPConfig{Name: "TestOrg", RootCerts: [][]byte{ca.CertBytes()}})
 	require.NoError(t, err)
@@ -339,7 +351,7 @@ func TestCertificationChainErrors(t *testing.T) { //nolint:paralleltest
 	require.EqualError(t, err, "authorityKeyIdentifier not found in certificate")
 }
 
-func TestCertToPEM(t *testing.T) { //nolint:paralleltest
+func TestCertToPEM(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	cert := getIdentity(t, signcerts).(*identity).cert
 	block, rest := pem.Decode([]byte(certToPEM(cert)))
 	require.NotNil(t, block)

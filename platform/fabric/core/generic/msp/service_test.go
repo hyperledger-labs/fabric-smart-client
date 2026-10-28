@@ -30,7 +30,7 @@ const (
 	testCacheSize = 100
 )
 
-func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest
+func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
@@ -57,7 +57,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest
 	require.Nil(t, info)
 }
 
-func TestIdemixTypeFolder(t *testing.T) { //nolint:paralleltest
+func TestIdemixTypeFolder(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
 	require.NoError(t, err)
 	kvsStore, err := mem.NewDriver().NewKVS("")
@@ -77,7 +77,9 @@ func TestIdemixTypeFolder(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestRegisterX509LocalMSP(t *testing.T) { //nolint:paralleltest
+func TestRegisterX509LocalMSP(t *testing.T) {
+	t.Parallel()
+
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
@@ -103,7 +105,7 @@ func TestRegisterX509LocalMSP(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, info)
 }
 
-func TestX509TypeFolder(t *testing.T) { //nolint:paralleltest
+func TestX509TypeFolder(t *testing.T) { //nolint:paralleltest // TestRefresh adds an MSP to the same testdata folder
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	require.NoError(t, err)
 

@@ -272,7 +272,9 @@ func newMemoryVault(t *testing.T) (*Vault[ValidationCode], driver.VaultStore) {
 
 // TestVaultRWSExists reports whether an interceptor is currently registered
 // for a transaction.
-func TestVaultRWSExists(t *testing.T) { //nolint:paralleltest
+func TestVaultRWSExists(t *testing.T) {
+	t.Parallel()
+
 	v, _ := newMemoryVault(t)
 	ctx := t.Context()
 
@@ -304,7 +306,9 @@ func TestVaultRWSExists(t *testing.T) { //nolint:paralleltest
 
 // TestVaultNewRWSetWithIsolationLevel checks the explicit-isolation entry point
 // registers an interceptor the same way NewRWSet does.
-func TestVaultNewRWSetWithIsolationLevel(t *testing.T) { //nolint:paralleltest
+func TestVaultNewRWSetWithIsolationLevel(t *testing.T) {
+	t.Parallel()
+
 	v, _ := newMemoryVault(t)
 	ctx := t.Context()
 
@@ -318,7 +322,9 @@ func TestVaultNewRWSetWithIsolationLevel(t *testing.T) { //nolint:paralleltest
 }
 
 // TestVaultSetStatusAndStatuses round-trips validation codes through the store.
-func TestVaultSetStatusAndStatuses(t *testing.T) { //nolint:paralleltest
+func TestVaultSetStatusAndStatuses(t *testing.T) {
+	t.Parallel()
+
 	v, _ := newMemoryVault(t)
 	ctx := t.Context()
 
@@ -342,7 +348,9 @@ func TestVaultSetStatusAndStatuses(t *testing.T) { //nolint:paralleltest
 }
 
 // TestVaultStatusesEmpty checks querying no transactions is not an error.
-func TestVaultStatusesEmpty(t *testing.T) { //nolint:paralleltest
+func TestVaultStatusesEmpty(t *testing.T) {
+	t.Parallel()
+
 	v, _ := newMemoryVault(t)
 
 	statuses, err := v.Statuses(t.Context())
@@ -351,7 +359,9 @@ func TestVaultStatusesEmpty(t *testing.T) { //nolint:paralleltest
 }
 
 // TestVaultSetDiscarded marks a transaction invalid and records the reason.
-func TestVaultSetDiscarded(t *testing.T) { //nolint:paralleltest
+func TestVaultSetDiscarded(t *testing.T) {
+	t.Parallel()
+
 	v, _ := newMemoryVault(t)
 	ctx := t.Context()
 
@@ -369,7 +379,9 @@ func TestVaultSetDiscarded(t *testing.T) { //nolint:paralleltest
 }
 
 // TestVaultClose closes the underlying store.
-func TestVaultClose(t *testing.T) { //nolint:paralleltest
+func TestVaultClose(t *testing.T) {
+	t.Parallel()
+
 	ddb, err := fvault.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 

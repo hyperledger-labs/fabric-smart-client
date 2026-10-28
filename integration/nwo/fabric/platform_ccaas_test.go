@@ -53,7 +53,9 @@ func TestCCaaSBuilderPath(t *testing.T) {
 	}
 }
 
-func TestTopologyPredicates(t *testing.T) { //nolint:paralleltest
+func TestTopologyPredicates(t *testing.T) {
+	t.Parallel()
+
 	ccaasOnly := &topology.Topology{Chaincodes: []*topology.ChannelChaincode{
 		{Chaincode: topology.Chaincode{Image: "fsc-cc/base:latest"}},
 	}}
@@ -78,7 +80,9 @@ func TestTopologyPredicates(t *testing.T) { //nolint:paralleltest
 	require.False(t, topologyHasLegacyChaincode(empty))
 }
 
-func TestRequiredImagesFor(t *testing.T) { //nolint:paralleltest
+func TestRequiredImagesFor(t *testing.T) {
+	t.Parallel()
+
 	// Both images: peers compile a source-packaged chaincode in ccenv and run
 	// the result in baseos, so checking only ccenv would let a missing baseos
 	// surface as an opaque chaincode-launch failure instead.

@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
-func TestIdentityLoader_Load(t *testing.T) { //nolint:paralleltest
+func TestIdentityLoader_Load(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)

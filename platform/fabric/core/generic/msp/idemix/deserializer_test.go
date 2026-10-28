@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewDeserializer(t *testing.T) { //nolint:paralleltest
+func TestNewDeserializer(t *testing.T) {
+	t.Parallel()
 
 	// Empty IPK skips issuerPublicKey import
 	deserializer, err := NewDeserializer(nil)

@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
-func TestGetManagerForChains(t *testing.T) { //nolint:paralleltest
+func TestGetManagerForChains(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers
 	// MSPManager for channel does not exist prior to this call
 	mspMgr1 := GetManagerForChain("test")
 	// ensure MSPManager is set
@@ -35,7 +35,7 @@ func TestGetManagerForChains(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestGetManagerForChains_usingMSPConfigHandlers(t *testing.T) { //nolint:paralleltest
+func TestGetManagerForChains_usingMSPConfigHandlers(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers
 	XXXSetMSPManager("foo", msp.NewMSPManager())
 	msp2 := GetManagerForChain("foo")
 	// return value should be set because the MSPManager was initialized
@@ -44,7 +44,7 @@ func TestGetManagerForChains_usingMSPConfigHandlers(t *testing.T) { //nolint:par
 	}
 }
 
-func TestGetIdentityDeserializer(t *testing.T) { //nolint:paralleltest
+func TestGetIdentityDeserializer(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -55,7 +55,7 @@ func TestGetIdentityDeserializer(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, ids)
 }
 
-func TestUpdateLocalMspCache(t *testing.T) { //nolint:paralleltest
+func TestUpdateLocalMspCache(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers
 	// reset localMsp to force it to be initialized on the first call
 	localMsp = nil
 
@@ -78,7 +78,7 @@ func TestUpdateLocalMspCache(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestNewMSPMgmtMgr(t *testing.T) { //nolint:paralleltest
+func TestNewMSPMgmtMgr(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers
 	cryptoProvider, err := LoadMSPSetupForTesting()
 	require.NoError(t, err)
 
@@ -127,7 +127,7 @@ func LoadMSPSetupForTesting() (bccsp.BCCSP, error) {
 	return cryptoProvider, nil
 }
 
-func TestLocalMSP(t *testing.T) { //nolint:paralleltest
+func TestLocalMSP(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -141,7 +141,7 @@ func TestLocalMSP(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err, "failed to get default signing identity")
 }
 
-func TestGetDeserializers(t *testing.T) { //nolint:paralleltest
+func TestGetDeserializers(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers
 	// Verify that GetDeserializers returns a cloned map of registered managers.
 	const testID = "test-deserializer-id"
 	XXXSetMSPManager(testID, msp.NewMSPManager())
@@ -156,7 +156,7 @@ func TestGetDeserializers(t *testing.T) { //nolint:paralleltest
 	require.NotContains(t, deserializers2, "bar", "GetDeserializers should return a clone")
 }
 
-func TestLoadLocalMSP_IdemixType(t *testing.T) { //nolint:paralleltest
+func TestLoadLocalMSP_IdemixType(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers; t.Setenv
 	// Save and restore global state
 	savedMsp := localMsp
 	defer func() { localMsp = savedMsp }()
@@ -172,7 +172,7 @@ func TestLoadLocalMSP_IdemixType(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, msp.IDEMIX, result.GetType(), "result should be an idemix MSP")
 }
 
-func TestLoadLocalMSP_UnknownType(t *testing.T) { //nolint:paralleltest
+func TestLoadLocalMSP_UnknownType(t *testing.T) { //nolint:paralleltest // shares the process-wide local MSP and MSP managers; t.Setenv
 	// Save and restore global state
 	savedMsp := localMsp
 	defer func() { localMsp = savedMsp }()

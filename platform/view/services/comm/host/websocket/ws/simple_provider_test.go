@@ -105,7 +105,9 @@ func TestSimpleProvider_Security(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestSimpleProviderStreamErrors(t *testing.T) { //nolint:paralleltest
+func TestSimpleProviderStreamErrors(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	p := NewSimpleProvider()
 	t.Cleanup(func() { _ = p.Close() })
@@ -174,7 +176,7 @@ func TestServerAcceptsMalformedSpanContext(t *testing.T) { //nolint:paralleltest
 
 // Each stream owns its websocket, and http.Server.Shutdown leaves hijacked connections open,
 // so the provider must end the streams it opened and accepted itself.
-func TestSimpleProviderClose(t *testing.T) { //nolint:paralleltest
+func TestSimpleProviderClose(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	testSetup(t)
 	ignore := goleak.IgnoreCurrent()
 	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })

@@ -13,14 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRoleGetValue(t *testing.T) { //nolint:paralleltest
+func TestRoleGetValue(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, 1, MEMBER.getValue())
 	require.Equal(t, 2, ADMIN.getValue())
 	require.Equal(t, 4, CLIENT.getValue())
 	require.Equal(t, 8, PEER.getValue())
 }
 
-func TestCheckRole(t *testing.T) { //nolint:paralleltest
+func TestCheckRole(t *testing.T) {
+	t.Parallel()
+
 	mask := GetRoleMaskFromIdemixRoles([]Role{ADMIN, PEER})
 
 	require.True(t, CheckRole(mask, ADMIN))
@@ -29,26 +33,34 @@ func TestCheckRole(t *testing.T) { //nolint:paralleltest
 	require.False(t, CheckRole(mask, CLIENT))
 }
 
-func TestGetRoleMaskFromIdemixRole(t *testing.T) { //nolint:paralleltest
+func TestGetRoleMaskFromIdemixRole(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, 1, GetRoleMaskFromIdemixRole(MEMBER))
 	require.Equal(t, 2, GetRoleMaskFromIdemixRole(ADMIN))
 	require.Equal(t, 4, GetRoleMaskFromIdemixRole(CLIENT))
 	require.Equal(t, 8, GetRoleMaskFromIdemixRole(PEER))
 }
 
-func TestGetIdemixRoleFromMSPRole(t *testing.T) { //nolint:paralleltest
+func TestGetIdemixRoleFromMSPRole(t *testing.T) {
+	t.Parallel()
+
 	role := &m.MSPRole{Role: m.MSPRole_ADMIN}
 	require.Equal(t, ADMIN.getValue(), GetIdemixRoleFromMSPRole(role))
 }
 
-func TestGetIdemixRoleFromMSPRoleType(t *testing.T) { //nolint:paralleltest
+func TestGetIdemixRoleFromMSPRoleType(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, ADMIN.getValue(), GetIdemixRoleFromMSPRoleType(m.MSPRole_ADMIN))
 	require.Equal(t, CLIENT.getValue(), GetIdemixRoleFromMSPRoleType(m.MSPRole_CLIENT))
 	require.Equal(t, MEMBER.getValue(), GetIdemixRoleFromMSPRoleType(m.MSPRole_MEMBER))
 	require.Equal(t, PEER.getValue(), GetIdemixRoleFromMSPRoleType(m.MSPRole_PEER))
 }
 
-func TestGetIdemixRoleFromMSPRoleValue(t *testing.T) { //nolint:paralleltest
+func TestGetIdemixRoleFromMSPRoleValue(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, ADMIN.getValue(), GetIdemixRoleFromMSPRoleValue(int(m.MSPRole_ADMIN)))
 	require.Equal(t, CLIENT.getValue(), GetIdemixRoleFromMSPRoleValue(int(m.MSPRole_CLIENT)))
 	require.Equal(t, MEMBER.getValue(), GetIdemixRoleFromMSPRoleValue(int(m.MSPRole_MEMBER)))

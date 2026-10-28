@@ -56,7 +56,9 @@ func TestSession_CloseKeepsReplacement(t *testing.T) {
 // TestDispatch_DropsMessagesForSelfClosedSession checks that a message for a session that closed
 // on its own is dropped instead of reaching the master session, while a message for a session
 // closed by Close reaches it.
-func TestDispatch_DropsMessagesForSelfClosedSession(t *testing.T) { //nolint:paralleltest
+func TestDispatch_DropsMessagesForSelfClosedSession(t *testing.T) {
+	t.Parallel()
+
 	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
 	stopNode(t, p)

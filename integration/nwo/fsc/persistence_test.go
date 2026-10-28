@@ -121,8 +121,7 @@ func TestOptions_PutPostgresPersistenceReplaces(t *testing.T) {
 	}, o.GetPostgresPersistences())
 }
 
-func TestOptions_PersistencesSurviveTemplateClone(t *testing.T) {
-	t.Parallel()
+func TestOptions_PersistencesSurviveTemplateClone(t *testing.T) { //nolint:paralleltest // NewNodeFromTemplate asserts through the global gomega
 	gomega.RegisterTestingT(t)
 
 	template := node.NewNode("template")
