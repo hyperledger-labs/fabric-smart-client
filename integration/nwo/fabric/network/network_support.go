@@ -721,8 +721,9 @@ func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) 
 	}
 }
 
-// VerifyMembership checks that each peer has discovered the expected
-// peers in the network
+// VerifyMembership waits until each of expectedPeers discovers exactly
+// expectedPeers on channel, each with at least the given chaincodes, bounded by
+// n.EventuallyTimeout per peer.
 func (n *Network) VerifyMembership(expectedPeers []*topology.Peer, channel string, chaincodes ...string) {
 	// all peers currently include _lifecycle as an available chaincode
 	chaincodes = append(chaincodes, "_lifecycle")
@@ -731,7 +732,7 @@ func (n *Network) VerifyMembership(expectedPeers []*topology.Peer, channel strin
 		expectedDiscoveredPeerMatchers[i] = n.DiscoveredPeerMatcher(peer, chaincodes...) // n.DiscoveredPeer(peer, chaincodes...)
 	}
 	for _, peer := range expectedPeers {
-		gomega.Eventually(DiscoverPeers(n, peer, "User1", channel), n.EventuallyTimeout).Should(gomega.ConsistOf(expectedDiscoveredPeerMatchers))
+		gomega.Eventually(DiscoverPeers(n, peer, "User1", channel), n.EventuallyTimeout, 200*time.Millisecond).Should(gomega.ConsistOf(expectedDiscoveredPeerMatchers))
 	}
 }
 
@@ -879,7 +880,10 @@ func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
 	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", discoverCMD, FabricBinsPathEnvKey, n.binDir())
 
 	cmd := common.NewCommand(cmdPath, command)
-	cmd.Args = append(cmd.Args, "--peerTLSCA", n.CACertsBundlePath())
+	// discover dials over TLS exactly when it is given a peer TLS CA.
+	if n.TLSEnabled {
+		cmd.Args = append(cmd.Args, "--peerTLSCA", n.CACertsBundlePath())
+	}
 	return n.StartSession(cmd, command.SessionName())
 }
 

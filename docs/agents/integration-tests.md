@@ -163,8 +163,11 @@ around it.
 
 Peer and orderer names must be unique across the Fabric networks of the topology;
 the call fails otherwise. A Fabric topology may list several raft orderers; every one
-of them joins each channel at startup. For Fabric-x, `fabricx.FxPlatform(ii).StopCommitter()` and
-`StartCommitter()` stop and restart the all-in-one committer container; start waits
+of them joins each channel at startup. Startup returns once each channel of an
+etcdraft network has a raft leader and every peer discovers all the others through
+gossip. For Fabric-x,
+`fabricx.FxPlatform(ii).StopCommitter()` and `StartCommitter()` stop and restart the
+all-in-one committer container; start waits
 until its sidecar, query and ordering services accept connections.
 
 Fault scenarios go in `integration/fabric/faultrecovery` and
