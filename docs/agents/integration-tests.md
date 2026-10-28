@@ -225,7 +225,13 @@ whether a restarted node has recovered. A view or helper both suites need goes t
 The helpers in `postgres.go` give a node's database a streaming-replication standby
 (`StartStandby`, `WaitReplicated`, `KillPostgres`, `Promote`) and point a stopped node at
 another `dataSource` (`DataSource`, `SetDataSource`), so a spec can fail a node over to a
-new Postgres primary.
+new Postgres primary. `WipePostgres` empties a stopped node's database, so the node
+replays the channel from the genesis block on its next start. A Fabric node commits a
+replayed transaction it has no record of only if the transaction touches a namespace
+registered with the committer's `ProcessNamespace` or another committer rule selects
+it. The Fabric suite's `SDK` registers the faultrecovery namespace at startup; since that
+also commits a transaction whose Busy record a node lost, only the `Describe` of the
+wipe spec runs on it.
 
 The specs in the main `Describe` of each faultrecovery suite share one network
 (`faultrecovery.ShareNetwork`, in an `Ordered, ContinueOnFailure` container), so the

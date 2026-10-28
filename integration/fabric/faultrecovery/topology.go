@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
 
 // Orderers names the three raft orderers, so a spec can stop one and keep a quorum.
@@ -29,8 +29,8 @@ import (
 var Orderers = []string{"orderer", "orderer2", "orderer3"}
 
 // Topology returns two peers (Org1, Org2), three raft orderers, and the FSC nodes of
-// faultrecovery.FSCTopology on Postgres databases with the given prefix.
-func Topology(dbPrefix string) []api.Topology {
+// faultrecovery.FSCTopology, running sdk, on Postgres databases with the given prefix.
+func Topology(dbPrefix string, sdk node.SDK) []api.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
@@ -43,7 +43,7 @@ func Topology(dbPrefix string) []api.Topology {
 		p.Orderers = slices.Clone(Orderers)
 	}
 
-	return []api.Topology{fabricTopology, faultrecovery.FSCTopology(&fabricsdk.SDK{}, dbPrefix)}
+	return []api.Topology{fabricTopology, faultrecovery.FSCTopology(sdk, dbPrefix)}
 }
 
 // SetCommitRetries sets committer.retries and committer.retrySleep of every channel in
