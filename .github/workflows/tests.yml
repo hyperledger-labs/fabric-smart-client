@@ -56,9 +56,29 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        id: setup-go
         with:
           go-version-file: "go.mod"
-          cache-dependency-path: "**/*.sum"
+          cache: false
+
+      # Restore the itest jobs' Go cache, which holds the -race builds of the
+      # dependencies. This job saves nothing, so the cache usage does not grow.
+      # The key must match the one the itest job computes.
+      - name: Compute the Go cache key
+        id: go-cache
+        run: |
+          prefix="itest-go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}-"
+          echo "prefix=${prefix}" >> "$GITHUB_OUTPUT"
+          echo "key=${prefix}$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Go cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # ratchet:actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ steps.go-cache.outputs.key }}
+          restore-keys: ${{ steps.go-cache.outputs.prefix }}
 
       - name: Set up the database
         if: matrix.database
@@ -117,7 +137,8 @@ jobs:
       # until go.sum or the Go version changes. The ISO week in the key
       # refreshes the cached FSC packages weekly, and the restore key falls
       # back to the newest entry for the same go.sum, so a build recompiles
-      # only what changed since that entry was saved.
+      # only what changed since that entry was saved. The utest jobs restore
+      # the same entry, so a key change here must be made there too.
       - name: Compute the Go cache key
         id: go-cache
         run: |
@@ -178,14 +199,14 @@ jobs:
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
 
       # A single writer, fabric-iou on main, keeps the matrix from uploading
-      # near-identical copies; pull requests read main's entry. fabric-iou
-      # builds both flavours the Fabric suites need: the plain ginkgo test
-      # binary and the -race/-coverpkg node binaries; Fabric-x jobs rebuild
-      # only their own extra packages. The name must stay a target of
-      # `make list-integration-tests`, or nothing saves the cache and every
-      # job builds cold again. The save runs only after a passing
-      # test, when every binary has been built; a failed run leaves the key
-      # free for the next push to main.
+      # near-identical copies; pull requests and the utest jobs read main's
+      # entry. fabric-iou builds both flavours the Fabric suites need: the
+      # plain ginkgo test binary and the -race/-coverpkg node binaries;
+      # Fabric-x jobs rebuild only their own extra packages. The name must
+      # stay a target of `make list-integration-tests`, or nothing saves the
+      # cache and every job builds cold again. The save runs only after a
+      # passing test, when every binary has been built; a failed run leaves
+      # the key free for the next push to main.
       - name: Save the Go cache
         if: >-
           matrix.tests == 'fabric-iou'
