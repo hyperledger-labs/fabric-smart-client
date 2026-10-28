@@ -138,7 +138,7 @@ fsc:
 
 The drivers resolve a persistence name to its `fsc.persistences.<name>` block through `platform/view/services/storage/driver/common/config.go`.
 
-`CORE_FSC_PERSISTENCES_<NAME>_OPTS_<KEY>` overrides a persistence option for a name without underscores; see [Overriding configuration keys](../../../configuration.md#overriding-configuration-keys).
+`CORE_FSC_PERSISTENCES_<NAME>_OPTS_<KEY>` overrides a persistence option. Write each `_` of the name as `__`: `CORE_FSC_PERSISTENCES_MY__CUSTOM__POSTGRES_OPTS_DATASOURCE` sets the `dataSource` of `my_custom_postgres`. See [Overriding configuration keys](../../../configuration.md#overriding-configuration-keys).
 
 ### Transaction isolation levels
 

@@ -28,11 +28,12 @@ It follows a hierarchical structure and supports loading configuration from mult
 The configuration service automatically maps environment variables with the `CORE_` prefix to configuration keys. The mapping follows these rules:
 1. The prefix `CORE_` is removed.
 2. The remaining part is converted to lowercase.
-3. Underscores (`_`) are replaced with dots (`.`) to represent nesting.
+3. A double underscore (`__`) becomes a literal `_`, and every other underscore (`_`) becomes a dot (`.`) to represent nesting.
 
 **Example:**
 The environment variable `CORE_FSC_ID` maps to the configuration key `fsc.id`.
 The environment variable `CORE_FABRIC_NETWORK1_NAME` maps to the configuration key `fabric.network1.name`.
+The environment variable `CORE_FSC_PERSISTENCES_MY__DB_OPTS_DATASOURCE` maps to the configuration key `fsc.persistences.my_db.opts.datasource`.
 
 *Note:* If the configuration key already exists with a specific type (e.g., integer or boolean), the environment variable value will be automatically converted to that type.
 
@@ -97,14 +98,13 @@ func (s *MyService) UpdateConfig(config *config.Provider, rawYaml []byte) {
 
 ## Implementation Details
 
-Currently, the configuration service is based on [github.com/knadh/koanf](https://github.com/knadh/koanf), a light-weight, extensible configuration management library for Go. While the `config.Provider` interface abstracts most of these details, the underlying implementation utilizes `koanf` for its powerful parsing, merging, and environment variable substitution capabilities.
+The configuration service is based on [github.com/knadh/koanf](https://github.com/knadh/koanf), a light-weight, extensible configuration management library for Go. While the `config.Provider` interface abstracts most of these details, the underlying implementation utilizes `koanf` for its powerful parsing, merging, and environment variable substitution capabilities.
 This implementation supports the field tag `yaml` as well. This allows the developer to support something like this:
 
 ```go
 type Opts struct {
-	// DriverType has on purpose a different name from what we expect in the configuration file as signaled by the yaml tag.
-	DriverType   DriverType `yaml:"driver"`
-	DataSource   string
+	// Source has on purpose a different name from what we expect in the configuration file as signaled by the yaml tag.
+	Source       string `yaml:"dataSource"`
 	SkipPragmas  bool
 	MaxOpenConns int
 }

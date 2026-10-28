@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -487,4 +489,42 @@ func TestGetStringSliceFromEnv(t *testing.T) { //nolint:paralleltest // t.Setenv
 	require.Equal(t, []string{"grpc", "web"}, p.GetStringSlice("fsc.trailing"), "empty items are dropped")
 	require.Equal(t, []string{"one"}, p.GetStringSlice("fsc.scalar"))
 	require.Empty(t, p.GetStringSlice("fsc.absent"))
+}
+
+func TestEnvReachesKeysWithUnderscore(t *testing.T) { //nolint:paralleltest // t.Setenv
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(`
+fsc:
+  persistences:
+    token_persistence:
+      type: postgres
+      opts:
+        dataSource: from-file
+    default:
+      type: postgres
+      opts:
+        maxOpenConns: 10
+        tls:
+          ssl_mode: disable
+`), 0o600))
+	t.Setenv("FSCNODE_CFG_PATH", "")
+	t.Setenv("CORE_FSC_PERSISTENCES_TOKEN__PERSISTENCE_OPTS_DATASOURCE", "from-env")
+	t.Setenv("CORE_FSC_PERSISTENCES_DEFAULT_OPTS_TLS_SSL__MODE", "require")
+	t.Setenv("CORE_FSC_PERSISTENCES_DEFAULT_OPTS_MAXOPENCONNS", "20")
+
+	p, err := NewProvider(dir)
+	require.NoError(t, err)
+
+	assert.Equal(t, "from-env", p.GetString("fsc.persistences.token_persistence.opts.dataSource"))
+	assert.Equal(t, "require", p.GetString("fsc.persistences.default.opts.tls.ssl_mode"))
+	assert.Equal(t, 20, p.GetInt("fsc.persistences.default.opts.maxOpenConns"))
+	// No stray keys next to the ones the variables target.
+	persistences, ok := p.RawSubtree("fsc.persistences")
+	require.True(t, ok)
+	assert.ElementsMatch(t, []string{"default", "token_persistence"}, slices.Collect(maps.Keys(persistences)))
+	tls, ok := p.RawSubtree("fsc.persistences.default.opts.tls")
+	require.True(t, ok)
+	assert.Equal(t, map[string]any{"ssl_mode": "require"}, tls)
+	// "___" reads as "__" then "_", so no level after the first can start with "_".
+	assert.Equal(t, "a_.b", envKeyReplacer.Replace("a___b"))
 }

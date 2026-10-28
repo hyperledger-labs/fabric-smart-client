@@ -57,11 +57,10 @@ Registered into the `db-drivers` DI group (view stores) and the
 
 Keys are compared bytewise and may contain U+0000 (composite keys). Bind them so
 the column stores them verbatim — `BYTEA` on Postgres and for the SQLite KVS,
-`TEXT` for the SQLite vault — rather
-than escaping them into another string: an escape scheme must stay injective and
-order-preserving, and range scans silently break when it is not. A range query
-needs `ORDER BY pkey`: without it SQL returns rows in whatever order the plan
-produces.
+`TEXT` for the SQLite vault — rather than escaping them into another string: an
+escape scheme must stay injective and order-preserving, and range scans silently
+break when it is not. A range query needs `ORDER BY pkey`: without it SQL returns
+rows in whatever order the plan produces.
 
 ## Identity management
 
