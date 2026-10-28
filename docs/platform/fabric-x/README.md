@@ -134,7 +134,7 @@ tls:
 ```
 
 ### Usage from a View
-Refer to the [Simple integration test](/integration/fabricx/simple) for reference.
+Refer to the [Simple integration test fixtures](/integration/fabricx/common/simple) for reference.
 
 
 ## Query Service

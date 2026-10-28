@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouhsm"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"

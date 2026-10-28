@@ -26,7 +26,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	fabconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate"
+	fabconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	fxnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )

@@ -368,7 +368,7 @@ For complete examples, see:
 - [pingpong](../../../integration/fsc/pingpong) - Simple ping/pong protocol with timeout and validation
 - [signedpingpong](../../../integration/fsc/signedpingpong) - Symmetric message signing using `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID`
 - [stoprestart](../../../integration/fabric/stoprestart) - Session handling with stop/restart scenarios
-- [IOU](../../../integration/fabric/iou) - Complex Fabric integration with state management and endorsement collection
+- [IOU](../../../integration/fabric/common/iou) - Complex Fabric integration with state management and endorsement collection
 
 ## Symmetric Signing with Session Identity
 

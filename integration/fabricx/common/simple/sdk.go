@@ -4,23 +4,30 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package fsc
+// Package simple provides the Fabric-X topology and SDK of the simple create/approve/query
+// flow used by the fabricx simple suite. Its views subpackage also backs the fabricx
+// deployment and multiendorsement suites.
+package simple
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 type SDK struct {
-	*fabricsdk.SDK
+	common.SDK
 }
 
 func NewSDK(registry services.Registry) *SDK {
-	return &SDK{SDK: fabricsdk.NewSDK(registry)}
+	return NewFrom(fabricx.NewSDK(registry))
+}
+
+func NewFrom(sdk common.SDK) *SDK {
+	return &SDK{SDK: sdk}
 }
 
 func (p *SDK) Install() error {
@@ -30,6 +37,5 @@ func (p *SDK) Install() error {
 
 	return errors.Join(
 		digutils.Register[state.VaultService](p.Container()),
-		digutils.Register[*core.FSNProvider](p.Container()),
 	)
 }

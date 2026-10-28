@@ -8,8 +8,8 @@ package configupdate
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	configviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/iou"
+	configviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"

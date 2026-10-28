@@ -4,23 +4,29 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package iou provides the Fabric-X IOU topology and SDK, built on the views of
+// integration/fabric/common/iou and shared by the fabricx iou and configupdate suites.
 package iou
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 type SDK struct {
-	dig.SDK
+	common.SDK
 }
 
 func NewSDK(registry services.Registry) *SDK {
-	return &SDK{SDK: sdk.NewSDK(registry)}
+	return NewFrom(fabricx.NewSDK(registry))
+}
+
+func NewFrom(sdk common.SDK) *SDK {
+	return &SDK{SDK: sdk}
 }
 
 func (p *SDK) Install() error {

@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/simple"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/simple/views"
 	nwocommon "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"

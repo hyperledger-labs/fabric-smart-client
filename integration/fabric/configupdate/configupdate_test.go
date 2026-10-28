@@ -13,8 +13,8 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 

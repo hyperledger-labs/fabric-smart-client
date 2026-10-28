@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package client
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/states"
-	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/atsa/states"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/atsa/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -33,7 +33,7 @@ func (c *Client) Identity() view.Identity {
 }
 
 func (c *Client) Issue(asset *states.Asset) (string, error) {
-	txIDBoxed, err := c.c.CallView("issue", common.JSONMarshall(&atsa.Issue{
+	txIDBoxed, err := c.c.CallView("issue", common.JSONMarshall(&views.Issue{
 		Asset:     asset,
 		Recipient: asset.Owner,
 		Approver:  c.approver,
@@ -45,7 +45,7 @@ func (c *Client) Issue(asset *states.Asset) (string, error) {
 }
 
 func (c *Client) AgreeToSell(agreement *states.AgreementToSell) (string, error) {
-	_, err := c.c.CallView("agreeToSell", common.JSONMarshall(&atsa.AgreeToSell{
+	_, err := c.c.CallView("agreeToSell", common.JSONMarshall(&views.AgreeToSell{
 		Agreement: agreement,
 		Approver:  c.approver,
 	}))
@@ -56,7 +56,7 @@ func (c *Client) AgreeToSell(agreement *states.AgreementToSell) (string, error) 
 }
 
 func (c *Client) AgreeToBuy(agreement *states.AgreementToBuy) (string, error) {
-	_, err := c.c.CallView("agreeToBuy", common.JSONMarshall(&atsa.AgreeToBuy{
+	_, err := c.c.CallView("agreeToBuy", common.JSONMarshall(&views.AgreeToBuy{
 		Agreement: agreement,
 		Approver:  c.approver,
 	}))
@@ -67,7 +67,7 @@ func (c *Client) AgreeToBuy(agreement *states.AgreementToBuy) (string, error) {
 }
 
 func (c *Client) Transfer(assetID, agreementID string, recipient view.Identity) error {
-	_, err := c.c.CallView("transfer", common.JSONMarshall(&atsa.Transfer{
+	_, err := c.c.CallView("transfer", common.JSONMarshall(&views.Transfer{
 		AssetId:     assetID,
 		AgreementId: agreementID,
 		Recipient:   recipient,

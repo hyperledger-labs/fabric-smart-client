@@ -9,8 +9,8 @@ package views
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
