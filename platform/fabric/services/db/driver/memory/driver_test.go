@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package mem_test
 
 import (
+	"crypto/rand"
+	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +20,20 @@ import (
 	commondriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
+
+// uniqueTable returns a table-name parameter that is unique on every call. The memory driver
+// shares one in-memory database across the whole test process, so a fixed name would see the
+// rows of earlier runs under -count=N and of other tests running in parallel. Non-letters are
+// dropped from the random text because table names allow only letters and underscores.
+func uniqueTable(t *testing.T) string {
+	t.Helper()
+	return t.Name() + "_" + strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) {
+			return r
+		}
+		return -1
+	}, rand.Text())
+}
 
 func TestGetOpts_Fields(t *testing.T) {
 	t.Parallel()
@@ -70,9 +87,10 @@ func TestNewDriverWithDbProvider_NotNil(t *testing.T) {
 	require.NotNil(t, d)
 }
 
-func TestNewEndorseTx_CRUD(t *testing.T) { //nolint:paralleltest
+func TestNewEndorseTx_CRUD(t *testing.T) {
+	t.Parallel()
 	d := mem.NewDriver()
-	store, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()), t.Name())
+	store, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()), uniqueTable(t))
 	require.NoError(t, err)
 	require.NotNil(t, store)
 
@@ -95,9 +113,10 @@ func TestNewEndorseTx_CRUD(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("payload"), val)
 }
 
-func TestNewMetadata_CRUD(t *testing.T) { //nolint:paralleltest
+func TestNewMetadata_CRUD(t *testing.T) {
+	t.Parallel()
 	d := mem.NewDriver()
-	store, err := d.NewMetadata(viewdriver.PersistenceName(t.Name()), t.Name())
+	store, err := d.NewMetadata(viewdriver.PersistenceName(t.Name()), uniqueTable(t))
 	require.NoError(t, err)
 	require.NotNil(t, store)
 
@@ -120,9 +139,10 @@ func TestNewMetadata_CRUD(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("meta-value"), val)
 }
 
-func TestNewEnvelope_CRUD(t *testing.T) { //nolint:paralleltest
+func TestNewEnvelope_CRUD(t *testing.T) {
+	t.Parallel()
 	d := mem.NewDriver()
-	store, err := d.NewEnvelope(viewdriver.PersistenceName(t.Name()), t.Name())
+	store, err := d.NewEnvelope(viewdriver.PersistenceName(t.Name()), uniqueTable(t))
 	require.NoError(t, err)
 	require.NotNil(t, store)
 
@@ -145,9 +165,10 @@ func TestNewEnvelope_CRUD(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("env-data"), val)
 }
 
-func TestNewVault_CRUD(t *testing.T) { //nolint:paralleltest
+func TestNewVault_CRUD(t *testing.T) {
+	t.Parallel()
 	d := mem.NewDriver()
-	store, err := d.NewVault(viewdriver.PersistenceName(t.Name()), t.Name())
+	store, err := d.NewVault(viewdriver.PersistenceName(t.Name()), uniqueTable(t))
 	require.NoError(t, err)
 	require.NotNil(t, store)
 
@@ -170,13 +191,15 @@ func TestNewVault_CRUD(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, fabricdriver.Valid, status.Code)
 }
 
-func TestNewEndorseTx_MultipleInstances(t *testing.T) { //nolint:paralleltest
+func TestNewEndorseTx_MultipleInstances(t *testing.T) {
+	t.Parallel()
 	d := mem.NewDriver()
+	table := uniqueTable(t)
 
-	store1, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()+"_1"), "alpha")
+	store1, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()+"_1"), table, "alpha")
 	require.NoError(t, err)
 
-	store2, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()+"_2"), "beta")
+	store2, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()+"_2"), table, "beta")
 	require.NoError(t, err)
 
 	ctx := t.Context()
