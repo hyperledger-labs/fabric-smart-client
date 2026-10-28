@@ -2,7 +2,6 @@
 package mock
 
 import (
-	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -10,22 +9,10 @@ import (
 )
 
 type SessionFactory struct {
-	DeleteSessionStub        func(context.Context, string, []byte)
-	deleteSessionMutex       sync.RWMutex
-	deleteSessionArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-		arg3 []byte
-	}
 	NewSessionStub        func(string, string, string, []byte) (viewa.Session, error)
 	newSessionMutex       sync.RWMutex
-	newSessionArgsForCall []struct {
-		arg1 string
-		arg2 string
-		arg3 string
-		arg4 []byte
-	}
-	newSessionReturns struct {
+	newSessionArgsForCall []SessionFactoryNewSessionArgs
+	newSessionReturns     struct {
 		result1 viewa.Session
 		result2 error
 	}
@@ -35,13 +22,8 @@ type SessionFactory struct {
 	}
 	NewSessionWithIDStub        func(string, string, string, []byte) (viewa.Session, error)
 	newSessionWithIDMutex       sync.RWMutex
-	newSessionWithIDArgsForCall []struct {
-		arg1 string
-		arg2 string
-		arg3 string
-		arg4 []byte
-	}
-	newSessionWithIDReturns struct {
+	newSessionWithIDArgsForCall []SessionFactoryNewSessionWithIDArgs
+	newSessionWithIDReturns     struct {
 		result1 viewa.Session
 		result2 error
 	}
@@ -50,46 +32,24 @@ type SessionFactory struct {
 		result2 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SessionFactory) DeleteSession(arg1 context.Context, arg2 string, arg3 []byte) {
-	var arg3Copy []byte
-	if arg3 != nil {
-		arg3Copy = make([]byte, len(arg3))
-		copy(arg3Copy, arg3)
-	}
-	fake.deleteSessionMutex.Lock()
-	fake.deleteSessionArgsForCall = append(fake.deleteSessionArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-		arg3 []byte
-	}{arg1, arg2, arg3Copy})
-	stub := fake.DeleteSessionStub
-	fake.recordInvocation("DeleteSession", []interface{}{arg1, arg2, arg3Copy})
-	fake.deleteSessionMutex.Unlock()
-	if stub != nil {
-		fake.DeleteSessionStub(arg1, arg2, arg3)
-	}
+// SessionFactoryNewSessionArgs holds the arguments of one call to NewSession.
+type SessionFactoryNewSessionArgs struct {
+	Arg1 string
+	Arg2 string
+	Arg3 string
+	Arg4 []byte
 }
 
-func (fake *SessionFactory) DeleteSessionCallCount() int {
-	fake.deleteSessionMutex.RLock()
-	defer fake.deleteSessionMutex.RUnlock()
-	return len(fake.deleteSessionArgsForCall)
-}
-
-func (fake *SessionFactory) DeleteSessionCalls(stub func(context.Context, string, []byte)) {
-	fake.deleteSessionMutex.Lock()
-	defer fake.deleteSessionMutex.Unlock()
-	fake.DeleteSessionStub = stub
-}
-
-func (fake *SessionFactory) DeleteSessionArgsForCall(i int) (context.Context, string, []byte) {
-	fake.deleteSessionMutex.RLock()
-	defer fake.deleteSessionMutex.RUnlock()
-	argsForCall := fake.deleteSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+// SessionFactoryNewSessionWithIDArgs holds the arguments of one call to NewSessionWithID.
+type SessionFactoryNewSessionWithIDArgs struct {
+	Arg1 string
+	Arg2 string
+	Arg3 string
+	Arg4 []byte
 }
 
 func (fake *SessionFactory) NewSession(arg1 string, arg2 string, arg3 string, arg4 []byte) (viewa.Session, error) {
@@ -100,12 +60,7 @@ func (fake *SessionFactory) NewSession(arg1 string, arg2 string, arg3 string, ar
 	}
 	fake.newSessionMutex.Lock()
 	ret, specificReturn := fake.newSessionReturnsOnCall[len(fake.newSessionArgsForCall)]
-	fake.newSessionArgsForCall = append(fake.newSessionArgsForCall, struct {
-		arg1 string
-		arg2 string
-		arg3 string
-		arg4 []byte
-	}{arg1, arg2, arg3, arg4Copy})
+	fake.newSessionArgsForCall = append(fake.newSessionArgsForCall, SessionFactoryNewSessionArgs{arg1, arg2, arg3, arg4Copy})
 	stub := fake.NewSessionStub
 	fakeReturns := fake.newSessionReturns
 	fake.recordInvocation("NewSession", []interface{}{arg1, arg2, arg3, arg4Copy})
@@ -135,7 +90,15 @@ func (fake *SessionFactory) NewSessionArgsForCall(i int) (string, string, string
 	fake.newSessionMutex.RLock()
 	defer fake.newSessionMutex.RUnlock()
 	argsForCall := fake.newSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3, argsForCall.Arg4
+}
+
+func (fake *SessionFactory) NewSessionArgs() []SessionFactoryNewSessionArgs {
+	fake.newSessionMutex.RLock()
+	defer fake.newSessionMutex.RUnlock()
+	args := make([]SessionFactoryNewSessionArgs, len(fake.newSessionArgsForCall))
+	copy(args, fake.newSessionArgsForCall)
+	return args
 }
 
 func (fake *SessionFactory) NewSessionReturns(result1 viewa.Session, result2 error) {
@@ -172,12 +135,7 @@ func (fake *SessionFactory) NewSessionWithID(arg1 string, arg2 string, arg3 stri
 	}
 	fake.newSessionWithIDMutex.Lock()
 	ret, specificReturn := fake.newSessionWithIDReturnsOnCall[len(fake.newSessionWithIDArgsForCall)]
-	fake.newSessionWithIDArgsForCall = append(fake.newSessionWithIDArgsForCall, struct {
-		arg1 string
-		arg2 string
-		arg3 string
-		arg4 []byte
-	}{arg1, arg2, arg3, arg4Copy})
+	fake.newSessionWithIDArgsForCall = append(fake.newSessionWithIDArgsForCall, SessionFactoryNewSessionWithIDArgs{arg1, arg2, arg3, arg4Copy})
 	stub := fake.NewSessionWithIDStub
 	fakeReturns := fake.newSessionWithIDReturns
 	fake.recordInvocation("NewSessionWithID", []interface{}{arg1, arg2, arg3, arg4Copy})
@@ -207,7 +165,15 @@ func (fake *SessionFactory) NewSessionWithIDArgsForCall(i int) (string, string, 
 	fake.newSessionWithIDMutex.RLock()
 	defer fake.newSessionWithIDMutex.RUnlock()
 	argsForCall := fake.newSessionWithIDArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3, argsForCall.Arg4
+}
+
+func (fake *SessionFactory) NewSessionWithIDArgs() []SessionFactoryNewSessionWithIDArgs {
+	fake.newSessionWithIDMutex.RLock()
+	defer fake.newSessionWithIDMutex.RUnlock()
+	args := make([]SessionFactoryNewSessionWithIDArgs, len(fake.newSessionWithIDArgsForCall))
+	copy(args, fake.newSessionWithIDArgsForCall)
+	return args
 }
 
 func (fake *SessionFactory) NewSessionWithIDReturns(result1 viewa.Session, result2 error) {
@@ -246,9 +212,18 @@ func (fake *SessionFactory) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *SessionFactory) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *SessionFactory) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

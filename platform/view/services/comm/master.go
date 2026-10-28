@@ -9,11 +9,15 @@ package comm
 import (
 	"context"
 	"encoding/base64"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+// masterSessionKey is the registry key of the master session.
+var masterSessionKey = computeInternalSessionID(masterSession, nil)
 
 func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, callerViewID string, caller view.Identity, endpointID []byte, msg *view.Message) (*NetworkStreamSession, error) {
 	p.sessionsMutex.Lock()
@@ -21,7 +25,9 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 
 	internalSessionID := computeInternalSessionID(sessionID, endpointID)
 	logger.Debugf("looking up session [%s]", internalSessionID)
-	if session, in := p.sessions[internalSessionID]; in {
+	// A closing session is about to leave the registry, so it is replaced rather than returned. The
+	// master session is never replaced: the view service holds the instance it was given.
+	if session, in := p.sessions[internalSessionID]; in && (!session.isClosing.Load() || internalSessionID == masterSessionKey) {
 		logger.Debugf("session [%s] exists, returning it", internalSessionID)
 		session.mutex.Lock()
 		// Validate the caller identity before touching any session state: a peer
@@ -55,6 +61,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	}
 
 	p.sessions[internalSessionID] = s
+	delete(p.selfClosed, internalSessionID)
 	p.m.Sessions.Set(float64(len(p.sessions)))
 
 	s.tryStart()
@@ -115,26 +122,31 @@ func (p *P2PNode) MasterSession() (view.Session, error) {
 	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 }
 
-// DeleteSession closes the session identified by sessionID and the remote party's pkid, and
-// removes it from the registry. It does nothing if no such session exists.
-//
-// The lookup uses the exact registry key: a responder session's ID is chosen by the remote
-// peer, so it must never select sessions that belong to other peers or the master session.
-//
-// The session is closed after the registry lock is released: closing waits for the session's
-// consumer, and the dispatcher takes the lock for every incoming message.
-func (p *P2PNode) DeleteSession(_ context.Context, sessionID string, pkid []byte) {
-	p.sessionsMutex.Lock()
-	key := computeInternalSessionID(sessionID, pkid)
-	session, ok := p.sessions[key]
-	if ok {
-		delete(p.sessions, key)
-		p.m.Sessions.Set(float64(len(p.sessions)))
-	}
-	p.sessionsMutex.Unlock()
-	if !ok {
+// unregister removes session from the registry if it is the registered instance, so a newer
+// session with the same key is never removed. The key of a session that closed on its own is
+// remembered for closedSessionTTL, see dispatchMessages; the key of a session closed by Close is
+// not, because its protocol is finished. The master session is never removed.
+func (p *P2PNode) unregister(session *NetworkStreamSession, selfClosed bool) {
+	if session.isMaster() {
 		return
 	}
-	logger.Debugf("deleting session [%s]", key)
-	session.closeInternal()
+	key := computeInternalSessionID(session.sessionID, session.endpointID)
+	p.sessionsMutex.Lock()
+	defer p.sessionsMutex.Unlock()
+	if p.sessions[key] != session {
+		return
+	}
+	delete(p.sessions, key)
+	p.m.Sessions.Set(float64(len(p.sessions)))
+	if !selfClosed {
+		return
+	}
+	// ponytail: scans every remembered key per self-close; use a time-ordered queue if many sessions self-close at once.
+	now := time.Now()
+	for k, closedAt := range p.selfClosed {
+		if now.Sub(closedAt) >= closedSessionTTL {
+			delete(p.selfClosed, k)
+		}
+	}
+	p.selfClosed[key] = now
 }

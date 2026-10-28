@@ -90,7 +90,7 @@ func TestSessionChurn_NoLostReplies(t *testing.T) { //nolint:paralleltest
 				_ = s.Send(ctx, msg.Payload)
 				for m := range s.Receive() {
 					if string(m.Payload) == "bye" {
-						z.DeleteSession(ctx, msg.SessionID, msg.FromPKID)
+						s.Close()
 						return
 					}
 				}
@@ -108,7 +108,7 @@ func TestSessionChurn_NoLostReplies(t *testing.T) { //nolint:paralleltest
 			t.Fatalf("iteration %d: no reply", i)
 		}
 		_ = s.Send(ctx, []byte("bye"))
-		a.DeleteSession(ctx, s.Info().ID, []byte(z.ID))
+		s.Close()
 	}
 }
 

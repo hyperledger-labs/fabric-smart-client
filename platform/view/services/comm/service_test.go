@@ -103,12 +103,6 @@ func TestService_BeforeStart(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotInitialized)
 	})
 
-	t.Run("DeleteSession is a no-op", func(t *testing.T) {
-		t.Parallel()
-		// Should not panic.
-		svc.DeleteSession(t.Context(), "any", []byte("pk"))
-	})
-
 	t.Run("Stop is a no-op", func(t *testing.T) {
 		t.Parallel()
 		// Should not panic.
@@ -184,12 +178,12 @@ func TestService_AfterStart(t *testing.T) {
 		require.Equal(t, "ctx-resp", contextID)
 	})
 
-	t.Run("DeleteSession removes the session", func(t *testing.T) {
+	t.Run("Close removes the session", func(t *testing.T) {
 		t.Parallel()
-		_, err := svc.NewSessionWithID("del-target", "c", "e", []byte("pk-del"))
+		s, err := svc.NewSessionWithID("del-target", "c", "e", []byte("pk-del"))
 		require.NoError(t, err)
 
-		svc.DeleteSession(t.Context(), "del-target", []byte("pk-del"))
+		s.Close()
 
 		svc.NodeSync.RLock()
 		node := svc.Node
@@ -203,7 +197,7 @@ func TestService_AfterStart(t *testing.T) {
 		require.False(t, found, "session was not deleted")
 
 		// Creating a new session with the same ID should succeed (the old one was deleted).
-		s, err := svc.NewSessionWithID("del-target", "c2", "e2", []byte("pk-del"))
+		s, err = svc.NewSessionWithID("del-target", "c2", "e2", []byte("pk-del"))
 		require.NoError(t, err)
 		require.Equal(t, "e2", s.Info().RemoteEndpoint)
 	})

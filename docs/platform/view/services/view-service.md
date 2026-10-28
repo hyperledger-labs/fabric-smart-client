@@ -358,7 +358,7 @@ When a context is disposed:
 
 1. `Manager.DeleteContext` is called, or the last responder in a responder context releases it
 2. Calls `context.Dispose()` to release resources
-3. Deletes each of the context's sessions via `SessionFactory.DeleteSession`, keyed by session ID and remote PKID so that no other session is closed
+3. Closes each session instance the context holds, so a newer session with the same ID and party is not affected
 4. Removes the context from the manager's map
 
 ### Panic Recovery

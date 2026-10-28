@@ -87,13 +87,13 @@ This prevents the race condition where a message appears to send successfully bu
 A single dispatcher goroutine delivers incoming messages to every session, which keeps each session's messages in arrival order. It never waits for a session's consumer, so a consumer that stops reading cannot hold up the others.
 
 - **Internal Buffering**: Each session queues up to 2048 unread messages (two channels of 1024).
-- **Full Queue**: A message for a full session is dropped and counted in `dropped_messages`, and the session is closed, so the consumer never receives a message that follows a dropped one. The master session is never closed this way: closing it would stop the node accepting new sessions. A closed session stays registered until its view context is disposed, so later messages for it do not open a new session.
+- **Full Queue**: A message for a full session is dropped and counted in `dropped_messages`, and the session is closed, so the consumer never receives a message that follows a dropped one. The master session is never closed this way: closing it would stop the node accepting new sessions. A session leaves the registry when it closes. Messages for a session that closed on its own, after a full queue or the loss of its streams, are dropped for a minute instead of reaching the master session, so they do not start a new responder.
 
 ## Reliability and Stability
 
 - **Race-Free State Management**: All shared metadata are protected by synchronized mutexes and atomic flags. Stream handlers use atomic operations for lifecycle management (`closed`, `dead`, `refCtr`) to prevent race conditions between concurrent send and close operations.
 - **Synchronized Stream Operations**: The `streamHandler.close()` method acquires the stream lock to synchronize with concurrent `send()` operations, preventing corruption of in-flight messages.
-- **Dead Stream Removal**: When reading from a stream fails, the stream is removed from every session holding it. A session left without a stream closes after a 5-second grace period unless a new stream to the same session attaches in the meantime, so a view waiting on `Receive()` gets a closed channel instead of waiting for a counterparty that is gone. The master session never closes this way. On libp2p, where all sessions to a peer share one stream, a dead stream closes every session to that peer that neither sends nor receives within the grace period.
+- **Dead Stream Removal**: When reading from a stream fails, the stream is removed from every session holding it. A session left without a stream closes after a 5-second grace period unless a new stream to the same session attaches in the meantime, and leaves the registry, so a view waiting on `Receive()` gets a closed channel instead of waiting for a counterparty that is gone. The master session never closes this way. On libp2p, where all sessions to a peer share one stream, a dead stream closes every session to that peer that neither sends nor receives within the grace period.
 - **Stream Lifecycle Protection**: Streams are marked as "dead" immediately upon read errors, preventing new leases while allowing existing operations to complete gracefully.
 - **Deadlock Prevention**: The session shutdown process is hardened to prevent hangs. When a session is closed, it attempts to drain remaining messages to the consumer with a **500ms timeout per message**. This ensures that closing a session is never permanently blocked by an unresponsive consumer.
 
@@ -117,7 +117,7 @@ msg := <-session.Receive()
 ```
 
 ### Best Practices
-1.  **Always Close Sessions**: Explicitly calling `session.Close()` helps free resources immediately.
+1.  **Always Close Sessions**: Explicitly calling `session.Close()` frees its streams and its registry entry immediately.
 2.  **Handle Receive Timeouts**: Don't wait indefinitely on `session.Receive()`. Use a `select` block with a timeout or `context.Done()`.
 3.  **Monitor Session Closures**: Handle session closure errors gracefully in your View logic.
 

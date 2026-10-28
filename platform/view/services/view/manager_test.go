@@ -179,14 +179,16 @@ func newSession(id, caller, pkid string) *mock.Session {
 	return s
 }
 
-// deletedSessions returns the sessions deleted through sf, as "id@pkid".
-func deletedSessions(sf *mock.SessionFactory) map[string]bool {
-	deleted := map[string]bool{}
-	for i := range sf.DeleteSessionCallCount() {
-		_, id, pkid := sf.DeleteSessionArgsForCall(i)
-		deleted[id+"@"+string(pkid)] = true
+// closedSessions returns the given sessions that were closed, as "id@pkid".
+func closedSessions(sessions ...*mock.Session) map[string]bool {
+	closed := map[string]bool{}
+	for _, s := range sessions {
+		if s.CloseCallCount() > 0 {
+			info := s.Info()
+			closed[info.ID+"@"+string(info.RemotePKID)] = true
+		}
 	}
-	return deleted
+	return closed
 }
 
 func TestNewSessionContext(t *testing.T) {
@@ -249,24 +251,25 @@ func TestNewResponderContextRejectsInitiatorContext(t *testing.T) {
 }
 
 // TestNewResponderContextAttachedSessionsAreDisposed checks that every session attached to a
-// responder context, including several from the same party, is deleted when the context is.
+// responder context, including several from the same party, is closed when the context is deleted.
 func TestNewResponderContextAttachedSessionsAreDisposed(t *testing.T) {
 	t.Parallel()
-	manager, sf := newResponderManager()
+	manager, _ := newResponderManager()
 
 	// The same party attaches several times, also with one session ID from two of its PKIDs.
-	for _, s := range []*mock.Session{
+	sessions := []*mock.Session{
 		newSession("s1", "bob", "pkid-bob-1"),
 		newSession("s2", "bob", "pkid-bob-1"),
 		newSession("s3", "bob", "pkid-bob-1"),
 		newSession("s3", "bob", "pkid-bob-2"),
-	} {
+	}
+	for _, s := range sessions {
 		_, _, err := manager.NewResponderContext(t.Context(), "c1", s, viewapi.Identity("me"), viewapi.Identity("bob"))
 		require.NoError(t, err)
 	}
 
 	manager.DeleteContext("c1")
-	require.Equal(t, map[string]bool{"s1@pkid-bob-1": true, "s2@pkid-bob-1": true, "s3@pkid-bob-1": true, "s3@pkid-bob-2": true}, deletedSessions(sf))
+	require.Equal(t, map[string]bool{"s1@pkid-bob-1": true, "s2@pkid-bob-1": true, "s3@pkid-bob-1": true, "s3@pkid-bob-2": true}, closedSessions(sessions...))
 }
 
 // TestNewResponderContextAttachKeepsDefaultSession checks that the peer-chosen ID of an attaching
@@ -297,11 +300,12 @@ func TestNewResponderContextAttachKeepsDefaultSession(t *testing.T) {
 func TestNewResponderContextLastReleaseDisposes(t *testing.T) {
 	t.Parallel()
 	for _, creatorFirst := range []bool{true, false} {
-		manager, sf := newResponderManager()
+		manager, _ := newResponderManager()
+		s1, s2 := newSession("s1", "bob", "pkid-bob"), newSession("s2", "bob", "pkid-bob")
 		creatorCtx, cancelCreator := context.WithCancel(t.Context())
-		creator, releaseCreator, err := manager.NewResponderContext(creatorCtx, "c1", newSession("s1", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
+		creator, releaseCreator, err := manager.NewResponderContext(creatorCtx, "c1", s1, viewapi.Identity("me"), viewapi.Identity("bob"))
 		require.NoError(t, err)
-		attached, releaseAttached, err := manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
+		attached, releaseAttached, err := manager.NewResponderContext(t.Context(), "c1", s2, viewapi.Identity("me"), viewapi.Identity("bob"))
 		require.NoError(t, err)
 
 		first, last := releaseCreator, releaseAttached
@@ -316,13 +320,13 @@ func TestNewResponderContextLastReleaseDisposes(t *testing.T) {
 			require.Error(t, creator.Context().Err(), "each responder runs on its own go context")
 			require.NoError(t, attached.Context().Err(), "the attached responder keeps its own go context")
 		}
-		require.Equal(t, 0, sf.DeleteSessionCallCount(), "no session is deleted while a responder runs")
+		require.Empty(t, closedSessions(s1, s2), "no session is closed while a responder runs")
 		c, err := manager.Context("c1")
 		require.NoError(t, err)
 		require.NoError(t, c.Context().Err(), "the shared go context outlives each responder's")
 
 		last()
-		require.Equal(t, map[string]bool{"s1@pkid-bob": true, "s2@pkid-bob": true}, deletedSessions(sf))
+		require.Equal(t, map[string]bool{"s1@pkid-bob": true, "s2@pkid-bob": true}, closedSessions(s1, s2))
 		require.Error(t, c.Context().Err(), "the shared go context is cancelled at the last release")
 		_, err = manager.Context("c1")
 		require.ErrorIs(t, err, view.ErrContextNotFound)
@@ -334,35 +338,38 @@ func TestNewResponderContextLastReleaseDisposes(t *testing.T) {
 // releases its context.
 func TestNewResponderContextReleasedWhenCtxDone(t *testing.T) {
 	t.Parallel()
-	manager, sf := newResponderManager()
+	manager, _ := newResponderManager()
 
+	s1 := newSession("s1", "bob", "pkid-bob")
 	ctx, cancel := context.WithCancel(t.Context())
-	_, _, err := manager.NewResponderContext(ctx, "c1", newSession("s1", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
+	_, _, err := manager.NewResponderContext(ctx, "c1", s1, viewapi.Identity("me"), viewapi.Identity("bob"))
 	require.NoError(t, err)
 	cancel()
 	require.Eventually(t, func() bool {
 		_, err := manager.Context("c1")
 		return errors.Is(err, view.ErrContextNotFound)
 	}, time.Second, time.Millisecond)
-	require.Equal(t, map[string]bool{"s1@pkid-bob": true}, deletedSessions(sf))
+	require.Equal(t, map[string]bool{"s1@pkid-bob": true}, closedSessions(s1))
 }
 
 // TestNewResponderContextReleaseAfterDelete checks that releasing a context that DeleteContext
 // removed neither disposes it again nor touches a newer context with the same ID.
 func TestNewResponderContextReleaseAfterDelete(t *testing.T) {
 	t.Parallel()
-	manager, sf := newResponderManager()
+	manager, _ := newResponderManager()
 
-	_, release, err := manager.NewResponderContext(t.Context(), "c1", newSession("s1", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
+	s1, s2 := newSession("s1", "bob", "pkid-bob"), newSession("s2", "bob", "pkid-bob")
+	_, release, err := manager.NewResponderContext(t.Context(), "c1", s1, viewapi.Identity("me"), viewapi.Identity("bob"))
 	require.NoError(t, err)
 	manager.DeleteContext("c1")
-	deletes := sf.DeleteSessionCallCount()
+	closes := s1.CloseCallCount()
 
-	_, _, err = manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
+	_, _, err = manager.NewResponderContext(t.Context(), "c1", s2, viewapi.Identity("me"), viewapi.Identity("bob"))
 	require.NoError(t, err)
 	release()
 	c, err := manager.Context("c1")
 	require.NoError(t, err)
 	require.Equal(t, "s2", c.Session().Info().ID)
-	require.Equal(t, deletes, sf.DeleteSessionCallCount())
+	require.Equal(t, closes, s1.CloseCallCount())
+	require.Zero(t, s2.CloseCallCount())
 }

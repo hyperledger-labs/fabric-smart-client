@@ -32,6 +32,8 @@ const (
 
 type mockSender struct{}
 
+func (*mockSender) unregister(*NetworkStreamSession, bool) {}
+
 func (*mockSender) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	return nil
 }

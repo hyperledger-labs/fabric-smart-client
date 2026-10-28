@@ -154,13 +154,8 @@ func TestContext(t *testing.T) {
 	responderSession.InfoReturns(view.SessionInfo{ID: "s1", Caller: view.Identity("caller"), RemotePKID: []byte("pkid")})
 	ctx, _ = viewservice.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, responderSession, nil, emptyTracer, lic)
 	ctx.Dispose()
-	// NewContext also registers the default session for its caller, so it is deleted twice.
-	require.Equal(t, 2, sessionFactory.DeleteSessionCallCount())
-	for i := range 2 {
-		_, id, pkid := sessionFactory.DeleteSessionArgsForCall(i)
-		require.Equal(t, "s1", id)
-		require.Equal(t, []byte("pkid"), pkid)
-	}
+	// NewContext also registers the default session for its caller, so it is closed twice.
+	require.Equal(t, 2, responderSession.CloseCallCount())
 }
 
 func TestContextGetSession(t *testing.T) {
@@ -196,6 +191,17 @@ func TestContextGetSession(t *testing.T) {
 	s3, err := ctx.GetSessionByID("sid", party2)
 	require.NoError(t, err)
 	require.Equal(t, session, s3)
+
+	// Case: a closed session by ID is replaced
+	closed := &mock.Session{}
+	closed.InfoReturns(view.SessionInfo{ID: "sid", Closed: true})
+	require.NoError(t, ctx.PutSessionByID("sid", party2, closed))
+	fresh := &mock.Session{}
+	sessionFactory.NewSessionWithIDReturns(fresh, nil)
+	s4, err := ctx.GetSessionByID("sid", party2)
+	require.NoError(t, err)
+	require.Same(t, fresh, s4)
+	require.Equal(t, 1, sessionFactory.NewSessionWithIDCallCount())
 }
 
 func TestContextRace(t *testing.T) {

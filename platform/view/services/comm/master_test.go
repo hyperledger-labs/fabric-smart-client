@@ -23,7 +23,7 @@ import (
 
 // stopNode tears a test node down completely. P2PNode.Stop() cancels the node
 // context, closes the host and closes streams, but it never walks p.sessions --
-// closeInternal is reached only from DeleteSession and Session.Close. Without
+// sessions close only through Session.Close or on their own. Without
 // closing every session below, every session's tryStart goroutine outlives the
 // test, which the package's goleak-guarded tests would eventually trip over.
 func stopNode(t *testing.T, p *P2PNode) {
@@ -31,9 +31,9 @@ func stopNode(t *testing.T, p *P2PNode) {
 	t.Cleanup(func() {
 		p.sessionsMutex.Lock()
 		for _, session := range p.sessions {
-			session.closeInternal()
+			// closeInternal takes sessionsMutex to unregister the session.
+			defer session.closeInternal()
 		}
-		clear(p.sessions)
 		p.sessionsMutex.Unlock()
 		p.Stop()
 	})
@@ -231,7 +231,7 @@ func sessionKeys(p *P2PNode) []string {
 	return slices.Collect(maps.Keys(p.sessions))
 }
 
-func TestDeleteSession(t *testing.T) {
+func TestCloseUnregistersOnlyThatSession(t *testing.T) {
 	t.Parallel()
 
 	h := &mockHost{}
@@ -247,7 +247,7 @@ func TestDeleteSession(t *testing.T) {
 	_, err = p.NewSessionWithID("order-10", "ctx", "ep", []byte("pk"))
 	require.NoError(t, err)
 
-	p.DeleteSession(t.Context(), "order-1", []byte("pk"))
+	target.Close()
 
 	require.True(t, target.Info().Closed)
 	require.ElementsMatch(t, []string{
@@ -256,7 +256,7 @@ func TestDeleteSession(t *testing.T) {
 	}, sessionKeys(p))
 }
 
-func TestDeleteSessionDoesNotStallDispatcher(t *testing.T) { //nolint:paralleltest
+func TestCloseDoesNotStallDispatcher(t *testing.T) { //nolint:paralleltest
 	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
 	stopNode(t, p)
@@ -264,13 +264,14 @@ func TestDeleteSessionDoesNotStallDispatcher(t *testing.T) { //nolint:parallelte
 
 	// Nobody reads slow, so closing it waits out the drain timeouts.
 	slow := &NetworkStreamSession{
-		node:      p,
-		sessionID: "slow",
-		incoming:  make(chan *view.Message),
-		streams:   make(map[*streamHandler]struct{}),
-		middleCh:  make(chan *view.Message, 1),
-		closing:   make(chan struct{}),
-		closed:    make(chan struct{}),
+		node:       p,
+		sessionID:  "slow",
+		endpointID: []byte("pk"),
+		incoming:   make(chan *view.Message),
+		streams:    make(map[*streamHandler]struct{}),
+		middleCh:   make(chan *view.Message, 1),
+		closing:    make(chan struct{}),
+		closed:     make(chan struct{}),
 	}
 	require.True(t, slow.enqueue(&view.Message{Payload: []byte("held")}))
 	require.Eventually(t, func() bool { return len(slow.middleCh) == 0 }, time.Second, time.Millisecond)
@@ -284,7 +285,7 @@ func TestDeleteSessionDoesNotStallDispatcher(t *testing.T) { //nolint:parallelte
 
 	done := make(chan struct{})
 	go func() {
-		p.DeleteSession(t.Context(), "slow", []byte("pk"))
+		slow.Close()
 		close(done)
 	}()
 	require.Eventually(t, slow.isClosing.Load, time.Second, time.Millisecond)
@@ -297,7 +298,7 @@ func TestDeleteSessionDoesNotStallDispatcher(t *testing.T) { //nolint:parallelte
 	select {
 	case msg := <-fast.Receive():
 		assert.Equal(t, "fast-msg", string(msg.Payload))
-		assert.Less(t, time.Since(start), 300*time.Millisecond, "dispatcher waited for DeleteSession")
+		assert.Less(t, time.Since(start), 300*time.Millisecond, "dispatcher waited for Close")
 	case <-time.After(3 * time.Second):
 		t.Fatal("fast message not delivered")
 	}
@@ -305,11 +306,11 @@ func TestDeleteSessionDoesNotStallDispatcher(t *testing.T) { //nolint:parallelte
 	assert.True(t, slow.isClosed())
 }
 
-// TestDeleteSession_PeerChosenIDLeavesOtherSessionsOpen covers a remote peer that picks the
-// SessionID of its message. The responder session for that message carries the peer's ID and
-// PKID, and disposing the responder context deletes it by both. No choice of ID may close the
-// master session or a session that belongs to another peer.
-func TestDeleteSession_PeerChosenIDLeavesOtherSessionsOpen(t *testing.T) {
+// TestClose_PeerChosenIDLeavesOtherSessionsOpen covers a remote peer that picks the SessionID of
+// its message. Disposing the responder context closes the responder session for that message. No
+// choice of ID may close or unregister the master session or a session that belongs to another
+// peer.
+func TestClose_PeerChosenIDLeavesOtherSessionsOpen(t *testing.T) {
 	t.Parallel()
 
 	const victimID = "Qk9CLXNlc3Npb24="
@@ -331,8 +332,7 @@ func TestDeleteSession_PeerChosenIDLeavesOtherSessionsOpen(t *testing.T) {
 			require.NoError(t, err)
 
 			// What view.Context.Dispose does when the attacker's responder context is deleted.
-			info := attacker.Info()
-			p.DeleteSession(t.Context(), info.ID, info.RemotePKID)
+			attacker.Close()
 
 			assert.True(t, attacker.Info().Closed)
 			assert.False(t, master.Info().Closed, "master session must stay open")
@@ -343,21 +343,4 @@ func TestDeleteSession_PeerChosenIDLeavesOtherSessionsOpen(t *testing.T) {
 			}, sessionKeys(p))
 		})
 	}
-}
-
-func TestDeleteSession_NoMatchIsNoOp(t *testing.T) {
-	t.Parallel()
-
-	h := &mockHost{}
-	p, err := NewNode(t.Context(), h, &disabled.Provider{})
-	require.NoError(t, err)
-	stopNode(t, p)
-
-	_, err = p.NewSessionWithID("keep-me", "ctx", "ep", []byte("pk"))
-	require.NoError(t, err)
-
-	p.DeleteSession(t.Context(), "keep-me", []byte("other-pk"))
-	p.DeleteSession(t.Context(), "nonexistent", []byte("pk"))
-
-	require.Equal(t, []string{computeInternalSessionID("keep-me", []byte("pk"))}, sessionKeys(p))
 }
