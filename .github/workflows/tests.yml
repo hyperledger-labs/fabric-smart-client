@@ -102,9 +102,38 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        id: setup-go
         with:
           go-version-file: "go.mod"
-          cache-dependency-path: "**/*.sum"
+          # setup-go keeps one cache entry for all jobs with the same Go
+          # version and go.sum files, so it holds whatever the first job saved
+          # and none of the -race/-coverpkg builds below. This job manages its
+          # own cache.
+          cache: false
+
+      # One Go cache serves every integration target: the suites compile
+      # mostly the same dependencies, and a cache per target would multiply a
+      # ~400 MB entry by the size of the matrix. Cached dependencies stay valid
+      # until go.sum or the Go version changes. The ISO week in the key
+      # refreshes the cached FSC packages weekly, and the restore key falls
+      # back to the newest entry for the same go.sum, so a build recompiles
+      # only what changed since that entry was saved.
+      - name: Compute the Go cache key
+        id: go-cache
+        run: |
+          prefix="itest-go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}-"
+          echo "prefix=${prefix}" >> "$GITHUB_OUTPUT"
+          echo "key=${prefix}$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Go cache
+        id: go-cache-restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # ratchet:actions/cache/restore@v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ steps.go-cache.outputs.key }}
+          restore-keys: ${{ steps.go-cache.outputs.prefix }}
 
       - name: Install ginkgo
         run: cd tools && go install github.com/onsi/ginkgo/v2/ginkgo
@@ -147,6 +176,27 @@ jobs:
           GOCOVERDIR=$(realpath covdata) make integration-tests-${{ matrix.tests }}
           go tool covdata textfmt -i=covdata -o coverage.profile
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
+
+      # A single writer, fabric-iou on main, keeps the matrix from uploading
+      # near-identical copies; pull requests read main's entry. fabric-iou
+      # builds both flavours the Fabric suites need: the plain ginkgo test
+      # binary and the -race/-coverpkg node binaries; Fabric-x jobs rebuild
+      # only their own extra packages. The name must stay a target of
+      # `make list-integration-tests`, or nothing saves the cache and every
+      # job builds cold again. The save runs only after a passing
+      # test, when every binary has been built; a failed run leaves the key
+      # free for the next push to main.
+      - name: Save the Go cache
+        if: >-
+          matrix.tests == 'fabric-iou'
+          && github.event_name == 'push' && github.ref == 'refs/heads/main'
+          && steps.go-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # ratchet:actions/cache/save@v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ steps.go-cache.outputs.key }}
 
       - uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # ratchet:coverallsapp/github-action@v2.3.8
         with:
