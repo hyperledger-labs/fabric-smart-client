@@ -17,7 +17,8 @@ type Block struct {
 	b driver.Block
 }
 
-// DataAt returns the data stored at the passed index
+// DataAt returns the data stored at the passed index, or nil if the block holds no
+// data at that index.
 func (b *Block) DataAt(i int) []byte {
 	return b.b.DataAt(i)
 }
@@ -70,6 +71,7 @@ func (l *Ledger) GetBlockByNumber(number uint64) (*Block, error) {
 	return &Block{b: b}, nil
 }
 
+// GetLedgerInfo returns the height and the hashes of the last two blocks of the ledger
 func (l *Ledger) GetLedgerInfo() (*LedgerInfo, error) {
 	return l.l.GetLedgerInfo()
 }

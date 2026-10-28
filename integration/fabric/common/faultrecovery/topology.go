@@ -21,7 +21,8 @@ import (
 
 // FSCTopology returns the FSC nodes alice (Org1, initiator) and bob (Org2, responder),
 // installing sdk on both. Both serve configseq, the sequence of the channel configuration
-// the node holds. Each node runs on its own Postgres database, named by DBName.
+// the node holds, and ledger, which reads a transaction back through the ledger API and
+// supports Fabric only. Each node runs on its own Postgres database, named by DBName.
 //
 // A node receives only the data source of its database. nwo starts each container
 // from that data source (postgres.ConfigFromDataSource), which names the container
@@ -43,6 +44,7 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 		RegisterViewFactory("order", &views.OrderViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("ledger", &cviews.LedgerViewFactory{}).
 		RegisterViewFactory("echo", &views.EchoViewFactory{}).
 		RegisterViewFactory("configseq", &configviews.ConfigSequenceViewFactory{})
 	fscTopology.AddNodeByName("bob").
@@ -52,6 +54,7 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 		RegisterResponder(&views.EchoResponderView{}, &views.EchoView{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("ledger", &cviews.LedgerViewFactory{}).
 		RegisterViewFactory("configseq", &configviews.ConfigSequenceViewFactory{})
 	fscTopology.AddSDK(sdk)
 
