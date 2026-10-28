@@ -163,19 +163,27 @@ func TestCommitEndorserTransaction(t *testing.T) {
 		require.True(t, processed)
 	})
 
-	t.Run("already invalid returns processed", func(t *testing.T) {
+	t.Run("locally invalid is committed", func(t *testing.T) {
 		t.Parallel()
+		var committed cdriver.TxID
 		c := &Committer{
-			logger: logger,
+			logger:        logger,
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch"},
 			Vault: &fake.Vault{
 				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Invalid, "", nil
 				},
+				CommitTxFn: func(_ context.Context, txID cdriver.TxID, _ cdriver.BlockNum, _ cdriver.TxNum) error {
+					committed = txID
+					return nil
+				},
 			},
+			ProcessorManager: &fake.ProcessorManager{},
 		}
 		processed, err := c.CommitEndorserTransaction(t.Context(), "tx4", 10, 5, nil, &FinalityEvent{TxID: "tx4"})
 		require.NoError(t, err)
-		require.True(t, processed)
+		require.False(t, processed)
+		require.Equal(t, "tx4", committed)
 	})
 
 	t.Run("status error propagates", func(t *testing.T) {
@@ -250,7 +258,8 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx6", 11, []byte("raw"), &FinalityEvent{TxID: "tx6"}))
 	})
 
-	t.Run("invalid status returns nil", func(t *testing.T) {
+	// A listener waiting on the event must see the failure, not success.
+	t.Run("invalid status sets event error", func(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
@@ -259,8 +268,11 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 					return fdriver.Invalid, "", nil
 				},
 			},
+			EnvelopeService: &fake.EnvelopeService{},
 		}
-		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx7", 12, []byte("raw"), &FinalityEvent{TxID: "tx7"}))
+		event := &FinalityEvent{TxID: "tx7"}
+		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx7", 12, []byte("raw"), event))
+		require.Error(t, event.Err)
 	})
 
 	t.Run("unknown status stores unknown envelope and marks discarded", func(t *testing.T) {
@@ -394,6 +406,48 @@ func TestHandleEndorserTransactionAdditionalBranches(t *testing.T) {
 		require.NotNil(t, event)
 		require.Equal(t, fdriver.Invalid, event.ValidationCode)
 		require.Contains(t, event.ValidationMessage, "rwsets do not match")
+	})
+
+	// A replayed block must not turn a read-write set mismatch into a Valid
+	// event: the commit matches the sets again and discards the transaction again.
+	t.Run("rwset mismatch stays invalid on replay", func(t *testing.T) {
+		t.Parallel()
+		status := fdriver.Busy
+		c := &Committer{
+			logger:        logger,
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-endorser-replay"},
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return status, "", nil
+				},
+				MatchFn: func(context.Context, cdriver.TxID, []byte) error {
+					return stderrors.New("mismatch")
+				},
+				SetDiscardedFn: func(context.Context, cdriver.TxID, string) error {
+					status = fdriver.Invalid
+					return nil
+				},
+			},
+			EnvelopeService: &fake.EnvelopeService{
+				ExistsFn: func(context.Context, string) bool { return true },
+			},
+			RWSetLoaderService: &fake.RWSetLoader{},
+			TransactionManager: &fake.TransactionManager{
+				NewProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
+					return &fake.ProcessedTransaction{ResultsBytes: []byte("rws")}, int32(common.HeaderType_ENDORSER_TRANSACTION), nil
+				},
+			},
+		}
+		tx := CommitTx{BlkNum: 1, TxID: "tx-replay", Envelope: &common.Envelope{Payload: []byte("payload")}}
+
+		for range 2 {
+			event, err := c.HandleEndorserTransaction(t.Context(), &common.BlockMetadata{Metadata: validMetadata}, tx)
+			require.NoError(t, err)
+			require.Equal(t, fdriver.Invalid, event.ValidationCode)
+			require.Contains(t, event.ValidationMessage, "rwsets do not match")
+			require.Error(t, event.Err)
+		}
+		require.Equal(t, fdriver.Invalid, status)
 	})
 
 	t.Run("commit failure returns error", func(t *testing.T) {

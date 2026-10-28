@@ -249,11 +249,9 @@ func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 // Invalid transaction without a set is left unchanged. Any failure is returned,
 // so a transient vault failure reaches the commit retry.
 //
-// The discard is final: [Committer.CommitEndorserTransaction] keeps the Invalid
-// status even when Fabric later orders the transaction as valid, so its writes
-// never reach the vault. The committer therefore discards a Busy transaction only
-// while processing the block that contains it: Fabric marked it invalid, or its
-// ordered read-write set does not match the one this node holds.
+// A discard is not final for a transaction Fabric has not ordered yet: when a
+// block later marks it valid, [Committer.CommitEndorserTransaction] commits it
+// from the block envelope and the status becomes Valid.
 func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
@@ -311,9 +309,10 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 // A transient failure — storage contention, a lost database connection, an
 // expired context — is retried here, on this same block, because this is the
 // component that can tell a fault worth retrying from one that will never clear:
-// it owns the vault, the membership service and the channel configuration. Committing a block again is safe:
-// CommitEndorserTransaction skips transactions already marked valid or invalid,
-// and CommitConfig does not reapply a configuration this process already holds.
+// it owns the vault, the membership service and the channel configuration.
+// Committing a block again is safe: CommitEndorserTransaction skips transactions
+// already marked valid, a transaction Fabric found invalid stays invalid, and
+// CommitConfig does not reapply a configuration this process already holds.
 //
 // The error returned is therefore final. Retrying it will not help, and a caller
 // driving the commit — the channel's block delivery — should stop rather than

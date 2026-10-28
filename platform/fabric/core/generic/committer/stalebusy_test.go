@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
+	"context"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -22,10 +24,10 @@ import (
 )
 
 // A node that endorsed a transaction and restarted before it was ordered keeps
-// it Busy. Discarding it then is final: when Fabric later orders it as valid,
-// the vault keeps it Invalid and skips it, while the finality event still
-// reports Fabric's verdict.
-func TestDiscardedBusyTxSkippedWhenOrderedLater(t *testing.T) {
+// it Busy. When Fabric orders it as valid after the node discarded it, Fabric's
+// verdict wins: the writes rebuilt from the block envelope are applied and the
+// vault agrees with the finality event.
+func TestDiscardedBusyTxCommittedWhenOrderedLater(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	dir := t.TempDir()
@@ -47,6 +49,22 @@ func TestDiscardedBusyTxSkippedWhenOrderedLater(t *testing.T) {
 		ChannelConfig:   &fake.ChannelConfig{IDValue: "ch"},
 		Vault:           vault.NewVault(fvault.NewCachedVault(store, 0), &disabled.Provider{}, noop.NewTracerProvider()),
 		EnvelopeService: &fake.EnvelopeService{},
+		TransactionManager: &fake.TransactionManager{
+			NewProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
+				return &fake.ProcessedTransaction{}, int32(common.HeaderType_ENDORSER_TRANSACTION), nil
+			},
+		},
+		ProcessorManager: &fake.ProcessorManager{},
+	}
+	// Stands in for decoding the block envelope into the vault.
+	c.RWSetLoaderService = &fake.RWSetLoader{
+		GetFromEnvelopeFn: func(ctx context.Context, txID cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+			rws, err := c.Vault.NewRWSet(ctx, txID)
+			if err != nil {
+				return nil, nil, err
+			}
+			return rws, nil, rws.SetState("ns", "key", []byte("value"))
+		},
 	}
 	require.False(t, c.Vault.RWSExists(ctx, "tx1"))
 	vc, _, err := c.Status(ctx, "tx1")
@@ -64,7 +82,15 @@ func TestDiscardedBusyTxSkippedWhenOrderedLater(t *testing.T) {
 	require.Equal(t, fdriver.Valid, event.ValidationCode)
 	require.NoError(t, event.Err)
 
-	vc, _, err = c.Status(ctx, "tx1")
+	vc, message, err := c.Status(ctx, "tx1")
 	require.NoError(t, err)
-	require.Equal(t, fdriver.Invalid, vc)
+	require.Equal(t, fdriver.Valid, vc)
+	require.Empty(t, message)
+
+	qe, err := c.Vault.NewQueryExecutor(ctx)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, qe.Done()) }()
+	read, err := qe.GetState(ctx, "ns", "key")
+	require.NoError(t, err)
+	require.Equal(t, []byte("value"), read.Raw)
 }

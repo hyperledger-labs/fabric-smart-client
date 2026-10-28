@@ -191,9 +191,13 @@ func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaW
 	return query, params, nil
 }
 
+// SetStatusesValid builds an UPDATE statement that marks all transactions in
+// txIDs as Valid and clears their message, so a transaction committed after a
+// local discard does not keep the discard reason. It returns the SQL query string
+// and the corresponding argument slice ready for execution.
 func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID) (string, []any, error) {
 	query, params := sqlbuild.New().
-		WriteString("UPDATE " + db.tables.StatusTable + " SET code = ").
+		WriteString("UPDATE " + db.tables.StatusTable + " SET message = '', code = ").
 		WriteParam(driver.Valid).
 		WriteWhere(sqlbuild.In("tx_id", txIDs...)).
 		Build()

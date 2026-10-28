@@ -102,7 +102,9 @@ type Committer interface {
 	RemoveFinalityListener(txID string, listener FinalityListener) error
 
 	// DiscardTx marks the transaction Invalid in the vault, with message as the
-	// reason. It returns an error if the status cannot be written.
+	// reason. It returns an error if the status cannot be written. If Fabric
+	// later orders the transaction as valid, the committer commits it and the
+	// status becomes Valid.
 	DiscardTx(ctx context.Context, txID driver.TxID, message string) error
 
 	CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) error
