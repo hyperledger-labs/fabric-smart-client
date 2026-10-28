@@ -50,7 +50,7 @@ var _ = Describe("EndToEnd", func() {
 			time.Sleep(5 * time.Second)
 		})
 
-		It("successful pingpong based on REST API", func() {
+		It("pings over the REST API and rejects an unauthorized client", func() {
 			// Init and Start fsc nodes
 			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			responder = newNode("./testdata/fsc/nodes/responder.0")
@@ -83,7 +83,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).To(MatchError(ContainSubstring("not recognized")))
 		})
 
-		It("successful pingpong based on WebSocket", func() {
+		It("streams a view call over the web client", func() {
 			// Init and Start fsc nodes
 			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
@@ -110,7 +110,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
 
-		It("successful pingpong", func() {
+		It("pings through a local client", func() {
 			// Init and Start fsc nodes
 			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
@@ -144,11 +144,11 @@ var _ = Describe("EndToEnd", func() {
 		s := NewTestSuite(fsc.LibP2P, doLoad, integration.NoReplication)
 		BeforeAll(s.Setup)
 		AfterAll(s.TearDown)
-		It("successful pingpong", func() { s.TestPingPong("initiator") })
-		It("successful pingpong with stream", func() { s.TestPingPongStream("initiator") })
-		It("successful stream", func() { s.TestStream("initiator") })
-		It("successful stream with websocket", func() { s.TestStreamWebsocket("initiator") })
-		It("init clients & successful pingpong", s.TestLoadInitPingPong)
+		It("pings the responder", func() { s.TestPingPong("initiator") })
+		It("pings the responder through a streamed view call", func() { s.TestPingPongStream("initiator") })
+		It("exchanges messages on a view stream", func() { s.TestStream("initiator") })
+		It("exchanges messages on a view stream over the web client", func() { s.TestStreamWebsocket("initiator") })
+		It("pings through clients built from the loaded artifacts", s.TestLoadInitPingPong)
 	})
 
 	// Generating honours the transport, so both get a group. What it adds over the
@@ -158,8 +158,8 @@ var _ = Describe("EndToEnd", func() {
 			s := NewTestSuite(c, doGenerate, integration.NoReplication)
 			BeforeAll(s.Setup)
 			AfterAll(s.TearDown)
-			It("successful pingpong", func() { s.TestPingPong("initiator") })
-			It("successful mock pingpong", s.TestMockPingPong)
+			It("pings the responder", func() { s.TestPingPong("initiator") })
+			It("gets a mock pong only from a mocked responder", s.TestMockPingPong)
 		})
 	}
 
@@ -173,10 +173,10 @@ var _ = Describe("EndToEnd", func() {
 		initiatorReplicas := GetFSCReplicaNames("initiator", 3)
 		BeforeAll(s.Setup)
 		AfterAll(s.TearDown)
-		It("successful pingpong", func() { s.TestPingPong(initiatorReplicas...) })
-		It("successful pingpong with stream", func() { s.TestPingPongStream(initiatorReplicas...) })
-		It("successful stream", func() { s.TestStream(initiatorReplicas...) })
-		It("successful stream with websocket", func() { s.TestStreamWebsocket(initiatorReplicas...) })
+		It("pings the responder", func() { s.TestPingPong(initiatorReplicas...) })
+		It("pings the responder through a streamed view call", func() { s.TestPingPongStream(initiatorReplicas...) })
+		It("exchanges messages on a view stream", func() { s.TestStream(initiatorReplicas...) })
+		It("exchanges messages on a view stream over the web client", func() { s.TestStreamWebsocket(initiatorReplicas...) })
 	})
 })
 

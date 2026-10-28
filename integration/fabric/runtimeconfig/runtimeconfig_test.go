@@ -20,7 +20,7 @@ var _ = Describe("EndToEnd", func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
+		It("creates and updates an IOU after the Fabric configuration is injected at runtime", s.TestSucceeded)
 	})
 })
 

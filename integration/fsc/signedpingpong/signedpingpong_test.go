@@ -17,16 +17,17 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	// Both transports: a signed round-trip is cheap to run twice -- this suite
-	// starts no Fabric network.
-	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
-		Describe("Network-based Signed Ping Pong", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
-			It("signed exchange succeeds", func() { s.TestSignedExchange("alice") })
-		})
-	}
+	// websocket only: the views sign and verify at the application layer. The
+	// transport-specific part, resolving a PKID to an identity through the
+	// endpoint service, runs for every inbound libp2p session in fsc/pingpong,
+	// and comm/host/libp2p/sig_exchange_test.go covers the signed exchange,
+	// including LocalPKID, on libp2p hosts.
+	Describe("Network-based Signed Ping Pong", Label(fsc.WebSocket), func() {
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("signs and verifies messages with the identities of the session's PKIDs", func() { s.TestSignedExchange("alice") })
+	})
 })
 
 type TestSuite struct {

@@ -24,7 +24,7 @@ var _ = Describe("EndToEnd", func() {
 			s := NewTestSuite(c, integration.NoReplication)
 			BeforeEach(s.Setup)
 			AfterEach(s.TearDown)
-			It("stop and restart successfully", s.TestSucceeded)
+			It("answers a view call after the responder restarts", s.TestSucceeded)
 		})
 	}
 
@@ -39,7 +39,7 @@ var _ = Describe("EndToEnd", func() {
 		})
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("stop and restart successfully", s.TestSucceededWithReplicas)
+		It("answers every replica's view call after the responder restarts", s.TestSucceededWithReplicas)
 	})
 })
 

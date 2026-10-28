@@ -25,7 +25,7 @@ var _ = Describe("EndToEnd", func() {
 		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
+		It("keeps transacting across channel config updates, including one missed while down", s.TestSucceeded)
 	})
 
 	Describe("Refused configuration", Label("T2"), func() {

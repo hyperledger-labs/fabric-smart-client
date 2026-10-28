@@ -24,14 +24,12 @@ var _ = Describe("EndToEnd", func() {
 	// websocket only: this suite's p2p usage goes through the same
 	// platform/fabric/services/state code path that fabric/iou exercises under
 	// libp2p, so a second transport here buys a Fabric bootstrap and no coverage.
-	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
-		Describe("Asset Transfer Secured Agreement (With Approvers)", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
-			It("succeeded", s.TestSucceeded)
-		})
-	}
+	Describe("Asset Transfer Secured Agreement (With Approvers)", Label(nwofsc.WebSocket), func() {
+		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("issues an asset and transfers it after a sell and buy agreement", s.TestSucceeded)
+	})
 
 	Describe("Asset Transfer Secured Agreement (With Approvers) with replicas", Label(nwofsc.WebSocket), func() {
 		s := NewTestSuite(
@@ -53,7 +51,7 @@ var _ = Describe("EndToEnd", func() {
 		AfterEach(s.TearDown)
 		// One spec: alice.0 agrees to sell and alice.1 transfers, which is the
 		// cross-replica read replication adds. Permuting the indices adds nothing.
-		It("succeeded", func() {
+		It("transfers an asset from a replica other than the one that agreed to sell it", func() {
 			s.TestSucceededWithUsers(node{"issuer", "fsc.issuer.0"}, node{"alice", "fsc.alice.0"}, node{"bob", "fsc.bob.0"}, node{"alice", "fsc.alice.1"})
 		})
 	})

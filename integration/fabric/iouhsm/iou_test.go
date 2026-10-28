@@ -21,14 +21,12 @@ import (
 var _ = Describe("EndToEnd", func() {
 	// websocket only: identical p2p path to fabric/iou, which keeps libp2p. The
 	// variable under test here is HSM signing, not the transport.
-	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket} {
-		Describe("IOU (With HSM) Life Cycle", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
-			It("succeeded", s.TestSucceeded)
-		})
-	}
+	Describe("IOU (With HSM) Life Cycle", Label(fsc.WebSocket), func() {
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("creates and updates IOUs signed with HSM keys", s.TestSucceeded)
+	})
 
 	Describe("IOU (With HSM) Life Cycle With Websockets and replicas", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
@@ -43,7 +41,7 @@ var _ = Describe("EndToEnd", func() {
 		})
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceededWithReplicas)
+		It("creates and updates IOUs signed with HSM keys on every replica", s.TestSucceededWithReplicas)
 	})
 })
 

@@ -29,10 +29,10 @@ var _ = Describe("EndToEnd", func() {
 		BeforeAll(s.Setup)
 		AfterAll(s.TearDown)
 
-		It("clients listening to single chaincode events", s.TestSingleChaincodeEvents)
-		It("client listening to multiple chaincode events", s.TestMultipleChaincodeEvents)
-		It("multiple clients unsubscribing", s.TestMultipleListenersAndUnsubscribe)
-		It("Upgrade Chaincode", s.TestUpgradeChaincode)
+		It("delivers a chaincode event to the client that listens for it", s.TestSingleChaincodeEvents)
+		It("delivers several chaincode events to one listener", s.TestMultipleChaincodeEvents)
+		It("delivers a chaincode event to many listeners that then unsubscribe", s.TestMultipleListenersAndUnsubscribe)
+		It("receives events from the upgraded chaincode", s.TestUpgradeChaincode)
 	})
 })
 
