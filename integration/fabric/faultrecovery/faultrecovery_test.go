@@ -100,10 +100,9 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 	})
 })
 
-// Its own Describe, so the shortened commit retry budget applies to these specs only. Each
-// spec gets its own network: the failover spec kills bob's primary and points bob at the
-// standby for good.
-var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Label(fsc.WebSocket, postgresOutage), func() {
+// Its own Describe, so the shortened commit retry budget applies to these specs only. The
+// specs share one network, see faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ordered, ContinueOnFailure, Label(fsc.WebSocket, postgresOutage), func() {
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		ii, err := newInfrastructure()
 		if err != nil {
@@ -114,8 +113,7 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 		fabricfaultrecovery.SetCommitRetries(ii, "bob", 1, time.Second)
 		return ii, nil
 	})
-	BeforeEach(s.Setup)
-	AfterEach(s.TearDown)
+	faultrecovery.ShareNetwork(s)
 
 	It("resumes commits after Postgres restart", func() {
 		db := faultrecovery.DBName(dbPrefix, "bob")
@@ -157,6 +155,7 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Lab
 		Expect(faultrecovery.MetricSum(s.II, "bob", commitFailures)).To(Equal(failures))
 	})
 
+	// Must stay the last spec: it kills bob's primary and points bob at the standby for good.
 	It("fails over to a promoted Postgres standby", func() {
 		db := faultrecovery.DataSource(s.II, "bob")
 		primary, standby := db.Container, db.Container+"-standby"

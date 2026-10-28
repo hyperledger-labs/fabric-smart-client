@@ -232,13 +232,15 @@ The specs in the main `Describe` of each faultrecovery suite share one network
 network is set up once rather than per spec. A spec there must leave the network
 healthy: restart every node it stops or kills, bring back every database, and leave the
 node configuration alone. After a spec fails, the network is rebuilt before the next one.
-A spec that cannot restore the network, or that changes the configuration before the
-network starts (such as `SetCommitRetries`), goes in a `Describe` that sets up its own
-network per spec (`BeforeEach(s.Setup)`, `AfterEach(s.TearDown)`). To run that
+A spec that changes the network for good may share it only as the last spec of an
+`Ordered` container, which runs its specs in declaration order. Specs that change the
+configuration before the network starts (such as `SetCommitRetries`) go in a `Describe`
+of their own with its own generator, which can again use `ShareNetwork`. To run that
 `Describe` as a parallel CI job, label it, give the label its own target in the
 `Makefile`, and exclude the label in the default target's negative filter. The Fabric
-suite's `postgres-outage` label and the `fabric-faultrecovery-postgres-outage` target
-are the example.
+suite's `postgres-outage` `Describe` and the `fabric-faultrecovery-postgres-outage`
+target are the example; its failover spec is last because it points bob at another
+database.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.
