@@ -90,8 +90,11 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum cdriver.Bl
 	return nil
 }
 
-// CommitEndorserTransaction commits the transaction to the vault.
-// It returns true, if the transaction was already processed, false otherwise.
+// CommitEndorserTransaction commits a transaction that Fabric found valid to the
+// vault. It returns true if the vault already holds a final status for the
+// transaction, which it keeps: a transaction this node marked Invalid stays
+// Invalid and its writes are not applied. It returns false otherwise, after
+// committing the transaction or skipping one this node does not track.
 func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 
