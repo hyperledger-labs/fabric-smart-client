@@ -19,7 +19,7 @@ when to reach for `assert` instead of `require`.
 Scope every run to what you changed:
 
 ```bash
-make unit-tests                                             # all unit tests except Postgres
+make unit-tests                                             # all unit tests except root-module Postgres tests
 make unit-tests-root                                        # only the root module
 go test -run TestMyTest ./platform/view/...                  # one test
 TEST_PKGS=./platform/common/utils/... make unit-tests-root   # one package tree
