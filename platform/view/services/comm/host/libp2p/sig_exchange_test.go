@@ -85,7 +85,8 @@ func (ecdsaSigDeserializer) Info(raw, _ []byte) (string, error) {
 // between Alice and Bob. Each node signs with the ECDSA secret key of the very
 // key-pair used to instantiate its libp2p host, and the counterparty verifies
 // using the public key resolved from the session's RemotePKID.
-func TestSignedSessionExchange(t *testing.T) { //nolint:paralleltest
+func TestSignedSessionExchange(t *testing.T) {
+	t.Parallel()
 	aliceKey := newLibp2pKey(t)
 	bobKey := newLibp2pKey(t)
 

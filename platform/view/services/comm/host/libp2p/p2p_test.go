@@ -43,34 +43,40 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestP2PLayerTestRound(t *testing.T) { //nolint:paralleltest
+func TestP2PLayerTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsForMPCTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsForMPCTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsMultipleMessagesTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsTwoNodesTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node1, node2 := setupThreeNodes(t)
 	<-time.After(100 * time.Millisecond)
 
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 2)
 }
 
-func TestSessionChurn_NoLostReplies(t *testing.T) { //nolint:paralleltest
+func TestSessionChurn_NoLostReplies(t *testing.T) {
+	t.Parallel()
 	a, z := setupTwoNodes(t)
 	ctx := context.Background()
 	a.Start(ctx)
