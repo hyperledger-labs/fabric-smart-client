@@ -234,8 +234,9 @@ INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-configupdate
 INTEGRATION_TARGETS += fabric-events
 INTEGRATION_TARGETS += fabric-faultrecovery
-# fabric/faultrecovery runs the specs that need a network of their own in a
-# second target, so CI runs them in parallel with the ones that share one.
+# fabric/faultrecovery runs its long Postgres outage specs, which set a shortened
+# commit retry budget before their network starts, in a second target, so CI
+# runs them in parallel with the rest of the suite.
 INTEGRATION_TARGETS += fabric-faultrecovery-postgres-outage
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs

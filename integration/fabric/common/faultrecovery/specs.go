@@ -41,9 +41,9 @@ const viewContexts = "fsc_view_services_view_contexts"
 // again, every database is up, and the node configuration is unchanged. A spec that fails
 // may leave the network broken, so the network is rebuilt before the next spec runs; if
 // the rebuild fails, that spec fails before its body runs and the next one tries again.
-// A spec that changes the network for good goes in a Describe with its own network per
-// spec. When the suite timeout expires, ginkgo skips the remaining specs without running
-// AfterAll, so the network is left running.
+// A spec that changes the network for good may share it only as the last spec of the
+// container. When the suite timeout expires, ginkgo skips the remaining specs without
+// running AfterAll, so the network is left running.
 func ShareNetwork(s *integration.TestSuite) {
 	var broken bool
 	ginkgo.BeforeAll(s.Setup)
