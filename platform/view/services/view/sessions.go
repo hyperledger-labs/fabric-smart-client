@@ -8,6 +8,8 @@ package view
 
 import (
 	"io"
+	"maps"
+	"slices"
 	"sync"
 
 	"go.uber.org/zap/zapcore"
@@ -100,15 +102,12 @@ func (s *Sessions) Reset() {
 	s.s = map[string]view.Session{}
 }
 
-// GetSessionInfos returns the info of all registered sessions.
-func (s *Sessions) GetSessionInfos() []view.SessionInfo {
+// All returns all registered sessions. A session registered under several keys is returned once
+// per key.
+func (s *Sessions) All() []view.Session {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	infos := make([]view.SessionInfo, 0, len(s.s))
-	for _, session := range s.s {
-		infos = append(infos, session.Info())
-	}
-	return infos
+	return slices.Collect(maps.Values(s.s))
 }
 
 func lookupKey(viewID string, party view.Identity) string {

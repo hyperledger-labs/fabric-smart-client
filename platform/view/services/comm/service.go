@@ -141,14 +141,6 @@ func (s *Service) NewSession(caller, contextID, endpoint string, pkid []byte) (v
 	return s.Node.NewSession(caller, contextID, endpoint, pkid)
 }
 
-func (s *Service) DeleteSession(ctx context.Context, sessionID string, pkid []byte) {
-	if err := s.init(); err != nil {
-		logger.Warnf("%s, cannot delete session", ErrNotInitialized)
-		return
-	}
-	s.Node.DeleteSession(ctx, sessionID, pkid)
-}
-
 func (s *Service) init() error {
 	s.NodeSync.RLock()
 	if s.Node != nil {

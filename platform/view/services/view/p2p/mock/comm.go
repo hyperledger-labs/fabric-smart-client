@@ -10,18 +10,10 @@ import (
 )
 
 type CommLayer struct {
-	DeleteSessionStub        func(context.Context, string, []byte)
-	deleteSessionMutex       sync.RWMutex
-	deleteSessionArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-		arg3 []byte
-	}
 	MasterSessionStub        func() (view.Session, error)
 	masterSessionMutex       sync.RWMutex
-	masterSessionArgsForCall []struct {
-	}
-	masterSessionReturns struct {
+	masterSessionArgsForCall []struct{}
+	masterSessionReturns     struct {
 		result1 view.Session
 		result2 error
 	}
@@ -31,11 +23,8 @@ type CommLayer struct {
 	}
 	NewResponderSessionStub        func([]byte, *view.Message) (view.Session, error)
 	newResponderSessionMutex       sync.RWMutex
-	newResponderSessionArgsForCall []struct {
-		arg1 []byte
-		arg2 *view.Message
-	}
-	newResponderSessionReturns struct {
+	newResponderSessionArgsForCall []CommLayerNewResponderSessionArgs
+	newResponderSessionReturns     struct {
 		result1 view.Session
 		result2 error
 	}
@@ -45,65 +34,35 @@ type CommLayer struct {
 	}
 	ReplyErrorStub        func(context.Context, *view.Message, []byte) error
 	replyErrorMutex       sync.RWMutex
-	replyErrorArgsForCall []struct {
-		arg1 context.Context
-		arg2 *view.Message
-		arg3 []byte
-	}
-	replyErrorReturns struct {
+	replyErrorArgsForCall []CommLayerReplyErrorArgs
+	replyErrorReturns     struct {
 		result1 error
 	}
 	replyErrorReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CommLayer) DeleteSession(arg1 context.Context, arg2 string, arg3 []byte) {
-	var arg3Copy []byte
-	if arg3 != nil {
-		arg3Copy = make([]byte, len(arg3))
-		copy(arg3Copy, arg3)
-	}
-	fake.deleteSessionMutex.Lock()
-	fake.deleteSessionArgsForCall = append(fake.deleteSessionArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-		arg3 []byte
-	}{arg1, arg2, arg3Copy})
-	stub := fake.DeleteSessionStub
-	fake.recordInvocation("DeleteSession", []interface{}{arg1, arg2, arg3Copy})
-	fake.deleteSessionMutex.Unlock()
-	if stub != nil {
-		fake.DeleteSessionStub(arg1, arg2, arg3)
-	}
+// CommLayerNewResponderSessionArgs holds the arguments of one call to NewResponderSession.
+type CommLayerNewResponderSessionArgs struct {
+	Arg1 []byte
+	Arg2 *view.Message
 }
 
-func (fake *CommLayer) DeleteSessionCallCount() int {
-	fake.deleteSessionMutex.RLock()
-	defer fake.deleteSessionMutex.RUnlock()
-	return len(fake.deleteSessionArgsForCall)
-}
-
-func (fake *CommLayer) DeleteSessionCalls(stub func(context.Context, string, []byte)) {
-	fake.deleteSessionMutex.Lock()
-	defer fake.deleteSessionMutex.Unlock()
-	fake.DeleteSessionStub = stub
-}
-
-func (fake *CommLayer) DeleteSessionArgsForCall(i int) (context.Context, string, []byte) {
-	fake.deleteSessionMutex.RLock()
-	defer fake.deleteSessionMutex.RUnlock()
-	argsForCall := fake.deleteSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+// CommLayerReplyErrorArgs holds the arguments of one call to ReplyError.
+type CommLayerReplyErrorArgs struct {
+	Arg1 context.Context
+	Arg2 *view.Message
+	Arg3 []byte
 }
 
 func (fake *CommLayer) MasterSession() (view.Session, error) {
 	fake.masterSessionMutex.Lock()
 	ret, specificReturn := fake.masterSessionReturnsOnCall[len(fake.masterSessionArgsForCall)]
-	fake.masterSessionArgsForCall = append(fake.masterSessionArgsForCall, struct {
-	}{})
+	fake.masterSessionArgsForCall = append(fake.masterSessionArgsForCall, struct{}{})
 	stub := fake.MasterSessionStub
 	fakeReturns := fake.masterSessionReturns
 	fake.recordInvocation("MasterSession", []interface{}{})
@@ -163,10 +122,7 @@ func (fake *CommLayer) NewResponderSession(arg1 []byte, arg2 *view.Message) (vie
 	}
 	fake.newResponderSessionMutex.Lock()
 	ret, specificReturn := fake.newResponderSessionReturnsOnCall[len(fake.newResponderSessionArgsForCall)]
-	fake.newResponderSessionArgsForCall = append(fake.newResponderSessionArgsForCall, struct {
-		arg1 []byte
-		arg2 *view.Message
-	}{arg1Copy, arg2})
+	fake.newResponderSessionArgsForCall = append(fake.newResponderSessionArgsForCall, CommLayerNewResponderSessionArgs{arg1Copy, arg2})
 	stub := fake.NewResponderSessionStub
 	fakeReturns := fake.newResponderSessionReturns
 	fake.recordInvocation("NewResponderSession", []interface{}{arg1Copy, arg2})
@@ -196,7 +152,15 @@ func (fake *CommLayer) NewResponderSessionArgsForCall(i int) ([]byte, *view.Mess
 	fake.newResponderSessionMutex.RLock()
 	defer fake.newResponderSessionMutex.RUnlock()
 	argsForCall := fake.newResponderSessionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *CommLayer) NewResponderSessionArgs() []CommLayerNewResponderSessionArgs {
+	fake.newResponderSessionMutex.RLock()
+	defer fake.newResponderSessionMutex.RUnlock()
+	args := make([]CommLayerNewResponderSessionArgs, len(fake.newResponderSessionArgsForCall))
+	copy(args, fake.newResponderSessionArgsForCall)
+	return args
 }
 
 func (fake *CommLayer) NewResponderSessionReturns(result1 view.Session, result2 error) {
@@ -233,11 +197,7 @@ func (fake *CommLayer) ReplyError(arg1 context.Context, arg2 *view.Message, arg3
 	}
 	fake.replyErrorMutex.Lock()
 	ret, specificReturn := fake.replyErrorReturnsOnCall[len(fake.replyErrorArgsForCall)]
-	fake.replyErrorArgsForCall = append(fake.replyErrorArgsForCall, struct {
-		arg1 context.Context
-		arg2 *view.Message
-		arg3 []byte
-	}{arg1, arg2, arg3Copy})
+	fake.replyErrorArgsForCall = append(fake.replyErrorArgsForCall, CommLayerReplyErrorArgs{arg1, arg2, arg3Copy})
 	stub := fake.ReplyErrorStub
 	fakeReturns := fake.replyErrorReturns
 	fake.recordInvocation("ReplyError", []interface{}{arg1, arg2, arg3Copy})
@@ -267,7 +227,15 @@ func (fake *CommLayer) ReplyErrorArgsForCall(i int) (context.Context, *view.Mess
 	fake.replyErrorMutex.RLock()
 	defer fake.replyErrorMutex.RUnlock()
 	argsForCall := fake.replyErrorArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *CommLayer) ReplyErrorArgs() []CommLayerReplyErrorArgs {
+	fake.replyErrorMutex.RLock()
+	defer fake.replyErrorMutex.RUnlock()
+	args := make([]CommLayerReplyErrorArgs, len(fake.replyErrorArgsForCall))
+	copy(args, fake.replyErrorArgsForCall)
+	return args
 }
 
 func (fake *CommLayer) ReplyErrorReturns(result1 error) {
@@ -303,9 +271,18 @@ func (fake *CommLayer) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *CommLayer) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *CommLayer) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

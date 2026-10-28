@@ -189,6 +189,8 @@ func TestServiceStartRetryDelay(t *testing.T) { //nolint:paralleltest
 // Mock implementations for timeout tests
 type mockSenderTimeout struct{}
 
+func (*mockSenderTimeout) unregister(*NetworkStreamSession, bool) {}
+
 func (*mockSenderTimeout) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	return nil
 }

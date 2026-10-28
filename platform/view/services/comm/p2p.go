@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 
@@ -34,6 +35,11 @@ const (
 	// DefaultDispatcherWorkers is the number of dispatcher goroutines. A single one keeps the
 	// messages of each session in arrival order.
 	DefaultDispatcherWorkers = 1
+
+	// closedSessionTTL is how long messages for a session that closed on its own are dropped. Such
+	// messages continue a protocol the session can no longer serve, so the master session must not
+	// start a new responder for them.
+	closedSessionTTL = time.Minute
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -46,13 +52,16 @@ type messageWithStream struct {
 }
 
 type P2PNode struct {
-	host                       host.P2PHost
-	incomingMessages           chan *messageWithStream
-	streamsMutex               sync.RWMutex
-	streams                    map[host.StreamHash][]*streamHandler
-	dispatchMutex              sync.Mutex
-	sessionsMutex              sync.Mutex
-	sessions                   map[string]*NetworkStreamSession
+	host             host.P2PHost
+	incomingMessages chan *messageWithStream
+	streamsMutex     sync.RWMutex
+	streams          map[host.StreamHash][]*streamHandler
+	dispatchMutex    sync.Mutex
+	sessionsMutex    sync.Mutex
+	sessions         map[string]*NetworkStreamSession
+	// selfClosed maps the registry key of each session that closed on its own to when it closed,
+	// see closedSessionTTL. Guarded by sessionsMutex.
+	selfClosed                 map[string]time.Time
 	finderWg                   sync.WaitGroup
 	handlersWg                 sync.WaitGroup
 	dispatchWg                 sync.WaitGroup
@@ -85,6 +94,7 @@ func NewNodeWithConfig(ctx context.Context, h host.P2PHost, metricsProvider metr
 		incomingMessages:           make(chan *messageWithStream, cfg.incomingMessagesBufferSize),
 		streams:                    make(map[host.StreamHash][]*streamHandler),
 		sessions:                   make(map[string]*NetworkStreamSession),
+		selfClosed:                 make(map[string]time.Time),
 		isStopping:                 false,
 		ctx:                        nodeCtx,
 		cancel:                     cancel,
@@ -180,7 +190,15 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			} else {
 				logger.Debugf("internal session [%s] not found", internalSessionID)
 			}
+			closedAt, selfClosed := p.selfClosed[internalSessionID]
 			p.sessionsMutex.Unlock()
+
+			if !in && selfClosed && time.Since(closedAt) < closedSessionTTL {
+				p.dispatchMutex.Unlock()
+				p.m.DroppedMessages.Add(1)
+				logger.Warnf("dropping message from %s for session [%s]: the session closed", msg.message.Caller, msg.message.SessionID)
+				continue
+			}
 
 			if !in {
 				logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)

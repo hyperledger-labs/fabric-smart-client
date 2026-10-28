@@ -31,6 +31,9 @@ const sessionStreamGrace = 5 * time.Second
 
 type sender interface {
 	sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error
+	// unregister removes session from the node's registry, if it is registered. selfClosed
+	// tells that the session closed on its own rather than by a Close call.
+	unregister(session *NetworkStreamSession, selfClosed bool)
 }
 
 // NetworkStreamSession implements view.Session
@@ -202,7 +205,8 @@ func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
 	}
 }
 
-// Close releases all the resources allocated by this session
+// Close releases all the resources allocated by this session and removes it from the node's
+// registry.
 func (n *NetworkStreamSession) Close() {
 	n.closeInternal()
 }
@@ -215,15 +219,19 @@ func (n *NetworkStreamSession) closeInternal() {
 		n.closeStreams()
 		return
 	}
+	n.node.unregister(n, false)
 	n.finishClose()
 }
 
-// closeAsync marks the session closing before it returns, so the session refuses every later
-// message, and finishes closing in the background, because that waits for the forwarder to drain.
+// closeAsync closes a session that cannot continue: its consumer stopped draining or it lost its
+// streams. It marks the session closing and removes it from the registry before it returns, so the
+// session refuses every later message, and finishes closing in the background, because that waits
+// for the forwarder to drain.
 func (n *NetworkStreamSession) closeAsync() {
 	if n.isClosing.Swap(true) {
 		return
 	}
+	n.node.unregister(n, true)
 	go n.finishClose()
 }
 

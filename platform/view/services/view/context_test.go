@@ -154,13 +154,8 @@ func TestContext(t *testing.T) {
 	responderSession.InfoReturns(view.SessionInfo{ID: "s1", Caller: view.Identity("caller"), RemotePKID: []byte("pkid")})
 	ctx, _ = viewservice.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, responderSession, nil, emptyTracer, lic)
 	ctx.Dispose()
-	// NewContext also registers the default session for its caller, so it is deleted twice.
-	require.Equal(t, 2, sessionFactory.DeleteSessionCallCount())
-	for i := range 2 {
-		_, id, pkid := sessionFactory.DeleteSessionArgsForCall(i)
-		require.Equal(t, "s1", id)
-		require.Equal(t, []byte("pkid"), pkid)
-	}
+	// NewContext also registers the default session for its caller, so it is closed twice.
+	require.Equal(t, 2, responderSession.CloseCallCount())
 }
 
 func TestContextGetSession(t *testing.T) {

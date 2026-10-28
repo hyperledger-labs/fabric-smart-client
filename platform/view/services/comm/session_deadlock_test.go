@@ -201,6 +201,8 @@ func TestSessionRecoverAfterClose(t *testing.T) { //nolint:paralleltest
 // mockSenderDeadlock implements the sender interface for testing.
 type mockSenderDeadlock struct{}
 
+func (*mockSenderDeadlock) unregister(*NetworkStreamSession, bool) {}
+
 func (*mockSenderDeadlock) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	// For the purpose of this test, we just need to avoid errors.
 	return nil

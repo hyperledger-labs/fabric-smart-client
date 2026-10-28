@@ -90,7 +90,7 @@ func BenchmarkSessionSetup(b *testing.B) {
 		b.Run("transport="+t.name, func(b *testing.B) {
 			a, z := t.pair(b)
 			serveEcho(b, z)
-			closeSession(b.Context(), a, z, openSession(b, a, z))
+			closeSession(b.Context(), openSession(b, a, z))
 			payload := make([]byte, 64)
 			lat := make([]time.Duration, b.N)
 
@@ -105,7 +105,7 @@ func BenchmarkSessionSetup(b *testing.B) {
 				if err := roundTrip(b.Context(), s, payload); err != nil {
 					b.Fatal(err)
 				}
-				closeSession(b.Context(), a, z, s)
+				closeSession(b.Context(), s)
 				lat[i] = time.Since(start)
 			}
 			benchmark.ReportTPS(b)
@@ -232,7 +232,7 @@ func openSession(b *testing.B, a, z *node) view.Session {
 		if err == nil {
 			return s
 		}
-		a.DeleteSession(b.Context(), s.Info().ID, []byte(z.ID))
+		s.Close()
 		if time.Now().After(deadline) {
 			b.Fatalf("no reply from [%s]: %v", z.Address, err)
 		}
@@ -240,10 +240,10 @@ func openSession(b *testing.B, a, z *node) view.Session {
 	}
 }
 
-// closeSession tells z's echo responder to end session s, then removes s from a.
-func closeSession(ctx context.Context, a, z *node, s view.Session) {
+// closeSession tells the echo responder to end session s, then closes s.
+func closeSession(ctx context.Context, s view.Session) {
 	_ = s.Send(ctx, bye)
-	a.DeleteSession(ctx, s.Info().ID, []byte(z.ID))
+	s.Close()
 }
 
 // roundTrip sends payload on s and waits for the echo.
@@ -294,14 +294,14 @@ func serveEcho(b *testing.B, n *node) {
 					b.Error(err)
 					continue
 				}
-				wg.Go(func() { echo(ctx, n, s, msg) })
+				wg.Go(func() { echo(ctx, s, msg) })
 			}
 		}
 	})
 }
 
-func echo(ctx context.Context, n *node, s view.Session, msg *view.Message) {
-	defer n.DeleteSession(ctx, msg.SessionID, msg.FromPKID)
+func echo(ctx context.Context, s view.Session, msg *view.Message) {
+	defer s.Close()
 	for !bytes.Equal(msg.Payload, bye) {
 		if err := s.Send(ctx, msg.Payload); err != nil {
 			return
