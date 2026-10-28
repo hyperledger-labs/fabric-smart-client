@@ -16,8 +16,11 @@ import (
 )
 
 func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
-	// Define two Fabric topologies
+	// Define two Fabric topologies. alpha runs without TLS and beta with it: this suite covers
+	// committing on Fabric without TLS, and alice's node querying a plaintext and a TLS
+	// network at once. alpha is alice's default network, the one Ping commits on.
 	f1Topology := fabric.NewTopologyWithName("alpha").SetDefault()
+	f1Topology.TLSEnabled = false
 	f1Topology.AddOrganizationsByName("Org1", "Org2")
 	f1Topology.SetNamespaceApproverOrgs("Org1")
 	f1Topology.AddNamespace("ns1", topology.Unanimity("Org1"))

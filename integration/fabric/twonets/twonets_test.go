@@ -24,7 +24,7 @@ var _ = Describe("EndToEnd", func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("pings a node on two Fabric networks and gets back the same network names", s.TestSucceeded)
+		It("pings a node on two Fabric networks, queries both and commits on the plaintext one", s.TestSucceeded)
 	})
 })
 

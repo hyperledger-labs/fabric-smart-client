@@ -21,7 +21,6 @@ import (
 type Opts struct {
 	CommType        fsc.P2PCommunicationType
 	ReplicationOpts *integration.ReplicationOptions
-	TLSEnabled      bool
 }
 
 func Topology(opts *Opts) []api.Topology {
@@ -32,7 +31,6 @@ func Topology(opts *Opts) []api.Topology {
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespace("iou", topology.Unanimity("Org1"))
-	fabricTopology.TLSEnabled = opts.TLSEnabled
 
 	// Define an FSC topology with 3 FSC nodes.
 	// One for the approver, one for the borrower, and one for the lender.
