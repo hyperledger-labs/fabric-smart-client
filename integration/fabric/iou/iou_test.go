@@ -25,26 +25,18 @@ var _ = Describe("EndToEnd", func() {
 	// collecting endorsements), so it is where libp2p is worth its cost.
 	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
 		Describe("IOU Life Cycle", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication, true)
+			s := NewTestSuite(c, integration.NoReplication)
 			BeforeEach(s.Setup)
 			AfterEach(s.TearDown)
 			It("creates and updates an IOU with approvers and records its metrics and traces", s.TestSucceeded)
 		})
 	}
 
-	// The variants below vary TLS and replication, not the transport, so they
-	// run on websocket only. They still carry the label: a --label-filter
-	// selects only labelled specs, so an unlabelled Describe would be skipped.
-	Describe("IOU Life Cycle With Websockets and no TLS", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("creates and updates an IOU with approvers and records its metrics and traces", s.TestSucceeded)
-	})
-
-	// The replicas also cover the storage options of nwo: the borrower prefixes its tables and
-	// keeps its KVS in a second database, the lender connects over TLS, and the approvers keep
-	// the SQLite defaults.
+	// The replicas variant varies replication, not the transport, so it runs on websocket only.
+	// It still carries the label: a --label-filter selects only labelled specs, so an unlabelled
+	// Describe would be skipped. The replicas also cover the storage options of nwo: the
+	// borrower prefixes its tables and keeps its KVS in a second database, the lender connects
+	// over TLS, and the approvers keep the SQLite defaults.
 	Describe("IOU Life Cycle With Websockets and replicas", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(
 			fsc.WebSocket,
@@ -66,7 +58,6 @@ var _ = Describe("EndToEnd", func() {
 					"lender": {fabric.WithPostgresTLS(common.DefaultPersistence)},
 				},
 			},
-			true,
 		)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
@@ -78,12 +69,11 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, tlsEnabled bool) *TestSuite {
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{TestSuite: integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		return integration.Generate(StartPort(), integration.WithRaceDetection, iou.Topology(&iou.Opts{
 			CommType:        commType,
 			ReplicationOpts: nodeOpts,
-			TLSEnabled:      tlsEnabled,
 		})...)
 	})}
 }

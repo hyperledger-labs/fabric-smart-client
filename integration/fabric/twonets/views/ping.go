@@ -19,6 +19,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// Ping checks that alice and bob see the same Fabric networks and that alice reaches
+// every one of them. It exchanges a ping/pong with bob over FSC p2p, then queries
+// the ledger of each network's default channel, a gRPC round trip to a peer of that
+// network with that network's TLS settings.
 type Ping struct{}
 
 func (*Ping) Call(viewCtx view.Context) (any, error) {
@@ -29,16 +33,17 @@ func (*Ping) Call(viewCtx view.Context) (any, error) {
 
 	// Open a session to the responder
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
-	assert.NoError(err) // Send a ping
+	assert.NoError(err)
+	// Send a ping and wait for the pong
 	err = session.Send(viewCtx.Context(), []byte("ping"))
-	assert.NoError(err) // Wait for the pong
+	assert.NoError(err)
 	ch := session.Receive()
+	var names []string
 	select {
 	case msg := <-ch:
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
-		var names []string
 		assert.NoError(json.Unmarshal(msg.Payload, &names))
 		sort.Strings(names)
 		names2, err := fabric.GetFabricNetworkNames(viewCtx)
@@ -51,7 +56,16 @@ func (*Ping) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.New("responder didn't pong in time")
 	}
 
-	// Return
+	for _, name := range names {
+		_, channel, err := fabric.GetChannel(viewCtx, name, "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "network [%s]", name)
+		}
+		if _, err := channel.Ledger().GetLedgerInfo(); err != nil {
+			return nil, errors.Wrapf(err, "network [%s]: querying the ledger", name)
+		}
+	}
+
 	return "OK", nil
 }
 

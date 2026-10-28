@@ -127,7 +127,7 @@ a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
 
 A suite that runs one comm type writes the `Describe` once, as
 `Describe("My Life Cycle", Label(fsc.WebSocket), func() { /* ... */ })`. Label websocket-only variants
-(replication, no-TLS) the same way: `--label-filter` selects only labelled specs, so
+(e.g. replication) the same way: `--label-filter` selects only labelled specs, so
 an unlabelled `Describe` is silently skipped when a filter is in play.
 
 Label a `Describe` for the transport it *runs*, not the one it was handed. A suite
