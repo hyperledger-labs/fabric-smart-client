@@ -10,53 +10,60 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// SessionsNodesTestRound tests multiple parallel sessions between an initiator node and multiple other nodes
+// SessionsNodesTestRound opens numSessionsPerNode sessions from initiator to
+// each of nodes, running the per-node sequences in parallel, and fails unless
+// every session completes its full message exchange.
 func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode, numSessionsPerNode int) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
-	defer cancel()
 
 	initiator.Start(ctx)
+	waits := make([]func(), 0, len(nodes))
+	defer func() {
+		// Stop the responders and let their in-flight sessions finish before
+		// the nodes go away; this also runs when the count check fails.
+		cancel()
+		for _, wait := range waits {
+			wait()
+		}
+		initiator.Stop()
+		for _, n := range nodes {
+			n.Stop()
+		}
+	}()
 	for _, n := range nodes {
-		RunResponder(t, ctx, n)
+		waits = append(waits, RunResponder(t, ctx, n))
 		n.Start(ctx)
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(nodes))
-
-	// Initiator sessions
+	var completed atomic.Int64
 	for _, node := range nodes {
-		go func(targetNode *HostNode) {
-			defer wg.Done()
-			runInitiator(t, ctx, initiator, targetNode, numSessionsPerNode)
-		}(node)
+		wg.Go(func() {
+			completed.Add(int64(runInitiator(t, ctx, initiator, node, numSessionsPerNode)))
+		})
 	}
-
 	wg.Wait()
-	time.Sleep(500 * time.Millisecond)
-
-	initiator.Stop()
-	for _, n := range nodes {
-		n.Stop()
-	}
+	require.Equal(t, len(nodes)*numSessionsPerNode, int(completed.Load()), "sessions completed")
 }
 
-func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *HostNode, numSessionsPerNode int) {
+// runInitiator opens numSessionsPerNode sessions to targetNode one after the
+// other and returns how many of them completed the exchange.
+func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *HostNode, numSessionsPerNode int) int {
 	t.Helper()
 	for i := range numSessionsPerNode {
 		select {
 		case <-ctx.Done():
-			return
+			return i
 		default:
 		}
 
@@ -66,32 +73,30 @@ func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *
 		s, err := bootstrapNode.NewSession(caller, contextID, targetNode.Address, []byte(targetNode.ID))
 		if err != nil {
 			t.Errorf("Sender: failed to create session to %s: %v", targetNode.ID, err)
-			return
+			return i
 		}
-		assert.NotNil(t, s)
-
 		messagesToSend := messages(s.Info().ID)
 		err = s.Send(ctx, messagesToSend[0])
 		if err != nil {
 			t.Errorf("Sender [%s]: failed to send first message: %v", s.Info().ID, err)
-			return
+			return i
 		}
 
 		select {
 		case msg := <-s.Receive():
 			if msg == nil || string(msg.Payload) != "READY" {
 				t.Errorf("Sender [%s]: expected READY, got %v", s.Info().ID, msg)
-				return
+				return i
 			}
 		case <-ctx.Done():
 			t.Errorf("Sender [%s]: Timeout waiting for READY signal", s.Info().ID)
-			return
+			return i
 		}
 
 		for j := 1; j < len(messagesToSend); j++ {
 			if err := s.Send(ctx, messagesToSend[j]); err != nil {
 				t.Errorf("Sender [%s]: failed to send message %d: %v", s.Info().ID, j, err)
-				return
+				return i
 			}
 		}
 
@@ -99,45 +104,44 @@ func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *
 		case msg := <-s.Receive():
 			if msg == nil || string(msg.Payload) != "FINAL_ACK" {
 				t.Errorf("Sender [%s]: expected FINAL_ACK, got %v", s.Info().ID, msg)
-				return
+				return i
 			}
 		case <-ctx.Done():
 			t.Errorf("Sender [%s]: Timeout waiting for FINAL_ACK", s.Info().ID)
-			return
+			return i
 		}
 
 		s.Close()
 	}
+	return numSessionsPerNode
 }
 
-func RunResponder(t *testing.T, ctx context.Context, node *HostNode) {
+// RunResponder answers every session opened on node's master session until ctx
+// is done. It returns without blocking; the returned wait blocks until the
+// accept loop has exited and every session it accepted has been answered.
+func RunResponder(t *testing.T, ctx context.Context, node *HostNode) (wait func()) {
 	t.Helper()
 	masterSession, err := node.MasterSession()
 	require.NoError(t, err)
 	require.NotNil(t, masterSession)
 
+	// The accept loop is part of wg, so wg.Add for a new session never races
+	// with wg.Wait reaching zero.
 	var wg sync.WaitGroup
-	go func() {
+	wg.Go(func() {
 		for {
-			var firstMsg *view.Message
 			select {
-			case firstMsg = <-masterSession.Receive():
-				if firstMsg == nil {
+			case msg := <-masterSession.Receive():
+				if msg == nil {
 					return
 				}
+				wg.Go(func() { respondToSession(t, ctx, node, msg) })
 			case <-ctx.Done():
 				return
 			}
-
-			wg.Add(1)
-			go func(msg *view.Message) {
-				defer wg.Done()
-				respondToSession(t, ctx, node, msg)
-			}(firstMsg)
 		}
-	}()
-	<-ctx.Done()
-	wg.Wait()
+	})
+	return wg.Wait
 }
 
 func respondToSession(t *testing.T, ctx context.Context, node *HostNode, msg *view.Message) {
@@ -173,7 +177,6 @@ func respondToSession(t *testing.T, ctx context.Context, node *HostNode, msg *vi
 		}
 	}
 
-	time.Sleep(100 * time.Millisecond)
 	if err := s.Send(ctx, []byte("FINAL_ACK")); err != nil {
 		t.Errorf("Responder [%s]: failed to send FINAL_ACK: %v", msg.SessionID, err)
 	}
