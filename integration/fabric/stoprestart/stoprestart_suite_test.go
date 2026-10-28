@@ -20,6 +20,8 @@ func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RunSpecs(t, "Stop and Restart with Fabric Suite")
 }
 
+var _ = AfterSuite(integration.CleanupBuildArtifacts)
+
 func StartPort() int {
 	return integration.FabricStopRestart.StartPortForNode()
 }
