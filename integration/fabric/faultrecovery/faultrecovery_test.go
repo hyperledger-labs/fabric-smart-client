@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package faultrecovery_test
 
 import (
+	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,8 +16,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate"
 	fabricfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/faultrecovery"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -36,6 +39,9 @@ const (
 	// postgresOutage labels the long Postgres outage specs, which run in a target of
 	// their own.
 	postgresOutage = "postgres-outage"
+
+	// finalityWait is how long IsFinal on bob waits in the postgres-outage Describe.
+	finalityWait = 15 * time.Second
 )
 
 var (
@@ -184,6 +190,9 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		// A one-second commit retry budget, so a Postgres outage of a few seconds
 		// already outlasts it.
 		fabricfaultrecovery.SetCommitRetries(ii, "bob", 1, time.Second)
+		// IsFinal on bob gives up on a tx that is not final after finalityWait, so a spec
+		// sees the error for a tx that is never ordered without waiting the 300 s default.
+		fabricfaultrecovery.SetFinalityWaitTimeout(ii, "bob", finalityWait)
 		return ii, nil
 	})
 	faultrecovery.ShareNetwork(s)
@@ -226,6 +235,22 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		}
 		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
 		Expect(faultrecovery.MetricSum(s.II, "bob", commitFailures)).To(Equal(failures))
+	})
+
+	It("reports a never-ordered tx as busy after a restart", func() {
+		// Bob endorses the tx and holds it as Busy; alice never orders it.
+		tx := faultrecovery.Endorse(s.II, 1)
+		s.II.KillFSCNode("bob")
+		s.II.StartFSCNode("bob")
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		_, err := s.II.Client("bob").CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
+		Expect(err).To(MatchError(ContainSubstring(fdriver.ErrFinalityTimeout.Error())))
+		Expect(err).To(MatchError(ContainSubstring("last known status [busy]")))
+
+		// The stuck tx blocks nothing.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
 	// Must stay the last spec: it kills bob's primary and points bob at the standby for good.

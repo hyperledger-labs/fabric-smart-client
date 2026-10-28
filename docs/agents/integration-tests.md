@@ -220,8 +220,9 @@ replies, so a spec can kill bob mid-view. `MetricSum` reads a counter or gauge f
 node's metrics. Both nodes serve the `configseq` view, so a spec can change the channel
 configuration with the `configupdate` helpers (`SetBatchTimeout`, `ConfigSequenceOn`) and
 check which configuration a node holds. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
-budget before the network starts; call it in the generator of a `Describe` of its own, since
-it applies to every spec that shares that generator. `Query` returns a node's
+budget before the network starts, and `SetFinalityWaitTimeout` how long `IsFinal` waits
+for a transaction that is not final; call them in the generator of a `Describe` of its own,
+since they apply to every spec that shares that generator. `Query` returns a node's
 status for a transaction and the value it wrote. On Fabric-x a node's vault is the
 committer's query service, so `Query` answers the same on every node and does not show
 whether a restarted node has recovered. A view or helper both suites need goes there.
@@ -243,7 +244,8 @@ healthy: restart every node it stops or kills, bring back every database, and le
 node configuration alone. After a spec fails, the network is rebuilt before the next one.
 A spec that changes the network for good may share it only as the last spec of an
 `Ordered` container, which runs its specs in declaration order. Specs that change the
-configuration before the network starts (such as `SetCommitRetries`) go in a `Describe`
+configuration before the network starts (such as `SetCommitRetries` or
+`SetFinalityWaitTimeout`) go in a `Describe`
 of their own with its own generator, which can again use `ShareNetwork`. To run that
 `Describe` as a parallel CI job, label it, give the label its own target in the
 `Makefile`, and exclude the label in the default target's negative filter. The Fabric
