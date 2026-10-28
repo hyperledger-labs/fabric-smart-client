@@ -7,50 +7,44 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
+	"github.com/stretchr/testify/require"
 )
 
 const cliPackagePath = "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/fsccli"
 
-func TestCompile(t *testing.T) {
+// TestArtifactsGen builds the CLI, so it also covers the CLI compiling.
+func TestArtifactsGen(t *testing.T) {
 	t.Parallel()
-	gt := NewGomegaWithT(t)
-	_, err := gexec.Build(cliPackagePath)
-	gt.Expect(err).NotTo(HaveOccurred())
-	defer gexec.CleanupBuildArtifacts()
-}
 
-func TestArtifactsGen(t *testing.T) { //nolint:paralleltest
-	RegisterFailHandler(func(message string, _ ...int) {
-		panic(message)
-	})
+	cli := filepath.Join(t.TempDir(), "fsccli")
+	out, err := exec.Command("go", "build", "-o", cli, cliPackagePath).CombinedOutput()
+	require.NoError(t, err, string(out))
 
-	cli, err := gexec.Build(cliPackagePath)
-	Expect(err).NotTo(HaveOccurred())
-	defer gexec.CleanupBuildArtifacts()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
 
-	tmpDir := t.TempDir()
+	outDir := t.TempDir()
+	topology := filepath.Join("testdata", "fabric_iou.yaml")
+	cmd := exec.CommandContext(ctx, cli, "artifactsgen", "gen", "-t", topology, "-o", outDir)
+	// The CLI starts child processes that share its output pipe; without a
+	// WaitDelay, one that outlives the timeout would block CombinedOutput.
+	cmd.WaitDelay = 5 * time.Second
+	out, err = cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
 
-	topologyFolder := filepath.Join("testdata", "fabric_iou.yaml")
-	session, err := gexec.Start(exec.Command(cli, "artifactsgen", "gen", "-t", topologyFolder, "-o", tmpDir), GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(session, time.Minute*2).Should(gexec.Exit(0))
+	entries, err := os.ReadDir(outDir)
+	require.NoError(t, err)
 
-	entries, err := os.ReadDir(tmpDir)
-	Expect(err).NotTo(HaveOccurred())
-
-	var stringEntries []string
+	var names []string
 	for _, entry := range entries {
-		stringEntries = append(stringEntries, entry.Name())
+		names = append(names, entry.Name())
 	}
-
-	Expect(stringEntries).To(Equal([]string{"conf.json", "fabric.default", "fsc", "topology.yaml"}))
+	require.Equal(t, []string{"conf.json", "fabric.default", "fsc", "topology.yaml"}, names)
 }
