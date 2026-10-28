@@ -10,6 +10,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -25,6 +26,10 @@ import (
 // maxMetricsErrorBody bounds the body of a non-200 response quoted in an error.
 const maxMetricsErrorBody = 4 << 10
 
+// metricsTimeout bounds one scrape, so a stalled endpoint fails the call instead of
+// blocking a poll that waits on it.
+const metricsTimeout = 10 * time.Second
+
 // MetricsClient reads an FSC node's metrics from its operations endpoint (/metrics). It
 // reaches the listener over HTTP the way the view client's HTTP transport does, from a
 // grpc.ConnectionConfig.
@@ -39,10 +44,13 @@ func NewMetricsClient(cc *grpc.ConnectionConfig) (*MetricsClient, error) {
 	return &MetricsClient{http: c}, nil
 }
 
-// Metrics returns the metric families the node exposes.
+// Metrics returns the metric families the node exposes. The call fails if the endpoint has not
+// answered in full within metricsTimeout.
 func (c *MetricsClient) Metrics() (map[string]*dto.MetricFamily, error) {
 	url := c.http.URL + "/metrics"
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), metricsTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating request to [%s]", url)
 	}
