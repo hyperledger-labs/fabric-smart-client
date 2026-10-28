@@ -27,9 +27,9 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 	}
 
 	if pb.TxValidationCode(fabricValidationCode) == pb.TxValidationCode_VALID {
-		processed, err := c.CommitEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.TxNum, tx.Envelope, event)
+		alreadyValid, err := c.CommitEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.TxNum, tx.Envelope, event)
 		if err == nil {
-			if !processed {
+			if !alreadyValid {
 				if err := c.GetChaincodeEvents(tx.Envelope, tx.BlkNum); err != nil {
 					return nil, errors.Wrapf(err, "failed to publish chaincode events [%s]", event.TxID)
 				}
@@ -91,10 +91,20 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum cdriver.Bl
 }
 
 // CommitEndorserTransaction commits a transaction that Fabric found valid to the
-// vault. It returns true if the vault already holds a final status for the
-// transaction, which it keeps: a transaction this node marked Invalid stays
-// Invalid and its writes are not applied. It returns false otherwise, after
-// committing the transaction or skipping one this node does not track.
+// vault. It returns true if the vault already holds it as Valid, and false
+// otherwise, after committing the transaction or skipping one this node does not
+// track.
+//
+// A transaction the vault holds as Invalid is committed from the block envelope.
+// Fabric marks every repeated transaction ID as DUPLICATE_TXID, whatever the
+// status of the first occurrence, so a valid flag for a transaction this node
+// holds as Invalid means the node discarded it locally. Fabric's verdict
+// overrides that discard. The commit follows the Busy path: when this node holds
+// the transaction only as a stored envelope, the ordered read-write set is
+// matched against it, so a transaction discarded because the sets differ fails
+// with [ErrDiscardTX] again and stays Invalid. Like a Busy transaction, it is
+// committed without the namespace and transaction filters applied to
+// transactions this node does not track.
 func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 
@@ -112,9 +122,11 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 		// Nothing to commit
 		return true, nil
 	case driver.Invalid:
-		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
-		// Nothing to commit
-		return true, nil
+		logger.Debugf("transaction [%s] in block [%d] is marked as invalid locally, committing it as fabric found it valid", txID, blockNum)
+		if err := c.commitBusyTx(ctx, txID, blockNum, indexInBlock, env); err != nil {
+			return false, errors.Wrapf(err, "failed committing locally discarded transaction [%s]", txID)
+		}
+		return false, nil
 	}
 
 	if err := c.CommitTX(ctx, event.TxID, event.Block, event.IndexInBlock, env); err != nil {
@@ -123,10 +135,12 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 	return false, nil
 }
 
-// DiscardEndorserTransaction marks a transaction that Fabric found invalid as
-// Invalid in the vault. A transient vault failure is returned so the block is
-// retried; any other discard failure is logged, because it would recur on every
-// retry and stop the channel.
+// DiscardEndorserTransaction marks a transaction as Invalid in the vault, because
+// Fabric found it invalid or its commit failed with [ErrDiscardTX]. It sets
+// event.Err, so a caller waiting on the finality event sees the failure, unless
+// the vault already holds the transaction as Valid. A transient vault failure is
+// returned so the block is retried; any other discard failure is logged, because
+// it would recur on every retry and stop the channel.
 func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, envRaw []byte, event *FinalityEvent) error {
 	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 
@@ -138,10 +152,6 @@ func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string,
 	case driver.Valid:
 		// TODO: this might be due the fact that there are transactions with the same tx-id, the first is valid, the others are all invalid
 		logger.Warnf("transaction [%s] in block [%d] is marked as valid but for fabric is invalid", txID, blockNum)
-		return nil
-	case driver.Invalid:
-		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
-		// Nothing to commit
 		return nil
 	case driver.Unknown:
 		ok, err := c.filterUnknownEnvelope(ctx, txID, envRaw)

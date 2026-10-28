@@ -126,12 +126,12 @@ func TestVaultSQL_SetStatusesValid(t *testing.T) { //nolint:paralleltest
 
 	query, args, err := store.SetStatusesValid([]driver.TxID{"tx1", "tx2"})
 	Expect(err).ToNot(HaveOccurred())
-	Expect(query).To(Equal("UPDATE status SET code = $1 WHERE tx_id IN ($2,$3)"))
+	Expect(query).To(Equal("UPDATE status SET message = '', code = $1 WHERE tx_id IN ($2,$3)"))
 	Expect(args).To(Equal([]any{driver.Valid, "tx1", "tx2"}))
 
 	query, args, err = store.SetStatusesValid([]driver.TxID{"tx1"})
 	Expect(err).ToNot(HaveOccurred())
-	Expect(query).To(Equal("UPDATE status SET code = $1 WHERE tx_id IN ($2)"))
+	Expect(query).To(Equal("UPDATE status SET message = '', code = $1 WHERE tx_id IN ($2)"))
 	Expect(args).To(Equal([]any{driver.Valid, "tx1"}))
 }
 
