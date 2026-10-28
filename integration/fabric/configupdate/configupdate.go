@@ -5,18 +5,17 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 // Package configupdate drives Fabric channel configuration changes against a running
-// network, so that a test can observe how FSC nodes react to a CONFIG block that arrives
-// while they are up.
+// network, so that a test can observe how FSC nodes react to a CONFIG block, whether it
+// arrives while they are up or while they are down and is delivered after they restart.
 //
 // The FSC-side path under test lives in platform/fabric/core/generic/committer: a CONFIG
 // block reaches Committer.HandleConfig, which commits it to the vault, hands the envelope
 // to MembershipService.Update, and then calls applyConfigUpdates to re-read the channel's
-// orderer configuration and reconfigure the ordering service. Until this suite existed
-// that path only ever ran for a channel's genesis block, during start-up catch-up, and
-// nothing asserted on it.
+// orderer configuration and reconfigure the ordering service.
 package configupdate
 
 import (
+	"context"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -110,6 +109,12 @@ func SetBatchTimeout(ii *integration.Infrastructure, timeout time.Duration) {
 	network.UpdateOrdererConfig(h.Network, h.Orderer, h.Channel, config, updated, h.Peer, h.Orderer)
 }
 
+// configSeqViewTimeout bounds a single configseq call. gomega.Eventually runs its poll
+// function synchronously, so an unanswered view would block the polling loop itself rather
+// than expire with it; a bound well inside the callers' polling window instead fails the
+// current poll and leaves the loop free to retry.
+const configSeqViewTimeout = 15 * time.Second
+
 // ConfigSequenceOn returns the sequence number of the channel configuration the
 // named FSC node currently holds, as the node itself reports it.
 //
@@ -119,8 +124,13 @@ func SetBatchTimeout(ii *integration.Infrastructure, timeout time.Duration) {
 // asserting on it once. g asserts through the Gomega passed to the
 // gomega.Eventually poll function, so a transient view-call failure is a
 // retryable failure of that poll rather than an abort of the whole spec.
+// Each call is bounded by configSeqViewTimeout, so a node that does not answer
+// fails the poll instead of blocking it.
 func ConfigSequenceOn(g gomega.Gomega, ii *integration.Infrastructure, node string) int {
-	res, err := ii.Client(node).CallView("configseq", nil)
+	ctx, cancel := context.WithTimeout(context.Background(), configSeqViewTimeout)
+	defer cancel()
+
+	res, err := ii.Client(node).CallViewWithContext(ctx, "configseq", nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	return nwocommon.JSONUnmarshalInt(res)
 }

@@ -152,7 +152,7 @@ func ClientSpecs(s *integration.TestSuite) {
 			gomega.Expect(EchoWith(s.II, c, false)).To(gomega.Succeed())
 			s.II.StopFSCNode("alice")
 			s.II.StartFSCNode("alice")
-			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, recoveryTimeout, time.Second).Should(gomega.Succeed())
+			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, RecoveryTimeout, time.Second).Should(gomega.Succeed())
 		})
 
 		ginkgo.It("fails an in-flight "+cl.name+" call when the node dies", func() {
@@ -168,7 +168,7 @@ func ClientSpecs(s *integration.TestSuite) {
 			gomega.Expect(err).To(cl.failed)
 
 			s.II.StartFSCNode("alice")
-			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, recoveryTimeout, time.Second).Should(gomega.Succeed())
+			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, RecoveryTimeout, time.Second).Should(gomega.Succeed())
 		})
 	}
 }

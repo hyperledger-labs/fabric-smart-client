@@ -217,7 +217,9 @@ transaction is ordered. `OrderEventually` retries `Order` while the orderers rej
 broadcasts, for example during a raft leader election. `Echo` runs a two-party view that
 touches no ledger; with `block` set, bob's responder receives the message and never
 replies, so a spec can kill bob mid-view. `MetricSum` reads a counter or gauge from a
-node's metrics. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
+node's metrics. Both nodes serve the `configseq` view, so a spec can change the channel
+configuration with the `configupdate` helpers (`SetBatchTimeout`, `ConfigSequenceOn`) and
+check which configuration a node holds. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
 budget before the network starts; call it in the generator of a `Describe` of its own, since
 it applies to every spec that shares that generator. `Query` returns a node's
 status for a transaction and the value it wrote. On Fabric-x a node's vault is the

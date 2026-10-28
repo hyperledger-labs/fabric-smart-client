@@ -16,7 +16,6 @@ SPDX-License-Identifier: Apache-2.0
 package configupdate
 
 import (
-	"context"
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -28,7 +27,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	fabconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate"
-	nwocommon "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	fxnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )
@@ -49,13 +47,6 @@ func NetworkOf(ii *integration.Infrastructure) *fxnetwork.Network {
 	return p.Network
 }
 
-// configSeqViewTimeout bounds a single configseq call. gomega.Eventually runs its poll
-// function synchronously, so an unanswered view would block the polling loop itself rather
-// than expire with it; a bound well inside the callers' polling window instead fails the
-// current poll and leaves the loop free to retry. A node that has just been restarted is
-// the case that needs the room.
-const configSeqViewTimeout = 15 * time.Second
-
 // ConfigSequenceOn returns the channel configuration sequence the named FSC node currently
 // holds, as the node itself reports it through the configseq view.
 //
@@ -63,14 +54,10 @@ const configSeqViewTimeout = 15 * time.Second
 // the ordering service accepting it, so callers must poll this with gomega.Eventually
 // rather than asserting on it once. Pass that poll's Gomega as g: a transient view-call
 // failure then fails only the current poll, leaving the spec to retry, instead of
-// aborting it.
+// aborting it. The view and its call are the same as on Fabric, see
+// [fabconfigupdate.ConfigSequenceOn].
 func ConfigSequenceOn(g gomega.Gomega, ii *integration.Infrastructure, node string) int {
-	ctx, cancel := context.WithTimeout(context.Background(), configSeqViewTimeout)
-	defer cancel()
-
-	res, err := ii.Client(node).CallViewWithContext(ctx, "configseq", nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	return nwocommon.JSONUnmarshalInt(res)
+	return fabconfigupdate.ConfigSequenceOn(g, ii, node)
 }
 
 // BatchTimeout returns the orderer BatchTimeout in the channel configuration the committer
