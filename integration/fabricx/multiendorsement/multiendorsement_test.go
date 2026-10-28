@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/simple/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/multiendorsement"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"

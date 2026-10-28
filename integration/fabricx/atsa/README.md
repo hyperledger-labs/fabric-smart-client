@@ -2,7 +2,7 @@
 
 This suite runs the **A**sset **T**ransfer **S**ecured **A**greement flow
 (`Issue → AgreeToSell → AgreeToBuy → Transfer`) on the **FabricX** platform, reusing the
-`integration/fabric/atsa` views **unmodified** and exercising **idemix** (`alice`/`bob` run with
+`integration/fabric/common/atsa` views **unmodified** and exercising **idemix** (`alice`/`bob` run with
 `fabric.WithAnonymousIdentity()`, transactions built via `state.NewAnonymousTransaction`).
 
 ## What it validates

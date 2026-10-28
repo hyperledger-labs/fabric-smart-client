@@ -9,7 +9,7 @@ is a Fabric sample that demonstrates how an asset can be represented and traded 
 in a Hyperledger Fabric blockchain channel.
 
 We will use this application to showcase the `Fabric Smart Client`'s advanced capabilities for application development.
-If you are familiar with classic Fabric chaincode, we suggest to first first look into [/integration/fabric/atsachaincode](../atsachaincode/README.md).
+If you are familiar with classic Fabric chaincode, we suggest to first look into [/integration/fabric/atsachaincode](../../atsachaincode/README.md).
 There we will explain the following:
 - First, show how the `Fabric Smart Client`'s integration infrastructure provides a convenient programmatic
   environment to test chaincodes-based solutions. Already a huge improvement for the developers.
@@ -25,7 +25,7 @@ There, we will learn:
 
 # Secured Asset Transfer in Fabric with FSC
 
-In [/integration/fabric/atsachaincode](../atsachaincode/README.md) we learned about: 
+In [/integration/fabric/atsachaincode](../../atsachaincode/README.md) we learned about: 
 1. The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html),
 a Fabric sample that demonstrates how an asset can be represented and traded between organizations in a Hyperledger Fabric blockchain channel, and its design.
 2. How to use the Integration Test Infrastructure that comes with the Fabric Smart Client to programmatically 
@@ -56,7 +56,7 @@ However, we will change paradigm: The `asset_transfer` chaincode will not mediat
 between business parties (issuers and asset owners). 
 The business parties will interact directly to achieve the business goals.
 
-We have already learned, when exploring the ['Fabric's hidden gems'](./../../../docs/core-concepts.md#fabric-and-its-hidden-gems),
+We have already learned, when exploring the ['Fabric's hidden gems'](../../../../docs/core-concepts.md#fabric-and-its-hidden-gems),
 that an endorser is just a network node that executes `some code` and possesses a signing key compatible with an endorsement policy. 
 The node produces a signature to signal its approval. Therefore, if we equip an FSC node with 
 a signing secret key accepted by our endorsement policy, that FSC node can endorse Fabric transactions.

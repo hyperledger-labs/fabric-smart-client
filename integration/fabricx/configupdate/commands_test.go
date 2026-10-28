@@ -13,19 +13,19 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 )
 
 // defaultViewTimeout bounds every view call these specs make.
 //
-// The shared integration/fabric/iou helpers call CallView with no context, so a view that
+// The shared integration/fabric/common/iou helpers call CallView with no context, so a view that
 // never answers blocks the spec for as long as Ginkgo lets it -- two runs during
 // development hung for over twenty minutes. Bounding each call turns that into a failure
 // that names the call which hung and arrives in two minutes, which is why the sibling
 // fabricx suites define their own helpers rather than reusing the shared ones (see
 // integration/fabricx/iou/commands_test.go). Do not replace these with the
-// integration/fabric/iou equivalents.
+// integration/fabric/common/iou equivalents.
 const defaultViewTimeout = 2 * time.Minute
 
 // InitApprover runs the named approver's init view, which is what registers the iou
@@ -61,7 +61,7 @@ func CreateIOU(ii *integration.Infrastructure, amount uint, approver string) str
 // expected amount.
 //
 // It queries the node's view service rather than its command line, which is what
-// integration/fabric/iou does: the CLI client ignores the context it is handed and bounds
+// integration/fabric/common/iou does: the CLI client ignores the context it is handed and bounds
 // itself at ten minutes instead, and nothing in these specs is about the CLI.
 func CheckState(ii *integration.Infrastructure, party, iouStateID string, expected int) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultViewTimeout)

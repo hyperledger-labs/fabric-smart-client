@@ -12,6 +12,14 @@ Ginkgo v2 + Gomega.
    `var _ = AfterSuite(integration.CleanupBuildArtifacts)` — see below.
 5. Register the target in the `Makefile` — see below.
 
+A suite directory holds only its own `_test.go` files plus code no other suite
+imports. Topologies, views, states and helpers that several suites use live in
+`integration/fabric/common/<name>/` or `integration/fabricx/common/<name>/`, so
+a change made for one suite does not silently alter another. For example, the
+IOU views in `integration/fabric/common/iou` back `fabric/iou`, `fabric/iouhsm`,
+`fabric/configupdate`, `fabric/runtimeconfig`, `fabricx/iou` and
+`fabricx/configupdate`.
+
 ### Deleting the built binaries
 
 nwo builds `fsccli` and every FSC node binary into one temporary directory per test
@@ -92,7 +100,8 @@ NodeOptions: map[string][]node.Option{
 ```
 
 The replicas variant of `integration/fabric/iou` exercises all four and checks the
-resulting tables with `iou.Tables`. A unit test that needs only a Postgres container with
+resulting tables with `iou.Tables` (`integration/fabric/common/iou`). A unit test that
+needs only a Postgres container with
 TLS can call `postgres.EnableTLS` on its `ContainerConfig` before `postgres.StartPostgres`.
 
 ### Raising the p2p message-size limits
@@ -166,8 +175,9 @@ and `CHAINCODE_SERVER_ADDRESS`; copy one of the existing mains.
 To have the peer build your chaincode from Go source instead, use
 `WithLegacyChaincode(importPath)`. That path needs a `shim.Start` main and the
 `ccenv` and `baseos` images (`make pull-images-fabric`) -- peers compile the
-chaincode in the first and run it in the second. `integration/fabric/atsa` is
-the in-tree example, and the only suite CI pulls those images for.
+chaincode in the first and run it in the second. `integration/fabric/atsa`
+(topology in `integration/fabric/common/atsa`) is the in-tree example, and the only
+suite CI pulls those images for.
 
 The remaining options are `WithCtor(ctor)` (which also turns on init),
 `WithVersion(v)` and `WithPackageFile(path)` for a package you built yourself.

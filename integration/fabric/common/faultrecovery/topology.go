@@ -10,9 +10,9 @@ package faultrecovery
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	configviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
-	configviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"

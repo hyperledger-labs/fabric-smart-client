@@ -11,9 +11,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/client"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/states"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/atsa"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/atsa/client"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/atsa/states"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )

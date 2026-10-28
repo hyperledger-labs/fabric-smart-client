@@ -8,8 +8,8 @@ package runtimeconfig
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	iouviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
-	iouviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/runtimeconfig/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"

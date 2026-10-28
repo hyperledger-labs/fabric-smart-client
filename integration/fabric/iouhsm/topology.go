@@ -10,9 +10,9 @@ package iouhsm
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
