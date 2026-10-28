@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	configviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -19,7 +20,8 @@ import (
 )
 
 // FSCTopology returns the FSC nodes alice (Org1, initiator) and bob (Org2, responder),
-// installing sdk on both. Each node runs on its own Postgres database, named by DBName.
+// installing sdk on both. Both serve configseq, the sequence of the channel configuration
+// the node holds. Each node runs on its own Postgres database, named by DBName.
 //
 // A node receives only the data source of its database. nwo starts each container
 // from that data source (postgres.ConfigFromDataSource), which names the container
@@ -41,14 +43,16 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 		RegisterViewFactory("order", &views.OrderViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
-		RegisterViewFactory("echo", &views.EchoViewFactory{})
+		RegisterViewFactory("echo", &views.EchoViewFactory{}).
+		RegisterViewFactory("configseq", &configviews.ConfigSequenceViewFactory{})
 	fscTopology.AddNodeByName("bob").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(db.For("bob")...).
 		RegisterResponder(&views.ResponderView{}, &views.EndorseView{}).
 		RegisterResponder(&views.EchoResponderView{}, &views.EchoView{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{})
+		RegisterViewFactory("query", &views.QueryViewFactory{}).
+		RegisterViewFactory("configseq", &configviews.ConfigSequenceViewFactory{})
 	fscTopology.AddSDK(sdk)
 
 	return fscTopology

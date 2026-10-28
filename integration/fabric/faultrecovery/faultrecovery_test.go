@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate"
 	fabricfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -66,6 +67,32 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 	faultrecovery.CrashSpecs(s)
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
+
+	It("applies a config update made while down", func() {
+		original := configupdate.BatchTimeout(s.II)
+		before := configupdate.ConfigSequenceOn(Default, s.II, "bob")
+
+		// Bob endorses the tx, then misses the config block and the later block that
+		// commits the tx. A small BatchTimeout change keeps this spec fast.
+		tx := faultrecovery.Endorse(s.II, 1)
+		s.II.StopFSCNode("bob")
+		configupdate.SetBatchTimeout(s.II, original+500*time.Millisecond)
+		faultrecovery.Order(s.II, tx)
+		s.II.StartFSCNode("bob")
+
+		// Bob receives the config block from delivery, then commits the block after it.
+		// The sequence moves once the membership service is updated, before ordering is
+		// reconfigured; a failed reconfiguration makes bob retry the config block, which
+		// holds back the tx's block, so WaitFinal on bob catches it.
+		expectConfigSequence(s.II, before+1, "bob", "alice")
+		faultrecovery.WaitFinal(s.II, tx.TxID)
+		// A new tx needs bob to endorse it on the new configuration.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+
+		// Leave the shared network's BatchTimeout as this spec found it.
+		configupdate.SetBatchTimeout(s.II, original)
+		expectConfigSequence(s.II, before+2, "alice", "bob")
+	})
 
 	It("survives delivery peer restart", func() {
 		// Endorsing needs bob's peer for service discovery, so the tx is endorsed first.
@@ -135,6 +162,16 @@ var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault",
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 })
+
+// expectConfigSequence waits until every node holds channel configuration sequence want.
+// A CONFIG block reaches a node asynchronously over delivery, so this polls.
+func expectConfigSequence(ii *integration.Infrastructure, want int, nodes ...string) {
+	for _, node := range nodes {
+		EventuallyWithOffset(1, func(g Gomega) int {
+			return configupdate.ConfigSequenceOn(g, ii, node)
+		}, time.Minute, time.Second).Should(Equal(want), "config sequence on [%s]", node)
+	}
+}
 
 // Its own Describe, so the shortened commit retry budget applies to these specs only. The
 // specs share one network, see faultrecovery.ShareNetwork.
