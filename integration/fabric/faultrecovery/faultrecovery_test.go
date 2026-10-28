@@ -108,7 +108,7 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 
 // Its own Describe, so the namespace registration that lets a wiped node rebuild does
 // not apply to the specs above, where it would let bob commit a tx whose Busy record
-// was lost. The specs share one network, see faultrecovery.ShareNetwork.
+// was lost.
 var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault", Ordered, ContinueOnFailure, Label(fsc.WebSocket), func() {
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		return newInfrastructureWith(&fabricfaultrecovery.SDK{})
@@ -122,9 +122,8 @@ var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault",
 		s.II.StartFSCNode("bob")
 
 		// Bob replays the channel from the genesis block and commits these txs again
-		// because their namespace is registered, see fabricfaultrecovery.SDK. Specs
-		// that share the network may have put more blocks on the chain, so the spec
-		// checks its own txs rather than a block count.
+		// because their namespace is registered, see fabricfaultrecovery.SDK. The
+		// replay takes about a second, well within RecoveryTimeout.
 		for i, txID := range txIDs {
 			Eventually(func(g Gomega) {
 				res, err := faultrecovery.Query(s.II, "bob", txID)

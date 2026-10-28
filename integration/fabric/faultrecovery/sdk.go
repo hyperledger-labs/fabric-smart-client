@@ -22,12 +22,14 @@ import (
 // one of its rules selects it, such as a namespace registered with ProcessNamespace,
 // so without this a node that lost its vault would skip every faultrecovery
 // transaction it replays. With it, the node commits every faultrecovery transaction
-// whatever its vault holds, which would hide a lost Busy record, so only the specs
-// that wipe a vault run on it.
+// it has no record of, which would hide a lost Busy record, so only the specs that
+// wipe a vault run on it.
 type SDK struct {
 	dig.SDK
 }
 
+// NewSDK returns an SDK on top of a fresh Fabric SDK for registry. nwo calls it from
+// the generated main of each FSC node in the topology.
 func NewSDK(registry services.Registry) *SDK {
 	return &SDK{SDK: sdk.NewSDK(registry)}
 }

@@ -78,7 +78,10 @@ type TransactionFilter = driver.TransactionFilter
 type Committer interface {
 	Start(ctx context.Context) error
 
-	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
+	// ProcessNamespace registers namespaces whose transactions are committed even if this node
+	// holds no record of them, such as transactions it did not take part in. A node that
+	// lost its vault replays the channel from the genesis block and rebuilds only the
+	// transactions that a registered namespace or a transaction filter selects.
 	ProcessNamespace(nss ...driver.Namespace) error
 
 	// AddTransactionFilter adds a new transaction filter to this commit pipeline.

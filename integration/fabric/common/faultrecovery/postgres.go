@@ -71,14 +71,13 @@ func WaitReplicated(primary, standby string) {
 	}, time.Minute, 500*time.Millisecond).Should(gomega.Equal("t"), "standby [%s] did not catch up", standby)
 }
 
-// WipePostgres drops the database of the nwo-started Postgres container name and
-// creates it again, empty, so the FSC node on it starts as if its database were lost.
-// The container keeps running. The node must be stopped: Postgres refuses to drop a
-// database that has open connections.
+// WipePostgres drops the database of the nwo-started Postgres container name, closing
+// any connection still open to it, creates it again, and fails the spec unless it then
+// holds no table, so the FSC node on it starts as if its database were lost. The
+// container keeps running. Stop the node first, or it fails on its closed connections.
 func WipePostgres(name string) {
-	// DROP DATABASE cannot run inside a transaction, so each statement gets its own -c,
-	// and psql connects to the maintenance database, since it cannot drop its own.
-	docker("exec", name, "sh", "-c", `psql -U "$POSTGRES_USER" -d postgres -q -c "DROP DATABASE \"$POSTGRES_DB\"" -c "CREATE DATABASE \"$POSTGRES_DB\""`)
+	docker("exec", name, "sh", "-c", `dropdb --force -U "$POSTGRES_USER" "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"`)
+	gomega.Expect(psql(name, "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")).To(gomega.Equal("0"))
 }
 
 // KillPostgres kills the Postgres container name without a clean shutdown.
