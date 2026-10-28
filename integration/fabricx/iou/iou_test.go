@@ -25,15 +25,13 @@ const (
 )
 
 var _ = Describe("EndToEnd", func() {
-	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
-		Describe("IOU Life Cycle", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
+	Describe("IOU Life Cycle", Label(nwofsc.WebSocket), func() {
+		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
 
-			It("succeeded", s.TestSucceeded)
-		})
-	}
+		It("rejects an IOU without the approver the namespace policy requires, then creates and updates one", s.TestSucceeded)
+	})
 })
 
 type TestSuite struct {

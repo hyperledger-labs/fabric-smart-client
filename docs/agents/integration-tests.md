@@ -121,13 +121,14 @@ one more network bootstrap, and one per spec unless the `Describe` is `Ordered`
 Label each `Describe` with its comm type so a suite can be run one transport at
 a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
 
-    for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket} {
+    for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
         Describe("My Life Cycle", Label(c), func() { /* ... */ })
     }
 
-Label websocket-only variants (replication, no-TLS) with `Label(fsc.WebSocket)`
-too: `--label-filter` selects only labelled specs, so an unlabelled `Describe`
-is silently skipped when a filter is in play.
+A suite that runs one comm type writes the `Describe` once, as
+`Describe("My Life Cycle", Label(fsc.WebSocket), func() { /* ... */ })`. Label websocket-only variants
+(replication, no-TLS) the same way: `--label-filter` selects only labelled specs, so
+an unlabelled `Describe` is silently skipped when a filter is in play.
 
 Label a `Describe` for the transport it *runs*, not the one it was handed. A suite
 that loads committed artifacts runs whatever those artifacts say, because

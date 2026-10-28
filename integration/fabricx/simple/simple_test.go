@@ -35,16 +35,14 @@ type TestSuite struct {
 }
 
 var _ = Describe("EndToEnd", func() {
-	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
-		Describe("simple Life Cycle", Label(c), func() {
-			s := NewTestSuite(c)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
-			It("succeeded", func() {
-				RunTest(s.II)
-			})
+	Describe("simple Life Cycle", Label(nwofsc.WebSocket), func() {
+		s := NewTestSuite(nwofsc.WebSocket)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("creates and queries objects, rejecting duplicates and negative values", func() {
+			RunTest(s.II)
 		})
-	}
+	})
 })
 
 var testObjects = []views.SomeObject{

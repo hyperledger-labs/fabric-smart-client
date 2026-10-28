@@ -28,7 +28,7 @@ var _ = Describe("EndToEnd", func() {
 			s := NewTestSuite(c, integration.NoReplication, true)
 			BeforeEach(s.Setup)
 			AfterEach(s.TearDown)
-			It("succeeded", s.TestSucceeded)
+			It("creates and updates an IOU with approvers and records its metrics and traces", s.TestSucceeded)
 		})
 	}
 
@@ -39,7 +39,7 @@ var _ = Describe("EndToEnd", func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
+		It("creates and updates an IOU with approvers and records its metrics and traces", s.TestSucceeded)
 	})
 
 	// The replicas also cover the storage options of nwo: the borrower prefixes its tables and
@@ -70,7 +70,7 @@ var _ = Describe("EndToEnd", func() {
 		)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceededWithReplicas)
+		It("creates and updates an IOU across replicas, in the configured databases and over TLS", s.TestSucceededWithReplicas)
 	})
 })
 

@@ -23,7 +23,7 @@ var _ = Describe("EndToEnd", func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
+		It("keeps transacting across channel config updates and a node restart", s.TestSucceeded)
 	})
 })
 

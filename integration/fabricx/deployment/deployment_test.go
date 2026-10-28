@@ -34,7 +34,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 
-		It("succeeded", s.TestSucceeded)
+		It("enforces the namespace endorsement policy before and after an update", s.TestSucceeded)
 	})
 })
 

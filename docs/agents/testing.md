@@ -48,11 +48,13 @@ var _ = Describe("Feature", Ordered, func() {
     s := NewTestSuite(opts...)
     BeforeAll(s.Setup)
     AfterAll(s.TearDown)
-    It("test case", s.TestFunction)
-    It("another test case", s.TestOtherFunction)
+    It("creates and updates an IOU", s.TestCreateAndUpdate)
+    It("rejects an update without the approver", s.TestUpdateWithoutApprover)
 })
 ```
 
+- Name each `It` after the behaviour it checks: CI reports a failure as
+  `<Describe> <It>`, so `It("succeeded")` says nothing about what broke.
 - Define the network topology in `<test>/topology.go` via `integration.Generate()`.
 - Put reusable test logic in `<test>/<test>.go`.
 - For multi-node scenarios, use `integration.ReplicationOptions`.

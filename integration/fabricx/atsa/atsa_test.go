@@ -19,14 +19,12 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
-		Describe("Asset Transfer Secured Agreement", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
-			It("succeeded", s.TestSucceeded)
-		})
-	}
+	Describe("Asset Transfer Secured Agreement", Label(nwofsc.WebSocket), func() {
+		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("issues an asset and transfers it after a sell and buy agreement", s.TestSucceeded)
+	})
 })
 
 type TestSuite struct {

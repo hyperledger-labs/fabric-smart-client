@@ -23,14 +23,12 @@ var _ = Describe("EndToEnd", func() {
 	// websocket only: this suite registers no responders and never opens a
 	// session -- its views only invoke chaincode -- so no FSC-to-FSC traffic
 	// crosses the p2p layer and the transport is irrelevant to what it asserts.
-	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket} {
-		Describe("Asset Transfer Secured Agreement (With Chaincode)", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
-			It("succeeded", s.TestSucceeded)
-		})
-	}
+	Describe("Asset Transfer Secured Agreement (With Chaincode)", Label(fsc.WebSocket), func() {
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("transfers an asset only once the sell and buy prices match", s.TestSucceeded)
+	})
 })
 
 type TestSuite struct {
