@@ -118,9 +118,8 @@ func TestVaultAndMSPSettings(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
 	// fabric prefix empty
-	m.GetStringReturnsOnCall(0, "persistenceName") // vault.persistence
-	m.GetStringReturnsOnCall(1, "50")              // vault.txidstore.cache.size (string that parses)
-	m.GetStringReturnsOnCall(2, "defaultMSP")      // defaultMSP
+	m.GetStringReturnsOnCall(0, "50")         // vault.txidstore.cache.size (string that parses)
+	m.GetStringReturnsOnCall(1, "defaultMSP") // defaultMSP
 	m.UnmarshalKeyStub = func(key string, rawVal any) error {
 		if key == "fabric.msps" {
 			p, ok := rawVal.(*[]cfg.MSP)
@@ -133,7 +132,6 @@ func TestVaultAndMSPSettings(t *testing.T) {
 		return nil
 	}
 	svc := &cfg.Service{Configuration: m}
-	require.Equal(t, sdriver.PersistenceName("persistenceName"), svc.VaultPersistenceName())
 	require.Equal(t, 50, svc.VaultTXStoreCacheSize())
 	require.Equal(t, "defaultMSP", svc.DefaultMSP())
 	msps, err := svc.MSPs()
@@ -505,13 +503,10 @@ func TestService_MoreCases(t *testing.T) {
 		require.Equal(t, "p1", picked.Address)
 	})
 
-	t.Run("Vault_TranslatePath", func(t *testing.T) {
+	t.Run("TranslatePath", func(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
 		svc := &cfg.Service{Configuration: m}
-		m.GetStringReturnsOnCall(0, "p1")
-		require.Equal(t, sdriver.PersistenceName("p1"), svc.VaultPersistenceName())
-
 		m.TranslatePathReturns("translated-path")
 		require.Equal(t, "translated-path", svc.TranslatePath("original-path"))
 	})
@@ -687,4 +682,49 @@ fabric:
 			assert.Equal(t, tt.wantTimeout, svc.ClientConnTimeout())
 		})
 	}
+}
+
+// TestNewService_vaultPersistence pins how NewService reads fabric.<network>.vault.persistence.
+// The key names a persistence under fsc.persistences. A map under it, such as an opts block
+// carrying a Postgres dataSource, must fail without the error printing the value.
+func TestNewService_vaultPersistence(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		vault   string
+		want    sdriver.PersistenceName
+		wantErr bool
+	}{
+		{name: "unset"},
+		{name: "name", vault: "persistence: mydb", want: "mydb"},
+		{name: "map", vault: "persistence:\n        opts:\n          dataSource: host=db password=SECRET", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte("fabric:\n  mynet:\n    default: true\n    vault:\n      " + tt.vault))
+			require.NoError(t, err)
+
+			svc, err := cfg.NewService(p, "mynet", true)
+			if tt.wantErr {
+				require.ErrorContains(t, err, "fabric.mynet.vault.persistence")
+				assert.NotContains(t, err.Error(), "SECRET")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, svc.VaultPersistenceName())
+		})
+	}
+}
+
+// TestNewService_vaultPersistenceFromEnv covers a CORE_FABRIC_<NETWORK>_VAULT_PERSISTENCE_OPTS_DATASOURCE
+// override. It turns a valid persistence name into a map, and the error must not print the dataSource.
+func TestNewService_vaultPersistenceFromEnv(t *testing.T) { //nolint:paralleltest // t.Setenv
+	t.Setenv("CORE_FABRIC_MYNET_VAULT_PERSISTENCE_OPTS_DATASOURCE", "host=db password=SECRET")
+	p, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte("fabric:\n  mynet:\n    default: true\n    vault:\n      persistence: mydb"))
+	require.NoError(t, err)
+
+	_, err = cfg.NewService(p, "mynet", true)
+	require.ErrorContains(t, err, "fabric.mynet.vault.persistence")
+	assert.NotContains(t, err.Error(), "SECRET")
 }
