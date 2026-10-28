@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 var (
@@ -240,8 +240,8 @@ func TestClose(t *testing.T) { //nolint:paralleltest
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 }
 
-func mockKeyValueStore(write, read *sql.DB) *common2.KeyValueStore {
-	return common2.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{})
+func mockKeyValueStore(write, read *sql.DB) *common.KeyValueStore {
+	return common.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{})
 }
 
 // The range and set iterators pass query and row-read errors through the
@@ -249,8 +249,8 @@ func mockKeyValueStore(write, read *sql.DB) *common2.KeyValueStore {
 func TestKeyValueStoreIterators_WrapErrors(t *testing.T) {
 	t.Parallel()
 
-	iterate := map[string]func(s *common2.KeyValueStore) error{
-		"GetStateRangeScanIterator": func(s *common2.KeyValueStore) error {
+	iterate := map[string]func(s *common.KeyValueStore) error{
+		"GetStateRangeScanIterator": func(s *common.KeyValueStore) error {
 			it, err := s.GetStateRangeScanIterator(t.Context(), "ns", "a", "z")
 			if err != nil {
 				return err
@@ -258,7 +258,7 @@ func TestKeyValueStoreIterators_WrapErrors(t *testing.T) {
 			_, err = iterators.ReadAllPointers(it)
 			return err
 		},
-		"GetStateSetIterator": func(s *common2.KeyValueStore) error {
+		"GetStateSetIterator": func(s *common.KeyValueStore) error {
 			it, err := s.GetStateSetIterator(t.Context(), "ns", "k")
 			if err != nil {
 				return err
@@ -284,7 +284,7 @@ func TestKeyValueStoreIterators_WrapErrors(t *testing.T) {
 				wrapper := &mock.SQLErrorWrapper{}
 				wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(driver.ErrConnectionLost, err.Error()) }
 
-				err = run(common2.NewKeyValueStore(db, db, "kv_table", wrapper))
+				err = run(common.NewKeyValueStore(db, db, "kv_table", wrapper))
 				require.ErrorIs(t, err, driver.ErrConnectionLost)
 				require.ErrorContains(t, err, dbErr.Error())
 			})

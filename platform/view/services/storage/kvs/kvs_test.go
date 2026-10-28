@@ -20,13 +20,13 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
-	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs/mock"
 )
 
@@ -38,17 +38,17 @@ type stuff struct {
 	I int    `json:"i"`
 }
 
-func testRound(t *testing.T, drv driver2.Driver) {
+func testRound(t *testing.T, drv dbdriver.Driver) {
 	t.Helper()
 	kvsStore, err := drv.NewKVS("")
 	require.NoError(t, err)
-	kvstore, err := kvs2.New(kvsStore, "_default", kvs2.DefaultCacheSize)
+	kvstore, err := kvs.New(kvsStore, "_default", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	defer kvstore.Stop()
 
-	k1, err := kvs2.CreateCompositeKey("k", []string{"1"})
+	k1, err := kvs.CreateCompositeKey("k", []string{"1"})
 	require.NoError(t, err)
-	k2, err := kvs2.CreateCompositeKey("k", []string{"2"})
+	k2, err := kvs.CreateCompositeKey("k", []string{"2"})
 	require.NoError(t, err)
 
 	err = kvstore.Put(context.Background(), k1, &stuff{"santa", 1})
@@ -120,11 +120,11 @@ func testRound(t *testing.T, drv driver2.Driver) {
 	require.False(t, kvstore.Exists(context.Background(), k))
 }
 
-func testParallelWrites(t *testing.T, drv driver2.Driver) {
+func testParallelWrites(t *testing.T, drv dbdriver.Driver) {
 	t.Helper()
 	kvsStore, err := drv.NewKVS("")
 	require.NoError(t, err)
-	kvstore, err := kvs2.New(kvsStore, "_default", kvs2.DefaultCacheSize)
+	kvstore, err := kvs.New(kvsStore, "_default", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -134,7 +134,7 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	wg.Add(n)
 	for i := range n {
 		go func(i int) {
-			k1, err := kvs2.CreateCompositeKey("parallel_key_1_", []string{fmt.Sprintf("%d", i)})
+			k1, err := kvs.CreateCompositeKey("parallel_key_1_", []string{fmt.Sprintf("%d", i)})
 			assert.NoError(t, err) // assert: in goroutine, require would only stop goroutine not test
 			err = kvstore.Put(context.Background(), k1, &stuff{"santa", i})
 			assert.NoError(t, err) // assert: in goroutine
@@ -146,7 +146,7 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	// same key
 	wg = sync.WaitGroup{}
 	wg.Add(n)
-	k1, err := kvs2.CreateCompositeKey("parallel_key_2_", []string{"1"})
+	k1, err := kvs.CreateCompositeKey("parallel_key_2_", []string{"1"})
 	require.NoError(t, err)
 	for i := range n {
 		go func(_ int) {
@@ -166,7 +166,7 @@ func TestMemoryKVS(t *testing.T) {
 
 func TestSQLiteKVS(t *testing.T) {
 	t.Parallel()
-	cp := multiplexed.MockTypeConfig(sqlite2.Persistence, sqlite2.Config{
+	cp := multiplexed.MockTypeConfig(sqlite.Persistence, sqlite.Config{
 		DataSource:      fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(t.TempDir(), "sqlite_test")),
 		TablePrefix:     "",
 		SkipCreateTable: false,
@@ -175,19 +175,19 @@ func TestSQLiteKVS(t *testing.T) {
 		MaxIdleConns:    common.CopyPtr(2),
 		MaxIdleTime:     common.CopyPtr(time.Minute),
 	})
-	testRound(t, sqlite2.NewDriver(cp))
-	testParallelWrites(t, sqlite2.NewDriver(cp))
+	testRound(t, sqlite.NewDriver(cp))
+	testParallelWrites(t, sqlite.NewDriver(cp))
 }
 
 func TestPostgresKVS(t *testing.T) {
 	t.Parallel()
 	t.Log("starting postgres")
-	terminate, pgConnStr, err := postgres2.StartPostgres(t.Context(), postgres2.ConfigFromEnv(), nil)
+	terminate, pgConnStr, err := postgres.StartPostgres(t.Context(), postgres.ConfigFromEnv(), nil)
 	require.NoError(t, err)
 	t.Cleanup(terminate)
 	t.Log("postgres ready")
 
-	cp := multiplexed.MockTypeConfig(postgres2.Persistence, postgres2.Config{
+	cp := multiplexed.MockTypeConfig(postgres.Persistence, postgres.Config{
 		DataSource:      pgConnStr,
 		TablePrefix:     "",
 		SkipCreateTable: false,
@@ -197,8 +197,8 @@ func TestPostgresKVS(t *testing.T) {
 		MaxIdleTime:  common.CopyPtr(time.Minute),
 	})
 
-	testRound(t, postgres2.NewDriver(cp))
-	testParallelWrites(t, postgres2.NewDriver(cp))
+	testRound(t, postgres.NewDriver(cp))
+	testParallelWrites(t, postgres.NewDriver(cp))
 }
 
 // Unit Tests with Mocks
@@ -246,7 +246,7 @@ func TestNew(t *testing.T) {
 		{
 			name:      "valid creation with default cache",
 			namespace: "test_namespace",
-			cacheSize: kvs2.DefaultCacheSize,
+			cacheSize: kvs.DefaultCacheSize,
 			wantErr:   false,
 		},
 		{
@@ -267,7 +267,7 @@ func TestNew(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
-			k, err := kvs2.New(mockStore, tt.namespace, tt.cacheSize)
+			k, err := kvs.New(mockStore, tt.namespace, tt.cacheSize)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Nil(t, k)
@@ -326,7 +326,7 @@ func TestKVS_Put(t *testing.T) {
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
-			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 			require.NoError(t, err)
 
 			err = k.Put(context.Background(), tt.id, tt.state)
@@ -399,7 +399,7 @@ func TestKVS_Get(t *testing.T) {
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
-			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 			require.NoError(t, err)
 
 			result := &testStruct{}
@@ -427,7 +427,7 @@ func TestKVS_Get_CacheBehavior(t *testing.T) {
 		mockStore := &mock.KeyValueStore{}
 		mockStore.SetStateReturns(nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		// Put value - populates cache
@@ -449,7 +449,7 @@ func TestKVS_Get_CacheBehavior(t *testing.T) {
 		mockStore := &mock.KeyValueStore{}
 		mockStore.GetStateReturns(validJSON, nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		// First Get - cache miss, hits store and populates cache
@@ -476,7 +476,7 @@ func TestKVS_Get_CacheBehavior(t *testing.T) {
 			{Key: "key1", Raw: []byte{}},
 		}), nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		require.Empty(t, k.GetExisting(context.Background(), "key1"))
@@ -521,7 +521,7 @@ func TestKVS_Delete(t *testing.T) {
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
-			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 			require.NoError(t, err)
 
 			err = k.Delete(context.Background(), tt.id)
@@ -581,7 +581,7 @@ func TestKVS_Exists(t *testing.T) {
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
-			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 			require.NoError(t, err)
 
 			result := k.Exists(context.Background(), tt.id)
@@ -651,7 +651,7 @@ func TestKVS_GetExisting(t *testing.T) {
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
-			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 			require.NoError(t, err)
 
 			result := k.GetExisting(context.Background(), tt.ids...)
@@ -714,7 +714,7 @@ func TestKVS_GetExisting_Iterator(t *testing.T) {
 			mockStore := &mock.KeyValueStore{}
 			mockStore.GetStateSetIteratorReturns(it, nil)
 
-			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 			require.NoError(t, err)
 
 			require.ElementsMatch(t, tt.expected, k.GetExisting(context.Background(), "key1", "key2"))
@@ -780,7 +780,7 @@ func TestKVS_GetByPartialCompositeID(t *testing.T) {
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
-			k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+			k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 			require.NoError(t, err)
 
 			iter, err := k.GetByPartialCompositeID(context.Background(), tt.prefix, tt.attrs)
@@ -813,7 +813,7 @@ func TestKVS_Iterator(t *testing.T) {
 		}
 		mockStore.GetStateRangeScanIteratorReturns(iterators.Slice(items), nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		iter, err := k.GetByPartialCompositeID(context.Background(), "prefix", []string{})
@@ -842,7 +842,7 @@ func TestKVS_Iterator(t *testing.T) {
 		}
 		mockStore.GetStateRangeScanIteratorReturns(iterators.Slice(items), nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		iter, err := k.GetByPartialCompositeID(context.Background(), "prefix", []string{})
@@ -858,12 +858,12 @@ func TestKVS_Iterator(t *testing.T) {
 func TestKVS_Iterator_Errors(t *testing.T) {
 	t.Parallel()
 	errScan := fmt.Errorf("scan error")
-	newIter := func(t *testing.T, results ...readResult) (kvs2.Iterator, *resultIterator) {
+	newIter := func(t *testing.T, results ...readResult) (kvs.Iterator, *resultIterator) {
 		t.Helper()
 		scan := &resultIterator{results: results}
 		mockStore := &mock.KeyValueStore{}
 		mockStore.GetStateRangeScanIteratorReturns(scan, nil)
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 		iter, err := k.GetByPartialCompositeID(context.Background(), "prefix", nil)
 		require.NoError(t, err)
@@ -963,7 +963,7 @@ func TestKVS_Stop(t *testing.T) {
 		mockStore := &mock.KeyValueStore{}
 		mockStore.CloseReturns(nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		k.Stop()
@@ -975,7 +975,7 @@ func TestKVS_Stop(t *testing.T) {
 		mockStore := &mock.KeyValueStore{}
 		mockStore.CloseReturns(fmt.Errorf("close error"))
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		// Should not panic even with error
@@ -999,7 +999,7 @@ func TestCacheSizeFromConfig(t *testing.T) {
 			setupMock: func(m *mock.ConfigProvider) {
 				m.IsSetReturns(false)
 			},
-			expectedSize: kvs2.DefaultCacheSize,
+			expectedSize: kvs.DefaultCacheSize,
 		},
 		{
 			name: "valid cache size",
@@ -1015,7 +1015,7 @@ func TestCacheSizeFromConfig(t *testing.T) {
 				m.IsSetReturns(true)
 				m.GetIntReturns(0)
 			},
-			expectedSize:   kvs2.DefaultCacheSize,
+			expectedSize:   kvs.DefaultCacheSize,
 			expectedErrMsg: "expect value >= 1, actual 0",
 		},
 		{
@@ -1024,7 +1024,7 @@ func TestCacheSizeFromConfig(t *testing.T) {
 				m.IsSetReturns(true)
 				m.GetIntReturns(-1)
 			},
-			expectedSize:   kvs2.DefaultCacheSize,
+			expectedSize:   kvs.DefaultCacheSize,
 			expectedErrMsg: "expect value >= 1, actual -1",
 		},
 	}
@@ -1035,7 +1035,7 @@ func TestCacheSizeFromConfig(t *testing.T) {
 			mockConfig := &mock.ConfigProvider{}
 			tt.setupMock(mockConfig)
 
-			size, err := kvs2.CacheSizeFromConfig(mockConfig)
+			size, err := kvs.CacheSizeFromConfig(mockConfig)
 
 			require.Equal(t, tt.expectedSize, size)
 			if tt.expectedErrMsg != "" {
@@ -1061,7 +1061,7 @@ func TestKVS_CacheInvalidation(t *testing.T) {
 		mockStore.GetStateReturnsOnCall(1, []byte{}, nil)
 		mockStore.DeleteStateReturns(nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		// First get - populates cache
@@ -1088,7 +1088,7 @@ func TestKVS_CacheInvalidation(t *testing.T) {
 		mockStore := &mock.KeyValueStore{}
 		mockStore.SetStateReturns(nil)
 
-		k, err := kvs2.New(mockStore, "test_ns", kvs2.DefaultCacheSize)
+		k, err := kvs.New(mockStore, "test_ns", kvs.DefaultCacheSize)
 		require.NoError(t, err)
 
 		// Put value

@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
@@ -50,7 +50,7 @@ func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrappe
 	}
 }
 
-func hasKeysCondition(ns driver2.Namespace, keys ...driver2.PKey) sqlbuild.Condition {
+func hasKeysCondition(ns cdriver.Namespace, keys ...cdriver.PKey) sqlbuild.Condition {
 	if len(keys) == 1 {
 		return sqlbuild.And(sqlbuild.Eq("ns", ns), sqlbuild.Eq("pkey", []byte(keys[0])))
 	}
@@ -61,7 +61,7 @@ func hasKeysCondition(ns driver2.Namespace, keys ...driver2.PKey) sqlbuild.Condi
 	return sqlbuild.And(sqlbuild.Eq("ns", ns), sqlbuild.In("pkey", pkeys...))
 }
 
-func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns cdriver.Namespace, startKey, endKey cdriver.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	conds := []sqlbuild.Condition{sqlbuild.Eq("ns", ns)}
 	if len(startKey) != 0 {
 		conds = append(conds, sqlbuild.Gte("pkey", []byte(startKey)))
@@ -84,7 +84,7 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns drive
 	return NewWrappedIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }, db.errorWrapper), nil
 }
 
-func (db *KeyValueStore) GetState(ctx context.Context, namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
+func (db *KeyValueStore) GetState(ctx context.Context, namespace cdriver.Namespace, key cdriver.PKey) (driver.UnversionedValue, error) {
 	query, params := sqlbuild.New().
 		WriteString("SELECT val FROM " + db.table).
 		WriteWhere(hasKeysCondition(namespace, key)).
@@ -92,7 +92,7 @@ func (db *KeyValueStore) GetState(ctx context.Context, namespace driver2.Namespa
 	return QueryUniqueContext[driver.UnversionedValue](ctx, db.readDB, query, params...)
 }
 
-func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns cdriver.Namespace, keys ...cdriver.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}
@@ -119,22 +119,22 @@ func (db *KeyValueStore) Close() error {
 	return nil
 }
 
-func (db *KeyValueStore) DeleteState(ctx context.Context, ns driver2.Namespace, key driver2.PKey) error {
+func (db *KeyValueStore) DeleteState(ctx context.Context, ns cdriver.Namespace, key cdriver.PKey) error {
 	return db.DeleteStateWithTx(ctx, db.Txn, ns, key)
 }
 
-func (db *KeyValueStore) DeleteStateWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, key driver2.PKey) error {
+func (db *KeyValueStore) DeleteStateWithTx(ctx context.Context, tx dbTransaction, ns cdriver.Namespace, key cdriver.PKey) error {
 	if errs := db.DeleteStatesWithTx(ctx, tx, ns, key); errs != nil {
 		return errs[key]
 	}
 	return nil
 }
 
-func (db *KeyValueStore) DeleteStates(ctx context.Context, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+func (db *KeyValueStore) DeleteStates(ctx context.Context, namespace cdriver.Namespace, keys ...cdriver.PKey) map[cdriver.PKey]error {
 	return db.DeleteStatesWithTx(ctx, db.Txn, namespace, keys...)
 }
 
-func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransaction, namespace cdriver.Namespace, keys ...cdriver.PKey) map[cdriver.PKey]error {
 	if db.IsTxnNil() {
 		logger.Debug("no ongoing transaction. Using db")
 		tx = db.writeDB
@@ -151,7 +151,7 @@ func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransactio
 	logger.Debug(query, params)
 	_, execErr := tx.ExecContext(ctx, query, params...)
 	if execErr != nil {
-		errs := make(map[driver2.PKey]error)
+		errs := make(map[cdriver.PKey]error)
 		for _, key := range keys {
 			errs[key] = errors.Wrapf(db.errorWrapper.WrapError(execErr), "could not deleteOp val for key [%s]", key)
 		}
@@ -160,29 +160,29 @@ func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransactio
 	return nil
 }
 
-func (db *KeyValueStore) SetState(ctx context.Context, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
+func (db *KeyValueStore) SetState(ctx context.Context, ns cdriver.Namespace, pkey cdriver.PKey, value driver.UnversionedValue) error {
 	return db.SetStateWithTx(ctx, db.Txn, ns, pkey, value)
 }
 
-func (db *KeyValueStore) SetStates(ctx context.Context, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) SetStates(ctx context.Context, ns cdriver.Namespace, kvs map[cdriver.PKey]driver.UnversionedValue) map[cdriver.PKey]error {
 	return db.SetStatesWithTx(ctx, db.Txn, ns, kvs)
 }
 
-func (db *KeyValueStore) SetStateWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
-	if errs := db.SetStatesWithTx(ctx, tx, ns, map[driver2.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
+func (db *KeyValueStore) SetStateWithTx(ctx context.Context, tx dbTransaction, ns cdriver.Namespace, pkey cdriver.PKey, value driver.UnversionedValue) error {
+	if errs := db.SetStatesWithTx(ctx, tx, ns, map[cdriver.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
 		return errs[pkey]
 	}
 	return nil
 }
 
-func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, ns cdriver.Namespace, kvs map[cdriver.PKey]driver.UnversionedValue) map[cdriver.PKey]error {
 	if db.IsTxnNil() {
 		logger.Debug("No ongoing transaction. Using db")
 		tx = db.writeDB
 	}
 
-	upserted := make(map[driver2.PKey]driver.UnversionedValue, len(kvs))
-	deleted := make([]driver2.PKey, 0, len(kvs))
+	upserted := make(map[cdriver.PKey]driver.UnversionedValue, len(kvs))
+	deleted := make([]cdriver.PKey, 0, len(kvs))
 	for pkey, val := range kvs {
 		if len(val) == 0 {
 			logger.DebugfContext(ctx, "set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
@@ -193,7 +193,7 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 		}
 	}
 
-	errs := make(map[driver2.PKey]error)
+	errs := make(map[cdriver.PKey]error)
 	if len(deleted) > 0 {
 		collections.CopyMap(errs, db.DeleteStatesWithTx(ctx, tx, ns, deleted...))
 	}
@@ -203,7 +203,7 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 	return errs
 }
 
-func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransaction, ns cdriver.Namespace, vals map[cdriver.PKey]driver.UnversionedValue) map[cdriver.PKey]error {
 	rows := make([]sqlbuild.Tuple, 0, len(vals))
 	for pkey, val := range vals {
 		rows = append(rows, sqlbuild.Tuple{ns, []byte(pkey), val})

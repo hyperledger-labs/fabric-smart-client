@@ -17,9 +17,9 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fscconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 )
 
 // TestGetOptsAppliesDefaults checks unset idle settings are defaulted and the table-name
@@ -27,15 +27,15 @@ import (
 func TestGetOptsAppliesDefaults(t *testing.T) {
 	t.Parallel()
 
-	cp := NewConfigProvider(testing2.MockConfig(Config{DataSource: "file:test"}))
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{DataSource: "file:test"}))
 
 	o, err := cp.GetOpts("", "p1", "p2")
 	require.NoError(t, err)
 
 	require.NotNil(t, o.MaxIdleConns)
-	assert.Equal(t, common3.DefaultMaxIdleConns, *o.MaxIdleConns)
+	assert.Equal(t, common.DefaultMaxIdleConns, *o.MaxIdleConns)
 	require.NotNil(t, o.MaxIdleTime)
-	assert.Equal(t, common3.DefaultMaxIdleTime, *o.MaxIdleTime)
+	assert.Equal(t, common.DefaultMaxIdleTime, *o.MaxIdleTime)
 	assert.Equal(t, []string{"p1", "p2"}, o.TableNameParams)
 	assert.NotNil(t, o.Tracing)
 }
@@ -46,7 +46,7 @@ func TestGetOptsKeepsExplicitIdleSettings(t *testing.T) {
 
 	conns := 7
 	idle := 3 * time.Second
-	cp := NewConfigProvider(testing2.MockConfig(Config{DataSource: "file:test", MaxIdleConns: &conns, MaxIdleTime: &idle}))
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{DataSource: "file:test", MaxIdleConns: &conns, MaxIdleTime: &idle}))
 
 	o, err := cp.GetOpts("")
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestGetOptsKeepsExplicitIdleSettings(t *testing.T) {
 func TestGetOptsMissingDataSource(t *testing.T) {
 	t.Parallel()
 
-	cp := NewConfigProvider(testing2.MockConfig(Config{}))
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{}))
 
 	_, err := cp.GetOpts("")
 	require.Error(t, err)
@@ -73,7 +73,7 @@ func TestGetOptsUnmarshalError(t *testing.T) {
 
 	raw := &mock.ConfigProvider{}
 	raw.UnmarshalKeyReturns(errors.New("bad config"))
-	cp := NewConfigProvider(common3.NewConfig(raw))
+	cp := NewConfigProvider(common.NewConfig(raw))
 
 	_, err := cp.GetOpts("")
 	require.Error(t, err)
@@ -101,10 +101,10 @@ fsc:
 	p, err := fscconfig.NewProvider(dir)
 	require.NoError(t, err)
 
-	o, err := NewConfigProvider(common3.NewConfig(p)).GetOpts("default")
+	o, err := NewConfigProvider(common.NewConfig(p)).GetOpts("default")
 	require.NoError(t, err)
 	assert.Equal(t, "from-env", o.DataSource)
 
-	_, err = common3.GetPersistenceName(p, "fsc.kvs.persistence")
+	_, err = common.GetPersistenceName(p, "fsc.kvs.persistence")
 	require.Error(t, err)
 }

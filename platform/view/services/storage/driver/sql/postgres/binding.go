@@ -10,25 +10,25 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 type BindingStore struct {
-	*common3.BindingStore
+	*sqlcommon.BindingStore
 	table        string
 	writeDB      *sql.DB
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewBindingStore(dbs *common2.RWDB, tables common3.TableNames) (*BindingStore, error) {
+func NewBindingStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*BindingStore, error) {
 	return buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding), nil
 }
 
 func buildBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 	errorWrapper := &ErrorMapper{}
 	return &BindingStore{
-		BindingStore: common3.NewBindingStore(readDB, writeDB, table, errorWrapper),
+		BindingStore: sqlcommon.NewBindingStore(readDB, writeDB, table, errorWrapper),
 		table:        table,
 		writeDB:      writeDB,
 		errorWrapper: errorWrapper,

@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 )
 
 func TestOptsProvider_GetOpts(t *testing.T) {
@@ -35,8 +35,8 @@ func TestOptsProvider_GetOpts(t *testing.T) {
 			require.Equal(t, "file::memory:?cache=shared", opts.DataSource)
 			require.False(t, opts.SkipPragmas)
 			require.Equal(t, 10, opts.MaxOpenConns)
-			require.Equal(t, common2.DefaultMaxIdleConns, opts.MaxIdleConns)
-			require.Equal(t, common2.DefaultMaxIdleTime, opts.MaxIdleTime)
+			require.Equal(t, common.DefaultMaxIdleConns, opts.MaxIdleConns)
+			require.Equal(t, common.DefaultMaxIdleTime, opts.MaxIdleTime)
 			require.Empty(t, opts.TablePrefix)
 			require.Equal(t, tc.params, opts.TableNameParams)
 			require.Nil(t, opts.Tracing)
@@ -66,9 +66,9 @@ func TestOptsProvider_GetConfig(t *testing.T) {
 			require.False(t, cfg.SkipPragmas)
 			require.Equal(t, 10, cfg.MaxOpenConns)
 			require.NotNil(t, cfg.MaxIdleConns)
-			require.Equal(t, common2.DefaultMaxIdleConns, *cfg.MaxIdleConns)
+			require.Equal(t, common.DefaultMaxIdleConns, *cfg.MaxIdleConns)
 			require.NotNil(t, cfg.MaxIdleTime)
-			require.Equal(t, common2.DefaultMaxIdleTime, *cfg.MaxIdleTime)
+			require.Equal(t, common.DefaultMaxIdleTime, *cfg.MaxIdleTime)
 			require.False(t, cfg.SkipCreateTable)
 			require.Empty(t, cfg.TablePrefix)
 			require.Equal(t, tc.params, cfg.TableNameParams)
@@ -87,7 +87,7 @@ func TestOptsProvider_GetConfig_PointerIndependence(t *testing.T) {
 	require.NotSame(t, cfg1.MaxIdleTime, cfg2.MaxIdleTime)
 
 	*cfg1.MaxIdleConns = 100
-	require.Equal(t, common2.DefaultMaxIdleConns, *cfg2.MaxIdleConns)
+	require.Equal(t, common.DefaultMaxIdleConns, *cfg2.MaxIdleConns)
 }
 
 func TestOp_GlobalVariable(t *testing.T) {

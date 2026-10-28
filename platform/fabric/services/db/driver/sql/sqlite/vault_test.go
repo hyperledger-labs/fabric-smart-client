@@ -15,8 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 // GetStateRange returns keys sorted in byte order even when SQLite returns
@@ -40,11 +40,11 @@ func TestVaultStoreRangeIsSorted(t *testing.T) {
 
 func openSQLiteVault(t *testing.T, dataSource string, skipCreate bool) *VaultStore {
 	t.Helper()
-	cp := sqlite2.NewConfigProvider(testing2.MockConfig(sqlite2.Config{
+	cp := sqlite.NewConfigProvider(drivertesting.MockConfig(sqlite.Config{
 		DataSource:      dataSource,
 		SkipCreateTable: skipCreate,
 	}))
-	store, err := NewPersistenceWithOpts(cp, sqlite2.NewDbProvider(), "", NewVaultStore)
+	store, err := NewPersistenceWithOpts(cp, sqlite.NewDbProvider(), "", NewVaultStore)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 	return store
@@ -81,7 +81,7 @@ func rangeKeys(t *testing.T, it iterators.Iterator[*driver.VaultRead]) []driver.
 
 func requireSQLitePrimaryKey(t *testing.T, store *VaultStore, want string) {
 	t.Helper()
-	got, err := sqlite2.PrimaryKeyColumns(store.readDB, store.tables.StateTable)
+	got, err := sqlite.PrimaryKeyColumns(store.readDB, store.tables.StateTable)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }

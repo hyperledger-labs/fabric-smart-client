@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 func TestConfig_GetDriverType(t *testing.T) {
@@ -51,7 +51,7 @@ fsc:
 	tests := []struct {
 		name        string
 		yaml        string
-		persistence driver2.PersistenceName
+		persistence dbdriver.PersistenceName
 		want        driver.PersistenceType
 		errContains string
 	}{

@@ -19,8 +19,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 // newPostgresVaultStore starts a postgres container and returns a VaultStore
@@ -40,14 +40,14 @@ func newPostgresVaultStore(tb testing.TB) *VaultStore {
 func newPostgresVaultStoreWithParams(tb testing.TB, params string) *VaultStore {
 	tb.Helper()
 
-	terminate, pgConnStr, err := postgres2.StartPostgres(tb.Context(), postgres2.ConfigFromEnv(), nil)
+	terminate, pgConnStr, err := postgres.StartPostgres(tb.Context(), postgres.ConfigFromEnv(), nil)
 	require.NoError(tb, err)
 	tb.Cleanup(terminate)
 
-	cp := postgres2.NewConfigProvider(testing2.MockConfig(postgres2.Config{
+	cp := postgres.NewConfigProvider(drivertesting.MockConfig(postgres.Config{
 		DataSource: pgConnStr + " " + params,
 	}))
-	store, err := NewPersistenceWithOpts(cp, postgres2.NewDbProvider(), "", NewVaultStore)
+	store, err := NewPersistenceWithOpts(cp, postgres.NewDbProvider(), "", NewVaultStore)
 	require.NoError(tb, err)
 	tb.Cleanup(func() { _ = store.Close() })
 
@@ -472,7 +472,7 @@ func recreateStateTable(t *testing.T, store *VaultStore, primaryKey string) {
 
 func requirePrimaryKey(t *testing.T, store *VaultStore, want string) {
 	t.Helper()
-	_, got, err := postgres2.PrimaryKey(store.writeDB, store.tables.StateTable)
+	_, got, err := postgres.PrimaryKey(store.writeDB, store.tables.StateTable)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }

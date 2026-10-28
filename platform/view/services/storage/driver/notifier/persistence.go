@@ -9,7 +9,7 @@ package notifier
 import (
 	"context"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
@@ -29,7 +29,7 @@ type UnversionedPersistenceNotifier struct {
 	*Notifier
 }
 
-func (db *UnversionedPersistenceNotifier) SetState(ctx context.Context, ns driver2.Namespace, key driver2.PKey, val driver2.RawValue) error {
+func (db *UnversionedPersistenceNotifier) SetState(ctx context.Context, ns cdriver.Namespace, key cdriver.PKey, val cdriver.RawValue) error {
 	if err := db.Persistence.SetState(ctx, ns, key, val); err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (db *UnversionedPersistenceNotifier) SetState(ctx context.Context, ns drive
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier) SetStates(ctx context.Context, ns driver2.Namespace, kvs map[driver2.PKey]driver2.RawValue) map[driver2.PKey]error {
+func (db *UnversionedPersistenceNotifier) SetStates(ctx context.Context, ns cdriver.Namespace, kvs map[cdriver.PKey]cdriver.RawValue) map[cdriver.PKey]error {
 	errs := db.Persistence.SetStates(ctx, ns, kvs)
 
 	for key, val := range kvs {
@@ -75,7 +75,7 @@ func (db *UnversionedPersistenceNotifier) Discard() error {
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier) DeleteState(ctx context.Context, ns driver2.Namespace, key driver2.PKey) error {
+func (db *UnversionedPersistenceNotifier) DeleteState(ctx context.Context, ns cdriver.Namespace, key cdriver.PKey) error {
 	if err := db.Persistence.DeleteState(ctx, ns, key); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (db *UnversionedPersistenceNotifier) DeleteState(ctx context.Context, ns dr
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier) DeleteStates(ctx context.Context, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+func (db *UnversionedPersistenceNotifier) DeleteStates(ctx context.Context, namespace cdriver.Namespace, keys ...cdriver.PKey) map[cdriver.PKey]error {
 	errs := db.Persistence.DeleteStates(ctx, namespace, keys...)
 
 	for _, key := range keys {
@@ -95,15 +95,15 @@ func (db *UnversionedPersistenceNotifier) DeleteStates(ctx context.Context, name
 	return errs
 }
 
-func (db *UnversionedPersistenceNotifier) GetState(ctx context.Context, namespace driver2.Namespace, key driver2.PKey) (driver2.RawValue, error) {
+func (db *UnversionedPersistenceNotifier) GetState(ctx context.Context, namespace cdriver.Namespace, key cdriver.PKey) (cdriver.RawValue, error) {
 	return db.Persistence.GetState(ctx, namespace, key)
 }
 
-func (db *UnversionedPersistenceNotifier) GetStateRangeScanIterator(ctx context.Context, namespace driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+func (db *UnversionedPersistenceNotifier) GetStateRangeScanIterator(ctx context.Context, namespace cdriver.Namespace, startKey, endKey cdriver.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	return db.Persistence.GetStateRangeScanIterator(ctx, namespace, startKey, endKey)
 }
 
-func (db *UnversionedPersistenceNotifier) GetStateSetIterator(ctx context.Context, ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+func (db *UnversionedPersistenceNotifier) GetStateSetIterator(ctx context.Context, ns cdriver.Namespace, keys ...cdriver.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	return db.Persistence.GetStateSetIterator(ctx, ns, keys...)
 }
 

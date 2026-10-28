@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 var logger = logging.MustGetLogger()
@@ -115,7 +115,7 @@ func waitForDB(db *sql.DB, label string, timeout time.Duration) error {
 	return errors.Wrapf(err, "database [%s] not reachable within %v", label, timeout)
 }
 
-func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, error) {
+func sqlOpen(dataSourceName string, tracing *sqlcommon.TracingConfig) (*sql.DB, error) {
 	if tracing == nil {
 		return sql.Open(driverName, dataSourceName)
 	}
@@ -132,7 +132,7 @@ type Opts struct {
 	MaxIdleTime     time.Duration
 	TablePrefix     string
 	TableNameParams []string
-	Tracing         *common2.TracingConfig
+	Tracing         *sqlcommon.TracingConfig
 	// StartupConnectTimeout bounds how long Open waits for the database; zero or negative
 	// means DefaultStartupConnectTimeout.
 	StartupConnectTimeout time.Duration

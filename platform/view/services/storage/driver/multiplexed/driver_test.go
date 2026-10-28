@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed/mock"
 )
@@ -30,7 +30,7 @@ func TestNewDriver(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		namedDrivers  []driver2.NamedDriver
+		namedDrivers  []dbdriver.NamedDriver
 		expectedCount int
 		checkDrivers  func(*testing.T, Driver)
 	}{
@@ -41,7 +41,7 @@ func TestNewDriver(t *testing.T) {
 		},
 		{
 			name: "single named driver",
-			namedDrivers: []driver2.NamedDriver{
+			namedDrivers: []dbdriver.NamedDriver{
 				{Name: "postgres", Driver: &mock.Driver{}},
 			},
 			expectedCount: 1,
@@ -52,7 +52,7 @@ func TestNewDriver(t *testing.T) {
 		},
 		{
 			name: "multiple named drivers",
-			namedDrivers: []driver2.NamedDriver{
+			namedDrivers: []dbdriver.NamedDriver{
 				{Name: "postgres", Driver: &mock.Driver{}},
 				{Name: "sqlite", Driver: &mock.Driver{}},
 			},
@@ -101,7 +101,7 @@ func TestDriver_NewKVS(t *testing.T) {
 			return nil
 		}
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "postgres", Driver: mockDriver})
 		kvs, err := d.NewKVS("test-persistence")
 
 		require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestDriver_NewKVS(t *testing.T) {
 			return nil
 		}
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "postgres", Driver: mockDriver})
 		kvs, err := d.NewKVS("test-persistence", "param1", "param2")
 
 		require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestDriver_NewKVS(t *testing.T) {
 
 		config := &mock.Config{}
 
-		d := NewDriver(config, driver2.NamedDriver{Name: mem.Persistence, Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: mem.Persistence, Driver: mockDriver})
 		kvs, err := d.NewKVS("")
 
 		require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestDriver_NewKVS(t *testing.T) {
 			return nil
 		}
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "postgres", Driver: mockDriver})
 		kvs, err := d.NewKVS("test-persistence")
 
 		require.Error(t, err)
@@ -226,7 +226,7 @@ func TestDriver_NewBinding(t *testing.T) {
 		mockDriver := &mock.Driver{}
 		mockDriver.NewBindingReturns(&mock.BindingStore{}, nil)
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "sqlite", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "sqlite", Driver: mockDriver})
 
 		bs, err := d.NewBinding("test", "param1")
 		require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestDriver_NewBinding(t *testing.T) {
 		mockDriver := &mock.Driver{}
 		mockDriver.NewBindingReturns(nil, errors.New("binding error"))
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "sqlite", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "sqlite", Driver: mockDriver})
 
 		bs, err := d.NewBinding("test")
 		require.Error(t, err)
@@ -265,7 +265,7 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 		mockDriver := &mock.Driver{}
 		mockDriver.NewSignerInfoReturns(&mock.SignerInfoStore{}, nil)
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "postgres", Driver: mockDriver})
 
 		sis, err := d.NewSignerInfo("test", "param1")
 		require.NoError(t, err)
@@ -278,7 +278,7 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 		mockDriver := &mock.Driver{}
 		mockDriver.NewSignerInfoReturns(nil, errors.New("signer error"))
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "postgres", Driver: mockDriver})
 
 		sis, err := d.NewSignerInfo("test")
 		require.Error(t, err)
@@ -304,7 +304,7 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 		mockDriver := &mock.Driver{}
 		mockDriver.NewAuditInfoReturns(&mock.AuditInfoStore{}, nil)
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "memory", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "memory", Driver: mockDriver})
 
 		ais, err := d.NewAuditInfo("test", "param1", "param2")
 		require.NoError(t, err)
@@ -317,7 +317,7 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 		mockDriver := &mock.Driver{}
 		mockDriver.NewAuditInfoReturns(nil, errors.New("audit error"))
 
-		d := NewDriver(config, driver2.NamedDriver{Name: "memory", Driver: mockDriver})
+		d := NewDriver(config, dbdriver.NamedDriver{Name: "memory", Driver: mockDriver})
 
 		ais, err := d.NewAuditInfo("test")
 		require.Error(t, err)
@@ -330,7 +330,7 @@ func TestDriver_getDriver(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		persistence driver2.PersistenceName
+		persistence dbdriver.PersistenceName
 		undefined   bool
 		driverType  driver.PersistenceType
 		configErr   error
@@ -396,14 +396,14 @@ func TestDriver_getDriver(t *testing.T) {
 				}
 			}
 
-			var namedDrivers []driver2.NamedDriver
+			var namedDrivers []dbdriver.NamedDriver
 			if tt.registered {
 				mockDriver := &mock.Driver{}
 				driverName := tt.driverType
 				if driverName == "" {
 					driverName = mem.Persistence
 				}
-				namedDrivers = []driver2.NamedDriver{{Name: driverName, Driver: mockDriver}}
+				namedDrivers = []dbdriver.NamedDriver{{Name: driverName, Driver: mockDriver}}
 			}
 
 			d := NewDriver(config, namedDrivers...)

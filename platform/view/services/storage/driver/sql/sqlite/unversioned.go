@@ -10,16 +10,16 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/notifier"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 type KeyValueStore struct {
-	*common2.KeyValueStore
+	*sqlcommon.KeyValueStore
 
 	readDB  *sql.DB
-	writeDB common2.WriteDB
+	writeDB sqlcommon.WriteDB
 	table   string
 }
 
@@ -33,18 +33,18 @@ func (db *KeyValueStore) CreateSchema() error {
 	return ReorderPrimaryKey(db.readDB, db.writeDB, db.table, "ns TEXT NOT NULL, pkey BYTEA NOT NULL, val BYTEA NOT NULL DEFAULT ''", "ns, pkey, val")
 }
 
-func NewKeyValueStore(dbs *common3.RWDB, tables common2.TableNames) (*KeyValueStore, error) {
+func NewKeyValueStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*KeyValueStore, error) {
 	return buildKeyValueStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.KVS), nil
 }
 
-func NewKeyValueStoreNotifier(dbs *common3.RWDB, table string) (*notifier.UnversionedPersistenceNotifier, error) {
+func NewKeyValueStoreNotifier(dbs *drivercommon.RWDB, table string) (*notifier.UnversionedPersistenceNotifier, error) {
 	return notifier.NewUnversioned(buildKeyValueStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), table)), nil
 }
 
-func buildKeyValueStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *KeyValueStore {
+func buildKeyValueStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string) *KeyValueStore {
 	var wrapper driver.SQLErrorWrapper = &ErrorMapper{}
 	return &KeyValueStore{
-		KeyValueStore: common2.NewKeyValueStore(writeDB, readDB, table, wrapper),
+		KeyValueStore: sqlcommon.NewKeyValueStore(writeDB, readDB, table, wrapper),
 		readDB:        readDB,
 		writeDB:       writeDB,
 		table:         table,

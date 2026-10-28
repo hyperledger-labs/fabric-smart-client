@@ -15,9 +15,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 type VaultStore struct {
@@ -25,19 +25,19 @@ type VaultStore struct {
 
 	tables  common.VaultTables
 	readDB  *sql.DB
-	writeDB common5.WriteDB
+	writeDB sqlcommon.WriteDB
 }
 
-func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, error) {
-	return buildVaultStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
+func NewVaultStore(dbs *drivercommon.RWDB, tables common.TableNames) (*VaultStore, error) {
+	return buildVaultStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
-func buildVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
+func buildVaultStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, tables common.VaultTables) *VaultStore {
 	return &VaultStore{
-		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, encodeKey, sqlite2.IsolationLevels),
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite.ErrorMapper{}, encodeKey, sqlite.IsolationLevels),
 		tables:     tables,
 		readDB:     readDB,
 		writeDB:    writeDB,
@@ -105,7 +105,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 // is read once before that transaction, so an upgraded table is left alone,
 // and again after a write lock, so replicas sharing the file rebuild it once.
 func (db *VaultStore) CreateSchema() error {
-	if err := common5.InitSchema(db.writeDB, fmt.Sprintf(`
+	if err := sqlcommon.InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		pos INTEGER PRIMARY KEY,
 		tx_id TEXT UNIQUE NOT NULL,
@@ -127,7 +127,7 @@ func (db *VaultStore) CreateSchema() error {
 		db.tables.StateTable)); err != nil {
 		return err
 	}
-	return sqlite2.ReorderPrimaryKey(db.readDB, db.writeDB, db.tables.StateTable,
+	return sqlite.ReorderPrimaryKey(db.readDB, db.writeDB, db.tables.StateTable,
 		"ns TEXT NOT NULL, pkey TEXT NOT NULL, val BYTEA DEFAULT '', kversion BYTEA DEFAULT '', metadata BYTEA DEFAULT ''",
 		"ns, pkey, val, kversion, metadata")
 }

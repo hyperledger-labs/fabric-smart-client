@@ -10,18 +10,18 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
-func NewKeyValueStore(dbs *common3.RWDB, tables common4.TableNames) (*KeyValueStore, error) {
+func NewKeyValueStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*KeyValueStore, error) {
 	return buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
 }
 
 // KeyValueStore is the Postgres key-value store. CreateSchema reorders a
 // primary key of (pkey, ns) to (ns, pkey) after the table exists.
 type KeyValueStore struct {
-	*common4.KeyValueStore
+	*sqlcommon.KeyValueStore
 
 	writeDB *sql.DB
 	table   string
@@ -57,7 +57,7 @@ func buildKeyValueStore(readDB, writeDB *sql.DB, table string) *KeyValueStore {
 	errorWrapper := &ErrorMapper{}
 
 	return &KeyValueStore{
-		KeyValueStore: common4.NewKeyValueStore(writeDB, readDB, table, errorWrapper),
+		KeyValueStore: sqlcommon.NewKeyValueStore(writeDB, readDB, table, errorWrapper),
 		writeDB:       writeDB,
 		table:         table,
 	}

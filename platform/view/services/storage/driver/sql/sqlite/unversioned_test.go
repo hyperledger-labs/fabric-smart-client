@@ -15,12 +15,12 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 )
 
 func openSQLiteKVS(t *testing.T, dataSource string, skipCreate bool) *KeyValueStore {
 	t.Helper()
-	store, err := NewPersistenceWithOpts(NewConfigProvider(testing2.MockConfig(Config{
+	store, err := NewPersistenceWithOpts(NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:      dataSource,
 		SkipCreateTable: skipCreate,
 	})), NewDbProvider(), "", NewKeyValueStore)

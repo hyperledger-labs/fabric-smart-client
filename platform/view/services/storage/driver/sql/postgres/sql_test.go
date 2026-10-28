@@ -18,8 +18,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 // setupDB starts a postgres container in a go test environment.
@@ -41,19 +41,19 @@ func TestPostgres(t *testing.T) {
 	pgConnStr := setupDB(t)
 	t.Log("postgres ready")
 
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource: pgConnStr,
 	}))
-	common3.TestCases(t, func(string) (driver.KeyValueStore, error) {
+	sqlcommon.TestCases(t, func(string) (driver.KeyValueStore, error) {
 		return NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
 	}, func(string) (driver.UnversionedNotifier, error) {
-		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables common3.TableNames) (*KeyValueStoreNotifier, error) {
+		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables sqlcommon.TableNames) (*KeyValueStoreNotifier, error) {
 			return &KeyValueStoreNotifier{
 				KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
 				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
 			}, nil
 		})
-	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
+	}, func(p driver.KeyValueStore) *sqlcommon.KeyValueStore {
 		return p.(*KeyValueStore).KeyValueStore
 	})
 	t.Run("DBMonitor", func(t *testing.T) {
@@ -120,7 +120,7 @@ func TestPostgresWithTLS(t *testing.T) {
 	pgConnStr, caPath := setupDBWithTLS(t)
 	t.Log("postgres with TLS ready")
 
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource: pgConnStr,
 		TLSConfig: &TLSConfig{
 			Enabled:      true,
@@ -128,16 +128,16 @@ func TestPostgresWithTLS(t *testing.T) {
 			RootCertPath: caPath,
 		},
 	}))
-	common3.TestCases(t, func(string) (driver.KeyValueStore, error) {
+	sqlcommon.TestCases(t, func(string) (driver.KeyValueStore, error) {
 		return NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
 	}, func(string) (driver.UnversionedNotifier, error) {
-		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables common3.TableNames) (*KeyValueStoreNotifier, error) {
+		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables sqlcommon.TableNames) (*KeyValueStoreNotifier, error) {
 			return &KeyValueStoreNotifier{
 				KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
 				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
 			}, nil
 		})
-	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
+	}, func(p driver.KeyValueStore) *sqlcommon.KeyValueStore {
 		return p.(*KeyValueStore).KeyValueStore
 	})
 }

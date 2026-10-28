@@ -9,18 +9,18 @@ package sqlite
 import (
 	"database/sql"
 
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 type SignerInfoStore struct {
-	*common2.SignerInfoStore
+	*sqlcommon.SignerInfoStore
 }
 
-func NewSignerInfoStore(dbs *common3.RWDB, tables common2.TableNames) (*SignerInfoStore, error) {
+func NewSignerInfoStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*SignerInfoStore, error) {
 	return buildSignerInfoStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.SignerInfo), nil
 }
 
-func buildSignerInfoStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *SignerInfoStore {
-	return &SignerInfoStore{SignerInfoStore: common2.NewSignerInfoStore(writeDB, readDB, table, &ErrorMapper{})}
+func buildSignerInfoStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string) *SignerInfoStore {
+	return &SignerInfoStore{SignerInfoStore: sqlcommon.NewSignerInfoStore(writeDB, readDB, table, &ErrorMapper{})}
 }

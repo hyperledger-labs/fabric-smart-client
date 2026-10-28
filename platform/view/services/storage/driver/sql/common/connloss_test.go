@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	storagedriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -33,17 +33,17 @@ func TestPut_MapsConnectionLoss(t *testing.T) {
 	}{
 		"PutData": {
 			put: func(ctx context.Context, db *sql.DB) error {
-				return common2.NewSimpleKeyDataStore(db, db, "t", mapper).PutData(ctx, "tx1", []byte("env"))
+				return common.NewSimpleKeyDataStore(db, db, "t", mapper).PutData(ctx, "tx1", []byte("env"))
 			},
 		},
 		"PutSigner": {
 			put: func(ctx context.Context, db *sql.DB) error {
-				return common2.NewSignerInfoStore(db, db, "t", mapper).PutSigner(ctx, view.Identity("signer"))
+				return common.NewSignerInfoStore(db, db, "t", mapper).PutSigner(ctx, view.Identity("signer"))
 			},
 		},
 		"PutAuditInfo": {
 			put: func(ctx context.Context, db *sql.DB) error {
-				return common2.NewAuditInfoStore(db, db, "t", mapper).PutAuditInfo(ctx, view.Identity("id"), []byte("info"))
+				return common.NewAuditInfoStore(db, db, "t", mapper).PutAuditInfo(ctx, view.Identity("id"), []byte("info"))
 			},
 		},
 		"PutBindings": {
@@ -52,7 +52,7 @@ func TestPut_MapsConnectionLoss(t *testing.T) {
 				m.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"long_term_id"}))
 			},
 			put: func(ctx context.Context, db *sql.DB) error {
-				return common2.NewBindingStore(db, db, "t", mapper).PutBindings(ctx, view.Identity("lt"), view.Identity("eph"))
+				return common.NewBindingStore(db, db, "t", mapper).PutBindings(ctx, view.Identity("lt"), view.Identity("eph"))
 			},
 		},
 	} {

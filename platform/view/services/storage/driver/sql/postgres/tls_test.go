@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 type mockConfig struct {
@@ -46,7 +46,7 @@ func (m *mockConfig) UnmarshalKey(key string, rawVal any) error {
 	return decodeYAML(val, rawVal)
 }
 
-func (m *mockConfig) UnmarshalDriverOpts(name driver2.PersistenceName, v any) error {
+func (m *mockConfig) UnmarshalDriverOpts(name driver.PersistenceName, v any) error {
 	if opts, ok := m.values[string(name)+"Opts"]; ok {
 		return decodeYAML(opts, v)
 	}

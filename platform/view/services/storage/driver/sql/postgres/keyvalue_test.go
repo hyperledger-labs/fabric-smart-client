@@ -16,13 +16,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 func openPostgresKVS(t *testing.T, pgConnStr string, skipCreate bool) *KeyValueStore {
 	t.Helper()
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:      pgConnStr,
 		SkipCreateTable: skipCreate,
 	}))
@@ -118,11 +118,11 @@ func TestPostgresKVSNotifierAfterReorder(t *testing.T) {
 	t.Parallel()
 
 	pgConnStr := setupDB(t)
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:      pgConnStr,
 		SkipCreateTable: true,
 	}))
-	store, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables common3.TableNames) (*KeyValueStoreNotifier, error) {
+	store, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables sqlcommon.TableNames) (*KeyValueStoreNotifier, error) {
 		return &KeyValueStoreNotifier{
 			KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
 			Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),

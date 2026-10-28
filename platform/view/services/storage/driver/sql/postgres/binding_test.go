@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
@@ -21,7 +21,7 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 	pgConnStr := setupDB(tb)
 	tb.Log("postgres ready")
 
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource: pgConnStr,
 	}))
 	db, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", NewBindingStore)

@@ -9,18 +9,18 @@ package postgres
 import (
 	"database/sql"
 
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 type SignerInfoStore struct {
-	*common3.SignerInfoStore
+	*sqlcommon.SignerInfoStore
 }
 
-func NewSignerInfoStore(dbs *common2.RWDB, tables common3.TableNames) (*SignerInfoStore, error) {
+func NewSignerInfoStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*SignerInfoStore, error) {
 	return buildSignerInfoStore(dbs.ReadDB, dbs.WriteDB, tables.SignerInfo), nil
 }
 
 func buildSignerInfoStore(readDB, writeDB *sql.DB, table string) *SignerInfoStore {
-	return &SignerInfoStore{SignerInfoStore: common3.NewSignerInfoStore(writeDB, readDB, table, &ErrorMapper{})}
+	return &SignerInfoStore{SignerInfoStore: sqlcommon.NewSignerInfoStore(writeDB, readDB, table, &ErrorMapper{})}
 }

@@ -8,60 +8,60 @@ package sqlite
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 var logger = logging.MustGetLogger()
 
 const (
-	Persistence driver2.PersistenceType = "sqlite"
+	Persistence cdriver.PersistenceType = "sqlite"
 )
 
-func NewNamedDriver(config driver.Config, dbProvider sqlite2.DbProvider) driver3.NamedDriver {
-	return driver3.NamedDriver{
+func NewNamedDriver(config driver.Config, dbProvider sqlite.DbProvider) fdbdriver.NamedDriver {
+	return fdbdriver.NamedDriver{
 		Name:   Persistence,
 		Driver: NewDriverWithDbProvider(config, dbProvider),
 	}
 }
 
-func NewDriverWithDbProvider(config driver.Config, dbProvider sqlite2.DbProvider) *Driver {
+func NewDriverWithDbProvider(config driver.Config, dbProvider sqlite.DbProvider) *Driver {
 	return &Driver{
-		cp:         sqlite2.NewConfigProvider(common2.NewConfig(config)),
+		cp:         sqlite.NewConfigProvider(drivercommon.NewConfig(config)),
 		dbProvider: dbProvider,
 	}
 }
 
 type Driver struct {
-	cp         *sqlite2.ConfigProvider
-	dbProvider sqlite2.DbProvider
+	cp         *sqlite.ConfigProvider
+	dbProvider sqlite.DbProvider
 }
 
-func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (driver3.EndorseTxStore, error) {
+func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (fdbdriver.EndorseTxStore, error) {
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewEndorseTxStore, params...)
 }
 
-func (d *Driver) NewMetadata(name driver.PersistenceName, params ...string) (driver3.MetadataStore, error) {
+func (d *Driver) NewMetadata(name driver.PersistenceName, params ...string) (fdbdriver.MetadataStore, error) {
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewMetadataStore, params...)
 }
 
-func (d *Driver) NewEnvelope(name driver.PersistenceName, params ...string) (driver3.EnvelopeStore, error) {
+func (d *Driver) NewEnvelope(name driver.PersistenceName, params ...string) (fdbdriver.EnvelopeStore, error) {
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewEnvelopeStore, params...)
 }
 
-func (d *Driver) NewVault(name driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
+func (d *Driver) NewVault(name driver.PersistenceName, params ...string) (cdriver.VaultStore, error) {
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewVaultStore, params...)
 }
 
 // NewPersistenceWithOpts constructs a V backed by the sqlite persistence configured under name and
 // params: it resolves the connection options and table names, opens the database, and invokes
 // constructor to build the store, creating its schema unless configured to skip.
-func NewPersistenceWithOpts[V common2.DBObject](cfg *sqlite2.ConfigProvider, dbProvider sqlite2.DbProvider, name driver.PersistenceName, constructor common3.PersistenceConstructor[V], params ...string) (V, error) {
+func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *sqlite.ConfigProvider, dbProvider sqlite.DbProvider, name driver.PersistenceName, constructor fsqlcommon.PersistenceConstructor[V], params ...string) (V, error) {
 	var zero V
 
 	o, err := cfg.GetOpts(name, params...)
@@ -69,7 +69,7 @@ func NewPersistenceWithOpts[V common2.DBObject](cfg *sqlite2.ConfigProvider, dbP
 		return zero, err
 	}
 
-	opts := sqlite2.Opts{
+	opts := sqlite.Opts{
 		DataSource:      o.DataSource,
 		SkipPragmas:     o.SkipPragmas,
 		MaxOpenConns:    o.MaxOpenConns,
@@ -83,7 +83,7 @@ func NewPersistenceWithOpts[V common2.DBObject](cfg *sqlite2.ConfigProvider, dbP
 	if err != nil {
 		return zero, errors.Wrap(err, "error opening db")
 	}
-	tables, err := common3.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	tables, err := fsqlcommon.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	if err != nil {
 		return zero, err
 	}

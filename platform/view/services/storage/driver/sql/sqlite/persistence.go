@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 const (
@@ -65,7 +65,7 @@ type Opts struct {
 	MaxIdleTime     time.Duration
 	TablePrefix     string
 	TableNameParams []string
-	Tracing         *common2.TracingConfig
+	Tracing         *sqlcommon.TracingConfig
 }
 
 func open(opts Opts) (*common.RWDB, error) {
@@ -85,7 +85,7 @@ func open(opts Opts) (*common.RWDB, error) {
 	}, nil
 }
 
-func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool, tracing *common2.TracingConfig) (*sql.DB, error) {
+func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool, tracing *sqlcommon.TracingConfig) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
 	path := getDir(dataSourceName)
 	if err := os.MkdirAll(path, 0o750); err != nil {
@@ -153,7 +153,7 @@ func withDefaultPragmas(dataSourceName string) string {
 	return b.String()
 }
 
-func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, error) {
+func sqlOpen(dataSourceName string, tracing *sqlcommon.TracingConfig) (*sql.DB, error) {
 	if tracing == nil {
 		return sql.Open(driverName, dataSourceName)
 	}

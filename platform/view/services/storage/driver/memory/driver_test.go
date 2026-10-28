@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
@@ -236,7 +236,7 @@ func TestNewPersistenceWithOpts_ConstructorError(t *testing.T) {
 
 	expectedErr := errors.New("constructor error")
 	fakeProvider := &fakeDbProvider{}
-	failingConstructor := func(*common.RWDB, common2.TableNames) (*fakePersistence, error) {
+	failingConstructor := func(*common.RWDB, sqlcommon.TableNames) (*fakePersistence, error) {
 		return nil, expectedErr
 	}
 
@@ -252,7 +252,7 @@ func TestNewPersistenceWithOpts_CreateSchemaError(t *testing.T) {
 
 	expectedErr := errors.New("create schema error")
 	fakeProvider := &fakeDbProvider{}
-	failingConstructor := func(*common.RWDB, common2.TableNames) (*fakePersistence, error) {
+	failingConstructor := func(*common.RWDB, sqlcommon.TableNames) (*fakePersistence, error) {
 		return &fakePersistence{createSchemaErr: expectedErr}, nil
 	}
 

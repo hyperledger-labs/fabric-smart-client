@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 // keyDataStore is the get/exists/put surface the envelope, endorsement-transaction
@@ -31,12 +31,12 @@ type keyDataStore struct {
 func TestKeyDataStoresPostgres(t *testing.T) {
 	t.Parallel()
 
-	terminate, pgConnStr, err := postgres2.StartPostgres(t.Context(), postgres2.ConfigFromEnv(), nil)
+	terminate, pgConnStr, err := postgres.StartPostgres(t.Context(), postgres.ConfigFromEnv(), nil)
 	require.NoError(t, err)
 	t.Cleanup(terminate)
 
-	cp := postgres2.NewConfigProvider(testing2.MockConfig(postgres2.Config{DataSource: pgConnStr}))
-	dbProvider := postgres2.NewDbProvider()
+	cp := postgres.NewConfigProvider(drivertesting.MockConfig(postgres.Config{DataSource: pgConnStr}))
+	dbProvider := postgres.NewDbProvider()
 
 	for name, open := range map[string]func(*testing.T) keyDataStore{
 		"Envelope": func(t *testing.T) keyDataStore {

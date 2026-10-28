@@ -17,7 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
@@ -40,13 +40,13 @@ type passthroughWrapper struct{}
 
 func (passthroughWrapper) WrapError(err error) error { return err }
 
-var vaultTables = common2.VaultTables{StateTable: "state", StatusTable: "status"}
+var vaultTables = common.VaultTables{StateTable: "state", StatusTable: "status"}
 
-func newVaultMock(t *testing.T) (*common2.VaultStore, sqlmock.Sqlmock) {
+func newVaultMock(t *testing.T) (*common.VaultStore, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
-	store := common2.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, isoMapper{})
+	store := common.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, isoMapper{})
 	return store, mockDB
 }
 
@@ -88,7 +88,7 @@ func TestVaultSQL_SetStatuses_WrapsError(t *testing.T) { //nolint:paralleltest
 	mockDB.ExpectExec("INSERT INTO status").WillReturnError(errors.New("connection reset by peer"))
 	wrapper := &mock.SQLErrorWrapper{}
 	wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(dbdriver.ErrConnectionLost, err.Error()) }
-	store := common2.NewVaultStore(db, db, vaultTables, wrapper, idKey, isoMapper{})
+	store := common.NewVaultStore(db, db, vaultTables, wrapper, idKey, isoMapper{})
 
 	err = store.SetStatuses(context.Background(), driver.Invalid, "msg", "tx1")
 	Expect(err).To(MatchError(dbdriver.ErrConnectionLost))
@@ -146,13 +146,13 @@ func TestVaultSQL_QueryState(t *testing.T) { //nolint:paralleltest
 		name  string
 		query string
 		args  []sqldriver.Value
-		run   func(store *common2.VaultStore) error
+		run   func(store *common.VaultStore) error
 	}{
 		{
 			name:  "GetStates two keys",
 			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND pkey IN ($2,$3))",
 			args:  []sqldriver.Value{"ns", "k1", "k2"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetStates(context.Background(), "ns", "k1", "k2")
 				return err
 			},
@@ -161,7 +161,7 @@ func TestVaultSQL_QueryState(t *testing.T) { //nolint:paralleltest
 			name:  "GetStates one key",
 			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND pkey IN ($2))",
 			args:  []sqldriver.Value{"ns", "k1"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetStates(context.Background(), "ns", "k1")
 				return err
 			},
@@ -170,7 +170,7 @@ func TestVaultSQL_QueryState(t *testing.T) { //nolint:paralleltest
 			name:  "GetStateRange both bounds",
 			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (pkey >= $2 AND pkey < $3)) ORDER BY pkey ASC",
 			args:  []sqldriver.Value{"ns", "a", "z"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetStateRange(context.Background(), "ns", "a", "z")
 				return err
 			},
@@ -179,7 +179,7 @@ func TestVaultSQL_QueryState(t *testing.T) { //nolint:paralleltest
 			name:  "GetStateRange no bounds",
 			query: "SELECT pkey, kversion, val FROM state WHERE (ns = $1 AND (1=1)) ORDER BY pkey ASC",
 			args:  []sqldriver.Value{"ns"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetStateRange(context.Background(), "ns", "", "")
 				return err
 			},
@@ -188,7 +188,7 @@ func TestVaultSQL_QueryState(t *testing.T) { //nolint:paralleltest
 			name:  "GetAllStates",
 			query: "SELECT pkey, kversion, val FROM state WHERE ns = $1",
 			args:  []sqldriver.Value{"ns"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllStates(context.Background(), "ns")
 				return err
 			},
@@ -247,13 +247,13 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 		name  string
 		query string
 		args  []sqldriver.Value
-		run   func(store *common2.VaultStore) error
+		run   func(store *common.VaultStore) error
 	}{
 		{
 			name:  "GetLast",
 			query: "SELECT tx_id, code, message FROM status WHERE pos=(SELECT max(pos) FROM status WHERE code!=$1)",
 			args:  []sqldriver.Value{int64(driver.Busy)},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetLast(context.Background())
 				return err
 			},
@@ -262,7 +262,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 			name:  "GetTxStatus",
 			query: "SELECT tx_id, code, message FROM status WHERE tx_id = $1",
 			args:  []sqldriver.Value{"tx1"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetTxStatus(context.Background(), "tx1")
 				return err
 			},
@@ -271,7 +271,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 			name:  "GetTxStatuses",
 			query: "SELECT tx_id, code, message FROM status WHERE tx_id IN ($1,$2)",
 			args:  []sqldriver.Value{"tx1", "tx2"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetTxStatuses(context.Background(), "tx1", "tx2")
 				return err
 			},
@@ -279,7 +279,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 		{
 			name:  "GetAllTxStatuses none",
 			query: "SELECT tx_id, code, message FROM status",
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllTxStatuses(context.Background(), pagination.None())
 				return err
 			},
@@ -287,7 +287,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 		{
 			name:  "GetAllTxStatuses empty",
 			query: "SELECT tx_id, code, message FROM status LIMIT 0",
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllTxStatuses(context.Background(), pagination.Empty())
 				return err
 			},
@@ -295,7 +295,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 		{
 			name:  "GetAllTxStatuses offset with skip",
 			query: "SELECT tx_id, code, message FROM status LIMIT 5 OFFSET 10",
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllTxStatuses(context.Background(), offsetPag(10, 5))
 				return err
 			},
@@ -303,7 +303,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 		{
 			name:  "GetAllTxStatuses offset without skip",
 			query: "SELECT tx_id, code, message FROM status LIMIT 5",
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllTxStatuses(context.Background(), offsetPag(0, 5))
 				return err
 			},
@@ -311,7 +311,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 		{
 			name:  "GetAllTxStatuses keyset first page",
 			query: "SELECT tx_id, code, message FROM status ORDER BY tx_id ASC LIMIT 5",
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllTxStatuses(context.Background(), keysetFirst())
 				return err
 			},
@@ -320,7 +320,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 			name:  "GetAllTxStatuses keyset with cursor",
 			query: "SELECT tx_id, code, message FROM status WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 5",
 			args:  []sqldriver.Value{"tx3"},
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllTxStatuses(context.Background(), keysetWithCursor())
 				return err
 			},
@@ -328,7 +328,7 @@ func TestVaultSQL_QueryStatus(t *testing.T) { //nolint:paralleltest
 		{
 			name:  "GetAllTxStatuses keyset with offset",
 			query: "SELECT tx_id, code, message FROM status ORDER BY pos ASC LIMIT 5 OFFSET 3",
-			run: func(store *common2.VaultStore) error {
+			run: func(store *common.VaultStore) error {
 				_, err := store.GetAllTxStatuses(context.Background(), keysetWithOffset())
 				return err
 			},

@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -169,9 +169,9 @@ func TestPutSigner_UniqueViolation(t *testing.T) { //nolint:paralleltest
 	Expect(err).To(BeNil())
 }
 
-func mockSignerInfoStore(db *sql.DB, isdummyUniqueErrorWrapper bool) *common2.SignerInfoStore {
+func mockSignerInfoStore(db *sql.DB, isdummyUniqueErrorWrapper bool) *common.SignerInfoStore {
 	if isdummyUniqueErrorWrapper {
-		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{})
+		return common.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{})
 	}
-	return common2.NewSignerInfoStore(db, db, "signer_info", passthroughErrorWrapper())
+	return common.NewSignerInfoStore(db, db, "signer_info", passthroughErrorWrapper())
 }
