@@ -149,6 +149,7 @@ make unit-tests-sdk
 
 Use `make unit-tests` for the default unit-test suite.
 Use `make unit-tests-postgres` only for tests that explicitly exercise the PostgreSQL-backed storage implementations.
+It runs only root-module tests whose top-level name contains `Postgres`, so name new Postgres tests accordingly; `make unit-tests` skips them.
 Use `make unit-tests-sdk` when validating dependency-injection wiring in SDK packages.
 
 When your change is confined to one module, run just that module's target:

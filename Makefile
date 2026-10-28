@@ -163,6 +163,10 @@ EXTENSION_MODULES = platform/view/services/comm/host/libp2p
 GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
 GO_TEST_PARAMS ?= -race -cover
 TEST_PKGS ?= $(GO_PACKAGES)
+# The packages of TEST_PKGS with a test file that mentions Postgres. --run '(Postgres)'
+# selects tests by top-level name, and test names live in _test.go files, so this set
+# covers every package where the filter matches; unit-tests-postgres compiles only these.
+POSTGRES_TEST_PKGS = $$(go list -f '{{.ImportPath}} {{.Dir}}' $(TEST_PKGS) | while read -r p d; do grep -qs Postgres "$$d"/*_test.go && echo "$$p"; done)
 
 # Instrument every package under the root module so that coverage is credited
 # even when a package is exercised only by tests living in another package
@@ -211,7 +215,7 @@ unit-tests-extensions: ## Run unit tests of the extension modules (optional driv
 
 .PHONY: unit-tests-postgres
 unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
-	@env $(UNIT_TEST_ENV) go test $(GO_TEST_PARAMS) $(GO_COVERPKG) $(COVER_FLAGS) --run '(Postgres)' $(TEST_PKGS)
+	@env $(UNIT_TEST_ENV) go test $(GO_TEST_PARAMS) $(GO_COVERPKG) $(COVER_FLAGS) --run '(Postgres)' $(POSTGRES_TEST_PKGS)
 	@$(FILTER_COVERAGE)
 
 .PHONY: unit-tests-sdk
