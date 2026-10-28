@@ -8,9 +8,11 @@ package fabric
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 )
@@ -187,10 +189,16 @@ type DataSourceProvider interface {
 	DataSource() string
 }
 
+// WithDefaultPostgresPersistence makes config the database of the node's default persistence,
+// which holds every store that names no other persistence. A nil config leaves the node as is.
 func WithDefaultPostgresPersistence(config DataSourceProvider) node.Option {
 	return WithPostgresPersistence(common.DefaultPersistence, config)
 }
 
+// WithPostgresPersistence defines the Postgres persistence name with config as its database. nwo
+// starts that database with the network. Defining a name again replaces its options, including
+// any table prefix or TLS set on it, so WithTablePrefix and WithPostgresTLS go after it. A nil
+// config leaves the node as is.
 func WithPostgresPersistence(name driver.PersistenceName, config DataSourceProvider) node.Option {
 	return func(o *node.Options) error {
 		if config != nil {
@@ -202,9 +210,48 @@ func WithPostgresPersistence(name driver.PersistenceName, config DataSourceProvi
 	}
 }
 
+// WithStorePersistence routes the store identified by key, such as "fsc_kvs" for fsc.kvs, to
+// the persistence name, which another option must define.
+func WithStorePersistence(key node.PersistenceKey, name driver.PersistenceName) node.Option {
+	return func(o *node.Options) error {
+		o.PutPostgresPersistenceName(key, name)
+		return nil
+	}
+}
+
+// WithTablePrefix sets the table prefix of the Postgres persistence name, which an earlier
+// option must define.
+func WithTablePrefix(name driver.PersistenceName, prefix string) node.Option {
+	return updatePostgresPersistence(name, func(opts *node.SQLOpts) { opts.TablePrefix = prefix })
+}
+
+// WithPostgresTLS makes nwo start the database of the Postgres persistence name, which an
+// earlier option must define, with TLS, and the node connect to it with ssl_mode verify-full.
+// The database keeps accepting plaintext connections, so another persistence on the same
+// database connects without TLS unless it sets this option too.
+func WithPostgresTLS(name driver.PersistenceName) node.Option {
+	return updatePostgresPersistence(name, func(opts *node.SQLOpts) { opts.TLS = true })
+}
+
+func updatePostgresPersistence(name driver.PersistenceName, update func(*node.SQLOpts)) node.Option {
+	return func(o *node.Options) error {
+		opts := o.GetPostgresPersistence(name)
+		if opts == nil {
+			return errors.Errorf("postgres persistence [%s] is not defined", name)
+		}
+		update(opts)
+		o.PutPostgresPersistence(name, *opts)
+		return nil
+	}
+}
+
+// WithDefaultSqlitePersistence gives the node a SQLite default persistence for its stores, and
+// a SQLite file of its own for the vault of its Fabric networks, which Platform.DeleteVault
+// removes.
 func WithDefaultSqlitePersistence() node.Option {
 	return func(o *node.Options) error {
 		o.PutPersistenceKey(node.PersistenceKey(common.DefaultPersistence))
+		o.PutPersistenceKey(network.VaultPersistenceKey)
 		return nil
 	}
 }

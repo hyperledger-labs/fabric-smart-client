@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/tlsgen"
 )
 
 const (
@@ -146,6 +148,56 @@ func WithBinds(binds ...string) option {
 	return func(c *ContainerConfig) {
 		c.Binds = append(c.Binds, binds...)
 	}
+}
+
+// tlsInitScript turns on TLS in a Postgres container, using the server key pair that EnableTLS
+// mounts at /tmp/certs. Postgres runs it once, when it initializes the database.
+const tlsInitScript = `#!/bin/bash
+cp /tmp/certs/server.key /var/lib/postgresql/server.key
+cp /tmp/certs/server.crt /var/lib/postgresql/server.crt
+chmod 0600 /var/lib/postgresql/server.key
+echo "ssl = on" >> "$PGDATA/postgresql.conf"
+echo "ssl_cert_file = '/var/lib/postgresql/server.crt'" >> "$PGDATA/postgresql.conf"
+echo "ssl_key_file = '/var/lib/postgresql/server.key'" >> "$PGDATA/postgresql.conf"
+`
+
+// EnableTLS makes the container c serve TLS. It writes a new CA, a server key pair for
+// c.Host signed by it, and an init script into dir, and binds them into c. It returns the
+// path of the CA certificate a client verifies the server with. dir must stay in place until
+// the container has started. Plaintext connections keep working, as Postgres accepts both.
+func EnableTLS(c *ContainerConfig, dir string) (caPath string, err error) {
+	ca, err := tlsgen.NewCA()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create CA")
+	}
+	serverKeyPair, err := ca.NewServerCertKeyPair(c.Host)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create server key pair")
+	}
+
+	scriptPath := filepath.Join(dir, "init-ssl.sh")
+	caPath = filepath.Join(dir, "ca.crt")
+	files := []struct {
+		path string
+		data []byte
+		perm os.FileMode
+	}{
+		{filepath.Join(dir, "server.crt"), serverKeyPair.Cert, 0o644},
+		{filepath.Join(dir, "server.key"), serverKeyPair.Key, 0o644},
+		{scriptPath, []byte(tlsInitScript), 0o755},
+		{caPath, ca.CertBytes(), 0o644},
+	}
+	for _, f := range files {
+		if err := os.WriteFile(f.path, f.data, f.perm); err != nil {
+			return "", errors.Wrapf(err, "failed to write %s", f.path)
+		}
+	}
+
+	WithBinds(
+		filepath.ToSlash(dir)+":/tmp/certs:ro",
+		filepath.ToSlash(scriptPath)+":/docker-entrypoint-initdb.d/init-ssl.sh:ro",
+	)(c)
+	return caPath, nil
 }
 
 // ConfigFromEnv returns a Postgres container configuration based environment variables.

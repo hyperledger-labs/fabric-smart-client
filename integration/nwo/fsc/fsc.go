@@ -186,6 +186,10 @@ func (p *Platform) generatePostgresConfiguration() {
 			// so we store it below in the core.yaml
 			cfg.Port = port
 			pp.DataSource = cfg.DataSource()
+			if pp.TLS {
+				// startPostgres writes the CA there before the database and the node start
+				pp.TLSRootCertPath = filepath.Join(p.postgresTLSDir(cfg.DBName), "ca.crt")
+			}
 			peer.Options.PutPostgresPersistence(n, *pp)
 		}
 	}
@@ -239,17 +243,33 @@ func (p *Platform) PreRun() {
 	startPostgres(p)
 }
 
+// postgresTLSDir is the directory that holds the TLS material of the nwo-started database dbName.
+func (p *Platform) postgresTLSDir(dbName string) string {
+	return filepath.Join(p.Context.RootDir(), "fsc", "postgres", dbName)
+}
+
 // startPostgres spawns a Postgres container for each database as specified via the platform topology.
+// A database serves TLS when any persistence that uses it asks for TLS.
 // It sets Platform.cleanDB function to allow shutdown of all spawned databases. If an error occurs, we panic
 func startPostgres(p *Platform) {
 	// find all postgres databases we need to start via node configurations
 	configs := make(map[string]*postgres.ContainerConfig)
+	tls := make(map[string]bool)
 	for _, node := range p.Peers {
 		for _, sqlOpts := range node.Options.GetPostgresPersistences() {
-			if _, ok := configs[sqlOpts.DataSource]; !ok {
-				c, err := postgres.ConfigFromDataSource(sqlOpts.DataSource)
+			c, ok := configs[sqlOpts.DataSource]
+			if !ok {
+				var err error
+				c, err = postgres.ConfigFromDataSource(sqlOpts.DataSource)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				configs[sqlOpts.DataSource] = c
+			}
+			if sqlOpts.TLS && !tls[sqlOpts.DataSource] {
+				tls[sqlOpts.DataSource] = true
+				dir := p.postgresTLSDir(c.DBName)
+				gomega.Expect(os.MkdirAll(dir, 0o755)).To(gomega.Succeed())
+				_, err := postgres.EnableTLS(c, dir)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 		}
 	}
@@ -580,8 +600,11 @@ func (p *Platform) GenerateCoreConfig(peer *nwonode.Replica) {
 		"ToLower":      strings.ToLower,
 		"ReplaceAll":   strings.ReplaceAll,
 		"Persistences": func() map[driver.PersistenceName]nwonode.PersistenceOpts { return persistences },
-		"Resolvers":    func() []*Resolver { return resolvers },
-		"WebEnabled":   func() bool { return p.Topology.WebEnabled },
+		"StorePersistences": func() map[string]driver.PersistenceName {
+			return StorePersistences(peer.Options, "fsc")
+		},
+		"Resolvers":  func() []*Resolver { return resolvers },
+		"WebEnabled": func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
 			return cmp.Or(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", otlp.JaegerCollectorPort))
 		},
@@ -592,6 +615,21 @@ func (p *Platform) GenerateCoreConfig(peer *nwonode.Replica) {
 	gomega.Expect(t.Execute(io.MultiWriter(core), p)).NotTo(gomega.HaveOccurred())
 }
 
+// StorePersistences returns, keyed by store, the persistence name that the stores of platform
+// use when it is not the default persistence: an entry "kvs" means fsc.kvs.persistence for
+// platform "fsc". The stores are those registered as PersistenceKey <platform>_<store>.
+func StorePersistences(o *nwonode.Options, platform string) map[string]driver.PersistenceName {
+	stores := map[string]driver.PersistenceName{}
+	for key, name := range GetPersistenceNames(o, o.GetAllPersistenceKeys()...) {
+		if store, ok := strings.CutPrefix(string(key), platform+"_"); ok && name != drivercommon.DefaultPersistence {
+			stores[store] = name
+		}
+	}
+	return stores
+}
+
+// GetPersistenceNames returns the persistence name of each store key in prefixes: the name set
+// with Options.PutPostgresPersistenceName, or otherwise the store's own SQLite persistence.
 func GetPersistenceNames(o *nwonode.Options, prefixes ...nwonode.PersistenceKey) map[nwonode.PersistenceKey]driver.PersistenceName {
 	names := make(map[nwonode.PersistenceKey]driver.PersistenceName, len(prefixes))
 	// Complete all missing persistences with ad hoc sqlite local persistences
@@ -606,6 +644,9 @@ func GetPersistenceNames(o *nwonode.Options, prefixes ...nwonode.PersistenceKey)
 	return names
 }
 
+// GetPersistences returns the fsc.persistences blocks of a node whose SQLite files live in dir:
+// every Postgres persistence, plus a SQLite persistence for each store key registered with
+// Options.PutPersistenceKey that names no persistence.
 func GetPersistences(o *nwonode.Options, dir string) map[driver.PersistenceName]nwonode.PersistenceOpts {
 	// First map all existing postgres configurations
 	ps := o.GetPostgresPersistences()

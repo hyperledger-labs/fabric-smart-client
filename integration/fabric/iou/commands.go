@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package iou
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -18,8 +19,12 @@ import (
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 const (
@@ -138,4 +143,61 @@ func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {
 	gomega.Eventually(func() (int, error) {
 		return cli.GetViewOperations("", viewName)
 	}, prometheusScrapeEventually, 2*time.Second).ShouldNot(gomega.BeZero())
+}
+
+// Tables returns the names of the tables in the Postgres database that the persistence name of
+// the FSC node replica uses.
+func Tables(ii *integration.Infrastructure, replica string, name driver.PersistenceName) []string {
+	db := openPostgres(ii, replica, name)
+	defer func() { _ = db.Close() }()
+
+	rows, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	defer func() { _ = rows.Close() }()
+	var tables []string
+	for rows.Next() {
+		var table string
+		gomega.Expect(rows.Scan(&table)).To(gomega.Succeed())
+		tables = append(tables, table)
+	}
+	gomega.Expect(rows.Err()).NotTo(gomega.HaveOccurred())
+	return tables
+}
+
+// Connections returns how many connections other than its own the Postgres database of the
+// persistence name of the FSC node replica holds, and how many of them use TLS.
+func Connections(ii *integration.Infrastructure, replica string, name driver.PersistenceName) (total, tls int) {
+	db := openPostgres(ii, replica, name)
+	defer func() { _ = db.Close() }()
+
+	err := db.QueryRow(`SELECT count(*), count(*) FILTER (WHERE s.ssl)
+		FROM pg_stat_ssl s JOIN pg_stat_activity a USING (pid)
+		WHERE a.datname = current_database() AND a.pid <> pg_backend_pid()`).Scan(&total, &tls)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return total, tls
+}
+
+// openPostgres connects to the Postgres database of the persistence name of the FSC node
+// replica, with that persistence's TLS settings.
+func openPostgres(ii *integration.Infrastructure, replica string, name driver.PersistenceName) *sql.DB {
+	p, ok := ii.NWOCtx.PlatformByName(fsc.TopologyName).(*fsc.Platform)
+	gomega.Expect(ok).To(gomega.BeTrue(), "expected an fsc platform")
+	var opts *node.SQLOpts
+	for _, r := range p.Peers {
+		if r.UniqueName == replica {
+			opts = r.Options.GetPostgresPersistence(name)
+			break
+		}
+	}
+	gomega.Expect(opts).NotTo(gomega.BeNil(), "replica [%s] has no postgres persistence [%s]", replica, name)
+
+	dataSource := opts.DataSource
+	if opts.TLS {
+		var err error
+		dataSource, err = postgres.RegisterTLSConnection(dataSource, postgres.TLSConfig{SSLMode: "verify-full", RootCertPath: opts.TLSRootCertPath})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
+	db, err := sql.Open("pgx", dataSource)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return db
 }

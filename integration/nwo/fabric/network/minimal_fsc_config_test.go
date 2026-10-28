@@ -13,6 +13,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	nwocontext "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
@@ -96,4 +97,40 @@ func TestGenerateCoreConfig_DefaultFSCFabricConfig(t *testing.T) { //nolint:para
 	assert.Contains(t, fragment, "fabric:")
 	assert.Contains(t, fragment, "enabled: true")
 	assert.Contains(t, fragment, "peers:")
+}
+
+func TestGenerateCoreConfig_VaultPersistence(t *testing.T) { //nolint:paralleltest
+	for _, tc := range []struct { //nolint:paralleltest // like the tests above, newTestFSCPeer uses the global Gomega
+		name  string
+		setup func(*node.Options)
+		want  string
+	}{
+		{name: "default persistence", setup: func(*node.Options) {}},
+		{name: "own sqlite file", setup: func(o *node.Options) { o.PutPersistenceKey(VaultPersistenceKey) }, want: "fabric_vault_persistence"},
+		{name: "named persistence", setup: func(o *node.Options) { o.PutPostgresPersistenceName(VaultPersistenceKey, "second") }, want: "second"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n, peer := newTestFSCPeer(t)
+			tc.setup(peer.FSCNode.Options)
+
+			n.GenerateCoreConfig(peer)
+
+			fragment := n.Context.ExtensionsByPeerID(peer.FSCNode.ReplicaUniqueNames()[0])[api.FabricExtension][0]
+			var cfg struct {
+				Fabric struct {
+					Default struct {
+						Vault map[string]any `yaml:"vault"`
+					} `yaml:"default"`
+				} `yaml:"fabric"`
+			}
+			require.NoError(t, yaml.Unmarshal([]byte(fragment), &cfg))
+			vault := cfg.Fabric.Default.Vault
+			require.Contains(t, vault, "txidstore")
+			if tc.want == "" {
+				require.NotContains(t, vault, "persistence")
+			} else {
+				require.Equal(t, tc.want, vault["persistence"])
+			}
+		})
+	}
 }

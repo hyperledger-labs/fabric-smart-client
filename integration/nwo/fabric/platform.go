@@ -254,11 +254,27 @@ func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
 	p.Network.DeployChaincode(chaincode)
 }
 
+// DeleteVault removes the vaults of the FSC node id, for every replica, so that the node
+// rebuilds them from the ledger when it restarts. The node must be stopped. The vaults of all
+// Fabric networks of the node share one store, so this removes every one of them, not only
+// the vault of this platform's network. Only vaults in a SQLite file of their own, as
+// WithDefaultSqlitePersistence configures, are removed; vaults that share their persistence
+// with other stores, such as a Postgres one, are kept, since removing them would remove those
+// stores too.
 func (p *Platform) DeleteVault(id string) {
 	fscPeer := p.Network.FSCPeerByName(id)
 	gomega.Expect(fscPeer).ToNot(gomega.BeNil())
+	o := fscPeer.FSCNode.Options
+	_, named := o.GetPersistenceName(network.VaultPersistenceKey)
+	if named || !slices.Contains(o.GetAllPersistenceKeys(), network.VaultPersistenceKey) {
+		logger.Warnf("vault of [%s] has no SQLite file of its own, not deleting it", id)
+		return
+	}
 	for _, uniqueName := range fscPeer.FSCNode.ReplicaUniqueNames() {
-		gomega.Expect(os.RemoveAll(fsc.SqlitePath(p.Network.NodeStorages(uniqueName), network.VaultPersistenceKey))).ToNot(gomega.HaveOccurred())
+		vault := fsc.SqlitePath(p.Network.NodeStorages(uniqueName), network.VaultPersistenceKey)
+		for _, f := range []string{vault, vault + "-wal", vault + "-shm"} {
+			gomega.Expect(os.RemoveAll(f)).To(gomega.Succeed())
+		}
 	}
 }
 

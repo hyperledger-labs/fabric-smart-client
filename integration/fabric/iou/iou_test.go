@@ -12,7 +12,10 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -39,6 +42,9 @@ var _ = Describe("EndToEnd", func() {
 		It("succeeded", s.TestSucceeded)
 	})
 
+	// The replicas also cover the storage options of nwo: the borrower prefixes its tables and
+	// keeps its KVS in a second database, the lender connects over TLS, and the approvers keep
+	// the SQLite defaults.
 	Describe("IOU Life Cycle With Websockets and replicas", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(
 			fsc.WebSocket,
@@ -50,6 +56,14 @@ var _ = Describe("EndToEnd", func() {
 				SQLConfigs: map[string]*postgres.ContainerConfig{
 					"borrower": postgres.DefaultConfig(postgres.WithDBName("borrower-db")),
 					"lender":   postgres.DefaultConfig(postgres.WithDBName("lender-db")),
+				},
+				NodeOptions: map[string][]node.Option{
+					"borrower": {
+						fabric.WithTablePrefix(common.DefaultPersistence, "borrower"),
+						fabric.WithPostgresPersistence(borrowerKVS, postgres.DefaultConfig(postgres.WithDBName("borrower-kvs-db"))),
+						fabric.WithStorePersistence("fsc_kvs", borrowerKVS),
+					},
+					"lender": {fabric.WithPostgresTLS(common.DefaultPersistence)},
 				},
 			},
 			true,
@@ -109,4 +123,22 @@ func (s *TestSuite) TestSucceededWithReplicas() {
 	iou.CheckState(s.II, "fsc.borrower.2", iouState, 5)
 	iou.CheckState(s.II, "fsc.lender.0", iouState, 5)
 	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
+
+	// The borrower's vault and other stores are in its prefixed default database, its KVS in
+	// the second one.
+	borrowerTables := iou.Tables(s.II, "borrower.0", common.DefaultPersistence)
+	gomega.Expect(borrowerTables).To(gomega.ContainElement(gomega.HavePrefix("borrower_default__testchannel_vstate")))
+	gomega.Expect(borrowerTables).To(gomega.HaveEach(gomega.HavePrefix("borrower_")))
+	gomega.Expect(borrowerTables).NotTo(gomega.ContainElement(gomega.HaveSuffix("_kvs")))
+	gomega.Expect(iou.Tables(s.II, "borrower.0", borrowerKVS)).To(gomega.ConsistOf("fsc_kvs"))
+	gomega.Expect(iou.Tables(s.II, "lender.0", common.DefaultPersistence)).To(gomega.ContainElement("fsc_kvs"))
+
+	// The lender's database also accepts plaintext, so check that the lender's replicas, the
+	// only clients of that database, connect over TLS.
+	total, tls := iou.Connections(s.II, "lender.0", common.DefaultPersistence)
+	gomega.Expect(total).To(gomega.BeNumerically(">", 0))
+	gomega.Expect(tls).To(gomega.Equal(total), "every lender connection uses TLS")
 }
+
+// borrowerKVS is the persistence that holds the borrower's KVS in the replicas variant.
+const borrowerKVS = "kvs"

@@ -19,13 +19,20 @@ import (
 
 var NoReplication = &ReplicationOptions{}
 
+// ReplicationOptions configures, per FSC node name, how many replicas the node runs and
+// where it stores its data.
 type ReplicationOptions struct {
 	ReplicationFactors map[string]int
-	SQLConfigs         map[string]*postgres.ContainerConfig
+	// SQLConfigs puts the default persistence of a node on Postgres; nodes not listed use SQLite.
+	SQLConfigs map[string]*postgres.ContainerConfig
+	// NodeOptions are applied after the persistence options, so they can refine them, for
+	// example with fabric.WithTablePrefix.
+	NodeOptions map[string][]node.Option
 }
 
+// For returns the options of the FSC node name.
 func (o *ReplicationOptions) For(name string) []node.Option {
-	opts := make([]node.Option, 0, 3)
+	opts := make([]node.Option, 0, 3+len(o.NodeOptions[name]))
 	if f := o.ReplicationFactors[name]; f > 0 {
 		opts = append(opts, fsc.WithReplicationFactor(f))
 	}
@@ -38,7 +45,7 @@ func (o *ReplicationOptions) For(name string) []node.Option {
 			fabric.WithDefaultSqlitePersistence(),
 		)
 	}
-	return opts
+	return append(opts, o.NodeOptions[name]...)
 }
 
 func NewTestSuite(generator func() (*Infrastructure, error)) *TestSuite {
