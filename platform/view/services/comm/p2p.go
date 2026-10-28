@@ -38,7 +38,9 @@ const (
 
 	// closedSessionTTL is how long messages for a session that closed on its own are dropped. Such
 	// messages continue a protocol the session can no longer serve, so the master session must not
-	// start a new responder for them.
+	// start a new responder for them. A session closed by Close is not remembered: its view finished
+	// the protocol, so the next message for its key starts a new one, as when a peer reuses a fixed
+	// session ID.
 	closedSessionTTL = time.Minute
 )
 

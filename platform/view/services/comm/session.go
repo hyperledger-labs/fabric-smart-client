@@ -122,7 +122,7 @@ func (n *NetworkStreamSession) dropDeadStream(sh *streamHandler) {
 	}
 	sh.release()
 	delete(n.streams, sh)
-	if len(n.streams) > 0 || n.sessionID == masterSession {
+	if len(n.streams) > 0 || n.isMaster() {
 		return
 	}
 	if n.orphanTimer == nil {
@@ -130,6 +130,12 @@ func (n *NetworkStreamSession) dropDeadStream(sh *streamHandler) {
 	} else {
 		n.orphanTimer.Reset(n.streamGrace)
 	}
+}
+
+// isMaster tells whether n is the master session. The registry key identifies it, not the session
+// ID: a remote peer can choose the ID.
+func (n *NetworkStreamSession) isMaster() bool {
+	return computeInternalSessionID(n.sessionID, n.endpointID) == masterSessionKey
 }
 
 func (n *NetworkStreamSession) closeIfOrphaned() {

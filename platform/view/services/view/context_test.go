@@ -191,6 +191,17 @@ func TestContextGetSession(t *testing.T) {
 	s3, err := ctx.GetSessionByID("sid", party2)
 	require.NoError(t, err)
 	require.Equal(t, session, s3)
+
+	// Case: a closed session by ID is replaced
+	closed := &mock.Session{}
+	closed.InfoReturns(view.SessionInfo{ID: "sid", Closed: true})
+	require.NoError(t, ctx.PutSessionByID("sid", party2, closed))
+	fresh := &mock.Session{}
+	sessionFactory.NewSessionWithIDReturns(fresh, nil)
+	s4, err := ctx.GetSessionByID("sid", party2)
+	require.NoError(t, err)
+	require.Same(t, fresh, s4)
+	require.Equal(t, 1, sessionFactory.NewSessionWithIDCallCount())
 }
 
 func TestContextRace(t *testing.T) {

@@ -99,6 +99,31 @@ func TestSession_ClosedWhenOnlyStreamDies(t *testing.T) {
 	require.Empty(t, session.streams)
 }
 
+// TestSession_PeerChosenMasterIDClosesWhenOnlyStreamDies checks that a session whose peer chose the
+// master session's ID still closes when its only stream dies, while the master session does not.
+func TestSession_PeerChosenMasterIDClosesWhenOnlyStreamDies(t *testing.T) {
+	t.Parallel()
+	const grace = 100 * time.Millisecond
+	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
+	require.NoError(t, err)
+	stopNode(t, p)
+	impostor, err := p.getOrCreateSession(masterSession, "addr", "ctx", "view", nil, []byte("peer1"), nil)
+	require.NoError(t, err)
+	m, err := p.MasterSession()
+	require.NoError(t, err)
+	master := m.(*NetworkStreamSession)
+	for _, s := range []*NetworkStreamSession{impostor, master} {
+		s.mutex.Lock()
+		s.streamGrace = grace
+		s.mutex.Unlock()
+		attachStream(t, p, s).kill()
+	}
+
+	require.Eventually(t, func() bool { return receiveClosed(impostor) }, grace+time.Second, tick)
+	time.Sleep(3 * grace)
+	require.False(t, master.Info().Closed)
+}
+
 func TestSession_SurvivesWhenReplacementStreamAttaches(t *testing.T) {
 	t.Parallel()
 	const grace = 100 * time.Millisecond

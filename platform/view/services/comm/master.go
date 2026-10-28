@@ -124,13 +124,13 @@ func (p *P2PNode) MasterSession() (view.Session, error) {
 
 // unregister removes session from the registry if it is the registered instance, so a newer
 // session with the same key is never removed. The key of a session that closed on its own is
-// remembered for closedSessionTTL, see dispatchMessages. The master session is never removed.
+// remembered for closedSessionTTL, see dispatchMessages; the key of a session closed by Close is
+// not, because its protocol is finished. The master session is never removed.
 func (p *P2PNode) unregister(session *NetworkStreamSession, selfClosed bool) {
-	key := computeInternalSessionID(session.sessionID, session.endpointID)
-	// The key, not the session ID, identifies the master session: a remote peer can choose the ID.
-	if key == masterSessionKey {
+	if session.isMaster() {
 		return
 	}
+	key := computeInternalSessionID(session.sessionID, session.endpointID)
 	p.sessionsMutex.Lock()
 	defer p.sessionsMutex.Unlock()
 	if p.sessions[key] != session {

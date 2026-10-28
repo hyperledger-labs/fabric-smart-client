@@ -323,11 +323,17 @@ func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews
 	return c.createSession(caller, targetIdentity, boundToViews...)
 }
 
-// GetSessionByID returns a session to the passed remote party and id.
+// GetSessionByID returns a session to the passed remote party and id. A closed session is replaced
+// with a new one.
 func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, error) {
 	// TODO: do we need to resolve?
 	var err error
 	s := c.sessions.Get(id, party)
+	if s != nil && s.Info().Closed {
+		logger.DebugfContext(c.Context(), "[%s] Session with given id is closed [id:%s][to:%s]", c.me, id, party)
+		c.sessions.Delete(id, party)
+		s = nil
+	}
 	if s == nil {
 		logger.DebugfContext(c.Context(), "[%s] Creating new session with given id [id:%s][to:%s]", c.me, id, party)
 		s, err = c.newSessionByID(id, c.id, party)
