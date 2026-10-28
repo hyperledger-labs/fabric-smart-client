@@ -13,15 +13,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
+// IsolationLevels maps the isolation levels the pgx driver can begin a transaction
+// with. Postgres has no WRITE COMMITTED or LINEARIZABLE level and pgx rejects both,
+// so Map rejects LevelWriteCommitted and LevelLinearizable before a transaction is
+// opened. pgx runs LevelSnapshot as REPEATABLE READ.
 var IsolationLevels = isolationLevelMapper{
 	driver.LevelDefault:         sql.LevelDefault,
 	driver.LevelReadUncommitted: sql.LevelReadUncommitted,
 	driver.LevelReadCommitted:   sql.LevelReadCommitted,
-	driver.LevelWriteCommitted:  sql.LevelWriteCommitted,
 	driver.LevelRepeatableRead:  sql.LevelRepeatableRead,
 	driver.LevelSnapshot:        sql.LevelSnapshot,
 	driver.LevelSerializable:    sql.LevelSerializable,
-	driver.LevelLinearizable:    sql.LevelLinearizable,
 }
 
 type isolationLevelMapper map[driver.IsolationLevel]sql.IsolationLevel
