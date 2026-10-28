@@ -145,6 +145,24 @@ that loads committed artifacts runs whatever those artifacts say, because
 keeps its loading specs in one libp2p-labelled `Describe` for exactly this reason.
 A label that lies puts specs in the wrong CI job.
 
+### Choosing the Fabric consensus
+
+`fabric.NewDefaultTopology()` and `fabric.NewTopologyWithName` declare one etcdraft
+orderer, `orderer`. To add orderers, replace `Orderers` and list the same names in every
+profile. Keep one named `orderer`: nwo joins peers and deploys chaincode through it.
+`integration/fabric/faultrecovery` runs three raft orderers this way.
+
+A SmartBFT network sets `Consensus.Type` to `"BFT"`, declares at least four orderers (the
+minimum FSC's BFT broadcaster accepts) and adds the `V3_0` channel capability to every
+profile; `Profile.SmartBFT` overrides configtxgen's consensus defaults. Network `beta` of
+`integration/fabric/twonets/topology.go` is one. An FSC node picks its broadcaster from
+the channel configuration, so the topology is all a suite changes.
+
+To check that a node used the BFT broadcaster, count its `fsc_connection_state` series
+for the network's `orderer` component after one commit. The BFT broadcaster sends the
+envelope to every orderer, so it leaves one series per orderer. The CFT broadcaster sends
+it to one orderer per attempt, so it leaves one, or one per retry.
+
 ## Declaring a namespace
 
 A namespace is a chaincode plus its endorsement policy:
@@ -206,10 +224,11 @@ around it.
 | `WebClient(node).Ready()` | `nil` once the node's `GET /readyz` answers 200 |
 
 Peer and orderer names must be unique across the Fabric networks of the topology;
-the call fails otherwise. A Fabric topology may list several raft orderers; every one
-of them joins each channel at startup. Startup returns once each channel of an
-etcdraft network has a raft leader and every peer discovers all the others through
-gossip. For Fabric-x,
+the call fails otherwise. A Fabric topology may list several orderers (see
+[Choosing the Fabric consensus](#choosing-the-fabric-consensus)); every one of them joins
+each channel at startup. Startup returns once each channel of an etcdraft network has a
+raft leader (a SmartBFT channel has no leader election to wait for) and every peer
+discovers all the others through gossip. For Fabric-x,
 `fabricx.FxPlatform(ii).StopCommitter()` and `StartCommitter()` stop and restart the
 all-in-one committer container; start waits
 until its sidecar, query and ordering services accept connections.
