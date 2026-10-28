@@ -248,6 +248,12 @@ func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 // failed, or lost in a restart, so a retry still reaches Invalid. A Valid or
 // Invalid transaction without a set is left unchanged. Any failure is returned,
 // so a transient vault failure reaches the commit retry.
+//
+// The discard is final: [Committer.CommitEndorserTransaction] keeps the Invalid
+// status even when Fabric later orders the transaction as valid, so its writes
+// never reach the vault. The committer therefore discards a Busy transaction only
+// while processing the block that contains it: Fabric marked it invalid, or its
+// ordered read-write set does not match the one this node holds.
 func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
