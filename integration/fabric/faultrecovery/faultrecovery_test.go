@@ -64,6 +64,7 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 	})
 
 	faultrecovery.CrashSpecs(s)
+	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 
 	It("survives delivery peer restart", func() {

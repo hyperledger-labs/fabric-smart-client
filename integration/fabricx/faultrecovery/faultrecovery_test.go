@@ -44,6 +44,7 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 	})
 
 	faultrecovery.CrashSpecs(s)
+	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 
 	// Pending: the all-in-one committer container also runs a mock orderer that keeps
