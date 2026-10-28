@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 )
 
@@ -130,8 +131,13 @@ func callView(ii *integration.Infrastructure, node, fid string, in any) any {
 // Echo runs alice's echo view against bob; with block, bob's responder holds the session
 // open without replying. It returns the view's error.
 func Echo(ii *integration.Infrastructure, block bool) error {
+	return EchoWith(ii, ii.Client("alice"), block)
+}
+
+// EchoWith is Echo called through c, a view client of alice.
+func EchoWith(ii *integration.Infrastructure, c api.ViewClient, block bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
-	_, err := ii.Client("alice").CallViewWithContext(ctx, "echo", common.JSONMarshall(&views.Echo{Responder: ii.Identity("bob"), Block: block}))
+	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(&views.Echo{Responder: ii.Identity("bob"), Block: block}))
 	return err
 }

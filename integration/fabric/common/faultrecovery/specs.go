@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
@@ -64,30 +65,7 @@ func ShareNetwork(s *integration.TestSuite) {
 // network healthy, so the specs can run under ShareNetwork.
 func CrashSpecs(s *integration.TestSuite) {
 	ginkgo.It("fails fast when the responder dies", func() {
-		// On a shared network the previous spec's responder may still hold its context for
-		// a moment after its transaction is final, so the baseline waits for it.
-		gomega.Eventually(func() float64 {
-			return MetricSum(s.II, "bob", viewContexts)
-		}, pollTimeout, 100*time.Millisecond).Should(gomega.BeZero())
-		echo := make(chan error, 1)
-		go func() {
-			defer ginkgo.GinkgoRecover()
-			echo <- Echo(s.II, true)
-		}()
-		// Bob creates a responder context when alice's message arrives and holds it while
-		// the responder blocks, so the kill lands mid-view. An echo that ends before then
-		// stops the wait with its own error.
-		gomega.Eventually(func(g gomega.Gomega) float64 {
-			select {
-			case err := <-echo:
-				gomega.StopTrying("echo returned before bob's responder blocked").Wrap(err).Now()
-			default:
-			}
-			families, err := s.II.WebClient("bob").Metrics()
-			g.Expect(err).NotTo(gomega.HaveOccurred())
-			return sumFamily(families, viewContexts)
-		}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", 0))
-
+		echo := blockedEcho(s, s.II.Client("alice"))
 		s.II.KillFSCNode("bob")
 		// The echo view waits a minute for the reply, so only the closed session ends it
 		// this early.
@@ -139,6 +117,76 @@ func CrashSpecs(s *integration.TestSuite) {
 			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on bob", i, txID)
 		}
 	})
+}
+
+// ClientSpecs registers, once for alice's gRPC view client and once for her web client,
+// the specs that pin how a view client behaves across a restart of its node: the client
+// value nwo built before the restart keeps working, and a call in flight when the node
+// dies fails without being retried. Each spec leaves the network healthy, so the specs
+// can run under ShareNetwork.
+func ClientSpecs(s *integration.TestSuite) {
+	// A slice, not a map: ginkgo needs the same spec order on every run.
+	clients := []struct {
+		name string
+		get  func() api.ViewClient
+	}{
+		{"grpc", func() api.ViewClient { return s.II.Client("alice") }},
+		{"web", func() api.ViewClient { return s.II.WebClient("alice") }},
+	}
+	for _, cl := range clients {
+		name, client := cl.name, cl.get
+		ginkgo.It("reuses the "+name+" view client after a restart", func() {
+			c := client()
+			gomega.Expect(EchoWith(s.II, c, false)).To(gomega.Succeed())
+			s.II.StopFSCNode("alice")
+			s.II.StartFSCNode("alice")
+			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, recoveryTimeout, time.Second).Should(gomega.Succeed())
+		})
+
+		ginkgo.It("fails an in-flight "+name+" call when the node dies", func() {
+			c := client()
+			echo := blockedEcho(s, c)
+			// Bob runs one responder context for the call: a client that resent it would
+			// start a second one.
+			gomega.Expect(MetricSum(s.II, "bob", viewContexts)).To(gomega.Equal(1.0))
+			s.II.KillFSCNode("alice")
+			var err error
+			gomega.Eventually(echo, 10*time.Second).Should(gomega.Receive(&err))
+			gomega.Expect(err).To(gomega.HaveOccurred())
+
+			s.II.StartFSCNode("alice")
+			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, recoveryTimeout, time.Second).Should(gomega.Succeed())
+		})
+	}
+}
+
+// blockedEcho starts a blocking echo through c, alice's view client, and returns once
+// bob's responder blocks in it. The returned channel receives the echo's error.
+func blockedEcho(s *integration.TestSuite, c api.ViewClient) <-chan error {
+	// On a shared network the previous spec's responder may still hold its context for
+	// a moment after its view ends, so the baseline waits for it.
+	gomega.EventuallyWithOffset(1, func() float64 {
+		return MetricSum(s.II, "bob", viewContexts)
+	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeZero())
+	echo := make(chan error, 1)
+	go func() {
+		defer ginkgo.GinkgoRecover()
+		echo <- EchoWith(s.II, c, true)
+	}()
+	// Bob creates a responder context when alice's message arrives and holds it while
+	// the responder blocks, so a kill lands mid-view. An echo that ends before then
+	// stops the wait with its own error.
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) float64 {
+		select {
+		case err := <-echo:
+			gomega.StopTrying("echo returned before bob's responder blocked").Wrap(err).Now()
+		default:
+		}
+		families, err := s.II.WebClient("bob").Metrics()
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		return sumFamily(families, viewContexts)
+	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", 0))
+	return echo
 }
 
 // DependencySpecs registers the specs that take down a dependency both suites share: bob's
