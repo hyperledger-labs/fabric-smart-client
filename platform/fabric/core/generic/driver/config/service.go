@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 // provider is the default Provider implementation. It keeps a reference to the shared
@@ -25,7 +25,7 @@ type provider struct {
 // ConfigService is the per-network configuration surface exposed by the generic Fabric driver:
 // the common driver.ConfigService plus MSP- and resolver-related accessors.
 type ConfigService interface {
-	driver2.ConfigService
+	fdriver.ConfigService
 	Resolvers() ([]config.Resolver, error)
 	MSPCacheSize() int
 	DefaultMSP() string

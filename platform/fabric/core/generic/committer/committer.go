@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
@@ -52,7 +52,7 @@ var (
 )
 
 type (
-	FinalityEvent   = driver2.FinalityEvent[driver.ValidationCode]
+	FinalityEvent   = cdriver.FinalityEvent[driver.ValidationCode]
 	FinalityManager = committer.FinalityManager[driver.ValidationCode]
 )
 
@@ -61,9 +61,9 @@ type FabricFinality interface {
 }
 
 type CommitTx struct {
-	BlkNum driver2.BlockNum
-	TxNum  driver2.TxNum
-	TxID   driver2.TxID
+	BlkNum cdriver.BlockNum
+	TxNum  cdriver.TxNum
+	TxID   cdriver.TxID
 	Type   common.HeaderType
 
 	Raw      []byte
@@ -207,7 +207,7 @@ func (c *Committer) runEventNotifiers(ctx context.Context) {
 	}
 }
 
-func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
+func (c *Committer) Status(ctx context.Context, txID cdriver.TxID) (driver.ValidationCode, string, error) {
 	vc, message, err := c.Vault.Status(ctx, txID)
 	if err != nil {
 		c.logger.Errorf("failed to get status of [%s]: %s", txID, err)
@@ -705,7 +705,7 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 	return errors.Wrapf(driver.ErrFinalityTimeout, "failed to listen to transaction [%s] for timeout, last known status [%s]", txID, driver.StatusName(lastStatus))
 }
 
-func (c *Committer) applyConfigCommit(ctx context.Context, txID driver2.TxID, blockNumber driver2.BlockNum, seq driver2.TxNum, envelope []byte) error {
+func (c *Committer) applyConfigCommit(ctx context.Context, txID cdriver.TxID, blockNumber cdriver.BlockNum, seq cdriver.TxNum, envelope []byte) error {
 	c.logger.Debugf("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
 	rws, err := c.Vault.NewRWSet(ctx, txID)
@@ -905,7 +905,7 @@ func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, enve
 	return status == driver.Busy, nil
 }
 
-func (c *Committer) extractStoredEnvelopeToVault(ctx context.Context, txID driver2.TxID) error {
+func (c *Committer) extractStoredEnvelopeToVault(ctx context.Context, txID cdriver.TxID) error {
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 	if err != nil {
 		// If another replica of the same node created the RWSet
@@ -918,7 +918,7 @@ func (c *Committer) extractStoredEnvelopeToVault(ctx context.Context, txID drive
 	return nil
 }
 
-func (c *Committer) postProcessTx(ctx context.Context, txID driver2.TxID) error {
+func (c *Committer) postProcessTx(ctx context.Context, txID cdriver.TxID) error {
 	if err := c.ProcessorManager.ProcessByID(ctx, c.ChannelConfig.ID(), txID); err != nil {
 		// This should generate a panic
 		return err

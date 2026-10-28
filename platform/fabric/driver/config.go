@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 // PeerFunctionType defines classes of peers providing a specific functionality
@@ -114,7 +114,7 @@ type ConfigService interface {
 	// PickOrderer avoid it for a cooldown period.
 	ReportFailure(address string)
 	IsChannelQuiet(name string) bool
-	VaultPersistenceName() driver2.PersistenceName
+	VaultPersistenceName() dbdriver.PersistenceName
 	VaultTXStoreCacheSize() int
 	ClientConnTimeout() time.Duration
 	ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig

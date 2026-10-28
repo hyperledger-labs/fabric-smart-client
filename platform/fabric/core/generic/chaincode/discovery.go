@@ -14,13 +14,13 @@ import (
 	"sync"
 	"time"
 
-	discovery2 "github.com/hyperledger/fabric-protos-go-apiv2/discovery"
+	discoverypb "github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
-	peer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -209,7 +209,7 @@ func (d *Discovery) queryEndorsers() (discovery.Response, error) {
 }
 
 func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
-	var peerClients []peer2.Client
+	var peerClients []services.Client
 	defer func() {
 		for _, pCli := range peerClients {
 			pCli.Close()
@@ -235,7 +235,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 		h := sha256.Sum256(pc.Certificate().Certificate[0])
 		ClientTLSCertHash = h[:]
 	}
-	req.Authentication = &discovery2.AuthInfo{
+	req.Authentication = &discoverypb.AuthInfo{
 		ClientIdentity:    signerRaw,
 		ClientTlsCertHash: ClientTLSCertHash,
 	}
@@ -245,7 +245,7 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating discovery client")
 	}
-	response, err := cl.Send(timeout, req, &discovery2.AuthInfo{
+	response, err := cl.Send(timeout, req, &discoverypb.AuthInfo{
 		ClientIdentity:    signerRaw,
 		ClientTlsCertHash: ClientTLSCertHash,
 	})

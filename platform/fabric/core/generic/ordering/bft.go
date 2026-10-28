@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	common2 "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -89,7 +89,7 @@ func (o *BFTBroadcaster) ordererState(addr string) *bftOrdererState {
 	return state
 }
 
-func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) error {
+func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) error {
 	logger.DebugfContext(ctx, "Start BFT Broadcast")
 	defer logger.DebugfContext(ctx, "End BFT Broadcast")
 	// send the envelope for ordering
@@ -155,14 +155,14 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 				defer lock.Unlock()
 
 				switch status.GetStatus() {
-				case common2.Status_SUCCESS:
+				case common.Status_SUCCESS:
 					connection.State.Set(connstate.Connected)
 					o.releaseConnection(connection, orderer)
 					counter++
 				default:
 					usedConnections = append(usedConnections, connection)
-					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())])
-					errs = append(errs, errors.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())]))
+					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, common.Status_name[int32(status.GetStatus())])
+					errs = append(errs, errors.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common.Status_name[int32(status.GetStatus())]))
 					return
 				}
 			}(orderer)

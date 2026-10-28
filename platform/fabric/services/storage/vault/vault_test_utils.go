@@ -14,37 +14,37 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
+	fabricpostgres "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
-	postgres3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	sqlite3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	viewpostgres "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	viewsqlite "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 func OpenMemoryVault(params ...string) (driver.VaultStore, error) {
-	return NewStore("", multiplexed.NewDriver(&mock.ConfigProvider{}, mem.NewNamedDriver(sqlite3.NewDbProvider())), params...)
+	return NewStore("", multiplexed.NewDriver(&mock.ConfigProvider{}, mem.NewNamedDriver(viewsqlite.NewDbProvider())), params...)
 }
 
 func OpenSqliteVault(key, tempDir string) (driver.VaultStore, error) {
-	cp := sqlite3.NewConfigProvider(testing.MockConfig(sqlite3.Config{
+	cp := viewsqlite.NewConfigProvider(testing.MockConfig(viewsqlite.Config{
 		DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
 	}))
-	return sqlite.NewPersistenceWithOpts(cp, sqlite3.NewDbProvider(), "", sqlite.NewVaultStore)
+	return sqlite.NewPersistenceWithOpts(cp, viewsqlite.NewDbProvider(), "", sqlite.NewVaultStore)
 }
 
 func OpenPostgresVault(name string) (driver.VaultStore, func(), error) {
-	cfg := postgres3.DefaultConfig(postgres3.WithDBName(fmt.Sprintf("%s-db", name)))
-	terminate, pgConnStr, err := postgres3.StartPostgres(context.TODO(), cfg, nil)
+	cfg := viewpostgres.DefaultConfig(viewpostgres.WithDBName(fmt.Sprintf("%s-db", name)))
+	terminate, pgConnStr, err := viewpostgres.StartPostgres(context.TODO(), cfg, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cp := postgres3.NewConfigProvider(testing.MockConfig(postgres3.Config{
+	cp := viewpostgres.NewConfigProvider(testing.MockConfig(viewpostgres.Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
-	persistence, err := postgres2.NewPersistenceWithOpts(cp, postgres3.NewDbProvider(), "", postgres2.NewVaultStore)
+	persistence, err := fabricpostgres.NewPersistenceWithOpts(cp, viewpostgres.NewDbProvider(), "", fabricpostgres.NewVaultStore)
 	if err != nil {
 		return nil, nil, err
 	}

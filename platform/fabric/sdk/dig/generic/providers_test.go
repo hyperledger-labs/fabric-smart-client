@@ -15,14 +15,14 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/dig"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	genericconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	endorsermock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
@@ -30,7 +30,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
@@ -66,45 +66,45 @@ fabric:
 }
 
 type fakeVaultReader struct {
-	driver2.LockedVaultReader
+	cdriver.LockedVaultReader
 }
 
 func (*fakeVaultReader) Done() error { return nil }
 
 type fakeVaultStore struct {
-	driver2.VaultStore
+	cdriver.VaultStore
 }
 
-func (*fakeVaultStore) NewGlobalLockVaultReader(context.Context) (driver2.LockedVaultReader, error) {
+func (*fakeVaultStore) NewGlobalLockVaultReader(context.Context) (cdriver.LockedVaultReader, error) {
 	return &fakeVaultReader{}, nil
 }
 
-func (*fakeVaultStore) GetTxStatus(context.Context, driver2.TxID) (*driver2.TxStatus, error) {
+func (*fakeVaultStore) GetTxStatus(context.Context, cdriver.TxID) (*cdriver.TxStatus, error) {
 	return nil, nil
 }
 
 func (*fakeVaultStore) Close() error { return nil }
 
 type fakeDBDriver struct {
-	endorseTxStore dbdriver.EndorseTxStore
-	metadataStore  dbdriver.MetadataStore
-	envelopeStore  dbdriver.EnvelopeStore
-	vaultStore     driver2.VaultStore
+	endorseTxStore fdbdriver.EndorseTxStore
+	metadataStore  fdbdriver.MetadataStore
+	envelopeStore  fdbdriver.EnvelopeStore
+	vaultStore     cdriver.VaultStore
 }
 
-func (f *fakeDBDriver) NewEndorseTx(driver3.PersistenceName, ...string) (dbdriver.EndorseTxStore, error) {
+func (f *fakeDBDriver) NewEndorseTx(dbdriver.PersistenceName, ...string) (fdbdriver.EndorseTxStore, error) {
 	return f.endorseTxStore, nil
 }
 
-func (f *fakeDBDriver) NewMetadata(driver3.PersistenceName, ...string) (dbdriver.MetadataStore, error) {
+func (f *fakeDBDriver) NewMetadata(dbdriver.PersistenceName, ...string) (fdbdriver.MetadataStore, error) {
 	return f.metadataStore, nil
 }
 
-func (f *fakeDBDriver) NewEnvelope(driver3.PersistenceName, ...string) (dbdriver.EnvelopeStore, error) {
+func (f *fakeDBDriver) NewEnvelope(dbdriver.PersistenceName, ...string) (fdbdriver.EnvelopeStore, error) {
 	return f.envelopeStore, nil
 }
 
-func (f *fakeDBDriver) NewVault(driver3.PersistenceName, ...string) (driver2.VaultStore, error) {
+func (f *fakeDBDriver) NewVault(dbdriver.PersistenceName, ...string) (cdriver.VaultStore, error) {
 	if f.vaultStore != nil {
 		return f.vaultStore, nil
 	}
@@ -117,11 +117,11 @@ func fakeMultiplexedDriver(t *testing.T, cfg *viewconfig.Provider) multiplexed.D
 	t.Helper()
 	return NewMultiplexedDriver(struct {
 		dig.In
-		Config  driver2.ConfigService
-		Drivers []dbdriver.NamedDriver `group:"fabric-db-drivers" optional:"false"`
+		Config  cdriver.ConfigService
+		Drivers []fdbdriver.NamedDriver `group:"fabric-db-drivers" optional:"false"`
 	}{
 		Config: cfg,
-		Drivers: []dbdriver.NamedDriver{
+		Drivers: []fdbdriver.NamedDriver{
 			{
 				Name:   "memory",
 				Driver: &fakeDBDriver{},
@@ -199,8 +199,8 @@ func TestNewDriver(t *testing.T) {
 		EndpointService identity.EndpointService
 		IDProvider      identity.ViewIdentityProvider
 		KVS             *kvs.KVS
-		AuditInfoKVS    driver2.AuditInfoStore
-		SignerKVS       driver2.SignerInfoStore
+		AuditInfoKVS    cdriver.AuditInfoStore
+		SignerKVS       cdriver.SignerInfoStore
 		TracerProvider  tracing.Provider
 		ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
 		IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
@@ -208,7 +208,7 @@ func TestNewDriver(t *testing.T) {
 		MetricsProvider: &disabled.Provider{},
 	})
 
-	require.Equal(t, config2.GenericDriver, d.Name)
+	require.Equal(t, genericconfig.GenericDriver, d.Name)
 	require.NotNil(t, d.Driver)
 }
 

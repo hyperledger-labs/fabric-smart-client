@@ -16,7 +16,7 @@ import (
 
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 // testKey is a minimal identifier implementation for testing.
@@ -127,7 +127,7 @@ func TestMetadataPropagatesErrors(t *testing.T) {
 func TestNewStoreMemory(t *testing.T) {
 	t.Parallel()
 	cp := multiplexed.MockTypeConfig(mem.Persistence, struct{}{})
-	d := multiplexed.NewDriver(cp, mem.NewNamedDriver(sqlite2.NewDbProvider()))
+	d := multiplexed.NewDriver(cp, mem.NewNamedDriver(sqlite.NewDbProvider()))
 	store, err := NewStore[testKey, testMeta](cp, d)
 	require.NoError(t, err)
 	require.NotNil(t, store)

@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	genericconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
@@ -41,7 +41,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest
 
 	des := sig.NewMultiplexDeserializer()
 
-	config, err := config2.NewService(cp, "default", true)
+	config, err := genericconfig.NewService(cp, "default", true)
 	require.NoError(t, err)
 	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, testCacheSize)
 
@@ -65,7 +65,7 @@ func TestIdemixTypeFolder(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	des := sig.NewMultiplexDeserializer()
-	config, err := config2.NewService(cp, "default", true)
+	config, err := genericconfig.NewService(cp, "default", true)
 	require.NoError(t, err)
 	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, testCacheSize)
 
@@ -88,7 +88,7 @@ func TestRegisterX509LocalMSP(t *testing.T) { //nolint:paralleltest
 
 	des := sig.NewMultiplexDeserializer()
 
-	config, err := config2.NewService(cp, "default", true)
+	config, err := genericconfig.NewService(cp, "default", true)
 	require.NoError(t, err)
 	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, testCacheSize)
 
@@ -114,7 +114,7 @@ func TestX509TypeFolder(t *testing.T) { //nolint:paralleltest
 
 	des := sig.NewMultiplexDeserializer()
 
-	config, err := config2.NewService(cp, "default", true)
+	config, err := genericconfig.NewService(cp, "default", true)
 	require.NoError(t, err)
 	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, testCacheSize)
 
@@ -136,7 +136,7 @@ func TestRefresh(t *testing.T) {
 	kvss, err := kvs.New(kvsStore, "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	des := sig.NewMultiplexDeserializer()
-	config, err := config2.NewService(cp, "default", true)
+	config, err := genericconfig.NewService(cp, "default", true)
 	require.NoError(t, err)
 	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, testCacheSize)
 
@@ -216,7 +216,7 @@ func setup(t *testing.T) (mspManager, *mock.SignerService, *mock.BinderService, 
 
 	des := sig.NewMultiplexDeserializer()
 
-	config, err := config2.NewService(cp, "default", true)
+	config, err := genericconfig.NewService(cp, "default", true)
 	require.NoError(t, err)
 
 	signerService := &mock.SignerService{}

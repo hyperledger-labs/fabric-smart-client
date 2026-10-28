@@ -13,20 +13,20 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/stretchr/testify/require"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 )
 
 type mockCommitter struct {
 	driver.Committer
-	StatusTxID       driver2.TxID
+	StatusTxID       cdriver.TxID
 	StatusCallCount  int
 	StatusValidation driver.ValidationCode
 	StatusDeps       string
 	StatusErr        error
 
-	DiscardTxID      driver2.TxID
+	DiscardTxID      cdriver.TxID
 	DiscardMsg       string
 	DiscardCallCount int
 	DiscardErr       error
@@ -38,23 +38,23 @@ type mockCommitter struct {
 	CommitTXCount               int
 }
 
-func (m *mockCommitter) ProcessNamespace(_ ...driver2.Namespace) error {
+func (m *mockCommitter) ProcessNamespace(_ ...cdriver.Namespace) error {
 	m.ProcessNamespaceCount++
 	return nil
 }
 
-func (m *mockCommitter) CommitTX(_ context.Context, _ driver2.TxID, _ driver2.BlockNum, _ driver2.TxNum, _ *common.Envelope) error {
+func (m *mockCommitter) CommitTX(_ context.Context, _ cdriver.TxID, _ cdriver.BlockNum, _ cdriver.TxNum, _ *common.Envelope) error {
 	m.CommitTXCount++
 	return nil
 }
 
-func (m *mockCommitter) Status(_ context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
+func (m *mockCommitter) Status(_ context.Context, txID cdriver.TxID) (driver.ValidationCode, string, error) {
 	m.StatusCallCount++
 	m.StatusTxID = txID
 	return m.StatusValidation, m.StatusDeps, m.StatusErr
 }
 
-func (m *mockCommitter) DiscardTx(_ context.Context, txID driver2.TxID, message string) error {
+func (m *mockCommitter) DiscardTx(_ context.Context, txID cdriver.TxID, message string) error {
 	m.DiscardCallCount++
 	m.DiscardTxID = txID
 	m.DiscardMsg = message
@@ -65,12 +65,12 @@ func (*mockCommitter) Start(_ context.Context) error {
 	return nil
 }
 
-func (m *mockCommitter) AddFinalityListener(_ driver2.TxID, _ driver.FinalityListener) error {
+func (m *mockCommitter) AddFinalityListener(_ cdriver.TxID, _ driver.FinalityListener) error {
 	m.AddFinalityListenerCount++
 	return nil
 }
 
-func (m *mockCommitter) RemoveFinalityListener(_ driver2.TxID, _ driver.FinalityListener) error {
+func (m *mockCommitter) RemoveFinalityListener(_ cdriver.TxID, _ driver.FinalityListener) error {
 	m.RemoveFinalityListenerCount++
 	return nil
 }

@@ -9,7 +9,7 @@ package idemix
 import (
 	idemix "github.com/IBM/idemix/bccsp"
 	"github.com/IBM/idemix/bccsp/keystore"
-	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
+	idemixcrypto "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
@@ -56,9 +56,9 @@ func NewKSVBCCSP(kvsStore keystore.KVS, curveID math.CurveID, aries bool) (bccsp
 	return cryptoProvider, nil
 }
 
-func GetCurveAndTranslator(curveID math.CurveID) (*math.Curve, idemix2.Translator, error) {
+func GetCurveAndTranslator(curveID math.CurveID) (*math.Curve, idemixcrypto.Translator, error) {
 	curve := math.Curves[curveID]
-	var tr idemix2.Translator
+	var tr idemixcrypto.Translator
 	switch curveID {
 	case math.BN254:
 		tr = &amcl.Gurvy{C: curve}

@@ -20,7 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
@@ -127,7 +127,7 @@ func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdent
 	}
 
 	// check for client certificate and compute SHA2-256 on certificate if present
-	tlsCertHash, err := grpc2.GetTLSCertHash(cert)
+	tlsCertHash, err := commongrpc.GetTLSCertHash(cert)
 	if err != nil {
 		return nil, err
 	}

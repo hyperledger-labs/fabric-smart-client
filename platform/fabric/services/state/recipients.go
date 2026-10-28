@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
+	commsession "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -103,7 +103,7 @@ func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	// Wait to receive an identity
-	payload, err := session2.ReadMessageWithTimeout(session, time.Minute)
+	payload, err := commsession.ReadMessageWithTimeout(session, time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ type RespondRequestRecipientIdentityView struct {
 // 3. If the identity to send back is not set, it is set to fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()
 // 4. Send back marshalled RecipientData struct
 func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
-	session, payload, err := session2.ReadFirstMessage(viewCtx)
+	session, payload, err := commsession.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error
 	}
 
 	// Wait to receive an identity
-	payload, err := session2.ReadMessageWithTimeout(session, 30*time.Second)
+	payload, err := commsession.ReadMessageWithTimeout(session, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOpt
 //  3. Resolves the identity to send back, defaulting to fns.LocalMembership().DefaultIdentity() if IdentityLabel is not set
 //  4. Sends back the resolved identity and binds both identities in the Endpoint Resolver
 func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error) {
-	session, requestRaw, err := session2.ReadFirstMessage(viewCtx)
+	session, requestRaw, err := commsession.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err
 	}

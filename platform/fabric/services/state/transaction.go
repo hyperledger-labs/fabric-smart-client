@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
-	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
+	commsession "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -146,7 +146,7 @@ func (f *receiveTransactionView) Call(viewCtx view.Context) (any, error) {
 		}
 	}
 
-	payload, err := session2.ReadMessageWithTimeout(session, 10*time.Second)
+	payload, err := commsession.ReadMessageWithTimeout(session, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}

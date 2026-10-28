@@ -14,9 +14,9 @@ import (
 	math "github.com/IBM/mathlib"
 	"github.com/stretchr/testify/require"
 
-	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
@@ -32,15 +32,15 @@ func TestProvider(t *testing.T) { //nolint:paralleltest
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	p, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
-	p, err = idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
+	p, err = idemix.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
-	p, err = idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.EidNymRhNym)
+	p, err = idemix.NewProviderWithSigType(config, kvss, sigService, bccsp.EidNymRhNym)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }
@@ -75,7 +75,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	p, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -101,11 +101,11 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicy(config, kvss, sigService)
+	p, err = idemix.NewProviderWithAnyPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
-	id, audit, err = p.Identity(&driver2.IdentityOptions{EIDExtension: true})
+	id, audit, err = p.Identity(&fdriver.IdentityOptions{EIDExtension: true})
 	require.NoError(t, err)
 	require.NotNil(t, id)
 	require.NotNil(t, audit)
@@ -137,7 +137,7 @@ func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
+	p, err := idemix.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -155,7 +155,7 @@ func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicy(config, kvss, sigService)
+	p, err = idemix.NewProviderWithAnyPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -181,13 +181,13 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	p, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
 	config, err = fabricmsp.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
 	require.NoError(t, err)
-	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	p2, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p2)
 
@@ -220,13 +220,13 @@ func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
 
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	p, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
 	config, err = fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
 	require.NoError(t, err)
-	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	p2, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p2)
 
@@ -270,10 +270,10 @@ func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
-	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
+	config, err := idemix.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	require.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.Standard, math.BN254)
+	p, err := idemix.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.Standard, math.BN254)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -291,7 +291,7 @@ func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.Standard, math.BN254)
+	p, err = idemix.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.Standard, math.BN254)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -309,7 +309,7 @@ func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, idemix2.Any, math.BN254)
+	p, err = idemix.NewProviderWithSigTypeAncCurve(config, kvss, sigService, idemix.Any, math.BN254)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -333,10 +333,10 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralle
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
 
-	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
+	config, err := idemix.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	require.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.EidNymRhNym, math.BN254)
+	p, err := idemix.NewProviderWithSigTypeAncCurve(config, kvss, sigService, bccsp.EidNymRhNym, math.BN254)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -364,11 +364,11 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralle
 	require.NoError(t, err)
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 
-	p, err = idemix2.NewProviderWithAnyPolicyAndCurve(config, kvss, sigService, math.BN254)
+	p, err = idemix.NewProviderWithAnyPolicyAndCurve(config, kvss, sigService, math.BN254)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
-	id, audit, err = p.Identity(&driver2.IdentityOptions{EIDExtension: true})
+	id, audit, err = p.Identity(&fdriver.IdentityOptions{EIDExtension: true})
 	require.NoError(t, err)
 	require.NotNil(t, id)
 	require.NotNil(t, audit)
@@ -400,7 +400,7 @@ func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest
 	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	require.NoError(t, err)
 
-	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	p, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 

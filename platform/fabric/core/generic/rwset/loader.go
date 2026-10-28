@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -56,7 +56,7 @@ func (c *Loader) AddHandlerProvider(headerType common.HeaderType, handlerProvide
 	return nil
 }
 
-func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID cdriver.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
 	logger.DebugfContext(ctx, "Get RWSet from evn")
 	defer logger.DebugfContext(ctx, "Got RWSet from evn")
 
@@ -97,7 +97,7 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	return nil, nil, errors.Errorf("header type not supported, provided type %d", chdr.Type)
 }
 
-func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetRWSetFromETx(ctx context.Context, txID cdriver.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
 	logger.DebugfContext(ctx, "Get RWSet from etx")
 	defer logger.DebugfContext(ctx, "Got RWSet from etx")
 
@@ -120,7 +120,7 @@ func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver
 	return rws, tx, nil
 }
 
-func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxID, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
+func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID cdriver.TxID, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
 	logger.DebugfContext(ctx, "unmarshal envelope [%s,%s]", c.Channel, txID)
 	env := &common.Envelope{}
 	err := proto.Unmarshal(envelopeRaw, env)

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	msppb "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/assert"
 	tmock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func TestSetup(t *testing.T) {
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
-	mockMSP.On("Setup", (*msp2.MSPConfig)(nil)).Return(nil)
+	mockMSP.On("Setup", (*msppb.MSPConfig)(nil)).Return(nil)
 	err = i.Setup(nil)
 	require.NoError(t, err)
 	mockMSP.AssertExpectations(t)
@@ -242,7 +242,7 @@ func TestSatisfiesValidateIndirectCall(t *testing.T) {
 func TestSatisfiesPrincipalIndirectCall(t *testing.T) {
 	t.Parallel()
 	mockMSP := &fake.MSP{}
-	mockMSPPrincipal := &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3}}
+	mockMSPPrincipal := &msppb.MSPPrincipal{PrincipalClassification: msppb.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3}}
 
 	mockIdentity := &fake.Identity{ID: "Alice"}
 	mockIdentity.On("SatisfiesPrincipal", mockMSPPrincipal).Run(func(_ tmock.Arguments) {
@@ -280,7 +280,7 @@ func TestSatisfiesPrincipal(t *testing.T) {
 	// Check validation is cached
 	mockIdentity := &fake.Identity{ID: "Alice"}
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Alice"})
-	mockMSPPrincipal := &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3}}
+	mockMSPPrincipal := &msppb.MSPPrincipal{PrincipalClassification: msppb.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3}}
 	mockMSP.On("SatisfiesPrincipal", mockIdentity, mockMSPPrincipal).Return(nil)
 	err = mockMSP.SatisfiesPrincipal(mockIdentity, mockMSPPrincipal)
 	require.NoError(t, err)
@@ -304,7 +304,7 @@ func TestSatisfiesPrincipal(t *testing.T) {
 	// Check validation is not cached
 	mockIdentity = &fake.Identity{ID: "Bob"}
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Bob"})
-	mockMSPPrincipal = &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3, 4}}
+	mockMSPPrincipal = &msppb.MSPPrincipal{PrincipalClassification: msppb.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3, 4}}
 	mockMSP.On("SatisfiesPrincipal", mockIdentity, mockMSPPrincipal).Return(errors.New("Invalid"))
 	err = mockMSP.SatisfiesPrincipal(mockIdentity, mockMSPPrincipal)
 	require.Error(t, err)
@@ -424,7 +424,7 @@ func TestCachedIdentity_DirectCalls(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test SatisfiesPrincipal
-	principal := &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte("Alice")}
+	principal := &msppb.MSPPrincipal{PrincipalClassification: msppb.MSPPrincipal_IDENTITY, Principal: []byte("Alice")}
 	mockMSP.On("SatisfiesPrincipal", mockIdentity, principal).Return(nil).Once()
 	err = id.SatisfiesPrincipal(principal)
 	require.NoError(t, err)

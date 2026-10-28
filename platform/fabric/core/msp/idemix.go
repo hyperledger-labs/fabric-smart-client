@@ -6,19 +6,19 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
-	msp2 "github.com/IBM/idemix/msp"
+	idemixmsp "github.com/IBM/idemix/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type idemixSigningIdentityWrapper struct {
-	*msp2.IdemixSigningIdentity
+	*idemixmsp.IdemixSigningIdentity
 }
 
 func (i *idemixSigningIdentityWrapper) GetPublicVersion() Identity {
 	pv := i.IdemixSigningIdentity.GetPublicVersion()
-	pub, ok := pv.(*msp2.Idemixidentity)
+	pub, ok := pv.(*idemixmsp.Idemixidentity)
 	if !ok {
 		panic(errors.Errorf("unexpected public identity type [%T]", pv))
 	}
@@ -34,7 +34,7 @@ func (i *idemixSigningIdentityWrapper) GetOrganizationalUnits() []*OUIdentifier 
 }
 
 type idemixIdentityWrapper struct {
-	*msp2.Idemixidentity
+	*idemixmsp.Idemixidentity
 }
 
 func (i *idemixIdentityWrapper) GetIdentifier() *IdentityIdentifier {
@@ -60,7 +60,7 @@ func (i *idemixIdentityWrapper) GetOrganizationalUnits() []*OUIdentifier {
 }
 
 type idemixMSPWrapper struct {
-	*msp2.Idemixmsp
+	*idemixmsp.Idemixmsp
 }
 
 func (i *idemixMSPWrapper) deserializeIdentityInternal(serializedIdentity []byte) (Identity, error) {
@@ -69,7 +69,7 @@ func (i *idemixMSPWrapper) deserializeIdentityInternal(serializedIdentity []byte
 		return nil, err
 	}
 
-	idemixID, ok := id.(*msp2.Idemixidentity)
+	idemixID, ok := id.(*idemixmsp.Idemixidentity)
 	if !ok {
 		return nil, errors.Errorf("unexpected identity type [%T]", id)
 	}
@@ -82,7 +82,7 @@ func (i *idemixMSPWrapper) DeserializeIdentity(serializedIdentity []byte) (Ident
 		return nil, err
 	}
 
-	idemixID, ok := id.(*msp2.Idemixidentity)
+	idemixID, ok := id.(*idemixmsp.Idemixidentity)
 	if !ok {
 		return nil, errors.Errorf("unexpected identity type [%T]", id)
 	}
@@ -103,7 +103,7 @@ func (i *idemixMSPWrapper) GetDefaultSigningIdentity() (SigningIdentity, error) 
 		return nil, err
 	}
 
-	signingID, ok := id.(*msp2.IdemixSigningIdentity)
+	signingID, ok := id.(*idemixmsp.IdemixSigningIdentity)
 	if !ok {
 		return nil, errors.Errorf("unexpected signing identity type [%T]", id)
 	}

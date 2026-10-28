@@ -11,29 +11,29 @@ import (
 
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	grpc2 "google.golang.org/grpc"
+	googlegrpc "google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
-	discovery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
 )
 
 // GRPCClient represents a grpc-based client for communicating with a peer
 type GRPCClient struct {
 	Client  *grpc.Client
 	address string
-	signer  discovery2.Signer
-	connect func() (*grpc2.ClientConn, error)
+	signer  discovery.Signer
+	connect func() (*googlegrpc.ClientConn, error)
 }
 
-func NewGRPCClient(client *grpc.Client, address string, signer discovery2.Signer) *GRPCClient {
-	return newClient(client, address, signer, func() (*grpc2.ClientConn, error) {
+func NewGRPCClient(client *grpc.Client, address string, signer discovery.Signer) *GRPCClient {
+	return newClient(client, address, signer, func() (*googlegrpc.ClientConn, error) {
 		// The server name to verify against travels in the client's SecureOptions.
 		return client.NewConnection(address)
 	})
 }
 
-func newClient(c *grpc.Client, address string, signer discovery2.Signer, connect func() (*grpc2.ClientConn, error)) *GRPCClient {
+func newClient(c *grpc.Client, address string, signer discovery.Signer, connect func() (*googlegrpc.ClientConn, error)) *GRPCClient {
 	return &GRPCClient{
 		Client:  c,
 		address: address,
@@ -51,7 +51,7 @@ func (c *GRPCClient) EndorserClient() (pb.EndorserClient, error) {
 }
 
 func (c *GRPCClient) DiscoveryClient() (DiscoveryClient, error) {
-	return discovery2.NewClient(c.connect, c.signer), nil
+	return discovery.NewClient(c.connect, c.signer), nil
 }
 
 func (c *GRPCClient) DeliverClient() (pb.DeliverClient, error) {

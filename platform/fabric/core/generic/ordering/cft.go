@@ -10,7 +10,7 @@ import (
 	"context"
 	"time"
 
-	common2 "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/status"
@@ -51,7 +51,7 @@ func NewCFTBroadcaster(configService driver.ConfigService, clientFactory Service
 	}
 }
 
-func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) error {
+func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) error {
 	logger.DebugfContext(ctx, "Start CFT Broadcast")
 	defer logger.DebugfContext(ctx, "End CFT Broadcast")
 
@@ -87,9 +87,9 @@ func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 		}
 		logger.DebugfContext(ctx, "Release connection")
 		o.releaseConnection(connection)
-		if status.GetStatus() != common2.Status_SUCCESS {
+		if status.GetStatus() != common.Status_SUCCESS {
 			// the orderer rejected the envelope, retrying will not help
-			return errors.Errorf("failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
+			return errors.Errorf("failed broadcasting, status %s", common.Status_name[int32(status.GetStatus())])
 		}
 		connection.State.Set(connstate.Connected)
 		o.metrics.OrderedTransactions.With("network", o.NetworkID).Add(1)
@@ -100,7 +100,7 @@ func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 }
 
 // sendAndRecv sends env on connection and waits for the orderer's acknowledgement.
-func sendAndRecv(connection *Connection, env *common2.Envelope) (*ab.BroadcastResponse, error) {
+func sendAndRecv(connection *Connection, env *common.Envelope) (*ab.BroadcastResponse, error) {
 	if err := connection.Send(env); err != nil {
 		return nil, err
 	}

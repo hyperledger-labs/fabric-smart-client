@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -39,11 +39,11 @@ func (*fakeSignerService) IsMe(_ context.Context, _ view.Identity) bool {
 	return false
 }
 
-func (*fakeSignerService) GetSigningIdentity(_ view.Identity) (driver2.SigningIdentity, error) {
+func (*fakeSignerService) GetSigningIdentity(_ view.Identity) (cdriver.SigningIdentity, error) {
 	return nil, nil
 }
 
-func (*fakeSignerService) GetVerifier(_ view.Identity) (driver2.Verifier, error) {
+func (*fakeSignerService) GetVerifier(_ view.Identity) (cdriver.Verifier, error) {
 	return nil, nil
 }
 

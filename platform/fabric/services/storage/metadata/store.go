@@ -10,7 +10,7 @@ import (
 	"context"
 	"encoding/json"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
@@ -35,7 +35,7 @@ func NewStore[K identifier, M any](cp driver.Config, d multiplexed.Driver, param
 }
 
 type store[K identifier, M any] struct {
-	m driver2.MetadataStore
+	m fdbdriver.MetadataStore
 }
 
 func (s *store[K, M]) GetMetadata(ctx context.Context, key K) (M, error) {
