@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
+	fvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
@@ -48,10 +48,10 @@ func (s *flakyStore) Store(ctx context.Context, txIDs []cdriver.TxID, writes cdr
 func TestCommitConfigRetriesATransientVaultFailure(t *testing.T) {
 	t.Parallel()
 
-	store, err := vault2.OpenMemoryVault(t.Name())
+	store, err := fvault.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	v := vault.NewVault(vault2.NewCachedVault(&flakyStore{VaultStore: store}, 0), &disabled.Provider{}, noop.NewTracerProvider())
+	v := vault.NewVault(fvault.NewCachedVault(&flakyStore{VaultStore: store}, 0), &disabled.Provider{}, noop.NewTracerProvider())
 
 	c := &Committer{
 		logger:            logger,
@@ -155,10 +155,10 @@ func (s *flakyStatusStore) SetStatuses(ctx context.Context, code cdriver.TxStatu
 func TestDiscardEndorserTransactionRetriesATransientVaultFailure(t *testing.T) {
 	t.Parallel()
 
-	store, err := vault2.OpenMemoryVault(t.Name())
+	store, err := fvault.OpenMemoryVault(t.Name())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	v := vault.NewVault(vault2.NewCachedVault(&flakyStatusStore{VaultStore: store}, 0), &disabled.Provider{}, noop.NewTracerProvider())
+	v := vault.NewVault(fvault.NewCachedVault(&flakyStatusStore{VaultStore: store}, 0), &disabled.Provider{}, noop.NewTracerProvider())
 
 	// The transaction was endorsed by this node, so its read-write set is open
 	// and its status is Busy.

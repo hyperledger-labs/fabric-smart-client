@@ -9,7 +9,7 @@ package envelope
 import (
 	"context"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
@@ -34,7 +34,7 @@ func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...st
 }
 
 type envelopeStore[K identifier] struct {
-	e driver2.EnvelopeStore
+	e fdbdriver.EnvelopeStore
 }
 
 func (s *envelopeStore[K]) GetEnvelope(ctx context.Context, key K) ([]byte, error) {

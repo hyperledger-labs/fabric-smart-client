@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
+	commsession "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -25,7 +25,7 @@ func NewReceiveView(state any) *receiveView {
 
 func (s receiveView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a state
-	payload, err := session2.ReadMessageWithTimeout(viewCtx.Session(), 30*time.Second)
+	payload, err := commsession.ReadMessageWithTimeout(viewCtx.Session(), 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func NewPayloadReceiveView() *payloadReceiveView {
 
 func (payloadReceiveView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a state
-	return session2.ReadMessageWithTimeout(viewCtx.Session(), 30*time.Second)
+	return commsession.ReadMessageWithTimeout(viewCtx.Session(), 30*time.Second)
 }
 
 type sendReceiveView struct {
@@ -73,7 +73,7 @@ func (s *sendReceiveView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	// Receive another state
-	payload, err := session2.ReadMessageWithTimeout(session, 30*time.Second)
+	payload, err := commsession.ReadMessageWithTimeout(session, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}

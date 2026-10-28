@@ -16,12 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/dig"
 
-	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	rwsetmock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
 	endorsermock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
@@ -60,7 +60,7 @@ fabric:
   enabled: false
 `))
 	require.NoError(t, err)
-	baseSDK := dig2.NewBaseSDK(sdk.NewContainer(), cfgProvider)
+	baseSDK := commondig.NewBaseSDK(sdk.NewContainer(), cfgProvider)
 	s := NewFrom(baseSDK)
 	assert.False(t, s.FabricEnabled())
 
@@ -76,7 +76,7 @@ fabric:
   enabled: true
 `))
 	require.NoError(t, err)
-	baseSDK := dig2.NewBaseSDK(sdk.NewContainer(), cfgProvider)
+	baseSDK := commondig.NewBaseSDK(sdk.NewContainer(), cfgProvider)
 	s := NewFrom(baseSDK)
 	assert.True(t, s.FabricEnabled())
 
@@ -91,7 +91,7 @@ fabric:
   enabled: true
 `))
 	require.NoError(t, err)
-	baseSDK := dig2.NewBaseSDK(sdk.NewContainer(), cfgProvider)
+	baseSDK := commondig.NewBaseSDK(sdk.NewContainer(), cfgProvider)
 	s := NewFrom(baseSDK)
 
 	fnsProvider, err := core.NewFabricNetworkServiceProvider(cfgProvider, nil, nil)
@@ -117,7 +117,7 @@ fabric:
     driver: non-existent-driver
 `))
 	require.NoError(t, err)
-	baseSDK := dig2.NewBaseSDK(sdk.NewContainer(), cfgProvider)
+	baseSDK := commondig.NewBaseSDK(sdk.NewContainer(), cfgProvider)
 	s := NewFrom(baseSDK)
 
 	fnsProvider, err := core.NewFabricNetworkServiceProvider(cfgProvider, nil, nil)
@@ -494,7 +494,7 @@ fabric:
 		dig.In
 		FSNProvider      *core.FSNProvider
 		CoreConfig       *core.Config
-		HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
+		HandlerProviders []generic.RWSetPayloadHandlerProvider `group:"handler-providers"`
 	}{
 		CoreConfig: cfg,
 	})
@@ -538,11 +538,11 @@ fabric:
 		dig.In
 		FSNProvider      *core.FSNProvider
 		CoreConfig       *core.Config
-		HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
+		HandlerProviders []generic.RWSetPayloadHandlerProvider `group:"handler-providers"`
 	}{
 		FSNProvider: fnsProvider,
 		CoreConfig:  cfg,
-		HandlerProviders: []generic2.RWSetPayloadHandlerProvider{
+		HandlerProviders: []generic.RWSetPayloadHandlerProvider{
 			{Type: common.HeaderType_ENDORSER_TRANSACTION},
 		},
 	})
@@ -570,7 +570,7 @@ fabric:
 		dig.In
 		FSNProvider      *core.FSNProvider
 		CoreConfig       *core.Config
-		HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
+		HandlerProviders []generic.RWSetPayloadHandlerProvider `group:"handler-providers"`
 	}{
 		FSNProvider: fnsProvider,
 		CoreConfig:  cfg,
@@ -607,7 +607,7 @@ fabric:
 		dig.In
 		FSNProvider      *core.FSNProvider
 		CoreConfig       *core.Config
-		HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
+		HandlerProviders []generic.RWSetPayloadHandlerProvider `group:"handler-providers"`
 	}{
 		FSNProvider: fnsProvider,
 		CoreConfig:  cfg,
@@ -650,11 +650,11 @@ fabric:
 		dig.In
 		FSNProvider      *core.FSNProvider
 		CoreConfig       *core.Config
-		HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
+		HandlerProviders []generic.RWSetPayloadHandlerProvider `group:"handler-providers"`
 	}{
 		FSNProvider: fnsProvider,
 		CoreConfig:  cfg,
-		HandlerProviders: []generic2.RWSetPayloadHandlerProvider{
+		HandlerProviders: []generic.RWSetPayloadHandlerProvider{
 			{Type: common.HeaderType_ENDORSER_TRANSACTION},
 		},
 	})

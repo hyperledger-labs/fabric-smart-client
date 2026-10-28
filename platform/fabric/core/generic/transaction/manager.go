@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type ChannelProvider interface {
@@ -40,7 +40,7 @@ func (*Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalRespons
 	return NewProposalResponseFromBytes(raw)
 }
 
-func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid, channel string, rawRequest []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view.Identity, nonce []byte, txid, channel string, rawRequest []byte) (driver.Transaction, error) {
 	factory, ok := m.factories[transactionType]
 	if !ok {
 		return nil, errors.Errorf("transaction type [%d] not recognized", transactionType)

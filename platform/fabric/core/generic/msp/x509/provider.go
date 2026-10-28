@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
+	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	driver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -26,7 +26,7 @@ type SignerService interface {
 }
 
 type Provider struct {
-	sID          driver2.SigningIdentity
+	sID          mspdriver.SigningIdentity
 	id           []byte
 	enrollmentID string
 }
@@ -154,7 +154,7 @@ func (*Provider) Info(raw, _ []byte) (string, error) {
 	return fmt.Sprintf("MSP.x509: [%s][%s][%s]", view.Identity(raw).UniqueID(), si.Mspid, cert.Subject.CommonName), nil
 }
 
-func (p *Provider) SerializedIdentity() (driver2.SigningIdentity, error) {
+func (p *Provider) SerializedIdentity() (mspdriver.SigningIdentity, error) {
 	return p.sID, nil
 }
 

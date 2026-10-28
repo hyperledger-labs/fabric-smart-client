@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
@@ -54,7 +54,7 @@ func TestDeliveryFLM(t *testing.T) {
 		mockFL := &fake.FinalityListener{}
 		entry := &deliveryListenerEntry{l: mockFL}
 
-		require.Equal(t, driver2.Namespace(""), entry.Namespace())
+		require.Equal(t, cdriver.Namespace(""), entry.Namespace())
 
 		ctx := context.Background()
 		info := txInfo{txID: "tx1", status: driver.Valid, message: "ok"}

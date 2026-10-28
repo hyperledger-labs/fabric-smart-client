@@ -35,7 +35,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	comm "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	mspx509 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
+	x509msp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 )
 
 var (
@@ -696,7 +696,7 @@ func TestForgedGossipEnvelopeRejected(t *testing.T) {
 		digest := sha256.Sum256(payload)
 		r, s, err := ecdsa.Sign(rand.Reader, attackerKey, digest[:])
 		require.NoError(t, err)
-		s, _, err = mspx509.ToLowS(&attackerKey.PublicKey, s)
+		s, _, err = x509msp.ToLowS(&attackerKey.PublicKey, s)
 		require.NoError(t, err)
 		sig, err := utils.MarshalECDSASignature(r, s)
 		require.NoError(t, err)
@@ -828,7 +828,7 @@ func signWithTestPeerKey(message []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, _, err = mspx509.ToLowS(&testPeerKey.PublicKey, s)
+	s, _, err = x509msp.ToLowS(&testPeerKey.PublicKey, s)
 	if err != nil {
 		return nil, err
 	}
@@ -836,7 +836,7 @@ func signWithTestPeerKey(message []byte) ([]byte, error) {
 }
 
 func peerIdentity(mspID string, _ int) []byte {
-	pubPEM, err := mspx509.PemEncodeKey(&testPeerKey.PublicKey)
+	pubPEM, err := x509msp.PemEncodeKey(&testPeerKey.PublicKey)
 	if err != nil {
 		panic(err)
 	}

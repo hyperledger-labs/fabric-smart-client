@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -116,7 +116,7 @@ func TestProvider_DeserializeVerifier_BadKey(t *testing.T) {
 	require.NoError(t, err)
 
 	badKey := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: []byte("bad")})
-	sID := &msp2.SerializedIdentity{Mspid: "apple", IdBytes: badKey}
+	sID := &msp.SerializedIdentity{Mspid: "apple", IdBytes: badKey}
 	raw, err := proto.Marshal(sID)
 	require.NoError(t, err)
 
@@ -130,7 +130,7 @@ func TestProvider_Info_BadCert(t *testing.T) {
 	require.NoError(t, err)
 
 	badCert := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("bad")})
-	sID := &msp2.SerializedIdentity{Mspid: "apple", IdBytes: badCert}
+	sID := &msp.SerializedIdentity{Mspid: "apple", IdBytes: badCert}
 	raw, err := proto.Marshal(sID)
 	require.NoError(t, err)
 
@@ -194,7 +194,7 @@ func TestProvider_DeserializeVerifier_NonECDSA(t *testing.T) {
 	pubPEM, err := PemEncodeKey(&rsaKey.PublicKey)
 	require.NoError(t, err)
 
-	sID := &msp2.SerializedIdentity{Mspid: "apple", IdBytes: pubPEM}
+	sID := &msp.SerializedIdentity{Mspid: "apple", IdBytes: pubPEM}
 	raw, err := proto.Marshal(sID)
 	require.NoError(t, err)
 

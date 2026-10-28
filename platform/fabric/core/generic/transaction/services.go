@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -23,7 +23,7 @@ var logger = logging.MustGetLogger()
 
 type mds struct {
 	metadataKVS driver.MetadataStore
-	key         func(driver2.TxID) driver.Key
+	key         func(cdriver.TxID) driver.Key
 }
 
 func NewMetadataService(metadataKVS driver.MetadataStore, network, channel string) *mds {
@@ -64,7 +64,7 @@ func (s *mds) GetFieldMapping(ctx context.Context, ns, key string, valueDigest [
 
 type envs struct {
 	envelopeKVS driver.EnvelopeStore
-	key         func(driver2.TxID) driver.Key
+	key         func(cdriver.TxID) driver.Key
 }
 
 func NewEnvelopeService(envelopeKVS driver.EnvelopeStore, network, channel string) *envs {
@@ -96,7 +96,7 @@ func (s *envs) LoadEnvelope(ctx context.Context, txid string) ([]byte, error) {
 
 type ets struct {
 	endorseTxKVS driver.EndorseTxStore
-	key          func(driver2.TxID) driver.Key
+	key          func(cdriver.TxID) driver.Key
 }
 
 func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxStore, network, channel string) *ets {
@@ -116,8 +116,8 @@ func (s *ets) LoadTransaction(ctx context.Context, txid string) ([]byte, error) 
 	return s.endorseTxKVS.GetEndorseTx(ctx, s.key(txid))
 }
 
-func keyMapper(network, channel string) func(txID driver2.TxID) driver.Key {
-	return func(txID driver2.TxID) driver.Key {
+func keyMapper(network, channel string) func(txID cdriver.TxID) driver.Key {
+	return func(txID cdriver.TxID) driver.Key {
 		return driver.Key{Network: network, Channel: channel, TxID: txID}
 	}
 }

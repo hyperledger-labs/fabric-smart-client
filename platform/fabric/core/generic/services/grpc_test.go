@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
-	grpc2 "google.golang.org/grpc"
+	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
@@ -101,9 +101,9 @@ func TestGRPCClient(t *testing.T) {
 func TestLazyGRPCClient(t *testing.T) {
 	t.Parallel()
 
-	var conns []*grpc2.ClientConn
-	connect := func() (*grpc2.ClientConn, error) {
-		cc, err := grpc2.NewClient("passthrough:///fake", grpc2.WithTransportCredentials(insecure.NewCredentials()))
+	var conns []*googlegrpc.ClientConn
+	connect := func() (*googlegrpc.ClientConn, error) {
+		cc, err := googlegrpc.NewClient("passthrough:///fake", googlegrpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err == nil {
 			conns = append(conns, cc)
 		}

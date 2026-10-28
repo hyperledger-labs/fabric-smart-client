@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type storage interface {
@@ -24,7 +24,7 @@ type storage interface {
 }
 
 type localMembership interface {
-	DefaultIdentity() view2.Identity
+	DefaultIdentity() view.Identity
 }
 
 type vault struct {

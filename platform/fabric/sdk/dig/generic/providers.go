@@ -11,13 +11,13 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	ccommitter "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	genericconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	gdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
@@ -32,7 +32,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/endorsetx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/metadata"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
+	fvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
@@ -62,15 +62,15 @@ func NewDriver(in struct {
 	EndpointService identity.EndpointService
 	IDProvider      identity.ViewIdentityProvider
 	KVS             *kvs.KVS
-	AuditInfoKVS    driver2.AuditInfoStore
-	SignerKVS       driver2.SignerInfoStore
+	AuditInfoKVS    cdriver.AuditInfoStore
+	SignerKVS       cdriver.SignerInfoStore
 	TracerProvider  tracing.Provider
 	ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
 },
 ) core.NamedDriver {
 	d := core.NamedDriver{
-		Name: config2.GenericDriver,
+		Name: genericconfig.GenericDriver,
 		Driver: gdriver.NewProvider(
 			in.ConfigProvider,
 			in.MetricsProvider,
@@ -100,7 +100,7 @@ func NewChannelProvider(in struct {
 	ConnState       *connstate.Metrics
 },
 ) generic.ChannelProvider {
-	flmProvider := committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider)
+	flmProvider := ccommitter.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider)
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
 	return generic.NewChannelProvider(
 		in.ConfigProvider,
@@ -108,8 +108,8 @@ func NewChannelProvider(in struct {
 		in.MetadataKVS,
 		in.EndorseTxKVS,
 		in.Drivers,
-		func(_ string, configService driver.ConfigService, vaultStore driver2.VaultStore) (*vault.Vault, error) {
-			cachedVault := vault2.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
+		func(_ string, configService driver.ConfigService, vaultStore cdriver.VaultStore) (*vault.Vault, error) {
+			cachedVault := fvault.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
 			return vault.NewVault(cachedVault, in.MetricsProvider, in.TracerProvider), nil
 		},
 		channelConfigProvider,
@@ -213,21 +213,21 @@ func NewChannelProvider(in struct {
 		true)
 }
 
-func NewEndorseTxStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
+func NewEndorseTxStore(config cdriver.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
 	return endorsetx.NewStore[driver.Key](config, drivers, "default")
 }
 
-func NewMetadataStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
+func NewMetadataStore(config cdriver.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
 	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
 }
 
-func NewEnvelopeStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
+func NewEnvelopeStore(config cdriver.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
 	return envelope.NewStore[driver.Key](config, drivers, "default")
 }
 
 func NewMultiplexedDriver(in struct {
 	dig.In
-	Config  driver2.ConfigService
+	Config  cdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"fabric-db-drivers" optional:"false"`
 },
 ) multiplexed.Driver {

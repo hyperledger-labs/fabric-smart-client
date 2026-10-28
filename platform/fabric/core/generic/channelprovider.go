@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
@@ -24,13 +24,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
+	fvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 )
 
 type VaultConstructor = func(
 	channelName string,
 	configService driver.ConfigService,
-	vaultStore driver3.VaultStore,
+	vaultStore cdriver.VaultStore,
 ) (*vault.Vault, error)
 
 type LedgerConstructor func(
@@ -139,7 +139,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, errors.Wrapf(err, "failed getting channel config for [%s]", channelName)
 	}
 
-	vaultStore, err := vault2.NewStore(nw.ConfigService().VaultPersistenceName(), p.drivers, nw.Name(), channelName)
+	vaultStore, err := fvault.NewStore(nw.ConfigService().VaultPersistenceName(), p.drivers, nw.Name(), channelName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating vault store for channel [%s]", channelName)
 	}
@@ -277,7 +277,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 }
 
 type vaultDeliveryWrapper struct {
-	vaultStore driver3.VaultStore
+	vaultStore cdriver.VaultStore
 }
 
 func (f *vaultDeliveryWrapper) GetLastTxID(ctx context.Context) (string, error) {

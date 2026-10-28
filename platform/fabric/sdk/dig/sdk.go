@@ -13,17 +13,17 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
-	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	fcommitter "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/fns"
-	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
@@ -38,10 +38,10 @@ import (
 
 var logger = logging.MustGetLogger()
 
-// SDK wires the Fabric platform's dig providers on top of a base dig2.SDK (typically the view
+// SDK wires the Fabric platform's dig providers on top of a base commondig.SDK (typically the view
 // SDK) and drives the lifecycle of the resulting *core.FSNProvider.
 type SDK struct {
-	dig2.SDK
+	commondig.SDK
 	fnsProvider *core.FSNProvider
 }
 
@@ -50,8 +50,8 @@ func NewSDK(registry services.Registry) *SDK {
 	return NewFrom(viewsdk.NewSDK(registry))
 }
 
-// NewFrom builds a Fabric SDK on top of an already-constructed base dig2.SDK.
-func NewFrom(sdk dig2.SDK) *SDK {
+// NewFrom builds a Fabric SDK on top of an already-constructed base commondig.SDK.
+func NewFrom(sdk commondig.SDK) *SDK {
 	return &SDK{SDK: sdk}
 }
 
@@ -74,24 +74,24 @@ func (p *SDK) Install() error {
 		p.Container().Provide(config.NewCore),
 		p.Container().Provide(config.NewProvider),
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
-		p.Container().Provide(generic2.NewDriver, dig.Group("fabric-platform-drivers")),
-		p.Container().Provide(generic2.NewChannelProvider, dig.Name("generic-channel-provider")),
+		p.Container().Provide(generic.NewDriver, dig.Group("fabric-platform-drivers")),
+		p.Container().Provide(generic.NewChannelProvider, dig.Name("generic-channel-provider")),
 		p.Container().Provide(fns.NewProvider),
 		p.Container().Provide(digutils.Identity[*core.FSNProvider](), dig.As(new(driver.FabricNetworkServiceProvider))),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(identity.EndpointService))),
 		p.Container().Provide(digutils.Identity[*id.Provider](), dig.As(new(identity.ViewIdentityProvider))),
 		p.Container().Provide(fabric.NewNetworkServiceProvider),
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
-		p.Container().Provide(generic2.NewEndorserTransactionHandlerProvider),
+		p.Container().Provide(generic.NewEndorserTransactionHandlerProvider),
 
-		p.Container().Provide(committer2.NewSerialDependencyResolver, dig.As(new(committer2.DependencyResolver))),
+		p.Container().Provide(fcommitter.NewSerialDependencyResolver, dig.As(new(fcommitter.DependencyResolver))),
 		p.Container().Provide(postgres.NewNamedDriver, dig.Group("fabric-db-drivers")),
 		p.Container().Provide(sqlite.NewNamedDriver, dig.Group("fabric-db-drivers")),
 		p.Container().Provide(mem.NewNamedDriver, dig.Group("fabric-db-drivers")),
-		p.Container().Provide(generic2.NewMultiplexedDriver),
-		p.Container().Provide(generic2.NewMetadataStore),
-		p.Container().Provide(generic2.NewEnvelopeStore),
-		p.Container().Provide(generic2.NewEndorseTxStore),
+		p.Container().Provide(generic.NewMultiplexedDriver),
+		p.Container().Provide(generic.NewMetadataStore),
+		p.Container().Provide(generic.NewEnvelopeStore),
+		p.Container().Provide(generic.NewEndorseTxStore),
 	)
 	if err != nil {
 		return err
@@ -204,7 +204,7 @@ func registerRWSetLoaderHandlerProviders(in struct {
 	dig.In
 	FSNProvider      *core.FSNProvider
 	CoreConfig       *core.Config
-	HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
+	HandlerProviders []generic.RWSetPayloadHandlerProvider `group:"handler-providers"`
 },
 ) error {
 	for _, network := range in.CoreConfig.Names() {

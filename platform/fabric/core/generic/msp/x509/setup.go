@@ -8,7 +8,7 @@ package x509
 
 import (
 	"crypto/sha256"
-	x5092 "crypto/x509"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
@@ -17,7 +17,7 @@ import (
 
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
-	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	msppb "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -186,7 +186,7 @@ func GetSWBCCSP(dir string) (bccsp.BCCSP, bccsp.KeyStore, error) {
 }
 
 func GetEnrollmentID(id []byte) (string, error) {
-	si := &msp2.SerializedIdentity{}
+	si := &msppb.SerializedIdentity{}
 	err := proto.Unmarshal(id, si)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal to msp.SerializedIdentity{}")
@@ -197,7 +197,7 @@ func GetEnrollmentID(id []byte) (string, error) {
 	}
 	switch block.Type {
 	case "CERTIFICATE":
-		cert, err := x5092.ParseCertificate(block.Bytes)
+		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return "", errors.WithMessage(err, "pem bytes are not cert encoded ")
 		}
@@ -208,7 +208,7 @@ func GetEnrollmentID(id []byte) (string, error) {
 }
 
 func GetRevocationHandle(id []byte) ([]byte, error) {
-	si := &msp2.SerializedIdentity{}
+	si := &msppb.SerializedIdentity{}
 	err := proto.Unmarshal(id, si)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal to msp.SerializedIdentity{}")
@@ -219,11 +219,11 @@ func GetRevocationHandle(id []byte) ([]byte, error) {
 	}
 	switch block.Type {
 	case "CERTIFICATE":
-		cert, err := x5092.ParseCertificate(block.Bytes)
+		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, errors.WithMessage(err, "pem bytes are not cert encoded ")
 		}
-		encoded, err := x5092.MarshalPKIXPublicKey(cert.PublicKey)
+		encoded, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 		if err != nil {
 			return nil, errors.WithMessage(err, "Failed to marshal PKI public key")
 		}

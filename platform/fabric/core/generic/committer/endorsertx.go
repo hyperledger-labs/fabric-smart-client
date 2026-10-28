@@ -13,7 +13,7 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -78,7 +78,7 @@ func MapValidationCode(code int32) (int, string) {
 }
 
 // GetChaincodeEvents reads the chaincode events and notifies the listeners registered to the specific chaincode.
-func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.BlockNum) error {
+func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum cdriver.BlockNum) error {
 	chaincodeEvent, err := readChaincodeEvent(env, blockNum)
 	if err != nil {
 		return errors.Wrap(err, "error reading chaincode event")
@@ -92,7 +92,7 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.Bl
 
 // CommitEndorserTransaction commits the transaction to the vault.
 // It returns true, if the transaction was already processed, false otherwise.
-func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
+func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 
 	event.Block = blockNum
@@ -124,7 +124,7 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 // Invalid in the vault. A transient vault failure is returned so the block is
 // retried; any other discard failure is logged, because it would recur on every
 // retry and stop the channel.
-func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, envRaw []byte, event *FinalityEvent) error {
+func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, envRaw []byte, event *FinalityEvent) error {
 	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 
 	vc, _, err := c.Status(ctx, txID)

@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
+	fvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
@@ -61,7 +61,7 @@ func replica(store cdriver.VaultStore) (*Committer, *sequenceMembership) {
 		logger:             logger,
 		tracer:             noop.NewTracerProvider().Tracer("test"),
 		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
-		Vault:              vault.NewVault(vault2.NewCachedVault(store, 0), &disabled.Provider{}, noop.NewTracerProvider()),
+		Vault:              vault.NewVault(fvault.NewCachedVault(store, 0), &disabled.Provider{}, noop.NewTracerProvider()),
 		ChannelConfig:      &fake.ChannelConfig{IDValue: "ch"},
 		MembershipService:  ms,
 		DependencyResolver: NewSerialDependencyResolver(),
@@ -92,7 +92,7 @@ func TestCommitConfigAcrossReplicasSharingAVault(t *testing.T) {
 
 	newStore := func(t *testing.T, name string) cdriver.VaultStore {
 		t.Helper()
-		store, err := vault2.OpenMemoryVault(name)
+		store, err := fvault.OpenMemoryVault(name)
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = store.Close() })
 		return store

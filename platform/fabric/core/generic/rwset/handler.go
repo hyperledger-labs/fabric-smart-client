@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
+	gvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -49,7 +49,7 @@ type endorserTransactionReader struct {
 func NewEndorserTransactionReader(network string) *endorserTransactionReader {
 	return &endorserTransactionReader{
 		network:   network,
-		populator: vault2.NewPopulator(),
+		populator: gvault.NewPopulator(),
 	}
 }
 

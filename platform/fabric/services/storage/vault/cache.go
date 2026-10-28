@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 )
 
 var logger = logging.MustGetLogger()
@@ -31,7 +31,7 @@ type notCachedStore struct {
 	driver.VaultStore
 }
 
-func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
+func NewCachedVault(backed fdbdriver.VaultStore, cacheSize int) CachedVaultStore {
 	if cacheSize <= 0 {
 		logger.Debugf("txID store without cache selected")
 		return &notCachedStore{VaultStore: backed}

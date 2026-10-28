@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	discovery2 "github.com/hyperledger/fabric-protos-go-apiv2/discovery"
+	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/gossip"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -209,7 +209,7 @@ func setupDiscoveryTest(t *testing.T, configure ...func(cs *mock.ConfigService, 
 		},
 	}
 
-	configResult := &discovery2.ConfigResult{
+	configResult := &discovery.ConfigResult{
 		Msps: map[string]*msp.FabricMSPConfig{
 			"Org1MSP": {
 				TlsRootCerts: [][]byte{[]byte("root-cert-1")},
@@ -268,7 +268,7 @@ func setupInvokeTest(t *testing.T) *invokeTestFixture {
 	}
 	mockChanResp.EndorsersReturns([]*discoveryApi.Peer{peer1}, nil)
 
-	configResult := &discovery2.ConfigResult{
+	configResult := &discovery.ConfigResult{
 		Msps: map[string]*msp.FabricMSPConfig{
 			"Org1MSP": {
 				TlsRootCerts: [][]byte{[]byte("root-cert-1")},

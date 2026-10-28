@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -29,7 +29,7 @@ type ListenerManager[T events.EventInfo] interface {
 }
 
 type txInfo struct {
-	txID    driver2.TxID
+	txID    driver.TxID
 	status  fdriver.ValidationCode
 	message string
 }
@@ -42,7 +42,7 @@ type deliveryListenerEntry struct {
 	l fabric.FinalityListener
 }
 
-func (*deliveryListenerEntry) Namespace() driver2.Namespace {
+func (*deliveryListenerEntry) Namespace() driver.Namespace {
 	return ""
 }
 
@@ -83,7 +83,7 @@ type txInfoMapper struct {
 	logger  logging.Logger
 }
 
-func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.BlockMetadata, blockNum driver2.BlockNum, txNum driver2.TxNum) (map[driver2.Namespace]txInfo, error) {
+func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.BlockMetadata, blockNum driver.BlockNum, txNum driver.TxNum) (map[driver.Namespace]txInfo, error) {
 	_, payl, chdr, err := fabricutils.UnmarshalTx(tx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed unmarshaling tx [%d:%d]", blockNum, txNum)
@@ -101,7 +101,7 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 		return nil, errors.Wrap(err, "failed mapping finality event")
 	}
 
-	txInfos := make(map[driver2.Namespace]txInfo, len(rwSet.Writes))
+	txInfos := make(map[driver.Namespace]txInfo, len(rwSet.Writes))
 	m.logger.Debugf("TX [%s] has %d namespaces", chdr.TxId, len(rwSet.Writes))
 	for ns, write := range rwSet.Writes {
 		m.logger.Debugf("TX [%s:%s] has %d writes", chdr.TxId, ns, len(write))

@@ -9,7 +9,7 @@ package driver
 import (
 	"context"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -22,7 +22,7 @@ type MSP struct {
 	GetIdentity  driver.GetIdentityFunc
 }
 
-type Deserializer = driver2.SigDeserializer
+type Deserializer = cdriver.SigDeserializer
 
 //go:generate counterfeiter -o mock/config.go -fake-name Config . Config
 type Config interface {

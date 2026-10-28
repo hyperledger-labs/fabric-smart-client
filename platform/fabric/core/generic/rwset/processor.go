@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
@@ -50,7 +50,7 @@ func NewProcessorManager(
 	}
 }
 
-func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID driver2.TxID) error {
+func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID cdriver.TxID) error {
 	logger.DebugfContext(ctx, "process transaction [%s,%s]", channel, txID)
 	defer logger.DebugfContext(ctx, "Done process by id")
 

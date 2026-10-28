@@ -13,12 +13,12 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Transaction struct {
-	view2.Provider
+	services.Provider
 
 	Transaction       *fabric.Transaction
 	verifierProviders []fabric.VerifierProvider

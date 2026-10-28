@@ -14,27 +14,27 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
+	fvault "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
 type artifactsProvider struct {
-	removeNils func([]driver2.VaultRead) []driver2.VaultRead
+	removeNils func([]driver.VaultRead) []driver.VaultRead
 }
 
-func (p *artifactsProvider) RemoveNils(items []driver2.VaultRead) []driver2.VaultRead {
+func (p *artifactsProvider) RemoveNils(items []driver.VaultRead) []driver.VaultRead {
 	return p.removeNils(items)
 }
 
 func (*artifactsProvider) NewCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
-	return NewVault(vault2.NewCachedVault(ddb, 100), &disabled.Provider{}, &noop.TracerProvider{}), nil
+	return NewVault(fvault.NewCachedVault(ddb, 100), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 
 func (*artifactsProvider) NewNonCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
-	return NewVault(vault2.NewCachedVault(ddb, 0), &disabled.Provider{}, &noop.TracerProvider{}), nil
+	return NewVault(fvault.NewCachedVault(ddb, 0), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 
 func (*artifactsProvider) NewMarshaller() vault.Marshaller {
@@ -44,10 +44,10 @@ func (*artifactsProvider) NewMarshaller() vault.Marshaller {
 func TestMemory(t *testing.T) {
 	t.Parallel()
 	ap := &artifactsProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead { return items },
+		removeNils: func(items []driver.VaultRead) []driver.VaultRead { return items },
 	}
 	for _, c := range vault.SingleDBCases {
-		ddb, err := vault2.OpenMemoryVault(c.Name)
+		ddb, err := fvault.OpenMemoryVault(c.Name)
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer func() { _ = ddb.Close() }()
@@ -56,9 +56,9 @@ func TestMemory(t *testing.T) {
 	}
 
 	for _, c := range vault.DoubleDBCases {
-		db1, err := vault2.OpenMemoryVault(c.Name)
+		db1, err := fvault.OpenMemoryVault(c.Name)
 		require.NoError(t, err)
-		db2, err := vault2.OpenMemoryVault(c.Name)
+		db2, err := fvault.OpenMemoryVault(c.Name)
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			xt.Parallel()
@@ -72,12 +72,12 @@ func TestMemory(t *testing.T) {
 func TestSqlite(t *testing.T) {
 	t.Parallel()
 	ap := &artifactsProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
+		removeNils: func(items []driver.VaultRead) []driver.VaultRead {
+			return slices.DeleteFunc(items, func(e driver.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 	for _, c := range vault.SingleDBCases {
-		ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
+		ddb, err := fvault.OpenSqliteVault("node1", t.TempDir())
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer func() { _ = ddb.Close() }()
@@ -86,9 +86,9 @@ func TestSqlite(t *testing.T) {
 	}
 
 	for _, c := range vault.DoubleDBCases {
-		db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
+		db1, err := fvault.OpenSqliteVault("node1", t.TempDir())
 		require.NoError(t, err)
-		db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
+		db2, err := fvault.OpenSqliteVault("node2", t.TempDir())
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			xt.Parallel()
@@ -102,12 +102,12 @@ func TestSqlite(t *testing.T) {
 func TestPostgres(t *testing.T) {
 	t.Parallel()
 	ap := &artifactsProvider{
-		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
+		removeNils: func(items []driver.VaultRead) []driver.VaultRead {
+			return slices.DeleteFunc(items, func(e driver.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 	for _, c := range vault.SingleDBCases {
-		ddb, terminate, err := vault2.OpenPostgresVault("fabric-sdk-node1")
+		ddb, terminate, err := fvault.OpenPostgresVault("fabric-sdk-node1")
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer func() { _ = ddb.Close() }()
@@ -117,9 +117,9 @@ func TestPostgres(t *testing.T) {
 	}
 
 	for _, c := range vault.DoubleDBCases {
-		db1, terminate1, err := vault2.OpenPostgresVault("fabric-sdk-node1")
+		db1, terminate1, err := fvault.OpenPostgresVault("fabric-sdk-node1")
 		require.NoError(t, err)
-		db2, terminate2, err := vault2.OpenPostgresVault("fabric-sdk-node2")
+		db2, terminate2, err := fvault.OpenPostgresVault("fabric-sdk-node2")
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			xt.Parallel()

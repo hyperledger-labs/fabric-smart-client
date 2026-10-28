@@ -20,7 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	mspx509 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 )
 
 var configTypes = []QueryType{
@@ -410,7 +410,7 @@ func (resp response) mapPeerMembership(key2Index map[string]int, r *discovery.Re
 // by whoever holds the private key matching the claimed identity, not that
 // the identity itself is a legitimately-issued, MSP-trusted peer. Identity
 // verification here uses the same lightweight, no-CA-binding provider as
-// mspx509.Provider.DeserializeVerifier (see its doc comment) - it accepts
+// x509.Provider.DeserializeVerifier (see its doc comment) - it accepts
 // any well-formed self-signed identity with no validation against a
 // channel/local MSP's trusted root CAs. A discovery server that is itself
 // malicious, or that is relaying data from a colluding remote peer, can
@@ -442,7 +442,7 @@ func verifyEnvelopeSignature(e *gossip.Envelope, identity []byte, allowEmptySign
 	if allowEmptySignature && len(e.Signature) == 0 {
 		return nil
 	}
-	_, verifier, err := mspx509.NewIdentityFromBytes(identity)
+	_, verifier, err := x509.NewIdentityFromBytes(identity)
 	if err != nil {
 		return errors.Wrap(err, "failed deriving verifier from peer identity")
 	}

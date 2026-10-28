@@ -9,7 +9,7 @@ package fabric
 import (
 	"context"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -29,13 +29,13 @@ func NewCommitter(ch driver.Channel) *Committer {
 }
 
 // ProcessNamespace registers namespaces that will be committed even if the rwset is not known
-func (c *Committer) ProcessNamespace(nss ...driver2.Namespace) error {
+func (c *Committer) ProcessNamespace(nss ...cdriver.Namespace) error {
 	return c.committer.ProcessNamespace(nss...)
 }
 
 // Status returns a validation code this committer bind to the passed transaction id, plus
 // a list of dependent transaction ids if they exist.
-func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
+func (c *Committer) Status(ctx context.Context, txID cdriver.TxID) (driver.ValidationCode, string, error) {
 	return c.committer.Status(ctx, txID)
 }
 
@@ -43,12 +43,12 @@ func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.Valid
 // If the status is already valid or invalid, the listener is called immediately.
 // When the listener is invoked, then it is also removed.
 // The transaction id must not be empty.
-func (c *Committer) AddFinalityListener(txID driver2.TxID, listener FinalityListener) error {
+func (c *Committer) AddFinalityListener(txID cdriver.TxID, listener FinalityListener) error {
 	return c.committer.AddFinalityListener(txID, listener)
 }
 
 // RemoveFinalityListener unregisters the passed listener.
-func (c *Committer) RemoveFinalityListener(txID driver2.TxID, listener FinalityListener) error {
+func (c *Committer) RemoveFinalityListener(txID cdriver.TxID, listener FinalityListener) error {
 	return c.committer.RemoveFinalityListener(txID, listener)
 }
 

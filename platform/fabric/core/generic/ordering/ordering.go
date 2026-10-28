@@ -9,7 +9,7 @@ package ordering
 import (
 	"context"
 
-	common2 "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -42,10 +42,10 @@ type Transaction interface {
 }
 
 type TransactionWithEnvelope interface {
-	Envelope() *common2.Envelope
+	Envelope() *common.Envelope
 }
 
-type BroadcastFnc = func(ctx context.Context, env *common2.Envelope) error
+type BroadcastFnc = func(ctx context.Context, env *common.Envelope) error
 
 type GetEndorserTransactionServiceFunc = func(channelID string) (driver.EndorserTransactionService, error)
 
@@ -110,7 +110,7 @@ func (o *Service) Broadcast(ctx context.Context, blob any) error { //nolint:cont
 		ctx = context.Background()
 	}
 	defer logger.DebugfContext(ctx, "Done broadcasting")
-	var env *common2.Envelope
+	var env *common.Envelope
 	var err error
 	switch b := blob.(type) {
 	case Transaction:
@@ -122,7 +122,7 @@ func (o *Service) Broadcast(ctx context.Context, blob any) error { //nolint:cont
 	case TransactionWithEnvelope:
 		logger.DebugfContext(ctx, "new envelope to broadcast (boxed)...")
 		env = b.Envelope()
-	case *common2.Envelope:
+	case *common.Envelope:
 		logger.DebugfContext(ctx, "new envelope to broadcast...")
 		env = b
 	default:
@@ -174,7 +174,7 @@ func (o *Service) Configure(consensusType string, orderers []*grpc.ConnectionCon
 	return nil
 }
 
-func (*Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
+func (*Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common.Envelope, error) {
 	env, err := tx.Envelope()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating envelope for transaction [%s]", tx.ID())
@@ -183,7 +183,7 @@ func (*Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed marshalling envelope for transaction [%s]", tx.ID())
 	}
-	commonEnv := &common2.Envelope{}
+	commonEnv := &common.Envelope{}
 	if err := proto.Unmarshal(raw, commonEnv); err != nil {
 		return nil, errors.Wrapf(err, "failed unmarshalling envelope for transaction [%s]", tx.ID())
 	}
