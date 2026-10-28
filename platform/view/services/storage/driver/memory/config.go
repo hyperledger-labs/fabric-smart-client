@@ -7,34 +7,34 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 var Op = &optsProvider{}
 
 type optsProvider struct{}
 
-func (*optsProvider) GetOpts(params ...string) sqlite2.Opts {
-	return sqlite2.Opts{
+func (*optsProvider) GetOpts(params ...string) sqlite.Opts {
+	return sqlite.Opts{
 		DataSource:      "file::memory:?cache=shared",
 		SkipPragmas:     false,
 		MaxOpenConns:    10,
-		MaxIdleConns:    common2.DefaultMaxIdleConns,
-		MaxIdleTime:     common2.DefaultMaxIdleTime,
+		MaxIdleConns:    common.DefaultMaxIdleConns,
+		MaxIdleTime:     common.DefaultMaxIdleTime,
 		TablePrefix:     "",
 		TableNameParams: params,
 		Tracing:         nil,
 	}
 }
 
-func (*optsProvider) GetConfig(params ...string) sqlite2.Config {
-	return sqlite2.Config{
+func (*optsProvider) GetConfig(params ...string) sqlite.Config {
+	return sqlite.Config{
 		DataSource:      "file::memory:?cache=shared",
 		SkipPragmas:     false,
 		MaxOpenConns:    10,
-		MaxIdleConns:    common2.CopyPtr(common2.DefaultMaxIdleConns),
-		MaxIdleTime:     common2.CopyPtr(common2.DefaultMaxIdleTime),
+		MaxIdleConns:    common.CopyPtr(common.DefaultMaxIdleConns),
+		MaxIdleTime:     common.CopyPtr(common.DefaultMaxIdleTime),
 		SkipCreateTable: false,
 		TablePrefix:     "",
 		TableNameParams: params,

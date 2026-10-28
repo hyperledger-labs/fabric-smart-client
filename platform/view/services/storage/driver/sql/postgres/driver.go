@@ -8,14 +8,14 @@ package postgres
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 const (
-	Persistence driver2.PersistenceType = "postgres"
+	Persistence cdriver.PersistenceType = "postgres"
 )
 
 func NewNamedDriver(config driver.Config, dbProvider DbProvider) driver.NamedDriver {
@@ -31,7 +31,7 @@ func NewDriver(config driver.Config) *Driver {
 
 func NewDriverWithDbProvider(config driver.Config, dbProvider DbProvider) *Driver {
 	return &Driver{
-		cp:         NewConfigProvider(common3.NewConfig(config)),
+		cp:         NewConfigProvider(drivercommon.NewConfig(config)),
 		dbProvider: dbProvider,
 	}
 }
@@ -60,7 +60,7 @@ func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (dr
 // NewPersistenceWithOpts constructs a V backed by the postgres persistence configured under name and
 // params: it resolves the connection options and table names, opens the database, and invokes
 // constructor to build the store, creating its schema unless configured to skip.
-func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider DbProvider, name driver.PersistenceName, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
+func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *ConfigProvider, dbProvider DbProvider, name driver.PersistenceName, constructor sqlcommon.PersistenceConstructor[V], params ...string) (V, error) {
 	var zero V
 
 	o, err := cfg.GetOpts(name, params...)
@@ -73,7 +73,7 @@ func NewPersistenceWithOpts[V common3.DBObject](cfg *ConfigProvider, dbProvider 
 	if err != nil {
 		return zero, errors.Wrap(err, "error opening db")
 	}
-	tables, err := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	tables, err := sqlcommon.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	if err != nil {
 		return zero, err
 	}

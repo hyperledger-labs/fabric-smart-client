@@ -11,8 +11,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 // config models the DB configuration
@@ -29,7 +29,7 @@ type Config struct {
 	MaxIdleTime     *time.Duration
 	SkipCreateTable bool
 	TableNameParams []string
-	Tracing         *common2.TracingConfig
+	Tracing         *sqlcommon.TracingConfig
 }
 
 func NewConfigProvider(config config) *ConfigProvider {
@@ -49,12 +49,12 @@ func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) 
 		return nil, errors.New("missing data source")
 	}
 	if o.MaxIdleConns == nil {
-		o.MaxIdleConns = common3.CopyPtr(common3.DefaultMaxIdleConns)
+		o.MaxIdleConns = drivercommon.CopyPtr(drivercommon.DefaultMaxIdleConns)
 	}
 	if o.MaxIdleTime == nil {
-		o.MaxIdleTime = common3.CopyPtr(common3.DefaultMaxIdleTime)
+		o.MaxIdleTime = drivercommon.CopyPtr(drivercommon.DefaultMaxIdleTime)
 	}
 	o.TableNameParams = params
-	o.Tracing = &common2.TracingConfig{}
+	o.Tracing = &sqlcommon.TracingConfig{}
 	return o, nil
 }

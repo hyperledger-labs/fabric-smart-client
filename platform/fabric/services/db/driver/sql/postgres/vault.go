@@ -13,32 +13,32 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 type VaultStore struct {
-	*common4.VaultStore
+	*fsqlcommon.VaultStore
 
-	tables  common4.VaultTables
+	tables  fsqlcommon.VaultTables
 	writeDB *sql.DB
 }
 
 // NewVaultStore creates a postgres-backed VaultStore for the given
 // read/write database and table names.
-func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, error) {
-	return buildVaultStore(dbs.ReadDB, dbs.WriteDB, common4.VaultTables{
+func NewVaultStore(dbs *drivercommon.RWDB, tables fsqlcommon.TableNames) (*VaultStore, error) {
+	return buildVaultStore(dbs.ReadDB, dbs.WriteDB, fsqlcommon.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
 // buildVaultStore is the internal constructor.
-func buildVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *VaultStore {
+func buildVaultStore(readDB, writeDB *sql.DB, tables fsqlcommon.VaultTables) *VaultStore {
 	return &VaultStore{
-		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, encodeKey, postgres2.IsolationLevels),
+		VaultStore: fsqlcommon.NewVaultStore(writeDB, readDB, tables, &postgres.ErrorMapper{}, encodeKey, postgres.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
 	}
@@ -55,7 +55,7 @@ func encodeKey(k driver.PKey) any { return []byte(k) }
 // connection lost during COMMIT, when the outcome is unknown. Database errors are
 // mapped by postgres.ErrorMapper.
 func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
-	return (&postgres2.ErrorMapper{}).WrapError(db.storeTx(ctx, txIDs, writes, metaWrites))
+	return (&postgres.ErrorMapper{}).WrapError(db.storeTx(ctx, txIDs, writes, metaWrites))
 }
 
 func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
@@ -134,7 +134,7 @@ func (db *VaultStore) CreateSchema() error {
 	if err := db.convertTextKeys(); err != nil {
 		return err
 	}
-	return postgres2.ReorderPrimaryKey(db.writeDB, db.tables.StateTable)
+	return postgres.ReorderPrimaryKey(db.writeDB, db.tables.StateTable)
 }
 
 // convertTextKeys converts a state table whose pkey column is TEXT to BYTEA in

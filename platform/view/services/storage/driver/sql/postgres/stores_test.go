@@ -13,8 +13,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
 
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -27,19 +27,19 @@ import (
 func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
 	t.Parallel()
 
-	tables, err := common3.GetTableNames("test")
+	tables, err := sqlcommon.GetTableNames("test")
 	require.NoError(t, err)
 
 	for name, tc := range map[string]struct {
 		readSQL  string
 		writeSQL string
-		read     func(*common2.RWDB) error
-		write    func(*common2.RWDB) error
+		read     func(*drivercommon.RWDB) error
+		write    func(*drivercommon.RWDB) error
 	}{
 		"KeyValue": {
 			"SELECT val FROM " + tables.KVS,
 			"INSERT INTO " + tables.KVS,
-			func(dbs *common2.RWDB) error {
+			func(dbs *drivercommon.RWDB) error {
 				s, err := NewKeyValueStore(dbs, tables)
 				if err != nil {
 					return err
@@ -47,7 +47,7 @@ func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
 				_, err = s.GetState(context.Background(), "ns", "k")
 				return err
 			},
-			func(dbs *common2.RWDB) error {
+			func(dbs *drivercommon.RWDB) error {
 				s, err := NewKeyValueStore(dbs, tables)
 				if err != nil {
 					return err
@@ -58,7 +58,7 @@ func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
 		"SignerInfo": {
 			"SELECT id FROM " + tables.SignerInfo,
 			"INSERT INTO " + tables.SignerInfo,
-			func(dbs *common2.RWDB) error {
+			func(dbs *drivercommon.RWDB) error {
 				s, err := NewSignerInfoStore(dbs, tables)
 				if err != nil {
 					return err
@@ -66,7 +66,7 @@ func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
 				_, err = s.FilterExistingSigners(context.Background(), view.Identity("id"))
 				return err
 			},
-			func(dbs *common2.RWDB) error {
+			func(dbs *drivercommon.RWDB) error {
 				s, err := NewSignerInfoStore(dbs, tables)
 				if err != nil {
 					return err
@@ -86,7 +86,7 @@ func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = writeDB.Close() })
 
-			dbs := &common2.RWDB{ReadDB: readDB, WriteDB: writeDB}
+			dbs := &drivercommon.RWDB{ReadDB: readDB, WriteDB: writeDB}
 
 			readMock.ExpectQuery(tc.readSQL).
 				WillReturnRows(sqlmock.NewRows([]string{"val"}))

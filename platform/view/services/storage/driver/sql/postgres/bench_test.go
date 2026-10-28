@@ -11,14 +11,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 func BenchmarkReadExistingPostgres(b *testing.B) {
 	pgConnStr := setupDB(b)
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
@@ -31,7 +31,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 
 func BenchmarkReadNonExistingPostgres(b *testing.B) {
 	pgConnStr := setupDB(b)
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
@@ -44,7 +44,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 
 func BenchmarkWriteOnePostgres(b *testing.B) {
 	pgConnStr := setupDB(b)
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
@@ -57,7 +57,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 
 func BenchmarkWriteManyPostgres(b *testing.B) {
 	pgConnStr := setupDB(b)
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
@@ -70,10 +70,10 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 
 func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 	pgConnStr := setupDB(b)
-	cp := NewConfigProvider(testing2.MockConfig(Config{
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
-		MaxIdleConns: common2.CopyPtr(50),
+		MaxIdleConns: drivercommon.CopyPtr(50),
 	}))
 	db, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
 	require.NoError(b, err)

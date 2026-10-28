@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/notifier/mock"
@@ -50,9 +50,9 @@ func TestUnversionedPersistenceNotifier_SetState(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		ns             driver2.Namespace
-		key            driver2.PKey
-		val            driver2.RawValue
+		ns             cdriver.Namespace
+		key            cdriver.PKey
+		val            cdriver.RawValue
 		setStateErr    error
 		expectedOp     driver.Operation
 		expectErr      bool
@@ -124,30 +124,30 @@ func TestUnversionedPersistenceNotifier_SetStates(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		ns             driver2.Namespace
-		kvs            map[driver2.PKey]driver2.RawValue
-		persistenceErr map[driver2.PKey]error
+		ns             cdriver.Namespace
+		kvs            map[cdriver.PKey]cdriver.RawValue
+		persistenceErr map[cdriver.PKey]error
 		expectedEvents int
 	}{
 		{
 			name: "all successful updates",
 			ns:   "namespace1",
-			kvs: map[driver2.PKey]driver2.RawValue{
+			kvs: map[cdriver.PKey]cdriver.RawValue{
 				"key1": []byte("value1"),
 				"key2": []byte("value2"),
 			},
-			persistenceErr: map[driver2.PKey]error{},
+			persistenceErr: map[cdriver.PKey]error{},
 			expectedEvents: 2,
 		},
 		{
 			name: "mixed success and failure",
 			ns:   "namespace1",
-			kvs: map[driver2.PKey]driver2.RawValue{
+			kvs: map[cdriver.PKey]cdriver.RawValue{
 				"key1": []byte("value1"),
 				"key2": []byte("value2"),
 				"key3": []byte("value3"),
 			},
-			persistenceErr: map[driver2.PKey]error{
+			persistenceErr: map[cdriver.PKey]error{
 				"key2": errors.New("error"),
 			},
 			expectedEvents: 2,
@@ -155,11 +155,11 @@ func TestUnversionedPersistenceNotifier_SetStates(t *testing.T) {
 		{
 			name: "delete operations with empty values",
 			ns:   "namespace1",
-			kvs: map[driver2.PKey]driver2.RawValue{
+			kvs: map[cdriver.PKey]cdriver.RawValue{
 				"key1": []byte{},
 				"key2": []byte{},
 			},
-			persistenceErr: map[driver2.PKey]error{},
+			persistenceErr: map[cdriver.PKey]error{},
 			expectedEvents: 2,
 		},
 	}
@@ -188,8 +188,8 @@ func TestUnversionedPersistenceNotifier_DeleteState(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		ns             driver2.Namespace
-		key            driver2.PKey
+		ns             cdriver.Namespace
+		key            cdriver.PKey
 		deleteErr      error
 		expectErr      bool
 		expectEnqueued bool
@@ -247,23 +247,23 @@ func TestUnversionedPersistenceNotifier_DeleteStates(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		ns             driver2.Namespace
-		keys           []driver2.PKey
-		persistenceErr map[driver2.PKey]error
+		ns             cdriver.Namespace
+		keys           []cdriver.PKey
+		persistenceErr map[cdriver.PKey]error
 		expectedEvents int
 	}{
 		{
 			name:           "all successful deletes",
 			ns:             "namespace1",
-			keys:           []driver2.PKey{"key1", "key2", "key3"},
-			persistenceErr: map[driver2.PKey]error{},
+			keys:           []cdriver.PKey{"key1", "key2", "key3"},
+			persistenceErr: map[cdriver.PKey]error{},
 			expectedEvents: 3,
 		},
 		{
 			name: "mixed success and failure",
 			ns:   "namespace1",
-			keys: []driver2.PKey{"key1", "key2", "key3"},
-			persistenceErr: map[driver2.PKey]error{
+			keys: []cdriver.PKey{"key1", "key2", "key3"},
+			persistenceErr: map[cdriver.PKey]error{
 				"key2": errors.New("error"),
 			},
 			expectedEvents: 2,
@@ -271,8 +271,8 @@ func TestUnversionedPersistenceNotifier_DeleteStates(t *testing.T) {
 		{
 			name: "all failures",
 			ns:   "namespace1",
-			keys: []driver2.PKey{"key1", "key2"},
-			persistenceErr: map[driver2.PKey]error{
+			keys: []cdriver.PKey{"key1", "key2"},
+			persistenceErr: map[cdriver.PKey]error{
 				"key1": errors.New("error1"),
 				"key2": errors.New("error2"),
 			},

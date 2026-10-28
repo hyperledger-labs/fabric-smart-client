@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 // TestIteratorReturnsRowError checks that an error raised while reading rows,
@@ -35,7 +35,7 @@ func TestIteratorReturnsRowError(t *testing.T) {
 	rows, err := db.QueryContext(t.Context(), "SELECT v FROM t")
 	require.NoError(t, err)
 	defer func() { _ = rows.Close() }()
-	it := common2.NewIterator(rows, func(v *string) error { return rows.Scan(v) })
+	it := common.NewIterator(rows, func(v *string) error { return rows.Scan(v) })
 
 	v, err := it.Next()
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestWrappedIteratorWrapsErrors(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = rows.Close() }()
 	first := true
-	it := common2.NewWrappedIterator(rows, func(v *string) error {
+	it := common.NewWrappedIterator(rows, func(v *string) error {
 		if first {
 			first = false
 			return scanErr

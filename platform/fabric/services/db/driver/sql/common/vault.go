@@ -18,9 +18,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 var logger = logging.MustGetLogger()
@@ -41,7 +41,7 @@ type KeyEncoder func(driver.PKey) any
 // placeholders, which both SQLite and Postgres accept. encodeKey converts each
 // state key before it is bound to a query; stored keys are scanned back into
 // strings unchanged.
-func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, encodeKey KeyEncoder, il common3.IsolationLevelMapper) *VaultStore {
+func NewVaultStore(writeDB common.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper dbdriver.SQLErrorWrapper, encodeKey KeyEncoder, il common.IsolationLevelMapper) *VaultStore {
 	return &VaultStore{
 		vaultReader: &vaultReader{
 			readDB:       readDB,
@@ -60,11 +60,11 @@ func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, 
 type VaultStore struct {
 	*vaultReader
 	tables       VaultTables
-	errorWrapper driver2.SQLErrorWrapper
+	errorWrapper dbdriver.SQLErrorWrapper
 	readDB       *sql.DB
-	writeDB      common3.WriteDB
+	writeDB      common.WriteDB
 	GlobalLock   sync.RWMutex
-	il           common3.IsolationLevelMapper
+	il           common.IsolationLevelMapper
 }
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
@@ -361,7 +361,7 @@ type vaultReader struct {
 	readDB       dbReader
 	encodeKey    KeyEncoder
 	tables       VaultTables
-	errorWrapper driver2.SQLErrorWrapper
+	errorWrapper dbdriver.SQLErrorWrapper
 }
 
 func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
@@ -392,7 +392,7 @@ func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Names
 	if err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
-	return common3.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
+	return common.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
@@ -427,7 +427,7 @@ func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition)
 	if err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
-	return common3.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
+	return common.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
 }
 
 func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
@@ -510,7 +510,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where sqlbuild.Condition
 	if err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
-	return common3.NewWrappedIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }, db.errorWrapper), nil
+	return common.NewWrappedIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }, db.errorWrapper), nil
 }
 
 func (db *VaultStore) Close() error {

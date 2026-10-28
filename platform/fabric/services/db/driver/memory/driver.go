@@ -8,55 +8,55 @@ package mem
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	viewsqlite "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
-const Persistence driver2.PersistenceType = "memory"
+const Persistence cdriver.PersistenceType = "memory"
 
 type Driver struct {
-	dbProvider sqlite2.DbProvider
+	dbProvider viewsqlite.DbProvider
 }
 
-func NewNamedDriver(dbProvider sqlite2.DbProvider) driver3.NamedDriver {
-	return driver3.NamedDriver{
+func NewNamedDriver(dbProvider viewsqlite.DbProvider) fdbdriver.NamedDriver {
+	return fdbdriver.NamedDriver{
 		Name:   Persistence,
 		Driver: NewDriverWithDbProvider(dbProvider),
 	}
 }
 
 func NewDriver() *Driver {
-	return NewDriverWithDbProvider(sqlite2.NewDbProvider())
+	return NewDriverWithDbProvider(viewsqlite.NewDbProvider())
 }
 
-func NewDriverWithDbProvider(dbProvider sqlite2.DbProvider) *Driver {
+func NewDriverWithDbProvider(dbProvider viewsqlite.DbProvider) *Driver {
 	return &Driver{dbProvider: dbProvider}
 }
 
-func (d *Driver) NewEndorseTx(_ driver.PersistenceName, params ...string) (driver3.EndorseTxStore, error) {
+func (d *Driver) NewEndorseTx(_ driver.PersistenceName, params ...string) (fdbdriver.EndorseTxStore, error) {
 	return newPersistenceWithOpts(d.dbProvider, sqlite.NewEndorseTxStore, params...)
 }
 
-func (d *Driver) NewMetadata(_ driver.PersistenceName, params ...string) (driver3.MetadataStore, error) {
+func (d *Driver) NewMetadata(_ driver.PersistenceName, params ...string) (fdbdriver.MetadataStore, error) {
 	return newPersistenceWithOpts(d.dbProvider, sqlite.NewMetadataStore, params...)
 }
 
-func (d *Driver) NewEnvelope(_ driver.PersistenceName, params ...string) (driver3.EnvelopeStore, error) {
+func (d *Driver) NewEnvelope(_ driver.PersistenceName, params ...string) (fdbdriver.EnvelopeStore, error) {
 	return newPersistenceWithOpts(d.dbProvider, sqlite.NewEnvelopeStore, params...)
 }
 
-func (d *Driver) NewVault(_ driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
+func (d *Driver) NewVault(_ driver.PersistenceName, params ...string) (cdriver.VaultStore, error) {
 	return newPersistenceWithOpts(d.dbProvider, sqlite.NewVaultStore, params...)
 }
 
 // newPersistenceWithOpts constructs a V backed by an in-memory sqlite database, using params to
 // compute its table names, and invokes constructor to build the store before creating its schema.
-func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite2.DbProvider, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
+func newPersistenceWithOpts[V common.DBObject](dbProvider viewsqlite.DbProvider, constructor fsqlcommon.PersistenceConstructor[V], params ...string) (V, error) {
 	var zero V
 
 	opts := Op.GetOpts(params...)
@@ -64,7 +64,7 @@ func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite2.DbProvider, co
 	if err != nil {
 		return zero, errors.Wrap(err, "error opening db")
 	}
-	tables, err := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	tables, err := fsqlcommon.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	if err != nil {
 		return zero, err
 	}

@@ -15,7 +15,7 @@ import (
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
 	viewdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	commondriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 func TestGetOpts_Fields(t *testing.T) {
@@ -66,7 +66,7 @@ func TestNewDriver_NotNil(t *testing.T) {
 
 func TestNewDriverWithDbProvider_NotNil(t *testing.T) {
 	t.Parallel()
-	d := mem.NewDriverWithDbProvider(sqlite2.NewDbProvider())
+	d := mem.NewDriverWithDbProvider(sqlite.NewDbProvider())
 	require.NotNil(t, d)
 }
 

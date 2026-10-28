@@ -10,19 +10,19 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 type MetadataStore struct {
 	*common.MetadataStore
 }
 
-func NewMetadataStore(dbs *common3.RWDB, tables common.TableNames) (*MetadataStore, error) {
-	return buildMetadataStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), tables.Metadata), nil
+func NewMetadataStore(dbs *drivercommon.RWDB, tables common.TableNames) (*MetadataStore, error) {
+	return buildMetadataStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), tables.Metadata), nil
 }
 
-func buildMetadataStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *MetadataStore {
-	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &sqlite2.ErrorMapper{})}
+func buildMetadataStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string) *MetadataStore {
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &sqlite.ErrorMapper{})}
 }

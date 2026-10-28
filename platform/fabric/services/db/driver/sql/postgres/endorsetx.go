@@ -10,18 +10,18 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 type EndorseTxStore struct {
 	*common.EndorseTxStore
 }
 
-func NewEndorseTxStore(dbs *common2.RWDB, tables common.TableNames) (*EndorseTxStore, error) {
+func NewEndorseTxStore(dbs *drivercommon.RWDB, tables common.TableNames) (*EndorseTxStore, error) {
 	return buildEndorseTxStore(dbs.ReadDB, dbs.WriteDB, tables.EndorseTx), nil
 }
 
 func buildEndorseTxStore(readDB, writeDB *sql.DB, table string) *EndorseTxStore {
-	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &postgres2.ErrorMapper{})}
+	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &postgres.ErrorMapper{})}
 }

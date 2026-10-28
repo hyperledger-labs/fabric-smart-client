@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 // errFake stands in for any failure the driver only passes through. It is a
@@ -29,12 +29,12 @@ var errFake = errors.New("fake failure")
 // fakeDbProvider hands out a pre-built RWDB instead of dialling a server, so the
 // driver surface is exercised without a database. A nil err yields dbs.
 type fakeDbProvider struct {
-	dbs  *common2.RWDB
+	dbs  *drivercommon.RWDB
 	err  error
-	opts []postgres2.Opts
+	opts []postgres.Opts
 }
 
-func (p *fakeDbProvider) Get(o postgres2.Opts) (*common2.RWDB, error) {
+func (p *fakeDbProvider) Get(o postgres.Opts) (*drivercommon.RWDB, error) {
 	p.opts = append(p.opts, o)
 	if p.err != nil {
 		return nil, p.err
@@ -47,7 +47,7 @@ func (p *fakeDbProvider) Get(o postgres2.Opts) (*common2.RWDB, error) {
 // The schema transaction CreateSchema runs, and the vault's pkey type and
 // primary-key checks, are expected but their statements are not matched: these tests assert on
 // construction, not on DDL.
-func mockDB(t *testing.T) (*common2.RWDB, sqlmock.Sqlmock) {
+func mockDB(t *testing.T) (*drivercommon.RWDB, sqlmock.Sqlmock) {
 	t.Helper()
 	db, m, err := sqlmock.New()
 	require.NoError(t, err)
@@ -58,15 +58,15 @@ func mockDB(t *testing.T) (*common2.RWDB, sqlmock.Sqlmock) {
 	m.ExpectCommit()
 	m.ExpectQuery("SELECT format_type").WillReturnRows(sqlmock.NewRows([]string{"format_type"}).AddRow("bytea"))
 	m.ExpectQuery("SELECT quote_ident").WillReturnRows(sqlmock.NewRows([]string{"conname", "cols"}).AddRow("vstate_pkey", "ns,pkey"))
-	return &common2.RWDB{ReadDB: db, WriteDB: db}, m
+	return &drivercommon.RWDB{ReadDB: db, WriteDB: db}, m
 }
 
 // validConfig builds a Config the driver accepts: GetOpts only requires a
 // non-empty data source, and no connection is made to it.
-func validConfig() driver2.Config {
+func validConfig() dbdriver.Config {
 	cp := &mock.ConfigProvider{}
 	cp.UnmarshalKeyCalls(func(_ string, val any) error {
-		o, ok := val.(*postgres2.Config)
+		o, ok := val.(*postgres.Config)
 		if !ok {
 			return nil
 		}
@@ -78,7 +78,7 @@ func validConfig() driver2.Config {
 
 // emptyConfig leaves the data source empty, which GetOpts rejects. It is the
 // cheapest way to reach every constructor's config-failure branch.
-func emptyConfig() driver2.Config {
+func emptyConfig() dbdriver.Config {
 	return &mock.ConfigProvider{}
 }
 
@@ -160,7 +160,7 @@ func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {
 
 	cp := &mock.ConfigProvider{}
 	cp.UnmarshalKeyCalls(func(_ string, val any) error {
-		o, ok := val.(*postgres2.Config)
+		o, ok := val.(*postgres.Config)
 		if !ok {
 			return nil
 		}
@@ -173,7 +173,7 @@ func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 
-	d := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: &common2.RWDB{ReadDB: db, WriteDB: db}})
+	d := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: &drivercommon.RWDB{ReadDB: db, WriteDB: db}})
 	store, err := d.NewVault("")
 	require.NoError(t, err)
 	require.NotNil(t, store)
@@ -188,7 +188,7 @@ func TestNewPersistenceWithOptsBadTablePrefix(t *testing.T) {
 
 	cp := &mock.ConfigProvider{}
 	cp.UnmarshalKeyCalls(func(_ string, val any) error {
-		o, ok := val.(*postgres2.Config)
+		o, ok := val.(*postgres.Config)
 		if !ok {
 			return nil
 		}
@@ -213,7 +213,7 @@ func TestNewPersistenceWithOptsConstructorError(t *testing.T) {
 	d := NewDriverWithDbProvider(validConfig(), &fakeDbProvider{dbs: dbs})
 
 	_, err := NewPersistenceWithOpts(d.cp, d.dbProvider, "",
-		func(*common2.RWDB, common3.TableNames) (*VaultStore, error) { return nil, errFake })
+		func(*drivercommon.RWDB, fsqlcommon.TableNames) (*VaultStore, error) { return nil, errFake })
 	require.ErrorIs(t, err, errFake)
 }
 
@@ -224,28 +224,28 @@ func TestNewPersistenceWithOptsConstructorError(t *testing.T) {
 func TestBuildStores(t *testing.T) {
 	t.Parallel()
 
-	tables, err := common3.GetTableNames("test", "chan")
+	tables, err := fsqlcommon.GetTableNames("test", "chan")
 	require.NoError(t, err)
 
 	// Every store here reads through SimpleKeyDataStore, so one read is enough
 	// to reveal which table it was given.
 	for name, read := range map[string]struct {
 		table string
-		get   func(*common2.RWDB) error
+		get   func(*drivercommon.RWDB) error
 	}{
-		"EndorseTx": {tables.EndorseTx, func(dbs *common2.RWDB) error {
+		"EndorseTx": {tables.EndorseTx, func(dbs *drivercommon.RWDB) error {
 			s, err := NewEndorseTxStore(dbs, tables)
 			require.NoError(t, err)
 			_, err = s.GetEndorseTx(context.Background(), "k")
 			return err
 		}},
-		"Envelope": {tables.Envelope, func(dbs *common2.RWDB) error {
+		"Envelope": {tables.Envelope, func(dbs *drivercommon.RWDB) error {
 			s, err := NewEnvelopeStore(dbs, tables)
 			require.NoError(t, err)
 			_, err = s.GetEnvelope(context.Background(), "k")
 			return err
 		}},
-		"Metadata": {tables.Metadata, func(dbs *common2.RWDB) error {
+		"Metadata": {tables.Metadata, func(dbs *drivercommon.RWDB) error {
 			s, err := NewMetadataStore(dbs, tables)
 			require.NoError(t, err)
 			_, err = s.GetMetadata(context.Background(), "k")
@@ -263,7 +263,7 @@ func TestBuildStores(t *testing.T) {
 				WithArgs("k").
 				WillReturnRows(sqlmock.NewRows([]string{"data"}).AddRow([]byte("v")))
 
-			require.NoError(t, read.get(&common2.RWDB{ReadDB: db, WriteDB: db}))
+			require.NoError(t, read.get(&drivercommon.RWDB{ReadDB: db, WriteDB: db}))
 			// The exact-match expectation above only fails the read; this is
 			// what fails the test if the store queried a different table.
 			require.NoError(t, m.ExpectationsWereMet())
@@ -291,50 +291,50 @@ func TestBuildStores(t *testing.T) {
 func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
 	t.Parallel()
 
-	tables, err := common3.GetTableNames("test", "chan")
+	tables, err := fsqlcommon.GetTableNames("test", "chan")
 	require.NoError(t, err)
 
 	for name, tc := range map[string]struct {
 		table string
-		get   func(*common2.RWDB) error
-		put   func(*common2.RWDB) error
+		get   func(*drivercommon.RWDB) error
+		put   func(*drivercommon.RWDB) error
 	}{
-		"EndorseTx": {tables.EndorseTx, func(dbs *common2.RWDB) error {
+		"EndorseTx": {tables.EndorseTx, func(dbs *drivercommon.RWDB) error {
 			s, err := NewEndorseTxStore(dbs, tables)
 			if err != nil {
 				return err
 			}
 			_, err = s.GetEndorseTx(context.Background(), "k")
 			return err
-		}, func(dbs *common2.RWDB) error {
+		}, func(dbs *drivercommon.RWDB) error {
 			s, err := NewEndorseTxStore(dbs, tables)
 			if err != nil {
 				return err
 			}
 			return s.PutEndorseTx(context.Background(), "k", []byte("v"))
 		}},
-		"Envelope": {tables.Envelope, func(dbs *common2.RWDB) error {
+		"Envelope": {tables.Envelope, func(dbs *drivercommon.RWDB) error {
 			s, err := NewEnvelopeStore(dbs, tables)
 			if err != nil {
 				return err
 			}
 			_, err = s.GetEnvelope(context.Background(), "k")
 			return err
-		}, func(dbs *common2.RWDB) error {
+		}, func(dbs *drivercommon.RWDB) error {
 			s, err := NewEnvelopeStore(dbs, tables)
 			if err != nil {
 				return err
 			}
 			return s.PutEnvelope(context.Background(), "k", []byte("v"))
 		}},
-		"Metadata": {tables.Metadata, func(dbs *common2.RWDB) error {
+		"Metadata": {tables.Metadata, func(dbs *drivercommon.RWDB) error {
 			s, err := NewMetadataStore(dbs, tables)
 			if err != nil {
 				return err
 			}
 			_, err = s.GetMetadata(context.Background(), "k")
 			return err
-		}, func(dbs *common2.RWDB) error {
+		}, func(dbs *drivercommon.RWDB) error {
 			s, err := NewMetadataStore(dbs, tables)
 			if err != nil {
 				return err
@@ -353,7 +353,7 @@ func TestBuildStoresUseReadAndWriteDBs(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = writeDB.Close() })
 
-			dbs := &common2.RWDB{ReadDB: readDB, WriteDB: writeDB}
+			dbs := &drivercommon.RWDB{ReadDB: readDB, WriteDB: writeDB}
 
 			// A read must go to the read pool. An unexpected call on either mock
 			// fails the call itself, so a read sent to writeMock errors here.

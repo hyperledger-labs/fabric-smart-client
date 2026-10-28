@@ -11,18 +11,18 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 // NewEnvelopeStore returns an envelope store over table, reading through readDB
 // and writing through writeDB. Its queries use $N placeholders, which both
 // SQLite and Postgres accept.
-func NewEnvelopeStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *EnvelopeStore {
-	return &EnvelopeStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
+func NewEnvelopeStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *EnvelopeStore {
+	return &EnvelopeStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
 }
 
 type EnvelopeStore struct {
-	p *common3.SimpleKeyDataStore
+	p *common.SimpleKeyDataStore
 }
 
 func (db *EnvelopeStore) GetEnvelope(ctx context.Context, key string) ([]byte, error) {

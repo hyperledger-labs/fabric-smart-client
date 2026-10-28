@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 func BenchmarkReadExistingSqlite(b *testing.B) {
@@ -23,7 +23,7 @@ func BenchmarkReadExistingSqlite(b *testing.B) {
 	require.NoError(b, err)
 	defer func() { _ = db.Close() }()
 
-	common2.ReadExisting(b, db)
+	common.ReadExisting(b, db)
 }
 
 func BenchmarkReadNonExistingSqlite(b *testing.B) {
@@ -31,7 +31,7 @@ func BenchmarkReadNonExistingSqlite(b *testing.B) {
 	require.NoError(b, err)
 	defer func() { _ = db.Close() }()
 
-	common2.ReadNonExisting(b, db)
+	common.ReadNonExisting(b, db)
 }
 
 func BenchmarkWriteOneSqlite(b *testing.B) {
@@ -39,7 +39,7 @@ func BenchmarkWriteOneSqlite(b *testing.B) {
 	require.NoError(b, err)
 	defer func() { _ = db.Close() }()
 
-	common2.WriteOne(b, db)
+	common.WriteOne(b, db)
 }
 
 func BenchmarkWriteManySqlite(b *testing.B) {
@@ -47,7 +47,7 @@ func BenchmarkWriteManySqlite(b *testing.B) {
 	require.NoError(b, err)
 	defer func() { _ = db.Close() }()
 
-	common2.WriteMany(b, db)
+	common.WriteMany(b, db)
 }
 
 func newTestKeyValueStore(dir string) (driver.KeyValueStore, error) {
@@ -60,7 +60,7 @@ func newTestKeyValueStore(dir string) (driver.KeyValueStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	tables, err := common2.GetTableNames(o.TablePrefix, o.TableNameParams...)
+	tables, err := common.GetTableNames(o.TablePrefix, o.TableNameParams...)
 	if err != nil {
 		return nil, err
 	}

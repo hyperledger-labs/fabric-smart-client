@@ -19,10 +19,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -36,11 +36,11 @@ func (failingIsoMapper) Map(driver.IsolationLevel) (dbsql.IsolationLevel, error)
 	return dbsql.LevelDefault, errIsoMap
 }
 
-func newVaultMockWithIso(t *testing.T, il common3.IsolationLevelMapper) (*common2.VaultStore, sqlmock.Sqlmock) {
+func newVaultMockWithIso(t *testing.T, il sqlcommon.IsolationLevelMapper) (*fsqlcommon.VaultStore, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	require.NoError(t, err)
-	return common2.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, il), mockDB
+	return fsqlcommon.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, il), mockDB
 }
 
 // defaultIsoMapper maps every isolation level to the default one.
@@ -52,7 +52,7 @@ func (defaultIsoMapper) Map(driver.IsolationLevel) (dbsql.IsolationLevel, error)
 
 // newVaultMockT is the testify equivalent of the package's newVaultMock, which
 // asserts through Gomega and so cannot be called from these tests.
-func newVaultMockT(t *testing.T) (*common2.VaultStore, sqlmock.Sqlmock) {
+func newVaultMockT(t *testing.T) (*fsqlcommon.VaultStore, sqlmock.Sqlmock) {
 	t.Helper()
 	return newVaultMockWithIso(t, defaultIsoMapper{})
 }
@@ -344,9 +344,9 @@ func TestCreateSchema(t *testing.T) {
 }
 
 func TestGetTableNames(t *testing.T) { //nolint:paralleltest
-	names, err := common2.GetTableNames("prefix")
+	names, err := fsqlcommon.GetTableNames("prefix")
 	require.NoError(t, err)
-	require.Equal(t, common2.TableNames{
+	require.Equal(t, fsqlcommon.TableNames{
 		EndorseTx: "prefix_etx",
 		Metadata:  "prefix_meta",
 		Envelope:  "prefix_env",
@@ -357,20 +357,20 @@ func TestGetTableNames(t *testing.T) { //nolint:paralleltest
 
 // An empty prefix falls back to the package default rather than erroring.
 func TestGetTableNames_DefaultPrefix(t *testing.T) { //nolint:paralleltest
-	names, err := common2.GetTableNames("")
+	names, err := fsqlcommon.GetTableNames("")
 	require.NoError(t, err)
 	require.Equal(t, "fsc_etx", names.EndorseTx)
 }
 
 func TestGetTableNames_InvalidPrefix(t *testing.T) { //nolint:paralleltest
-	_, err := common2.GetTableNames("bad-prefix!")
+	_, err := fsqlcommon.GetTableNames("bad-prefix!")
 	require.Error(t, err)
 }
 
 // params are appended to each name and validated the same way as the prefix,
 // so an illegal one fails on the first Format call.
 func TestGetTableNames_InvalidParam(t *testing.T) { //nolint:paralleltest
-	_, err := common2.GetTableNames("prefix", "bad-param!")
+	_, err := fsqlcommon.GetTableNames("prefix", "bad-param!")
 	require.Error(t, err)
 }
 
@@ -528,16 +528,16 @@ func TestGetState_QueryFails(t *testing.T) { //nolint:paralleltest
 func TestVaultReads_RowErrorIsWrapped(t *testing.T) {
 	t.Parallel()
 
-	reads := map[string]func(s *common2.VaultStore) error{
-		"GetTxStatus": func(s *common2.VaultStore) error {
+	reads := map[string]func(s *fsqlcommon.VaultStore) error{
+		"GetTxStatus": func(s *fsqlcommon.VaultStore) error {
 			_, err := s.GetTxStatus(context.Background(), "tx")
 			return err
 		},
-		"GetLast": func(s *common2.VaultStore) error {
+		"GetLast": func(s *fsqlcommon.VaultStore) error {
 			_, err := s.GetLast(context.Background())
 			return err
 		},
-		"GetTxStatuses": func(s *common2.VaultStore) error {
+		"GetTxStatuses": func(s *fsqlcommon.VaultStore) error {
 			it, err := s.GetTxStatuses(context.Background(), "tx")
 			if err != nil {
 				return err
@@ -545,7 +545,7 @@ func TestVaultReads_RowErrorIsWrapped(t *testing.T) {
 			_, err = iterators.ReadAllPointers(it)
 			return err
 		},
-		"GetStates": func(s *common2.VaultStore) error {
+		"GetStates": func(s *fsqlcommon.VaultStore) error {
 			it, err := s.GetStates(context.Background(), "ns", "k")
 			if err != nil {
 				return err
@@ -553,7 +553,7 @@ func TestVaultReads_RowErrorIsWrapped(t *testing.T) {
 			_, err = iterators.ReadAllPointers(it)
 			return err
 		},
-		"GetStateRange": func(s *common2.VaultStore) error {
+		"GetStateRange": func(s *fsqlcommon.VaultStore) error {
 			it, err := s.GetStateRange(context.Background(), "ns", "a", "z")
 			if err != nil {
 				return err
@@ -568,7 +568,7 @@ func TestVaultReads_RowErrorIsWrapped(t *testing.T) {
 			db, mockDB, err := sqlmock.New()
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = db.Close() })
-			store := common2.NewVaultStore(db, db, vaultTables, &postgres.ErrorMapper{}, idKey, defaultIsoMapper{})
+			store := fsqlcommon.NewVaultStore(db, db, vaultTables, &postgres.ErrorMapper{}, idKey, defaultIsoMapper{})
 			mockDB.ExpectQuery("SELECT").WillReturnRows(
 				sqlmock.NewRows([]string{"a", "b", "c"}).AddRow("x", "y", "z").RowError(0, io.ErrUnexpectedEOF))
 

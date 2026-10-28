@@ -11,18 +11,18 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 // NewMetadataStore returns a transaction-metadata store over table, reading
 // through readDB and writing through writeDB. Its queries use $N placeholders,
 // which both SQLite and Postgres accept.
-func NewMetadataStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *MetadataStore {
-	return &MetadataStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
+func NewMetadataStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *MetadataStore {
+	return &MetadataStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
 }
 
 type MetadataStore struct {
-	p *common3.SimpleKeyDataStore
+	p *common.SimpleKeyDataStore
 }
 
 func (db *MetadataStore) GetMetadata(ctx context.Context, key string) ([]byte, error) {
