@@ -17,7 +17,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	fabricfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 )
 
@@ -41,10 +43,14 @@ var (
 )
 
 func newInfrastructure() (*integration.Infrastructure, error) {
+	return newInfrastructureWith(&fabricsdk.SDK{})
+}
+
+func newInfrastructureWith(sdk node.SDK) (*integration.Infrastructure, error) {
 	return integration.Generate(
 		integration.FabricFaultRecoveryPort.StartPortForNode(),
 		integration.WithRaceDetection,
-		fabricfaultrecovery.Topology(dbPrefix)...,
+		fabricfaultrecovery.Topology(dbPrefix, sdk)...,
 	)
 }
 
@@ -97,6 +103,35 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 		tx = faultrecovery.Endorse(s.II, 2)
 		faultrecovery.OrderEventually(s.II, tx)
 		faultrecovery.WaitFinal(s.II, tx.TxID)
+	})
+})
+
+// Its own Describe, so the namespace registration that lets a wiped node rebuild does
+// not apply to the specs above, where it would let bob commit a tx whose Busy record
+// was lost.
+var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault", Ordered, ContinueOnFailure, Label(fsc.WebSocket), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return newInfrastructureWith(&fabricfaultrecovery.SDK{})
+	})
+	faultrecovery.ShareNetwork(s)
+
+	It("rebuilds a node whose vault was wiped", func() {
+		txIDs := faultrecovery.SubmitAndWaitFinal(s.II, 10)
+		s.II.StopFSCNode("bob")
+		faultrecovery.WipePostgres(faultrecovery.DBName(dbPrefix, "bob"))
+		s.II.StartFSCNode("bob")
+
+		// Bob replays the channel from the genesis block and commits these txs again
+		// because their namespace is registered, see fabricfaultrecovery.SDK. The
+		// replay takes about a second, well within RecoveryTimeout.
+		for i, txID := range txIDs {
+			Eventually(func(g Gomega) {
+				res, err := faultrecovery.Query(s.II, "bob", txID)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(res).To(Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
+			}, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed(), "tx %d [%s] not rebuilt on bob", i, txID)
+		}
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 })
 

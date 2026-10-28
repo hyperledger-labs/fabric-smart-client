@@ -18,8 +18,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
-// recoveryTimeout bounds how long a restarted node may take to settle a transaction.
-const recoveryTimeout = 2 * time.Minute
+// RecoveryTimeout bounds how long a restarted node may take to settle a transaction.
+const RecoveryTimeout = 2 * time.Minute
 
 // startupOutage is how long a node's database stays down after the node starts. It must
 // stay below the time postgres.Open waits for the database at startup
@@ -113,7 +113,7 @@ func CrashSpecs(s *integration.TestSuite) {
 				g.Expect(err).NotTo(gomega.HaveOccurred())
 				g.Expect(res.Status).To(gomega.Equal(fdriver.Valid), "status on [%s]", node)
 				g.Expect(res.Value).To(gomega.Equal(42))
-			}, recoveryTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not settled on [%s]", txID, node)
+			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not settled on [%s]", txID, node)
 		}
 	})
 
@@ -136,7 +136,7 @@ func CrashSpecs(s *integration.TestSuite) {
 				res, err := Query(s.II, "bob", txID)
 				g.Expect(err).NotTo(gomega.HaveOccurred())
 				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
-			}, recoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on bob", i, txID)
+			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on bob", i, txID)
 		}
 	})
 }
@@ -164,7 +164,7 @@ func DependencySpecs(s *integration.TestSuite, dbPrefix string) {
 		defer func() { <-started }()
 		s.II.StartFSCNode("bob")
 
-		gomega.Eventually(s.II.WebClient("bob").Ready, recoveryTimeout, time.Second).Should(gomega.Succeed())
+		gomega.Eventually(s.II.WebClient("bob").Ready, RecoveryTimeout, time.Second).Should(gomega.Succeed())
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 	})
 }
