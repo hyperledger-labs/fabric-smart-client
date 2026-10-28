@@ -7,14 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package faultrecovery
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
@@ -129,30 +134,38 @@ func ClientSpecs(s *integration.TestSuite) {
 	clients := []struct {
 		name string
 		get  func() api.ViewClient
+		// failed matches the error of a call in flight when the node dies.
+		failed types.GomegaMatcher
 	}{
-		{"grpc", func() api.ViewClient { return s.II.Client("alice") }},
-		{"web", func() api.ViewClient { return s.II.WebClient("alice") }},
+		{
+			"grpc", func() api.ViewClient { return s.II.Client("alice") },
+			gomega.WithTransform(status.Code, gomega.Equal(codes.Unavailable)),
+		},
+		{
+			"web", func() api.ViewClient { return s.II.WebClient("alice") },
+			gomega.WithTransform(func(err error) bool { return errors.HasType(err, &url.Error{}) }, gomega.BeTrue()),
+		},
 	}
 	for _, cl := range clients {
-		name, client := cl.name, cl.get
-		ginkgo.It("reuses the "+name+" view client after a restart", func() {
-			c := client()
+		ginkgo.It("reuses the "+cl.name+" view client after a restart", func() {
+			c := cl.get()
 			gomega.Expect(EchoWith(s.II, c, false)).To(gomega.Succeed())
 			s.II.StopFSCNode("alice")
 			s.II.StartFSCNode("alice")
 			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, recoveryTimeout, time.Second).Should(gomega.Succeed())
 		})
 
-		ginkgo.It("fails an in-flight "+name+" call when the node dies", func() {
-			c := client()
+		ginkgo.It("fails an in-flight "+cl.name+" call when the node dies", func() {
+			c := cl.get()
 			echo := blockedEcho(s, c)
-			// Bob runs one responder context for the call: a client that resent it would
-			// start a second one.
+			// blockedEcho saw exactly this call's responder.
 			gomega.Expect(MetricSum(s.II, "bob", viewContexts)).To(gomega.Equal(1.0))
 			s.II.KillFSCNode("alice")
+			// The call's own deadline is viewTimeout, so a client that retried it would
+			// still be blocked after 10 s.
 			var err error
 			gomega.Eventually(echo, 10*time.Second).Should(gomega.Receive(&err))
-			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err).To(cl.failed)
 
 			s.II.StartFSCNode("alice")
 			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, recoveryTimeout, time.Second).Should(gomega.Succeed())
