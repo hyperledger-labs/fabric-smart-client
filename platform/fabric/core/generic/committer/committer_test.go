@@ -488,7 +488,10 @@ func TestRunEventNotifiersProcessesQueue(t *testing.T) {
 
 	for i := range 2 {
 		select {
-		case <-publisher.PublishedC:
+		case e := <-publisher.PublishedC:
+			status, ok := e.(*fdriver.TransactionStatusChanged)
+			require.True(t, ok)
+			require.Equal(t, fdriver.Valid, status.VC)
 		case <-time.After(2 * time.Second):
 			t.Fatalf("publisher did not receive event %d", i+1)
 		}

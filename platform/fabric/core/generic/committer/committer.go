@@ -196,7 +196,7 @@ func (c *Committer) runEventNotifiers(ctx context.Context) {
 
 			start = time.Now()
 			var driverVC driver.ValidationCode
-			if peer.TxValidationCode(event.ValidationCode) == peer.TxValidationCode_VALID {
+			if event.ValidationCode == driver.Valid {
 				driverVC = driver.Valid
 			} else {
 				driverVC = driver.Invalid
@@ -249,9 +249,11 @@ func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 // Invalid transaction without a set is left unchanged. Any failure is returned,
 // so a transient vault failure reaches the commit retry.
 //
-// A discard is not final for a transaction Fabric has not ordered yet: when a
-// block later marks it valid, [Committer.CommitEndorserTransaction] commits it
-// from the block envelope and the status becomes Valid.
+// A block that later marks the transaction valid overrides the discard:
+// [Committer.CommitEndorserTransaction] commits it from the block envelope and
+// the status becomes Valid, unless its ordered read-write set does not match
+// the stored envelope. Until that block arrives the transaction is Invalid, and
+// [Committer.IsFinal] and finality listeners report it as final.
 func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 

@@ -27,9 +27,9 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 	}
 
 	if pb.TxValidationCode(fabricValidationCode) == pb.TxValidationCode_VALID {
-		processed, err := c.CommitEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.TxNum, tx.Envelope, event)
+		alreadyValid, err := c.CommitEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.TxNum, tx.Envelope, event)
 		if err == nil {
-			if !processed {
+			if !alreadyValid {
 				if err := c.GetChaincodeEvents(tx.Envelope, tx.BlkNum); err != nil {
 					return nil, errors.Wrapf(err, "failed to publish chaincode events [%s]", event.TxID)
 				}
@@ -102,11 +102,9 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum cdriver.Bl
 // overrides that discard. The commit follows the Busy path: when this node holds
 // the transaction only as a stored envelope, the ordered read-write set is
 // matched against it, so a transaction discarded because the sets differ fails
-// with [ErrDiscardTX] again and stays Invalid. The namespace and transaction
-// filters applied to transactions this node does not track are skipped: an
-// Invalid row means this node recorded a status for the transaction, as it does
-// for a Busy one, so the transaction is committed even when the node registered
-// no namespace for it.
+// with [ErrDiscardTX] again and stays Invalid. Like a Busy transaction, it is
+// committed without the namespace and transaction filters applied to
+// transactions this node does not track.
 func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
 	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 

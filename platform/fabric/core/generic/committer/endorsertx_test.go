@@ -268,7 +268,6 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 					return fdriver.Invalid, "", nil
 				},
 			},
-			EnvelopeService: &fake.EnvelopeService{},
 		}
 		event := &FinalityEvent{TxID: "tx7"}
 		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx7", 12, []byte("raw"), event))
