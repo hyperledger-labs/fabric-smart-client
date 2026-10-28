@@ -198,7 +198,7 @@ unit-tests-root: ## Run unit tests of the root module
 
 .PHONY: unit-tests-integration
 unit-tests-integration: ## Run unit tests of the integration module (nwo harness + shared helpers)
-	@env $(UNIT_TEST_ENV) go test -C integration $(GO_TEST_PARAMS) $(COVER_FLAGS) --skip '(Postgres)' $(INTEGRATION_UNIT_PACKAGES)
+	@env $(UNIT_TEST_ENV) go test -C integration $(GO_TEST_PARAMS) $(COVER_FLAGS) $(INTEGRATION_UNIT_PACKAGES)
 	@$(FILTER_COVERAGE)
 
 .PHONY: unit-tests-extensions
