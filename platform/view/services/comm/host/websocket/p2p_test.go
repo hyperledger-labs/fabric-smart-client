@@ -49,31 +49,36 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestP2PLayerTestRound(t *testing.T) { //nolint:paralleltest
+func TestP2PLayerTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsForMPCTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsForMPCTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsMultipleMessagesTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
 }
 
-func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
+func TestMTLSCallerIdentityBinding(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	ctx := t.Context()
 	bootstrapNode.Start(ctx)
@@ -131,10 +136,11 @@ func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
 		100, nil,
 	)
 	require.NoError(t, err)
-	bootstrap, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
+	bootstrap, err := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
 		otherID:     []host.PeerIPAddress{otherAddress},
 	}, bootstrapConfig).GetNewHost()
+	require.NoError(t, err)
 	bootstrapNode, err := comm.NewNode(t.Context(), bootstrap, &disabled.Provider{})
 	require.NoError(t, err)
 
@@ -148,10 +154,11 @@ func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
 		100, nil,
 	)
 	require.NoError(t, err)
-	other, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
+	other, err := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
 		otherID:     []host.PeerIPAddress{otherAddress},
 	}, otherConfig).GetNewHost()
+	require.NoError(t, err)
 	otherNode, err := comm.NewNode(t.Context(), other, &disabled.Provider{})
 	require.NoError(t, err)
 
@@ -161,7 +168,8 @@ func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
 		&comm.HostNode{P2PNode: otherNode, ID: otherID, Address: otherAddress}
 }
 
-func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
+func TestSessionsTwoNodesTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node1, node2 := setupThreeNodes(t)
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 50)
 }
@@ -244,11 +252,12 @@ func setupThreeNodes(t *testing.T) (bootstrap, node1, node2 *comm.HostNode) {
 		100, nil,
 	)
 	require.NoError(t, err)
-	bootstrapHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
+	bootstrapHost, err := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
 		node1ID:     []host.PeerIPAddress{node1Address},
 		node2ID:     []host.PeerIPAddress{node2Address},
 	}, bootstrapConfig).GetNewHost()
+	require.NoError(t, err)
 	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
 	require.NoError(t, err)
 
@@ -262,11 +271,12 @@ func setupThreeNodes(t *testing.T) (bootstrap, node1, node2 *comm.HostNode) {
 		100, nil,
 	)
 	require.NoError(t, err)
-	node1Host, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
+	node1Host, err := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
 		node1ID:     []host.PeerIPAddress{node1Address},
 		node2ID:     []host.PeerIPAddress{node2Address},
 	}, node1Config).GetNewHost()
+	require.NoError(t, err)
 	node1Node, err := comm.NewNode(t.Context(), node1Host, &disabled.Provider{})
 	require.NoError(t, err)
 
@@ -280,11 +290,12 @@ func setupThreeNodes(t *testing.T) (bootstrap, node1, node2 *comm.HostNode) {
 		100, nil,
 	)
 	require.NoError(t, err)
-	node2Host, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
+	node2Host, err := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
 		node1ID:     []host.PeerIPAddress{node1Address},
 		node2ID:     []host.PeerIPAddress{node2Address},
 	}, node2Config).GetNewHost()
+	require.NoError(t, err)
 	node2Node, err := comm.NewNode(t.Context(), node2Host, &disabled.Provider{})
 	require.NoError(t, err)
 
@@ -409,7 +420,8 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 	}
 }
 
-func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
+func TestSessionInfoSecurityGuarantees(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	// Simpler: Alice, Bob and Charlie all share the same CA.
 	allTLSFiles := generateThreeNodesTLSFiles(t)
@@ -451,10 +463,11 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 		100, nil,
 	)
 	require.NoError(t, err)
-	charlieHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
+	charlieHost, err := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		charlieID:  []host.PeerIPAddress{charlieAddresses[0]},
 		bobNode.ID: []host.PeerIPAddress{bobNode.Address},
 	}, charlieConfig).GetNewHost()
+	require.NoError(t, err)
 
 	charlieP2PNode, err := comm.NewNode(t.Context(), charlieHost, &disabled.Provider{})
 	require.NoError(t, err)
@@ -526,7 +539,8 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 		require.NoError(t, err)
 		cPath := filepath.Join(dir, cn+".pem")
 		writePEM(t, cPath, "CERTIFICATE", certDER)
-		kRaw, _ := x509.MarshalPKCS8PrivateKey(priv)
+		kRaw, err := x509.MarshalPKCS8PrivateKey(priv)
+		require.NoError(t, err)
 		kPath := filepath.Join(dir, cn+".key")
 		writePEM(t, kPath, "PRIVATE KEY", kRaw)
 		return nodeTLSFiles{cert: cPath, key: kPath}
@@ -553,12 +567,16 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 	}
 	aliceConfig, err := websocket.NewConfigFromProperties(aliceAddr, alice.key, alice.cert, []string{caCert}, []string{caCert}, true, 100, nil)
 	require.NoError(t, err)
-	aliceH, _ := newStaticRouteHostProvider(routes, aliceConfig).GetNewHost()
-	aliceP2P, _ := comm.NewNode(t.Context(), aliceH, &disabled.Provider{})
+	aliceH, err := newStaticRouteHostProvider(routes, aliceConfig).GetNewHost()
+	require.NoError(t, err)
+	aliceP2P, err := comm.NewNode(t.Context(), aliceH, &disabled.Provider{})
+	require.NoError(t, err)
 	bobConfig, err := websocket.NewConfigFromProperties(bobAddr, bob.key, bob.cert, []string{caCert}, []string{caCert}, true, 100, nil)
 	require.NoError(t, err)
-	bobH, _ := newStaticRouteHostProvider(routes, bobConfig).GetNewHost()
-	bobP2P, _ := comm.NewNode(t.Context(), bobH, &disabled.Provider{})
+	bobH, err := newStaticRouteHostProvider(routes, bobConfig).GetNewHost()
+	require.NoError(t, err)
+	bobP2P, err := comm.NewNode(t.Context(), bobH, &disabled.Provider{})
+	require.NoError(t, err)
 	return &comm.HostNode{P2PNode: aliceP2P, ID: aliceID, Address: aliceAddr},
 		&comm.HostNode{P2PNode: bobP2P, ID: bobID, Address: bobAddr}
 }

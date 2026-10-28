@@ -28,7 +28,8 @@ import (
 // the very key-pair (its TLS certificate/key) used to instantiate its comm
 // stack, and the counterparty verifies using the public key resolved from the
 // session's RemotePKID.
-func TestSignedSessionExchange(t *testing.T) { //nolint:paralleltest
+func TestSignedSessionExchange(t *testing.T) {
+	t.Parallel()
 	tls := generateThreeNodesTLSFiles(t)
 	aliceNode, bobNode := setupTwoNodesFromTLS(t, tls.alice, tls.bob, tls.caCert)
 
