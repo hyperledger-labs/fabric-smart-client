@@ -23,7 +23,7 @@ require (
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.4.1
-	github.com/libp2p/go-libp2p v0.50.0
+	github.com/libp2p/go-libp2p v0.51.0
 	github.com/miekg/pkcs11 v1.1.2
 	github.com/moby/moby/api v1.56.1
 	github.com/moby/moby/client v0.6.2

@@ -7,7 +7,7 @@ replace github.com/hyperledger-labs/fabric-smart-client => ../../../../../../
 require (
 	github.com/hyperledger-labs/fabric-smart-client v0.0.0-00010101000000-000000000000
 	github.com/ipfs/go-log/v2 v2.9.2
-	github.com/libp2p/go-libp2p v0.50.0
+	github.com/libp2p/go-libp2p v0.51.0
 	github.com/libp2p/go-libp2p-kad-dht v0.42.2
 	github.com/multiformats/go-multiaddr v0.16.1
 	github.com/stretchr/testify v1.12.1
