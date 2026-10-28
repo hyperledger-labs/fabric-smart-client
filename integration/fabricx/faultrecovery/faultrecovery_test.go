@@ -25,7 +25,8 @@ import (
 
 const dbPrefix = "frx"
 
-var _ = Describe("Fault Recovery with Fabric-x", Label(fsc.WebSocket), func() {
+// The specs share one network: each must leave it healthy, see faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Label(fsc.WebSocket), func() {
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		ii, err := integration.New(integration.FabricXFaultRecoveryPort.StartPortForNode(), "", fxfaultrecovery.Topology(dbPrefix)...)
 		if err != nil {
@@ -36,8 +37,7 @@ var _ = Describe("Fault Recovery with Fabric-x", Label(fsc.WebSocket), func() {
 		ii.Generate()
 		return ii, nil
 	})
-	BeforeEach(s.Setup)
-	AfterEach(s.TearDown)
+	faultrecovery.ShareNetwork(s)
 
 	It("commits a transaction on a healthy network", func() {
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))

@@ -168,11 +168,11 @@ of them joins each channel at startup. For Fabric-x, `fabricx.FxPlatform(ii).Sto
 until its sidecar, query and ordering services accept connections.
 
 Fault scenarios go in `integration/fabric/faultrecovery` and
-`integration/fabricx/faultrecovery` (targets `fabric-faultrecovery` and
-`fabricx-faultrecovery`). Both run the FSC nodes alice and bob on Postgres; the Fabric
-suite adds three raft orderers, named in its `Orderers`. What the two suites share lives
-in `integration/fabric/common/faultrecovery`: the nodes, their views, the specs both
-suites run (`CrashSpecs`, `DependencySpecs`), and the helpers that drive them.
+`integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
+`fabric-faultrecovery-postgres-outage` and `fabricx-faultrecovery`). Both run the FSC
+nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
+`Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
+the nodes, their views, the specs both suites run (`CrashSpecs`, `DependencySpecs`), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final
 on both nodes; `WaitFinal` does the waiting alone. `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
@@ -190,6 +190,19 @@ The helpers in `postgres.go` give a node's database a streaming-replication stan
 (`StartStandby`, `WaitReplicated`, `KillPostgres`, `Promote`) and point a stopped node at
 another `dataSource` (`DataSource`, `SetDataSource`), so a spec can fail a node over to a
 new Postgres primary.
+
+The specs in the main `Describe` of each faultrecovery suite share one network
+(`faultrecovery.ShareNetwork`, in an `Ordered, ContinueOnFailure` container), so the
+network is set up once rather than per spec. A spec there must leave the network
+healthy: restart every node it stops or kills, bring back every database, and leave the
+node configuration alone. After a spec fails, the network is rebuilt before the next one.
+A spec that cannot restore the network, or that changes the configuration before the
+network starts (such as `SetCommitRetries`), goes in a `Describe` that sets up its own
+network per spec (`BeforeEach(s.Setup)`, `AfterEach(s.TearDown)`). To run that
+`Describe` as a parallel CI job, label it, give the label its own target in the
+`Makefile`, and exclude the label in the default target's negative filter. The Fabric
+suite's `postgres-outage` label and the `fabric-faultrecovery-postgres-outage` target
+are the example.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.

@@ -66,7 +66,10 @@ most of its runtime booting the same network five times.
 
 So default to `Ordered` with `BeforeAll`/`AfterAll` and share one network across the
 group. Reach for `BeforeEach` only when a spec genuinely needs a pristine one: it stops a
-node, or it writes state a later spec would read. A spec that needs a *different*
+node and does not restart it, changes node configuration, or writes state a later spec
+would read. The faultrecovery suites show the shared form for specs that stop and restart
+nodes (`faultrecovery.ShareNetwork`, see
+[`integration-tests.md`](integration-tests.md#fault-primitives)). A spec that needs a *different*
 topology belongs in its own `Describe` regardless — the topology is fixed when
 `NewTestSuite` is called.
 
