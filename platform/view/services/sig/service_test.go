@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -50,8 +50,8 @@ func TestService_RegisterSigner(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		signer         driver2.Signer
-		verifier       driver2.Verifier
+		signer         driver.Signer
+		verifier       driver.Verifier
 		setupStore     func(*mock.SignerInfoStore)
 		preRegister    func(*Service)
 		expectedErr    string
@@ -101,7 +101,7 @@ func TestService_RegisterSigner(t *testing.T) {
 			signer: &mock.Signer{},
 			preRegister: func(s *Service) {
 				existingSigner := &mock.Signer{}
-				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: existingSigner}
+				s.signers[identity.UniqueID()] = driver.SignerEntry{Signer: existingSigner}
 			},
 			setupStore: func(_ *mock.SignerInfoStore) {
 				// should not be called
@@ -155,7 +155,7 @@ func TestService_RegisterVerifier(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		verifier      driver2.Verifier
+		verifier      driver.Verifier
 		preRegister   func(*Service)
 		expectedErr   string
 		expectInCache bool
@@ -330,7 +330,7 @@ func TestService_IsMe(t *testing.T) {
 		{
 			name: "identity in cache",
 			preRegister: func(s *Service) {
-				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
+				s.signers[identity.UniqueID()] = driver.SignerEntry{Signer: &mock.Signer{}}
 			},
 			setupStore: func(_ *mock.SignerInfoStore) {
 				// should not be called
@@ -393,8 +393,8 @@ func TestService_AreMe(t *testing.T) {
 			name:       "all identities in cache",
 			identities: []view.Identity{id1, id2},
 			preRegister: func(s *Service) {
-				s.signers[id1.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
-				s.signers[id2.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
+				s.signers[id1.UniqueID()] = driver.SignerEntry{Signer: &mock.Signer{}}
+				s.signers[id2.UniqueID()] = driver.SignerEntry{Signer: &mock.Signer{}}
 			},
 			setupStore: func(_ *mock.SignerInfoStore) {
 				// should not be called
@@ -406,7 +406,7 @@ func TestService_AreMe(t *testing.T) {
 			name:       "mixed: some in cache, some in store",
 			identities: []view.Identity{id1, id2, id3},
 			preRegister: func(s *Service) {
-				s.signers[id1.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
+				s.signers[id1.UniqueID()] = driver.SignerEntry{Signer: &mock.Signer{}}
 			},
 			setupStore: func(store *mock.SignerInfoStore) {
 				store.FilterExistingSignersReturns([]view.Identity{id2}, nil)
@@ -426,7 +426,7 @@ func TestService_AreMe(t *testing.T) {
 			name:       "store error returns cache results only",
 			identities: []view.Identity{id1, id2},
 			preRegister: func(s *Service) {
-				s.signers[id1.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
+				s.signers[id1.UniqueID()] = driver.SignerEntry{Signer: &mock.Signer{}}
 			},
 			setupStore: func(store *mock.SignerInfoStore) {
 				store.FilterExistingSignersReturns(nil, errors.New("store error"))
@@ -542,7 +542,7 @@ func TestService_GetSigner(t *testing.T) {
 		{
 			name: "signer in cache",
 			preRegister: func(s *Service) {
-				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
+				s.signers[identity.UniqueID()] = driver.SignerEntry{Signer: &mock.Signer{}}
 			},
 			setupDeserializer: func(_ *mock.Deserializer) {
 				// should not be called
@@ -681,37 +681,37 @@ func TestService_GetSigningIdentity(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		setupSigner func() driver2.Signer
-		preRegister func(*Service, driver2.Signer)
+		setupSigner func() driver.Signer
+		preRegister func(*Service, driver.Signer)
 		expectedErr string
 		expectSI    bool
 	}{
 		{
 			name: "signer implements SigningIdentity",
-			setupSigner: func() driver2.Signer {
+			setupSigner: func() driver.Signer {
 				return &mock.SigningIdentity{}
 			},
-			preRegister: func(s *Service, signer driver2.Signer) {
-				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: signer}
+			preRegister: func(s *Service, signer driver.Signer) {
+				s.signers[identity.UniqueID()] = driver.SignerEntry{Signer: signer}
 			},
 			expectSI: true,
 		},
 		{
 			name: "signer does not implement SigningIdentity",
-			setupSigner: func() driver2.Signer {
+			setupSigner: func() driver.Signer {
 				return &mock.Signer{}
 			},
-			preRegister: func(s *Service, signer driver2.Signer) {
-				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: signer}
+			preRegister: func(s *Service, signer driver.Signer) {
+				s.signers[identity.UniqueID()] = driver.SignerEntry{Signer: signer}
 			},
 			expectSI: true,
 		},
 		{
 			name: "signer not found",
-			setupSigner: func() driver2.Signer {
+			setupSigner: func() driver.Signer {
 				return nil
 			},
-			preRegister: func(_ *Service, _ driver2.Signer) {
+			preRegister: func(_ *Service, _ driver.Signer) {
 				// don't register
 			},
 			expectedErr: "cannot find signer",

@@ -10,14 +10,14 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/x509"
 )
 
 var logger = logging.MustGetLogger()
 
-type Deserializer = driver2.SigDeserializer
+type Deserializer = driver.SigDeserializer
 
 type MultiplexDeserializer struct {
 	deserializersMutex sync.RWMutex
@@ -36,7 +36,7 @@ func (d *MultiplexDeserializer) AddDeserializer(newD Deserializer) {
 	d.deserializersMutex.Unlock()
 }
 
-func (d *MultiplexDeserializer) DeserializeVerifier(raw []byte) (driver2.Verifier, error) {
+func (d *MultiplexDeserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	var errs []error
 
 	copyDeserial := d.threadSafeCopyDeserializers()
@@ -55,7 +55,7 @@ func (d *MultiplexDeserializer) DeserializeVerifier(raw []byte) (driver2.Verifie
 	return nil, errors.Errorf("failed deserialization [%v]", errs)
 }
 
-func (d *MultiplexDeserializer) DeserializeSigner(raw []byte) (driver2.Signer, error) {
+func (d *MultiplexDeserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	var errs []error
 
 	copyDeserial := d.threadSafeCopyDeserializers()

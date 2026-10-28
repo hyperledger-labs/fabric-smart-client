@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
@@ -64,7 +64,7 @@ func TestCallViewRejectsResponseToAnotherCommand(t *testing.T) {
 
 func TestNewClientRejectsUnknownTransport(t *testing.T) {
 	t.Parallel()
-	_, err := NewClient(&Config{ConnectionConfig: &grpc2.ConnectionConfig{Address: "x:1"}, Transport: "carrier-pigeon"}, stubSigningIdentity{}, noop.NewTracerProvider())
+	_, err := NewClient(&Config{ConnectionConfig: &grpc.ConnectionConfig{Address: "x:1"}, Transport: "carrier-pigeon"}, stubSigningIdentity{}, noop.NewTracerProvider())
 	require.EqualError(t, err, "unknown view client transport [carrier-pigeon]")
 }
 

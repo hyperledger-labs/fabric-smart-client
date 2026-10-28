@@ -15,11 +15,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
-	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -58,23 +58,23 @@ func newMultiplexedDriver(in struct {
 	return multiplexed.NewDriver(in.Config, in.Drivers...)
 }
 
-func newKVS(config vdriver.ConfigService, driver multiplexed.Driver) (*kvs2.KVS, error) {
-	size, err := kvs2.CacheSizeFromConfig(config)
+func newKVS(config vdriver.ConfigService, driver multiplexed.Driver) (*kvs.KVS, error) {
+	size, err := kvs.CacheSizeFromConfig(config)
 	if err != nil {
 		return nil, err
 	}
 
-	store, err := kvs2.NewKeyValueStore(config, driver)
+	store, err := kvs.NewKeyValueStore(config, driver)
 	if err != nil {
 		return nil, err
 	}
-	return kvs2.New(store, "_default", size)
+	return kvs.New(store, "_default", size)
 }
 
 func newKMSDriver(in struct {
 	dig.In
 	Config  vdriver.ConfigService
-	Drivers []driver2.NamedDriver `group:"kms-drivers"`
+	Drivers []driver.NamedDriver `group:"kms-drivers"`
 },
 ) (*kms.KMS, error) {
 	driverName := cmp.Or(in.Config.GetString("fsc.identity.type"), "file")

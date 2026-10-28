@@ -13,13 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware/fakes"
 )
 
 var _ = Describe("WithRequestID", func() {
 	var (
-		requestID middleware2.Middleware
+		requestID middleware.Middleware
 		handler   *fakes.HTTPHandler
 		chain     http.Handler
 
@@ -29,8 +29,8 @@ var _ = Describe("WithRequestID", func() {
 
 	BeforeEach(func() {
 		handler = &fakes.HTTPHandler{}
-		requestID = middleware2.WithRequestID(
-			middleware2.GenerateIDFunc(func() string { return "generated-id" }),
+		requestID = middleware.WithRequestID(
+			middleware.GenerateIDFunc(func() string { return "generated-id" }),
 		)
 		chain = requestID(handler)
 
@@ -41,7 +41,7 @@ var _ = Describe("WithRequestID", func() {
 	It("propagates the generated request ID in the request context", func() {
 		chain.ServeHTTP(resp, req)
 		_, r := handler.ServeHTTPArgsForCall(0)
-		requestID := middleware2.RequestID(r.Context())
+		requestID := middleware.RequestID(r.Context())
 		Expect(requestID).To(Equal("generated-id"))
 	})
 
@@ -58,7 +58,7 @@ var _ = Describe("WithRequestID", func() {
 		It("sets the received ID into the context", func() {
 			chain.ServeHTTP(resp, req)
 			_, r := handler.ServeHTTPArgsForCall(0)
-			requestID := middleware2.RequestID(r.Context())
+			requestID := middleware.RequestID(r.Context())
 			Expect(requestID).To(Equal("received-id"))
 		})
 

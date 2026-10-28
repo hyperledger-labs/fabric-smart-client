@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 func TestWithRecovery(t *testing.T) {
@@ -162,7 +162,7 @@ type fakeStreamProvider struct {
 	fn func(http.ResponseWriter, *http.Request)
 }
 
-func (f *fakeStreamProvider) NewServerStream(w http.ResponseWriter, r *http.Request, _ func(host2.P2PStream)) error {
+func (f *fakeStreamProvider) NewServerStream(w http.ResponseWriter, r *http.Request, _ func(commhost.P2PStream)) error {
 	if f.fn != nil {
 		f.fn(w, r)
 	}

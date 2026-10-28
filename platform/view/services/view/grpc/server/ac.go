@@ -10,21 +10,21 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // IdentityProvider models the identity provider for the view service.
 type IdentityProvider interface {
 	// DefaultIdentity returns the node's default identity, which is always authorized.
-	DefaultIdentity() view2.Identity
+	DefaultIdentity() viewapi.Identity
 	// Clients returns the additional identities authorized to submit commands (fsc.view.remote.clients).
-	Clients() []view2.Identity
+	Clients() []viewapi.Identity
 }
 
 // VerifierProvider models the verifier provider for the view service.
 type VerifierProvider interface {
-	GetVerifier(identity view2.Identity) (sig.Verifier, error)
+	GetVerifier(identity viewapi.Identity) (sig.Verifier, error)
 }
 
 // AccessControlChecker is responsible for performing policy based access control checks.
@@ -40,9 +40,9 @@ func NewAccessControlChecker(identityProvider IdentityProvider, verifierProvider
 
 // Check checks if the given command is authorized: its creator must be the node's default
 // identity or one of the client identities, and the command signature must verify under it.
-func (a *AccessControlChecker) Check(sc *protos2.SignedCommand, c *protos2.Command) error {
+func (a *AccessControlChecker) Check(sc *protos.SignedCommand, c *protos.Command) error {
 	// Is the creator recognized
-	validIdentities := append([]view2.Identity{a.IdentityProvider.DefaultIdentity()}, a.IdentityProvider.Clients()...)
+	validIdentities := append([]viewapi.Identity{a.IdentityProvider.DefaultIdentity()}, a.IdentityProvider.Clients()...)
 
 	found := false
 	for _, identity := range validIdentities {
@@ -53,16 +53,16 @@ func (a *AccessControlChecker) Check(sc *protos2.SignedCommand, c *protos2.Comma
 	}
 
 	if !found {
-		return errors.Wrapf(view.ErrIdentityNotRecognized, "identity [%s] not recognized", view2.Identity(c.Header.Creator))
+		return errors.Wrapf(view.ErrIdentityNotRecognized, "identity [%s] not recognized", viewapi.Identity(c.Header.Creator))
 	}
 
 	verifier, err := a.VerifierProvider.GetVerifier(c.Header.Creator)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting verifier for [%s]", view2.Identity(c.Header.Creator))
+		return errors.WithMessagef(err, "failed getting verifier for [%s]", viewapi.Identity(c.Header.Creator))
 	}
 
 	if err := verifier.Verify(sc.Command, sc.Signature); err != nil {
-		return errors.WithMessagef(err, "failed verifying signature from [%s]", view2.Identity(c.Header.Creator))
+		return errors.WithMessagef(err, "failed verifying signature from [%s]", viewapi.Identity(c.Header.Creator))
 	}
 
 	return nil

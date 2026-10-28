@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // ErrViewTimedOut is the error a view call ends with when the view outlives the view
@@ -96,7 +96,7 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	if err != nil {
 		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
-	mutable, ok := viewCtx.(view2.MutableContext)
+	mutable, ok := viewCtx.(viewapi.MutableContext)
 	if !ok {
 		s.viewManager.DeleteContext(viewCtx.ID())
 		return errors.New("expected a mutable context")

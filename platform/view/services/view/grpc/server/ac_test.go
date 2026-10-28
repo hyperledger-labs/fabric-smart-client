@@ -15,24 +15,24 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type acIdentityProvider struct {
-	defaultID view2.Identity
-	clients   []view2.Identity
+	defaultID viewapi.Identity
+	clients   []viewapi.Identity
 }
 
-func (p *acIdentityProvider) DefaultIdentity() view2.Identity { return p.defaultID }
-func (p *acIdentityProvider) Clients() []view2.Identity       { return p.clients }
+func (p *acIdentityProvider) DefaultIdentity() viewapi.Identity { return p.defaultID }
+func (p *acIdentityProvider) Clients() []viewapi.Identity       { return p.clients }
 
 type acVerifierProvider struct {
 	verifier sig.Verifier
 	err      error
 }
 
-func (p *acVerifierProvider) GetVerifier(view2.Identity) (sig.Verifier, error) {
+func (p *acVerifierProvider) GetVerifier(viewapi.Identity) (sig.Verifier, error) {
 	return p.verifier, p.err
 }
 
@@ -40,12 +40,12 @@ func TestAccessControlChecker_Check(t *testing.T) {
 	t.Parallel()
 
 	ip := &acIdentityProvider{
-		defaultID: view2.Identity("default"),
-		clients:   []view2.Identity{view2.Identity("client1"), view2.Identity("client2")},
+		defaultID: viewapi.Identity("default"),
+		clients:   []viewapi.Identity{viewapi.Identity("client1"), viewapi.Identity("client2")},
 	}
-	signed := &protos2.SignedCommand{Command: []byte("cmd"), Signature: []byte("sig")}
-	command := func(creator string) *protos2.Command {
-		return &protos2.Command{Header: &protos2.Header{Creator: []byte(creator)}}
+	signed := &protos.SignedCommand{Command: []byte("cmd"), Signature: []byte("sig")}
+	command := func(creator string) *protos.Command {
+		return &protos.Command{Header: &protos.Header{Creator: []byte(creator)}}
 	}
 
 	for _, creator := range []string{"default", "client1", "client2"} {
@@ -65,7 +65,7 @@ func TestAccessControlChecker_Check(t *testing.T) {
 	t.Run("accepts default identity without clients", func(t *testing.T) {
 		t.Parallel()
 		checker := NewAccessControlChecker(
-			&acIdentityProvider{defaultID: view2.Identity("default")},
+			&acIdentityProvider{defaultID: viewapi.Identity("default")},
 			&acVerifierProvider{verifier: &mock.Verifier{}},
 		)
 		require.NoError(t, checker.Check(signed, command("default")))

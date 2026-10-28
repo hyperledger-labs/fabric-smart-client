@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 )
 
@@ -36,7 +36,7 @@ type stream struct {
 	reads          chan result
 	closeOnce      sync.Once
 	closeReadsOnce sync.Once
-	info           host2.StreamInfo
+	info           host.StreamInfo
 
 	mu       sync.Mutex
 	isClosed bool
@@ -54,12 +54,12 @@ type stream struct {
 // calls whose own contexts come and go. The stream's lifetime is instead governed by Close() (or
 // the connection erroring out); the <-ctx.Done() goroutine below is a safety net that in practice
 // is only ever triggered by Close()'s own s.cancel(), not by an external caller cancelling ctx.
-func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *stream {
+func NewWSStream(conn connection, ctx context.Context, info host.StreamInfo) *stream {
 	return newStreamWithLimit(conn, ctx, info, defaultMaxDelimitedPayloadSize)
 }
 
 // newStreamWithLimit is NewWSStream with an explicit cap on the size of a single sent payload.
-func newStreamWithLimit(conn connection, ctx context.Context, info host2.StreamInfo, maxSendMsgSize int) *stream {
+func newStreamWithLimit(conn connection, ctx context.Context, info host.StreamInfo, maxSendMsgSize int) *stream {
 	ctx, cancel := context.WithCancel(ctx)
 	s := &stream{
 		ctx:          ctx,
@@ -175,11 +175,11 @@ func (s *stream) deliver(r result) {
 // it to the remote's verified certificate: a server stream takes it from the client
 // certificate, and a client stream is opened only if the server certificate belongs to the
 // dialed peer.
-func (s *stream) RemotePeerID() host2.PeerID {
+func (s *stream) RemotePeerID() host.PeerID {
 	return s.info.RemotePeerID
 }
 
-func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
+func (s *stream) RemotePeerAddress() host.PeerIPAddress {
 	return s.info.RemotePeerAddress
 }
 
@@ -187,7 +187,7 @@ func (s *stream) ContextID() string {
 	return s.info.ContextID
 }
 
-func (s *stream) Hash() host2.StreamHash {
+func (s *stream) Hash() host.StreamHash {
 	return websocket.StreamHash(s.info)
 }
 

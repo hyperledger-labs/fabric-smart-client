@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -19,9 +19,9 @@ var logger = logging.MustGetLogger()
 // StreamMeta is the first message a websocket client sends on a new stream. The server binds
 // PeerID to the identity of the client's TLS certificate and rejects the stream on mismatch.
 type StreamMeta struct {
-	SessionID string       `json:"session_id"`
-	ContextID string       `json:"context_id"`
-	PeerID    host2.PeerID `json:"peer_id"`
+	SessionID string      `json:"session_id"`
+	ContextID string      `json:"context_id"`
+	PeerID    host.PeerID `json:"peer_id"`
 	// SpanContext is the client's span, encoded with tracing.MarshalContext. The server uses it
 	// as the remote parent of the stream's span; see remoteSpanContext.
 	SpanContext []byte `json:"span_context"`

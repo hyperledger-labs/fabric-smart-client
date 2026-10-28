@@ -15,7 +15,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -201,7 +201,7 @@ func TestSessionRecoverAfterClose(t *testing.T) { //nolint:paralleltest
 // mockSenderDeadlock implements the sender interface for testing.
 type mockSenderDeadlock struct{}
 
-func (*mockSenderDeadlock) sendTo(_ context.Context, _ host2.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
+func (*mockSenderDeadlock) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	// For the purpose of this test, we just need to avoid errors.
 	return nil
 }

@@ -17,14 +17,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type HostNode struct {
 	*P2PNode
-	ID      host2.PeerID
-	Address host2.PeerIPAddress
+	ID      host.PeerID
+	Address host.PeerIPAddress
 }
 
 func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
@@ -33,7 +33,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	wg.Go(func() {
 		messages := bootstrapNode.incomingMessages
 
-		info := host2.StreamInfo{
+		info := host.StreamInfo{
 			RemotePeerID:      node.ID,
 			RemotePeerAddress: node.Address,
 			ContextID:         "context",
@@ -59,7 +59,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	require.NotNil(t, msg)
 	require.Equal(t, []byte("msg2"), msg.message.Payload)
 
-	info := host2.StreamInfo{
+	info := host.StreamInfo{
 		RemotePeerID:      bootstrapNode.ID,
 		RemotePeerAddress: bootstrapNode.Address,
 		ContextID:         "context",

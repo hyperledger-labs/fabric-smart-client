@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/dig"
 
-	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
@@ -32,11 +32,11 @@ import (
 	viewmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	p2pmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type failingSDK struct {
-	dig2.SDK
+	commondig.SDK
 	installErr   error
 	startErr     error
 	postStartErr error
@@ -65,13 +65,13 @@ func (f *failingSDK) PostStart(ctx context.Context) error {
 
 func TestWiring(t *testing.T) {
 	t.Parallel()
-	require.NoError(t, DryRunWiring(digutils.Identity[dig2.SDK]()))
+	require.NoError(t, DryRunWiring(digutils.Identity[commondig.SDK]()))
 }
 
 func TestWiring_WithOptions(t *testing.T) {
 	t.Parallel()
 	require.NoError(t, DryRunWiring(
-		digutils.Identity[dig2.SDK](),
+		digutils.Identity[commondig.SDK](),
 		WithBool("test.bool", true),
 		WithString("test.string", "foo"),
 	))
@@ -113,7 +113,7 @@ func TestNewSDKFrom_PanicOnDuplicate(t *testing.T) {
 	cfg := providerFrom(t, "")
 	require.NoError(t, registry.RegisterService(cfg))
 
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	require.Panics(t, func() {
 		NewSDKFrom(baseSDK, registry)
 	})
@@ -130,7 +130,7 @@ func TestSDK_Install_ProvideError(t *testing.T) {
 	cfg := providerFrom(t, "")
 	require.NoError(t, registry.RegisterService(cfg))
 
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(baseSDK, registry)
 
 	err := s.Install()
@@ -146,7 +146,7 @@ func TestSDK_Install_ParentError(t *testing.T) {
 	require.NoError(t, registry.RegisterService(cfg))
 
 	parentErr := errors.New("parent-install-failed")
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(&failingSDK{SDK: baseSDK, installErr: parentErr}, registry)
 
 	err := s.Install()
@@ -161,7 +161,7 @@ func TestSDK_Install_RegistrationError(t *testing.T) {
 	cfg := providerFrom(t, "")
 	require.NoError(t, registry.RegisterService(cfg))
 
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(baseSDK, registry)
 
 	err := s.Install()
@@ -181,7 +181,7 @@ fsc:
 `)
 	require.NoError(t, registry.RegisterService(cfg))
 
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(baseSDK, registry)
 
 	err := s.Install()
@@ -199,7 +199,7 @@ func TestSDK_Install_MissingWebAddress(t *testing.T) {
 	cfg := providerFrom(t, "fsc:\n  web:\n    enabled: true\n")
 	require.NoError(t, registry.RegisterService(cfg))
 
-	s := NewSDKFrom(dig2.NewBaseSDK(c, cfg), registry)
+	s := NewSDKFrom(commondig.NewBaseSDK(c, cfg), registry)
 
 	err := s.Install()
 	require.ErrorContains(t, err, "fsc.web.address is not set")
@@ -216,7 +216,7 @@ func TestSDK_Install_UnverifiableOperationsClientAuth(t *testing.T) {
 	cfg := providerFrom(t, "fsc:\n  web:\n    enabled: true\n    address: 127.0.0.1:0\n  metrics:\n    clientAuthRequired: true\n")
 	require.NoError(t, registry.RegisterService(cfg))
 
-	s := NewSDKFrom(dig2.NewBaseSDK(c, cfg), registry)
+	s := NewSDKFrom(commondig.NewBaseSDK(c, cfg), registry)
 
 	err := s.Install()
 	require.ErrorContains(t, err, "fsc.web.tls listener never requests a client certificate")
@@ -232,7 +232,7 @@ func TestSDK_Start_ParentError(t *testing.T) {
 	require.NoError(t, registry.RegisterService(cfg))
 
 	parentErr := errors.New("parent-start-failed")
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(&failingSDK{SDK: baseSDK, startErr: parentErr}, registry)
 
 	err := s.Start(t.Context())
@@ -247,7 +247,7 @@ func TestSDK_Start_MissingDependencies(t *testing.T) {
 	cfg := providerFrom(t, "")
 	require.NoError(t, registry.RegisterService(cfg))
 
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(baseSDK, registry)
 
 	// Invoke in Start requires GRPCServer, ViewManager, etc., which have not been installed
@@ -257,11 +257,11 @@ func TestSDK_Start_MissingDependencies(t *testing.T) {
 
 type fakeP2PViewManager struct{}
 
-func (*fakeP2PViewManager) ExistResponderForCaller(string) (view2.View, view2.Identity, error) {
+func (*fakeP2PViewManager) ExistResponderForCaller(string) (viewapi.View, viewapi.Identity, error) {
 	return nil, nil, nil
 }
 
-func (*fakeP2PViewManager) NewResponderContext(context.Context, string, view2.Session, view2.Identity, view2.Identity) (view2.Context, func(), error) {
+func (*fakeP2PViewManager) NewResponderContext(context.Context, string, viewapi.Session, viewapi.Identity, viewapi.Identity) (viewapi.Context, func(), error) {
 	return nil, nil, nil
 }
 
@@ -331,7 +331,7 @@ func TestSDK_Start_P2PFailure(t *testing.T) {
 	cfg := providerFrom(t, "")
 	require.NoError(t, registry.RegisterService(cfg))
 
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(baseSDK, registry)
 
 	commLayerErr := errors.New("p2p-master-session-failure")
@@ -358,14 +358,14 @@ fsc:
 `)
 	require.NoError(t, registry.RegisterService(cfg))
 
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(baseSDK, registry)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
 	sess := &viewmock.Session{}
-	sess.ReceiveReturns(make(chan *view2.Message))
+	sess.ReceiveReturns(make(chan *viewapi.Message))
 	commMock := &p2pmock.CommLayer{}
 	commMock.MasterSessionReturns(sess, nil)
 	tp, err := newTracerProvider(&disabled.Provider{}, cfg)
@@ -389,7 +389,7 @@ func TestSDK_PostStart_ParentError(t *testing.T) {
 	require.NoError(t, registry.RegisterService(cfg))
 
 	parentErr := errors.New("parent-poststart-failed")
-	baseSDK := dig2.NewBaseSDK(c, cfg)
+	baseSDK := commondig.NewBaseSDK(c, cfg)
 	s := NewSDKFrom(&failingSDK{SDK: baseSDK, postStartErr: parentErr}, registry)
 
 	err := s.PostStart(t.Context())
@@ -426,14 +426,14 @@ func TestSDK_Start_FailureStopsGRPCServer(t *testing.T) {
 			registry := view.NewServiceProvider()
 			cfg := providerFrom(t, "")
 			require.NoError(t, registry.RegisterService(cfg))
-			s := NewSDKFrom(dig2.NewBaseSDK(c, cfg), registry)
+			s := NewSDKFrom(commondig.NewBaseSDK(c, cfg), registry)
 
 			commMock := &p2pmock.CommLayer{}
 			if tc.p2pErr != nil {
 				commMock.MasterSessionReturns(nil, tc.p2pErr)
 			} else {
 				sess := &viewmock.Session{}
-				sess.ReceiveReturns(make(chan *view2.Message))
+				sess.ReceiveReturns(make(chan *viewapi.Message))
 				commMock.MasterSessionReturns(sess, nil)
 			}
 			tp, err := newTracerProvider(&disabled.Provider{}, cfg)

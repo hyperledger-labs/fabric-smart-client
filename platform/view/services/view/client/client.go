@@ -19,11 +19,11 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
 var logger = logging.MustGetLogger()
@@ -61,7 +61,7 @@ func NewClient(config *Config, signer SigningIdentity, tracerProvider tracing.Pr
 	var transport Transport
 	switch config.Transport {
 	case "", TransportGRPC:
-		grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
+		grpcClient, err := grpc.CreateGRPCClient(config.ConnectionConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +106,7 @@ func (s *Client) CallView(fid string, input []byte) (any, error) {
 // running it again is safe.
 func (s *Client) CallViewWithContext(ctx context.Context, fid string, input []byte) (any, error) {
 	logger.Debugf("Calling view [%s] on input [%s]", fid, string(input))
-	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
+	payload := &protos.Command_CallView{CallView: &protos.CallView{
 		Fid:   fid,
 		Input: input,
 	}}
@@ -138,7 +138,7 @@ func (s *Client) CallViewWithContext(ctx context.Context, fid string, input []by
 // running it again is safe.
 func (s *Client) StreamCallView(fid string, input []byte) (*Stream, error) {
 	logger.Debugf("Streaming view call [%s] on input [%s]", fid, string(input))
-	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
+	payload := &protos.Command_CallView{CallView: &protos.CallView{
 		Fid:   fid,
 		Input: input,
 	}}
@@ -156,7 +156,7 @@ func (s *Client) StreamCallView(fid string, input []byte) (*Stream, error) {
 }
 
 // processCommand sends sc and returns the decoded response, which must answer sc.
-func (s *Client) processCommand(ctx context.Context, sc *protos2.SignedCommand) (*protos2.CommandResponse, error) {
+func (s *Client) processCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.CommandResponse, error) {
 	svc, closer, err := s.Transport.Open()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating view client")
@@ -174,8 +174,8 @@ func (s *Client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 // decodeResponse decodes scr, checks that it answers sc, and turns an err response into an
 // error wrapping view.ErrViewExecutionFailed. The response signature is not verified: TLS
 // authenticates the node.
-func decodeResponse(sc *protos2.SignedCommand, scr *protos2.SignedCommandResponse) (*protos2.CommandResponse, error) {
-	commandResp := &protos2.CommandResponse{}
+func decodeResponse(sc *protos.SignedCommand, scr *protos.SignedCommandResponse) (*protos.CommandResponse, error) {
+	commandResp := &protos.CommandResponse{}
 	if err := proto.Unmarshal(scr.Response, commandResp); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal command response")
 	}
@@ -191,7 +191,7 @@ func decodeResponse(sc *protos2.SignedCommand, scr *protos2.SignedCommandRespons
 
 // streamCommand opens a stream and sends sc on it. The returned closer releases the
 // transport once the stream is done.
-func (s *Client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (io.Closer, protos2.ViewService_StreamCommandClient, error) {
+func (s *Client) streamCommand(ctx context.Context, sc *protos.SignedCommand) (io.Closer, protos.ViewService_StreamCommandClient, error) {
 	svc, closer, err := s.Transport.Open()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed creating view client")
@@ -209,7 +209,7 @@ func (s *Client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (
 	return closer, scc, nil
 }
 
-func (s *Client) CreateSignedCommand(payload any, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
+func (s *Client) CreateSignedCommand(payload any, signingIdentity SigningIdentity) (*protos.SignedCommand, error) {
 	command, err := commandFromPayload(payload)
 	if err != nil {
 		return nil, err
@@ -232,11 +232,11 @@ func (s *Client) CreateSignedCommand(payload any, signingIdentity SigningIdentit
 	}
 
 	// check for client certificate and compute SHA2-256 on certificate if present
-	tlsCertHash, err := grpc2.GetTLSCertHash(s.Transport.Certificate())
+	tlsCertHash, err := grpc.GetTLSCertHash(s.Transport.Certificate())
 	if err != nil {
 		return nil, err
 	}
-	command.Header = &protos2.Header{
+	command.Header = &protos.Header{
 		Timestamp:   ts,
 		Nonce:       nonce,
 		Creator:     creator,
@@ -253,17 +253,17 @@ func (s *Client) CreateSignedCommand(payload any, signingIdentity SigningIdentit
 		return nil, err
 	}
 
-	sc := &protos2.SignedCommand{
+	sc := &protos.SignedCommand{
 		Command:   raw,
 		Signature: signature,
 	}
 	return sc, nil
 }
 
-func commandFromPayload(payload any) (*protos2.Command, error) {
+func commandFromPayload(payload any) (*protos.Command, error) {
 	switch t := payload.(type) {
-	case *protos2.Command_CallView:
-		return &protos2.Command{Payload: t}, nil
+	case *protos.Command_CallView:
+		return &protos.Command{Payload: t}, nil
 	default:
 		return nil, errors.Wrapf(view.ErrCommandNotRecognized, "command type not recognized: %T", t)
 	}

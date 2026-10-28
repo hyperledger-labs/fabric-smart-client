@@ -14,13 +14,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware/fakes"
 )
 
 var _ = Describe("RequireCert", func() {
 	var (
-		requireCert middleware2.Middleware
+		requireCert middleware.Middleware
 		handler     *fakes.HTTPHandler
 		chain       http.Handler
 
@@ -30,7 +30,7 @@ var _ = Describe("RequireCert", func() {
 
 	BeforeEach(func() {
 		handler = &fakes.HTTPHandler{}
-		requireCert = middleware2.RequireCert()
+		requireCert = middleware.RequireCert()
 		chain = requireCert(handler)
 
 		req = httptest.NewRequest(http.MethodGet, "https:///", nil)

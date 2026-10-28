@@ -18,7 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -38,14 +38,14 @@ type Context interface {
 
 func TestContext(t *testing.T) {
 	t.Parallel()
-	registry := view2.NewServiceProvider()
+	registry := viewservice.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	session := &mock.Session{}
 	session.InfoReturns(view.SessionInfo{ID: "s1", Caller: view.Identity("caller")})
-	ctx, err := view2.NewContext(
+	ctx, err := viewservice.NewContext(
 		context.TODO(),
 		registry,
 		"pineapple",
@@ -64,17 +64,17 @@ func TestContext(t *testing.T) {
 	require.Equal(t, session, ctx.Session())
 
 	// Test NewContext with nil context
-	_, err = view2.NewContext(nil, nil, "", nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
+	_, err = viewservice.NewContext(nil, nil, "", nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ctx should not be nil")
 
 	// Test NewContextForInitiator with nil context
-	_, err = view2.NewContextForInitiator("", nil, nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
+	_, err = viewservice.NewContextForInitiator("", nil, nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ctx should not be nil")
 
 	// Test Session with nil session
-	ctxNoSession, _ := view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
+	ctxNoSession, _ := viewservice.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
 	require.Nil(t, ctxNoSession.Session())
 
 	// Id
@@ -119,7 +119,7 @@ func TestContext(t *testing.T) {
 
 	// IsMe
 	lic := &mock.LocalIdentityChecker{}
-	ctx, _ = view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, lic)
+	ctx, _ = viewservice.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, lic)
 	lic.IsMeReturns(true)
 	require.True(t, ctx.IsMe([]byte("me")))
 
@@ -129,7 +129,7 @@ func TestContext(t *testing.T) {
 
 	// Initiator
 	initiator := &mock.View{}
-	ctx, _ = view2.NewContextForInitiator("p2", context.TODO(), registry, nil, resolver, idProvider, nil, initiator, emptyTracer, lic)
+	ctx, _ = viewservice.NewContextForInitiator("p2", context.TODO(), registry, nil, resolver, idProvider, nil, initiator, emptyTracer, lic)
 	require.Equal(t, initiator, ctx.Initiator())
 
 	// RunView
@@ -152,7 +152,7 @@ func TestContext(t *testing.T) {
 	sessionFactory := &mock.SessionFactory{}
 	responderSession := &mock.Session{}
 	responderSession.InfoReturns(view.SessionInfo{ID: "s1", Caller: view.Identity("caller"), RemotePKID: []byte("pkid")})
-	ctx, _ = view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, responderSession, nil, emptyTracer, lic)
+	ctx, _ = viewservice.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, responderSession, nil, emptyTracer, lic)
 	ctx.Dispose()
 	// NewContext also registers the default session for its caller, so it is deleted twice.
 	require.Equal(t, 2, sessionFactory.DeleteSessionCallCount())
@@ -165,14 +165,14 @@ func TestContext(t *testing.T) {
 
 func TestContextGetSession(t *testing.T) {
 	t.Parallel()
-	registry := view2.NewServiceProvider()
+	registry := viewservice.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	resolver := &mock.EndpointService{}
 	sessionFactory := &mock.SessionFactory{}
 	session := &mock.Session{}
 	session.InfoReturns(view.SessionInfo{ID: "s1"})
 
-	ctx, _ := view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
+	ctx, _ := viewservice.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
 
 	dv := &DummyView{}
 	// Case: create new session
@@ -200,7 +200,7 @@ func TestContextGetSession(t *testing.T) {
 
 func TestContextRace(t *testing.T) {
 	t.Parallel()
-	registry := view2.NewServiceProvider()
+	registry := viewservice.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}
@@ -219,7 +219,7 @@ func TestContextRace(t *testing.T) {
 	sessionFactory := &mock.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
-	viewCtx, err := view2.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer, nil)
+	viewCtx, err := viewservice.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer, nil)
 	require.NoError(t, err)
 
 	dv := &DummyView{}
@@ -247,13 +247,13 @@ func TestContextRace(t *testing.T) {
 // and newSession when opening a new one, and both call sites now guard.
 func TestContextNilResolver(t *testing.T) {
 	t.Parallel()
-	registry := view2.NewServiceProvider()
+	registry := viewservice.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	resolver := &mock.EndpointService{}
 	sessionFactory := &mock.SessionFactory{}
 	resolver.ResolverReturns(nil, []byte("pkid"), nil)
 
-	ctx, err := view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
+	ctx, err := viewservice.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
 	require.NoError(t, err)
 
 	s, err := ctx.GetSession(&DummyView{}, view.Identity("party2"))

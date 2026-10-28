@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -92,22 +92,22 @@ func TestRandom(t *testing.T) {
 // --- serviceDiscovery ---
 
 type stubIDRouter struct {
-	addrs []host2.PeerIPAddress
+	addrs []host.PeerIPAddress
 	ok    bool
 }
 
-func (s stubIDRouter) Lookup(host2.PeerID) ([]host2.PeerIPAddress, bool) {
+func (s stubIDRouter) Lookup(host.PeerID) ([]host.PeerIPAddress, bool) {
 	return s.addrs, s.ok
 }
 
 func TestServiceDiscovery_LookupAll(t *testing.T) {
 	t.Parallel()
-	d := NewServiceDiscovery(stubIDRouter{addrs: []host2.PeerIPAddress{"a", "b"}, ok: true}, AlwaysFirst[host2.PeerIPAddress]())
+	d := NewServiceDiscovery(stubIDRouter{addrs: []host.PeerIPAddress{"a", "b"}, ok: true}, AlwaysFirst[host.PeerIPAddress]())
 	addrs, ok := d.LookupAll("peer")
 	require.True(t, ok)
-	require.Equal(t, []host2.PeerIPAddress{"a", "b"}, addrs)
+	require.Equal(t, []host.PeerIPAddress{"a", "b"}, addrs)
 
-	d = NewServiceDiscovery(stubIDRouter{ok: false}, AlwaysFirst[host2.PeerIPAddress]())
+	d = NewServiceDiscovery(stubIDRouter{ok: false}, AlwaysFirst[host.PeerIPAddress]())
 	_, ok = d.LookupAll("peer")
 	require.False(t, ok)
 }
@@ -116,23 +116,23 @@ func TestServiceDiscovery_LookupAll(t *testing.T) {
 // the strategy and returns the first endpoint.
 func TestServiceDiscovery_Lookup(t *testing.T) {
 	t.Parallel()
-	last := func(addrs []host2.PeerIPAddress) host2.PeerIPAddress { return addrs[len(addrs)-1] }
-	d := NewServiceDiscovery(stubIDRouter{addrs: []host2.PeerIPAddress{"a", "b"}, ok: true}, last)
-	require.Equal(t, host2.PeerIPAddress("b"), d.Lookup("peer"))
+	last := func(addrs []host.PeerIPAddress) host.PeerIPAddress { return addrs[len(addrs)-1] }
+	d := NewServiceDiscovery(stubIDRouter{addrs: []host.PeerIPAddress{"a", "b"}, ok: true}, last)
+	require.Equal(t, host.PeerIPAddress("b"), d.Lookup("peer"))
 }
 
 func TestServiceDiscovery_LookupMiss(t *testing.T) {
 	t.Parallel()
-	d := NewServiceDiscovery(stubIDRouter{ok: false}, AlwaysFirst[host2.PeerIPAddress]())
-	require.Equal(t, host2.PeerIPAddress(""), d.Lookup("peer"))
+	d := NewServiceDiscovery(stubIDRouter{ok: false}, AlwaysFirst[host.PeerIPAddress]())
+	require.Equal(t, host.PeerIPAddress(""), d.Lookup("peer"))
 }
 
 // A router can report success with no addresses; the strategy would panic on
 // an empty slice, so Lookup guards on the length.
 func TestServiceDiscovery_LookupEmptySet(t *testing.T) {
 	t.Parallel()
-	d := NewServiceDiscovery(stubIDRouter{addrs: []host2.PeerIPAddress{}, ok: true}, AlwaysFirst[host2.PeerIPAddress]())
-	require.Equal(t, host2.PeerIPAddress(""), d.Lookup("peer"))
+	d := NewServiceDiscovery(stubIDRouter{addrs: []host.PeerIPAddress{}, ok: true}, AlwaysFirst[host.PeerIPAddress]())
+	require.Equal(t, host.PeerIPAddress(""), d.Lookup("peer"))
 }
 
 // --- EndpointServiceIDRouter ---
@@ -142,7 +142,7 @@ func TestEndpointServiceIDRouter_Lookup(t *testing.T) {
 	es := &fakeEndpointService{identity: view.Identity("id"), resolver: resolverWith("fsc.alice", "127.0.0.1:9000")}
 	addrs, ok := NewEndpointServiceIDRouter(es).Lookup("peer")
 	require.True(t, ok)
-	require.Equal(t, []host2.PeerIPAddress{"127.0.0.1:9000"}, addrs)
+	require.Equal(t, []host.PeerIPAddress{"127.0.0.1:9000"}, addrs)
 }
 
 func TestEndpointServiceIDRouter_IdentityFails(t *testing.T) {
@@ -195,7 +195,7 @@ func TestStaticIDRouter_ReverseLookup(t *testing.T) {
 	// Any of a peer's addresses maps back to it.
 	id, ok := r.ReverseLookup("127.0.0.1:1001")
 	require.True(t, ok)
-	require.Equal(t, host2.PeerID("alice"), id)
+	require.Equal(t, host.PeerID("alice"), id)
 
 	id, ok = r.ReverseLookup("127.0.0.1:9999")
 	require.False(t, ok)

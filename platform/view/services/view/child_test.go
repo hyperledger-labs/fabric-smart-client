@@ -15,19 +15,19 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestChildContext(t *testing.T) {
 	t.Parallel()
 	parent := &mock.MutableParentContext{}
 	parent.IDReturns("parent-id")
-	parent.MeReturns(view2.Identity("me"))
+	parent.MeReturns(viewapi.Identity("me"))
 	parent.ContextReturns(context.Background())
 
 	child := view.NewChildContextFromParent(parent)
 	require.Equal(t, "parent-id", child.ID())
-	require.Equal(t, view2.Identity("me"), child.Me())
+	require.Equal(t, viewapi.Identity("me"), child.Me())
 
 	session := &mock.Session{}
 	child2 := view.NewChildContextFromParentAndSession(parent, session)
@@ -53,14 +53,14 @@ func TestChildContext(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, parent.PutServiceCallCount())
 
-	child4.IsMe(view2.Identity("me"))
+	child4.IsMe(viewapi.Identity("me"))
 	require.Equal(t, 1, parent.IsMeCallCount())
 
-	_, err = child4.GetSession(nil, view2.Identity("party"))
+	_, err = child4.GetSession(nil, viewapi.Identity("party"))
 	require.NoError(t, err)
 	require.Equal(t, 1, parent.GetSessionCallCount())
 
-	_, err = child4.GetSessionByID("sid", view2.Identity("party"))
+	_, err = child4.GetSessionByID("sid", viewapi.Identity("party"))
 	require.NoError(t, err)
 	require.Equal(t, 1, parent.GetSessionByIDCallCount())
 

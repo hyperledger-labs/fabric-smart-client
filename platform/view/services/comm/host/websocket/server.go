@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 type serverStreamProvider interface {
-	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error
+	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(commhost.P2PStream)) error
 }
 
 type server struct {
@@ -38,7 +38,7 @@ func (s *server) Listen() error {
 	return nil
 }
 
-func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
+func (s *server) Start(newStreamCallback func(stream commhost.P2PStream)) error {
 	s.srv.Handler = newHandler(s.streamProvider, newStreamCallback, s.corsAllowedOrigins)
 
 	var err error
@@ -68,7 +68,7 @@ func (s *server) Close() error {
 	return s.srv.Shutdown(shutdownCtx)
 }
 
-func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream), corsAllowedOrigins []string) http.Handler {
+func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream commhost.P2PStream), corsAllowedOrigins []string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /p2p", func(w http.ResponseWriter, r *http.Request) {
 		logger.DebugfContext(r.Context(), "new incoming stream from [%s]", r.RemoteAddr)

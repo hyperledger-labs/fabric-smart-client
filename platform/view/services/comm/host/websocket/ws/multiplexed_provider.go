@@ -22,10 +22,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
@@ -65,7 +65,7 @@ type inFlightDial struct {
 // is reused only for streams to the peer it was verified for.
 type clientKey struct {
 	url    string
-	peerID host2.PeerID
+	peerID host.PeerID
 }
 
 // MultiplexedProvider multiplexes streams over one websocket per remote URL and peer ID. It
@@ -179,7 +179,7 @@ func StartTracker(f func()) chan struct{} {
 	return done
 }
 
-func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, info host2.StreamInfo, src host2.PeerID, config *tls.Config) (*multiplexedClientConn, error) {
+func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, info host.StreamInfo, src host.PeerID, config *tls.Config) (*multiplexedClientConn, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -231,7 +231,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	c.dialing[key] = inFlight
 	c.mu.Unlock()
 
-	wsConn, err := web2.OpenWSClientConnContextWithLimit(ctx, urlStr, config, wireReadLimit(c.MaxRecvMsgSize))
+	wsConn, err := client.OpenWSClientConnContextWithLimit(ctx, urlStr, config, wireReadLimit(c.MaxRecvMsgSize))
 	if err == nil && config != nil {
 		if err = verifyServerPeerID(wsConn, info.RemotePeerID); err != nil {
 			_ = wsConn.Close()
@@ -284,7 +284,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 // reusing the cached websocket to that peer and address or dialing a new one. When config is
 // not nil, a new websocket is used only if the server's verified TLS certificate belongs to
 // info.RemotePeerID, so the stream's RemotePeerID is authenticated; without TLS nothing is.
-func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (s host2.P2PStream, err error) {
+func (c *MultiplexedProvider) NewClientStream(info host.StreamInfo, ctx context.Context, src host.PeerID, config *tls.Config) (s host.P2PStream, err error) {
 	span := trace.SpanFromContext(ctx)
 	defer func() {
 		if err != nil {
@@ -302,7 +302,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 	return conn.newClientSubConn(ctx, src, info)
 }
 
-func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
+func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host.P2PStream)) error {
 	expectedPeerID, err := expectedPeerIDFromRequest(request)
 	if err != nil {
 		return errors.Wrap(err, "failed extracting expected peerID from TLS certificate")
@@ -347,7 +347,7 @@ func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, maxSub
 	return c
 }
 
-func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.PeerID, info host2.StreamInfo) (*stream, error) {
+func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host.PeerID, info host.StreamInfo) (*stream, error) {
 	id := strconv.FormatUint(c.subConnID.Add(1), 10)
 	spanContext := trace.SpanContextFromContext(ctx)
 	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
@@ -440,14 +440,14 @@ func (c *multiplexedClientConn) readIncoming() {
 
 type multiplexedServerConn struct {
 	*multiplexedBaseConn
-	expectedPeerID host2.PeerID
+	expectedPeerID host.PeerID
 }
 
 // Server
 
 // newServerConn starts serving conn and calls onClose once its read loop has ended and the
 // connection is killed.
-func newServerConn(conn *websocket.Conn, expectedPeerID host2.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, newStreamCallback func(pStream host2.P2PStream), onClose func()) *multiplexedServerConn {
+func newServerConn(conn *websocket.Conn, expectedPeerID host.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, newStreamCallback func(pStream host.P2PStream), onClose func()) *multiplexedServerConn {
 	c := &multiplexedServerConn{
 		multiplexedBaseConn: newBaseConn(conn, tracer, m, serverSide, maxSubConns, maxSendMsgSize),
 		expectedPeerID:      expectedPeerID,
@@ -459,7 +459,7 @@ func newServerConn(conn *websocket.Conn, expectedPeerID host2.PeerID, tracer tra
 	return c
 }
 
-func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host2.P2PStream)) {
+func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host.P2PStream)) {
 	defer func() {
 		// close everything
 		err := c.Kill()
@@ -503,7 +503,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 // hands its stream to newStreamCallback. It runs on the read loop. It drops frames for IDs in
 // closing, rejects the ID with an Err frame when maxSubConns is reached, and rejects it and
 // kills the connection when the claimed PeerID does not match expectedPeerID.
-func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream host2.P2PStream), mm MultiplexedMessage) {
+func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream host.P2PStream), mm MultiplexedMessage) {
 	c.mu.Lock()
 	// A data frame the client sent before it saw this side close the sub-connection.
 	if _, ok := c.closing[mm.ID]; ok {
@@ -554,7 +554,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	logger.Debugf("Created server subconn with id [%s]", sc.id)
 
 	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
-	newStreamCallback(newStreamWithLimit(&subConnWithSpan{subConn: sc, span: span}, ctx, host2.StreamInfo{
+	newStreamCallback(newStreamWithLimit(&subConnWithSpan{subConn: sc, span: span}, ctx, host.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: c.conn.RemoteAddr().String(),
 		ContextID:         meta.ContextID,

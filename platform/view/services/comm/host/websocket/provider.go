@@ -10,8 +10,8 @@ import (
 	"crypto/tls"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -33,11 +33,11 @@ type endpointService interface {
 type endpointServiceBasedProvider struct {
 	config          Config
 	endpointService endpointService
-	routing         routing2.ServiceDiscovery
+	routing         routing.ServiceDiscovery
 	streamProvider  StreamProvider
 }
 
-func NewEndpointBasedProvider(config Config, endpointService endpointService, routing routing2.ServiceDiscovery, streamProvider StreamProvider) *endpointServiceBasedProvider {
+func NewEndpointBasedProvider(config Config, endpointService endpointService, routing routing.ServiceDiscovery, streamProvider StreamProvider) *endpointServiceBasedProvider {
 	return &endpointServiceBasedProvider{
 		config:          config,
 		endpointService: endpointService,
@@ -50,7 +50,7 @@ func NewEndpointBasedProvider(config Config, endpointService endpointService, ro
 // identity and validating that mutual TLS is configured before constructing it. It returns an
 // error if the identity cannot be loaded, the TLS configuration is missing or not mutual, or the
 // host itself fails to build.
-func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
+func (p *endpointServiceBasedProvider) GetNewHost() (commhost.P2PHost, error) {
 	raw, err := id.LoadIdentity(p.config.CertPath())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
@@ -83,7 +83,7 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 }
 
 type hostWrapper struct {
-	host2.P2PHost
+	commhost.P2PHost
 	endpointService endpointService
 	nodeID          string
 }
@@ -104,7 +104,7 @@ func (h *hostWrapper) Addr() string {
 	return addrHost.Addr()
 }
 
-func (h *hostWrapper) Start(newStreamCallback func(stream host2.P2PStream)) error {
+func (h *hostWrapper) Start(newStreamCallback func(stream commhost.P2PStream)) error {
 	if err := h.P2PHost.Start(newStreamCallback); err != nil {
 		return err
 	}

@@ -17,20 +17,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type mockHost struct {
-	host2.P2PHost
+	host.P2PHost
 }
 
-func (*mockHost) PeerID() host2.PeerID {
+func (*mockHost) PeerID() host.PeerID {
 	return "mock-peer"
 }
 
-func (*mockHost) Start(_ func(stream host2.P2PStream)) error {
+func (*mockHost) Start(_ func(stream host.P2PStream)) error {
 	return nil
 }
 
@@ -39,11 +39,11 @@ func (*mockHost) Close() error {
 }
 
 type mockStream struct {
-	host2.P2PStream
+	host.P2PStream
 	ctx context.Context
 }
 
-func (*mockStream) Hash() host2.StreamHash            { return "hash" }
+func (*mockStream) Hash() host.StreamHash             { return "hash" }
 func (*mockStream) Write(p []byte) (n int, err error) { return len(p), nil }
 func (m *mockStream) Read(_ []byte) (n int, err error) {
 	select {
@@ -56,11 +56,11 @@ func (m *mockStream) Read(_ []byte) (n int, err error) {
 func (*mockStream) Close() error               { return nil }
 func (m *mockStream) Context() context.Context { return m.ctx }
 
-func (*mockHost) NewStream(ctx context.Context, _ host2.StreamInfo) (host2.P2PStream, error) {
+func (*mockHost) NewStream(ctx context.Context, _ host.StreamInfo) (host.P2PStream, error) {
 	return &mockStream{ctx: ctx}, nil
 }
 
-func (*mockHost) StreamHash(_ host2.StreamInfo) host2.StreamHash {
+func (*mockHost) StreamHash(_ host.StreamInfo) host.StreamHash {
 	return "hash"
 }
 
@@ -270,7 +270,7 @@ func TestReleaseClosesOnlyUnsharedStreams(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name       string
-		host       host2.P2PHost
+		host       host.P2PHost
 		wantClosed bool
 	}{
 		{name: "per-session streams", host: &mockHost{}, wantClosed: true},
@@ -340,7 +340,7 @@ func TestSendSkipsLeaseOnClosingSession(t *testing.T) { //nolint:paralleltest
 
 	// A closing session has already released its streams, so a lease taken now would leak.
 	session.isClosing.Store(true)
-	info := host2.StreamInfo{SessionID: "sess1"}
+	info := host.StreamInfo{SessionID: "sess1"}
 	// The first send opens a stream, the second reuses it.
 	require.NoError(t, p.sendTo(t.Context(), info, &ViewPacket{}, session))
 	require.NoError(t, p.sendTo(t.Context(), info, &ViewPacket{}, session))

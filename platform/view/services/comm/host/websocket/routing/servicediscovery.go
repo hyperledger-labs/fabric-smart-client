@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"sync/atomic"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 // SelectionStrategy picks one element of a non-empty slice. The strategies in
@@ -41,18 +41,18 @@ func Random[T any]() SelectionStrategy[T] {
 	}
 }
 
-type EndpointSelector = SelectionStrategy[host2.PeerIPAddress]
+type EndpointSelector = SelectionStrategy[host.PeerIPAddress]
 
 type serviceDiscovery struct {
 	router   IDRouter
 	strategy EndpointSelector
 }
 
-func (d *serviceDiscovery) LookupAll(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
+func (d *serviceDiscovery) LookupAll(id host.PeerID) ([]host.PeerIPAddress, bool) {
 	return d.router.Lookup(id)
 }
 
-func (d *serviceDiscovery) Lookup(id host2.PeerID) host2.PeerIPAddress {
+func (d *serviceDiscovery) Lookup(id host.PeerID) host.PeerIPAddress {
 	if endpoints, ok := d.router.Lookup(id); ok && len(endpoints) > 0 {
 		return d.strategy(endpoints)
 	}

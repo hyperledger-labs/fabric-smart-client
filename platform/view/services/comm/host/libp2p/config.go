@@ -9,14 +9,14 @@ package libp2p
 import (
 	"time"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 type libp2pConfig interface {
 	PrivateKeyPath() string
 	Bootstrap() bool
-	ListenAddress() host2.PeerIPAddress
-	BootstrapListenAddress() host2.PeerIPAddress
+	ListenAddress() commhost.PeerIPAddress
+	BootstrapListenAddress() commhost.PeerIPAddress
 	ConnManagerLowWater() int
 	ConnManagerHighWater() int
 	ConnManagerGracePeriod() time.Duration
@@ -30,8 +30,8 @@ type configService interface {
 }
 
 type config struct {
-	listenAddress          host2.PeerIPAddress
-	bootstrapListenAddress host2.PeerIPAddress
+	listenAddress          commhost.PeerIPAddress
+	bootstrapListenAddress commhost.PeerIPAddress
 	privateKeyPath         string
 	connManagerLowWater    int
 	connManagerHighWater   int
@@ -64,10 +64,10 @@ func NewConfig(cs configService) *config {
 	}
 }
 
-func (c *config) PrivateKeyPath() string                      { return c.privateKeyPath }
-func (c *config) Bootstrap() bool                             { return len(c.bootstrapListenAddress) == 0 }
-func (c *config) ListenAddress() host2.PeerIPAddress          { return c.listenAddress }
-func (c *config) BootstrapListenAddress() host2.PeerIPAddress { return c.bootstrapListenAddress }
-func (c *config) ConnManagerLowWater() int                    { return c.connManagerLowWater }
-func (c *config) ConnManagerHighWater() int                   { return c.connManagerHighWater }
-func (c *config) ConnManagerGracePeriod() time.Duration       { return c.connManagerGracePeriod }
+func (c *config) PrivateKeyPath() string                         { return c.privateKeyPath }
+func (c *config) Bootstrap() bool                                { return len(c.bootstrapListenAddress) == 0 }
+func (c *config) ListenAddress() commhost.PeerIPAddress          { return c.listenAddress }
+func (c *config) BootstrapListenAddress() commhost.PeerIPAddress { return c.bootstrapListenAddress }
+func (c *config) ConnManagerLowWater() int                       { return c.connManagerLowWater }
+func (c *config) ConnManagerHighWater() int                      { return c.connManagerHighWater }
+func (c *config) ConnManagerGracePeriod() time.Duration          { return c.connManagerGracePeriod }

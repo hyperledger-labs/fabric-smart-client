@@ -16,10 +16,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/testpb"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
@@ -35,7 +35,7 @@ type inFlightHandler struct {
 func newInFlightHandler(t *testing.T) *inFlightHandler {
 	t.Helper()
 	p := providerFrom(t, "")
-	kvsInst, err := newKVS(p, newMuxDriver(p, mem.NewNamedDriver(sqlite2.NewDbProvider())))
+	kvsInst, err := newKVS(p, newMuxDriver(p, mem.NewNamedDriver(sqlite.NewDbProvider())))
 	require.NoError(t, err)
 	return &inFlightHandler{kvs: kvsInst, entered: make(chan struct{}), release: make(chan struct{}), err: make(chan error, 1)}
 }
@@ -94,7 +94,7 @@ func (s inFlightEmptyService) EmptyCall(ctx context.Context, _ *testpb.Empty) (*
 // running after grpc.Server.Stop cancelled its context and closed its connection.
 func TestServe_KVSOutlivesInFlightGRPCCall(t *testing.T) { //nolint:paralleltest // relies on shutdown timing
 	h := newInFlightHandler(t)
-	gs, err := grpc2.NewGRPCServer("127.0.0.1:0", grpc2.ServerConfig{})
+	gs, err := commongrpc.NewGRPCServer("127.0.0.1:0", commongrpc.ServerConfig{})
 	require.NoError(t, err)
 	testpb.RegisterEmptyServiceServer(gs.Server(), inFlightEmptyService{inFlightHandler: h})
 

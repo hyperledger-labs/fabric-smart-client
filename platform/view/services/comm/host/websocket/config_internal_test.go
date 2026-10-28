@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 // writeNodeDir lays out a node directory with an application identity certificate and a
@@ -73,7 +73,7 @@ func TestTransportKeypairIsTheIdentityKeypair(t *testing.T) {
 	t.Parallel()
 	dir, identityCert, transportCert := writeNodeDir(t, p2pCore)
 
-	p, err := config2.NewProvider(dir)
+	p, err := viewconfig.NewProvider(dir)
 	require.NoError(t, err)
 	cfg, err := NewConfig(p)
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ fsc:
           enabled: true
 `
 	dir, identityCert, listenerCert := writeNodeDir(t, body)
-	p, err := config2.NewProvider(dir)
+	p, err := viewconfig.NewProvider(dir)
 	require.NoError(t, err)
 
 	cfg, err := NewConfig(p)
@@ -126,7 +126,7 @@ func TestNewConfigDefaultsToMutualTLS(t *testing.T) {
 	t.Parallel()
 	dir, _, _ := writeNodeDir(t, p2pCore)
 
-	p, err := config2.NewProvider(dir)
+	p, err := viewconfig.NewProvider(dir)
 	require.NoError(t, err)
 	cfg, err := NewConfig(p)
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestClientAndServerTLSConfigRejectInvalidRootCA(t *testing.T) {
 	dir, _, _ := writeNodeDir(t, p2pCore)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "ca.crt"), []byte("not a pem"), 0o600))
 
-	p, err := config2.NewProvider(dir)
+	p, err := viewconfig.NewProvider(dir)
 	require.NoError(t, err)
 	cfg, err := NewConfig(p)
 	require.NoError(t, err)
@@ -181,7 +181,7 @@ fsc:
       websocket:
         tls:
 `+tc.tlsBlock)
-			p, err := config2.NewProvider(dir)
+			p, err := viewconfig.NewProvider(dir)
 			require.NoError(t, err)
 
 			_, err = NewConfig(p)

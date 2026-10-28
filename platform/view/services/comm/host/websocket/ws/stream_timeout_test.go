@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 )
 
@@ -39,7 +39,7 @@ func TestWebSocketStreamDeliveryTimeout(t *testing.T) { //nolint:paralleltest
 
 	// Don't send any data on readCh, so ReadMessage will block
 
-	streamInfo := host2.StreamInfo{
+	streamInfo := host.StreamInfo{
 		RemotePeerID:      "test-peer",
 		RemotePeerAddress: "127.0.0.1:8080",
 		ContextID:         "test-context",
@@ -76,7 +76,7 @@ func TestWebSocketContextCancellationWithTimeouts(t *testing.T) { //nolint:paral
 
 	// Don't send any data on readCh, so ReadMessage will block
 
-	streamInfo := host2.StreamInfo{
+	streamInfo := host.StreamInfo{
 		RemotePeerID:      "test-peer",
 		RemotePeerAddress: "127.0.0.1:8080",
 		ContextID:         "test-context",
@@ -115,7 +115,7 @@ func TestWebSocketPeerCloseRace(t *testing.T) { //nolint:paralleltest
 		writeDeadline: time.Now().Add(24 * time.Hour),
 	}
 
-	streamInfo := host2.StreamInfo{
+	streamInfo := host.StreamInfo{
 		RemotePeerID:      "test-peer",
 		RemotePeerAddress: "127.0.0.1:8080",
 		ContextID:         "test-context",

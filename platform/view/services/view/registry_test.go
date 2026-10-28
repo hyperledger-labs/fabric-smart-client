@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestRegistry(t *testing.T) {
@@ -39,7 +39,7 @@ func TestRegistry(t *testing.T) {
 	require.Contains(t, err.Error(), "no factory found")
 
 	// NewView - panic in factory
-	factory.NewViewStub = func(_ []byte) (view2.View, error) {
+	factory.NewViewStub = func(_ []byte) (viewapi.View, error) {
 		panic("factory-panic")
 	}
 	_, err = registry.NewView("v1", nil)
@@ -67,15 +67,15 @@ func TestRegistry(t *testing.T) {
 	require.Error(t, err)
 
 	// RegisterResponderWithIdentity / ExistResponderForCaller
-	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), "initiator2")
+	err = registry.RegisterResponderWithIdentity(responder, viewapi.Identity("id"), "initiator2")
 	require.NoError(t, err)
 
 	// Test RegisterResponderWithIdentity with view
-	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), v)
+	err = registry.RegisterResponderWithIdentity(responder, viewapi.Identity("id"), v)
 	require.NoError(t, err)
 
 	// Test RegisterResponderWithIdentity with invalid type
-	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), 123)
+	err = registry.RegisterResponderWithIdentity(responder, viewapi.Identity("id"), 123)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must be a view or a string")
 
@@ -87,7 +87,7 @@ func TestRegistry(t *testing.T) {
 	r2, id, err := registry.ExistResponderForCaller("initiator2")
 	require.NoError(t, err)
 	require.Equal(t, responder, r2)
-	require.Equal(t, view2.Identity("id"), id)
+	require.Equal(t, viewapi.Identity("id"), id)
 
 	// ExistResponderForCaller - not found
 	_, _, err = registry.ExistResponderForCaller("not-found")

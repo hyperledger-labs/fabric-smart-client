@@ -17,7 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -189,25 +189,25 @@ func TestServiceStartRetryDelay(t *testing.T) { //nolint:paralleltest
 // Mock implementations for timeout tests
 type mockSenderTimeout struct{}
 
-func (*mockSenderTimeout) sendTo(_ context.Context, _ host2.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
+func (*mockSenderTimeout) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	return nil
 }
 
 type mockFailingHostProvider struct{}
 
-func (*mockFailingHostProvider) GetNewHost() (host2.P2PHost, error) {
+func (*mockFailingHostProvider) GetNewHost() (host.P2PHost, error) {
 	return &mockHostForTimeout{}, errors.New("simulated host creation failure")
 }
 
 type mockHostForTimeout struct {
-	host2.P2PHost
+	host.P2PHost
 }
 
-func (*mockHostForTimeout) PeerID() host2.PeerID {
+func (*mockHostForTimeout) PeerID() host.PeerID {
 	return "mock-peer"
 }
 
-func (*mockHostForTimeout) Start(_ func(stream host2.P2PStream)) error {
+func (*mockHostForTimeout) Start(_ func(stream host.P2PStream)) error {
 	return nil
 }
 

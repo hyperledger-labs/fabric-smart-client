@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 // tlsCapturingStreamProvider records the TLS configuration of the last outbound stream.
@@ -30,7 +30,7 @@ type tlsCapturingStreamProvider struct {
 	config *tls.Config
 }
 
-func (p *tlsCapturingStreamProvider) NewClientStream(_ host2.StreamInfo, _ context.Context, _ host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
+func (p *tlsCapturingStreamProvider) NewClientStream(_ commhost.StreamInfo, _ context.Context, _ commhost.PeerID, config *tls.Config) (commhost.P2PStream, error) {
 	p.config = config
 	return nil, nil
 }
@@ -59,7 +59,7 @@ func TestClientRootCAsFollowExtraCAs(t *testing.T) {
 	h, err := NewHost("self", nil, sp, cfg, &known)
 	require.NoError(t, err)
 	open := func() *tls.Config {
-		_, err := h.client.OpenStream(host2.StreamInfo{RemotePeerAddress: "127.0.0.1:9999"}, t.Context())
+		_, err := h.client.OpenStream(commhost.StreamInfo{RemotePeerAddress: "127.0.0.1:9999"}, t.Context())
 		require.NoError(t, err)
 		require.Equal(t, "127.0.0.1", sp.config.ServerName)
 		return sp.config
@@ -90,7 +90,7 @@ func TestClientRootCAsFollowExtraCAs(t *testing.T) {
 
 type nopStreamProvider struct{ StreamProvider }
 
-func (nopStreamProvider) NewClientStream(host2.StreamInfo, context.Context, host2.PeerID, *tls.Config) (host2.P2PStream, error) {
+func (nopStreamProvider) NewClientStream(commhost.StreamInfo, context.Context, commhost.PeerID, *tls.Config) (commhost.P2PStream, error) {
 	return nil, nil
 }
 
@@ -123,7 +123,7 @@ func TestClientOpenStreamConcurrentWithChangingExtraCAs(t *testing.T) {
 	for range 4 {
 		wg.Go(func() {
 			for range 200 {
-				_, err := c.OpenStream(host2.StreamInfo{}, t.Context())
+				_, err := c.OpenStream(commhost.StreamInfo{}, t.Context())
 				assert.NoError(t, err)
 			}
 		})

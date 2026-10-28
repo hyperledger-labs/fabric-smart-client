@@ -11,23 +11,23 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/network"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 type stream struct {
 	network.Stream
-	info host2.StreamInfo
+	info commhost.StreamInfo
 }
 
-func (s *stream) RemotePeerID() host2.PeerID {
+func (s *stream) RemotePeerID() commhost.PeerID {
 	return s.Conn().RemotePeer().String()
 }
 
-func (s *stream) RemotePeerAddress() host2.PeerIPAddress {
+func (s *stream) RemotePeerAddress() commhost.PeerIPAddress {
 	return s.Conn().RemoteMultiaddr().String()
 }
 
-func (s *stream) Hash() host2.StreamHash {
+func (s *stream) Hash() commhost.StreamHash {
 	return streamHash(s.info)
 }
 
@@ -44,6 +44,6 @@ func (s *stream) Close() error {
 // An incoming stream carries no session metadata, so a per-session key would never match it and
 // every reply would open a second stream, quickly reaching libp2p's per-peer stream limit.
 // Shared streams are not closed when a session closes (see SharedStreams).
-func streamHash(info host2.StreamInfo) host2.StreamHash {
+func streamHash(info commhost.StreamInfo) commhost.StreamHash {
 	return info.RemotePeerID
 }
