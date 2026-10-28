@@ -182,6 +182,12 @@ func (o *Options) ReplicationFactor() int {
 	return 1
 }
 
+// LoadBalancer reports whether the node's replicas sit behind a load balancer.
+func (o *Options) LoadBalancer() bool {
+	lb, _ := o.Mapping["LoadBalancer"].(bool)
+	return lb
+}
+
 func (o *Options) Aliases() []string {
 	boxed := o.Mapping["Aliases"]
 	if boxed == nil {

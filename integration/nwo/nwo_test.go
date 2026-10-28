@@ -16,6 +16,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/stretchr/testify/require"
 	"github.com/tedsuo/ifrit/grouper"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
@@ -126,4 +127,12 @@ func failsAndAborts(f func()) (failed bool) {
 	}()
 	f()
 	return false
+}
+
+func TestFscIndex(t *testing.T) {
+	t.Parallel()
+	n := &NWO{ViewMembers: grouper.Members{{Name: "fsc.bob.0"}, {Name: "fsc.bob.1"}, {Name: "fsc.bobby.0"}}}
+	for id, want := range map[string]int{"bob": 0, "bob.0": 0, "bob.1": 1, "bobby": 2, "bo": -1, "bob.2": -1} {
+		require.Equal(t, want, n.fscIndex(id), "fscIndex(%q)", id)
+	}
 }
