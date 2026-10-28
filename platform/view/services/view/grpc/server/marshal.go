@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // UnmarshalCommand unmarshals a Command message.
@@ -34,7 +34,7 @@ type TimeFunc func() time.Time
 
 // SignerProvider models the signer provider for the view service.
 type SignerProvider interface {
-	GetSigner(identity view2.Identity) (sig.Signer, error)
+	GetSigner(identity view.Identity) (sig.Signer, error)
 }
 
 // ResponseMarshaler produces SignedCommandResponse.

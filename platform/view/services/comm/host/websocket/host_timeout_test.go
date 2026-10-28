@@ -18,7 +18,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 )
@@ -38,7 +38,7 @@ func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
 	// Create a host with the invalid address
 	host, err := websocket.NewHost(
 		"test-node",
-		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
+		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[commhost.PeerIPAddress]()),
 		noopProvider(),
 		cfg,
 		nil, // caPoolProvider
@@ -46,7 +46,7 @@ func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 
 	// Attempt to start the host - should fail due to inability to listen
-	err = host.Start(func(host2.P2PStream) {})
+	err = host.Start(func(commhost.P2PStream) {})
 	require.Error(t, err)
 	// The error should be related to failing to listen
 }
@@ -71,7 +71,7 @@ func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 	// Create a host
 	h, err := websocket.NewHost(
 		"test-node",
-		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
+		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[commhost.PeerIPAddress]()),
 		noopProvider(),
 		cfg,
 		nil, // caPoolProvider
@@ -88,7 +88,7 @@ func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 	defer cancel()
 	// Use ctx to satisfy compiler that it's used
 	_ = ctx
-	err = h.Start(func(host2.P2PStream) {})
+	err = h.Start(func(commhost.P2PStream) {})
 	// This might succeed or fail depending on timing, but we're mainly
 	// testing that the timeout mechanism exists and doesn't panic
 	if err != nil {
@@ -103,7 +103,7 @@ func TestNewHostPropagatesClientTLSConfigError(t *testing.T) {
 	t.Parallel()
 	_, err := websocket.NewHost(
 		"test-node",
-		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
+		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[commhost.PeerIPAddress]()),
 		noopProvider(),
 		&mockConfig{clientErr: errors.New("boom")},
 		nil,
@@ -117,7 +117,7 @@ func TestNewHostPropagatesServerTLSConfigError(t *testing.T) {
 	t.Parallel()
 	_, err := websocket.NewHost(
 		"test-node",
-		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
+		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[commhost.PeerIPAddress]()),
 		noopProvider(),
 		&mockConfig{serverErr: errors.New("boom")},
 		nil,
@@ -127,12 +127,12 @@ func TestNewHostPropagatesServerTLSConfigError(t *testing.T) {
 
 // mockConfig implements websocket.Config for testing
 type mockConfig struct {
-	listenAddress        host2.PeerIPAddress
+	listenAddress        commhost.PeerIPAddress
 	certPath             string
 	clientErr, serverErr error
 }
 
-func (m *mockConfig) ListenAddress() host2.PeerIPAddress { return m.listenAddress }
+func (m *mockConfig) ListenAddress() commhost.PeerIPAddress { return m.listenAddress }
 func (m *mockConfig) ClientTLSConfig() (*tls.Config, error) {
 	return nil, m.clientErr
 }
@@ -160,11 +160,11 @@ func noopProvider() websocket.StreamProvider {
 
 type noopStreamProvider struct{}
 
-func (*noopStreamProvider) NewClientStream(_ host2.StreamInfo, _ context.Context, _ host2.PeerID, _ *tls.Config) (host2.P2PStream, error) {
+func (*noopStreamProvider) NewClientStream(_ commhost.StreamInfo, _ context.Context, _ commhost.PeerID, _ *tls.Config) (commhost.P2PStream, error) {
 	return nil, nil
 }
 
-func (*noopStreamProvider) NewServerStream(_ http.ResponseWriter, _ *http.Request, _ func(host2.P2PStream)) error {
+func (*noopStreamProvider) NewServerStream(_ http.ResponseWriter, _ *http.Request, _ func(commhost.P2PStream)) error {
 	return nil
 }
 

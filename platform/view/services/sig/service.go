@@ -16,35 +16,35 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type Verifier = driver2.Verifier
+type Verifier = driver.Verifier
 
-type Signer = driver2.Signer
+type Signer = driver.Signer
 
 type VerifierEntry struct {
-	Verifier   driver2.Verifier
+	Verifier   driver.Verifier
 	DebugStack []byte
 }
 
-type SignerEntry = driver2.SignerEntry
+type SignerEntry = driver.SignerEntry
 
 type Service struct {
 	deserializer Deserializer
-	signerKVS    driver2.SignerInfoStore
-	auditInfoKVS driver2.AuditInfoStore
+	signerKVS    driver.SignerInfoStore
+	auditInfoKVS driver.AuditInfoStore
 
 	mutex     sync.RWMutex
 	signers   map[string]SignerEntry
 	verifiers map[string]VerifierEntry
 }
 
-func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoStore, signerKVS driver2.SignerInfoStore) *Service {
+func NewService(deserializer Deserializer, auditInfoKVS driver.AuditInfoStore, signerKVS driver.SignerInfoStore) *Service {
 	return &Service{
 		signerKVS:    signerKVS,
 		auditInfoKVS: auditInfoKVS,
@@ -66,7 +66,7 @@ func GetService(sp services.Provider) (*Service, error) {
 	return svc, nil
 }
 
-func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, signer driver2.Signer, verifier driver2.Verifier) error {
+func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
 	if signer == nil {
 		return errors.New("invalid signer, expected a valid instance")
 	}
@@ -116,7 +116,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 	return nil
 }
 
-func (o *Service) RegisterVerifier(identity view.Identity, verifier driver2.Verifier) error {
+func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verifier) error {
 	if verifier == nil {
 		return errors.New("invalid verifier, expected a valid instance")
 	}
@@ -209,7 +209,7 @@ func (o *Service) Info(ctx context.Context, id view.Identity) string {
 	return info
 }
 
-func (o *Service) GetSigner(identity view.Identity) (driver2.Signer, error) {
+func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 	idHash := identity.UniqueID()
 	logger.Debugf("get signer for [%s]", idHash)
 	o.mutex.RLock()
@@ -251,7 +251,7 @@ func (o *Service) GetSigner(identity view.Identity) (driver2.Signer, error) {
 	return entry.Signer, nil
 }
 
-func (o *Service) GetVerifier(identity view.Identity) (driver2.Verifier, error) {
+func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	idHash := identity.UniqueID()
 
 	o.mutex.RLock()
@@ -291,13 +291,13 @@ func (o *Service) GetVerifier(identity view.Identity) (driver2.Verifier, error) 
 	return entry.Verifier, nil
 }
 
-func (o *Service) GetSigningIdentity(identity view.Identity) (driver2.SigningIdentity, error) {
+func (o *Service) GetSigningIdentity(identity view.Identity) (driver.SigningIdentity, error) {
 	signer, err := o.GetSigner(identity)
 	if err != nil {
 		return nil, err
 	}
 
-	if signingIdentity, ok := signer.(driver2.SigningIdentity); ok {
+	if signingIdentity, ok := signer.(driver.SigningIdentity); ok {
 		return signingIdentity, nil
 	}
 
@@ -316,7 +316,7 @@ func (o *Service) deleteSigner(id string) {
 
 type si struct {
 	id        view.Identity
-	signer    driver2.Signer
+	signer    driver.Signer
 	verifiers *Service
 }
 
@@ -329,7 +329,7 @@ func (s *si) Verify(message, signature []byte) error {
 	return verifier.Verify(message, signature)
 }
 
-func (s *si) GetPublicVersion() driver2.VerifyingIdentity {
+func (s *si) GetPublicVersion() driver.VerifyingIdentity {
 	return s
 }
 

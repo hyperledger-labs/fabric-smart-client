@@ -17,22 +17,22 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 )
 
 var logger = logging.MustGetLogger()
 
 type host struct {
-	nodeID  host2.PeerID
-	routing routing2.ServiceDiscovery
+	nodeID  commhost.PeerID
+	routing routing.ServiceDiscovery
 	server  *server
 	client  *client
 }
 
 type StreamProvider interface {
-	NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error)
-	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error
+	NewClientStream(info commhost.StreamInfo, ctx context.Context, src commhost.PeerID, config *tls.Config) (commhost.P2PStream, error)
+	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(commhost.P2PStream)) error
 	io.Closer
 }
 
@@ -41,7 +41,7 @@ type StreamProvider interface {
 // every handshake when mutual TLS is required, so peers whose anchors it discovers later can
 // be dialed and can connect. It returns an error if either TLS configuration cannot be built
 // (invalid root CAs or an invalid keypair).
-func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) (*host, error) {
+func NewHost(nodeID commhost.PeerID, routing routing.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) (*host, error) {
 	clientConfig, err := config.ClientTLSConfig()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build client TLS config")
@@ -85,11 +85,11 @@ func (h *host) ID() string {
 }
 
 // PeerID returns the local node's public-key identifier (its PKID).
-func (h *host) PeerID() host2.PeerID {
+func (h *host) PeerID() commhost.PeerID {
 	return h.nodeID
 }
 
-func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
+func (h *host) Start(newStreamCallback func(stream commhost.P2PStream)) error {
 	if err := h.server.Listen(); err != nil {
 		return errors.Wrap(err, "failed to listen")
 	}
@@ -137,7 +137,7 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	return waitReady()
 }
 
-func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
+func (h *host) NewStream(ctx context.Context, info commhost.StreamInfo) (commhost.P2PStream, error) {
 	logger.DebugfContext(ctx, "No address passed for peer [%s]. Resolving...", info.RemotePeerID)
 	// if len(address) == 0 { //TODO
 	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
@@ -156,11 +156,11 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	return stream, nil
 }
 
-func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
+func (h *host) Lookup(peerID commhost.PeerID) ([]commhost.PeerIPAddress, bool) {
 	return h.routing.LookupAll(peerID)
 }
 
-func (*host) StreamHash(info host2.StreamInfo) string {
+func (*host) StreamHash(info commhost.StreamInfo) string {
 	return StreamHash(info)
 }
 
@@ -174,7 +174,7 @@ func (h *host) Close() error {
 
 func (*host) Wait() {}
 
-func StreamHash(info host2.StreamInfo) host2.StreamHash {
+func StreamHash(info commhost.StreamInfo) commhost.StreamHash {
 	var sb strings.Builder
 	sb.WriteString(info.RemotePeerID)
 	sb.WriteRune('.')

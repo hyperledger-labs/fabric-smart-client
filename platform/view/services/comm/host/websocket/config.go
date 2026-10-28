@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 // websocketTLSKey is the configuration subtree holding this host's transport TLS.
@@ -38,7 +38,7 @@ type configService interface {
 
 // Config is the websocket P2P host's view of its configuration.
 type Config interface {
-	ListenAddress() host2.PeerIPAddress
+	ListenAddress() commhost.PeerIPAddress
 	ClientTLSConfig() (*tls.Config, error)
 	ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) (*tls.Config, error)
 	CertPath() string
@@ -143,7 +143,7 @@ func NewConfig(cs configService) (*config, error) {
 }
 
 type config struct {
-	listenAddress host2.PeerIPAddress
+	listenAddress commhost.PeerIPAddress
 	// identityCertPath is the APPLICATION identity certificate, used only to derive the
 	// node's P2P identifier. It is never a transport credential.
 	identityCertPath string
@@ -162,7 +162,7 @@ type config struct {
 }
 
 // ListenAddress returns the address the P2P host listens on.
-func (c *config) ListenAddress() host2.PeerIPAddress { return c.listenAddress }
+func (c *config) ListenAddress() commhost.PeerIPAddress { return c.listenAddress }
 
 // CertPath returns the path of the node's application identity certificate, from which
 // the host derives its nodeID. It is deliberately NOT the transport certificate.

@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestRunViewNow(t *testing.T) {
@@ -44,11 +44,11 @@ func TestRunViewNow_CallOption(t *testing.T) {
 		return ctx, trace.SpanFromContext(ctx)
 	}
 
-	call := func(_ view2.Context) (any, error) {
+	call := func(_ viewapi.Context) (any, error) {
 		return "call-result", nil
 	}
 
-	res, err := view.RunViewNow(parent, nil, view2.WithViewCall(call))
+	res, err := view.RunViewNow(parent, nil, viewapi.WithViewCall(call))
 	require.NoError(t, err)
 	require.Equal(t, "call-result", res)
 }
@@ -64,7 +64,7 @@ func TestRunViewNow_AsInitiator_NoSession(t *testing.T) {
 
 	v := &mock.View{}
 
-	_, err := view.RunViewNow(parent, v, view2.AsInitiator())
+	_, err := view.RunViewNow(parent, v, viewapi.AsInitiator())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot convert a non-responder context to an initiator context")
 }
@@ -77,13 +77,13 @@ func TestRunViewNow_AsInitiator_PutSessionError(t *testing.T) {
 		return ctx, trace.SpanFromContext(ctx)
 	}
 	session := &mock.Session{}
-	session.InfoReturns(view2.SessionInfo{Caller: view2.Identity("alice")})
+	session.InfoReturns(viewapi.SessionInfo{Caller: viewapi.Identity("alice")})
 	parent.SessionReturns(session)
 
 	v := &mock.View{}
 	parent.PutSessionReturns(errors.New("put-error"))
 
-	_, err := view.RunViewNow(parent, v, view2.AsInitiator())
+	_, err := view.RunViewNow(parent, v, viewapi.AsInitiator())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed registering default session")
 }
@@ -97,7 +97,7 @@ func TestRunViewNow_PanicInView_CallsCleanupAndReturnsError(t *testing.T) {
 	}
 
 	v := &mock.View{}
-	v.CallStub = func(_ view2.Context) (any, error) {
+	v.CallStub = func(_ viewapi.Context) (any, error) {
 		panic("boom")
 	}
 
@@ -159,7 +159,7 @@ func TestRunViewNow_SetsTracingSuccessAttribute(t *testing.T) {
 func TestRunCall(t *testing.T) {
 	t.Parallel()
 	ctx := &mock.Context{}
-	call := func(_ view2.Context) (any, error) {
+	call := func(_ viewapi.Context) (any, error) {
 		return "res", nil
 	}
 	ctx.RunViewReturns("res", nil)
@@ -173,7 +173,7 @@ func TestAsResponder(t *testing.T) {
 	t.Parallel()
 	ctx := &mock.Context{}
 	session := &mock.Session{}
-	call := func(_ view2.Context) (any, error) {
+	call := func(_ viewapi.Context) (any, error) {
 		return "res", nil
 	}
 	ctx.RunViewReturns("res", nil)
@@ -187,7 +187,7 @@ func TestAsInitiatorCall(t *testing.T) {
 	t.Parallel()
 	ctx := &mock.Context{}
 	v := &mock.View{}
-	call := func(_ view2.Context) (any, error) {
+	call := func(_ viewapi.Context) (any, error) {
 		return "res", nil
 	}
 	ctx.RunViewReturns("res", nil)

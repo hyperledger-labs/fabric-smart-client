@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
@@ -26,7 +26,7 @@ import (
 
 type failingStreamProvider struct{ noopStreamProvider }
 
-func (*failingStreamProvider) NewClientStream(host2.StreamInfo, context.Context, host2.PeerID, *tls.Config) (host2.P2PStream, error) {
+func (*failingStreamProvider) NewClientStream(host.StreamInfo, context.Context, host.PeerID, *tls.Config) (host.P2PStream, error) {
 	return nil, errors.New("dial refused")
 }
 
@@ -34,21 +34,21 @@ func TestHostLookupAndNewStream(t *testing.T) {
 	t.Parallel()
 	router := routing.StaticIDRouter{"peer": {"127.0.0.1:1", "127.0.0.1:2"}}
 	h, err := websocket.NewHost("self",
-		routing.NewServiceDiscovery(router, routing.AlwaysFirst[host2.PeerIPAddress]()),
+		routing.NewServiceDiscovery(router, routing.AlwaysFirst[host.PeerIPAddress]()),
 		&failingStreamProvider{}, &mockConfig{}, nil)
 	require.NoError(t, err)
 	h.Wait()
 
 	addrs, ok := h.Lookup("peer")
 	require.True(t, ok)
-	require.Equal(t, []host2.PeerIPAddress{"127.0.0.1:1", "127.0.0.1:2"}, addrs)
+	require.Equal(t, []host.PeerIPAddress{"127.0.0.1:1", "127.0.0.1:2"}, addrs)
 	_, ok = h.Lookup("unknown")
 	require.False(t, ok)
 
-	_, err = h.NewStream(t.Context(), host2.StreamInfo{RemotePeerID: "unknown"})
+	_, err = h.NewStream(t.Context(), host.StreamInfo{RemotePeerID: "unknown"})
 	require.ErrorContains(t, err, "no address found for peer [unknown]")
 
-	_, err = h.NewStream(t.Context(), host2.StreamInfo{RemotePeerID: "peer"})
+	_, err = h.NewStream(t.Context(), host.StreamInfo{RemotePeerID: "peer"})
 	require.ErrorContains(t, err, "dial refused")
 }
 
@@ -61,9 +61,9 @@ func TestGetNewHostRequiresMutualTLS(t *testing.T) {
 	require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
 	require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
 
-	newProvider := func(cfg websocket.Config) interface{ GetNewHost() (host2.P2PHost, error) } {
+	newProvider := func(cfg websocket.Config) interface{ GetNewHost() (host.P2PHost, error) } {
 		es := &mockEndpointService{}
-		discovery := routing.NewServiceDiscovery(routing.NewEndpointServiceIDRouter(es), routing.AlwaysFirst[host2.PeerIPAddress]())
+		discovery := routing.NewServiceDiscovery(routing.NewEndpointServiceIDRouter(es), routing.AlwaysFirst[host.PeerIPAddress]())
 		sp := ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 		t.Cleanup(func() { _ = sp.Close() })
 		return websocket.NewEndpointBasedProvider(cfg, es, discovery, sp)

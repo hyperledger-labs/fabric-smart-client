@@ -16,9 +16,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
@@ -83,7 +83,7 @@ func (p *SimpleProvider) track(s *stream) error {
 // NewClientStream dials info.RemotePeerAddress on a new websocket and opens a stream on it.
 // When config is not nil, the server's verified TLS certificate must belong to
 // info.RemotePeerID, so the stream's RemotePeerID is authenticated; without TLS nothing is.
-func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
+func (p *SimpleProvider) NewClientStream(info host.StreamInfo, ctx context.Context, src host.PeerID, config *tls.Config) (host.P2PStream, error) {
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	p.mu.Lock()
 	closed := p.closed
@@ -96,7 +96,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	// We use the background context instead of passing the existing context,
 	// because the net/http server doesn't monitor connections upgraded to WebSocket.
 	// Hence, when the connection is lost, the context will not be cancelled.
-	conn, err := web2.OpenWSClientConn(url.String(), config)
+	conn, err := client.OpenWSClientConn(url.String(), config)
 	if err != nil {
 		logger.Errorf("Dial failed: %s", err.Error())
 		return nil, errors.Wrap(err, "failed to open websocket")
@@ -141,7 +141,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	return s, nil
 }
 
-func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
+func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host.P2PStream)) error {
 	expectedPeerID, err := expectedPeerIDFromRequest(request)
 	if err != nil {
 		return errors.Wrap(err, "failed extracting expected peerID from TLS certificate")
@@ -174,7 +174,7 @@ func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *ht
 	// Propagating the request context will not make a difference (see comment in SimpleProvider.NewClientStream)
 	spanContext := remoteSpanContext(&meta)
 	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
-	s := NewWSStream(conn, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host2.StreamInfo{
+	s := NewWSStream(conn, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), host.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: request.RemoteAddr,
 		ContextID:         meta.ContextID,

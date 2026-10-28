@@ -28,7 +28,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	servicesmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
@@ -39,7 +39,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // ecdsaID is a signing identity serialized as its PEM certificate, the form
@@ -77,14 +77,14 @@ func (i *ecdsaID) Verify(msg, sig []byte) error {
 // keys resolves signers and verifiers for the identities the node knows.
 type keys map[string]*ecdsaID
 
-func (k keys) GetVerifier(id view2.Identity) (sig.Verifier, error) {
+func (k keys) GetVerifier(id viewapi.Identity) (sig.Verifier, error) {
 	if i, ok := k[string(id)]; ok {
 		return i, nil
 	}
 	return nil, errors.New("unknown identity")
 }
 
-func (k keys) GetSigner(id view2.Identity) (sig.Signer, error) {
+func (k keys) GetSigner(id viewapi.Identity) (sig.Signer, error) {
 	if i, ok := k[string(id)]; ok {
 		return i, nil
 	}
@@ -96,9 +96,9 @@ type ids struct {
 	clients []*ecdsaID
 }
 
-func (i ids) DefaultIdentity() view2.Identity { return i.node.cert }
-func (i ids) Clients() []view2.Identity {
-	out := make([]view2.Identity, len(i.clients))
+func (i ids) DefaultIdentity() viewapi.Identity { return i.node.cert }
+func (i ids) Clients() []viewapi.Identity {
+	out := make([]viewapi.Identity, len(i.clients))
 	for n, c := range i.clients {
 		out[n] = c.cert
 	}
@@ -108,22 +108,22 @@ func (i ids) Clients() []view2.Identity {
 // Views the suite calls.
 type echoView struct{ in []byte }
 
-func (v echoView) Call(view2.Context) (any, error) { return v.in, nil }
+func (v echoView) Call(viewapi.Context) (any, error) { return v.in, nil }
 
 type failView struct{}
 
-func (failView) Call(view2.Context) (any, error) { return nil, errors.New("view says no") }
+func (failView) Call(viewapi.Context) (any, error) { return nil, errors.New("view says no") }
 
 type slowView struct{}
 
-func (slowView) Call(ctx view2.Context) (any, error) {
+func (slowView) Call(ctx viewapi.Context) (any, error) {
 	<-ctx.Context().Done()
 	return nil, ctx.Context().Err()
 }
 
 type chatView struct{}
 
-func (chatView) Call(ctx view2.Context) (any, error) {
+func (chatView) Call(ctx viewapi.Context) (any, error) {
 	s := view.GetStream(ctx)
 	var in string
 	if err := s.Recv(&in); err != nil {
@@ -135,18 +135,18 @@ func (chatView) Call(ctx view2.Context) (any, error) {
 	return []byte("done"), nil
 }
 
-type factory func(in []byte) view2.View
+type factory func(in []byte) viewapi.View
 
-func (f factory) NewView(in []byte) (view2.View, error) { return f(in), nil }
+func (f factory) NewView(in []byte) (viewapi.View, error) { return f(in), nil }
 
 // node is one view service served on both transports.
 type node struct {
 	grpcAddr, httpAddr string
 	allowed            *ecdsaID
-	clientTLS          grpc2.SecureOptions
+	clientTLS          grpc.SecureOptions
 }
 
-func newNode(t *testing.T, serverTLS grpc2.SecureOptions) *node {
+func newNode(t *testing.T, serverTLS grpc.SecureOptions) *node {
 	t.Helper()
 	nodeID, allowed := newID(t, "node"), newID(t, "client")
 	k := keys{string(nodeID.cert): nodeID, string(allowed.cert): allowed}
@@ -158,10 +158,10 @@ func newNode(t *testing.T, serverTLS grpc2.SecureOptions) *node {
 	metrics := view.NewMetrics(&disabled.Provider{})
 	cf := view.NewContextFactory(&servicesmock.ServiceProvider{}, &mock.SessionFactory{}, &mock.EndpointService{}, ip, registry, noop.NewTracerProvider(), metrics, &mock.LocalIdentityChecker{})
 	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
-	require.NoError(t, manager.RegisterFactory("echo", factory(func(in []byte) view2.View { return echoView{in: in} })))
-	require.NoError(t, manager.RegisterFactory("fail", factory(func([]byte) view2.View { return failView{} })))
-	require.NoError(t, manager.RegisterFactory("slow", factory(func([]byte) view2.View { return slowView{} })))
-	require.NoError(t, manager.RegisterFactory("chat", factory(func([]byte) view2.View { return chatView{} })))
+	require.NoError(t, manager.RegisterFactory("echo", factory(func(in []byte) viewapi.View { return echoView{in: in} })))
+	require.NoError(t, manager.RegisterFactory("fail", factory(func([]byte) viewapi.View { return failView{} })))
+	require.NoError(t, manager.RegisterFactory("slow", factory(func([]byte) viewapi.View { return slowView{} })))
+	require.NoError(t, manager.RegisterFactory("chat", factory(func([]byte) viewapi.View { return chatView{} })))
 
 	marshaller, err := server.NewResponseMarshaler(idp, k)
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func newNode(t *testing.T, serverTLS grpc2.SecureOptions) *node {
 	require.NoError(t, err)
 	server.InstallViewHandler(manager, svc, 200*time.Millisecond)
 
-	gs, err := grpc2.NewGRPCServer("127.0.0.1:0", grpc2.ServerConfig{SecOpts: serverTLS})
+	gs, err := grpc.NewGRPCServer("127.0.0.1:0", grpc.ServerConfig{SecOpts: serverTLS})
 	require.NoError(t, err)
 	protos.RegisterViewServiceServer(gs.Server(), svc)
 	go func() { _ = gs.Start() }()
@@ -200,7 +200,7 @@ func (n *node) client(t *testing.T, transport client.TransportType, id client.Si
 	if transport == client.TransportHTTP {
 		addr = n.httpAddr
 	}
-	c, err := client.NewClient(&client.Config{ConnectionConfig: &grpc2.ConnectionConfig{Address: addr, ConnectionTimeout: 5 * time.Second, TLS: n.clientTLS}, Transport: transport}, id, noop.NewTracerProvider())
+	c, err := client.NewClient(&client.Config{ConnectionConfig: &grpc.ConnectionConfig{Address: addr, ConnectionTimeout: 5 * time.Second, TLS: n.clientTLS}, Transport: transport}, id, noop.NewTracerProvider())
 	require.NoError(t, err)
 	return c
 }
@@ -226,7 +226,7 @@ var transports = []client.TransportType{client.TransportGRPC, client.TransportHT
 // Every scenario gives the same outcome over gRPC and over HTTP.
 func TestTransportParity(t *testing.T) {
 	t.Parallel()
-	n := newNode(t, grpc2.SecureOptions{})
+	n := newNode(t, grpc.SecureOptions{})
 	stranger := newID(t, "stranger")
 
 	scenarios := map[string]func(c *client.Client) outcome{
@@ -298,7 +298,7 @@ func TestTransportParity(t *testing.T) {
 // A command accepted on one transport is a replay on the other.
 func TestReplayAcrossTransports(t *testing.T) {
 	t.Parallel()
-	n := newNode(t, grpc2.SecureOptions{})
+	n := newNode(t, grpc.SecureOptions{})
 	c := n.client(t, client.TransportHTTP, n.allowed)
 	sc, err := c.CreateSignedCommand(&protos.Command_CallView{CallView: &protos.CallView{Fid: "echo"}}, n.allowed)
 	require.NoError(t, err)
@@ -340,11 +340,11 @@ func TestBindingParity(t *testing.T) {
 	other, err := tls.X509KeyPair(otherKP.Cert, otherKP.Key)
 	require.NoError(t, err)
 
-	n := newNode(t, grpc2.SecureOptions{
+	n := newNode(t, grpc.SecureOptions{
 		UseTLS: true, Certificate: srvKP.Cert, Key: srvKP.Key,
 		RequireClientCert: true, ClientRootCAs: [][]byte{ca.CertBytes()},
 	})
-	n.clientTLS = grpc2.SecureOptions{
+	n.clientTLS = grpc.SecureOptions{
 		UseTLS: true, ServerRootCAs: [][]byte{ca.CertBytes()},
 		RequireClientCert: true, Certificate: cliKP.Cert, Key: cliKP.Key,
 	}

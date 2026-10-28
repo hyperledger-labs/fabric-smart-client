@@ -18,10 +18,10 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
-	mock3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
+	endpointmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
-	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
+	p2pmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -65,7 +65,7 @@ func (m *viewManagerMock) DefaultIdentity() view.Identity {
 func TestService(t *testing.T) {
 	t.Parallel()
 	vm := &viewManagerMock{HandleResponderCalled: make(chan struct{}, 10)}
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	sess := &mock.Session{}
 	ch := make(chan *view.Message, 10)
 	cl.MasterSessionReturns(sess, nil)
@@ -118,7 +118,7 @@ func TestService(t *testing.T) {
 // another node's registered address gets its own identity, not that node's.
 func TestService_CallerIsVerifiedPeerID(t *testing.T) {
 	t.Parallel()
-	es, err := endpoint.NewService(&mock3.BindingStore{})
+	es, err := endpoint.NewService(&endpointmock.BindingStore{})
 	require.NoError(t, err)
 	victimAddr := "127.0.0.1:20001"
 	_, err = es.AddResolver("victim", "org1", map[string]string{string(endpoint.P2PPort): victimAddr}, nil, []byte("victim_id"))
@@ -127,7 +127,7 @@ func TestService_CallerIsVerifiedPeerID(t *testing.T) {
 	require.NoError(t, err)
 
 	vm := &viewManagerMock{HandleResponderCalled: make(chan struct{}, 10)}
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	sess := &mock.Session{}
 	ch := make(chan *view.Message, 10)
 	cl.MasterSessionReturns(sess, nil)
@@ -153,7 +153,7 @@ func TestService_CallerIsVerifiedPeerID(t *testing.T) {
 func TestService_MasterSessionError(t *testing.T) {
 	t.Parallel()
 	vm := &viewManagerMock{}
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	cl.MasterSessionReturns(nil, errors.New("master session error"))
 
 	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner(), nil)
@@ -207,7 +207,7 @@ func TestService_PanicIsReturnedToRemoteCaller(t *testing.T) {
 		return respCtx, func() {}, nil
 	}
 
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	masterSess := &mock.Session{}
 	ch := make(chan *view.Message, 10)
 	cl.MasterSessionReturns(masterSess, nil)
@@ -256,7 +256,7 @@ func TestService_HandleResponderError(t *testing.T) {
 		return &mock.Context{}, func() {}, nil
 	}
 
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	sess := &mock.Session{}
 	ch := make(chan *view.Message, 10)
 	cl.MasterSessionReturns(sess, nil)
@@ -291,7 +291,7 @@ func TestService_DeletesSessionWithoutContext(t *testing.T) {
 	vm.NewSessionContextFunc = func(context.Context, string, view.Session, view.Identity) (view.Context, func(), error) {
 		return nil, nil, errors.New("context [ctx1] is not a responder context")
 	}
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	sess := &mock.Session{}
 	ch := make(chan *view.Message, 1)
 	cl.MasterSessionReturns(sess, nil)
@@ -367,7 +367,7 @@ func TestService_Start_DrainsHandlersOnShutdown(t *testing.T) { //nolint:paralle
 		respCtx:   &mock.Context{},
 	}
 
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	masterSess := &mock.Session{}
 	ch := make(chan *view.Message, 1)
 	masterSess.ReceiveReturns(ch)
@@ -418,7 +418,7 @@ func TestService_Start_StopsOnClosedMasterSession(t *testing.T) { //nolint:paral
 	close(ch)
 	master := &mock.Session{}
 	master.ReceiveReturns(ch)
-	cl := &mock2.CommLayer{}
+	cl := &p2pmock.CommLayer{}
 	cl.MasterSessionReturns(master, nil)
 	vm := &viewManagerMock{ExistResponderForCallerFunc: func(string) (view.View, view.Identity, error) {
 		t.Error("no message must be dispatched from a closed master session")
@@ -472,7 +472,7 @@ func (*freshContextDeps) NewResponderContext(ctx context.Context, contextID stri
 type limitTest struct {
 	t      *testing.T
 	runner *releasableRunner
-	cl     *mock2.CommLayer
+	cl     *p2pmock.CommLayer
 	ch     chan *view.Message
 }
 
@@ -481,7 +481,7 @@ func newLimitTest(t *testing.T, cfg p2p.ConfigService, buffer int) *limitTest {
 	lt := &limitTest{
 		t:      t,
 		runner: &releasableRunner{entered: make(chan struct{}, buffer)},
-		cl:     &mock2.CommLayer{},
+		cl:     &p2pmock.CommLayer{},
 		ch:     make(chan *view.Message, buffer),
 	}
 	masterSess := &mock.Session{}

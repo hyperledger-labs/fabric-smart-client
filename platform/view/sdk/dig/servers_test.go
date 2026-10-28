@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -643,7 +643,7 @@ func TestServe_FullLifecycle(t *testing.T) { //nolint:paralleltest // relies on 
 	require.NoError(t, err)
 
 	p := providerFrom(t, "")
-	namedDriver := mem.NewNamedDriver(sqlite2.NewDbProvider())
+	namedDriver := mem.NewNamedDriver(sqlite.NewDbProvider())
 	muxDriver := newMuxDriver(p, namedDriver)
 	kvsInst, err := newKVS(p, muxDriver)
 	require.NoError(t, err)

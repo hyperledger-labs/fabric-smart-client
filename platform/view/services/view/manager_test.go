@@ -20,7 +20,7 @@ import (
 	servicesmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestMain(m *testing.M) {
@@ -45,8 +45,8 @@ func TestManager(t *testing.T) {
 	require.NotNil(t, manager)
 
 	// Test Me
-	ip.DefaultIdentityReturns(view2.Identity("me"))
-	require.Equal(t, view2.Identity("me"), ip.DefaultIdentity())
+	ip.DefaultIdentityReturns(viewapi.Identity("me"))
+	require.Equal(t, viewapi.Identity("me"), ip.DefaultIdentity())
 
 	// Test Registry methods through manager
 	factory := &mock.Factory{}
@@ -61,7 +61,7 @@ func TestManager(t *testing.T) {
 
 	// Test InitiateView
 	ctx := context.Background()
-	ip.DefaultIdentityReturns(view2.Identity("me"))
+	ip.DefaultIdentityReturns(viewapi.Identity("me"))
 	v.CallReturns("result", nil)
 
 	res, err := manager.InitiateView(ctx, v)
@@ -84,23 +84,23 @@ func TestManager(t *testing.T) {
 	require.Contains(t, err.Error(), "not found")
 
 	// Test InitiateViewWithIdentity
-	res, err = manager.InitiateViewWithIdentity(ctx, v, view2.Identity("alice"))
+	res, err = manager.InitiateViewWithIdentity(ctx, v, viewapi.Identity("alice"))
 	require.NoError(t, err)
 	require.Equal(t, "result", res)
 
 	var nilCtx context.Context
-	res, err = manager.InitiateViewWithIdentity(nilCtx, v, view2.Identity("alice"))
+	res, err = manager.InitiateViewWithIdentity(nilCtx, v, viewapi.Identity("alice"))
 	require.Error(t, err)
 	require.Nil(t, res)
 	require.Contains(t, err.Error(), "context is nil")
 
 	// Test InitiateContextWithIdentity
-	c2, err := manager.InitiateContextWithIdentity(ctx, v, view2.Identity("alice"))
+	c2, err := manager.InitiateContextWithIdentity(ctx, v, viewapi.Identity("alice"))
 	require.NoError(t, err)
 	require.NotNil(t, c2)
 
 	// Test InitiateContextWithIdentityAndID
-	c3, err := manager.InitiateContextWithIdentityAndID(ctx, v, view2.Identity("alice"), "cid3")
+	c3, err := manager.InitiateContextWithIdentityAndID(ctx, v, viewapi.Identity("alice"), "cid3")
 	require.NoError(t, err)
 	require.Equal(t, "cid3", c3.ID())
 
@@ -152,13 +152,13 @@ func TestManagerRegistry(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, responder, r)
 
-	err = manager.RegisterResponderWithIdentity(responder, view2.Identity("id"), "initiator2")
+	err = manager.RegisterResponderWithIdentity(responder, viewapi.Identity("id"), "initiator2")
 	require.NoError(t, err)
 
 	r, id, err := manager.ExistResponderForCaller("initiator2")
 	require.NoError(t, err)
 	require.Equal(t, responder, r)
-	require.Equal(t, view2.Identity("id"), id)
+	require.Equal(t, viewapi.Identity("id"), id)
 }
 
 // newResponderManager returns a Manager backed by a real context factory, and the session
@@ -166,7 +166,7 @@ func TestManagerRegistry(t *testing.T) {
 func newResponderManager() (*view.Manager, *mock.SessionFactory) {
 	sf := &mock.SessionFactory{}
 	ip := &mock.IdentityProvider{}
-	ip.DefaultIdentityReturns(view2.Identity("me"))
+	ip.DefaultIdentityReturns(viewapi.Identity("me"))
 	registry := view.NewRegistry()
 	metrics := view.NewMetrics(&disabled.Provider{})
 	cf := view.NewContextFactory(&servicesmock.ServiceProvider{}, sf, &mock.EndpointService{}, ip, registry, noop.NewTracerProvider(), metrics, &mock.LocalIdentityChecker{})
@@ -175,7 +175,7 @@ func newResponderManager() (*view.Manager, *mock.SessionFactory) {
 
 func newSession(id, caller, pkid string) *mock.Session {
 	s := &mock.Session{}
-	s.InfoReturns(view2.SessionInfo{ID: id, Caller: view2.Identity(caller), RemotePKID: []byte(pkid)})
+	s.InfoReturns(viewapi.SessionInfo{ID: id, Caller: viewapi.Identity(caller), RemotePKID: []byte(pkid)})
 	return s
 }
 
@@ -195,7 +195,7 @@ func TestNewSessionContext(t *testing.T) {
 
 	// Case 1: New context
 	session := newSession("s1", "alice", "")
-	ctx, _, err := manager.NewResponderContext(t.Context(), "c1", session, view2.Identity("alice"), nil)
+	ctx, _, err := manager.NewResponderContext(t.Context(), "c1", session, viewapi.Identity("alice"), nil)
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
 	registered, err := manager.Context("c1")
@@ -203,7 +203,7 @@ func TestNewSessionContext(t *testing.T) {
 	require.Same(t, session, registered.Session())
 
 	// Case 2: Reuse context, the same session joins without replacing the registered context
-	ctx2, _, err := manager.NewResponderContext(t.Context(), "c1", session, view2.Identity("alice"), nil)
+	ctx2, _, err := manager.NewResponderContext(t.Context(), "c1", session, viewapi.Identity("alice"), nil)
 	require.NoError(t, err)
 	require.Same(t, session, ctx2.Session())
 	again, err := manager.Context("c1")
@@ -212,7 +212,7 @@ func TestNewSessionContext(t *testing.T) {
 
 	// Case 3: Update session in existing context
 	session2 := newSession("s2", "bob", "")
-	ctx3, _, err := manager.NewResponderContext(t.Context(), "c1", session2, view2.Identity("bob"), nil)
+	ctx3, _, err := manager.NewResponderContext(t.Context(), "c1", session2, viewapi.Identity("bob"), nil)
 	require.NoError(t, err)
 	require.Same(t, session2, ctx3.Session())
 	registered, err = manager.Context("c1")
@@ -221,7 +221,7 @@ func TestNewSessionContext(t *testing.T) {
 
 	// Case 4: the same session ID from another party is a different session
 	session3 := newSession("s2", "carol", "pkid-carol")
-	ctx4, _, err := manager.NewResponderContext(t.Context(), "c1", session3, view2.Identity("carol"), nil)
+	ctx4, _, err := manager.NewResponderContext(t.Context(), "c1", session3, viewapi.Identity("carol"), nil)
 	require.NoError(t, err)
 	require.Same(t, session3, ctx4.Session())
 }
@@ -236,7 +236,7 @@ func TestNewResponderContextRejectsInitiatorContext(t *testing.T) {
 	initiatorCtx, err := manager.InitiateContext(t.Context(), &mock.View{})
 	require.NoError(t, err)
 
-	responderCtx, release, err := manager.NewResponderContext(t.Context(), initiatorCtx.ID(), newSession("s1", "bob", "pkid-bob"), view2.Identity("me"), view2.Identity("bob"))
+	responderCtx, release, err := manager.NewResponderContext(t.Context(), initiatorCtx.ID(), newSession("s1", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
 	require.ErrorIs(t, err, view.ErrNotResponderContext)
 	require.Nil(t, responderCtx)
 	require.Nil(t, release)
@@ -261,7 +261,7 @@ func TestNewResponderContextAttachedSessionsAreDisposed(t *testing.T) {
 		newSession("s3", "bob", "pkid-bob-1"),
 		newSession("s3", "bob", "pkid-bob-2"),
 	} {
-		_, _, err := manager.NewResponderContext(t.Context(), "c1", s, view2.Identity("me"), view2.Identity("bob"))
+		_, _, err := manager.NewResponderContext(t.Context(), "c1", s, viewapi.Identity("me"), viewapi.Identity("bob"))
 		require.NoError(t, err)
 	}
 
@@ -274,16 +274,16 @@ func TestNewResponderContextAttachedSessionsAreDisposed(t *testing.T) {
 func TestNewResponderContextAttachKeepsDefaultSession(t *testing.T) {
 	t.Parallel()
 	manager, _ := newResponderManager()
-	bob := view2.Identity("bob")
+	bob := viewapi.Identity("bob")
 
 	s1 := newSession("s1", "bob", "pkid-bob")
-	ctx, _, err := manager.NewResponderContext(t.Context(), "c1", s1, view2.Identity("me"), bob)
+	ctx, _, err := manager.NewResponderContext(t.Context(), "c1", s1, viewapi.Identity("me"), bob)
 	require.NoError(t, err)
 
-	_, _, err = manager.NewResponderContext(t.Context(), "c1", newSession("", "bob", "pkid-bob"), view2.Identity("me"), bob)
+	_, _, err = manager.NewResponderContext(t.Context(), "c1", newSession("", "bob", "pkid-bob"), viewapi.Identity("me"), bob)
 	require.ErrorIs(t, err, view.ErrInvalidSessionID)
 
-	_, _, err = manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), view2.Identity("me"), bob)
+	_, _, err = manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), viewapi.Identity("me"), bob)
 	require.NoError(t, err)
 
 	s, err := ctx.GetSession(nil, bob)
@@ -299,9 +299,9 @@ func TestNewResponderContextLastReleaseDisposes(t *testing.T) {
 	for _, creatorFirst := range []bool{true, false} {
 		manager, sf := newResponderManager()
 		creatorCtx, cancelCreator := context.WithCancel(t.Context())
-		creator, releaseCreator, err := manager.NewResponderContext(creatorCtx, "c1", newSession("s1", "bob", "pkid-bob"), view2.Identity("me"), view2.Identity("bob"))
+		creator, releaseCreator, err := manager.NewResponderContext(creatorCtx, "c1", newSession("s1", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
 		require.NoError(t, err)
-		attached, releaseAttached, err := manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), view2.Identity("me"), view2.Identity("bob"))
+		attached, releaseAttached, err := manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
 		require.NoError(t, err)
 
 		first, last := releaseCreator, releaseAttached
@@ -337,7 +337,7 @@ func TestNewResponderContextReleasedWhenCtxDone(t *testing.T) {
 	manager, sf := newResponderManager()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	_, _, err := manager.NewResponderContext(ctx, "c1", newSession("s1", "bob", "pkid-bob"), view2.Identity("me"), view2.Identity("bob"))
+	_, _, err := manager.NewResponderContext(ctx, "c1", newSession("s1", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
 	require.NoError(t, err)
 	cancel()
 	require.Eventually(t, func() bool {
@@ -353,12 +353,12 @@ func TestNewResponderContextReleaseAfterDelete(t *testing.T) {
 	t.Parallel()
 	manager, sf := newResponderManager()
 
-	_, release, err := manager.NewResponderContext(t.Context(), "c1", newSession("s1", "bob", "pkid-bob"), view2.Identity("me"), view2.Identity("bob"))
+	_, release, err := manager.NewResponderContext(t.Context(), "c1", newSession("s1", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
 	require.NoError(t, err)
 	manager.DeleteContext("c1")
 	deletes := sf.DeleteSessionCallCount()
 
-	_, _, err = manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), view2.Identity("me"), view2.Identity("bob"))
+	_, _, err = manager.NewResponderContext(t.Context(), "c1", newSession("s2", "bob", "pkid-bob"), viewapi.Identity("me"), viewapi.Identity("bob"))
 	require.NoError(t, err)
 	release()
 	c, err := manager.Context("c1")

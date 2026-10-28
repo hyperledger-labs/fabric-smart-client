@@ -10,10 +10,10 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
-	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	viewmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -31,7 +31,7 @@ type hostGeneratorProvider struct {
 	endpointService endpointService
 }
 
-func NewHostGeneratorProvider(config libp2pConfig, provider metrics2.Provider, endpointService endpointService) *hostGeneratorProvider {
+func NewHostGeneratorProvider(config libp2pConfig, provider viewmetrics.Provider, endpointService endpointService) *hostGeneratorProvider {
 	return &hostGeneratorProvider{
 		metrics:         newMetrics(provider),
 		config:          config,
@@ -39,7 +39,7 @@ func NewHostGeneratorProvider(config libp2pConfig, provider metrics2.Provider, e
 	}
 }
 
-func (p *hostGeneratorProvider) GetNewHost() (host2.P2PHost, error) {
+func (p *hostGeneratorProvider) GetNewHost() (commhost.P2PHost, error) {
 	logger.Debugf("libp2p: Generating new host, privateKeyPath [%s], bootstrap [%v]...", p.config.PrivateKeyPath(), p.config.Bootstrap())
 	k, err := newCryptoPrivKeyFromMSP(p.config.PrivateKeyPath())
 	if err != nil {
@@ -66,7 +66,7 @@ func (p *hostGeneratorProvider) GetNewHost() (host2.P2PHost, error) {
 	return host, nil
 }
 
-func (p *hostGeneratorProvider) getPeerAddress(address host2.PeerIPAddress) (host2.PeerIPAddress, error) {
+func (p *hostGeneratorProvider) getPeerAddress(address commhost.PeerIPAddress) (commhost.PeerIPAddress, error) {
 	logger.Debugf("libp2p: Resolving bootstrap node address [%s]...", address)
 	bootstrapNodeID, err := p.endpointService.GetIdentity(address, nil)
 	if err != nil {

@@ -16,11 +16,11 @@ import (
 	"slices"
 	"sync"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 type clientStreamProvider interface {
-	NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error)
+	NewClientStream(info commhost.StreamInfo, ctx context.Context, src commhost.PeerID, config *tls.Config) (commhost.P2PStream, error)
 	io.Closer
 }
 
@@ -29,7 +29,7 @@ type client struct {
 	// nil when TLS is disabled. Every stream gets a clone extended with the extra CAs.
 	tlsConfig      *tls.Config
 	caPoolProvider ExtraCAPoolProvider
-	nodeID         host2.PeerID
+	nodeID         commhost.PeerID
 	streamProvider clientStreamProvider
 
 	// mu guards the cached trust pool. OpenStream runs for every stream, including streams
@@ -40,7 +40,7 @@ type client struct {
 	rootCAs  *x509.CertPool
 }
 
-func (c *client) OpenStream(info host2.StreamInfo, ctx context.Context) (host2.P2PStream, error) {
+func (c *client) OpenStream(info commhost.StreamInfo, ctx context.Context) (commhost.P2PStream, error) {
 	tlsConfig := c.tlsConfig
 	if tlsConfig != nil {
 		tlsConfig = tlsConfig.Clone()

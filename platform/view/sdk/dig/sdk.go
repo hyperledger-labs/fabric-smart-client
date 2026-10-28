@@ -13,10 +13,10 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig/support/endpoint"
+	digendpoint "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig/support/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
-	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
@@ -35,8 +35,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
-	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -48,19 +48,19 @@ import (
 var logger = logging.MustGetLogger()
 
 type SDK struct {
-	dig2.SDK
+	commondig.SDK
 }
 
-func NewSDKFromContainer(c dig2.Container, registry services.Registry) *SDK {
+func NewSDKFromContainer(c commondig.Container, registry services.Registry) *SDK {
 	configService := config.GetProvider(registry)
-	return NewSDKFrom(dig2.NewBaseSDK(c, configService), registry)
+	return NewSDKFrom(commondig.NewBaseSDK(c, configService), registry)
 }
 
 func NewSDK(registry services.Registry) *SDK {
 	return NewSDKFromContainer(NewContainer(), registry)
 }
 
-func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
+func NewSDKFrom(baseSDK commondig.SDK, registry services.Registry) *SDK {
 	sdk := &SDK{SDK: baseSDK}
 	err := errors.Join(
 		sdk.Container().Provide(func() services.Registry { return registry }),
@@ -71,7 +71,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 		sdk.Container().Provide(func() *config.Provider { return config.GetProvider(registry) }),
 		sdk.Container().Provide(
 			digutils.Identity[*config.Provider](),
-			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint2.ConfigService), new(dbdriver.Config), new(p2p.ConfigService)),
+			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(digendpoint.ConfigService), new(dbdriver.Config), new(p2p.ConfigService)),
 		),
 	)
 	if err != nil {
@@ -94,10 +94,10 @@ func (p *SDK) Install() error {
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 
 		// Storage service
-		p.Container().Provide(postgres2.NewDbProviderWithMetrics),
-		p.Container().Provide(postgres2.NewNamedDriver, dig.Group("db-drivers")),
-		p.Container().Provide(sqlite2.NewDbProvider),
-		p.Container().Provide(sqlite2.NewNamedDriver, dig.Group("db-drivers")),
+		p.Container().Provide(postgres.NewDbProviderWithMetrics),
+		p.Container().Provide(postgres.NewNamedDriver, dig.Group("db-drivers")),
+		p.Container().Provide(sqlite.NewDbProvider),
+		p.Container().Provide(sqlite.NewNamedDriver, dig.Group("db-drivers")),
 		p.Container().Provide(mem.NewNamedDriver, dig.Group("db-drivers")),
 		p.Container().Provide(newMultiplexedDriver),
 		p.Container().Provide(newKVS),
@@ -109,9 +109,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(
 			digutils.Identity[*endpoint.Service](),
-			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend), new(view.EndpointService), new(p2p.EndpointService)),
+			dig.As(new(comm.EndpointService), new(id.EndpointService), new(digendpoint.Backend), new(view.EndpointService), new(p2p.EndpointService)),
 		),
-		p.Container().Provide(endpoint2.NewResolversLoader),
+		p.Container().Provide(digendpoint.NewResolversLoader),
 
 		// Identity Service
 		p.Container().Provide(id.NewProvider),
@@ -119,7 +119,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
-			dig.As(new(endpoint2.IdentityService), new(viewgrpcserver.IdentityProvider), new(view.IdentityProvider), new(p2p.IdentityProvider)),
+			dig.As(new(digendpoint.IdentityService), new(viewgrpcserver.IdentityProvider), new(view.IdentityProvider), new(p2p.IdentityProvider)),
 		),
 
 		// View Manager
@@ -141,7 +141,7 @@ func (p *SDK) Install() error {
 			hostProvider host.GeneratorProvider,
 			endpointService *endpoint.Service,
 			configService driver.ConfigService,
-			metricsProvider metrics2.Provider,
+			metricsProvider metrics.Provider,
 		) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configService, metricsProvider)
 		}),
@@ -162,7 +162,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(operations.NewOperationSystem),
 		p.Container().Provide(newTracerProvider),
 		// Metrics
-		p.Container().Provide(func(o *operations.Options) metrics2.Provider {
+		p.Container().Provide(func(o *operations.Options) metrics.Provider {
 			return operations.NewMetricsProvider(o.Metrics)
 		}),
 		p.Container().Provide(viewgrpcserver.NewMetrics),
@@ -213,7 +213,7 @@ func (p *SDK) Install() error {
 	}
 
 	// Load endpoint service's resolvers
-	if err := p.Container().Invoke(func(resolverService *endpoint2.ResolversLoader) error { return resolverService.LoadResolvers() }); err != nil {
+	if err := p.Container().Invoke(func(resolverService *digendpoint.ResolversLoader) error { return resolverService.LoadResolvers() }); err != nil {
 		return err
 	}
 	return nil

@@ -25,7 +25,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	webclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/wsproto"
@@ -62,7 +62,7 @@ type HTTPClient struct {
 
 // NewHTTPClient returns an HTTPClient for the listener cc describes. It returns an error when
 // mutual TLS is required without a keypair, or when the TLS material does not load.
-func NewHTTPClient(cc *grpc2.ConnectionConfig) (*HTTPClient, error) {
+func NewHTTPClient(cc *commongrpc.ConnectionConfig) (*HTTPClient, error) {
 	opts := cc.TLS
 	if opts.RequireClientCert && (len(opts.Certificate) == 0 || len(opts.Key) == 0) {
 		return nil, errors.New("both Key and Certificate are required when using mutual TLS")
@@ -74,7 +74,7 @@ func NewHTTPClient(cc *grpc2.ConnectionConfig) (*HTTPClient, error) {
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed building client TLS")
 	}
-	timeout := cmp.Or(cc.ConnectionTimeout, grpc2.DefaultConnectionTimeout)
+	timeout := cmp.Or(cc.ConnectionTimeout, commongrpc.DefaultConnectionTimeout)
 	c := &HTTPClient{
 		Client: &http.Client{Transport: otelhttp.NewTransport(&http.Transport{
 			TLSClientConfig: tlsConfig,
@@ -95,7 +95,7 @@ func NewHTTPClient(cc *grpc2.ConnectionConfig) (*HTTPClient, error) {
 	return c, nil
 }
 
-func newHTTPTransport(cc *grpc2.ConnectionConfig) (*httpTransport, error) {
+func newHTTPTransport(cc *commongrpc.ConnectionConfig) (*httpTransport, error) {
 	// The same client rules as the gRPC transport, so both present the same certificate.
 	c, err := NewHTTPClient(cc)
 	if err != nil {

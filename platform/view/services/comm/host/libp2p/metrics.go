@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package libp2p
 
-import metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+import viewmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 
 const (
 	//nolint:revive // var-naming: renaming this exported const is an API break; see follow-up
@@ -16,12 +16,12 @@ const (
 )
 
 var (
-	bytesSent = metrics2.CounterOpts{
+	bytesSent = viewmetrics.CounterOpts{
 		Name:       "bytes_sent",
 		Help:       "The amount of data sent.",
 		LabelNames: []string{PeerId, ProtocolId},
 	}
-	bytesReceived = metrics2.CounterOpts{
+	bytesReceived = viewmetrics.CounterOpts{
 		Name:       "bytes_received",
 		Help:       "The amount of data received.",
 		LabelNames: []string{PeerId, ProtocolId},
@@ -29,11 +29,11 @@ var (
 )
 
 type metrics struct {
-	BytesSent     metrics2.Counter
-	BytesReceived metrics2.Counter
+	BytesSent     viewmetrics.Counter
+	BytesReceived viewmetrics.Counter
 }
 
-func newMetrics(p metrics2.Provider) *metrics {
+func newMetrics(p viewmetrics.Provider) *metrics {
 	return &metrics{
 		BytesSent:     p.NewCounter(bytesSent),
 		BytesReceived: p.NewCounter(bytesReceived),

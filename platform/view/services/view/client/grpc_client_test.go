@@ -32,19 +32,19 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestConfigJSON(t *testing.T) {
 	t.Parallel()
 	cfg := Config{
 		ID: "test-id",
-		ConnectionConfig: &grpc2.ConnectionConfig{
+		ConnectionConfig: &commongrpc.ConnectionConfig{
 			Address: "localhost:1234",
 		},
 	}
@@ -73,7 +73,7 @@ func TestNewClient(t *testing.T) {
 	t.Parallel()
 	tp := noop.NewTracerProvider()
 	cfg := &Config{
-		ConnectionConfig: &grpc2.ConnectionConfig{
+		ConnectionConfig: &commongrpc.ConnectionConfig{
 			Address: "localhost:1234",
 		},
 	}
@@ -766,20 +766,20 @@ func (f *fakeServiceProvider) GetService(v any) (any, error) {
 
 type fakeFactory struct{}
 
-func (*fakeFactory) NewView(_ []byte) (view2.View, error) {
+func (*fakeFactory) NewView(_ []byte) (viewapi.View, error) {
 	return &fakeView{}, nil
 }
 
 type fakeView struct{}
 
-func (*fakeView) Call(_ view2.Context) (any, error) {
+func (*fakeView) Call(_ viewapi.Context) (any, error) {
 	return nil, nil
 }
 
 type fakeIdentityProvider struct{}
 
-func (*fakeIdentityProvider) Identity(_ string) view2.Identity { return nil }
-func (*fakeIdentityProvider) DefaultIdentity() view2.Identity  { return nil }
+func (*fakeIdentityProvider) Identity(_ string) viewapi.Identity { return nil }
+func (*fakeIdentityProvider) DefaultIdentity() viewapi.Identity  { return nil }
 
 type fakeGauge struct{}
 
@@ -792,14 +792,14 @@ type fakeContextFactory struct {
 	ctx view.ParentContext
 }
 
-func (f *fakeContextFactory) NewForInitiator(_ context.Context, _ string, _ view2.Identity, _ view2.View) (view.ParentContext, error) {
+func (f *fakeContextFactory) NewForInitiator(_ context.Context, _ string, _ viewapi.Identity, _ viewapi.View) (view.ParentContext, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 	return f.ctx, nil
 }
 
-func (*fakeContextFactory) NewForResponder(_ context.Context, _ string, _ view2.Identity, _ view2.Session, _ view2.Identity) (view.ParentContext, error) {
+func (*fakeContextFactory) NewForResponder(_ context.Context, _ string, _ viewapi.Identity, _ viewapi.Session, _ viewapi.Identity) (view.ParentContext, error) {
 	return nil, nil
 }
 
@@ -812,28 +812,28 @@ func (*fakeParentContext) StartSpanFrom(c context.Context, _ string, _ ...trace.
 	return c, trace.SpanFromContext(c)
 }
 func (*fakeParentContext) GetService(_ any) (any, error) { return nil, nil }
-func (*fakeParentContext) RunView(_ view2.View, _ ...view2.RunViewOption) (any, error) {
+func (*fakeParentContext) RunView(_ viewapi.View, _ ...viewapi.RunViewOption) (any, error) {
 	return nil, nil
 }
-func (*fakeParentContext) Me() view2.Identity         { return nil }
-func (*fakeParentContext) IsMe(_ view2.Identity) bool { return false }
-func (*fakeParentContext) Initiator() view2.View      { return nil }
-func (*fakeParentContext) GetSession(_ view2.View, _ view2.Identity, _ ...view2.View) (view2.Session, error) {
+func (*fakeParentContext) Me() viewapi.Identity         { return nil }
+func (*fakeParentContext) IsMe(_ viewapi.Identity) bool { return false }
+func (*fakeParentContext) Initiator() viewapi.View      { return nil }
+func (*fakeParentContext) GetSession(_ viewapi.View, _ viewapi.Identity, _ ...viewapi.View) (viewapi.Session, error) {
 	return nil, nil
 }
 
-func (*fakeParentContext) GetSessionByID(_ string, _ view2.Identity) (view2.Session, error) {
+func (*fakeParentContext) GetSessionByID(_ string, _ viewapi.Identity) (viewapi.Session, error) {
 	return nil, nil
 }
-func (*fakeParentContext) Session() view2.Session   { return nil }
+func (*fakeParentContext) Session() viewapi.Session { return nil }
 func (*fakeParentContext) Context() context.Context { return context.Background() }
 func (*fakeParentContext) OnError(_ func())         {}
 func (*fakeParentContext) Dispose()                 {}
-func (*fakeParentContext) PutSessionByID(_ string, _ view2.Identity, _ view2.Session) error {
+func (*fakeParentContext) PutSessionByID(_ string, _ viewapi.Identity, _ viewapi.Session) error {
 	return nil
 }
 func (*fakeParentContext) Cleanup() {}
-func (*fakeParentContext) PutSession(_ view2.View, _ view2.Identity, _ view2.Session) error {
+func (*fakeParentContext) PutSession(_ viewapi.View, _ viewapi.Identity, _ viewapi.Session) error {
 	return nil
 }
 
@@ -842,6 +842,6 @@ type fakeRunner struct {
 	err error
 }
 
-func (f *fakeRunner) RunView(_ view2.Context, _ view2.View) (any, error) {
+func (f *fakeRunner) RunView(_ viewapi.Context, _ viewapi.View) (any, error) {
 	return f.res, f.err
 }

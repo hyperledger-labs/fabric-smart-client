@@ -12,7 +12,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	io2 "io"
+	stdio "io"
 	"sync"
 	"testing"
 	"time"
@@ -176,5 +176,5 @@ func TestStreamAccessorsAndReadAfterClose(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, "lo", string(buf[:n]))
 
 	_, err = stream.Read(buf)
-	require.True(t, errors.Is(err, io2.EOF) || errors.Is(err, context.Canceled), "got %v", err)
+	require.True(t, errors.Is(err, stdio.EOF) || errors.Is(err, context.Canceled), "got %v", err)
 }

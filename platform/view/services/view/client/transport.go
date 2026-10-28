@@ -11,7 +11,7 @@ import (
 	"io"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
@@ -39,7 +39,7 @@ const (
 // grpcTransport opens one gRPC connection per command.
 type grpcTransport struct {
 	address string
-	client  *grpc2.Client
+	client  *grpc.Client
 }
 
 func (t *grpcTransport) Open() (protos.ViewServiceClient, io.Closer, error) {

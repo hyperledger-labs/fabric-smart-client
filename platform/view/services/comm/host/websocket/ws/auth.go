@@ -17,14 +17,14 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 // expectedPeerIDFromRequest extracts the PeerID from the verified TLS certificate in the request.
 // This is used as the cryptographic source of truth for identity binding.
 // It relies on the fact that the underlying transport (mTLS) has already
 // verified that the client possesses the private key corresponding to this public key.
-func expectedPeerIDFromRequest(request *http.Request) (host2.PeerID, error) {
+func expectedPeerIDFromRequest(request *http.Request) (host.PeerID, error) {
 	if request == nil {
 		return "", errors.New("missing TLS connection state")
 	}
@@ -41,7 +41,7 @@ func expectedPeerIDFromRequest(request *http.Request) (host2.PeerID, error) {
 // callback on purpose: the multiplexed provider reuses a cached connection for later streams
 // without a new handshake, so a handshake-time check alone would not cover them. The binding
 // holds only together with the cache key, which includes the verified peer ID.
-func verifyServerPeerID(conn *websocket.Conn, expected host2.PeerID) error {
+func verifyServerPeerID(conn *websocket.Conn, expected host.PeerID) error {
 	tlsConn, ok := conn.NetConn().(*tls.Conn)
 	if !ok {
 		return errors.New("missing TLS connection state")
@@ -57,7 +57,7 @@ func verifyServerPeerID(conn *websocket.Conn, expected host2.PeerID) error {
 	return nil
 }
 
-func peerIDFromConnectionState(cs *tls.ConnectionState) (host2.PeerID, error) {
+func peerIDFromConnectionState(cs *tls.ConnectionState) (host.PeerID, error) {
 	if cs == nil {
 		return "", errors.New("missing TLS connection state")
 	}
@@ -67,7 +67,7 @@ func peerIDFromConnectionState(cs *tls.ConnectionState) (host2.PeerID, error) {
 	return peerIDFromCertificate(cs.PeerCertificates[0])
 }
 
-func peerIDFromCertificate(cert *x509.Certificate) (host2.PeerID, error) {
+func peerIDFromCertificate(cert *x509.Certificate) (host.PeerID, error) {
 	if cert == nil {
 		return "", errors.New("nil certificate")
 	}

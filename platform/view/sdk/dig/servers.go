@@ -20,7 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
@@ -123,7 +123,7 @@ func listenAddress(configProvider driver.ConfigService, prefix string) (string, 
 }
 
 // resolveWebTLS resolves fsc.web.tls, inheriting per field from fsc.tls.
-func resolveWebTLS(configProvider driver.ConfigService) (grpc2.SecureOptions, error) {
+func resolveWebTLS(configProvider driver.ConfigService) (commongrpc.SecureOptions, error) {
 	return tlsconfig.ResolveServer(configProvider, "fsc.tls", "fsc.web.tls")
 }
 
@@ -229,20 +229,20 @@ func NewOperationsServer(configProvider driver.ConfigService, webServer WebServe
 
 // resolveOperationsTLS returns fsc.metrics.address and the resolved fsc.metrics.tls, or an
 // empty address when the operations endpoints share the fsc.web listener.
-func resolveOperationsTLS(configProvider driver.ConfigService) (string, grpc2.SecureOptions, error) {
+func resolveOperationsTLS(configProvider driver.ConfigService) (string, commongrpc.SecureOptions, error) {
 	addr := configProvider.GetString("fsc.metrics.address")
 	if addr == "" {
 		if _, ok := configProvider.RawSubtree("fsc.metrics.tls"); ok {
-			return "", grpc2.SecureOptions{}, errors.New(
+			return "", commongrpc.SecureOptions{}, errors.New(
 				"fsc.metrics.tls has no effect without fsc.metrics.address: the operations " +
 					"endpoints share the fsc.web listener and its TLS. Set fsc.metrics.address " +
 					"to give them a listener of their own, or remove fsc.metrics.tls")
 		}
-		return "", grpc2.SecureOptions{}, nil
+		return "", commongrpc.SecureOptions{}, nil
 	}
 	tlsOpts, err := tlsconfig.ResolveServer(configProvider, "fsc.tls", "fsc.metrics.tls")
 	if err != nil {
-		return "", grpc2.SecureOptions{}, errors.WithMessage(err, "failed resolving fsc.metrics.tls")
+		return "", commongrpc.SecureOptions{}, errors.WithMessage(err, "failed resolving fsc.metrics.tls")
 	}
 	return addr, tlsOpts, nil
 }
@@ -353,7 +353,7 @@ func NewGRPCServer(configProvider driver.ConfigService) (GRPCServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := grpc2.NewGRPCServer(listenAddr, serverConfig)
+	s, err := commongrpc.NewGRPCServer(listenAddr, serverConfig)
 	if err != nil {
 		return nil, err // an untyped nil, not a nil *grpc.GRPCServer in the interface
 	}
@@ -363,12 +363,12 @@ func NewGRPCServer(configProvider driver.ConfigService) (GRPCServer, error) {
 // NewServerConfig returns the gRPC server configuration read from fsc.grpc, with TLS
 // resolved and every configured certificate loaded and validated. It returns an error
 // rather than a partially configured server when fsc.grpc.tls does not resolve.
-func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, error) {
+func NewServerConfig(configProvider driver.ConfigService) (commongrpc.ServerConfig, error) {
 	secOpts, err := tlsconfig.ResolveServer(configProvider, "fsc.tls", "fsc.grpc.tls")
 	if err != nil {
-		return grpc2.ServerConfig{}, errors.WithMessage(err, "failed resolving fsc.grpc.tls")
+		return commongrpc.ServerConfig{}, errors.WithMessage(err, "failed resolving fsc.grpc.tls")
 	}
-	serverConfig := grpc2.ServerConfig{
+	serverConfig := commongrpc.ServerConfig{
 		ConnectionTimeout: configProvider.GetDuration("fsc.grpc.connectionTimeout"),
 		MaxRecvMsgSize:    configProvider.GetInt("fsc.grpc.maxRecvMsgSize"),
 		MaxSendMsgSize:    configProvider.GetInt("fsc.grpc.maxSendMsgSize"),
@@ -384,7 +384,7 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 		ServerStatsHandler: otelgrpc.NewServerHandler(),
 	}
 	if configProvider.IsSet(KeepAliveConfigKey) {
-		keepAliveConfig := &grpc2.ServerKeepAliveConfig{}
+		keepAliveConfig := &commongrpc.ServerKeepAliveConfig{}
 		if err := configProvider.UnmarshalKey(KeepAliveConfigKey, keepAliveConfig); err != nil {
 			return serverConfig, errors.Wrap(err, "error unmarshalling keep alive config")
 		}

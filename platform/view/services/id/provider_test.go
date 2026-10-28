@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	id2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/mock"
@@ -53,14 +53,14 @@ func TestLoad(t *testing.T) {
 	cp.TranslatePathReturnsOnCall(0, "./testdata/client/client.pem")
 	sigService := &mock.SigService{}
 
-	idProvider, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
+	idProvider, err := id.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
 	require.NoError(t, err, "failed loading identities")
 
-	raw, err := id2.LoadIdentity("./testdata/default/signcerts/default.pem")
+	raw, err := id.LoadIdentity("./testdata/default/signcerts/default.pem")
 	require.NoError(t, err)
 	require.Equal(t, raw, []byte(idProvider.DefaultIdentity()))
 
-	raw, err = id2.LoadIdentity("./testdata/client/client.pem")
+	raw, err = id.LoadIdentity("./testdata/client/client.pem")
 	require.NoError(t, err)
 	require.Len(t, idProvider.Clients(), 1)
 	require.Equal(t, raw, []byte(idProvider.Clients()[0]))
@@ -76,7 +76,7 @@ func TestLoadClientIdentitiesFailsOnBadCert(t *testing.T) {
 	cp.GetStringSliceReturns([]string{"./testdata/client/missing.pem"})
 	cp.TranslatePathReturns("./testdata/client/missing.pem")
 
-	_, err := id2.NewProvider(cp, &mock.SigService{}, nil, &kms.KMS{Driver: &file.Driver{}})
+	_, err := id.NewProvider(cp, &mock.SigService{}, nil, &kms.KMS{Driver: &file.Driver{}})
 	require.ErrorContains(t, err, "missing.pem")
 	require.Equal(t, "fsc.view.remote.clients", cp.GetStringSliceArgsForCall(0))
 }
@@ -92,7 +92,7 @@ func TestNewProviderFailurePaths(t *testing.T) {
 		cp.GetStringSliceReturns([]string{})
 		sigService := &mock.SigService{}
 
-		_, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
+		_, err := id.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
 		require.ErrorContains(t, err, "failed loading identities")
 		require.ErrorContains(t, err, "failed loading default identity")
 	})
@@ -106,7 +106,7 @@ func TestNewProviderFailurePaths(t *testing.T) {
 		sigService := &mock.SigService{}
 		sigService.RegisterSignerReturns(errors.New("register-failed"))
 
-		_, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
+		_, err := id.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
 		require.ErrorContains(t, err, "failed loading identities")
 		require.ErrorContains(t, err, "failed registering default identity signer")
 	})
@@ -124,7 +124,7 @@ func TestProviderIdentity(t *testing.T) {
 		sigService := &mock.SigService{}
 		endpoint := &fakeEndpointService{identity: view.Identity([]byte("alice-id"))}
 
-		idProvider, err := id2.NewProvider(cp, sigService, endpoint, &kms.KMS{Driver: &file.Driver{}})
+		idProvider, err := id.NewProvider(cp, sigService, endpoint, &kms.KMS{Driver: &file.Driver{}})
 		require.NoError(t, err)
 
 		got := idProvider.Identity("alice")
@@ -141,7 +141,7 @@ func TestProviderIdentity(t *testing.T) {
 		sigService := &mock.SigService{}
 		endpoint := &fakeEndpointService{err: errors.New("lookup-failed")}
 
-		idProvider, err := id2.NewProvider(cp, sigService, endpoint, &kms.KMS{Driver: &file.Driver{}})
+		idProvider, err := id.NewProvider(cp, sigService, endpoint, &kms.KMS{Driver: &file.Driver{}})
 		require.NoError(t, err)
 
 		got := idProvider.Identity("bob")
@@ -155,15 +155,15 @@ func TestGetProvider(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
-		expected := &id2.Provider{}
-		got, err := id2.GetProvider(&fakeServiceProvider{service: expected})
+		expected := &id.Provider{}
+		got, err := id.GetProvider(&fakeServiceProvider{service: expected})
 		require.NoError(t, err)
 		require.Same(t, expected, got)
 	})
 
 	t.Run("provider error", func(t *testing.T) {
 		t.Parallel()
-		_, err := id2.GetProvider(&fakeServiceProvider{err: errors.New("service-missing")})
+		_, err := id.GetProvider(&fakeServiceProvider{err: errors.New("service-missing")})
 		require.ErrorContains(t, err, "service-missing")
 	})
 }

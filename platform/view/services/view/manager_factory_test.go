@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestManagerWithMockFactory(t *testing.T) {
@@ -49,8 +49,8 @@ func TestManagerWithMockFactory(t *testing.T) {
 	t.Run("NewSessionContextCallsFactory", func(t *testing.T) {
 		t.Parallel()
 		session := &mock.Session{}
-		session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("alice")})
-		party := view2.Identity("alice")
+		session.InfoReturns(viewapi.SessionInfo{ID: "s1", Caller: viewapi.Identity("alice")})
+		party := viewapi.Identity("alice")
 
 		parentCtx := &mock.ParentContext{}
 		parentCtx.ContextReturns(context.Background())

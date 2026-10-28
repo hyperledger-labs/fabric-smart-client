@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 type extraCAs [][]byte
@@ -178,7 +178,7 @@ func TestNewConfigParsesWebsocketOptions(t *testing.T) {
 	load := func(t *testing.T, body string) (*config, error) {
 		t.Helper()
 		dir, _, _ := writeNodeDir(t, body)
-		p, err := config2.NewProvider(dir)
+		p, err := viewconfig.NewProvider(dir)
 		require.NoError(t, err)
 		return NewConfig(p)
 	}

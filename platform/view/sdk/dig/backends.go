@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	viewgrpcserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
 )
 
 // BackendsGroup is the dig group the SDK collects Backends from.
@@ -73,9 +73,9 @@ func (*webBackend) Name() string { return "web" }
 
 func (b *webBackend) Mount(svc viewgrpcserver.Service) error {
 	b.server.RegisterHandler(protos.ProcessCommandHTTPPath,
-		otelhttp.NewHandler(web2.NewProcessCommandHandler(svc, b.maxRecv, b.timeout), "view-service-process-command"), false)
+		otelhttp.NewHandler(web.NewProcessCommandHandler(svc, b.maxRecv, b.timeout), "view-service-process-command"), false)
 	b.server.RegisterHandler(protos.StreamCommandHTTPPath,
-		otelhttp.NewHandler(web2.NewStreamCommandHandler(svc, b.maxRecv), "view-service-stream-command"), false)
+		otelhttp.NewHandler(web.NewStreamCommandHandler(svc, b.maxRecv), "view-service-stream-command"), false)
 	return nil
 }
 

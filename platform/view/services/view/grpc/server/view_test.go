@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // --- fakes ---
@@ -30,30 +30,30 @@ type fakeViewManager struct {
 	initiateContextCallCount int
 	deleteContextCallCount   int
 
-	newViewReturns         view2.View
+	newViewReturns         viewapi.View
 	newViewErr             error
 	initiateViewReturns    any
 	initiateViewErr        error
-	initiateContextReturns view2.Context
+	initiateContextReturns viewapi.Context
 	initiateContextErr     error
 
 	lastNewViewID string
 	lastNewViewIn []byte
 }
 
-func (f *fakeViewManager) NewView(id string, in []byte) (view2.View, error) {
+func (f *fakeViewManager) NewView(id string, in []byte) (viewapi.View, error) {
 	f.newViewCallCount++
 	f.lastNewViewID = id
 	f.lastNewViewIn = in
 	return f.newViewReturns, f.newViewErr
 }
 
-func (f *fakeViewManager) InitiateView(_ context.Context, _ view2.View) (any, error) {
+func (f *fakeViewManager) InitiateView(_ context.Context, _ viewapi.View) (any, error) {
 	f.initiateViewCallCount++
 	return f.initiateViewReturns, f.initiateViewErr
 }
 
-func (f *fakeViewManager) InitiateContext(_ context.Context, _ view2.View) (view2.Context, error) {
+func (f *fakeViewManager) InitiateContext(_ context.Context, _ viewapi.View) (viewapi.Context, error) {
 	f.initiateContextCallCount++
 	return f.initiateContextReturns, f.initiateContextErr
 }
@@ -71,7 +71,7 @@ type fakeContext struct {
 }
 
 func (f *fakeContext) ID() string { return f.id }
-func (f *fakeContext) RunView(view2.View, ...view2.RunViewOption) (any, error) {
+func (f *fakeContext) RunView(viewapi.View, ...viewapi.RunViewOption) (any, error) {
 	return f.runViewReturns, f.runViewErr
 }
 
@@ -88,26 +88,26 @@ func (*fakeContext) Context() context.Context { return context.Background() }
 func (*fakeContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return ctx, trace.SpanFromContext(ctx)
 }
-func (*fakeContext) Initiator() view2.View         { return nil }
-func (*fakeContext) Me() view2.Identity            { return nil }
-func (*fakeContext) IsMe(view2.Identity) bool      { return false }
-func (*fakeContext) Session() view2.Session        { return nil }
+func (*fakeContext) Initiator() viewapi.View       { return nil }
+func (*fakeContext) Me() viewapi.Identity          { return nil }
+func (*fakeContext) IsMe(viewapi.Identity) bool    { return false }
+func (*fakeContext) Session() viewapi.Session      { return nil }
 func (*fakeContext) GetService(_ any) (any, error) { return nil, nil }
-func (*fakeContext) GetSession(_ view2.View, _ view2.Identity, _ ...view2.View) (view2.Session, error) {
+func (*fakeContext) GetSession(_ viewapi.View, _ viewapi.Identity, _ ...viewapi.View) (viewapi.Session, error) {
 	return nil, nil
 }
 
-func (*fakeContext) GetSessionByID(_ string, _ view2.Identity) (view2.Session, error) {
+func (*fakeContext) GetSessionByID(_ string, _ viewapi.Identity) (viewapi.Session, error) {
 	return nil, nil
 }
 
-func (*fakeContext) StartSession(view2.View, view2.Identity) (view2.Session, error) {
+func (*fakeContext) StartSession(viewapi.View, viewapi.Identity) (viewapi.Session, error) {
 	return nil, nil
 }
 func (*fakeContext) OnError(func()) {}
 
-// fakeNonMutableContext implements view2.Context but deliberately not
-// view2.MutableContext, to exercise the mutable-context guard.
+// fakeNonMutableContext implements viewapi.Context but deliberately not
+// viewapi.MutableContext, to exercise the mutable-context guard.
 type fakeNonMutableContext struct {
 	// embedded under an alias so the promoted Context() method is not
 	// shadowed by a field named Context; only ID() is ever called.
@@ -115,9 +115,9 @@ type fakeNonMutableContext struct {
 	id string
 }
 
-// viewContext aliases view2.Context so the embedded field above is not named
+// viewContext aliases viewapi.Context so the embedded field above is not named
 // Context, which would shadow the interface's own Context() method.
-type viewContext interface{ view2.Context }
+type viewContext interface{ viewapi.Context }
 
 func (f *fakeNonMutableContext) ID() string { return f.id }
 
@@ -544,9 +544,9 @@ type deadlineViewManager struct {
 	err error
 }
 
-func (*deadlineViewManager) NewView(string, []byte) (view2.View, error) { return nil, nil }
+func (*deadlineViewManager) NewView(string, []byte) (viewapi.View, error) { return nil, nil }
 
-func (m *deadlineViewManager) InitiateView(ctx context.Context, _ view2.View) (any, error) {
+func (m *deadlineViewManager) InitiateView(ctx context.Context, _ viewapi.View) (any, error) {
 	<-ctx.Done()
 	if m.err != nil {
 		return nil, m.err
@@ -554,7 +554,7 @@ func (m *deadlineViewManager) InitiateView(ctx context.Context, _ view2.View) (a
 	return nil, ctx.Err()
 }
 
-func (*deadlineViewManager) InitiateContext(ctx context.Context, _ view2.View) (view2.Context, error) {
+func (*deadlineViewManager) InitiateContext(ctx context.Context, _ viewapi.View) (viewapi.Context, error) {
 	return &deadlineContext{id: "ctx", ctx: ctx}, nil
 }
 
@@ -564,7 +564,7 @@ type deadlineContext struct {
 	ctx context.Context
 }
 
-func (c *deadlineContext) RunView(view2.View, ...view2.RunViewOption) (any, error) {
+func (c *deadlineContext) RunView(viewapi.View, ...viewapi.RunViewOption) (any, error) {
 	<-c.ctx.Done()
 	return nil, c.ctx.Err()
 }

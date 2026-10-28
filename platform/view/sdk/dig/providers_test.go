@@ -20,7 +20,7 @@ import (
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
-	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 func newMuxDriver(p vdriver.ConfigService, drivers ...dbdriver.NamedDriver) multiplexed.Driver {
@@ -83,7 +83,7 @@ func TestNewMultiplexedDriver(t *testing.T) {
 	t.Parallel()
 
 	p := providerFrom(t, "")
-	namedDriver := mem.NewNamedDriver(sqlite2.NewDbProvider())
+	namedDriver := mem.NewNamedDriver(sqlite.NewDbProvider())
 	d := newMuxDriver(p, namedDriver)
 	assert.NotNil(t, d)
 }
@@ -99,7 +99,7 @@ fsc:
     cache:
       size: 100
 `)
-		namedDriver := mem.NewNamedDriver(sqlite2.NewDbProvider())
+		namedDriver := mem.NewNamedDriver(sqlite.NewDbProvider())
 		muxDriver := newMuxDriver(p, namedDriver)
 
 		kvsInst, err := newKVS(p, muxDriver)
@@ -115,7 +115,7 @@ fsc:
     cache:
       size: -5
 `)
-		namedDriver := mem.NewNamedDriver(sqlite2.NewDbProvider())
+		namedDriver := mem.NewNamedDriver(sqlite.NewDbProvider())
 		muxDriver := newMuxDriver(p, namedDriver)
 
 		_, err := newKVS(p, muxDriver)

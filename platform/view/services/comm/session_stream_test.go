@@ -15,7 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
@@ -38,8 +38,8 @@ func (s *killableStream) Read([]byte) (int, error) {
 
 func (s *killableStream) kill() { s.killOnce.Do(func() { close(s.dead) }) }
 
-func (*killableStream) RemotePeerID() host2.PeerID             { return "peer1" }
-func (*killableStream) RemotePeerAddress() host2.PeerIPAddress { return "addr" }
+func (*killableStream) RemotePeerID() host.PeerID             { return "peer1" }
+func (*killableStream) RemotePeerAddress() host.PeerIPAddress { return "addr" }
 
 // attachStream opens a stream handler on p and leases it to session, as a send or an
 // incoming message does.

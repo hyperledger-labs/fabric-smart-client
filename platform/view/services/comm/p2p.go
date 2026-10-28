@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -46,10 +46,10 @@ type messageWithStream struct {
 }
 
 type P2PNode struct {
-	host                       host2.P2PHost
+	host                       host.P2PHost
 	incomingMessages           chan *messageWithStream
 	streamsMutex               sync.RWMutex
-	streams                    map[host2.StreamHash][]*streamHandler
+	streams                    map[host.StreamHash][]*streamHandler
 	dispatchMutex              sync.Mutex
 	sessionsMutex              sync.Mutex
 	sessions                   map[string]*NetworkStreamSession
@@ -69,7 +69,7 @@ type P2PNode struct {
 	sharedStreams bool
 }
 
-func NewNode(ctx context.Context, h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
+func NewNode(ctx context.Context, h host.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
 	return NewNodeWithConfig(ctx, h, metricsProvider, &config{
 		incomingMessagesBufferSize: DefaultIncomingMessagesBufferSize,
 		streamReaderBufferSize:     DefaultStreamReaderBufferSize,
@@ -78,12 +78,12 @@ func NewNode(ctx context.Context, h host2.P2PHost, metricsProvider metrics.Provi
 	})
 }
 
-func NewNodeWithConfig(ctx context.Context, h host2.P2PHost, metricsProvider metrics.Provider, cfg *config) (*P2PNode, error) {
+func NewNodeWithConfig(ctx context.Context, h host.P2PHost, metricsProvider metrics.Provider, cfg *config) (*P2PNode, error) {
 	nodeCtx, cancel := context.WithCancel(ctx)
 	p := &P2PNode{
 		host:                       h,
 		incomingMessages:           make(chan *messageWithStream, cfg.incomingMessagesBufferSize),
-		streams:                    make(map[host2.StreamHash][]*streamHandler),
+		streams:                    make(map[host.StreamHash][]*streamHandler),
 		sessions:                   make(map[string]*NetworkStreamSession),
 		isStopping:                 false,
 		ctx:                        nodeCtx,
@@ -95,7 +95,7 @@ func NewNodeWithConfig(ctx context.Context, h host2.P2PHost, metricsProvider met
 		maxRecvMsgSize:             cfg.maxRecvMsgSize,
 		maxSendMsgSize:             cfg.maxSendMsgSize,
 	}
-	if sh, ok := h.(host2.SharedStreamsHost); ok {
+	if sh, ok := h.(host.SharedStreamsHost); ok {
 		p.sharedStreams = sh.SharedStreams()
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
@@ -267,7 +267,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 // sendTo sends the passed messaged to the p2p peer with the passed ID.
 // If no address is specified, then p2p will use one of the IP addresses associated to the peer in its peer store.
 // If an address is specified, then the peer store will be updated with the passed address.
-func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
+func (p *P2PNode) sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
 	logger.Debugf("send to [%s:%s:%s]", info.SessionID, info.RemotePeerID, info.RemotePeerAddress)
 	streamHash := p.host.StreamHash(info)
 	logger.Debugf("for stream hash [%s]: [%s]", info.SessionID, streamHash)
@@ -304,15 +304,15 @@ func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.M
 	return nil
 }
 
-func (p *P2PNode) handleOutgoingStream(stream host2.P2PStream) *streamHandler {
+func (p *P2PNode) handleOutgoingStream(stream host.P2PStream) *streamHandler {
 	return p.handleStream(stream)
 }
 
-func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
+func (p *P2PNode) handleIncomingStream(stream host.P2PStream) {
 	p.handleStream(stream)
 }
 
-func (p *P2PNode) handleStream(stream host2.P2PStream) *streamHandler {
+func (p *P2PNode) handleStream(stream host.P2PStream) *streamHandler {
 	sh := &streamHandler{
 		stream: stream,
 		reader: io.NewVarintProtoReader(stream, p.streamReaderBufferSize, p.maxRecvMsgSize),
@@ -345,7 +345,7 @@ func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 
 type streamHandler struct {
 	lock   sync.Mutex
-	stream host2.P2PStream
+	stream host.P2PStream
 	reader io.ProtoReaderCloser
 	writer io.ProtoWriterCloser
 	node   *P2PNode

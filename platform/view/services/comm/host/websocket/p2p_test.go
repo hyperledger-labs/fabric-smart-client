@@ -27,7 +27,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
@@ -132,8 +132,8 @@ func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
 	)
 	require.NoError(t, err)
 	bootstrap, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
-		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
-		otherID:     []host2.PeerIPAddress{otherAddress},
+		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
+		otherID:     []host.PeerIPAddress{otherAddress},
 	}, bootstrapConfig).GetNewHost()
 	bootstrapNode, err := comm.NewNode(t.Context(), bootstrap, &disabled.Provider{})
 	require.NoError(t, err)
@@ -149,8 +149,8 @@ func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
 	)
 	require.NoError(t, err)
 	other, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
-		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
-		otherID:     []host2.PeerIPAddress{otherAddress},
+		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
+		otherID:     []host.PeerIPAddress{otherAddress},
 	}, otherConfig).GetNewHost()
 	otherNode, err := comm.NewNode(t.Context(), other, &disabled.Provider{})
 	require.NoError(t, err)
@@ -245,9 +245,9 @@ func setupThreeNodes(t *testing.T) (bootstrap, node1, node2 *comm.HostNode) {
 	)
 	require.NoError(t, err)
 	bootstrapHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
-		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
-		node1ID:     []host2.PeerIPAddress{node1Address},
-		node2ID:     []host2.PeerIPAddress{node2Address},
+		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
+		node1ID:     []host.PeerIPAddress{node1Address},
+		node2ID:     []host.PeerIPAddress{node2Address},
 	}, bootstrapConfig).GetNewHost()
 	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
 	require.NoError(t, err)
@@ -263,9 +263,9 @@ func setupThreeNodes(t *testing.T) (bootstrap, node1, node2 *comm.HostNode) {
 	)
 	require.NoError(t, err)
 	node1Host, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
-		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
-		node1ID:     []host2.PeerIPAddress{node1Address},
-		node2ID:     []host2.PeerIPAddress{node2Address},
+		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
+		node1ID:     []host.PeerIPAddress{node1Address},
+		node2ID:     []host.PeerIPAddress{node2Address},
 	}, node1Config).GetNewHost()
 	node1Node, err := comm.NewNode(t.Context(), node1Host, &disabled.Provider{})
 	require.NoError(t, err)
@@ -281,9 +281,9 @@ func setupThreeNodes(t *testing.T) (bootstrap, node1, node2 *comm.HostNode) {
 	)
 	require.NoError(t, err)
 	node2Host, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
-		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
-		node1ID:     []host2.PeerIPAddress{node1Address},
-		node2ID:     []host2.PeerIPAddress{node2Address},
+		bootstrapID: []host.PeerIPAddress{bootstrapAddress},
+		node1ID:     []host.PeerIPAddress{node1Address},
+		node2ID:     []host.PeerIPAddress{node2Address},
 	}, node2Config).GetNewHost()
 	node2Node, err := comm.NewNode(t.Context(), node2Host, &disabled.Provider{})
 	require.NoError(t, err)
@@ -452,8 +452,8 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	)
 	require.NoError(t, err)
 	charlieHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
-		charlieID:  []host2.PeerIPAddress{charlieAddresses[0]},
-		bobNode.ID: []host2.PeerIPAddress{bobNode.Address},
+		charlieID:  []host.PeerIPAddress{charlieAddresses[0]},
+		bobNode.ID: []host.PeerIPAddress{bobNode.Address},
 	}, charlieConfig).GetNewHost()
 
 	charlieP2PNode, err := comm.NewNode(t.Context(), charlieHost, &disabled.Provider{})
@@ -548,8 +548,8 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 	aliceID := mustPeerIDFromCert(t, alice.cert)
 	bobID := mustPeerIDFromCert(t, bob.cert)
 	routes := &routing.StaticIDRouter{
-		aliceID: []host2.PeerIPAddress{aliceAddr},
-		bobID:   []host2.PeerIPAddress{bobAddr},
+		aliceID: []host.PeerIPAddress{aliceAddr},
+		bobID:   []host.PeerIPAddress{bobAddr},
 	}
 	aliceConfig, err := websocket.NewConfigFromProperties(aliceAddr, alice.key, alice.cert, []string{caCert}, []string{caCert}, true, 100, nil)
 	require.NoError(t, err)
@@ -579,8 +579,8 @@ func (*staticRoutHostProvider) ExtraCAs() [][]byte {
 	return nil
 }
 
-func (p *staticRoutHostProvider) GetNewHost() (host2.P2PHost, error) {
+func (p *staticRoutHostProvider) GetNewHost() (host.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(p.config.ListenAddress())
-	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
+	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host.PeerIPAddress]())
 	return websocket.NewHost(nodeID, discovery, ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0), p.config, p)
 }
