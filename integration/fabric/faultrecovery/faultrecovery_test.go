@@ -39,9 +39,6 @@ const (
 	// postgresOutage labels the long Postgres outage specs, which run in a target of
 	// their own.
 	postgresOutage = "postgres-outage"
-
-	// finalityWait is how long IsFinal on bob waits in the postgres-outage Describe.
-	finalityWait = 15 * time.Second
 )
 
 var (
@@ -190,9 +187,11 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		// A one-second commit retry budget, so a Postgres outage of a few seconds
 		// already outlasts it.
 		fabricfaultrecovery.SetCommitRetries(ii, "bob", 1, time.Second)
-		// IsFinal on bob gives up on a tx that is not final after finalityWait, so a spec
-		// sees the error for a tx that is never ordered without waiting the 300 s default.
-		fabricfaultrecovery.SetFinalityWaitTimeout(ii, "bob", finalityWait)
+		// IsFinal on bob gives up on a tx that is not final after 15 s instead of the 300 s
+		// default, so a spec sees the error for a tx that is never ordered. It also bounds
+		// bob's responder, which then stops waiting for a tx delayed by an outage before
+		// the tx commits; no spec here asserts on the responder.
+		fabricfaultrecovery.SetFinalityWaitTimeout(ii, "bob", 15*time.Second)
 		return ii, nil
 	})
 	faultrecovery.ShareNetwork(s)

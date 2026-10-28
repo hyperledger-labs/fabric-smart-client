@@ -245,10 +245,10 @@ node configuration alone. After a spec fails, the network is rebuilt before the 
 A spec that changes the network for good may share it only as the last spec of an
 `Ordered` container, which runs its specs in declaration order. Specs that change the
 configuration before the network starts (such as `SetCommitRetries` or
-`SetFinalityWaitTimeout`) go in a `Describe`
-of their own with its own generator, which can again use `ShareNetwork`. To run that
-`Describe` as a parallel CI job, label it, give the label its own target in the
-`Makefile`, and exclude the label in the default target's negative filter. The Fabric
+`SetFinalityWaitTimeout`) go in a `Describe` of their own with its own generator, which
+can again use `ShareNetwork`. To run that `Describe` as a parallel CI job, label it, give
+the label its own target in the `Makefile`, and exclude the label in the default target's
+negative filter. The Fabric
 suite's `postgres-outage` `Describe` and the `fabric-faultrecovery-postgres-outage`
 target are the example; its failover spec is last because it points bob at another
 database.
