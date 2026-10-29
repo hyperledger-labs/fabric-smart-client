@@ -43,7 +43,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
 	testDir := t.TempDir()
 	badPEMFile := filepath.Join(testDir, "badpem_sk")
 
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err, "Failed to generate RSA key")
 
 	pkcs8Encoded, err := x509.MarshalPKCS8PrivateKey(rsaKey)
