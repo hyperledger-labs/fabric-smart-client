@@ -9,84 +9,61 @@ package middleware_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 )
 
-var _ = Describe("Chain", func() {
-	var (
-		one, two, three middleware.Middleware
-		chain           middleware.Chain
+func TestChain(t *testing.T) {
+	t.Parallel()
 
-		hello http.Handler
-
-		req  *http.Request
-		resp *httptest.ResponseRecorder
-	)
-
-	BeforeEach(func() {
-		one = func(next http.Handler) http.Handler {
+	// tag returns a middleware that writes "<name>:before," and "<name>:after,"
+	// around the next handler.
+	tag := func(t *testing.T, name string) middleware.Middleware {
+		t.Helper()
+		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				_, err := w.Write([]byte("1:before,"))
-				Expect(err).ToNot(HaveOccurred())
+				_, err := w.Write([]byte(name + ":before,"))
+				assert.NoError(t, err)
 				next.ServeHTTP(w, r)
-				_, err = w.Write([]byte("1:after"))
-				Expect(err).ToNot(HaveOccurred())
+				_, err = w.Write([]byte(name + ":after,"))
+				assert.NoError(t, err)
 			})
 		}
-		two = func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				_, err := w.Write([]byte("2:before,"))
-				Expect(err).ToNot(HaveOccurred())
-				next.ServeHTTP(w, r)
-				_, err = w.Write([]byte("2:after,"))
-				Expect(err).ToNot(HaveOccurred())
-			})
-		}
-		three = func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				_, err := w.Write([]byte("3:before,"))
-				Expect(err).ToNot(HaveOccurred())
-				next.ServeHTTP(w, r)
-				_, err = w.Write([]byte("3:after,"))
-				Expect(err).ToNot(HaveOccurred())
-			})
-		}
-		chain = middleware.NewChain(one, two, three)
-
-		hello = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	}
+	hello := func(t *testing.T) http.Handler {
+		t.Helper()
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte("Hello!,"))
-			Expect(err).ToNot(HaveOccurred())
+			assert.NoError(t, err)
 		})
+	}
+	serve := func(chain middleware.Chain, h http.Handler) string {
+		resp := httptest.NewRecorder()
+		chain.Handler(h).ServeHTTP(resp, httptest.NewRequest(http.MethodGet, "/", nil))
+		return resp.Body.String()
+	}
+	newChain := func(t *testing.T) middleware.Chain {
+		t.Helper()
+		return middleware.NewChain(tag(t, "1"), tag(t, "2"), tag(t, "3"))
+	}
 
-		req = httptest.NewRequest(http.MethodGet, "/", nil)
-		resp = httptest.NewRecorder()
+	t.Run("calls middleware in the specified order", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, "1:before,2:before,3:before,Hello!,3:after,2:after,1:after,", serve(newChain(t), hello(t)))
 	})
 
-	It("calls middleware in the specified order", func() {
-		chain.Handler(hello).ServeHTTP(resp, req)
-		Expect(resp.Body.String()).To(Equal("1:before,2:before,3:before,Hello!,3:after,2:after,1:after"))
+	t.Run("calls the handler when the chain is empty", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, "Hello!,", serve(middleware.NewChain(), hello(t)))
 	})
 
-	Context("when the chain is empty", func() {
-		BeforeEach(func() {
-			chain = middleware.NewChain()
-		})
-
-		It("calls the handler", func() {
-			chain.Handler(hello).ServeHTTP(resp, req)
-			Expect(resp.Body.String()).To(Equal("Hello!,"))
-		})
+	t.Run("uses the DefaultServeMux when the handler is nil", func(t *testing.T) {
+		t.Parallel()
+		require.Contains(t, serve(newChain(t), nil), "404 page not found")
 	})
-
-	Context("when the handler is nil", func() {
-		It("uses the DefaultServerMux", func() {
-			chain.Handler(nil).ServeHTTP(resp, req)
-			Expect(resp.Body.String()).To(ContainSubstring("404 page not found"))
-		})
-	})
-})
+}

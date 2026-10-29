@@ -10,128 +10,124 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/mock"
 )
 
-func TestEvents(t *testing.T) { //nolint:paralleltest
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Test simple event system")
+var (
+	_ events.Subscriber = (*EventBus)(nil)
+	_ events.Publisher  = (*EventBus)(nil)
+)
+
+func TestNewEventBus(t *testing.T) {
+	t.Parallel()
+
+	notifier := NewEventBus()
+	require.NotNil(t, notifier)
+	require.NotNil(t, notifier.handlers)
 }
 
-var _ = Describe("Event system", func() {
-	When("creating a notifier service", func() {
-		It("should succeed", func() {
-			notifier := NewEventBus()
-			Expect(notifier).NotTo(BeNil())
-			Expect(notifier.handlers).NotTo(BeNil())
-			Expect(notifier)
-			Expect(&notifier.lock).NotTo(BeNil())
-		})
+func TestEventBusPublishSubscribe(t *testing.T) {
+	t.Parallel()
+
+	// setup returns an empty bus and a listener not yet subscribed to it.
+	setup := func(t *testing.T) (*EventBus, *mock.Listener) {
+		t.Helper()
+		notifier := NewEventBus()
+		require.Empty(t, notifier.handlers)
+		return notifier, &mock.Listener{}
+	}
+
+	newEvent := func() *mock.Event {
+		event := &mock.Event{}
+		event.TopicReturns("topicAAA")
+		event.MessageReturns("HelloWorld")
+		return event
+	}
+
+	t.Run("Subscribe", func(t *testing.T) {
+		t.Parallel()
+		notifier, listener := setup(t)
+
+		notifier.Subscribe("topicAAA", listener)
+		require.NotEmpty(t, notifier.handlers)
+
+		notifier.Unsubscribe("topicAAA", nil)
+		require.NotEmpty(t, notifier.handlers)
+
+		notifier.Unsubscribe("topicBBB", listener)
+		require.NotEmpty(t, notifier.handlers)
+
+		notifier.Unsubscribe("topicAAA", listener)
+		require.Empty(t, notifier.handlers)
+
+		notifier.Unsubscribe("topicAAA", nil)
+		require.Empty(t, notifier.handlers)
+
+		notifier.Subscribe("topicAAA", listener)
+		require.NotEmpty(t, notifier.handlers)
+
+		notifier.Unsubscribe("topicAAA", &mock.Listener{})
+		require.NotEmpty(t, notifier.handlers)
 	})
 
-	When("publish and subscribe", func() {
-		var notifier *EventBus
+	t.Run("Publish", func(t *testing.T) {
+		t.Parallel()
+		notifier, listener := setup(t)
+		event := newEvent()
 
-		var alice events.Subscriber
-		var bob events.Publisher
+		notifier.Publish(nil)
+		require.Equal(t, 0, listener.OnReceiveCallCount())
 
-		var listener *mock.Listener
+		notifier.Publish(event)
+		require.Equal(t, 1, event.TopicCallCount())
+		require.Equal(t, 0, listener.OnReceiveCallCount())
 
-		BeforeEach(func() {
-			notifier = NewEventBus()
-			alice = notifier
-			bob = notifier
-			Expect(notifier.handlers).To(BeEmpty())
+		notifier.Subscribe("topicAAA", listener)
+		require.NotEmpty(t, notifier.handlers)
 
-			listener = &mock.Listener{}
-		})
-
-		It("Subscribe", func() {
-			alice.Subscribe("topicAAA", listener)
-			Expect(notifier.handlers).ToNot(BeEmpty())
-
-			alice.Unsubscribe("topicAAA", nil)
-			Expect(notifier.handlers).ToNot(BeEmpty())
-
-			alice.Unsubscribe("topicBBB", listener)
-			Expect(notifier.handlers).ToNot(BeEmpty())
-
-			alice.Unsubscribe("topicAAA", listener)
-			Expect(notifier.handlers).To(BeEmpty())
-
-			alice.Unsubscribe("topicAAA", nil)
-			Expect(notifier.handlers).To(BeEmpty())
-
-			alice.Subscribe("topicAAA", listener)
-			Expect(notifier.handlers).ToNot(BeEmpty())
-
-			listener2 := &mock.Listener{}
-			alice.Unsubscribe("topicAAA", listener2)
-			Expect(notifier.handlers).ToNot(BeEmpty())
-		})
-
-		It("Publish", func() {
-			event := &mock.Event{}
-			event.TopicReturns("topicAAA")
-			event.MessageReturns("HelloWorld")
-
-			bob.Publish(nil)
-			Expect(listener.OnReceiveCallCount()).To(Equal(0))
-
-			bob.Publish(event)
-			Expect(event.TopicCallCount()).To(Equal(1))
-			Expect(listener.OnReceiveCallCount()).To(Equal(0))
-
-			alice.Subscribe("topicAAA", listener)
-			Expect(notifier.handlers).ToNot(BeEmpty())
-
-			for i := range 100000 {
-				bob.Publish(event)
-				Expect(event.TopicCallCount()).To(Equal(i + 2))
-				Expect(listener.OnReceiveCallCount()).To(Equal(i + 1))
-			}
-		})
-
-		It("many events", func() {
-			event := &mock.Event{}
-			event.TopicReturns("topicAAA")
-			event.MessageReturns("HelloWorld")
-
-			alice.Subscribe("topicAAA", listener)
-			Expect(notifier.handlers).ToNot(BeEmpty())
-
-			for i := range 100000 {
-				bob.Publish(event)
-				Expect(event.TopicCallCount()).To(Equal(i + 1))
-				Expect(listener.OnReceiveCallCount()).To(Equal(i + 1))
-			}
-		})
-
-		It("many topics", func() {
-			event := &mock.Event{}
-			event.TopicReturns("topicAAA")
-			event.MessageReturns("HelloWorld")
-			for i := range 10000 {
-				l := &mock.Listener{}
-				alice.Subscribe(fmt.Sprintf("topic_%d", i), l)
-				Expect(len(notifier.handlers)).To(Equal(i + 1))
-			}
-		})
-
-		It("many listeners", func() {
-			event := &mock.Event{}
-			event.TopicReturns("topicAAA")
-			event.MessageReturns("HelloWorld")
-			for i := range 10000 {
-				l := &mock.Listener{}
-				alice.Subscribe("topic", l)
-				Expect(len(notifier.handlers)).To(Equal(1))
-				Expect(len(notifier.handlers["topic"])).To(Equal(i + 1))
-			}
-		})
+		for i := range 100000 {
+			notifier.Publish(event)
+			require.Equal(t, i+2, event.TopicCallCount())
+			require.Equal(t, i+1, listener.OnReceiveCallCount())
+		}
 	})
-})
+
+	t.Run("many events", func(t *testing.T) {
+		t.Parallel()
+		notifier, listener := setup(t)
+		event := newEvent()
+
+		notifier.Subscribe("topicAAA", listener)
+		require.NotEmpty(t, notifier.handlers)
+
+		for i := range 100000 {
+			notifier.Publish(event)
+			require.Equal(t, i+1, event.TopicCallCount())
+			require.Equal(t, i+1, listener.OnReceiveCallCount())
+		}
+	})
+
+	t.Run("many topics", func(t *testing.T) {
+		t.Parallel()
+		notifier, _ := setup(t)
+
+		for i := range 10000 {
+			notifier.Subscribe(fmt.Sprintf("topic_%d", i), &mock.Listener{})
+			require.Len(t, notifier.handlers, i+1)
+		}
+	})
+
+	t.Run("many listeners", func(t *testing.T) {
+		t.Parallel()
+		notifier, _ := setup(t)
+
+		for i := range 10000 {
+			notifier.Subscribe("topic", &mock.Listener{})
+			require.Len(t, notifier.handlers, 1)
+			require.Len(t, notifier.handlers["topic"], i+1)
+		}
+	})
+}

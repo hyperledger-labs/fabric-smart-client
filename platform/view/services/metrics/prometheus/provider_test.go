@@ -7,493 +7,395 @@ SPDX-License-Identifier: Apache-2.0
 package prometheus_test
 
 import (
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"sync/atomic"
+	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	commonmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 )
 
-var _ = Describe("Provider", func() {
-	var (
-		server *httptest.Server
-		client *http.Client
-		p      *prometheus.Provider
-	)
+var _ commonmetrics.Provider = &prometheus.Provider{}
 
-	BeforeEach(func() {
-		// Note: These tests can't be run in parallel because go-kit uses
-		// the global registry to manage metrics. This is something to revisit
-		// in the future.
-		registry := prom.NewRegistry()
-		prom.DefaultRegisterer = registry
-		prom.DefaultGatherer = registry
-
-		server = httptest.NewServer(promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		client = server.Client()
-
-		p = &prometheus.Provider{}
-	})
-
-	AfterEach(func() {
-		server.Close()
-	})
-
-	It("implements metrics.Provider", func() {
-		var p commonmetrics.Provider = &prometheus.Provider{}
-		Expect(p).NotTo(BeNil())
-	})
-
-	Describe("NewCounter", func() {
-		var counterOpts commonmetrics.CounterOpts
-
-		BeforeEach(func() {
-			counterOpts = commonmetrics.CounterOpts{
-				Namespace:  "peer",
-				Subsystem:  "playground",
-				Name:       "counter_name",
-				Help:       "This is some help text for the counter",
-				LabelNames: []string{"alpha", "beta"},
-			}
-		})
-
-		It("creates counters that support labels", func() {
-			counter := p.NewCounter(counterOpts)
+// TestProvider runs its subtests one after another: Provider registers its
+// collectors through prom.Register, so every subtest points the process-wide
+// prom.DefaultRegisterer at a registry of its own.
+//
+//nolint:paralleltest // replaces the process-wide prom.DefaultRegisterer
+func TestProvider(t *testing.T) {
+	t.Run("NewCounter", func(t *testing.T) {
+		t.Run("creates counters that support labels", func(t *testing.T) {
+			p, scrape := newProvider(t)
+			counter := p.NewCounter(counterOpts())
 			counter.With("alpha", "a", "beta", "b").Add(1)
 			counter.With("alpha", "aardvark", "beta", "b").Add(2)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`# HELP peer_playground_counter_name This is some help text for the counter`))
-			Expect(string(bytes)).To(ContainSubstring(`# TYPE peer_playground_counter_name counter`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 1`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="aardvark",beta="b"} 2`))
+			assertExposes(t, scrape(),
+				`# HELP peer_playground_counter_name This is some help text for the counter`,
+				`# TYPE peer_playground_counter_name counter`,
+				`peer_playground_counter_name{alpha="a",beta="b"} 1`,
+				`peer_playground_counter_name{alpha="aardvark",beta="b"} 2`,
+			)
 		})
 
-		Context("when the counter is defined without labels", func() {
-			BeforeEach(func() {
-				counterOpts.LabelNames = nil
-			})
+		t.Run("does not need With when the counter is defined without labels", func(t *testing.T) {
+			p, scrape := newProvider(t)
+			opts := counterOpts()
+			opts.LabelNames = nil
+			p.NewCounter(opts).Add(1)
 
-			It("With does not need to be called", func() {
-				counter := p.NewCounter(counterOpts)
-				counter.Add(1)
-
-				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-				Expect(err).NotTo(HaveOccurred())
-				defer func() { _ = resp.Body.Close() }()
-
-				bytes, err := io.ReadAll(resp.Body)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name 1`))
-			})
+			assertExposes(t, scrape(), `peer_playground_counter_name 1`)
 		})
 	})
 
-	Describe("NewGauge", func() {
-		var gaugeOpts commonmetrics.GaugeOpts
+	t.Run("NewGauge creates gauges that support labels", func(t *testing.T) {
+		p, scrape := newProvider(t)
+		gauge := p.NewGauge(gaugeOpts())
+		gauge.With("alpha", "a", "beta", "b").Add(1)
+		gauge.With("alpha", "a", "beta", "b").Add(1)
+		gauge.With("alpha", "aardvark", "beta", "b").Add(1)
+		gauge.With("alpha", "aardvark", "beta", "bob").Set(99)
 
-		BeforeEach(func() {
-			gaugeOpts = commonmetrics.GaugeOpts{
-				Namespace:  "peer",
-				Subsystem:  "playground",
-				Name:       "gauge_name",
-				Help:       "This is some help text for the gauge",
-				LabelNames: []string{"alpha", "beta"},
-			}
-		})
-
-		It("creates gauges that support labels", func() {
-			gauge := p.NewGauge(gaugeOpts)
-			gauge.With("alpha", "a", "beta", "b").Add(1)
-			gauge.With("alpha", "a", "beta", "b").Add(1)
-			gauge.With("alpha", "aardvark", "beta", "b").Add(1)
-			gauge.With("alpha", "aardvark", "beta", "bob").Set(99)
-
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`# HELP peer_playground_gauge_name This is some help text for the gauge`))
-			Expect(string(bytes)).To(ContainSubstring(`# TYPE peer_playground_gauge_name gauge`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_gauge_name{alpha="a",beta="b"} 2`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_gauge_name{alpha="aardvark",beta="b"} 1`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_gauge_name{alpha="aardvark",beta="bob"} 99`))
-		})
+		assertExposes(t, scrape(),
+			`# HELP peer_playground_gauge_name This is some help text for the gauge`,
+			`# TYPE peer_playground_gauge_name gauge`,
+			`peer_playground_gauge_name{alpha="a",beta="b"} 2`,
+			`peer_playground_gauge_name{alpha="aardvark",beta="b"} 1`,
+			`peer_playground_gauge_name{alpha="aardvark",beta="bob"} 99`,
+		)
 	})
 
-	Describe("NewHistogram", func() {
-		var histogramOpts commonmetrics.HistogramOpts
-
-		BeforeEach(func() {
-			histogramOpts = commonmetrics.HistogramOpts{
-				Namespace:  "peer",
-				Subsystem:  "playground",
-				Name:       "histogram_name",
-				Help:       "This is some help text for the gauge",
-				LabelNames: []string{"alpha", "beta"},
-			}
-		})
-
-		It("creates histogram that support labels", func() {
-			histogram := p.NewHistogram(histogramOpts)
+	t.Run("NewHistogram", func(t *testing.T) {
+		t.Run("creates histograms that support labels", func(t *testing.T) {
+			p, scrape := newProvider(t)
+			histogram := p.NewHistogram(histogramOpts())
 			for _, limit := range prom.DefBuckets {
 				histogram.With("alpha", "a", "beta", "b").Observe(limit)
 			}
 			histogram.With("alpha", "a", "beta", "b").Observe(prom.DefBuckets[len(prom.DefBuckets)-1] + 1)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`# HELP peer_playground_histogram_name This is some help text for the gauge`))
-			Expect(string(bytes)).To(ContainSubstring(`# TYPE peer_playground_histogram_name histogram`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.005"} 1`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.01"} 2`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.025"} 3`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.05"} 4`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.1"} 5`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.25"} 6`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.5"} 7`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="1"} 8`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="2.5"} 9`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="5"} 10`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="10"} 11`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="+Inf"} 12`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_sum{alpha="a",beta="b"} `))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_count{alpha="a",beta="b"} 12`))
+			assertExposes(t, scrape(),
+				`# HELP peer_playground_histogram_name This is some help text for the histogram`,
+				`# TYPE peer_playground_histogram_name histogram`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.005"} 1`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.01"} 2`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.025"} 3`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.05"} 4`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.1"} 5`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.25"} 6`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="0.5"} 7`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="1"} 8`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="2.5"} 9`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="5"} 10`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="10"} 11`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="+Inf"} 12`,
+				`peer_playground_histogram_name_sum{alpha="a",beta="b"} `,
+				`peer_playground_histogram_name_count{alpha="a",beta="b"} 12`,
+			)
 		})
 
-		It("creates histogram with buckets that support labels", func() {
-			histogramOpts.Buckets = []float64{1, 5}
-			histogram := p.NewHistogram(histogramOpts)
-
+		t.Run("creates histograms with buckets that support labels", func(t *testing.T) {
+			p, scrape := newProvider(t)
+			opts := histogramOpts()
+			opts.Buckets = []float64{1, 5}
+			histogram := p.NewHistogram(opts)
 			histogram.With("alpha", "a", "beta", "b").Observe(0.5)
 			histogram.With("alpha", "a", "beta", "b").Observe(4.5)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`# HELP peer_playground_histogram_name This is some help text for the gauge`))
-			Expect(string(bytes)).To(ContainSubstring(`# TYPE peer_playground_histogram_name histogram`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="1"} 1`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="5"} 2`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_sum{alpha="a",beta="b"} 5`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_count{alpha="a",beta="b"} 2`))
+			assertExposes(t, scrape(),
+				`# HELP peer_playground_histogram_name This is some help text for the histogram`,
+				`# TYPE peer_playground_histogram_name histogram`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="1"} 1`,
+				`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="5"} 2`,
+				`peer_playground_histogram_name_sum{alpha="a",beta="b"} 5`,
+				`peer_playground_histogram_name_count{alpha="a",beta="b"} 2`,
+			)
 		})
 	})
 
-	Describe("duplicate registration", func() {
-		var (
-			counterOpts commonmetrics.CounterOpts
-			counting    *countingRegisterer
-		)
+	t.Run("duplicate registration", func(t *testing.T) {
+		// newCountingProvider wraps the test registry so a subtest can tell
+		// cache hits from registry round-trips.
+		newCountingProvider := func(t *testing.T) (*prometheus.Provider, func() string, *countingRegisterer) {
+			t.Helper()
+			p, scrape := newProvider(t)
+			counting := &countingRegisterer{Registerer: prom.DefaultRegisterer}
+			setDefaultRegisterer(t, counting)
+			return p, scrape, counting
+		}
 
-		BeforeEach(func() {
-			counterOpts = commonmetrics.CounterOpts{
-				Namespace:  "peer",
-				Subsystem:  "playground",
-				Name:       "counter_name",
-				Help:       "This is some help text for the counter",
-				LabelNames: []string{"alpha", "beta"},
-			}
-			counting = &countingRegisterer{Registerer: prom.DefaultRegisterer}
-			prom.DefaultRegisterer = counting
-		})
-
-		It("returns counters backed by the collector registered first", func() {
-			c1 := p.NewCounter(counterOpts)
-			c2 := p.NewCounter(counterOpts)
+		t.Run("returns counters backed by the collector registered first", func(t *testing.T) {
+			p, scrape, _ := newCountingProvider(t)
+			c1 := p.NewCounter(counterOpts())
+			c2 := p.NewCounter(counterOpts())
 			c1.With("alpha", "a", "beta", "b").Add(1)
 			c2.With("alpha", "a", "beta", "b").Add(2)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 3`))
+			assertExposes(t, scrape(), `peer_playground_counter_name{alpha="a",beta="b"} 3`)
 		})
 
-		It("returns gauges backed by the collector registered first", func() {
-			gaugeOpts := commonmetrics.GaugeOpts{
-				Namespace:  "peer",
-				Subsystem:  "playground",
-				Name:       "gauge_name",
-				Help:       "This is some help text for the gauge",
-				LabelNames: []string{"alpha", "beta"},
-			}
-			g1 := p.NewGauge(gaugeOpts)
-			g2 := p.NewGauge(gaugeOpts)
+		t.Run("returns gauges backed by the collector registered first", func(t *testing.T) {
+			p, scrape, _ := newCountingProvider(t)
+			g1 := p.NewGauge(gaugeOpts())
+			g2 := p.NewGauge(gaugeOpts())
 			g1.With("alpha", "a", "beta", "b").Set(1)
 			g2.With("alpha", "a", "beta", "b").Add(2)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_gauge_name{alpha="a",beta="b"} 3`))
+			assertExposes(t, scrape(), `peer_playground_gauge_name{alpha="a",beta="b"} 3`)
 		})
 
-		It("returns histograms backed by the collector registered first", func() {
-			histogramOpts := commonmetrics.HistogramOpts{
-				Namespace:  "peer",
-				Subsystem:  "playground",
-				Name:       "histogram_name",
-				Help:       "This is some help text for the histogram",
-				LabelNames: []string{"alpha", "beta"},
-			}
-			h1 := p.NewHistogram(histogramOpts)
-			h2 := p.NewHistogram(histogramOpts)
+		t.Run("returns histograms backed by the collector registered first", func(t *testing.T) {
+			p, scrape, _ := newCountingProvider(t)
+			h1 := p.NewHistogram(histogramOpts())
+			h2 := p.NewHistogram(histogramOpts())
 			h1.With("alpha", "a", "beta", "b").Observe(1)
 			h2.With("alpha", "a", "beta", "b").Observe(2)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_count{alpha="a",beta="b"} 2`))
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_sum{alpha="a",beta="b"} 3`))
+			assertExposes(t, scrape(),
+				`peer_playground_histogram_name_count{alpha="a",beta="b"} 2`,
+				`peer_playground_histogram_name_sum{alpha="a",beta="b"} 3`,
+			)
 		})
 
-		It("is not affected by callers mutating opts slices after creation", func() {
+		t.Run("is not affected by callers mutating opts slices after creation", func(t *testing.T) {
+			p, scrape, counting := newCountingProvider(t)
 			labels := []string{"alpha", "beta"}
-			counterOpts.LabelNames = labels
-			c1 := p.NewCounter(counterOpts)
+			opts := counterOpts()
+			opts.LabelNames = labels
+			c1 := p.NewCounter(opts)
 			labels[0] = "gamma"
 
 			var c2 commonmetrics.Counter
-			original := counterOpts
-			original.LabelNames = []string{"alpha", "beta"}
-			Expect(func() { c2 = p.NewCounter(original) }).NotTo(Panic())
-			Expect(counting.registrations.Load()).To(BeEquivalentTo(1))
+			require.NotPanics(t, func() { c2 = p.NewCounter(counterOpts()) })
+			require.EqualValues(t, 1, counting.registrations.Load())
 
 			c1.With("alpha", "a", "beta", "b").Add(1)
 			c2.With("alpha", "a", "beta", "b").Add(2)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 3`))
+			assertExposes(t, scrape(), `peer_playground_counter_name{alpha="a",beta="b"} 3`)
 		})
 
-		It("skips the registry for repeated requests", func() {
+		t.Run("skips the registry for repeated requests", func(t *testing.T) {
+			p, _, counting := newCountingProvider(t)
 			for range 10 {
-				p.NewCounter(counterOpts)
+				p.NewCounter(counterOpts())
 			}
-			Expect(counting.registrations.Load()).To(BeEquivalentTo(1))
+			require.EqualValues(t, 1, counting.registrations.Load())
 		})
 
-		It("registers the collector only once under concurrent requests", func() {
+		t.Run("registers the collector only once under concurrent requests", func(t *testing.T) {
+			p, scrape, counting := newCountingProvider(t)
 			var wg sync.WaitGroup
 			for range 20 {
 				wg.Go(func() {
-					defer GinkgoRecover()
-					p.NewCounter(counterOpts).With("alpha", "a", "beta", "b").Add(1)
+					p.NewCounter(counterOpts()).With("alpha", "a", "beta", "b").Add(1)
 				})
 			}
 			wg.Wait()
 
-			Expect(counting.registrations.Load()).To(BeEquivalentTo(1))
-
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 20`))
+			require.EqualValues(t, 1, counting.registrations.Load())
+			assertExposes(t, scrape(), `peer_playground_counter_name{alpha="a",beta="b"} 20`)
 		})
 
-		Context("when the same name is reused with different label names", func() {
-			It("panics", func() {
-				p.NewCounter(counterOpts)
-				counterOpts.LabelNames = []string{"gamma"}
-				Expect(func() { p.NewCounter(counterOpts) }).To(Panic())
-			})
+		t.Run("panics when the same name is reused with different label names", func(t *testing.T) {
+			p, _, _ := newCountingProvider(t)
+			p.NewCounter(counterOpts())
+			opts := counterOpts()
+			opts.LabelNames = []string{"gamma"}
+			require.Panics(t, func() { p.NewCounter(opts) })
 		})
 
-		It("ignores differences in the doc-only LabelHelp field", func() {
-			counterOpts.LabelHelp = map[string]string{"alpha": "first label"}
-			c1 := p.NewCounter(counterOpts)
-			counterOpts.LabelHelp = map[string]string{"alpha": "a different description"}
+		t.Run("ignores differences in the doc-only LabelHelp field", func(t *testing.T) {
+			p, scrape, _ := newCountingProvider(t)
+			opts := counterOpts()
+			opts.LabelHelp = map[string]string{"alpha": "first label"}
+			c1 := p.NewCounter(opts)
+			opts.LabelHelp = map[string]string{"alpha": "a different description"}
 			var c2 commonmetrics.Counter
-			Expect(func() { c2 = p.NewCounter(counterOpts) }).NotTo(Panic())
+			require.NotPanics(t, func() { c2 = p.NewCounter(opts) })
 
 			c1.With("alpha", "a", "beta", "b").Add(1)
 			c2.With("alpha", "a", "beta", "b").Add(2)
 
-			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = resp.Body.Close() }()
-
-			bytes, err := io.ReadAll(resp.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 3`))
+			assertExposes(t, scrape(), `peer_playground_counter_name{alpha="a",beta="b"} 3`)
 		})
 
-		Context("when an identical collector is already registered outside the provider", func() {
-			It("returns a counter backed by the existing collector", func() {
-				existing := prom.NewCounterVec(prom.CounterOpts{
-					Namespace: counterOpts.Namespace,
-					Subsystem: counterOpts.Subsystem,
-					Name:      counterOpts.Name,
-					Help:      counterOpts.Help,
-				}, counterOpts.LabelNames)
-				Expect(prom.DefaultRegisterer.Register(existing)).To(Succeed())
-				existing.WithLabelValues("a", "b").Add(1)
+		t.Run("returns a counter backed by an identical collector registered outside the provider", func(t *testing.T) {
+			p, scrape, _ := newCountingProvider(t)
+			opts := counterOpts()
+			existing := prom.NewCounterVec(prom.CounterOpts{
+				Namespace: opts.Namespace,
+				Subsystem: opts.Subsystem,
+				Name:      opts.Name,
+				Help:      opts.Help,
+			}, opts.LabelNames)
+			require.NoError(t, prom.DefaultRegisterer.Register(existing))
+			existing.WithLabelValues("a", "b").Add(1)
 
-				var c commonmetrics.Counter
-				Expect(func() { c = p.NewCounter(counterOpts) }).NotTo(Panic())
-				c.With("alpha", "a", "beta", "b").Add(2)
+			var c commonmetrics.Counter
+			require.NotPanics(t, func() { c = p.NewCounter(opts) })
+			c.With("alpha", "a", "beta", "b").Add(2)
 
-				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-				Expect(err).NotTo(HaveOccurred())
-				defer func() { _ = resp.Body.Close() }()
-
-				bytes, err := io.ReadAll(resp.Body)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 3`))
-			})
+			assertExposes(t, scrape(), `peer_playground_counter_name{alpha="a",beta="b"} 3`)
 		})
 
-		Context("when the same name is reused as a different metric type", func() {
-			It("panics with a descriptive error", func() {
-				p.NewCounter(counterOpts)
-				gaugeOpts := commonmetrics.GaugeOpts{
-					Namespace:  counterOpts.Namespace,
-					Subsystem:  counterOpts.Subsystem,
-					Name:       counterOpts.Name,
-					Help:       counterOpts.Help,
-					LabelNames: counterOpts.LabelNames,
-				}
-				Expect(func() { p.NewGauge(gaugeOpts) }).To(PanicWith(MatchError(ContainSubstring("incompatible collector type"))))
-			})
-		})
-
-		Context("when a non-vector collector with the same descriptor is already registered", func() {
-			var scalarOpts commonmetrics.CounterOpts
-
-			BeforeEach(func() {
-				scalarOpts = commonmetrics.CounterOpts{
-					Namespace: "peer",
-					Subsystem: "playground",
-					Name:      "scalar_name",
-					Help:      "This is some help text for the scalar counter",
-				}
-				scalar := prom.NewCounter(prom.CounterOpts{
-					Namespace: scalarOpts.Namespace,
-					Subsystem: scalarOpts.Subsystem,
-					Name:      scalarOpts.Name,
-					Help:      scalarOpts.Help,
-				})
-				Expect(prom.DefaultRegisterer.Register(scalar)).To(Succeed())
-			})
-
-			It("panics with a descriptive error and does not poison the cache", func() {
-				Expect(func() { p.NewCounter(scalarOpts) }).To(PanicWith(MatchError(ContainSubstring("incompatible collector type"))))
-				Expect(func() { p.NewCounter(counterOpts) }).NotTo(Panic())
-			})
-		})
-	})
-
-	Describe("edge case behavior", func() {
-		var counterOpts commonmetrics.CounterOpts
-
-		BeforeEach(func() {
-			counterOpts = commonmetrics.CounterOpts{
-				Namespace:  "peer",
-				Subsystem:  "playground",
-				Name:       "counter_name",
-				Help:       "This is some help text for the counter",
-				LabelNames: []string{"alpha", "beta"},
+		t.Run("panics with a descriptive error when the same name is reused as a different metric type", func(t *testing.T) {
+			p, _, _ := newCountingProvider(t)
+			opts := counterOpts()
+			p.NewCounter(opts)
+			gaugeOpts := commonmetrics.GaugeOpts{
+				Namespace:  opts.Namespace,
+				Subsystem:  opts.Subsystem,
+				Name:       opts.Name,
+				Help:       opts.Help,
+				LabelNames: opts.LabelNames,
 			}
-		})
-		Context("when With is called without a label value", func() {
-			It("uses unknown for the missing value", func() {
-				counter := p.NewCounter(counterOpts)
-				counter.With("alpha", "a", "beta").Add(1)
-				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
-				Expect(err).NotTo(HaveOccurred())
-				defer func() { _ = resp.Body.Close() }()
-
-				bytes, err := io.ReadAll(resp.Body)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(bytes)).To(ContainSubstring(`# HELP peer_playground_counter_name This is some help text for the counter`))
-				Expect(string(bytes)).To(ContainSubstring(`# TYPE peer_playground_counter_name counter`))
-				Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="unknown"} 1`))
-			})
+			require.ErrorContains(t, panicError(t, func() { p.NewGauge(gaugeOpts) }), "incompatible collector type")
 		})
 
-		Context("when With is called with an extra label", func() {
-			It("panics", func() {
-				counter := p.NewCounter(counterOpts)
-				panicMessage := func() (panicMessage any) {
-					defer func() { panicMessage = recover() }()
-					counter.With("alpha", "a", "beta", "b", "charlie", "c").Add(1)
-					return panicMessage
-				}()
-				Expect(panicMessage).To(MatchError(MatchRegexp(`inconsistent label cardinality: expected 2 label values but got 3 in prometheus.Labels\{.*\}`)))
-			})
-		})
+		t.Run("panics without poisoning the cache when a non-vector collector has the same descriptor", func(t *testing.T) {
+			p, _, _ := newCountingProvider(t)
+			scalarOpts := commonmetrics.CounterOpts{
+				Namespace: "peer",
+				Subsystem: "playground",
+				Name:      "scalar_name",
+				Help:      "This is some help text for the scalar counter",
+			}
+			require.NoError(t, prom.DefaultRegisterer.Register(prom.NewCounter(prom.CounterOpts{
+				Namespace: scalarOpts.Namespace,
+				Subsystem: scalarOpts.Subsystem,
+				Name:      scalarOpts.Name,
+				Help:      scalarOpts.Help,
+			})))
 
-		Context("when label values are not provided", func() {
-			It("it panics with a cardinality message", func() {
-				counter := p.NewCounter(counterOpts)
-				panicMessage := func() (panicMessage any) {
-					defer func() { panicMessage = recover() }()
-					counter.Add(1)
-					return panicMessage
-				}()
-				Expect(panicMessage).To(MatchError(`inconsistent label cardinality: expected 2 label values but got 0 in prometheus.Labels{}`))
-			})
+			require.ErrorContains(t, panicError(t, func() { p.NewCounter(scalarOpts) }), "incompatible collector type")
+			require.NotPanics(t, func() { p.NewCounter(counterOpts()) })
 		})
 	})
 
-	Describe("GetPackageName", func() {
-		// Go's main package has no path separator in its fully qualified
-		// function name ("main.main"), so strings.LastIndex(..., "/") returns
-		// -1 for it. A binary that creates a metric directly from main reaches
-		// GetPackageName with main.main as the resolved frame, so the
-		// no-separator case is an ordinary production path, not a defensive
-		// one. Calling GetPackageName directly here resolves to a runtime
-		// frame, which is slash-free for the same reason.
-		It("returns the unqualified name when the caller has no path separator", func() {
-			var name string
-			Expect(func() { name = prometheus.GetPackageName() }).NotTo(Panic())
-			Expect(name).NotTo(BeEmpty())
-			Expect(name).NotTo(ContainSubstring("/"))
+	t.Run("edge case behavior", func(t *testing.T) {
+		t.Run("uses unknown for a label value missing from With", func(t *testing.T) {
+			p, scrape := newProvider(t)
+			p.NewCounter(counterOpts()).With("alpha", "a", "beta").Add(1)
+
+			assertExposes(t, scrape(),
+				`# HELP peer_playground_counter_name This is some help text for the counter`,
+				`# TYPE peer_playground_counter_name counter`,
+				`peer_playground_counter_name{alpha="a",beta="unknown"} 1`,
+			)
+		})
+
+		t.Run("panics when With is called with an extra label", func(t *testing.T) {
+			p, _ := newProvider(t)
+			counter := p.NewCounter(counterOpts())
+			err := panicError(t, func() { counter.With("alpha", "a", "beta", "b", "charlie", "c").Add(1) })
+			require.Regexp(t, `inconsistent label cardinality: expected 2 label values but got 3 in prometheus.Labels\{.*\}`, err.Error())
+		})
+
+		t.Run("panics with a cardinality message when label values are not provided", func(t *testing.T) {
+			p, _ := newProvider(t)
+			counter := p.NewCounter(counterOpts())
+			err := panicError(t, func() { counter.Add(1) })
+			require.EqualError(t, err, `inconsistent label cardinality: expected 2 label values but got 0 in prometheus.Labels{}`)
 		})
 	})
-})
+}
+
+// Go's main package has no path separator in its fully qualified function name
+// ("main.main"), so a binary that creates a metric directly from main reaches
+// GetPackageName with a slash-free frame. Called straight from a test function,
+// GetPackageName resolves to runtime.goexit, which is slash-free for the same
+// reason.
+func TestGetPackageNameWithoutPathSeparator(t *testing.T) {
+	t.Parallel()
+
+	name := prometheus.GetPackageName()
+	require.NotEmpty(t, name)
+	require.NotContains(t, name, "/")
+}
+
+// newProvider points prom.DefaultRegisterer at a fresh registry until t ends
+// and returns a provider that registers into it, together with a function
+// returning the registry's metrics in the text exposition format.
+func newProvider(t *testing.T) (*prometheus.Provider, func() string) {
+	t.Helper()
+	registry := prom.NewRegistry()
+	setDefaultRegisterer(t, registry)
+	handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	scrape := func() string {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+		return rec.Body.String()
+	}
+	return &prometheus.Provider{}, scrape
+}
+
+// setDefaultRegisterer replaces prom.DefaultRegisterer with r until t ends.
+func setDefaultRegisterer(t *testing.T, r prom.Registerer) {
+	t.Helper()
+	prev := prom.DefaultRegisterer
+	prom.DefaultRegisterer = r
+	t.Cleanup(func() { prom.DefaultRegisterer = prev })
+}
+
+// assertExposes checks that the scraped metrics contain every line in want.
+func assertExposes(t *testing.T, scraped string, want ...string) {
+	t.Helper()
+	for _, line := range want {
+		assert.Contains(t, scraped, line)
+	}
+}
+
+// panicError runs f and returns the error it panics with. It fails t if f
+// does not panic or panics with a value that is not an error.
+func panicError(t *testing.T, f func()) error {
+	t.Helper()
+	var v any
+	func() {
+		defer func() { v = recover() }()
+		f()
+	}()
+	err, ok := v.(error)
+	require.Truef(t, ok, "expected a panic with an error, got %v", v)
+	return err
+}
+
+func counterOpts() commonmetrics.CounterOpts {
+	return commonmetrics.CounterOpts{
+		Namespace:  "peer",
+		Subsystem:  "playground",
+		Name:       "counter_name",
+		Help:       "This is some help text for the counter",
+		LabelNames: []string{"alpha", "beta"},
+	}
+}
+
+func gaugeOpts() commonmetrics.GaugeOpts {
+	return commonmetrics.GaugeOpts{
+		Namespace:  "peer",
+		Subsystem:  "playground",
+		Name:       "gauge_name",
+		Help:       "This is some help text for the gauge",
+		LabelNames: []string{"alpha", "beta"},
+	}
+}
+
+func histogramOpts() commonmetrics.HistogramOpts {
+	return commonmetrics.HistogramOpts{
+		Namespace:  "peer",
+		Subsystem:  "playground",
+		Name:       "histogram_name",
+		Help:       "This is some help text for the histogram",
+		LabelNames: []string{"alpha", "beta"},
+	}
+}
 
 // countingRegisterer counts Register calls so tests can tell cache hits from
 // registry round-trips.

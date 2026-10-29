@@ -7,7 +7,7 @@ Start from the root [`AGENTS.md`](../../AGENTS.md), which links here on demand.
   composition, the `dig` Install/Start pattern, multi-network access.
 - [Conventions](conventions.md) — code organization, error handling, logging,
   storage drivers, identity, security.
-- [Testing](testing.md) — unit-test conventions and Ginkgo/Gomega patterns.
+- [Testing](testing.md) — unit-test conventions, parallel tests, and Ginkgo/Gomega patterns.
 - [Integration tests](integration-tests.md) — authoring a new integration test
   and the network-topology API.
 

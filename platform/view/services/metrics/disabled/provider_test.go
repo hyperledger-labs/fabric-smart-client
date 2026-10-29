@@ -7,49 +7,45 @@ SPDX-License-Identifier: Apache-2.0
 package disabled_test
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
-var _ = Describe("Provider", func() {
-	var p metrics.Provider
+func TestProvider(t *testing.T) {
+	t.Parallel()
 
-	BeforeEach(func() {
-		p = &disabled.Provider{}
+	var p metrics.Provider = &disabled.Provider{}
+
+	t.Run("NewCounter creates a no-op counter that doesn't blow up", func(t *testing.T) {
+		t.Parallel()
+		c := p.NewCounter(metrics.CounterOpts{})
+		require.NotNil(t, c)
+
+		c.Add(1)
+		c.With("whatever").Add(2)
 	})
 
-	Describe("NewCounter", func() {
-		It("creates a no-op counter that doesn't blow up", func() {
-			c := p.NewCounter(metrics.CounterOpts{})
-			Expect(c).NotTo(BeNil())
+	t.Run("NewGauge creates a no-op gauge that doesn't blow up", func(t *testing.T) {
+		t.Parallel()
+		g := p.NewGauge(metrics.GaugeOpts{})
+		require.NotNil(t, g)
 
-			c.Add(1)
-			c.With("whatever").Add(2)
-		})
+		g.Set(1)
+		g.Add(1)
+		g.With("whatever").Set(2)
+		g.With("whatever").Add(2)
 	})
 
-	Describe("NewGauge", func() {
-		It("creates a no-op gauge that doesn't blow up", func() {
-			g := p.NewGauge(metrics.GaugeOpts{})
-			Expect(g).NotTo(BeNil())
+	t.Run("NewHistogram creates a no-op histogram that doesn't blow up", func(t *testing.T) {
+		t.Parallel()
+		h := p.NewHistogram(metrics.HistogramOpts{})
+		require.NotNil(t, h)
 
-			g.Set(1)
-			g.Add(1)
-			g.With("whatever").Set(2)
-			g.With("whatever").Add(2)
-		})
+		h.Observe(1)
+		h.With("whatever").Observe(2)
 	})
-
-	Describe("NewHistogram", func() {
-		It("creates a no-op histogram that doesn't blow up", func() {
-			h := p.NewHistogram(metrics.HistogramOpts{})
-			Expect(h).NotTo(BeNil())
-
-			h.Observe(1)
-			h.With("whatever").Observe(2)
-		})
-	})
-})
+}

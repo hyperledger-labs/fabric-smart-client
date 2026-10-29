@@ -12,6 +12,7 @@ linters:
     # future `default: none` cannot silently drop them.
     - contextcheck
     - bodyclose
+    - depguard
     - durationcheck
     - errcheck
     - errorlint
@@ -42,6 +43,20 @@ linters:
     - usestdlibvars
     - usetesting
   settings:
+    depguard:
+      rules:
+        # Unit tests assert with testify, which runs subtests in parallel and
+        # supports -count and -shuffle. The integration module is exempted
+        # under exclusions below: its suites are Ginkgo, and nwo asserts
+        # through gomega.
+        unit-tests:
+          files:
+            - $test
+          deny:
+            - pkg: github.com/onsi/gomega
+              desc: unit tests use testify (docs/agents/testing.md)
+            - pkg: github.com/onsi/ginkgo/v2
+              desc: unit tests use testify (docs/agents/testing.md)
     goheader:
       # Two header forms are accepted: the SPDX form used by code written for
       # this project, and the long-form Apache notice carried by files derived
@@ -110,6 +125,11 @@ linters:
       # trees are gitignored build artifacts, absent from a clean checkout.
       - (^|/)out/
     rules:
+      # Matched relative to this file, so the exemption holds whichever
+      # directory the checkout lives in.
+      - path: ^integration/
+        linters:
+          - depguard
       # Test fixtures and the nwo integration harness: 0644 fixture certs,
       # 0755 scratch dirs, subprocess launches with generated paths and
       # deliberately-weak TLS in benchmarks are what that code is for, not

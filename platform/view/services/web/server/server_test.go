@@ -13,14 +13,11 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
+	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	"github.com/tedsuo/ifrit"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
@@ -29,239 +26,180 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
-var tlsCA tlsgen.CA
+const someURL = "/some-URL"
 
-func init() {
-	tlsCA, _ = tlsgen.NewCA()
+// tlsFixture holds a CA, server options that require a client certificate
+// issued by it, and a client certificate that satisfies them.
+type tlsFixture struct {
+	ca         tlsgen.CA
+	options    server.Options
+	clientCert tls.Certificate
 }
 
-func TestFabHTTP(t *testing.T) { //nolint:paralleltest
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "FabHTTP Suite")
-}
+func newTLSFixture(t *testing.T) *tlsFixture {
+	t.Helper()
+	ca, err := tlsgen.NewCA()
+	require.NoError(t, err)
+	serverKeyPair, err := ca.NewServerCertKeyPair("127.0.0.1")
+	require.NoError(t, err)
+	clientKeyPair, err := ca.NewClientCertKeyPair()
+	require.NoError(t, err)
+	clientCert, err := tls.X509KeyPair(clientKeyPair.Cert, clientKeyPair.Key)
+	require.NoError(t, err)
 
-func generateCertificates(tempDir string) {
-	err := os.WriteFile(filepath.Join(tempDir, "server-ca.pem"), tlsCA.CertBytes(), 0o640)
-	Expect(err).NotTo(HaveOccurred())
-	serverKeyPair, err := tlsCA.NewServerCertKeyPair("127.0.0.1")
-	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "server-cert.pem"), serverKeyPair.Cert, 0o640)
-	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "server-key.pem"), serverKeyPair.Key, 0o640)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = os.WriteFile(filepath.Join(tempDir, "client-ca.pem"), tlsCA.CertBytes(), 0o640)
-	Expect(err).NotTo(HaveOccurred())
-	clientKeyPair, err := tlsCA.NewClientCertKeyPair()
-	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "client-cert.pem"), clientKeyPair.Cert, 0o640)
-	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "client-key.pem"), clientKeyPair.Key, 0o640)
-	Expect(err).NotTo(HaveOccurred())
-}
-
-func newHTTPClient(tlsDir string, withClientCert bool) *http.Client {
-	clientCertPool := x509.NewCertPool()
-	caCert, err := os.ReadFile(filepath.Join(tlsDir, "server-ca.pem"))
-	Expect(err).NotTo(HaveOccurred())
-	clientCertPool.AppendCertsFromPEM(caCert)
-
-	tlsClientConfig := &tls.Config{
-		RootCAs: clientCertPool,
-	}
-	if withClientCert {
-		clientCert, err := tls.LoadX509KeyPair(
-			filepath.Join(tlsDir, "client-cert.pem"),
-			filepath.Join(tlsDir, "client-key.pem"),
-		)
-		Expect(err).NotTo(HaveOccurred())
-		tlsClientConfig.Certificates = []tls.Certificate{clientCert}
-	}
-
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsClientConfig,
-		},
-	}
-}
-
-var _ = Describe("Server", func() {
-	const someURL = "/some-URL"
-
-	var (
-		tempDir string
-
-		client  *http.Client
-		options server.Options
-		srv     *server.Server
-	)
-
-	BeforeEach(func() {
-		tempDir = GinkgoT().TempDir()
-
-		generateCertificates(tempDir)
-		client = newHTTPClient(tempDir, true)
-
-		// Options.TLS is now the resolved grpc.SecureOptions: PEM bytes, already loaded
-		// and validated. Reading the files here is what tlsconfig does in production.
-		serverCert, err := os.ReadFile(filepath.Join(tempDir, "server-cert.pem"))
-		Expect(err).NotTo(HaveOccurred())
-		serverKey, err := os.ReadFile(filepath.Join(tempDir, "server-key.pem"))
-		Expect(err).NotTo(HaveOccurred())
-		clientCA, err := os.ReadFile(filepath.Join(tempDir, "client-ca.pem"))
-		Expect(err).NotTo(HaveOccurred())
-
-		options = server.Options{
+	return &tlsFixture{
+		ca: ca,
+		options: server.Options{
 			ListenAddress: "127.0.0.1:0",
 			TLS: grpc.SecureOptions{
 				UseTLS:            true,
-				Certificate:       serverCert,
-				Key:               serverKey,
+				Certificate:       serverKeyPair.Cert,
+				Key:               serverKeyPair.Key,
 				RequireClientCert: true,
-				ClientRootCAs:     [][]byte{clientCA},
+				ClientRootCAs:     [][]byte{ca.CertBytes()},
 			},
-		}
+		},
+		clientCert: clientCert,
+	}
+}
 
-		srv = server.NewServer(options)
+// client returns an HTTP client that trusts the fixture's CA and, if
+// withClientCert is set, presents the fixture's client certificate.
+func (f *tlsFixture) client(withClientCert bool) *http.Client {
+	rootCAs := x509.NewCertPool()
+	rootCAs.AppendCertsFromPEM(f.ca.CertBytes())
+	tlsConfig := &tls.Config{RootCAs: rootCAs}
+	if withClientCert {
+		tlsConfig.Certificates = []tls.Certificate{f.clientCert}
+	}
+	return &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
+}
+
+// newServer returns a server for options that is stopped when t ends.
+func newServer(t *testing.T, options server.Options) *server.Server {
+	t.Helper()
+	srv := server.NewServer(options)
+	t.Cleanup(func() { _ = srv.Stop() })
+	return srv
+}
+
+func TestServer(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects a client connecting without mutual TLS", func(t *testing.T) {
+		t.Parallel()
+		f := newTLSFixture(t)
+		srv := newServer(t, f.options)
+		require.NoError(t, srv.Start())
+
+		resp, err := f.client(false).Get(fmt.Sprintf("https://%s%s", srv.Addr(), someURL)) //nolint:bodyclose // the handshake fails, so there is no body
+		require.ErrorContains(t, err, "remote error: tls: certificate required")
+		require.Nil(t, resp)
 	})
 
-	AfterEach(func() {
-		if srv != nil {
-			_ = srv.Stop()
-		}
-	})
-
-	When("a client connects without mutual TLS", func() {
-		BeforeEach(func() {
-			client = newHTTPClient(tempDir, false)
-		})
-		It("is rejected", func() {
-			err := srv.Start()
-			Expect(err).NotTo(HaveOccurred())
-
-			url := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
-			resp, err := client.Get(url)
-			Expect(err).To(HaveOccurred())
-			go120message := "remote error: tls: bad certificate"
-			go121message := "remote error: tls: certificate required"
-			match := strings.Contains(err.Error(), go120message) || strings.Contains(err.Error(), go121message)
-			Expect(match).To(BeTrue())
-			Expect(resp).To(BeNil())
-		})
-	})
-
-	It("hosts a secure endpoint for additional APIs when added", func() {
+	t.Run("hosts a secure endpoint for additional APIs when added", func(t *testing.T) {
+		t.Parallel()
+		f := newTLSFixture(t)
+		srv := newServer(t, f.options)
 		srv.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "secure"}, true)
-		err := srv.Start()
-		Expect(err).NotTo(HaveOccurred())
+		require.NoError(t, srv.Start())
 
-		addAPIURL := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
-		resp, err := client.Get(addAPIURL)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		Expect(resp.Header.Get("Content-Type")).To(Equal("text/plain; charset=utf-8"))
-		buff, err := io.ReadAll(resp.Body)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(buff)).To(Equal("secure"))
-		_ = resp.Body.Close()
+		resp, err := f.client(true).Get(fmt.Sprintf("https://%s%s", srv.Addr(), someURL))
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, "text/plain; charset=utf-8", resp.Header.Get("Content-Type"))
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, "secure", string(body))
 	})
 
-	When("TLS is enabled without client authentication", func() {
-		BeforeEach(func() {
-			options.TLS.RequireClientCert = false
-			options.TLS.ClientRootCAs = nil // no client CAs at all: NoClientCert
-			srv = server.NewServer(options)
-			client = newHTTPClient(tempDir, false) // Client without cert
-		})
+	t.Run("accepts clients without certificates when TLS is enabled without client authentication", func(t *testing.T) {
+		t.Parallel()
+		f := newTLSFixture(t)
+		f.options.TLS.RequireClientCert = false
+		f.options.TLS.ClientRootCAs = nil // no client CAs at all: NoClientCert
+		srv := newServer(t, f.options)
+		srv.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "open"}, false)
+		require.NoError(t, srv.Start())
 
-		It("starts successfully and accepts connections without client certificates", func() {
-			srv.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "open"}, false)
-			err := srv.Start()
-			Expect(err).NotTo(HaveOccurred())
-
-			url := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
-			resp, err := client.Get(url)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			_ = resp.Body.Close()
-		})
+		resp, err := f.client(false).Get(fmt.Sprintf("https://%s%s", srv.Addr(), someURL))
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
-	Context("when TLS is disabled", func() {
-		BeforeEach(func() {
-			options.TLS.UseTLS = false
-			srv = server.NewServer(options)
-		})
+	t.Run("does not host an insecure endpoint for additional APIs by default when TLS is disabled", func(t *testing.T) {
+		t.Parallel()
+		f := newTLSFixture(t)
+		f.options.TLS.UseTLS = false
+		srv := newServer(t, f.options)
+		require.NoError(t, srv.Start())
 
-		It("does not host an insecure endpoint for additional APIs by default", func() {
-			err := srv.Start()
-			Expect(err).NotTo(HaveOccurred())
-
-			addAPIURL := fmt.Sprintf("http://%s%s", srv.Addr(), someURL)
-			resp, err := client.Get(addAPIURL)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
-			_ = resp.Body.Close()
-		})
+		resp, err := f.client(true).Get(fmt.Sprintf("http://%s%s", srv.Addr(), someURL))
+		require.NoError(t, err)
+		defer func() { _ = resp.Body.Close() }()
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
 
-	Context("when listen fails", func() {
-		var listener net.Listener
+	t.Run("returns an error when listen fails", func(t *testing.T) {
+		t.Parallel()
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = listener.Close() })
 
-		BeforeEach(func() {
-			var err error
-			listener, err = net.Listen("tcp", "127.0.0.1:0")
-			Expect(err).NotTo(HaveOccurred())
-
-			options.ListenAddress = listener.Addr().String()
-			srv = server.NewServer(options)
-		})
-
-		AfterEach(func() {
-			_ = listener.Close()
-		})
-
-		It("returns an error", func() {
-			err := srv.Start()
-			Expect(err).To(MatchError(ContainSubstring("bind: address already in use")))
-		})
+		f := newTLSFixture(t)
+		f.options.ListenAddress = listener.Addr().String()
+		srv := newServer(t, f.options)
+		require.ErrorContains(t, srv.Start(), "bind: address already in use")
 	})
 
-	// A MISSING certificate file no longer reaches this layer: tlsconfig reads and
-	// validates every path during resolution, before a listener is built, which is the
-	// point of resolving in one place (see tlsconfig's TestValidateMissingFileIsStartupError).
-	// What can still fail here is material that loaded but does not parse.
-	Context("when a bad TLS configuration is provided", func() {
-		BeforeEach(func() {
-			options.TLS.Certificate = []byte("not a certificate")
-			srv = server.NewServer(options)
-		})
-
-		It("returns an error", func() {
-			err := srv.Start()
-			Expect(err).To(MatchError(ContainSubstring("failed loading TLS key pair")))
-		})
+	// Certificate files are read and validated before the options reach this
+	// package, so what can still fail here is material that does not parse.
+	t.Run("returns an error when a bad TLS configuration is provided", func(t *testing.T) {
+		t.Parallel()
+		f := newTLSFixture(t)
+		f.options.TLS.Certificate = []byte("not a certificate")
+		srv := newServer(t, f.options)
+		require.ErrorContains(t, srv.Start(), "failed loading TLS key pair")
 	})
 
-	It("supports ifrit", func() {
+	t.Run("supports ifrit", func(t *testing.T) {
+		t.Parallel()
+		srv := newServer(t, newTLSFixture(t).options)
 		process := ifrit.Invoke(srv)
-		Eventually(process.Ready()).Should(BeClosed())
+		requireReceive(t, process.Ready())
 
 		process.Signal(syscall.SIGTERM)
-		Eventually(process.Wait()).Should(Receive(BeNil()))
+		require.NoError(t, requireReceive(t, process.Wait()))
 	})
 
-	Context("when start fails and ifrit is used", func() {
-		BeforeEach(func() {
-			options.TLS.Certificate = []byte("not a certificate")
-			srv = server.NewServer(options)
-		})
+	t.Run("does not close the ready channel when start fails and ifrit is used", func(t *testing.T) {
+		t.Parallel()
+		f := newTLSFixture(t)
+		f.options.TLS.Certificate = []byte("not a certificate")
+		srv := newServer(t, f.options)
+		process := ifrit.Invoke(srv)
 
-		It("does not close the ready chan", func() {
-			process := ifrit.Invoke(srv)
-			Consistently(process.Ready()).ShouldNot(BeClosed())
-			Eventually(process.Wait()).Should(Receive(MatchError(
-				ContainSubstring("failed loading TLS key pair"))))
-		})
+		require.ErrorContains(t, requireReceive(t, process.Wait()), "failed loading TLS key pair")
+		select {
+		case <-process.Ready():
+			t.Fatal("ready channel closed although start failed")
+		default:
+		}
 	})
-})
+}
+
+// requireReceive returns the next value from ch, or the zero value once ch is
+// closed. It fails t if neither happens within five seconds.
+func requireReceive[T any](t *testing.T, ch <-chan T) T {
+	t.Helper()
+	select {
+	case v := <-ch:
+		return v
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "timed out waiting on channel")
+		var zero T
+		return zero
+	}
+}

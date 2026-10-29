@@ -10,103 +10,63 @@ import (
 	"crypto/x509"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware/fakes"
 )
 
-var _ = Describe("RequireCert", func() {
-	var (
-		requireCert middleware.Middleware
-		handler     *fakes.HTTPHandler
-		chain       http.Handler
+func TestRequireCert(t *testing.T) {
+	t.Parallel()
 
-		req  *http.Request
-		resp *httptest.ResponseRecorder
-	)
+	// serve passes an HTTPS request through RequireCert after letting setTLS
+	// change its connection state. It returns the response status code and
+	// how often the next handler ran.
+	serve := func(t *testing.T, setTLS func(r *http.Request)) (status, calls int) {
+		t.Helper()
+		handler := &fakes.HTTPHandler{}
+		req := httptest.NewRequest(http.MethodGet, "https:///", nil)
+		setTLS(req)
+		resp := httptest.NewRecorder()
+		middleware.RequireCert()(handler).ServeHTTP(resp, req)
+		return resp.Result().StatusCode, handler.ServeHTTPCallCount()
+	}
+	withChains := func(chains [][]*x509.Certificate) func(*http.Request) {
+		return func(r *http.Request) { r.TLS.VerifiedChains = chains }
+	}
 
-	BeforeEach(func() {
-		handler = &fakes.HTTPHandler{}
-		requireCert = middleware.RequireCert()
-		chain = requireCert(handler)
-
-		req = httptest.NewRequest(http.MethodGet, "https:///", nil)
-		req.TLS.VerifiedChains = [][]*x509.Certificate{{
-			&x509.Certificate{},
-		}}
-		resp = httptest.NewRecorder()
+	t.Run("delegates to the next handler when the first verified chain is not empty", func(t *testing.T) {
+		t.Parallel()
+		status, calls := serve(t, withChains([][]*x509.Certificate{{&x509.Certificate{}}}))
+		require.Equal(t, http.StatusOK, status)
+		require.Equal(t, 1, calls)
 	})
 
-	It("delegates to the next handler when the first verified chain is not empty", func() {
-		chain.ServeHTTP(resp, req)
-		Expect(resp.Result().StatusCode).To(Equal(http.StatusOK))
-		Expect(handler.ServeHTTPCallCount()).To(Equal(1))
-	})
+	for _, tc := range []struct {
+		name   string
+		setTLS func(*http.Request)
+	}{
+		{"when the TLS connection state is nil", func(r *http.Request) { r.TLS = nil }},
+		{"when verified chains is nil", withChains(nil)},
+		{"when verified chains is empty", withChains([][]*x509.Certificate{})},
+		{"when the first verified chain is empty", withChains([][]*x509.Certificate{{}})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	Context("when the TLS connection state is nil", func() {
-		BeforeEach(func() {
-			req.TLS = nil
-		})
+			t.Run("responds with http.StatusUnauthorized", func(t *testing.T) {
+				t.Parallel()
+				status, _ := serve(t, tc.setTLS)
+				require.Equal(t, http.StatusUnauthorized, status)
+			})
 
-		It("responds with http.StatusUnauthorized", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(resp.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+			t.Run("does not call the next handler", func(t *testing.T) {
+				t.Parallel()
+				_, calls := serve(t, tc.setTLS)
+				require.Equal(t, 0, calls)
+			})
 		})
-
-		It("does not call the next handler", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(handler.ServeHTTPCallCount()).To(Equal(0))
-		})
-	})
-
-	Context("when verified chains is nil", func() {
-		BeforeEach(func() {
-			req.TLS.VerifiedChains = nil
-		})
-
-		It("responds with http.StatusUnauthorized", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(resp.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-		})
-
-		It("does not call the next handler", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(handler.ServeHTTPCallCount()).To(Equal(0))
-		})
-	})
-
-	Context("when verified chains is empty", func() {
-		BeforeEach(func() {
-			req.TLS.VerifiedChains = [][]*x509.Certificate{}
-		})
-
-		It("responds with http.StatusUnauthorized", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(resp.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-		})
-
-		It("does not call the next handler", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(handler.ServeHTTPCallCount()).To(Equal(0))
-		})
-	})
-
-	Context("when the first verified chain is empty", func() {
-		BeforeEach(func() {
-			req.TLS.VerifiedChains = [][]*x509.Certificate{{}}
-		})
-
-		It("responds with http.StatusUnauthorized", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(resp.Result().StatusCode).To(Equal(http.StatusUnauthorized))
-		})
-
-		It("does not call the next handler", func() {
-			chain.ServeHTTP(resp, req)
-			Expect(handler.ServeHTTPCallCount()).To(Equal(0))
-		})
-	})
-})
+	}
+}
