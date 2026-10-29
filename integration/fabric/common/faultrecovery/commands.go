@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 const (
@@ -70,6 +71,17 @@ func WaitFinalOn(ii *integration.Infrastructure, node string, txIDs ...string) {
 			return err
 		}, viewTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not final on [%s]", txID, node)
 	}
+}
+
+// ExpectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
+// value and its finality view returns no error.
+func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int) {
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
+		res, err := Query(ii, node, txID)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: value}))
+	}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not settled on [%s]", txID, node)
+	WaitFinalOn(ii, node, txID)
 }
 
 // Endorse runs alice's endorse view with bob as responder and returns the endorsed

@@ -243,11 +243,12 @@ Fabric-x spec cannot restart the orderer.
 
 Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
-`fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication` and
-`fabricx-faultrecovery`). Both run the FSC
+`fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication`,
+`fabricx-faultrecovery` and `fabricx-faultrecovery-replication`). Both run the FSC
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
 `Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
-the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`), and the helpers that drive them.
+the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`,
+and `FailoverSpecs` on replicated nodes), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final
 on both nodes; `SubmitAndWaitFinalFrom` does the same from one of alice's replicas,
 `WaitFinal` does the waiting alone, and `WaitFinalOn` waits on one node or replica.
@@ -267,7 +268,8 @@ check which configuration a node holds. The Fabric suite's `SetCommitRetries` sh
 budget before the network starts, and `SetFinalityWaitTimeout` how long `IsFinal` waits
 for a transaction that is not final; call them in the generator of a `Describe` of its own,
 since they apply to every spec that shares that generator. `Query` returns a node's
-status for a transaction and the value it wrote. On Fabric-x a node's vault is the
+status for a transaction and the value it wrote, and `ExpectSettled` waits until a node
+reads a transaction as valid with a given value and reports it final. On Fabric-x a node's vault is the
 committer's query service, so `Query` answers the same on every node and does not show
 whether a restarted node has recovered. A view or helper both suites need goes there.
 The helpers in `postgres.go` give a node's database a streaming-replication standby
@@ -316,9 +318,13 @@ node name selects the first replica in the fault calls and the last one in `Clie
 `WebClient`. Helpers that take a node name, such as `faultrecovery.WaitFinal`, therefore
 reach its last replica; while a replica is down, poll the survivor by replica ID, for
 example with `WaitFinalOn(ii, "fsc.bob.0", txID)`. The
-Fabric suite's `replication` `Describe` runs on
+`replication` `Describe` of each faultrecovery suite runs on
 `faultrecovery.ReplicatedFSCTopology`: bob with two replicas behind a load balancer, alice
-with two replicas without one, each node on its own database.
+with two replicas without one, each node on its own database. On Fabric-x, the
+finality of a transaction that is already final also comes from the query service, so a
+replica shows that its own notification stream works only by reporting a transaction
+final whose finality view started before the transaction was ordered; the Fabric-x
+suite's `expectStreamedFinality` does that on every bob replica.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.

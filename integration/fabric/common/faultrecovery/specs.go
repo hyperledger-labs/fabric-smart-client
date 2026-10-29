@@ -19,8 +19,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
@@ -179,6 +181,64 @@ func ClientSpecs(s *integration.TestSuite) {
 			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, RecoveryTimeout, time.Second).Should(gomega.Succeed())
 		})
 	}
+}
+
+// FailoverSpecs registers the specs that kill the replica of bob holding alice's connection
+// through bob's load balancer, for a suite s on ReplicatedFSCTopology. conn is the
+// connection a restarted replica of bob must report Connected again before the next spec
+// runs. Each spec leaves every replica running, so the specs can run under ShareNetwork.
+func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection) {
+	ginkgo.It("serves new sessions after the replica holding them dies", func() {
+		// The first tx opens alice's connection, which ConnectedReplica looks for.
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
+		held, others := ConnectedReplica(s.II, "bob")
+		gomega.Expect(others).To(gomega.HaveLen(1))
+		survivor := others[0]
+		s.II.KillFSCNode(held.UniqueName)
+
+		// The kill closes alice's connection, so her next session dials the load balancer
+		// again and reaches the survivor.
+		tx := EndorseEventually(s.II, 1)
+		ExpectSettled(s.II, survivor.ID(), Order(s.II, tx), 1)
+		now, _ := ConnectedReplica(s.II, "bob")
+		gomega.Expect(now.UniqueName).To(gomega.Equal(survivor.UniqueName))
+
+		s.II.StartFSCNode(held.UniqueName)
+		s.II.EventuallyConnectionState(held.ID(), conn, connstate.Connected, time.Minute)
+		txIDs := SubmitAndWaitFinal(s.II, 10)
+		last := len(txIDs) - 1
+		for _, r := range []string{held.ID(), survivor.ID()} {
+			ExpectSettled(s.II, r, txIDs[last], last)
+		}
+	})
+
+	ginkgo.It("fails an in-flight view cleanly when its replica dies", func() {
+		// An echo opens alice's connection, which ConnectedReplica looks for.
+		gomega.Expect(Echo(s.II, false)).To(gomega.Succeed())
+		held, others := ConnectedReplica(s.II, "bob")
+		gomega.Expect(others).To(gomega.HaveLen(1))
+		survivor := others[0]
+
+		echo := BlockedEcho(s.II, s.II.Client("alice"), held.ID())
+		s.II.KillFSCNode(held.UniqueName)
+		// The echo view waits a minute for the reply, so only the closed session ends it
+		// this early, and a retried view would still be blocked.
+		var err error
+		gomega.Eventually(echo, SessionCloseTimeout).Should(gomega.Receive(&err))
+		gomega.Expect(err).To(gomega.MatchError(view.ErrViewExecutionFailed))
+		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("session receive channel is closed")))
+		// No message of the failed view reaches the survivor: it would open a responder
+		// context for it.
+		gomega.Consistently(func() float64 {
+			return MetricSum(s.II, survivor.ID(), ViewContexts)
+		}, 2*time.Second, 100*time.Millisecond).Should(gomega.BeZero())
+
+		gomega.Expect(Echo(s.II, false)).To(gomega.Succeed())
+		now, _ := ConnectedReplica(s.II, "bob")
+		gomega.Expect(now.UniqueName).To(gomega.Equal(survivor.UniqueName))
+		s.II.StartFSCNode(held.UniqueName)
+		s.II.EventuallyConnectionState(held.ID(), conn, connstate.Connected, time.Minute)
+	})
 }
 
 // BlockedEcho starts a blocking echo through c, alice's view client, and returns once

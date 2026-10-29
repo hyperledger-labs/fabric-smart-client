@@ -18,10 +18,19 @@ import (
 // Topology returns the Fabric-x committer with two organizations and the FSC nodes of
 // faultrecovery.FSCTopology on Postgres databases with the given prefix.
 func Topology(dbPrefix string) []api.Topology {
+	return []api.Topology{fabricxTopology(), faultrecovery.FSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
+}
+
+// ReplicatedTopology returns the network of Topology with the FSC nodes of
+// faultrecovery.ReplicatedFSCTopology.
+func ReplicatedTopology(dbPrefix string) []api.Topology {
+	return []api.Topology{fabricxTopology(), faultrecovery.ReplicatedFSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
+}
+
+func fabricxTopology() *nwofabricx.Topology {
 	fabricTopology := nwofabricx.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespace(views.Namespace, topology.Unanimity("Org1"))
-
-	return []api.Topology{fabricTopology, faultrecovery.FSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
+	return fabricTopology
 }

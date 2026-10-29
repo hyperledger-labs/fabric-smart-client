@@ -26,7 +26,6 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 const (
@@ -212,61 +211,13 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		faultrecovery.Order(s.II, tx)
 
 		for _, r := range others {
-			expectSettled(s.II, r.ID(), tx.TxID, 1)
+			faultrecovery.ExpectSettled(s.II, r.ID(), tx.TxID, 1)
 		}
 		s.II.StartFSCNode(endorser.UniqueName)
-		expectSettled(s.II, endorser.ID(), tx.TxID, 1)
+		faultrecovery.ExpectSettled(s.II, endorser.ID(), tx.TxID, 1)
 	})
 
-	It("serves new sessions after the replica holding them dies", func() {
-		// The first tx opens alice's connection, which ConnectedReplica looks for.
-		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
-		held, others := faultrecovery.ConnectedReplica(s.II, "bob")
-		Expect(others).To(HaveLen(1))
-		survivor := others[0]
-		s.II.KillFSCNode(held.UniqueName)
-
-		// The kill closes alice's connection, so her next session dials the load balancer
-		// again and reaches the survivor.
-		tx := faultrecovery.EndorseEventually(s.II, 1)
-		expectSettled(s.II, survivor.ID(), faultrecovery.Order(s.II, tx), 1)
-		now, _ := faultrecovery.ConnectedReplica(s.II, "bob")
-		Expect(now.UniqueName).To(Equal(survivor.UniqueName))
-
-		s.II.StartFSCNode(held.UniqueName)
-		txIDs := faultrecovery.SubmitAndWaitFinal(s.II, 10)
-		last := len(txIDs) - 1
-		for _, r := range []string{held.ID(), survivor.ID()} {
-			expectSettled(s.II, r, txIDs[last], last)
-		}
-	})
-
-	It("fails an in-flight view cleanly when its replica dies", func() {
-		// An echo opens alice's connection, which ConnectedReplica looks for.
-		Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
-		held, others := faultrecovery.ConnectedReplica(s.II, "bob")
-		Expect(others).To(HaveLen(1))
-		survivor := others[0]
-
-		echo := faultrecovery.BlockedEcho(s.II, s.II.Client("alice"), held.ID())
-		s.II.KillFSCNode(held.UniqueName)
-		// The echo view waits a minute for the reply, so only the closed session ends it
-		// this early, and a retried view would still be blocked.
-		var err error
-		Eventually(echo, faultrecovery.SessionCloseTimeout).Should(Receive(&err))
-		Expect(err).To(MatchError(view.ErrViewExecutionFailed))
-		Expect(err).To(MatchError(ContainSubstring("session receive channel is closed")))
-		// No message of the failed view reaches the survivor: it would open a responder
-		// context for it.
-		Consistently(func() float64 {
-			return faultrecovery.MetricSum(s.II, survivor.ID(), faultrecovery.ViewContexts)
-		}, 2*time.Second, 100*time.Millisecond).Should(BeZero())
-
-		Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
-		now, _ := faultrecovery.ConnectedReplica(s.II, "bob")
-		Expect(now.UniqueName).To(Equal(survivor.UniqueName))
-		s.II.StartFSCNode(held.UniqueName)
-	})
+	faultrecovery.FailoverSpecs(s, delivery)
 
 	It("keeps committing when one replica is killed", func() {
 		// Both replicas commit every block to the shared vault. The killed replica holds no
@@ -285,14 +236,14 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		}
 		// Not faultrecovery.WaitFinal: it asks Client("bob"), which may be the dead replica.
 		for i, txID := range txIDs {
-			expectSettled(s.II, held.ID(), txID, i)
+			faultrecovery.ExpectSettled(s.II, held.ID(), txID, i)
 		}
 
 		// The replicas share one vault, so the Query shows that the restarted replica
 		// serves views again; its connected delivery shows that it commits again.
 		s.II.StartFSCNode(idle.UniqueName)
 		last := len(txIDs) - 1
-		expectSettled(s.II, idle.ID(), txIDs[last], last)
+		faultrecovery.ExpectSettled(s.II, idle.ID(), txIDs[last], last)
 		for _, r := range []string{held.ID(), idle.ID()} {
 			s.II.EventuallyConnectionState(r, delivery, connstate.Connected, time.Minute)
 		}
@@ -403,7 +354,7 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		for _, r := range bobReplicas {
 			for _, txIDs := range [][]string{before, during, after} {
 				for i, txID := range txIDs {
-					expectSettled(s.II, r, txID, i)
+					faultrecovery.ExpectSettled(s.II, r, txID, i)
 				}
 			}
 		}
@@ -422,17 +373,6 @@ func expectHealthyCommits(ii *integration.Infrastructure, failures map[string]fl
 		ExpectWithOffset(1, err).NotTo(HaveOccurred())
 		ExpectWithOffset(1, fsc.ParseConnectionState(families, delivery)).NotTo(ContainElement(connstate.Stopped), "delivery on [%s]", r)
 	}
-}
-
-// expectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
-// value and its finality view returns no error.
-func expectSettled(ii *integration.Infrastructure, node, txID string, value int) {
-	EventuallyWithOffset(1, func(g Gomega) {
-		res, err := faultrecovery.Query(ii, node, txID)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(res).To(Equal(&views.QueryResult{Status: fdriver.Valid, Value: value}))
-	}, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed(), "tx [%s] not settled on [%s]", txID, node)
-	faultrecovery.WaitFinalOn(ii, node, txID)
 }
 
 // bobSum returns the sum of the counter or gauge name over bob's replicas.
