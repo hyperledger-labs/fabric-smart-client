@@ -22,19 +22,22 @@ func renderCondition(c sqlbuild.Condition) (string, []sqlbuild.Param) {
 	return b.Build()
 }
 
-func TestBetweenKeys_BothBounds(t *testing.T) { //nolint:paralleltest
+func TestBetweenKeys_BothBounds(t *testing.T) {
+	t.Parallel()
 	sql, args := renderCondition(betweenKeys("pkey", "a", "z", identity))
 	require.Equal(t, "(pkey >= $1 AND pkey < $2)", sql)
 	require.Equal(t, []sqlbuild.Param{"a", "z"}, args)
 }
 
-func TestBetweenKeys_OnlyStart(t *testing.T) { //nolint:paralleltest
+func TestBetweenKeys_OnlyStart(t *testing.T) {
+	t.Parallel()
 	sql, args := renderCondition(betweenKeys("pkey", "a", "", identity))
 	require.Equal(t, "(pkey >= $1)", sql)
 	require.Equal(t, []sqlbuild.Param{"a"}, args)
 }
 
-func TestBetweenKeys_OnlyEnd(t *testing.T) { //nolint:paralleltest
+func TestBetweenKeys_OnlyEnd(t *testing.T) {
+	t.Parallel()
 	sql, args := renderCondition(betweenKeys("pkey", "", "z", identity))
 	require.Equal(t, "(pkey < $1)", sql)
 	require.Equal(t, []sqlbuild.Param{"z"}, args)
@@ -42,13 +45,15 @@ func TestBetweenKeys_OnlyEnd(t *testing.T) { //nolint:paralleltest
 
 // GetStateRange(ctx, ns, "", "") relies on this rendering as a tautology
 // rather than as an empty string.
-func TestBetweenKeys_NoBounds(t *testing.T) { //nolint:paralleltest
+func TestBetweenKeys_NoBounds(t *testing.T) {
+	t.Parallel()
 	sql, args := renderCondition(betweenKeys("pkey", "", "", identity))
 	require.Equal(t, "(1=1)", sql)
 	require.Nil(t, args)
 }
 
-func TestMarshallMetadata_RoundTrip(t *testing.T) { //nolint:paralleltest
+func TestMarshallMetadata_RoundTrip(t *testing.T) {
+	t.Parallel()
 	// gob decodes an empty []byte back as nil, so don't assert a round-trip
 	// on one — the callers only ever store non-empty metadata values.
 	in := map[string][]byte{"a": []byte("one"), "b": []byte("two")}
@@ -62,7 +67,8 @@ func TestMarshallMetadata_RoundTrip(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, in, out)
 }
 
-func TestMarshallMetadata_Empty(t *testing.T) { //nolint:paralleltest
+func TestMarshallMetadata_Empty(t *testing.T) {
+	t.Parallel()
 	raw, err := marshallMetadata(map[string][]byte{})
 	require.NoError(t, err)
 
@@ -73,7 +79,8 @@ func TestMarshallMetadata_Empty(t *testing.T) { //nolint:paralleltest
 
 // GetStateMetadata stores an empty metadata column for states written without
 // metadata, so unmarshalling nothing must not be an error.
-func TestUnmarshalMetadata_NoInput(t *testing.T) { //nolint:paralleltest
+func TestUnmarshalMetadata_NoInput(t *testing.T) {
+	t.Parallel()
 	out, err := unmarshalMetadata(nil)
 	require.NoError(t, err)
 	require.Nil(t, out)
@@ -83,7 +90,8 @@ func TestUnmarshalMetadata_NoInput(t *testing.T) { //nolint:paralleltest
 	require.Nil(t, out)
 }
 
-func TestUnmarshalMetadata_Garbage(t *testing.T) { //nolint:paralleltest
+func TestUnmarshalMetadata_Garbage(t *testing.T) {
+	t.Parallel()
 	_, err := unmarshalMetadata([]byte{0xff, 0x00, 0x42})
 	require.Error(t, err)
 }

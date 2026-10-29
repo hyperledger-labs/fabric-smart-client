@@ -12,16 +12,16 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func TestGetAuditInfo(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestGetAuditInfo(t *testing.T) {
+	t.Parallel()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	input, output := view.Identity("an_id"), []byte("some_result")
 	mockDB.
@@ -31,15 +31,15 @@ func TestGetAuditInfo(t *testing.T) { //nolint:paralleltest
 
 	info, err := mockAuditInfoStore(db).GetAuditInfo(context.Background(), input)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(info).To(Equal(output))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.Equal(t, output, info)
 }
 
-func TestPutAuditInfo(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPutAuditInfo(t *testing.T) {
+	t.Parallel()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	input, output := view.Identity("an_id"), []byte("some_result")
 	mockDB.
@@ -49,8 +49,8 @@ func TestPutAuditInfo(t *testing.T) { //nolint:paralleltest
 
 	err = mockAuditInfoStore(db).PutAuditInfo(context.Background(), input, output)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
 }
 
 func mockAuditInfoStore(db *sql.DB) *common.AuditInfoStore {

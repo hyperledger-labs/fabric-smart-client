@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/stats"
@@ -29,7 +29,6 @@ import (
 
 func TestConnectionCounters(t *testing.T) {
 	t.Parallel()
-	gt := NewGomegaWithT(t)
 
 	openConn := &mock.Counter{}
 	closedConn := &mock.Counter{}
@@ -40,18 +39,17 @@ func TestConnectionCounters(t *testing.T) {
 
 	for i := 1; i <= 10; i++ {
 		sh.HandleConn(t.Context(), &stats.ConnBegin{})
-		gt.Expect(openConn.AddCallCount()).To(Equal(i))
+		require.Equal(t, i, openConn.AddCallCount())
 	}
 
 	for i := 1; i <= 5; i++ {
 		sh.HandleConn(t.Context(), &stats.ConnEnd{})
-		gt.Expect(closedConn.AddCallCount()).To(Equal(i))
+		require.Equal(t, i, closedConn.AddCallCount())
 	}
 }
 
 func TestConnMetricsGRPCServer(t *testing.T) {
 	t.Parallel()
-	gt := NewGomegaWithT(t)
 
 	openConn := &mock.Counter{}
 	closedConn := &mock.Counter{}
@@ -68,7 +66,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	}
 
 	listener, err := net.Listen("tcp", "localhost:0")
-	gt.Expect(err).NotTo(HaveOccurred())
+	require.NoError(t, err)
 	srv, err := commongrpc.NewGRPCServerFromListener(
 		listener,
 		commongrpc.ServerConfig{
@@ -76,7 +74,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 			ServerStatsHandler: commongrpc.NewServerStatsHandler(fakeProvider),
 		},
 	)
-	gt.Expect(err).NotTo(HaveOccurred())
+	require.NoError(t, err)
 
 	// register the GRPC test server
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
@@ -86,26 +84,26 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	defer srv.Stop()
 
 	// test grpc connection counts
-	gt.Expect(openConn.AddCallCount()).To(Equal(0))
-	gt.Expect(closedConn.AddCallCount()).To(Equal(0))
+	require.Equal(t, 0, openConn.AddCallCount())
+	require.Equal(t, 0, closedConn.AddCallCount())
 
 	// create GRPC client conn
 	var clientConns []*grpc.ClientConn
 	for i := 1; i <= 3; i++ {
 		clientConn, err := grpc.NewClient(listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		gt.Expect(err).NotTo(HaveOccurred())
+		require.NoError(t, err)
 		clientConns = append(clientConns, clientConn)
 
 		// invoke service
 		client := testpb.NewEmptyServiceClient(clientConn)
 		_, err = client.EmptyCall(t.Context(), &testpb.Empty{})
-		gt.Expect(err).NotTo(HaveOccurred())
-		gt.Expect(openConn.AddCallCount()).To(Equal(i))
+		require.NoError(t, err)
+		require.Equal(t, i, openConn.AddCallCount())
 	}
 
 	for i, conn := range clientConns {
-		gt.Expect(closedConn.AddCallCount()).Should(Equal(i))
+		require.Equal(t, i, closedConn.AddCallCount())
 		_ = conn.Close()
-		gt.Eventually(closedConn.AddCallCount, time.Second).Should(Equal(i + 1))
+		require.Eventually(t, func() bool { return closedConn.AddCallCount() == i+1 }, time.Second, 10*time.Millisecond)
 	}
 }

@@ -13,17 +13,17 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func TestGetLongTerm(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestGetLongTerm(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	ephemeral := view.Identity("ephemeral_id")
 	longTerm := view.Identity("long_term_id")
@@ -35,16 +35,16 @@ func TestGetLongTerm(t *testing.T) { //nolint:paralleltest
 
 	result, err := mockBindingStore(db).GetLongTerm(context.Background(), ephemeral)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(longTerm))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.Equal(t, longTerm, result)
 }
 
-func TestHaveSameBinding(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestHaveSameBinding(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id1 := view.Identity("id1")
 	id2 := view.Identity("id2")
@@ -62,16 +62,16 @@ func TestHaveSameBinding(t *testing.T) { //nolint:paralleltest
 
 	result, err := mockBindingStore(db).HaveSameBinding(context.Background(), id1, id2)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(BeTrue())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.True(t, result)
 }
 
-func TestHaveSameBinding_NotEqual(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestHaveSameBinding_NotEqual(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id1 := view.Identity("id1")
 	id2 := view.Identity("id2")
@@ -90,16 +90,16 @@ func TestHaveSameBinding_NotEqual(t *testing.T) { //nolint:paralleltest
 
 	result, err := mockBindingStore(db).HaveSameBinding(context.Background(), id1, id2)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(BeFalse())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.False(t, result)
 }
 
-func TestHaveSameBinding_MissingEntries(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestHaveSameBinding_MissingEntries(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id1 := view.Identity("id1")
 	id2 := view.Identity("id2")
@@ -116,15 +116,15 @@ func TestHaveSameBinding_MissingEntries(t *testing.T) { //nolint:paralleltest
 
 	_, err = mockBindingStore(db).HaveSameBinding(context.Background(), id1, id2)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(HaveOccurred())
-	Expect(err.Error()).To(ContainSubstring("1 entries found instead of 2"))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "1 entries found instead of 2")
 }
 
 // PutBindings resolves the canonical long-term id first, then writes one
 // multi-row INSERT whose first tuple is the long-term id bound to itself.
-func TestPutBindings(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPutBindings(t *testing.T) {
+	t.Parallel()
 
 	expectPutBindings(t,
 		"INSERT INTO bindings (ephemeral_hash, long_term_id) "+
@@ -132,8 +132,8 @@ func TestPutBindings(t *testing.T) { //nolint:paralleltest
 		view.Identity("eph1"))
 }
 
-func TestPutBindings_SeveralEphemerals(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPutBindings_SeveralEphemerals(t *testing.T) {
+	t.Parallel()
 
 	expectPutBindings(t,
 		"INSERT INTO bindings (ephemeral_hash, long_term_id) "+
@@ -147,7 +147,7 @@ func expectPutBindings(t *testing.T, query string, ephemerals ...view.Identity) 
 	t.Helper()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	longTerm := view.Identity("long_term")
 
@@ -166,8 +166,8 @@ func expectPutBindings(t *testing.T, query string, ephemerals ...view.Identity) 
 		WithArgs(args...).
 		WillReturnResult(sqlmock.NewResult(1, int64(len(ephemerals)+1)))
 
-	Expect(mockBindingStore(db).PutBindings(context.Background(), longTerm, ephemerals...)).To(Succeed())
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
+	require.NoError(t, mockBindingStore(db).PutBindings(context.Background(), longTerm, ephemerals...))
+	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
 func mockBindingStore(db *sql.DB) *common.BindingStore {

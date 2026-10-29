@@ -9,7 +9,7 @@ package pagination_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -36,12 +36,13 @@ func render(p driver.Pagination) (string, []sqlbuild.Param) {
 		Build()
 }
 
-func setupPaginationWithLastID() *driver.PageIterator[*any] {
+func setupPaginationWithLastID(t *testing.T) *driver.PageIterator[*any] {
+	t.Helper()
 	p, err := pagination.KeysetWithField[string](200, 10, "col_id", "StringField")
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	query, args := render(p)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200", query)
+	require.Nil(t, args)
 
 	results := collections.NewSliceIterator([]*any{
 		common.CopyPtr[any](dbResult{StringField: "first"}),
@@ -56,135 +57,135 @@ func setupPaginationWithLastID() *driver.PageIterator[*any] {
 		common.CopyPtr[any](dbResult{StringField: "last"}),
 	})
 	page, err := pagination.NewPage[any](results, p)
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	return page
 }
 
 // Next() straight after a full page carries the last id forward as a cursor.
-func TestKeysetSimple(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetSimple(t *testing.T) {
+	t.Parallel()
 
-	page := setupPaginationWithLastID()
+	page := setupPaginationWithLastID(t)
 
 	nextPagination, err := page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	page.Pagination = nextPagination
 
 	query, args := render(page.Pagination)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE col_id > $1 ORDER BY col_id ASC LIMIT 10"))
-	Expect(args).To(Equal([]sqlbuild.Param{"last"}))
+	require.Equal(t, "SELECT field1, col_id FROM test WHERE col_id > $1 ORDER BY col_id ASC LIMIT 10", query)
+	require.Equal(t, []sqlbuild.Param{"last"}, args)
 }
 
 // Skipping a page loses the cursor, so it falls back to OFFSET.
-func TestKeysetSkippingPage(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetSkippingPage(t *testing.T) {
+	t.Parallel()
 
-	page := setupPaginationWithLastID()
+	page := setupPaginationWithLastID(t)
 
 	nextPagination, err := page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	page.Pagination = nextPagination
 
 	nextPagination, err = page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	page.Pagination = nextPagination
 
 	query, args := render(page.Pagination)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 220"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 220", query)
+	require.Nil(t, args)
 }
 
-func TestKeysetGoingBack(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetGoingBack(t *testing.T) {
+	t.Parallel()
 
-	page := setupPaginationWithLastID()
+	page := setupPaginationWithLastID(t)
 
 	nextPagination, err := page.Pagination.Prev()
 	page.Pagination = nextPagination
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query, args := render(page.Pagination)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 190"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 190", query)
+	require.Nil(t, args)
 }
 
-func TestKeysetGoingNextBack(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetGoingNextBack(t *testing.T) {
+	t.Parallel()
 
-	page := setupPaginationWithLastID()
+	page := setupPaginationWithLastID(t)
 
 	nextPagination, err := page.Pagination.Next()
 	page.Pagination = nextPagination
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	nextPagination, err = page.Pagination.Next()
 	page.Pagination = nextPagination
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	nextPagination, err = page.Pagination.Prev()
 	page.Pagination = nextPagination
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query, args := render(page.Pagination)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 210"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 210", query)
+	require.Nil(t, args)
 }
 
 // With no rows there is no last id, so the next page uses OFFSET, not a cursor.
-func TestKeysetEmptyResults(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetEmptyResults(t *testing.T) {
+	t.Parallel()
 
 	p, err := pagination.KeysetWithField[string](200, 10, "col_id", "StringField")
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	query, args := render(p)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200", query)
+	require.Nil(t, args)
 
 	results := collections.NewSliceIterator([]*any{})
 	page, err := pagination.NewPage[any](results, p)
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	nextPagination, err := page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	page.Pagination = nextPagination
 
 	query, args = render(page.Pagination)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 210"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 210", query)
+	require.Nil(t, args)
 }
 
-func TestKeysetPartialResults(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetPartialResults(t *testing.T) {
+	t.Parallel()
 
 	p, err := pagination.KeysetWithField[string](200, 20, "col_id", "StringField")
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	query, args := render(p)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 20 OFFSET 200"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 20 OFFSET 200", query)
+	require.Nil(t, args)
 
 	results := collections.NewSliceIterator([]*any{})
 	page, err := pagination.NewPage[any](results, p)
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	nextPagination, err := page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	page.Pagination = nextPagination
 
 	query, args = render(page.Pagination)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 20 OFFSET 220"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 20 OFFSET 220", query)
+	require.Nil(t, args)
 }
 
 // An int id yields an int cursor parameter.
-func TestKeysetInt(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetInt(t *testing.T) {
+	t.Parallel()
 
 	p, err := pagination.KeysetWithField[int](200, 10, "col_id", "IntField")
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	query, args := render(p)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200"))
-	Expect(args).To(BeNil())
+	require.Equal(t, "SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200", query)
+	require.Nil(t, args)
 
 	results := collections.NewSliceIterator([]*any{
 		common.CopyPtr[any](dbResult{IntField: 1}),
@@ -199,26 +200,26 @@ func TestKeysetInt(t *testing.T) { //nolint:paralleltest
 		common.CopyPtr[any](dbResult{IntField: 10}),
 	})
 	page, err := pagination.NewPage[any](results, p)
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	nextPagination, err := page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 	page.Pagination = nextPagination
 
 	query, args = render(page.Pagination)
-	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE col_id > $1 ORDER BY col_id ASC LIMIT 10"))
-	Expect(args).To(Equal([]sqlbuild.Param{10}))
+	require.Equal(t, "SELECT field1, col_id FROM test WHERE col_id > $1 ORDER BY col_id ASC LIMIT 10", query)
+	require.Equal(t, []sqlbuild.Param{10}, args)
 }
 
-func TestKeysetSerialization(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestKeysetSerialization(t *testing.T) {
+	t.Parallel()
 
-	page := setupPaginationWithLastID()
+	page := setupPaginationWithLastID(t)
 
 	buf, err := page.Pagination.Serialize()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	k2, err := pagination.KeysetFromRaw[string](buf, "StringField")
-	Expect(err).ToNot(HaveOccurred())
-	Expect(k2.Equal(page.Pagination)).To(Equal(true))
+	require.NoError(t, err)
+	require.True(t, k2.Equal(page.Pagination))
 }

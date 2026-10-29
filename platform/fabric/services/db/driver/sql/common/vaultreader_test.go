@@ -110,9 +110,11 @@ var readerCalls = map[string]func(r driver.LockedVaultReader) error{
 // When that open fails, the failure must surface from the method itself — and
 // keep surfacing, since once.Do will not retry the open. Done must still be
 // safe to call afterwards.
-func TestTxVaultReader_LazyOpenFailurePropagates(t *testing.T) { //nolint:paralleltest
-	for name, call := range readerCalls { //nolint:paralleltest
+func TestTxVaultReader_LazyOpenFailurePropagates(t *testing.T) {
+	t.Parallel()
+	for name, call := range readerCalls {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			store, mockDB := newVaultMockWithIso(t, failingIsoMapper{})
 			expectTxLock(mockDB, "tx1")
 
@@ -129,7 +131,8 @@ func TestTxVaultReader_LazyOpenFailurePropagates(t *testing.T) { //nolint:parall
 
 // The reader is opened once and reused: a second call must not begin a second
 // transaction.
-func TestTxVaultReader_OpensOnce(t *testing.T) { //nolint:paralleltest
+func TestTxVaultReader_OpensOnce(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	expectTxLock(mockDB, "tx1")
 	mockDB.ExpectBegin()
@@ -162,11 +165,12 @@ func TestTxVaultReader_OpensOnce(t *testing.T) { //nolint:paralleltest
 // method must delegate to the underlying vaultReader rather than stop at the
 // open. Each case runs against its own reader so the expectations stay
 // independent of the order the methods are exercised in.
-func TestTxVaultReader_DelegatesAfterOpen(t *testing.T) { //nolint:paralleltest
+func TestTxVaultReader_DelegatesAfterOpen(t *testing.T) {
+	t.Parallel()
 	stateCols := []string{"pkey", "kversion", "val"}
 	statusCols := []string{"tx_id", "code", "message"}
 
-	for _, tc := range []struct { //nolint:paralleltest
+	for _, tc := range []struct {
 		name  string
 		query string
 		args  []sqldriver.Value
@@ -245,6 +249,7 @@ func TestTxVaultReader_DelegatesAfterOpen(t *testing.T) { //nolint:paralleltest
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			store, mockDB := newVaultMockT(t)
 			expectTxLock(mockDB, "tx1")
 			mockDB.ExpectBegin()
@@ -262,7 +267,8 @@ func TestTxVaultReader_DelegatesAfterOpen(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestTxVaultReader_BeginFails(t *testing.T) { //nolint:paralleltest
+func TestTxVaultReader_BeginFails(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	expectTxLock(mockDB, "tx1")
 	beginErr := errors.New("cannot begin")
@@ -278,7 +284,8 @@ func TestTxVaultReader_BeginFails(t *testing.T) { //nolint:paralleltest
 
 // Done on an unopened reader is a no-op: newTxVaultReader installs a release
 // that does nothing until the real one replaces it.
-func TestTxVaultReader_DoneWithoutOpening(t *testing.T) { //nolint:paralleltest
+func TestTxVaultReader_DoneWithoutOpening(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	expectTxLock(mockDB, "tx1")
 
@@ -290,7 +297,8 @@ func TestTxVaultReader_DoneWithoutOpening(t *testing.T) { //nolint:paralleltest
 
 // The global-lock reader takes the store's write lock on open and releases it
 // on Done, so a second reader can only open after the first is done.
-func TestGlobalLockVaultReader_HoldsAndReleasesLock(t *testing.T) { //nolint:paralleltest
+func TestGlobalLockVaultReader_HoldsAndReleasesLock(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	mockDB.
 		ExpectQuery("SELECT tx_id, code, message FROM status WHERE tx_id = $1").
@@ -311,7 +319,8 @@ func TestGlobalLockVaultReader_HoldsAndReleasesLock(t *testing.T) { //nolint:par
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
-func TestVaultStore_Close(t *testing.T) { //nolint:paralleltest
+func TestVaultStore_Close(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	mockDB.ExpectClose()
 
@@ -343,7 +352,8 @@ func TestCreateSchema(t *testing.T) {
 	}
 }
 
-func TestGetTableNames(t *testing.T) { //nolint:paralleltest
+func TestGetTableNames(t *testing.T) {
+	t.Parallel()
 	names, err := fsqlcommon.GetTableNames("prefix")
 	require.NoError(t, err)
 	require.Equal(t, fsqlcommon.TableNames{
@@ -356,27 +366,31 @@ func TestGetTableNames(t *testing.T) { //nolint:paralleltest
 }
 
 // An empty prefix falls back to the package default rather than erroring.
-func TestGetTableNames_DefaultPrefix(t *testing.T) { //nolint:paralleltest
+func TestGetTableNames_DefaultPrefix(t *testing.T) {
+	t.Parallel()
 	names, err := fsqlcommon.GetTableNames("")
 	require.NoError(t, err)
 	require.Equal(t, "fsc_etx", names.EndorseTx)
 }
 
-func TestGetTableNames_InvalidPrefix(t *testing.T) { //nolint:paralleltest
+func TestGetTableNames_InvalidPrefix(t *testing.T) {
+	t.Parallel()
 	_, err := fsqlcommon.GetTableNames("bad-prefix!")
 	require.Error(t, err)
 }
 
 // params are appended to each name and validated the same way as the prefix,
 // so an illegal one fails on the first Format call.
-func TestGetTableNames_InvalidParam(t *testing.T) { //nolint:paralleltest
+func TestGetTableNames_InvalidParam(t *testing.T) {
+	t.Parallel()
 	_, err := fsqlcommon.GetTableNames("prefix", "bad-param!")
 	require.Error(t, err)
 }
 
 // A write with no Raw bytes is a delete: the version is cleared so the row
 // records the absence rather than a stale version.
-func TestUpsertStates_Delete(t *testing.T) { //nolint:paralleltest
+func TestUpsertStates_Delete(t *testing.T) {
+	t.Parallel()
 	store, _ := newVaultMockT(t)
 
 	_, args, err := store.UpsertStates(driver.Writes{
@@ -388,7 +402,8 @@ func TestUpsertStates_Delete(t *testing.T) { //nolint:paralleltest
 
 // A metadata write with no matching value write still produces a row, via the
 // second loop over metaWrites.
-func TestUpsertStates_MetaOnly(t *testing.T) { //nolint:paralleltest
+func TestUpsertStates_MetaOnly(t *testing.T) {
+	t.Parallel()
 	store, _ := newVaultMockT(t)
 
 	query, args, err := store.UpsertStates(driver.Writes{}, driver.MetaWrites{
@@ -412,7 +427,8 @@ func TestUpsertStates_MetaOnly(t *testing.T) { //nolint:paralleltest
 
 // A value and its metadata carrying different versions is suspicious but not
 // fatal: the row is still written.
-func TestUpsertStates_VersionMismatch(t *testing.T) { //nolint:paralleltest
+func TestUpsertStates_VersionMismatch(t *testing.T) {
+	t.Parallel()
 	store, _ := newVaultMockT(t)
 
 	_, args, err := store.UpsertStates(driver.Writes{
@@ -427,7 +443,8 @@ func TestUpsertStates_VersionMismatch(t *testing.T) { //nolint:paralleltest
 	require.Len(t, args, 5)
 }
 
-func TestUpsertStates_NoValues(t *testing.T) { //nolint:paralleltest
+func TestUpsertStates_NoValues(t *testing.T) {
+	t.Parallel()
 	store, _ := newVaultMockT(t)
 
 	_, _, err := store.UpsertStates(driver.Writes{}, driver.MetaWrites{})
@@ -435,7 +452,8 @@ func TestUpsertStates_NoValues(t *testing.T) { //nolint:paralleltest
 }
 
 // A key with no row is not an error: the vault reports absent metadata as nil.
-func TestGetStateMetadata_NoRows(t *testing.T) { //nolint:paralleltest
+func TestGetStateMetadata_NoRows(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	mockDB.
 		ExpectQuery("SELECT metadata, kversion FROM state WHERE (ns = $1 AND pkey = $2)").
@@ -449,7 +467,8 @@ func TestGetStateMetadata_NoRows(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
-func TestGetStateMetadata_QueryFails(t *testing.T) { //nolint:paralleltest
+func TestGetStateMetadata_QueryFails(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	queryErr := errors.New("query failed")
 	mockDB.
@@ -463,7 +482,8 @@ func TestGetStateMetadata_QueryFails(t *testing.T) { //nolint:paralleltest
 }
 
 // Metadata that isn't valid gob surfaces as a decode error rather than a panic.
-func TestGetStateMetadata_BadMetadata(t *testing.T) { //nolint:paralleltest
+func TestGetStateMetadata_BadMetadata(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	mockDB.
 		ExpectQuery("SELECT metadata, kversion FROM state WHERE (ns = $1 AND pkey = $2)").
@@ -476,7 +496,8 @@ func TestGetStateMetadata_BadMetadata(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
-func TestQueryState_QueryFails(t *testing.T) { //nolint:paralleltest
+func TestQueryState_QueryFails(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	queryErr := errors.New("query failed")
 	mockDB.
@@ -491,7 +512,8 @@ func TestQueryState_QueryFails(t *testing.T) { //nolint:paralleltest
 
 // No transaction IDs means no query: the reader short-circuits to an empty
 // iterator rather than building a WHERE with an empty IN list.
-func TestGetTxStatuses_NoIDs(t *testing.T) { //nolint:paralleltest
+func TestGetTxStatuses_NoIDs(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 
 	it, err := store.GetTxStatuses(context.Background())
@@ -500,7 +522,8 @@ func TestGetTxStatuses_NoIDs(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
-func TestGetAllTxStatuses_NilPagination(t *testing.T) { //nolint:paralleltest
+func TestGetAllTxStatuses_NilPagination(t *testing.T) {
+	t.Parallel()
 	store, _ := newVaultMockT(t)
 
 	_, err := store.GetAllTxStatuses(context.Background(), nil)
@@ -509,7 +532,8 @@ func TestGetAllTxStatuses_NilPagination(t *testing.T) { //nolint:paralleltest
 
 // GetState surfaces a failure from the underlying GetStates query rather than
 // returning a zero read.
-func TestGetState_QueryFails(t *testing.T) { //nolint:paralleltest
+func TestGetState_QueryFails(t *testing.T) {
+	t.Parallel()
 	store, mockDB := newVaultMockT(t)
 	queryErr := errors.New("query failed")
 	mockDB.

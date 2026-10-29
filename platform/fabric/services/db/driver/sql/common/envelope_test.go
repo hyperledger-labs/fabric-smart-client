@@ -19,37 +19,43 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 )
 
-func TestEndorseTX_GetData(t *testing.T) { //nolint:paralleltest
+func TestEndorseTX_GetData(t *testing.T) {
+	t.Parallel()
 	GetData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockEndorseTXStore(db).GetEndorseTx(context.Background(), key)
 	})
 }
 
-func TestEndorseTX_GetData_NoData(t *testing.T) { //nolint:paralleltest
+func TestEndorseTX_GetData_NoData(t *testing.T) {
+	t.Parallel()
 	GetDataNoData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockEndorseTXStore(db).GetEndorseTx(context.Background(), key)
 	})
 }
 
-func TestEndorseTX_ExistData_True(t *testing.T) { //nolint:paralleltest
+func TestEndorseTX_ExistData_True(t *testing.T) {
+	t.Parallel()
 	ExistDataTrue(t, func(db *sql.DB, key string) (bool, error) {
 		return mockEndorseTXStore(db).ExistsEndorseTx(context.Background(), key)
 	})
 }
 
-func TestEndorseTX_ExistData_False(t *testing.T) { //nolint:paralleltest
+func TestEndorseTX_ExistData_False(t *testing.T) {
+	t.Parallel()
 	ExistDataFalse(t, func(db *sql.DB, key string) (bool, error) {
 		return mockEndorseTXStore(db).ExistsEndorseTx(context.Background(), key)
 	})
 }
 
-func TestEndorseTX_PutData_Success(t *testing.T) { //nolint:paralleltest
+func TestEndorseTX_PutData_Success(t *testing.T) {
+	t.Parallel()
 	PutDataSuccess(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEndorseTXStore(db).PutEndorseTx(context.Background(), key, data)
 	})
 }
 
-func TestEndorseTX_PutData_Conflict(t *testing.T) { //nolint:paralleltest
+func TestEndorseTX_PutData_Conflict(t *testing.T) {
+	t.Parallel()
 	PutDataConflict(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEndorseTXStore(db).PutEndorseTx(context.Background(), key, data)
 	})
