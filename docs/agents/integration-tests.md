@@ -234,8 +234,12 @@ each channel at startup. Startup returns once each channel of an etcdraft networ
 raft leader (a SmartBFT channel has no leader election to wait for) and every peer
 discovers all the others through gossip. For Fabric-x,
 `fabricx.FxPlatform(ii).StopCommitter()` and `StartCommitter()` stop and restart the
-all-in-one committer container; start waits
-until its sidecar, query and ordering services accept connections.
+committer services (sidecar, coordinator, verifier, validator-committer, query) inside the
+all-in-one committer container. Its database and mock orderer keep running. Start waits
+until the sidecar, query and ordering services accept connections, and fails at once if the
+services exit first; a transaction ordered after that commits. The committer test
+container's mock orderer holds its blocks in memory only and loses them on restart, so a
+Fabric-x spec cannot restart the orderer.
 
 Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,

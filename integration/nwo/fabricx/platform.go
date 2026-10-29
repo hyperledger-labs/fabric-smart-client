@@ -150,12 +150,13 @@ func (p *Platform) Members() []grouper.Member {
 	return p.Network.Members()
 }
 
-// StopCommitter stops the committer container and returns once it has exited.
+// StopCommitter stops the committer services and returns once they have
+// exited; the committer container's database and mock orderer keep running.
 // The test fails if the platform runs no committer.
 func (p *Platform) StopCommitter() { p.committer().StopCommitter() }
 
-// StartCommitter restarts the committer stopped by StopCommitter and returns
-// once its services accept connections.
+// StartCommitter starts the committer services stopped by StopCommitter and
+// returns once they accept connections.
 func (p *Platform) StartCommitter() { p.committer().StartCommitter() }
 
 func (p *Platform) committer() *scv2.Extension {
