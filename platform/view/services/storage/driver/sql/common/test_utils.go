@@ -55,15 +55,17 @@ func TestCases(t *testing.T,
 			c.Fn(xt, b.readDB, b.writeDB, b.errorWrapper, b.table)
 		})
 	}
-	for _, c := range UnversionedNotifierCases {
-		un, err := unversionedNotifierProvider(c.Name)
-		if err != nil {
-			t.Fatal(err)
+	if unversionedNotifierProvider != nil {
+		for _, c := range UnversionedNotifierCases {
+			un, err := unversionedNotifierProvider(c.Name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Run(c.Name, func(xt *testing.T) {
+				defer func() { _ = un.Close() }()
+				c.Fn(xt, un)
+			})
 		}
-		t.Run(c.Name, func(xt *testing.T) {
-			defer func() { _ = un.Close() }()
-			c.Fn(xt, un)
-		})
 	}
 }
 
