@@ -62,11 +62,15 @@ const committerProcesses = "$BINS_PATH/[c]ommitter start"
 // running: the mock orderer of the committer test container holds its blocks in
 // memory only, so restarting it would lose the blocks the sidecar resumes from.
 // For the same reason nwo offers no way to restart the Fabric-x orderer.
+//
+// The test fails if no committer service is running, which is also how a change
+// to the image that committerProcesses no longer matches shows up: pkill exits
+// non-zero when it matches nothing.
 func (e *Extension) StopCommitter() {
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(d.Exec(e.containerName(), "sh", "-c", fmt.Sprintf(
-		`pkill -f "%[1]s"; while pgrep -f "%[1]s" >/dev/null; do sleep 0.1; done`, committerProcesses,
+		`pkill -f "%[1]s" && while pgrep -f "%[1]s" >/dev/null; do sleep 0.1; done`, committerProcesses,
 	))).To(gomega.Succeed())
 }
 
