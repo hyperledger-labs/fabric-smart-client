@@ -844,10 +844,11 @@ func TestNewClientStream_ConcurrentDialsShareConnection(t *testing.T) {
 	}
 
 	// Exactly one physical client connection should have been established to the server.
+	// Block for the first: a dial returns once the upgrade response is written, before the
+	// server handler hands the connection to peers.
 	select {
 	case <-peers:
-		// First peer received
-	default:
+	case <-time.After(10 * time.Second):
 		t.Fatal("expected at least one server connection")
 	}
 
