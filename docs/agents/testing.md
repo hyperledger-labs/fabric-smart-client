@@ -7,12 +7,22 @@ exempts, is in [Contribution Workflow → Tests](../dev/workflow.md#tests).
 
 - **Unit tests**: `github.com/stretchr/testify/require`.
 - **Integration tests**: Ginkgo v2 + Gomega.
+- **`nwo` unit tests** in the integration module: Gomega, because `nwo` asserts through it.
 
-That is the project convention. Some existing unit suites still use Ginkgo/Gomega and
-will be migrated — follow the convention, not the neighbouring file.
+A `depguard` rule in [`.golangci.yml`](../../.golangci.yml) rejects Gomega and Ginkgo
+imports in test files outside `integration/`.
 
 See [`docs/dev/testing.md`](../dev/testing.md) for testing best practices, including
 when to reach for `assert` instead of `require`.
+
+## Parallel unit tests
+
+A unit test and each of its subtests call `t.Parallel()`, so `go test -race` exercises
+them concurrently and `-shuffle=on` and `-count` vary their order. A test that reads or
+changes process-wide state (`t.Setenv`, `logging.Init`, the global Gomega, a package
+variable such as `prom.DefaultRegisterer`) runs serially instead and says which state
+with `//nolint:paralleltest // <state>`. Placed on the line above the `func`, the
+directive also covers that test's subtests.
 
 ## Running tests
 
