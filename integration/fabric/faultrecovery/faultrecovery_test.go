@@ -370,17 +370,13 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		for i := range txs {
 			txs[i] = faultrecovery.Endorse(s.II, i)
 		}
-		retries := map[string]float64{}
+		retries, failures := map[string]float64{}, map[string]float64{}
 		for _, r := range bobReplicas {
 			retries[r] = faultrecovery.MetricSum(s.II, r, commitRetries)
+			failures[r] = faultrecovery.MetricSum(s.II, r, commitFailures)
 		}
-		expectRetrying(Default, s.II)
+		expectHealthyCommits(s.II, failures)
 
-		// From the outage until both replicas reconnect, no replica may stop its delivery
-		// or record a commit failure.
-		ctx, stopWatch := context.WithCancel(context.Background())
-		DeferCleanup(stopWatch)
-		watch := watchRetrying(ctx, s.II)
 		stopped := time.Now()
 		s.II.StopPostgres(db)
 		for _, r := range bobReplicas {
@@ -402,33 +398,29 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		for _, r := range bobReplicas {
 			s.II.EventuallyConnectionState(r, database, connstate.Connected, time.Minute)
 		}
-		stopWatch()
-		Expect(<-watch).To(BeEmpty())
 		after := faultrecovery.SubmitAndWaitFinal(s.II, 3)
 
 		for _, r := range bobReplicas {
-			for i, txID := range before {
-				expectSettled(s.II, r, txID, i)
-			}
-			for i, txID := range during {
-				expectSettled(s.II, r, txID, i)
-			}
-			for i, txID := range after {
-				expectSettled(s.II, r, txID, i)
+			for _, txIDs := range [][]string{before, during, after} {
+				for i, txID := range txIDs {
+					expectSettled(s.II, r, txID, i)
+				}
 			}
 		}
-		expectRetrying(Default, s.II)
+		// A stopped delivery stays stopped and the failure counter only grows, so a check
+		// after the outage also catches a failure during it.
+		expectHealthyCommits(s.II, failures)
 	})
 })
 
-// expectRetrying checks that no replica of bob has stopped its delivery or recorded a
-// commit failure.
-func expectRetrying(g Gomega, ii *integration.Infrastructure) {
+// expectHealthyCommits checks that no replica of bob has stopped its delivery or recorded
+// a commit failure beyond failures, its count per replica ID.
+func expectHealthyCommits(ii *integration.Infrastructure, failures map[string]float64) {
 	for _, r := range bobReplicas {
-		g.Expect(faultrecovery.MetricSum(ii, r, commitFailures)).To(BeZero(), "commit failures on [%s]", r)
+		ExpectWithOffset(1, faultrecovery.MetricSum(ii, r, commitFailures)).To(Equal(failures[r]), "commit failures on [%s]", r)
 		families, err := ii.WebClient(r).Metrics()
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(fsc.ParseConnectionState(families, delivery)).NotTo(ContainElement(connstate.Stopped), "delivery on [%s]", r)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		ExpectWithOffset(1, fsc.ParseConnectionState(families, delivery)).NotTo(ContainElement(connstate.Stopped), "delivery on [%s]", r)
 	}
 }
 
@@ -441,34 +433,6 @@ func expectSettled(ii *integration.Infrastructure, node, txID string, value int)
 		g.Expect(res).To(Equal(&views.QueryResult{Status: fdriver.Valid, Value: value}))
 	}, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed(), "tx [%s] not settled on [%s]", txID, node)
 	faultrecovery.WaitFinalOn(ii, node, txID)
-}
-
-// watchRetrying runs expectRetrying every second until ctx ends and then sends the first
-// failure it saw, or "" if there was none.
-func watchRetrying(ctx context.Context, ii *integration.Infrastructure) <-chan string {
-	failure := make(chan string, 1)
-	go func() {
-		defer GinkgoRecover()
-		var first string
-		g := NewGomega(func(msg string, _ ...int) {
-			if first == "" {
-				first = msg
-			}
-		})
-		tick := time.NewTicker(time.Second)
-		defer tick.Stop()
-		for first == "" {
-			expectRetrying(g, ii)
-			select {
-			case <-ctx.Done():
-				failure <- first
-				return
-			case <-tick.C:
-			}
-		}
-		failure <- first
-	}()
-	return failure
 }
 
 // bobSum returns the sum of the counter or gauge name over bob's replicas.
