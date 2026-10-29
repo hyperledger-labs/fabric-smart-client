@@ -52,12 +52,16 @@ const (
 // may leave the network broken, so the network is rebuilt before the next spec runs; if
 // the rebuild fails, that spec fails before its body runs and the next one tries again.
 // A spec that changes the network for good may share it only as the last spec of the
-// container. When the suite timeout expires, ginkgo skips the remaining specs without
-// running AfterAll, so the network is left running.
+// container. The network is torn down by a DeferCleanup registered in BeforeAll, which
+// ginkgo runs after the DeferCleanup of the last spec, so a spec may restart a node it
+// killed in a DeferCleanup. When the suite timeout expires, ginkgo skips the remaining
+// specs without tearing down, so the network is left running.
 func ShareNetwork(s *integration.TestSuite) {
 	var broken bool
-	ginkgo.BeforeAll(s.Setup)
-	ginkgo.AfterAll(s.TearDown)
+	ginkgo.BeforeAll(func() {
+		s.Setup()
+		ginkgo.DeferCleanup(s.TearDown)
+	})
 	ginkgo.BeforeEach(func() {
 		if broken {
 			s.TearDown()

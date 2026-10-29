@@ -43,8 +43,9 @@ func SubmitAndWaitFinal(ii *integration.Infrastructure, n int) []string {
 func SubmitAndWaitFinalFrom(ii *integration.Infrastructure, initiator string, n int) []string {
 	txIDs := make([]string, 0, n)
 	for i := range n {
-		tx := endorseFrom(ii, initiator, i)
-		txIDs = append(txIDs, orderFrom(ii, initiator, tx))
+		tx := &views.Endorsed{}
+		common.JSONUnmarshal(callView(ii, initiator, "endorse", &views.Submit{Value: i, Responder: ii.Identity("bob")}).([]byte), tx)
+		txIDs = append(txIDs, common.JSONUnmarshalString(callView(ii, initiator, "order", &views.Order{Tx: tx.Tx})))
 	}
 	WaitFinalOn(ii, initiator, txIDs...)
 	WaitFinalOn(ii, "bob", txIDs...)
@@ -75,23 +76,15 @@ func WaitFinalOn(ii *integration.Infrastructure, node string, txIDs ...string) {
 // transaction, not yet ordered, for Order. On Fabric, bob's vault then holds the
 // transaction as Busy.
 func Endorse(ii *integration.Infrastructure, value int) *views.Endorsed {
-	return endorseFrom(ii, "alice", value)
-}
-
-func endorseFrom(ii *integration.Infrastructure, initiator string, value int) *views.Endorsed {
 	tx := &views.Endorsed{}
-	common.JSONUnmarshal(callView(ii, initiator, "endorse", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), tx)
+	common.JSONUnmarshal(callView(ii, "alice", "endorse", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), tx)
 	return tx
 }
 
 // Order runs alice's order view on a transaction Endorse returned and returns its ID
 // once it is final on alice.
 func Order(ii *integration.Infrastructure, tx *views.Endorsed) string {
-	return orderFrom(ii, "alice", tx)
-}
-
-func orderFrom(ii *integration.Infrastructure, initiator string, tx *views.Endorsed) string {
-	return common.JSONUnmarshalString(callView(ii, initiator, "order", &views.Order{Tx: tx.Tx}))
+	return common.JSONUnmarshalString(callView(ii, "alice", "order", &views.Order{Tx: tx.Tx}))
 }
 
 // OrderEventually is Order for a network that rejects broadcasts while it recovers,
