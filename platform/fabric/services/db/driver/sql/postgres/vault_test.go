@@ -275,8 +275,10 @@ func TestPostgresVaultStoreCreateSchemaIdempotent(t *testing.T) {
 var legacyEscape = strings.NewReplacer("\x00", "?0?", string(utf8.MaxRune), "?1?").Replace
 
 // createTextKeyTable replaces the store's state table with one whose pkey column
-// is TEXT and fills it with rows, keyed by unescaped key, stored escaped. Each
-// row's value is its key and its version is "v".
+// is TEXT and whose primary key is (pkey, ns), and fills it with rows, keyed by
+// unescaped key, stored escaped. Each row's value is its key and its version is
+// "v". The primary key has a name other than the default, so a reorder that
+// acts on the key it read before the lock fails.
 func createTextKeyTable(t *testing.T, store *VaultStore, ns string, keys []driver.PKey) {
 	t.Helper()
 	ctx := t.Context()
@@ -289,7 +291,7 @@ func createTextKeyTable(t *testing.T, store *VaultStore, ns string, keys []drive
 		val BYTEA,
 		kversion BYTEA,
 		metadata BYTEA,
-		PRIMARY KEY (pkey, ns)
+		CONSTRAINT `+table+`_old_pk PRIMARY KEY (pkey, ns)
 	)`)
 	require.NoError(t, err)
 	for _, k := range keys {
@@ -394,11 +396,13 @@ func TestPostgresVaultStoreRangeIsSorted(t *testing.T) {
 	require.Equal(t, []driver.PKey{"k1", "k111", "k2"}, got)
 }
 
-// Replicas sharing a database may open a TEXT-keyed vault at the same time.
-// The test holds a lock on the state table until every replica has read the
-// TEXT type and is queued for the conversion lock, so all but the first find
-// the table already converted once they get it. Each CreateSchema succeeds and
-// the table is converted once.
+// Replicas sharing a database may open a vault whose state table has a TEXT
+// pkey and primary key (pkey, ns) at the same time. The test holds a lock on the state table until every replica has read
+// the TEXT type and is queued for the conversion lock, so all but the first find
+// the table already converted once they get it. The replicas then race to
+// reorder the primary key, which TestPostgresReorderPrimaryKeyConcurrently
+// forces. Each CreateSchema succeeds, and the table is converted and reordered
+// once.
 func TestPostgresVaultStoreConvertsTextKeysConcurrently(t *testing.T) {
 	t.Parallel()
 
