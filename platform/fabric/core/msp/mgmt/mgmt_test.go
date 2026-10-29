@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
@@ -192,8 +193,8 @@ func TestGetConfig_EnvPrefix(t *testing.T) { //nolint:paralleltest // t.Setenv
 
 	cfg, err := getConfig()
 	require.NoError(t, err)
-	require.Equal(t, "idemix", cfg.String("peer.localmsptype"))
-	require.NotContains(t, cfg.Keys(), "corepack.enable.auto.pin")
+	assert.Equal(t, "idemix", cfg.String("peer.localmsptype"))
+	assert.NotContains(t, cfg.Keys(), "corepack.enable.auto.pin")
 }
 
 func TestMain(m *testing.M) {
