@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
-	"cmp"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
@@ -74,13 +72,16 @@ func (c *ClientProvider) QueryServiceClient(network string) (*grpc.ClientConn, e
 }
 
 // dial turns a per-network config lookup into the connection factory lazy.Provider caches.
-// NewGRPCClient then NewConnection gives the committer's services TLS version selection
-// and message-size configuration through the shared client.
+// Each endpoint's ClientConfig, with AsyncConnect set, goes through NewGRPCClient then
+// NewConnection, which gives the committer's services TLS version selection and
+// message-size configuration through the shared client.
 //
 // Every endpoint gets its own connection, returned in configuration order. Connecting does
 // not block, so an endpoint that is down at startup still gets a connection that gRPC keeps
-// retrying in the background, and startup does not wait on unreachable endpoints. An error
-// is returned only if no endpoint yields a connection, and it joins every endpoint's failure.
+// retrying in the background, and startup does not wait on unreachable endpoints. For the
+// same reason an endpoint's connectionTimeout has no effect: it bounds a blocking dial
+// only. An error is returned only if no endpoint yields a connection, and it joins every
+// endpoint's failure.
 func dial(loadCfg func(string) (*Config, error)) func(string) ([]*grpc.ClientConn, error) {
 	return func(network string) ([]*grpc.ClientConn, error) {
 		cfg, err := loadCfg(network)
@@ -94,15 +95,10 @@ func dial(loadCfg func(string) (*Config, error)) func(string) ([]*grpc.ClientCon
 		var conns []*grpc.ClientConn
 		var errs []error
 		for _, endpoint := range cfg.Endpoints {
-			// CreateGRPCClient has no way to set AsyncConnect, so build the ClientConfig here.
-			client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{
-				Timeout:        cmp.Or(endpoint.ConnectionTimeout, commongrpc.DefaultConnectionTimeout),
-				SecOpts:        endpoint.TLS,
-				MaxRecvMsgSize: endpoint.MaxRecvMsgSize,
-				MaxSendMsgSize: endpoint.MaxSendMsgSize,
-				// Without blocking, an endpoint that is down at startup still gets a conn that gRPC keeps retrying.
-				AsyncConnect: true,
-			})
+			clientCfg := endpoint.ClientConfig()
+			// Without blocking, an endpoint that is down at startup still gets a conn that gRPC keeps retrying.
+			clientCfg.AsyncConnect = true
+			client, err := commongrpc.NewGRPCClient(clientCfg)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "failed creating grpc client for [%s]", endpoint.Address))
 				continue

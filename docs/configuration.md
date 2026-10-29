@@ -689,6 +689,7 @@ fabric:
         - address: 'sidecar:4001'
           # Endpoints are dialled without blocking, so an unreachable one does not delay
           # startup: the node starts immediately and the failure shows up on the first RPC.
+          # connectionTimeout bounds a blocking dial only, so it has no effect here.
           connectionTimeout: 10s
           # The largest message in bytes to send to and accept from this endpoint. Omit or
           # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero
