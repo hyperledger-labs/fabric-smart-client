@@ -55,7 +55,10 @@ type Consortium struct {
 	Organizations []string `yaml:"organizations,omitempty"`
 }
 
-// Consensus indicates the orderer types (we only support SOLO for testing)
+// Consensus names the ordering service type of a network: "etcdraft", which
+// fabric.NewTopologyWithName sets, "BFT" for SmartBFT, or "arma" for Fabric-x. A BFT
+// network needs the V3_0 channel capability on its profiles, and FSC's BFT broadcaster
+// needs at least four orderers.
 type Consensus struct {
 	Type                        string `yaml:"type,omitempty"`
 	ChannelParticipationEnabled bool   `yaml:"channel_participation_enabled,omitempty"`
