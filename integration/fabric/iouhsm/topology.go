@@ -9,7 +9,6 @@ SPDX-License-Identifier: Apache-2.0
 package iouhsm
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
@@ -19,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -38,7 +37,6 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		// This option equips the approver's FSC node with an identity belonging to Org1.
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1"), fabric.WithDefaultIdentityByHSM()).
-		AddOptions(replicationOpts.For("approver")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateIOUView{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
@@ -46,7 +44,6 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	// Add the borrower's FSC node
 	fscTopology.AddNodeByName("borrower").
 		AddOptions(fabric.WithOrganization("Org2"), fabric.WithDefaultIdentityByHSM(), fabric.WithX509IdentityByHSM("borrower-hsm-2")).
-		AddOptions(replicationOpts.For("borrower")...).
 		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
@@ -55,7 +52,6 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").
 		AddOptions(fabric.WithOrganization("Org3"), fabric.WithDefaultIdentityWithLabel("lender")).
-		AddOptions(replicationOpts.For("lender")...).
 		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
 		RegisterResponder(&views.UpdateIOUResponderView{}, &views.UpdateIOUView{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).

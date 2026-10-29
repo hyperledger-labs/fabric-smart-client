@@ -250,7 +250,6 @@ INTEGRATION_TARGETS += fabric-iou
 # them as parallel matrix entries rather than serially in one job.
 INTEGRATION_TARGETS += fabric-iou-libp2p
 INTEGRATION_TARGETS += fabric-runtimeconfig
-INTEGRATION_TARGETS += fabric-stoprestart
 INTEGRATION_TARGETS += fabric-twonets
 
 ## hsm section (require -tags pkcs11 for test binary compilation)

@@ -21,35 +21,21 @@ var _ = Describe("EndToEnd", func() {
 	// transport-sensitive, and this suite needs no Fabric network to check it.
 	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
 		Describe("Stop and Restart", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
+			s := NewTestSuite(c)
 			BeforeEach(s.Setup)
 			AfterEach(s.TearDown)
 			It("answers a view call after the responder restarts", s.TestSucceeded)
 		})
 	}
-
-	// Many-to-one only: StopFSCNode stops the first matching replica and returns, so
-	// bob: 4 would leave three responders up and check less than bob: 1 does.
-	Describe("Stop and Restart With Replicas many to one", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-			ReplicationFactors: map[string]int{
-				"alice": 4,
-				"bob":   1,
-			},
-		})
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("answers every replica's view call after the responder restarts", s.TestSucceededWithReplicas)
-	})
 })
 
 type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(commType fsc.P2PCommunicationType) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, stoprestart.Topology(commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, stoprestart.Topology(commType)...)
 	})}
 }
 
@@ -68,36 +54,4 @@ func (s *TestSuite) TestSucceeded() {
 	m, err := s.II.WebClient("alice").Metrics()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(m).NotTo(BeNil())
-
-	// JaegerUI is running. Add a delay to check the traces generated during the test
-	// time.Sleep(100 * time.Minute)
-}
-
-func (s *TestSuite) TestSucceededWithReplicas() {
-	res, err := s.II.Client("fsc.alice.0").CallView("init", nil)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-
-	res, err = s.II.Client("fsc.alice.1").CallView("init", nil)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-
-	res, err = s.II.Client("fsc.alice.2").CallView("init", nil)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-
-	s.II.StopFSCNode("bob")
-	s.II.StartFSCNode("bob")
-
-	res, err = s.II.Client("fsc.alice.0").CallView("init", nil)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-
-	res, err = s.II.Client("fsc.alice.1").CallView("init", nil)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-
-	res, err = s.II.Client("fsc.alice.2").CallView("init", nil)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }
