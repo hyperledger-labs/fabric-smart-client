@@ -14,7 +14,8 @@ type LedgerInfo struct {
 
 // Block models a block of the ledger
 type Block interface {
-	// DataAt returns the data stored at the passed index
+	// DataAt returns the data stored at the passed index, or nil if the block holds no
+	// data at that index
 	DataAt(i int) []byte
 	// ProcessedTransaction returns the ProcessedTransaction at passed index
 	ProcessedTransaction(i int) (ProcessedTransaction, error)

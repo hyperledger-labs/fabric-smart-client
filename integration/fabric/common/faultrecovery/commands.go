@@ -100,6 +100,14 @@ func Query(ii *integration.Infrastructure, node, txID string) (*views.QueryResul
 	return res, nil
 }
 
+// LedgerOf returns what node reads through the ledger API about txID, a committed
+// transaction, and the error it gets for unknownTxID; see cviews.LedgerView.
+func LedgerOf(ii *integration.Infrastructure, node, txID, unknownTxID string) *cviews.LedgerResult {
+	res := &cviews.LedgerResult{}
+	common.JSONUnmarshal(callView(ii, node, "ledger", &cviews.Ledger{TxID: txID, UnknownTxID: unknownTxID}).([]byte), res)
+	return res
+}
+
 // MetricSum returns the sum of every series of the counter or gauge family name on
 // node's metrics endpoint; zero if the node exports none, as it does for a counter
 // never incremented.

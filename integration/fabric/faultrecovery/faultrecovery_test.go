@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -65,6 +66,17 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 
 	It("commits a transaction on a healthy network", func() {
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
+	It("reads a committed transaction back through the ledger API", func() {
+		txID := faultrecovery.SubmitAndWaitFinal(s.II, 1)[0]
+		unknownTxID := "unknown-" + txID
+		res := faultrecovery.LedgerOf(s.II, "alice", txID, unknownTxID)
+		Expect(res.ValidationCode).To(Equal(int32(peer.TxValidationCode_VALID)))
+		Expect(res.BlockHasTx).To(BeTrue())
+		Expect(res.LedgerHeight).To(BeNumerically(">", res.BlockNumber))
+		// Callers such as Panurus tell a missing transaction apart by this message.
+		Expect(res.UnknownTxErr).To(ContainSubstring("no such transaction ID [" + unknownTxID + "]"))
 	})
 
 	faultrecovery.CrashSpecs(s)
