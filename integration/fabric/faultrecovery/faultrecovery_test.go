@@ -48,6 +48,9 @@ const (
 var (
 	delivery = fsc.Connection{Component: connstate.ComponentDelivery}
 	database = fsc.Connection{Component: connstate.ComponentDatabase}
+
+	// bobReplicas are the replica IDs of bob in faultrecovery.ReplicatedFSCTopology.
+	bobReplicas = []string{"fsc.bob.0", "fsc.bob.1"}
 )
 
 func newInfrastructure() (*integration.Infrastructure, error) {
@@ -353,7 +356,81 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		}, faultrecovery.SessionCloseTimeout, time.Second).Should(Succeed())
 		Expect(faultrecovery.SubmitAndWaitFinalFrom(s.II, "fsc.alice.0", 1)).To(HaveLen(1))
 	})
+
+	It("resumes commits on every replica after Postgres restart", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+		// The outage stays below the default commit retry budget of about a minute (5
+		// retries, 10 s apart), and a lost connection does not use up the budget anyway.
+		const outage = 20 * time.Second
+
+		before := faultrecovery.SubmitAndWaitFinal(s.II, 3)
+		// Endorsing writes to bob's database, so these txs are endorsed before the outage
+		// and ordered during it, and both replicas retry their blocks against it.
+		txs := make([]*views.Endorsed, 3)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+		retries := map[string]float64{}
+		for _, r := range bobReplicas {
+			retries[r] = faultrecovery.MetricSum(s.II, r, commitRetries)
+		}
+		expectRetrying(Default, s.II)
+
+		// From the outage until both replicas reconnect, no replica may stop its delivery
+		// or record a commit failure.
+		ctx, stopWatch := context.WithCancel(context.Background())
+		DeferCleanup(stopWatch)
+		watch := watchRetrying(ctx, s.II)
+		stopped := time.Now()
+		s.II.StopPostgres(db)
+		for _, r := range bobReplicas {
+			s.II.EventuallyConnectionState(r, database, connstate.Reconnecting, time.Minute)
+		}
+		during := make([]string, len(txs))
+		for i, tx := range txs {
+			during[i] = faultrecovery.Order(s.II, tx)
+		}
+		for _, r := range bobReplicas {
+			Eventually(func() float64 {
+				return faultrecovery.MetricSum(s.II, r, commitRetries)
+			}, time.Minute, time.Second).Should(BeNumerically(">", retries[r]), "commit retries on [%s]", r)
+		}
+		// The sleep is the rest of the outage: nothing signals that it has lasted long enough.
+		time.Sleep(time.Until(stopped.Add(outage)))
+
+		s.II.StartPostgres(db)
+		for _, r := range bobReplicas {
+			s.II.EventuallyConnectionState(r, database, connstate.Connected, time.Minute)
+		}
+		stopWatch()
+		Expect(<-watch).To(BeEmpty())
+		after := faultrecovery.SubmitAndWaitFinal(s.II, 3)
+
+		for _, r := range bobReplicas {
+			for i, txID := range before {
+				expectSettled(s.II, r, txID, i)
+			}
+			for i, txID := range during {
+				expectSettled(s.II, r, txID, i)
+			}
+			for i, txID := range after {
+				expectSettled(s.II, r, txID, i)
+			}
+		}
+		expectRetrying(Default, s.II)
+	})
 })
+
+// expectRetrying checks that no replica of bob has stopped its delivery or recorded a
+// commit failure.
+func expectRetrying(g Gomega, ii *integration.Infrastructure) {
+	for _, r := range bobReplicas {
+		g.Expect(faultrecovery.MetricSum(ii, r, commitFailures)).To(BeZero(), "commit failures on [%s]", r)
+		families, err := ii.WebClient(r).Metrics()
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(fsc.ParseConnectionState(families, delivery)).NotTo(ContainElement(connstate.Stopped), "delivery on [%s]", r)
+	}
+}
 
 // expectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
 // value and its finality view returns no error.
@@ -366,9 +443,41 @@ func expectSettled(ii *integration.Infrastructure, node, txID string, value int)
 	faultrecovery.WaitFinalOn(ii, node, txID)
 }
 
+// watchRetrying runs expectRetrying every second until ctx ends and then sends the first
+// failure it saw, or "" if there was none.
+func watchRetrying(ctx context.Context, ii *integration.Infrastructure) <-chan string {
+	failure := make(chan string, 1)
+	go func() {
+		defer GinkgoRecover()
+		var first string
+		g := NewGomega(func(msg string, _ ...int) {
+			if first == "" {
+				first = msg
+			}
+		})
+		tick := time.NewTicker(time.Second)
+		defer tick.Stop()
+		for first == "" {
+			expectRetrying(g, ii)
+			select {
+			case <-ctx.Done():
+				failure <- first
+				return
+			case <-tick.C:
+			}
+		}
+		failure <- first
+	}()
+	return failure
+}
+
 // bobSum returns the sum of the counter or gauge name over bob's replicas.
 func bobSum(ii *integration.Infrastructure, name string) float64 {
-	return faultrecovery.MetricSum(ii, "fsc.bob.0", name) + faultrecovery.MetricSum(ii, "fsc.bob.1", name)
+	var sum float64
+	for _, r := range bobReplicas {
+		sum += faultrecovery.MetricSum(ii, r, name)
+	}
+	return sum
 }
 
 // expectConfigSequence waits until every node holds channel configuration sequence want.
