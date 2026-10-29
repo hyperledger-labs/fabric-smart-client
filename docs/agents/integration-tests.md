@@ -244,7 +244,8 @@ nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, name
 `Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
 the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final
-on both nodes; `WaitFinal` does the waiting alone. `Endorse` and `Order` split one
+on both nodes; `WaitFinal` does the waiting alone, and `WaitFinalOn` waits on one node or
+replica. `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
 transaction is ordered. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election. `Echo` runs a two-party view that
@@ -297,7 +298,8 @@ the next replica that accepts a dial and passes the bytes through, so TLS ends a
 replica; this works because nwo gives every replica of a node the same TLS key pair, which
 the websocket transport requires since it authenticates both sides from the TLS
 certificates. `FscPlatform.LoadBalancer(name).Connections()` returns the open connections
-per replica P2P address, so a spec can find the replica that holds a peer's connection.
+per replica P2P address, so a spec can find the replica that holds a peer's connection;
+`faultrecovery.ConnectedReplica(ii, name)` returns that replica and the others.
 `StopFSCNode`, `KillFSCNode` and `StartFSCNode` take a replica name such as `bob.1` to act
 on that replica alone, and `Client("fsc.bob.1")` and `WebClient("fsc.bob.1")` reach it. A
 node name selects the first replica in the fault calls and the last one in `Client` and

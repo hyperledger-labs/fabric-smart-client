@@ -19,6 +19,8 @@ import (
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 )
 
 const (
@@ -45,15 +47,19 @@ func SubmitAndWaitFinal(ii *integration.Infrastructure, n int) []string {
 //
 // Finality is polled, so a node that is still restarting is retried until viewTimeout.
 func WaitFinal(ii *integration.Infrastructure, txIDs ...string) {
-	for _, node := range []string{"alice", "bob"} {
-		for _, txID := range txIDs {
-			gomega.EventuallyWithOffset(1, func() error {
-				ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
-				defer cancel()
-				_, err := ii.Client(node).CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: txID}))
-				return err
-			}, viewTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not final on [%s]", txID, node)
-		}
+	WaitFinalOn(ii, "alice", txIDs...)
+	WaitFinalOn(ii, "bob", txIDs...)
+}
+
+// WaitFinalOn waits until each of txIDs is final on node, a node name or a replica ID such as fsc.bob.1.
+func WaitFinalOn(ii *integration.Infrastructure, node string, txIDs ...string) {
+	for _, txID := range txIDs {
+		gomega.EventuallyWithOffset(1, func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
+			defer cancel()
+			_, err := ii.Client(node).CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: txID}))
+			return err
+		}, viewTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not final on [%s]", txID, node)
 	}
 }
 
@@ -148,4 +154,25 @@ func EchoWith(ii *integration.Infrastructure, c api.ViewClient, block bool) erro
 	defer cancel()
 	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(&views.Echo{Responder: ii.Identity("bob"), Block: block}))
 	return err
+}
+
+// ConnectedReplica returns the replica of node that holds the one connection open through
+// node's load balancer, and node's other replicas.
+func ConnectedReplica(ii *integration.Infrastructure, node string) (*nwonode.Replica, []*nwonode.Replica) {
+	conns := ii.FscPlatform.LoadBalancer(node).Connections()
+	gomega.ExpectWithOffset(1, conns).To(gomega.HaveLen(1), "connections through the load balancer of [%s]", node)
+	var held *nwonode.Replica
+	var others []*nwonode.Replica
+	for _, r := range ii.FscPlatform.Peers {
+		if r.Name != node {
+			continue
+		}
+		if _, ok := conns[ii.FscPlatform.PeerAddress(r, fsc.P2PPort)]; ok {
+			held = r
+		} else {
+			others = append(others, r)
+		}
+	}
+	gomega.ExpectWithOffset(1, held).NotTo(gomega.BeNil(), "no replica of [%s] holds connection %v", node, conns)
+	return held, others
 }
