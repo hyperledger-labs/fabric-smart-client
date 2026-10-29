@@ -717,11 +717,13 @@ fabric:
               file: /path/to/client.key
         - address: 'sidecar2:4001'
     # Fabric-x notification service: pushes transaction finality events to this node.
-    # endpoints and tls take the same shape as queryService.
+    # endpoints and tls take the same shape as queryService. handlerTimeout, handlerWorkers,
+    # handlerQueueSize and sweepInterval fall back to their default when set to 0.
     notificationService:
-      # Sent to the committer as the subscription timeout. Unlike queryService, a
-      # non-positive value lets the committer choose its own maximum timeout.
-      requestTimeout: 0s
+      # Sent to the committer as the subscription timeout. Default: 30s. Unlike
+      # queryService, an explicit 0 or negative value lets the committer choose its own
+      # maximum timeout.
+      requestTimeout: 30s
       endpoints:
         - address: 'sidecar:4001'
       # Deadline on the context passed to one finality listener callback. Advisory:
