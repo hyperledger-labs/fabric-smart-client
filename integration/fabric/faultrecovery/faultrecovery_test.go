@@ -48,6 +48,9 @@ const (
 var (
 	delivery = fsc.Connection{Component: connstate.ComponentDelivery}
 	database = fsc.Connection{Component: connstate.ComponentDatabase}
+
+	// bobReplicas are the replica IDs of bob in faultrecovery.ReplicatedFSCTopology.
+	bobReplicas = []string{"fsc.bob.0", "fsc.bob.1"}
 )
 
 func newInfrastructure() (*integration.Infrastructure, error) {
@@ -353,7 +356,73 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		}, faultrecovery.SessionCloseTimeout, time.Second).Should(Succeed())
 		Expect(faultrecovery.SubmitAndWaitFinalFrom(s.II, "fsc.alice.0", 1)).To(HaveLen(1))
 	})
+
+	It("resumes commits on every replica after Postgres restart", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+		// The outage stays below the default commit retry budget of about a minute (5
+		// retries, 10 s apart), and a lost connection does not use up the budget anyway.
+		const outage = 20 * time.Second
+
+		before := faultrecovery.SubmitAndWaitFinal(s.II, 3)
+		// Endorsing writes to bob's database, so these txs are endorsed before the outage
+		// and ordered during it, and both replicas retry their blocks against it.
+		txs := make([]*views.Endorsed, 3)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+		retries, failures := map[string]float64{}, map[string]float64{}
+		for _, r := range bobReplicas {
+			retries[r] = faultrecovery.MetricSum(s.II, r, commitRetries)
+			failures[r] = faultrecovery.MetricSum(s.II, r, commitFailures)
+		}
+		expectHealthyCommits(s.II, failures)
+
+		stopped := time.Now()
+		s.II.StopPostgres(db)
+		for _, r := range bobReplicas {
+			s.II.EventuallyConnectionState(r, database, connstate.Reconnecting, time.Minute)
+		}
+		during := make([]string, len(txs))
+		for i, tx := range txs {
+			during[i] = faultrecovery.Order(s.II, tx)
+		}
+		for _, r := range bobReplicas {
+			Eventually(func() float64 {
+				return faultrecovery.MetricSum(s.II, r, commitRetries)
+			}, time.Minute, time.Second).Should(BeNumerically(">", retries[r]), "commit retries on [%s]", r)
+		}
+		// The sleep is the rest of the outage: nothing signals that it has lasted long enough.
+		time.Sleep(time.Until(stopped.Add(outage)))
+
+		s.II.StartPostgres(db)
+		for _, r := range bobReplicas {
+			s.II.EventuallyConnectionState(r, database, connstate.Connected, time.Minute)
+		}
+		after := faultrecovery.SubmitAndWaitFinal(s.II, 3)
+
+		for _, r := range bobReplicas {
+			for _, txIDs := range [][]string{before, during, after} {
+				for i, txID := range txIDs {
+					expectSettled(s.II, r, txID, i)
+				}
+			}
+		}
+		// A stopped delivery stays stopped and the failure counter only grows, so a check
+		// after the outage also catches a failure during it.
+		expectHealthyCommits(s.II, failures)
+	})
 })
+
+// expectHealthyCommits checks that no replica of bob has stopped its delivery or recorded
+// a commit failure beyond failures, its count per replica ID.
+func expectHealthyCommits(ii *integration.Infrastructure, failures map[string]float64) {
+	for _, r := range bobReplicas {
+		ExpectWithOffset(1, faultrecovery.MetricSum(ii, r, commitFailures)).To(Equal(failures[r]), "commit failures on [%s]", r)
+		families, err := ii.WebClient(r).Metrics()
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		ExpectWithOffset(1, fsc.ParseConnectionState(families, delivery)).NotTo(ContainElement(connstate.Stopped), "delivery on [%s]", r)
+	}
+}
 
 // expectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
 // value and its finality view returns no error.
@@ -368,7 +437,11 @@ func expectSettled(ii *integration.Infrastructure, node, txID string, value int)
 
 // bobSum returns the sum of the counter or gauge name over bob's replicas.
 func bobSum(ii *integration.Infrastructure, name string) float64 {
-	return faultrecovery.MetricSum(ii, "fsc.bob.0", name) + faultrecovery.MetricSum(ii, "fsc.bob.1", name)
+	var sum float64
+	for _, r := range bobReplicas {
+		sum += faultrecovery.MetricSum(ii, r, name)
+	}
+	return sum
 }
 
 // expectConfigSequence waits until every node holds channel configuration sequence want.
