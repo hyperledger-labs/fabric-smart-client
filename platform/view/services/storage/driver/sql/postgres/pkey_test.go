@@ -95,13 +95,17 @@ func TestPostgresReorderRejectsMissingPrimaryKey(t *testing.T) {
 }
 
 // Replicas sharing a table keyed (pkey, ns) all finish: the first to get the
-// lock reorders it, and the others find (ns, pkey) under the lock.
+// lock reorders it, and the others find (ns, pkey) under the lock. The test
+// holds a lock on the table until every replica has read (pkey, ns) and is
+// queued for the reorder lock. The old constraint name differs from the one
+// ADD PRIMARY KEY gives the new key, so a replica that acts on what it read
+// before the lock fails.
 func TestPostgresReorderPrimaryKeyConcurrently(t *testing.T) {
 	t.Parallel()
 
 	db := openReorderDB(t)
 	ctx := t.Context()
-	createKeyedTable(t, db, "PRIMARY KEY (pkey, ns)")
+	createKeyedTable(t, db, "CONSTRAINT t_old_pk PRIMARY KEY (pkey, ns)")
 	_, err := db.Exec("INSERT INTO t (ns, pkey, val) VALUES ($1, $2, $3)", "ns", []byte("k1"), []byte("v"))
 	require.NoError(t, err)
 
