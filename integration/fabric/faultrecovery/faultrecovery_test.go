@@ -198,7 +198,33 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		// Alice multiplexes her sessions to bob over one connection, held by one replica.
 		Expect(s.II.FscPlatform.LoadBalancer("bob").Connections()).To(HaveLen(1))
 	})
+
+	It("settles a tx on the surviving replica", func() {
+		// The bob replica holding alice's connection endorses the tx and stores it in the
+		// shared vault.
+		tx := faultrecovery.Endorse(s.II, 1)
+		endorser, others := faultrecovery.ConnectedReplica(s.II, "bob")
+		s.II.KillFSCNode(endorser.UniqueName)
+		faultrecovery.Order(s.II, tx)
+
+		for _, r := range others {
+			expectSettled(s.II, r.ID(), tx.TxID, 1)
+		}
+		s.II.StartFSCNode(endorser.UniqueName)
+		expectSettled(s.II, endorser.ID(), tx.TxID, 1)
+	})
 })
+
+// expectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
+// value and its finality view returns no error.
+func expectSettled(ii *integration.Infrastructure, node, txID string, value int) {
+	EventuallyWithOffset(1, func(g Gomega) {
+		res, err := faultrecovery.Query(ii, node, txID)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(res).To(Equal(&views.QueryResult{Status: fdriver.Valid, Value: value}))
+	}, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed(), "tx [%s] not settled on [%s]", txID, node)
+	faultrecovery.WaitFinalOn(ii, node, txID)
+}
 
 // expectConfigSequence waits until every node holds channel configuration sequence want.
 // A CONFIG block reaches a node asynchronously over delivery, so this polls.
