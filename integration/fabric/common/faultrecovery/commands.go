@@ -87,6 +87,24 @@ func Order(ii *integration.Infrastructure, tx *views.Endorsed) string {
 	return common.JSONUnmarshalString(callView(ii, "alice", "order", &views.Order{Tx: tx.Tx}))
 }
 
+// EndorseEventually is Endorse for a responder whose connection is failing over, such as
+// a replicated node whose replica holding alice's connection died: an attempt that goes
+// out before alice sees the connection close fails within SessionCloseTimeout, so the
+// endorse view is retried until one more attempt has had its time.
+func EndorseEventually(ii *integration.Infrastructure, value int) *views.Endorsed {
+	tx := &views.Endorsed{}
+	gomega.EventuallyWithOffset(1, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
+		defer cancel()
+		raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responder: ii.Identity("bob")}))
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(raw.([]byte), tx)
+	}, SessionCloseTimeout+pollTimeout, time.Second).Should(gomega.Succeed(), "tx with value %d not endorsed", value)
+	return tx
+}
+
 // OrderEventually is Order for a network that rejects broadcasts while it recovers,
 // such as raft orderers electing a new leader: it retries the order view until it
 // succeeds. An attempt can take as long as the view's own finality timeout, so the

@@ -78,7 +78,7 @@ func ShareNetwork(s *integration.TestSuite) {
 // network healthy, so the specs can run under ShareNetwork.
 func CrashSpecs(s *integration.TestSuite) {
 	ginkgo.It("fails fast when the responder dies", func() {
-		echo := blockedEcho(s, s.II.Client("alice"))
+		echo := BlockedEcho(s.II, s.II.Client("alice"), "bob")
 		s.II.KillFSCNode("bob")
 		// The echo view waits a minute for the reply, so only the closed session ends it
 		// this early.
@@ -165,8 +165,8 @@ func ClientSpecs(s *integration.TestSuite) {
 
 		ginkgo.It("fails an in-flight "+cl.name+" call when the node dies", func() {
 			c := cl.get()
-			echo := blockedEcho(s, c)
-			// blockedEcho saw exactly this call's responder.
+			echo := BlockedEcho(s.II, c, "bob")
+			// BlockedEcho saw exactly this call's responder.
 			gomega.Expect(MetricSum(s.II, "bob", ViewContexts)).To(gomega.Equal(1.0))
 			s.II.KillFSCNode("alice")
 			// The call's own deadline is viewTimeout, so a client that retried it would
@@ -181,18 +181,19 @@ func ClientSpecs(s *integration.TestSuite) {
 	}
 }
 
-// blockedEcho starts a blocking echo through c, alice's view client, and returns once
-// bob's responder blocks in it. The returned channel receives the echo's error.
-func blockedEcho(s *integration.TestSuite, c api.ViewClient) <-chan error {
+// BlockedEcho starts a blocking echo through c, alice's view client, and returns once
+// bob's responder blocks in it on responder, bob's node name or one of its replica IDs.
+// The returned channel receives the echo's error.
+func BlockedEcho(ii *integration.Infrastructure, c api.ViewClient, responder string) <-chan error {
 	// On a shared network the previous spec's responder may still hold its context for
 	// a moment after its view ends, so the baseline waits for it.
 	gomega.EventuallyWithOffset(1, func() float64 {
-		return MetricSum(s.II, "bob", ViewContexts)
+		return MetricSum(ii, responder, ViewContexts)
 	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeZero())
 	echo := make(chan error, 1)
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		echo <- EchoWith(s.II, c, true)
+		echo <- EchoWith(ii, c, true)
 	}()
 	// Bob creates a responder context when alice's message arrives and holds it while
 	// the responder blocks, so a kill lands mid-view. An echo that ends before then
@@ -203,7 +204,7 @@ func blockedEcho(s *integration.TestSuite, c api.ViewClient) <-chan error {
 			gomega.StopTrying("echo returned before bob's responder blocked").Wrap(err).Now()
 		default:
 		}
-		families, err := s.II.WebClient("bob").Metrics()
+		families, err := ii.WebClient(responder).Metrics()
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		return sumFamily(families, ViewContexts)
 	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", 0))
