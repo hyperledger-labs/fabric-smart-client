@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
@@ -184,6 +185,16 @@ func TestLoadLocalMSP_UnknownType(t *testing.T) { //nolint:paralleltest // share
 		cryptoProvider := factory.GetDefault()
 		GetLocalMSP(cryptoProvider)
 	}, "expected panic for unknown MSP type")
+}
+
+func TestGetConfig_EnvPrefix(t *testing.T) { //nolint:paralleltest // t.Setenv
+	t.Setenv("CORE_PEER_LOCALMSPTYPE", "idemix")
+	t.Setenv("COREPACK_ENABLE_AUTO_PIN", "0")
+
+	cfg, err := getConfig()
+	require.NoError(t, err)
+	assert.Equal(t, "idemix", cfg.String("peer.localmsptype"))
+	assert.NotContains(t, cfg.Keys(), "corepack.enable.auto.pin")
 }
 
 func TestMain(m *testing.M) {

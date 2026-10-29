@@ -332,7 +332,7 @@ var envKeyReplacer = strings.NewReplacer("__", "_", "_", ".")
 // int, bool or float value when it parses as one, and never replaces a map.
 func (p *Provider) setupEnv() error {
 	if err := p.Backend.Load(env.Provider(".", env.Opt{
-		Prefix: "CORE",
+		Prefix: EnvCorePrefix,
 		TransformFunc: func(k, v string) (string, any) {
 			if len(v) == 0 {
 				// discard this
