@@ -212,6 +212,22 @@ func (n *NWO) KillFSCNode(id string) {
 	}
 }
 
+// PauseFSCNode freezes the named FSC node with SIGSTOP. Its process and
+// connections stay, so a replica falls behind its peers without restarting;
+// ResumeFSCNode continues it.
+func (n *NWO) PauseFSCNode(id string) {
+	if i := n.fscIndex(id); i >= 0 {
+		n.ViewMembers[i].Runner.(*runner.Runner).Pause()
+	}
+}
+
+// ResumeFSCNode continues the named FSC node frozen by PauseFSCNode.
+func (n *NWO) ResumeFSCNode(id string) {
+	if i := n.fscIndex(id); i >= 0 {
+		n.ViewMembers[i].Runner.(*runner.Runner).Resume()
+	}
+}
+
 // StartFSCNode starts the named FSC node, which must have been stopped or
 // killed before, and returns once it is ready.
 func (n *NWO) StartFSCNode(id string) {

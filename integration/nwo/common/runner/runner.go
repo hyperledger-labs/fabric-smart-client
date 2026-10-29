@@ -211,6 +211,17 @@ func (r *Runner) Kill() {
 	r.signal(syscall.SIGKILL)
 }
 
+// Pause sends SIGSTOP to the process, which freezes it and keeps its
+// connections open. Like Stop, it never blocks.
+func (r *Runner) Pause() {
+	r.signal(syscall.SIGSTOP)
+}
+
+// Resume sends SIGCONT to a process frozen by Pause.
+func (r *Runner) Resume() {
+	r.signal(syscall.SIGCONT)
+}
+
 func (r *Runner) signal(s os.Signal) {
 	logger.Infof("Send %s to [%s]", s, r.Name)
 	if err := r.Command.Process.Signal(s); err != nil {

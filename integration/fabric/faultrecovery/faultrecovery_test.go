@@ -213,6 +213,59 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		s.II.StartFSCNode(endorser.UniqueName)
 		expectSettled(s.II, endorser.ID(), tx.TxID, 1)
 	})
+
+	It("keeps committing when one replica is killed", func() {
+		// Both replicas commit every block to the shared vault. The killed replica holds no
+		// session from alice, so it dies as a committer and no tx may fail. The first tx
+		// opens alice's connection, which ConnectedReplica looks for.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+		held, others := faultrecovery.ConnectedReplica(s.II, "bob")
+		Expect(others).To(HaveLen(1))
+		idle := others[0]
+		var txIDs []string
+		for i := range 10 {
+			if i == 3 {
+				s.II.KillFSCNode(idle.UniqueName)
+			}
+			txIDs = append(txIDs, faultrecovery.Order(s.II, faultrecovery.Endorse(s.II, i)))
+		}
+		// Not faultrecovery.WaitFinal: it asks Client("bob"), which may be the dead replica.
+		for i, txID := range txIDs {
+			expectSettled(s.II, held.ID(), txID, i)
+		}
+
+		// The replicas share one vault, so the Query shows that the restarted replica
+		// serves views again; its connected delivery shows that it commits again.
+		s.II.StartFSCNode(idle.UniqueName)
+		last := len(txIDs) - 1
+		expectSettled(s.II, idle.ID(), txIDs[last], last)
+		for _, r := range []string{held.ID(), idle.ID()} {
+			s.II.EventuallyConnectionState(r, delivery, connstate.Connected, time.Minute)
+		}
+	})
+
+	// Guards #2253: each replica holds its own membership service, so each must apply a
+	// config block, also one that another replica already recorded in the shared vault.
+	It("applies a config update another replica recorded", func() {
+		replicas := []string{"fsc.alice.0", "fsc.alice.1", "fsc.bob.0", "fsc.bob.1"}
+		original := configupdate.BatchTimeout(s.II)
+		before := configupdate.ConfigSequenceOn(Default, s.II, replicas[0])
+
+		// Live replicas receive the config block at about the same time and both apply
+		// it, so alice.1 is frozen until alice.0 has recorded it. No view runs on alice
+		// meanwhile, so the pause blocks nothing else.
+		s.II.PauseFSCNode("alice.1")
+		DeferCleanup(s.II.ResumeFSCNode, "alice.1")
+		configupdate.SetBatchTimeout(s.II, original+500*time.Millisecond)
+		expectConfigSequence(s.II, before+1, "fsc.alice.0")
+		s.II.ResumeFSCNode("alice.1")
+		expectConfigSequence(s.II, before+1, replicas...)
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+
+		// Leave the shared network's BatchTimeout as this spec found it.
+		configupdate.SetBatchTimeout(s.II, original)
+		expectConfigSequence(s.II, before+2, replicas...)
+	})
 })
 
 // expectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
