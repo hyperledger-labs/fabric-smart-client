@@ -12,7 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEnsureImagePresentMissing(t *testing.T) { //nolint:paralleltest
+func TestEnsureImagePresentMissing(t *testing.T) {
+	t.Parallel()
+
 	err := ensureImagePresentWith("fsc-cc/base:latest",
 		func(string) (bool, error) { return false, nil })
 	require.Error(t, err)
@@ -20,7 +22,9 @@ func TestEnsureImagePresentMissing(t *testing.T) { //nolint:paralleltest
 	require.Contains(t, err.Error(), "make chaincode-images")
 }
 
-func TestEnsureImagePresentFound(t *testing.T) { //nolint:paralleltest
+func TestEnsureImagePresentFound(t *testing.T) {
+	t.Parallel()
+
 	require.NoError(t, ensureImagePresentWith("fsc-cc/base:latest",
 		func(string) (bool, error) { return true, nil }))
 }

@@ -256,7 +256,9 @@ func TestCloseUnregistersOnlyThatSession(t *testing.T) {
 	}, sessionKeys(p))
 }
 
-func TestCloseDoesNotStallDispatcher(t *testing.T) { //nolint:paralleltest
+func TestCloseDoesNotStallDispatcher(t *testing.T) {
+	t.Parallel()
+
 	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
 	stopNode(t, p)

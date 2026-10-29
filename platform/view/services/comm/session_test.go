@@ -72,7 +72,9 @@ func setup() *NetworkStreamSession {
 	return setupWithBufferSize(DefaultIncomingMessagesBufferSize)
 }
 
-func TestSessionLifecycle(t *testing.T) { //nolint:paralleltest
+func TestSessionLifecycle(t *testing.T) {
+	t.Parallel()
+
 	s := setup()
 
 	// hide the impl behind the session interface as a consumer
@@ -127,7 +129,7 @@ func TestSessionLifecycle(t *testing.T) { //nolint:paralleltest
 	sess.Close()
 }
 
-func TestSessionLifecycleConcurrent(t *testing.T) { //nolint:paralleltest
+func TestSessionLifecycleConcurrent(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -173,7 +175,7 @@ func TestSessionLifecycleConcurrent(t *testing.T) { //nolint:paralleltest
 	require.Positive(t, enqueuedCount.Load())
 }
 
-func TestSessionDeadlock(t *testing.T) { //nolint:paralleltest
+func TestSessionDeadlock(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -213,7 +215,7 @@ func TestSessionDeadlock(t *testing.T) { //nolint:paralleltest
 	sess.Close()
 }
 
-func TestSessionCloseDeadlockPrevention(t *testing.T) { //nolint:paralleltest
+func TestSessionCloseDeadlockPrevention(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 

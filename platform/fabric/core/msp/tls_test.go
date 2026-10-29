@@ -22,7 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTLSCAs(t *testing.T) { //nolint:paralleltest
+func TestTLSCAs(t *testing.T) {
+	t.Parallel()
+
 	// testdata/tls contains TLS a root CA and an intermediate CA
 	thisMSP := getLocalMSP(t, "testdata/tls")
 

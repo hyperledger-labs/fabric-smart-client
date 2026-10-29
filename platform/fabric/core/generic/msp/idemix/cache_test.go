@@ -17,7 +17,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func TestIdentityCache(t *testing.T) { //nolint:paralleltest
+func TestIdentityCache(t *testing.T) {
+	t.Parallel()
+
 	var counter atomic.Int32
 	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)
@@ -51,7 +53,7 @@ func TestIdentityCache(t *testing.T) { //nolint:paralleltest
 	}, 5*time.Second, 10*time.Millisecond, "expected at least 104 identities to be generated")
 }
 
-func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
+func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest // timing-sensitive: counts backend calls around Close
 	var counter atomic.Int32
 	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)

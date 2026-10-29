@@ -30,6 +30,7 @@ import (
 // session's RemotePKID.
 func TestSignedSessionExchange(t *testing.T) {
 	t.Parallel()
+
 	tls := generateThreeNodesTLSFiles(t)
 	aliceNode, bobNode := setupTwoNodesFromTLS(t, tls.alice, tls.bob, tls.caCert)
 

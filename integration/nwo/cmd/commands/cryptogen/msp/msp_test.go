@@ -119,11 +119,15 @@ func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
 	t.Log(err)
 }
 
-func TestGenerateLocalMSPWithNodeOU(t *testing.T) { //nolint:paralleltest
+func TestGenerateLocalMSPWithNodeOU(t *testing.T) {
+	t.Parallel()
+
 	testGenerateLocalMSP(t, true)
 }
 
-func TestGenerateLocalMSPWithoutNodeOU(t *testing.T) { //nolint:paralleltest
+func TestGenerateLocalMSPWithoutNodeOU(t *testing.T) {
+	t.Parallel()
+
 	testGenerateLocalMSP(t, false)
 }
 
@@ -169,15 +173,21 @@ func testGenerateVerifyingMSP(t *testing.T, nodeOUs bool) {
 	t.Log(err)
 }
 
-func TestGenerateVerifyingMSPWithNodeOU(t *testing.T) { //nolint:paralleltest
+func TestGenerateVerifyingMSPWithNodeOU(t *testing.T) {
+	t.Parallel()
+
 	testGenerateVerifyingMSP(t, true)
 }
 
-func TestGenerateVerifyingMSPWithoutNodeOU(t *testing.T) { //nolint:paralleltest
+func TestGenerateVerifyingMSPWithoutNodeOU(t *testing.T) {
+	t.Parallel()
+
 	testGenerateVerifyingMSP(t, true)
 }
 
-func TestExportConfig(t *testing.T) { //nolint:paralleltest
+func TestExportConfig(t *testing.T) {
+	t.Parallel()
+
 	testDir := t.TempDir()
 	path := filepath.Join(testDir, "export-test")
 	configFile := filepath.Join(path, "config.yaml")

@@ -26,13 +26,13 @@ type renamedMSP struct {
 
 func (r *renamedMSP) GetIdentifier() (string, error) { return r.name, r.err }
 
-func TestMSPManagerSetupFailsOnIdentifier(t *testing.T) { //nolint:paralleltest
+func TestMSPManagerSetupFailsOnIdentifier(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	mgr := NewMSPManager()
 	err := mgr.Setup([]MSP{&renamedMSP{MSP: localMsp, err: errors.New("no identifier")}})
 	require.ErrorContains(t, err, "could not extract msp identifier")
 }
 
-func TestMSPManagerDeserializeIdentity(t *testing.T) { //nolint:paralleltest
+func TestMSPManagerDeserializeIdentity(t *testing.T) { //nolint:paralleltest // shares the MSPs TestMain sets up
 	mgr := NewMSPManager()
 	_, err := mgr.DeserializeIdentity(nil)
 	require.EqualError(t, err, "channel doesn't exist")

@@ -18,7 +18,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
-func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest
+func TestMSPIdentityMethods(t *testing.T) {
+	t.Parallel()
 
 	id := &idemix.MSPIdentity{
 		ID: &msp.IdentityIdentifier{Mspid: "test-msp"},
@@ -50,7 +51,7 @@ func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, id, publicVersion)
 }
 
-func TestNymSignatureVerifier_Verify(t *testing.T) { //nolint:paralleltest
+func TestNymSignatureVerifier_Verify(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	csp, err := idemix.NewBCCSP(math.BN254)
 	require.NoError(t, err)
 

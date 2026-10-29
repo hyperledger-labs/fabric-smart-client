@@ -18,7 +18,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
-func TestSetupBCCSPKeystoreConfig(t *testing.T) { //nolint:paralleltest
+func TestSetupBCCSPKeystoreConfig(t *testing.T) {
+	t.Parallel()
+
 	keystoreDir := "/tmp"
 
 	// Case 1 : Check with empty FactoryOpts
@@ -83,7 +85,9 @@ func TestSetupBCCSPKeystoreConfig(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, rtnConfig.SW.FileKeystore.KeyStorePath, keystoreDir)
 }
 
-func TestSetupBCCSPKeystoreConfig_DoesNotMutateDefaultOpts(t *testing.T) { //nolint:paralleltest
+func TestSetupBCCSPKeystoreConfig_DoesNotMutateDefaultOpts(t *testing.T) {
+	t.Parallel()
+
 	defaultOpts := factory.GetDefaultOpts()
 	require.NotNil(t, defaultOpts)
 	require.NotNil(t, defaultOpts.SW)
@@ -106,7 +110,9 @@ func TestSetupBCCSPKeystoreConfig_DoesNotMutateDefaultOpts(t *testing.T) { //nol
 	}
 }
 
-func TestSetupBCCSPKeystoreConfig_DoesNotMutateInput(t *testing.T) { //nolint:paralleltest
+func TestSetupBCCSPKeystoreConfig_DoesNotMutateInput(t *testing.T) {
+	t.Parallel()
+
 	bccspConfig := &factory.FactoryOpts{
 		Default: "SW",
 		SW: &factory.SwOpts{
@@ -123,18 +129,24 @@ func TestSetupBCCSPKeystoreConfig_DoesNotMutateInput(t *testing.T) { //nolint:pa
 	require.Empty(t, bccspConfig.SW.FileKeystore.KeyStorePath)
 }
 
-func TestGetLocalMspConfig(t *testing.T) { //nolint:paralleltest
+func TestGetLocalMspConfig(t *testing.T) {
+	t.Parallel()
+
 	mspDir := "testdata/sampleconfig"
 	_, err := GetLocalMspConfig(mspDir, nil, "SampleOrg")
 	require.NoError(t, err)
 }
 
-func TestGetLocalMspConfigFails(t *testing.T) { //nolint:paralleltest
+func TestGetLocalMspConfigFails(t *testing.T) {
+	t.Parallel()
+
 	_, err := GetLocalMspConfig("/tmp/", nil, "SampleOrg")
 	require.Error(t, err)
 }
 
-func TestGetPemMaterialFromDirWithFile(t *testing.T) { //nolint:paralleltest
+func TestGetPemMaterialFromDirWithFile(t *testing.T) {
+	t.Parallel()
+
 	tempDir := t.TempDir()
 	tempFile, err := os.CreateTemp(tempDir, "fabric-msp-test")
 	require.NoError(t, err)
@@ -145,7 +157,9 @@ func TestGetPemMaterialFromDirWithFile(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-func TestGetPemMaterialFromDirWithSymlinks(t *testing.T) { //nolint:paralleltest
+func TestGetPemMaterialFromDirWithSymlinks(t *testing.T) {
+	t.Parallel()
+
 	mspDir, err := filepath.Abs("testdata/sampleconfig")
 	require.NoError(t, err)
 	tempDir := t.TempDir()
@@ -166,7 +180,9 @@ func TestGetPemMaterialFromDirWithSymlinks(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, expected, pemdataSymlink)
 }
 
-func TestReadFileUtils(t *testing.T) { //nolint:paralleltest
+func TestReadFileUtils(t *testing.T) {
+	t.Parallel()
+
 	// test that reading a file with an empty path doesn't crash
 	_, err := readPemFile("")
 	require.Error(t, err)
@@ -176,7 +192,9 @@ func TestReadFileUtils(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-func TestGetMspConfigWithType(t *testing.T) { //nolint:paralleltest
+func TestGetMspConfigWithType(t *testing.T) {
+	t.Parallel()
+
 	conf, err := GetLocalMspConfigWithType("testdata/sampleconfig", nil, "SampleOrg", ProviderTypeToString(FABRIC))
 	require.NoError(t, err)
 	require.Equal(t, int32(FABRIC), conf.Type)
@@ -203,7 +221,9 @@ func copySampleConfig(t *testing.T) string {
 	return dir
 }
 
-func TestGetMspConfigEmptyCertDirs(t *testing.T) { //nolint:paralleltest
+func TestGetMspConfigEmptyCertDirs(t *testing.T) {
+	t.Parallel()
+
 	dir := copySampleConfig(t)
 	require.NoError(t, os.RemoveAll(filepath.Join(dir, signcerts)))
 	require.NoError(t, os.Mkdir(filepath.Join(dir, signcerts), 0o755))
@@ -218,8 +238,10 @@ func TestGetMspConfigEmptyCertDirs(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "no PEM content found")
 }
 
-func TestGetMspConfigUnreadableDirs(t *testing.T) { //nolint:paralleltest
-	for _, tc := range []struct { //nolint:paralleltest
+func TestGetMspConfigUnreadableDirs(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
 		dir, msg string
 	}{
 		{admincerts, "could not load a valid admin certificate"},
@@ -228,7 +250,9 @@ func TestGetMspConfigUnreadableDirs(t *testing.T) { //nolint:paralleltest
 		{tlsintermediatecerts, "failed loading TLS intermediate ca certs"},
 		{crlsfolder, "failed loading crls"},
 	} {
-		t.Run(tc.dir, func(t *testing.T) { //nolint:paralleltest
+		t.Run(tc.dir, func(t *testing.T) {
+			t.Parallel()
+
 			dir := copySampleConfig(t)
 			path := filepath.Join(dir, tc.dir)
 			require.NoError(t, os.RemoveAll(path))
@@ -240,7 +264,9 @@ func TestGetMspConfigUnreadableDirs(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestGetMspConfigEmptyTLSCACertsSkipsIntermediates(t *testing.T) { //nolint:paralleltest
+func TestGetMspConfigEmptyTLSCACertsSkipsIntermediates(t *testing.T) {
+	t.Parallel()
+
 	dir := copySampleConfig(t)
 	require.NoError(t, os.RemoveAll(filepath.Join(dir, tlscacerts)))
 	require.NoError(t, os.Mkdir(filepath.Join(dir, tlscacerts), 0o755))
@@ -253,14 +279,18 @@ func TestGetMspConfigEmptyTLSCACertsSkipsIntermediates(t *testing.T) { //nolint:
 	require.Empty(t, fabricConf.TlsIntermediateCerts)
 }
 
-func TestGetMspConfigBadConfigFile(t *testing.T) { //nolint:paralleltest
-	for _, tc := range []struct { //nolint:paralleltest
+func TestGetMspConfigBadConfigFile(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
 		name, content, msg string
 	}{
 		{"invalid yaml", "OrganizationalUnitIdentifiers: [", "failed unmarshalling configuration file"},
 		{"missing OU certificate", "OrganizationalUnitIdentifiers:\n  - Certificate: cacerts/missing.pem\n    OrganizationalUnitIdentifier: COP\n", "failed loading OrganizationalUnit certificate"},
 	} {
-		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			dir := copySampleConfig(t)
 			require.NoError(t, os.WriteFile(filepath.Join(dir, configfilename), []byte(tc.content), 0o600))
 

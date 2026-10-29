@@ -692,7 +692,9 @@ func TestService_MSPManager(t *testing.T) {
 // MSP org (using the pre-generated testdata from the idemix provider package),
 // loads it into a Service, then creates an authentic signed proposal using the
 // Idemix signing identity and asserts that CheckACL passes.
-func TestService_CheckACL_IdemixSignedProposal(t *testing.T) { //nolint:paralleltest
+func TestService_CheckACL_IdemixSignedProposal(t *testing.T) {
+	t.Parallel()
+
 	// ── 1. Locate the Idemix MSP testdata (absolute path) ──────────────────
 	idemixMSPDir, err := filepath.Abs("../../../fabric/core/generic/msp/idemix/testdata/idemix")
 	require.NoError(t, err)

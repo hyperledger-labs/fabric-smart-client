@@ -18,7 +18,8 @@ type dummyKVS struct{}
 func (*dummyKVS) Put(_ string, _ any) error { return nil }
 func (*dummyKVS) Get(_ string, _ any) error { return nil }
 
-func TestNewBCCSP(t *testing.T) { //nolint:paralleltest
+func TestNewBCCSP(t *testing.T) {
+	t.Parallel()
 
 	// Supported curves
 	curves := []math.CurveID{
@@ -41,7 +42,8 @@ func TestNewBCCSP(t *testing.T) { //nolint:paralleltest
 	require.Nil(t, bccsp)
 }
 
-func TestNewKSVBCCSP(t *testing.T) { //nolint:paralleltest
+func TestNewKSVBCCSP(t *testing.T) {
+	t.Parallel()
 
 	// Using dummyKVS
 	kvs := &dummyKVS{}
@@ -62,7 +64,8 @@ func TestNewKSVBCCSP(t *testing.T) { //nolint:paralleltest
 	require.Nil(t, bccspInvalid)
 }
 
-func TestGetCurveAndTranslator(t *testing.T) { //nolint:paralleltest
+func TestGetCurveAndTranslator(t *testing.T) {
+	t.Parallel()
 
 	curve, tr, err := GetCurveAndTranslator(math.BN254)
 	require.NoError(t, err)

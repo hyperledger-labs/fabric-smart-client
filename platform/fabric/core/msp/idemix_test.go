@@ -34,7 +34,7 @@ func newLocalIdemixMSP(t *testing.T) MSP {
 	return newIdemixMSP(t, conf, MSPv1_3)
 }
 
-func TestIdemixMSPVersion(t *testing.T) { //nolint:paralleltest
+func TestIdemixMSPVersion(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	conf, err := GetLocalMspConfigWithType(idemixTestDir, nil, "idemix", ProviderTypeToString(IDEMIX))
 	require.NoError(t, err)
 
@@ -51,7 +51,7 @@ func TestIdemixMSPVersion(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestIdemixMSPIdentities(t *testing.T) { //nolint:paralleltest
+func TestIdemixMSPIdentities(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	thisMSP := newLocalIdemixMSP(t)
 
 	signer, err := thisMSP.GetDefaultSigningIdentity()
@@ -95,7 +95,7 @@ func TestIdemixMSPIdentities(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, thisMSP.SatisfiesPrincipal(x509ID, principal), "unexpected identity type")
 }
 
-func TestIdemixMSPWithoutSigner(t *testing.T) { //nolint:paralleltest
+func TestIdemixMSPWithoutSigner(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	dir := t.TempDir()
 	require.NoError(t, os.CopyFS(filepath.Join(dir, "msp"), os.DirFS(filepath.Join(idemixTestDir, "msp"))))
 

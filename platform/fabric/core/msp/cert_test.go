@@ -33,7 +33,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSanitizeCertWithRSA(t *testing.T) { //nolint:paralleltest
+func TestSanitizeCertWithRSA(t *testing.T) {
+	t.Parallel()
+
 	cert := &x509.Certificate{}
 	cert.SignatureAlgorithm = x509.MD2WithRSA
 	result := isECDSASignedCert(cert)
@@ -44,7 +46,9 @@ func TestSanitizeCertWithRSA(t *testing.T) { //nolint:paralleltest
 	require.True(t, result)
 }
 
-func TestSanitizeCertInvalidInput(t *testing.T) { //nolint:paralleltest
+func TestSanitizeCertInvalidInput(t *testing.T) {
+	t.Parallel()
+
 	_, err := sanitizeECDSASignedCert(nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "certificate must be different from nil")
@@ -67,7 +71,9 @@ func TestSanitizeCertInvalidInput(t *testing.T) { //nolint:paralleltest
 	require.Contains(t, err.Error(), "asn1: structure error: tags don't match")
 }
 
-func TestSanitizeCert(t *testing.T) { //nolint:paralleltest
+func TestSanitizeCert(t *testing.T) {
+	t.Parallel()
+
 	var k *ecdsa.PrivateKey
 	var cert *x509.Certificate
 	for {
@@ -96,7 +102,9 @@ func TestSanitizeCert(t *testing.T) { //nolint:paralleltest
 	require.True(t, lowS)
 }
 
-func TestCertExpiration(t *testing.T) { //nolint:paralleltest
+func TestCertExpiration(t *testing.T) {
+	t.Parallel()
+
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 	msp := &bccspmsp{bccsp: cryptoProvider}

@@ -22,7 +22,9 @@ func TestGetInfo(t *testing.T) {
 	require.Contains(t, info, runtime.GOARCH)
 }
 
-func TestCmd_TrailingArgs(t *testing.T) { //nolint:paralleltest
+func TestCmd_TrailingArgs(t *testing.T) {
+	t.Parallel()
+
 	cmd := Cmd()
 	cmd.SetArgs([]string{"unexpected"})
 	err := cmd.Execute()
@@ -30,7 +32,9 @@ func TestCmd_TrailingArgs(t *testing.T) { //nolint:paralleltest
 	require.Contains(t, err.Error(), "trailing args detected")
 }
 
-func TestCmd_NoArgs(t *testing.T) { //nolint:paralleltest
+func TestCmd_NoArgs(t *testing.T) {
+	t.Parallel()
+
 	cmd := Cmd()
 	cmd.SetArgs([]string{})
 	require.NoError(t, cmd.Execute())

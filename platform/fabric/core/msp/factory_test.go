@@ -15,7 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewInvalidOpts(t *testing.T) { //nolint:paralleltest
+func TestNewInvalidOpts(t *testing.T) {
+	t.Parallel()
+
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -35,7 +37,9 @@ func TestNewInvalidOpts(t *testing.T) { //nolint:paralleltest
 	require.Nil(t, i)
 }
 
-func TestNew(t *testing.T) { //nolint:paralleltest
+func TestNew(t *testing.T) {
+	t.Parallel()
+
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -75,7 +79,9 @@ func TestNew(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, i)
 }
 
-func TestNewBCCSPVersions(t *testing.T) { //nolint:paralleltest
+func TestNewBCCSPVersions(t *testing.T) {
+	t.Parallel()
+
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 	funcName := func(f any) string { return runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name() }
@@ -105,7 +111,9 @@ func TestNewBCCSPVersions(t *testing.T) { //nolint:paralleltest
 	}
 }
 
-func TestNewBccspMspInvalidVersion(t *testing.T) { //nolint:paralleltest
+func TestNewBccspMspInvalidVersion(t *testing.T) {
+	t.Parallel()
+
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 

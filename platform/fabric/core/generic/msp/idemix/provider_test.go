@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
-func TestProvider(t *testing.T) { //nolint:paralleltest
+func TestProvider(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -66,7 +66,7 @@ func newKVS(t *testing.T) driver.KeyValueStore {
 	return s
 }
 
-func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
+func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -128,7 +128,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
+func TestIdentityStandard(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -174,7 +174,7 @@ func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestAuditWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
+func TestAuditWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
@@ -212,7 +212,7 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	require.Error(t, auditInfo.Match(id))
 }
 
-func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
+func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -265,7 +265,7 @@ func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, verifier.Verify(msg, sigma))
 }
 
-func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
+func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
@@ -328,7 +328,7 @@ func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
+func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
@@ -391,7 +391,7 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralle
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest
+func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 

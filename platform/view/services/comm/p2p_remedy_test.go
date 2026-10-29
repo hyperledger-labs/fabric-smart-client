@@ -297,7 +297,9 @@ func TestReleaseClosesOnlyUnsharedStreams(t *testing.T) {
 	}
 }
 
-func TestDispatcherSkipsLeaseOnClosingSession(t *testing.T) { //nolint:paralleltest
+func TestDispatcherSkipsLeaseOnClosingSession(t *testing.T) {
+	t.Parallel()
+
 	metricsProvider := &mockMetricsProvider{counter: &mockCounter{}}
 	p, err := NewNode(context.Background(), &mockHost{}, metricsProvider)
 	require.NoError(t, err)
@@ -332,7 +334,9 @@ func TestDispatcherSkipsLeaseOnClosingSession(t *testing.T) { //nolint:parallelt
 	assert.Zero(t, sh.refCtr.Load())
 }
 
-func TestSendSkipsLeaseOnClosingSession(t *testing.T) { //nolint:paralleltest
+func TestSendSkipsLeaseOnClosingSession(t *testing.T) {
+	t.Parallel()
+
 	p, err := NewNode(context.Background(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
 	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)

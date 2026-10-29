@@ -177,7 +177,9 @@ func receiveStream(t *testing.T, streams <-chan host.P2PStream) host.P2PStream {
 }
 
 // The server-side cap protects a node from a peer that bypasses the client-side check.
-func TestServerRejectsSubConnsBeyondMax(t *testing.T) { //nolint:paralleltest
+func TestServerRejectsSubConnsBeyondMax(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	url, streams, clientTLS, clientID := startMultiplexedServer(t, 1)
 	raw := dialRaw(t, url, clientTLS)
@@ -206,7 +208,9 @@ func TestServerRejectsSubConnsBeyondMax(t *testing.T) { //nolint:paralleltest
 // Closing a sub-connection must not turn the frames the client already sent on it into a
 // new sub-connection: their payload is not a StreamMeta, so the server would take them for a
 // peer ID mismatch and kill every sub-connection on the physical connection.
-func TestServerDropsLateFramesForClosedSubConn(t *testing.T) { //nolint:paralleltest
+func TestServerDropsLateFramesForClosedSubConn(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	url, streams, clientTLS, clientID := startMultiplexedServer(t, 0)
 	raw := dialRaw(t, url, clientTLS)
@@ -237,7 +241,9 @@ func TestServerDropsLateFramesForClosedSubConn(t *testing.T) { //nolint:parallel
 	require.Equal(t, 0, closingCount(parent))
 }
 
-func TestServerClosesSlowSubConn(t *testing.T) { //nolint:paralleltest
+func TestServerClosesSlowSubConn(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	url, streams, clientTLS, clientID := startMultiplexedServer(t, 0)
 	raw := dialRaw(t, url, clientTLS)
@@ -256,7 +262,9 @@ func TestServerClosesSlowSubConn(t *testing.T) { //nolint:paralleltest
 	require.True(t, hasSubConn(serverParent(t, s2), "2"))
 }
 
-func TestServerIgnoresErrorFrameForUnknownSubConn(t *testing.T) { //nolint:paralleltest
+func TestServerIgnoresErrorFrameForUnknownSubConn(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	url, streams, clientTLS, clientID := startMultiplexedServer(t, 0)
 	raw := dialRaw(t, url, clientTLS)
@@ -282,7 +290,9 @@ func startRawServer(t *testing.T) (addr string, peers <-chan *rawPeer) {
 	return strings.TrimPrefix(srv.URL, "http://"), ch
 }
 
-func TestClientSubConnEdgeCases(t *testing.T) { //nolint:paralleltest
+func TestClientSubConnEdgeCases(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	addr, peers := startRawServer(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
@@ -318,7 +328,9 @@ func TestClientSubConnEdgeCases(t *testing.T) { //nolint:paralleltest
 	require.Same(t, conn, firstClientConn(p))
 }
 
-func TestMultiplexedProviderClose(t *testing.T) { //nolint:paralleltest
+func TestMultiplexedProviderClose(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
@@ -365,7 +377,7 @@ func TestMultiplexedProviderClose(t *testing.T) { //nolint:paralleltest
 
 // http.Server.Shutdown neither closes nor waits for hijacked connections, so the provider
 // must end the websockets it accepted itself.
-func TestMultiplexedProviderCloseKillsServerConns(t *testing.T) { //nolint:paralleltest
+func TestMultiplexedProviderCloseKillsServerConns(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	testSetup(t)
 	ignore := goleak.IgnoreCurrent()
 	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
@@ -414,7 +426,9 @@ func requireClosed(t *testing.T, r *rawPeer) {
 
 // When both ends of a websocket belong to the provider, or the peer goes away during Close,
 // closing a socket fails although it is closed. Close must not report that as an error.
-func TestMultiplexedProviderCloseAfterPeerReset(t *testing.T) { //nolint:paralleltest
+func TestMultiplexedProviderCloseAfterPeerReset(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	serverTLS, clientTLS, clientID := testMutualTLSConfigs(t, false)
@@ -441,7 +455,9 @@ func serverConnCount(p *MultiplexedProvider) int {
 	return len(p.servers)
 }
 
-func TestMultiplexedProviderStreamErrors(t *testing.T) { //nolint:paralleltest
+func TestMultiplexedProviderStreamErrors(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	t.Cleanup(func() { _ = p.Close() })
@@ -566,7 +582,7 @@ func newPipedClientConn(t *testing.T, maxSubConns int, onClose func()) (*multipl
 // TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock checks that newServerSubConn releases
 // the sub-connection map lock (mu) before writing a rejection frame. The peer does not read,
 // so the write blocks on the pipe while holding writeMu; mu must stay acquirable meanwhile.
-func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nolint:paralleltest
+func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	testSetup(t)
 
 	const peerID host.PeerID = "legit-peer"
@@ -582,7 +598,7 @@ func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nol
 		{name: "peer identity binding", maxSubConns: 2, claimedPeer: "spoofed-peer", wantErr: "peer identity binding failed"},
 	}
 	for _, tt := range tests { //nolint:paralleltest // goleak snapshots need serial subtests
-		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // goleak snapshots need serial subtests
 			ignore := goleak.IgnoreCurrent()
 			t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
 
@@ -622,7 +638,7 @@ func TestNewServerSubConn_RejectionWriteDoesNotHoldMapLock(t *testing.T) { //nol
 // TestFailedWriteKillsConnection_Server verifies that when a write on a server multiplexed
 // connection fails (e.g. write deadline times out on an unresponsive peer), the connection
 // is killed, sub-connections are shut down, and the read loop exits.
-func TestFailedWriteKillsConnection_Server(t *testing.T) { //nolint:paralleltest
+func TestFailedWriteKillsConnection_Server(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	testSetup(t)
 	ignore := goleak.IgnoreCurrent()
 	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
@@ -668,7 +684,7 @@ func TestFailedWriteKillsConnection_Server(t *testing.T) { //nolint:paralleltest
 // TestFailedWriteKillsConnection_Client verifies that when a write on a client multiplexed
 // connection fails (e.g. write deadline times out on an unresponsive peer), the connection
 // is killed, sub-connections are shut down, and the onClose hook evicts it.
-func TestFailedWriteKillsConnection_Client(t *testing.T) { //nolint:paralleltest
+func TestFailedWriteKillsConnection_Client(t *testing.T) { //nolint:paralleltest // goleak checks every goroutine in the process
 	testSetup(t)
 	ignore := goleak.IgnoreCurrent()
 	t.Cleanup(func() { goleak.VerifyNone(t, ignore) })
@@ -739,7 +755,9 @@ func TestFailedWriteKillsConnection_Client(t *testing.T) { //nolint:paralleltest
 // TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer checks that an unresponsive peer
 // that accepts TCP connections but hangs during the WebSocket handshake does not block stream
 // creation to healthy peers, and does not hold the provider lock while dialing (Issue #1975).
-func TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer(t *testing.T) { //nolint:paralleltest
+func TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 
 	hang, err := net.Listen("tcp", "127.0.0.1:0")
@@ -790,7 +808,9 @@ func TestNewClientStream_HangingPeerDoesNotBlockHealthyPeer(t *testing.T) { //no
 
 // TestNewClientStream_ConcurrentDialsShareConnection checks that concurrent callers attempting
 // to open a stream to the same address share a single physical websocket connection (Issue #1975).
-func TestNewClientStream_ConcurrentDialsShareConnection(t *testing.T) { //nolint:paralleltest
+func TestNewClientStream_ConcurrentDialsShareConnection(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 
 	addr, peers := startRawServer(t)
@@ -824,10 +844,11 @@ func TestNewClientStream_ConcurrentDialsShareConnection(t *testing.T) { //nolint
 	}
 
 	// Exactly one physical client connection should have been established to the server.
+	// Block for the first: a dial returns once the upgrade response is written, before the
+	// server handler hands the connection to peers.
 	select {
 	case <-peers:
-		// First peer received
-	default:
+	case <-time.After(10 * time.Second):
 		t.Fatal("expected at least one server connection")
 	}
 
@@ -842,7 +863,9 @@ func TestNewClientStream_ConcurrentDialsShareConnection(t *testing.T) { //nolint
 // TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient verifies that an asynchronous
 // onClose callback from an earlier connection does not evict a newly registered connection
 // under the same URL (e.g. after a reconnect).
-func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T) { //nolint:paralleltest
+func TestNewClientStream_StaleOnCloseDoesNotEvictReconnectedClient(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 
 	addr, _ := startRawServer(t)
@@ -912,7 +935,9 @@ func TestNewClientStream_ImmediateServerCloseIsNotCached(t *testing.T) { //nolin
 
 // TestNewClientStream_PostShutdownDialsRefused verifies that NewClientStream returns an error
 // and refuses to dial or register new connections after the provider has been shut down via KillAll.
-func TestNewClientStream_PostShutdownDialsRefused(t *testing.T) { //nolint:paralleltest
+func TestNewClientStream_PostShutdownDialsRefused(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 
 	addr, _ := startRawServer(t)
@@ -934,7 +959,9 @@ func TestNewClientStream_PostShutdownDialsRefused(t *testing.T) { //nolint:paral
 // TestNewClientStream_KillAllDuringInFlightDial verifies that if KillAll is invoked while a dial
 // is in-flight, the completing dial detects that the provider was closed, terminates the freshly
 // opened connection, returns "provider is closed", and does not insert it into p.clients.
-func TestNewClientStream_KillAllDuringInFlightDial(t *testing.T) { //nolint:paralleltest
+func TestNewClientStream_KillAllDuringInFlightDial(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 
 	dialing := make(chan struct{})
@@ -988,7 +1015,9 @@ func TestNewClientStream_KillAllDuringInFlightDial(t *testing.T) { //nolint:para
 // TestNewClientStream_DialHonoursCallerContextDeadline verifies that the dialer honours
 // the caller context deadline and returns promptly rather than blocking for the full
 // handshake timeout when connecting to an unresponsive peer.
-func TestNewClientStream_DialHonoursCallerContextDeadline(t *testing.T) { //nolint:paralleltest
+func TestNewClientStream_DialHonoursCallerContextDeadline(t *testing.T) {
+	t.Parallel()
+
 	testSetup(t)
 
 	hang, err := net.Listen("tcp", "127.0.0.1:0")
