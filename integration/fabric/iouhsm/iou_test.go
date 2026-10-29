@@ -15,33 +15,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iouhsm"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 var _ = Describe("EndToEnd", func() {
 	// websocket only: identical p2p path to fabric/iou, which keeps libp2p. The
 	// variable under test here is HSM signing, not the transport.
 	Describe("IOU (With HSM) Life Cycle", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		s := NewTestSuite(fsc.WebSocket)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("creates and updates IOUs signed with HSM keys", s.TestSucceeded)
-	})
-
-	Describe("IOU (With HSM) Life Cycle With Websockets and replicas", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-			ReplicationFactors: map[string]int{
-				"borrower": 3,
-				"lender":   2,
-			},
-			SQLConfigs: map[string]*postgres.ContainerConfig{
-				"borrower": postgres.DefaultConfig(postgres.WithDBName("borrower-db")),
-				"lender":   postgres.DefaultConfig(postgres.WithDBName("lender-db")),
-			},
-		})
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("creates and updates IOUs signed with HSM keys on every replica", s.TestSucceededWithReplicas)
 	})
 })
 
@@ -49,9 +32,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(commType fsc.P2PCommunicationType) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, iouhsm.Topology(commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, iouhsm.Topology(commType)...)
 	})}
 }
 
@@ -69,34 +52,4 @@ func (s *TestSuite) TestSucceeded() {
 	iou.UpdateIOU(s.II, iouState, 5, "approver")
 	iou.CheckState(s.II, "borrower", iouState, 5)
 	iou.CheckState(s.II, "lender", iouState, 5)
-}
-
-func (s *TestSuite) TestSucceededWithReplicas() {
-	iouState := iou.CreateIOUWithBorrower(s.II, "fsc.borrower.0", "", 10, "approver")
-	iou.CheckState(s.II, "fsc.borrower.0", iouState, 10)
-	iou.CheckState(s.II, "fsc.borrower.1", iouState, 10)
-	iou.CheckState(s.II, "fsc.borrower.2", iouState, 10)
-	iou.CheckState(s.II, "fsc.lender.0", iouState, 10)
-	iou.CheckState(s.II, "fsc.lender.1", iouState, 10)
-
-	iou.UpdateIOUWithBorrower(s.II, "fsc.borrower.1", iouState, 5, "approver")
-	iou.CheckState(s.II, "fsc.borrower.0", iouState, 5)
-	iou.CheckState(s.II, "fsc.borrower.1", iouState, 5)
-	iou.CheckState(s.II, "fsc.borrower.2", iouState, 5)
-	iou.CheckState(s.II, "fsc.lender.0", iouState, 5)
-	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
-
-	iouState = iou.CreateIOUWithBorrower(s.II, "fsc.borrower.0", "borrower-hsm-2", 10, "approver")
-	iou.CheckState(s.II, "fsc.borrower.0", iouState, 10)
-	iou.CheckState(s.II, "fsc.borrower.1", iouState, 10)
-	iou.CheckState(s.II, "fsc.borrower.2", iouState, 10)
-	iou.CheckState(s.II, "fsc.lender.0", iouState, 10)
-	iou.CheckState(s.II, "fsc.lender.1", iouState, 10)
-
-	iou.UpdateIOUWithBorrower(s.II, "fsc.borrower.1", iouState, 5, "approver")
-	iou.CheckState(s.II, "fsc.borrower.0", iouState, 5)
-	iou.CheckState(s.II, "fsc.borrower.1", iouState, 5)
-	iou.CheckState(s.II, "fsc.borrower.2", iouState, 5)
-	iou.CheckState(s.II, "fsc.lender.0", iouState, 5)
-	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
 }

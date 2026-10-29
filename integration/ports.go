@@ -34,7 +34,6 @@ const (
 	AssetTransferSecuredAgreementWithApprovers
 	AssetTransferEventsAgreementWithChaincode
 	TwoFabricNetworksPort
-	FabricStopRestart
 	RuntimeConfigPort
 	FabricXAssetTransferPort
 	FabricConfigUpdatePort

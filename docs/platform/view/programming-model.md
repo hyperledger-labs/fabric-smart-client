@@ -76,7 +76,7 @@ Identities represent parties in the FSC network.
 
 A view typically does not hardcode transport endpoints. Instead, it resolves or retrieves an identity and uses that identity when opening sessions or invoking higher-level APIs.
 
-The example in [`integration/fabric/stoprestart/initiator.go`](../../../integration/fabric/stoprestart/initiator.go) uses the identity provider to resolve the party named `bob`, then opens a session to that identity.
+The example in [`integration/fsc/stoprestart/initiator.go`](../../../integration/fsc/stoprestart/initiator.go) uses the identity provider to resolve the party named `bob`, then opens a session to that identity.
 
 ### Services
 
@@ -166,14 +166,12 @@ An initiator view typically:
 6. validates the result
 7. returns an application outcome
 
-From [`integration/fabric/stoprestart/initiator.go`](/integration/fabric/stoprestart/initiator.go), the pattern is:
+Simplified from [`integration/fsc/stoprestart/initiator.go`](../../../integration/fsc/stoprestart/initiator.go), the pattern is:
 
 ```go
-type Initiator struct {
-	in []byte
-}
+type Initiator struct{}
 
-func (p *Initiator) Call(viewCtx view.Context) (any, error) {
+func (*Initiator) Call(viewCtx view.Context) (any, error) {
 	identityProvider, err := id.GetProvider(viewCtx)
 	if err != nil {
 		return nil, err
@@ -185,7 +183,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	if err := session.Send(viewCtx.Context(), p.in); err != nil {
+	if err := session.Send(viewCtx.Context(), []byte("ping")); err != nil {
 		return nil, err
 	}
 
@@ -194,7 +192,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 }
 ```
 
-For a more complete example with error handling, timeouts, and message validation, see the [stoprestart integration test](../../../integration/fabric/stoprestart/initiator.go).
+For a more complete example with error handling, timeouts, and message validation, see the [stoprestart integration test](../../../integration/fsc/stoprestart/initiator.go).
 
 This shows the essential mechanics:
 
@@ -217,18 +215,25 @@ The responder pattern is:
 ```go
 type Responder struct{}
 
-func (p *Responder) Call(viewCtx view.Context) (any, error) {
+func (*Responder) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 	msg := <-session.Receive()
+	if string(msg.Payload) != "ping" {
+		// Tell the initiator, which otherwise waits for a reply that never comes.
+		if err := session.SendError(viewCtx.Context(), []byte("expected ping")); err != nil {
+			return nil, err
+		}
+		return nil, errors.Errorf("expected ping, got %s", msg.Payload)
+	}
 
-	if err := session.Send(viewCtx.Context(), msg.Payload); err != nil {
+	if err := session.Send(viewCtx.Context(), []byte("pong")); err != nil {
 		return nil, err
 	}
 	return "OK", nil
 }
 ```
 
-For a more complete example with error handling and timeouts, see the [stoprestart integration test](../../../integration/fabric/stoprestart/responder.go).
+For a more complete example with error handling and timeouts, see the [stoprestart integration test](../../../integration/fsc/stoprestart/responder.go).
 
 The responder does not create the session. It consumes the session associated with the incoming protocol request.
 
@@ -367,7 +372,7 @@ case <-time.After(1 * time.Minute):
 For complete examples, see:
 - [pingpong](../../../integration/fsc/pingpong) - Simple ping/pong protocol with timeout and validation
 - [signedpingpong](../../../integration/fsc/signedpingpong) - Symmetric message signing using `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID`
-- [stoprestart](../../../integration/fabric/stoprestart) - Session handling with stop/restart scenarios
+- [stoprestart](../../../integration/fsc/stoprestart) - Session handling across a responder restart
 - [IOU](../../../integration/fabric/common/iou) - Complex Fabric integration with state management and endorsement collection
 
 ## Symmetric Signing with Session Identity
