@@ -26,6 +26,7 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 const (
@@ -42,6 +43,9 @@ const (
 	postgresOutage = "postgres-outage"
 	// replication labels the specs on replicated nodes, which run in a target of their own.
 	replication = "replication"
+	// partition labels the specs that cut links silently through fault proxies, which run
+	// in a target of their own.
+	partition = "partition"
 )
 
 var (
@@ -517,5 +521,71 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		}
 		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
 		Expect(faultrecovery.MetricSum(s.II, "bob", commitFailures)).To(Equal(failures))
+	})
+})
+
+// Its own Describe, so the fault proxies and the keepalive apply to these specs only.
+// Each spec heals what it partitions, so the specs share one network, see
+// faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric during a network partition", Ordered, ContinueOnFailure, Label(fsc.WebSocket, partition), func() {
+	var proxies *fabricfaultrecovery.FaultProxies
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		ii, err := newInfrastructure()
+		if err != nil {
+			return nil, err
+		}
+		if proxies != nil {
+			proxies.Close()
+		}
+		proxies = fabricfaultrecovery.SetFaultProxies(ii)
+		return ii, nil
+	})
+	faultrecovery.ShareNetwork(s)
+	AfterAll(func() { proxies.Close() })
+
+	It("detects a silent partition of the delivery peer", func() {
+		s.II.EventuallyConnectionState("alice", delivery, connstate.Connected, time.Minute)
+
+		proxies.Peer.Partition()
+		DeferCleanup(proxies.Peer.Heal)
+		// Only the keepalive notices: the peer pushes nothing on a quiet channel.
+		s.II.EventuallyConnectionState("alice", delivery, connstate.Reconnecting,
+			fabricfaultrecovery.KeepaliveTime+fabricfaultrecovery.KeepaliveTimeout+10*time.Second)
+
+		proxies.Peer.Heal()
+		s.II.EventuallyConnectionState("alice", delivery, connstate.Connected, 2*time.Minute)
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
+	It("resumes commits after a Postgres partition", func() {
+		// Endorsing writes to bob's database, so the tx is endorsed before the partition
+		// and ordered during it.
+		tx := faultrecovery.Endorse(s.II, 1)
+
+		proxies.Postgres.Partition()
+		DeferCleanup(proxies.Postgres.Heal)
+		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
+		faultrecovery.Order(s.II, tx)
+
+		proxies.Postgres.Heal()
+		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
+		faultrecovery.WaitFinal(s.II, tx.TxID)
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
+	It("fails a view when alice is cut off from bob", func() {
+		// Opens alice's connection to bob, so the echo below sends on it.
+		Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
+
+		proxies.Bob.Partition()
+		DeferCleanup(proxies.Bob.Heal)
+		// The echo succeeds whenever bob gets the message. Neither side sees the connection
+		// close, so only the echo view's own receive timeout of a minute ends the view.
+		err := faultrecovery.Echo(s.II, false)
+		Expect(err).To(MatchError(view.ErrViewExecutionFailed))
+		Expect(err).To(MatchError(ContainSubstring("time out reached")))
+
+		proxies.Bob.Heal()
+		Eventually(func() error { return faultrecovery.Echo(s.II, false) }, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed())
 	})
 })

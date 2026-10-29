@@ -593,8 +593,11 @@ fabric:
       # this. Format: Go duration string. Default: 10s.
       connectionTimeout: 10s
       # Time: how often the client sends keepalive pings to the server. Zero or omitted
-      # disables keepalive; a connection that dies without an error then goes unnoticed
-      # for hours. Values below 10s are raised to 10s. Fabric peers and orderers close
+      # disables keepalive; a connection that dies without an error, such as one cut by a
+      # network partition or a load balancer that drops idle flows, then goes unnoticed
+      # for hours, since the delivery stream reconnects only when it fails. With
+      # keepalive on, a dead connection is detected within time plus timeout. Values
+      # below 10s are raised to 10s. Fabric peers and orderers close
       # connections that ping more often than their configured minimum interval
       # (default 60s), so do not set it lower than that.
       # Format: Go duration string (e.g. "90s", "2m").
