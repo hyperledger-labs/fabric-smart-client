@@ -16,7 +16,6 @@ require (
 	github.com/hyperledger/fabric-protos-go-apiv2 v0.3.7
 	github.com/hyperledger/fabric-x-common v0.2.12
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/jackc/pgxlisten v0.0.0-20250802141604-12b92425684c
 	github.com/knadh/koanf/maps v0.1.3
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/env/v2 v2.0.2

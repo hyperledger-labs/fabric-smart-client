@@ -9,7 +9,6 @@ package postgres
 import (
 	"database/sql"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -32,25 +31,6 @@ func (db *KeyValueStore) CreateSchema() error {
 		return err
 	}
 	return ReorderPrimaryKey(db.writeDB, db.table)
-}
-
-type KeyValueStoreNotifier struct {
-	*KeyValueStore
-	*Notifier
-}
-
-func (db *KeyValueStoreNotifier) Close() error {
-	return errors.Join(
-		db.KeyValueStore.Close(),
-		db.Notifier.Close(),
-	)
-}
-
-func (db *KeyValueStoreNotifier) CreateSchema() error {
-	if err := db.KeyValueStore.CreateSchema(); err != nil {
-		return err
-	}
-	return db.Notifier.CreateSchema()
 }
 
 func buildKeyValueStore(readDB, writeDB *sql.DB, table string) *KeyValueStore {

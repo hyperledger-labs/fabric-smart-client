@@ -19,6 +19,8 @@ import (
 
 type provider[V any] func(name string) (V, error)
 
+// TestCases runs the shared key-value store cases against unversionedProvider and,
+// when unversionedNotifierProvider is non-nil, the notifier cases against it.
 func TestCases(t *testing.T,
 	unversionedProvider provider[driver.KeyValueStore],
 	unversionedNotifierProvider provider[driver.UnversionedNotifier],
@@ -55,15 +57,17 @@ func TestCases(t *testing.T,
 			c.Fn(xt, b.readDB, b.writeDB, b.errorWrapper, b.table)
 		})
 	}
-	for _, c := range UnversionedNotifierCases {
-		un, err := unversionedNotifierProvider(c.Name)
-		if err != nil {
-			t.Fatal(err)
+	if unversionedNotifierProvider != nil {
+		for _, c := range UnversionedNotifierCases {
+			un, err := unversionedNotifierProvider(c.Name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Run(c.Name, func(xt *testing.T) {
+				defer func() { _ = un.Close() }()
+				c.Fn(xt, un)
+			})
 		}
-		t.Run(c.Name, func(xt *testing.T) {
-			defer func() { _ = un.Close() }()
-			c.Fn(xt, un)
-		})
 	}
 }
 

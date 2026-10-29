@@ -9,15 +9,11 @@ package postgres
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
-	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
 func openPostgresKVS(t *testing.T, pgConnStr string, skipCreate bool) *KeyValueStore {
@@ -110,64 +106,4 @@ func TestPostgresKVSRangePlanUsesNamespaceKey(t *testing.T) {
 	require.NoError(t, rows.Err())
 	require.Contains(t, plan.String(), "Index Cond: ((ns = ")
 	require.NotContains(t, plan.String(), "Sort")
-}
-
-// Dropping and re-adding the primary key leaves the notify trigger in place,
-// because the trigger reads ns and pkey from the row.
-func TestPostgresKVSNotifierAfterReorder(t *testing.T) {
-	t.Parallel()
-
-	pgConnStr := setupDB(t)
-	cp := NewConfigProvider(drivertesting.MockConfig(Config{
-		DataSource:      pgConnStr,
-		SkipCreateTable: true,
-	}))
-	store, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables sqlcommon.TableNames) (*KeyValueStoreNotifier, error) {
-		return &KeyValueStoreNotifier{
-			KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
-			Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
-		}, nil
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
-
-	table := store.KeyValueStore.table
-	_, err = store.KeyValueStore.writeDB.Exec(`CREATE TABLE ` + table + ` (
-		ns TEXT NOT NULL,
-		pkey BYTEA NOT NULL,
-		val BYTEA NOT NULL DEFAULT '',
-		PRIMARY KEY (pkey, ns)
-	)`)
-	require.NoError(t, err)
-	_, err = store.KeyValueStore.writeDB.Exec("INSERT INTO "+table+" (ns, pkey, val) VALUES ($1, $2, $3)", "ns", []byte("k1"), []byte("v1"))
-	require.NoError(t, err)
-	require.NoError(t, store.CreateSchema())
-
-	ch := make(chan driver.Operation, 1)
-	require.NoError(t, store.Subscribe(func(op driver.Operation, m map[driver.ColumnKey]string) {
-		if m["ns"] == "ns" {
-			select {
-			case ch <- op:
-			default:
-			}
-		}
-	}))
-
-	// Subscribe starts listening in the background, so a write can land before
-	// LISTEN runs. Retry the write until a notification arrives.
-	ctx := t.Context()
-	require.Eventually(t, func() bool {
-		if store.BeginUpdate() != nil || store.SetState(ctx, "ns", "k2", []byte("v2")) != nil || store.Commit() != nil {
-			return false
-		}
-		select {
-		case op := <-ch:
-			return op == driver.Insert || op == driver.Update
-		case <-time.After(100 * time.Millisecond):
-			return false
-		}
-	}, 10*time.Second, 10*time.Millisecond, "no notification after reorder")
-	got, err := store.GetState(ctx, "ns", "k1")
-	require.NoError(t, err)
-	require.Equal(t, []byte("v1"), got)
 }

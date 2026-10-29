@@ -13,7 +13,6 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -42,14 +41,7 @@ func TestPostgres(t *testing.T) {
 	}))
 	sqlcommon.TestCases(t, func(string) (driver.KeyValueStore, error) {
 		return NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
-	}, func(string) (driver.UnversionedNotifier, error) {
-		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables sqlcommon.TableNames) (*KeyValueStoreNotifier, error) {
-			return &KeyValueStoreNotifier{
-				KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
-				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
-			}, nil
-		})
-	}, func(p driver.KeyValueStore) *sqlcommon.KeyValueStore {
+	}, nil, func(p driver.KeyValueStore) *sqlcommon.KeyValueStore {
 		return p.(*KeyValueStore).KeyValueStore
 	})
 	t.Run("DBMonitor", func(t *testing.T) {
@@ -89,14 +81,7 @@ func TestPostgresWithTLS(t *testing.T) {
 	}))
 	sqlcommon.TestCases(t, func(string) (driver.KeyValueStore, error) {
 		return NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
-	}, func(string) (driver.UnversionedNotifier, error) {
-		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables sqlcommon.TableNames) (*KeyValueStoreNotifier, error) {
-			return &KeyValueStoreNotifier{
-				KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
-				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
-			}, nil
-		})
-	}, func(p driver.KeyValueStore) *sqlcommon.KeyValueStore {
+	}, nil, func(p driver.KeyValueStore) *sqlcommon.KeyValueStore {
 		return p.(*KeyValueStore).KeyValueStore
 	})
 }

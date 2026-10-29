@@ -41,7 +41,6 @@ const (
 	ComponentFabricxNotification = "fabricx_notification"
 	ComponentFabricxQuery        = "fabricx_query"
 	ComponentDatabase            = "database"
-	ComponentDatabaseNotifier    = "database_notifier"
 )
 
 var labelNames = []string{"network", "channel", "component", "endpoint"}
