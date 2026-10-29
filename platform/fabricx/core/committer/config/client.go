@@ -123,7 +123,9 @@ func dial(loadCfg func(string) (*Config, error)) func(string) ([]*grpc.ClientCon
 }
 
 // pick returns the first conn, in configuration order, that is not in TRANSIENT_FAILURE,
-// or the first conn if all are.
+// or the first conn if all are. A conn whose server has gone away reports IDLE until a
+// call on it fails, so it can still be returned once; callers that need the next endpoint
+// then, such as the query service, pick again after an Unavailable error.
 func pick(connections []*grpc.ClientConn) *grpc.ClientConn {
 	for _, conn := range connections {
 		if conn.GetState() != connectivity.TransientFailure {

@@ -79,20 +79,15 @@ func (r *RemoteQueryServiceProvider) Get(network, channel string) (QueryService,
 		return nil, errors.Wrapf(err, "get config for [network=%s, channel=%s]", network, channel)
 	}
 
-	newClient := func() (committerpb.QueryServiceClient, error) {
+	newClient := func() (committerpb.QueryServiceClient, string, error) {
 		cc, err := r.GRPCClientProvider.QueryServiceClient(network)
 		if err != nil {
-			return nil, errors.Wrapf(err, "get grpc client for query service [network=%s, channel=%s]", network, channel)
+			return nil, "", errors.Wrapf(err, "get grpc client for query service [network=%s, channel=%s]", network, channel)
 		}
-		return committerpb.NewQueryServiceClient(cc), nil
+		return committerpb.NewQueryServiceClient(cc), cc.Target(), nil
 	}
-	// newConn runs on the first answered query, so the endpoint picked then is the one that
-	// answered and labels the series.
-	newConn := func() *connstate.Tracker {
-		var endpoint string
-		if cc, err := r.GRPCClientProvider.QueryServiceClient(network); err == nil {
-			endpoint = cc.Target()
-		}
+	// newConn returns the series of the endpoint that answered a query.
+	newConn := func(endpoint string) *connstate.Tracker {
 		return r.ConnState.Tracker(network, channel, connstate.ComponentFabricxQuery, endpoint)
 	}
 
