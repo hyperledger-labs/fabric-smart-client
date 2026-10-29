@@ -322,9 +322,9 @@ example with `WaitFinalOn(ii, "fsc.bob.0", txID)`. The
 `faultrecovery.ReplicatedFSCTopology`: bob with two replicas behind a load balancer, alice
 with two replicas without one, each node on its own database. On Fabric-x, the
 finality of a transaction that is already final also comes from the query service, so a
-replica shows that its own notification stream works only by reporting a transaction
-final whose finality view started before the transaction was ordered; the Fabric-x
-suite's `expectStreamedFinality` does that on every bob replica.
+replica shows that its own notification stream answers a subscription only by reporting
+a transaction final whose finality view started before the transaction was ordered; the
+Fabric-x suite's `expectStreamedFinality` does that on every bob replica.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.

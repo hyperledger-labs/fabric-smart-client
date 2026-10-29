@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	fxfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -115,35 +116,62 @@ var _ = Describe("Fault Recovery with Fabric-x and replicas", Ordered, ContinueO
 
 	faultrecovery.FailoverSpecs(s, notification)
 
-	It("reconnects every replica to Postgres after a restart", func() {
+	It("settles txs ordered while Postgres is down on every replica", func() {
 		db := faultrecovery.DBName(dbPrefix, "bob")
+		// Endorsing writes to bob's database, so these txs are endorsed before the outage
+		// and ordered during it, while bob's responder waits on their finality.
+		txs := make([]*views.Endorsed, 3)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+
 		s.II.StopPostgres(db)
+		down := true
+		// A failure during the outage would leave the database down for the next spec.
+		DeferCleanup(func() {
+			if down {
+				s.II.StartPostgres(db)
+			}
+		})
 		for _, r := range bobReplicas {
 			s.II.EventuallyConnectionState(r, database, connstate.Reconnecting, time.Minute)
 		}
+		during := make([]string, len(txs))
+		for i, tx := range txs {
+			during[i] = faultrecovery.Order(s.II, tx)
+		}
 		s.II.StartPostgres(db)
+		down = false
 		for _, r := range bobReplicas {
 			s.II.EventuallyConnectionState(r, database, connstate.Connected, time.Minute)
 		}
 
-		// Bob's responder writes the endorsed tx to the database.
+		for _, r := range bobReplicas {
+			for i, txID := range during {
+				faultrecovery.ExpectSettled(s.II, r, txID, i)
+			}
+		}
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 3)).To(HaveLen(3))
-		expectStreamedFinality(s.II)
 	})
 })
 
-// expectStreamedFinality checks that every replica of bob learns the finality of a new tx
-// from its own notification stream: each replica's finality view registers its listener
-// before the tx is ordered, so the query service cannot answer it at registration.
+// expectStreamedFinality checks that the notification stream of every replica of bob
+// answers a subscription: each replica's finality view registers its listener before a new
+// tx is ordered, so the query service cannot settle it at registration, and a replica
+// whose stream is down would hold the listener past the view's timeout.
 func expectStreamedFinality(ii *integration.Infrastructure) {
+	type result struct {
+		replica string
+		err     error
+	}
 	tx := faultrecovery.Endorse(ii, 1)
-	final := make(chan error, len(bobReplicas))
+	final := make(chan result, len(bobReplicas))
 	for _, r := range bobReplicas {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defer cancel()
 			_, err := ii.Client(r).CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
-			final <- err
+			final <- result{r, err}
 		}()
 	}
 	// ponytail: nothing reports that a listener is registered, so this sleep covers the
@@ -152,7 +180,9 @@ func expectStreamedFinality(ii *integration.Infrastructure) {
 	time.Sleep(2 * time.Second)
 	faultrecovery.Order(ii, tx)
 	for range bobReplicas {
-		EventuallyWithOffset(1, final, 2*time.Minute).Should(Receive(BeNil()))
+		var res result
+		EventuallyWithOffset(1, final, 2*time.Minute).Should(Receive(&res))
+		ExpectWithOffset(1, res.err).NotTo(HaveOccurred(), "finality of [%s] on [%s]", tx.TxID, res.replica)
 	}
 	for _, r := range bobReplicas {
 		ii.EventuallyConnectionState(r, notification, connstate.Connected, time.Minute)

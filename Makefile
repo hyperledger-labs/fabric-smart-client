@@ -243,7 +243,7 @@ INTEGRATION_TARGETS += fabric-faultrecovery
 # runs them in parallel with the rest of the suite.
 INTEGRATION_TARGETS += fabric-faultrecovery-postgres-outage
 # Its specs on replicated nodes need a topology of their own, so they also run in a
-# target of their own; fabricx-faultrecovery-replication does the same for Fabric-x.
+# target of their own.
 INTEGRATION_TARGETS += fabric-faultrecovery-replication
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
@@ -263,6 +263,7 @@ INTEGRATION_TARGETS += fabricx-deployment
 INTEGRATION_TARGETS += fabricx-multiendorsement
 INTEGRATION_TARGETS += fabricx-configupdate
 INTEGRATION_TARGETS += fabricx-faultrecovery
+# Its specs on replicated nodes run in a target of their own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-replication
 
 # Targets are normally named <platform>-<suite> and map onto
