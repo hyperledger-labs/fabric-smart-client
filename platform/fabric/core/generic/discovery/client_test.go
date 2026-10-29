@@ -186,8 +186,7 @@ func TestClient(t *testing.T) {
 	require.NoError(t, err)
 
 	svc := newMockDiscoveryService()
-	port := svc.port
-	connect := createConnector(t, clientTLSCert, int(port))
+	connect := createConnector(t, clientTLSCert, svc.port)
 
 	signer := func(msg []byte) ([]byte, error) {
 		return msg, nil
@@ -452,7 +451,7 @@ func TestBadResponses(t *testing.T) {
 	clientKey := loadFileOrPanic(filepath.Join("testdata", "client", "key.pem"))
 	clientTLSCert, err := tls.X509KeyPair(clientCert, clientKey)
 	require.NoError(t, err)
-	connect := createConnector(t, clientTLSCert, int(svc.port))
+	connect := createConnector(t, clientTLSCert, svc.port)
 
 	auth := &discovery.AuthInfo{
 		ClientIdentity: []byte{1, 2, 3},
@@ -892,7 +891,7 @@ func stateInfoMessageWithHeight(ledgerHeight uint64, chaincodes ...*gossip.Chain
 type mockDiscoveryServer struct {
 	mock.Mock
 	*grpc.Server
-	port int64
+	port int
 }
 
 func newMockDiscoveryService() *mockDiscoveryServer {
@@ -928,7 +927,7 @@ func newMockDiscoveryService() *mockDiscoveryServer {
 		}
 	}()
 	_, portStr, _ := net.SplitHostPort(l.Addr().String())
-	d.port, _ = strconv.ParseInt(portStr, 10, 64)
+	d.port, _ = strconv.Atoi(portStr)
 	return d
 }
 
