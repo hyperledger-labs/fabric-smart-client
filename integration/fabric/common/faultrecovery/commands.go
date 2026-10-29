@@ -51,7 +51,7 @@ func WaitFinal(ii *integration.Infrastructure, txIDs ...string) {
 	WaitFinalOn(ii, "bob", txIDs...)
 }
 
-// WaitFinalOn is WaitFinal on node alone, a node name or a replica ID such as fsc.bob.1.
+// WaitFinalOn waits until each of txIDs is final on node, a node name or a replica ID such as fsc.bob.1.
 func WaitFinalOn(ii *integration.Infrastructure, node string, txIDs ...string) {
 	for _, txID := range txIDs {
 		gomega.EventuallyWithOffset(1, func() error {
