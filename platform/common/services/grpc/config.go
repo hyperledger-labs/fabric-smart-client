@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
+	"cmp"
 	"crypto/tls"
 	"crypto/x509"
 	"time"
@@ -87,6 +88,18 @@ type ConnectionConfig struct {
 	// TLS.ServerRootCAs by whoever discovers them; they augment the configured pool rather
 	// than replacing it.
 	TLS SecureOptions `yaml:"-"`
+}
+
+// ClientConfig returns the ClientConfig for dialling this endpoint. A zero
+// ConnectionTimeout falls back to DefaultConnectionTimeout; the remaining ClientConfig
+// fields are left zero for the caller to set.
+func (c *ConnectionConfig) ClientConfig() ClientConfig {
+	return ClientConfig{
+		Timeout:        cmp.Or(c.ConnectionTimeout, DefaultConnectionTimeout),
+		SecOpts:        c.TLS,
+		MaxRecvMsgSize: c.MaxRecvMsgSize,
+		MaxSendMsgSize: c.MaxSendMsgSize,
+	}
 }
 
 // ServerConfig defines the parameters for configuring a GRPCServer instance

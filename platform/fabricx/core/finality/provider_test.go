@@ -99,10 +99,10 @@ func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Cont
 	}
 
 	nlm := &notificationListenerManager{
-		notifyClient:  fakeClient,
-		requestQueue:  make(chan *committerpb.NotificationRequest),
-		responseQueue: make(chan *committerpb.NotificationResponse),
-		handlers:      make(map[driver.TxID]*handlerEntry),
+		newNotifyClient: staticClient(fakeClient),
+		requestQueue:    make(chan *committerpb.NotificationRequest),
+		responseQueue:   make(chan *committerpb.NotificationResponse),
+		handlers:        make(map[driver.TxID]*handlerEntry),
 	}
 
 	return nlm
@@ -632,4 +632,19 @@ func TestNewNotifiWithGRPC_HandlerPool(t *testing.T) {
 		require.Equal(t, 3, nlm.handlerWorkers)
 		require.Equal(t, 7, nlm.handlerQueueSize)
 	})
+}
+
+// A client provider that cannot hand out a connection fails construction, rather than
+// leaving run to retry a broken configuration forever.
+func TestNewNotificationManagerWithGRPC_ClientProviderError(t *testing.T) {
+	t.Parallel()
+	expectedErr := errors.New("bad tls config")
+	gcp := &mockGRPCClientProvider{
+		notificationServiceClientFunc: func(string) (*grpc.ClientConn, error) { return nil, expectedErr },
+	}
+
+	nlm, err := newNotificationManagerWithGRPC("network1", gcp, config.DefaultConfig())
+	require.ErrorIs(t, err, expectedErr)
+	require.ErrorContains(t, err, "get grpc client for notification service [network=network1]")
+	require.Nil(t, nlm)
 }

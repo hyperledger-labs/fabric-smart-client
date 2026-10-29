@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -80,7 +81,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 	})
 }
 
-func TestDial_AcceptsMultipleEndpoints(t *testing.T) {
+func TestClientProvider_SkipsFailingEndpoint(t *testing.T) {
 	t.Parallel()
 	addr := startTestServer(t)
 	fakeConfigProvider := &mock.ServiceConfigProvider{}
@@ -92,9 +93,27 @@ func TestDial_AcceptsMultipleEndpoints(t *testing.T) {
 	}
 
 	cp := config.NewClientProvider(fakeConfigProvider)
-	cc, err := cp.QueryServiceClient("test-network")
-	require.NoError(t, err)
-	require.Equal(t, addr, cc.Target(), "the unreachable endpoint must be skipped for the next one")
+	require.Eventually(t, func() bool {
+		cc, err := cp.QueryServiceClient("test-network")
+		return err == nil && cc.Target() == addr
+	}, 5*time.Second, 10*time.Millisecond, "once the unreachable endpoint fails, the next one must be handed out")
+}
+
+func TestClientProvider_AllFailingFallsBackToFirst(t *testing.T) {
+	t.Parallel()
+	fakeConfigProvider := &mock.ServiceConfigProvider{}
+	fakeConfigProvider.QueryServiceConfigStub = func(string) (*config.Config, error) {
+		// Nothing listens on port 1 and 2, so the first endpoint is unreachable.
+		return &config.Config{Endpoints: []commongrpc.ConnectionConfig{
+			{Address: "127.0.0.1:1"}, {Address: "127.0.0.1:2"},
+		}}, nil
+	}
+
+	cp := config.NewClientProvider(fakeConfigProvider)
+	require.Eventually(t, func() bool {
+		cc, err := cp.QueryServiceClient("test-network")
+		return err == nil && cc.Target() == "127.0.0.1:1" && cc.GetState() == connectivity.TransientFailure // pick hands out a TRANSIENT_FAILURE conn only when every conn is in it.
+	}, 5*time.Second, 10*time.Millisecond, "when every endpoint is failing, the first one must be handed out")
 }
 
 func TestClientProvider_NotificationServiceClient(t *testing.T) {

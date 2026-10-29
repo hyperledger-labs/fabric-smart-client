@@ -91,12 +91,7 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 
 // CreateGRPCClient returns a client for the given endpoint, using its already-resolved TLS.
 func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
-	return NewGRPCClient(ClientConfig{
-		Timeout:        cmp.Or(config.ConnectionTimeout, DefaultConnectionTimeout),
-		SecOpts:        config.TLS,
-		MaxRecvMsgSize: config.MaxRecvMsgSize,
-		MaxSendMsgSize: config.MaxSendMsgSize,
-	})
+	return NewGRPCClient(config.ClientConfig())
 }
 
 func (client *Client) parseSecureOptions(opts SecureOptions) error {

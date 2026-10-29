@@ -681,14 +681,15 @@ fabric:
     # become nested {file:} rather than flat path strings. A stale flat key is a startup error.
     queryService:
       requestTimeout: 10s
-      # One or more endpoints. They are tried in order and the first that connects is used,
-      # so list a second sidecar to keep the node starting while the first is down.
+      # One or more endpoints, in order of preference. Each gets its own connection, dialled
+      # without blocking, and every request uses the first one that is not failing. List a
+      # second sidecar so the node keeps working while the first is down; it moves back to
+      # the first once that one reconnects.
       endpoints:
         - address: 'sidecar:4001'
-          # Also bounds the initial dial: the first call for this network blocks up to
-          # connectionTimeout (default 5s) for this endpoint before moving to the next one,
-          # and fails once every endpoint has, rather than succeeding immediately and
-          # failing on the first RPC.
+          # Endpoints are dialled without blocking, so an unreachable one does not delay
+          # startup: the node starts immediately and the failure shows up on the first RPC.
+          # connectionTimeout bounds a blocking dial only, so it has no effect here.
           connectionTimeout: 10s
           # The largest message in bytes to send to and accept from this endpoint. Omit or
           # set to 0 for the default of 100 MiB -- unlike fsc.p2p.maxRecvMsgSize above, zero

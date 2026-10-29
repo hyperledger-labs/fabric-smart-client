@@ -73,21 +73,25 @@ type RemoteQueryServiceProvider struct {
 }
 
 func (r *RemoteQueryServiceProvider) Get(network, channel string) (QueryService, error) {
-	cc, err := r.GRPCClientProvider.QueryServiceClient(network)
-	if err != nil {
-		return nil, errors.Wrapf(err, "get grpc client for query service [network=%s, channel=%s]", network, channel)
-	}
-
 	// Get config for the query service
 	config, err := r.ConfigProvider.QueryServiceConfig(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get config for [network=%s, channel=%s]", network, channel)
 	}
 
-	client := committerpb.NewQueryServiceClient(cc)
-	return NewRemoteQueryService(config, client, func() *connstate.Tracker {
-		return r.ConnState.Tracker(network, channel, connstate.ComponentFabricxQuery, cc.Target())
-	}), nil
+	newClient := func() (committerpb.QueryServiceClient, string, error) {
+		cc, err := r.GRPCClientProvider.QueryServiceClient(network)
+		if err != nil {
+			return nil, "", errors.Wrapf(err, "get grpc client for query service [network=%s, channel=%s]", network, channel)
+		}
+		return committerpb.NewQueryServiceClient(cc), cc.Target(), nil
+	}
+	// newConn returns the series of the endpoint that answered a query.
+	newConn := func(endpoint string) *connstate.Tracker {
+		return r.ConnState.Tracker(network, channel, connstate.ComponentFabricxQuery, endpoint)
+	}
+
+	return NewRemoteQueryService(config, newClient, newConn), nil
 }
 
 func GetQueryService(sp services.Provider, network, channel string) (QueryService, error) {

@@ -8,7 +8,7 @@ package queryservice
 
 import (
 	"context"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -34,41 +34,60 @@ var (
 )
 
 type RemoteQueryService struct {
-	client  committerpb.QueryServiceClient
-	config  *config.Config
-	newConn func() *connstate.Tracker
-	conn    atomic.Pointer[connstate.Tracker]
+	// newClient returns the stub for one request. It is called per request, so each
+	// request can land on a different endpoint (see config.ClientProvider).
+	newClient func() (committerpb.QueryServiceClient, string, error)
+	config    *config.Config
+	newConn   func(endpoint string) *connstate.Tracker
+
+	connMu       sync.Mutex
+	conn         *connstate.Tracker // tracker of connEndpoint, nil until the first answer
+	connEndpoint string
 }
 
-// NewRemoteQueryService returns a query service that sends its queries through client.
-// The outcome of each query is reported to the tracker newConn returns: connected when the
-// query service answers, including with an error, and reconnecting when it is unavailable.
-// A query that times out does not change the state. newConn is called on the first answered
-// query, so the series exists only once the service has been reached, and a query service
-// that is unused or never reached reports nothing. A nil newConn reports nothing.
-func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient, newConn func() *connstate.Tracker) *RemoteQueryService {
+// NewRemoteQueryService returns a query service that calls clientFactory for the stub of
+// every request and the endpoint it is bound to, and returns its error unchanged when it
+// fails. A query that finds its endpoint unavailable is retried once on a newly picked
+// client: a connection whose server has gone away looks idle rather than failing until a
+// call on it fails, so the first call after an outage can land on it.
+//
+// The outcome of each query is reported to the tracker newConn returns for the endpoint that
+// served it: connected when the query service answers, including with an error, and
+// reconnecting when it is unavailable. A query that times out does not change the state.
+// newConn is called when an endpoint answers and it is not the one currently tracked, so a
+// series exists only once its endpoint has been reached, and a query service that is unused
+// or never reached reports nothing. When a different endpoint answers, as after a failover,
+// the previous endpoint is reported disconnected. A nil newConn reports nothing.
+func NewRemoteQueryService(config *config.Config, clientFactory func() (committerpb.QueryServiceClient, string, error), newConn func(endpoint string) *connstate.Tracker) *RemoteQueryService {
 	return &RemoteQueryService{
-		client:  client,
-		config:  config,
-		newConn: newConn,
+		newClient: clientFactory,
+		config:    config,
+		newConn:   newConn,
 	}
 }
 
-// report records the connection state implied by the error of a query.
-func (s *RemoteQueryService) report(err error) {
+// report records the connection state implied by the error of a query served by endpoint.
+// As in the delivery service, the series follows the endpoint: when a different endpoint
+// answers, the previous one is reported disconnected and the new one gets its own series.
+func (s *RemoteQueryService) report(endpoint string, err error) {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
 	switch status.Code(err) {
 	case codes.Unavailable:
-		s.conn.Load().Set(connstate.Reconnecting) // no-op until the first answer
+		if endpoint == s.connEndpoint {
+			s.conn.Set(connstate.Reconnecting) // no-op until the first answer
+		}
 	case codes.DeadlineExceeded:
 		// A slow answer says nothing about the connection.
 	default:
-		t := s.conn.Load()
-		if t == nil && s.newConn != nil {
-			// Concurrent first answers get the same tracker: Metrics.Tracker deduplicates.
-			t = s.newConn()
-			s.conn.Store(t)
+		if s.conn == nil || endpoint != s.connEndpoint {
+			s.conn.Set(connstate.Disconnected) // nil-safe
+			if s.newConn != nil {
+				s.conn = s.newConn(endpoint)
+			}
+			s.connEndpoint = endpoint
 		}
-		t.Set(connstate.Connected)
+		s.conn.Set(connstate.Connected)
 	}
 }
 
@@ -106,14 +125,10 @@ func (s *RemoteQueryService) GetStates(m map[driver.Namespace][]driver.PKey) (ma
 }
 
 func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
-	defer cancel()
-
 	now := time.Now()
-	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{
-		TxIds: []string{txID},
+	res, err := call(s, func(ctx context.Context, c committerpb.QueryServiceClient) (*committerpb.TxStatusResponse, error) {
+		return c.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: []string{txID}})
 	})
-	s.report(err)
 	if err != nil {
 		return 0, errors.Wrap(err, "query transaction status")
 	}
@@ -144,12 +159,10 @@ func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]
 		unique = append(unique, txID)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
-	defer cancel()
-
 	now := time.Now()
-	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: unique})
-	s.report(err)
+	res, err := call(s, func(ctx context.Context, c committerpb.QueryServiceClient) (*committerpb.TxStatusResponse, error) {
+		return c.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: unique})
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "query transaction statuses")
 	}
@@ -166,12 +179,10 @@ func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]
 
 // GetConfigTransaction returns the envelope and version of the most recent config transaction
 func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
-	defer cancel()
-
 	now := time.Now()
-	res, err := s.client.GetConfigTransaction(ctx, &emptypb.Empty{})
-	s.report(err)
+	res, err := call(s, func(ctx context.Context, c committerpb.QueryServiceClient) (*applicationpb.ConfigTransaction, error) {
+		return c.GetConfigTransaction(ctx, &emptypb.Empty{})
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "get config transaction")
 	}
@@ -192,12 +203,10 @@ func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, err
 // GetNamespacePolicies returns the endorsement policies currently registered
 // for every namespace, together with their version.
 func (s *RemoteQueryService) GetNamespacePolicies() (*applicationpb.NamespacePolicies, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
-	defer cancel()
-
 	now := time.Now()
-	res, err := s.client.GetNamespacePolicies(ctx, &emptypb.Empty{})
-	s.report(err)
+	res, err := call(s, func(ctx context.Context, c committerpb.QueryServiceClient) (*applicationpb.NamespacePolicies, error) {
+		return c.GetNamespacePolicies(ctx, &emptypb.Empty{})
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "get namespace policies")
 	}
@@ -214,12 +223,10 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
-	defer cancel()
-
 	now := time.Now()
-	res, err := s.client.GetRows(ctx, q)
-	s.report(err)
+	res, err := call(s, func(ctx context.Context, c committerpb.QueryServiceClient) (*committerpb.Rows, error) {
+		return c.GetRows(ctx, q)
+	})
 	if err != nil {
 		logger.Warnf("QS GetState: error calling getRows: %v", err)
 		return nil, errors.Wrap(err, "query get rows")
@@ -281,4 +288,27 @@ func createResult(res *committerpb.Rows) map[driver.Namespace]map[driver.PKey]dr
 	}
 
 	return result
+}
+
+// call runs rpc on a freshly picked client with its own RequestTimeout. If the endpoint
+// turns out to be unavailable, it runs rpc once more on a new pick.
+func call[T any](s *RemoteQueryService, rpc func(context.Context, committerpb.QueryServiceClient) (T, error)) (T, error) {
+	var zero T
+	var err error
+	var endpoint string
+	for range 2 {
+		var client committerpb.QueryServiceClient
+		if client, endpoint, err = s.newClient(); err != nil {
+			return zero, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout) // own deadline per attempt
+		res, rpcErr := rpc(ctx, client)
+		cancel() // not deferred: released before the next attempt
+		s.report(endpoint, rpcErr)
+		if status.Code(rpcErr) != codes.Unavailable {
+			return res, rpcErr
+		}
+		err = rpcErr
+	}
+	return zero, err
 }
