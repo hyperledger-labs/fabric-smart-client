@@ -103,7 +103,9 @@ func TestListenLoop_ReportsStateTransitions(t *testing.T) {
 	t.Parallel()
 	m, rec := connstatetest.NewMetrics()
 	nlm, _ := setupTest(t)
-	nlm.conn = m.Tracker("net", "ch", connstate.ComponentFabricxNotification, "committer")
+	nlm.newConn = func(endpoint string) *connstate.Tracker {
+		return m.Tracker("net", "ch", connstate.ComponentFabricxNotification, endpoint)
+	}
 	fn := newFakeNotifier()
 	s1, stop := startReconnecting(t, nlm, fn)
 	states := func() []connstate.State { return rec.States("committer") }
@@ -189,12 +191,12 @@ func TestReconnect_UsesNewClientAfterStreamFailure(t *testing.T) {
 	nlm, _ := setupTest(t)
 	fnA, fnB := newFakeNotifier(), newFakeNotifier()
 	var calls atomic.Int32
-	nlm.newNotifyClient = func() (committerpb.SidecarServiceClient, error) {
+	nlm.newNotifyClient = func() (committerpb.SidecarServiceClient, string, error) {
 		// simulates "A was healthy at first, then A died, so pick now returns B
 		if calls.Add(1) == 1 {
-			return fnA, nil
+			return fnA, "A", nil
 		}
-		return fnB, nil
+		return fnB, "B", nil
 	}
 	// Short enough that the reconnect never outgrows fakeNotifier.next's wait.
 	// It starts the reconnect loop (run) in the background, as the node does
@@ -210,6 +212,36 @@ func TestReconnect_UsesNewClientAfterStreamFailure(t *testing.T) {
 	fnB.next(t).requested(t, "tx1")
 }
 
+// The connection state follows the endpoint: after a reconnect lands on B, A's series ends
+// disconnected instead of staying on its last state, and B gets a series of its own.
+func TestReconnect_StateFollowsEndpoint(t *testing.T) {
+	t.Parallel()
+	m, rec := connstatetest.NewMetrics()
+	nlm, _ := setupTest(t)
+	nlm.newConn = func(endpoint string) *connstate.Tracker {
+		return m.Tracker("net", "ch", connstate.ComponentFabricxNotification, endpoint)
+	}
+	fnA, fnB := newFakeNotifier(), newFakeNotifier()
+	var calls atomic.Int32
+	nlm.newNotifyClient = func() (committerpb.SidecarServiceClient, string, error) {
+		if calls.Add(1) == 1 {
+			return fnA, "A", nil
+		}
+		return fnB, "B", nil
+	}
+	nlm.reconnectMaxDelay = 50 * time.Millisecond
+	go func() { _ = nlm.run(t.Context()) }()
+
+	sA := fnA.next(t)
+	require.Eventually(t, func() bool { return len(rec.States("A")) == 2 }, timeout, tick)
+	sA.fail()
+	fnB.next(t)
+	require.Eventually(t, func() bool { return len(rec.States("B")) == 2 }, timeout, tick)
+
+	require.Equal(t, []connstate.State{connstate.Connecting, connstate.Connected, connstate.Reconnecting, connstate.Disconnected}, rec.States("A"))
+	require.Equal(t, []connstate.State{connstate.Reconnecting, connstate.Connected}, rec.States("B"))
+}
+
 // A failing newNotifyClient is one more failed attempt: run backs off and asks again
 // rather than stopping the manager, and the stream opens once a client is available.
 func TestReconnect_RetriesFailingClientFactory(t *testing.T) {
@@ -217,11 +249,11 @@ func TestReconnect_RetriesFailingClientFactory(t *testing.T) {
 	nlm, _ := setupTest(t)
 	fn := newFakeNotifier()
 	var calls atomic.Int32
-	nlm.newNotifyClient = func() (committerpb.SidecarServiceClient, error) {
+	nlm.newNotifyClient = func() (committerpb.SidecarServiceClient, string, error) {
 		if calls.Add(1) <= 2 {
-			return nil, errors.New("no endpoint available")
+			return nil, "", errors.New("no endpoint available")
 		}
-		return fn, nil
+		return fn, "committer", nil
 	}
 	nlm.reconnectMaxDelay = 50 * time.Millisecond
 	go func() { _ = nlm.run(t.Context()) }()

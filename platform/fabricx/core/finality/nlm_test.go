@@ -150,8 +150,10 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.SidecarServic
 	return nlm, fakeStream
 }
 
-func staticClient(c committerpb.SidecarServiceClient) func() (committerpb.SidecarServiceClient, error) {
-	return func() (committerpb.SidecarServiceClient, error) { return c, nil }
+// staticClient returns a newNotifyClient that always hands out c, bound to the endpoint
+// "committer".
+func staticClient(c committerpb.SidecarServiceClient) func() (committerpb.SidecarServiceClient, string, error) {
+	return func() (committerpb.SidecarServiceClient, string, error) { return c, "committer", nil }
 }
 
 // seedHandlers registers listeners directly, bypassing AddFinalityListener, to

@@ -57,7 +57,7 @@ type handlerEntry struct {
 type notificationListenerManager struct {
 	// newNotifyClient returns the stub to open a stream on. stream calls it once per
 	// attempt, so each reconnect can land on a different endpoint (see config.ClientProvider).
-	newNotifyClient func() (committerpb.SidecarServiceClient, error)
+	newNotifyClient func() (committerpb.SidecarServiceClient, string, error)
 	requestQueue    chan *committerpb.NotificationRequest
 	responseQueue   chan *committerpb.NotificationResponse
 	handlerTimeout  time.Duration
@@ -100,10 +100,12 @@ type notificationListenerManager struct {
 	// a new entry. AddFinalityListener rejects registrations from then on.
 	stopped bool
 
-	// endpoint is the address of the notification service; conn reports the state of
-	// the stream to it. A nil conn reports nothing.
-	endpoint string
-	conn     *connstate.Tracker
+	// newConn returns the tracker of one endpoint; conn is the tracker of connEndpoint,
+	// the endpoint of the current stream. A nil conn reports nothing. Only the goroutine
+	// running run touches them.
+	newConn      func(endpoint string) *connstate.Tracker
+	conn         *connstate.Tracker
+	connEndpoint string
 }
 
 // Default reconnect backoff bounds. The delay is jittered and doubles per failed
@@ -126,7 +128,8 @@ const maxTxIDsPerRequest = 1000
 // meantime. Only the end of ctx settles what is left, with Unknown.
 //
 // The stream is reported connecting before the first attempt, connected once a stream
-// opens, reconnecting before each later attempt, and disconnected once ctx ends.
+// opens, reconnecting before each later attempt, and disconnected once ctx ends. Each
+// endpoint has its own series; see track.
 func (n *notificationListenerManager) run(ctx context.Context) error {
 	minDelay, maxDelay := n.reconnectMinDelay, n.reconnectMaxDelay
 	if minDelay <= 0 {
@@ -136,8 +139,7 @@ func (n *notificationListenerManager) run(ctx context.Context) error {
 		maxDelay = defaultReconnectMaxDelay
 	}
 	return n.serve(ctx, func(ctx context.Context) error {
-		defer n.conn.Set(connstate.Disconnected)
-		n.conn.Set(connstate.Connecting)
+		defer func() { n.conn.Set(connstate.Disconnected) }() // the tracker current at return
 		backoff := utils.NewBackoffRetryRunner(utils.Infinitely, minDelay, maxDelay)
 		for {
 			start := time.Now()
@@ -228,10 +230,11 @@ func (n *notificationListenerManager) serve(ctx context.Context, connect func(co
 // relays requests and responses until the stream fails or ctx ends.
 func (n *notificationListenerManager) stream(ctx context.Context) error {
 	logger.Debugf("Notification listener stream starting.")
-	notifyClient, err := n.newNotifyClient()
+	notifyClient, endpoint, err := n.newNotifyClient()
 	if err != nil {
 		return err
 	}
+	n.track(endpoint)
 	// The stream runs on gCtx so that the first goroutine to fail also cancels the
 	// gRPC call, which unblocks the other one.
 	g, gCtx := errgroup.WithContext(ctx)
@@ -444,6 +447,26 @@ func (n *notificationListenerManager) callHandler(ctx context.Context, c handler
 	defer stop()
 
 	c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
+}
+
+// track moves state reporting to endpoint before a stream is opened on it. As in the
+// delivery service, the series follows the endpoint: the first one is reported connecting,
+// and a different one gets its own series, reported reconnecting, while the previous one
+// is reported disconnected. The same endpoint keeps the reconnecting state run set.
+func (n *notificationListenerManager) track(endpoint string) {
+	if n.conn != nil && endpoint == n.connEndpoint {
+		return
+	}
+	s := connstate.Reconnecting
+	if n.conn == nil {
+		s = connstate.Connecting
+	}
+	n.conn.Set(connstate.Disconnected) // nil-safe
+	if n.newConn != nil {
+		n.conn = n.newConn(endpoint)
+	}
+	n.connEndpoint = endpoint
+	n.conn.Set(s)
 }
 
 func parseResponse(resp *committerpb.NotificationResponse) map[string]int {

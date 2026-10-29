@@ -169,7 +169,9 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	if err != nil {
 		return nil, err
 	}
-	lm.conn = p.connState.Tracker(network, channel, connstate.ComponentFabricxNotification, lm.endpoint)
+	lm.newConn = func(endpoint string) *connstate.Tracker {
+		return p.connState.Tracker(network, channel, connstate.ComponentFabricxNotification, endpoint)
+	}
 
 	// 4. Register the newly created instance
 	p.managers[key] = lm
@@ -200,25 +202,23 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 // config.DefaultConfig). The pool sizes are clamped anyway: they reach make() and the
 // worker loop directly, where zero leaves nothing to drain the queue and negative panics.
 func newNotificationManagerWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
-	newNotifyClient := func() (committerpb.SidecarServiceClient, error) {
+	newNotifyClient := func() (committerpb.SidecarServiceClient, string, error) {
 		cc, err := grpcClientProvider.NotificationServiceClient(network)
 		if err != nil {
-			return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
+			return nil, "", errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
 		}
 		// Create the gRPC client stub for the committer sidecar service
-		return committerpb.NewSidecarServiceClient(cc), nil
+		return committerpb.NewSidecarServiceClient(cc), cc.Target(), nil
 	}
+
 	// Fail now on a broken configuration: run retries a failing newNotifyClient forever,
-	// where the error would only ever surface as reconnect warnings. The endpoint picked
-	// here labels the connection-state series.
-	cc, err := grpcClientProvider.NotificationServiceClient(network)
-	if err != nil {
-		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
+	// where the error would only ever surface as reconnect warnings.
+	if _, _, err := newNotifyClient(); err != nil {
+		return nil, err
 	}
 
 	nlm := &notificationListenerManager{
 		newNotifyClient:  newNotifyClient,
-		endpoint:         cc.Target(),
 		requestQueue:     make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:    make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:         make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
