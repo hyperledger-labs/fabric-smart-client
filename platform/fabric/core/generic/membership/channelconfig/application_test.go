@@ -11,7 +11,6 @@ import (
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -26,7 +25,6 @@ func TestApplicationInterface(t *testing.T) {
 
 func TestACL(t *testing.T) {
 	t.Parallel()
-	g := NewGomegaWithT(t)
 	cgt := &cb.ConfigGroup{
 		Values: map[string]*cb.ConfigValue{
 			ACLsKey: {
@@ -48,10 +46,10 @@ func TestACL(t *testing.T) {
 		t.Parallel()
 		cg := proto.Clone(cgt).(*cb.ConfigGroup)
 		ac, err := NewApplicationConfig(proto.Clone(cg).(*cb.ConfigGroup), nil)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(ac.Capabilities().Supported()).To(Succeed())
-		g.Expect(ac.Capabilities().ACLs()).To(BeTrue())
-		g.Expect(ac.Organizations()).To(BeEmpty())
+		require.NoError(t, err)
+		require.NoError(t, ac.Capabilities().Supported())
+		require.True(t, ac.Capabilities().ACLs())
+		require.Empty(t, ac.Organizations())
 	})
 }
 

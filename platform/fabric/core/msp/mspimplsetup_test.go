@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 )
@@ -82,12 +82,11 @@ oVYZAX2M8G3clTu+f6Si5KrRezNflbVHmvCrJWM=
 -----END CERTIFICATE-----`
 )
 
-func TestTLSCAValidation(t *testing.T) { //nolint:tparallel // subtests assert through this test's gomega
+func TestTLSCAValidation(t *testing.T) {
 	t.Parallel()
 
-	gt := gomega.NewGomegaWithT(t)
-
-	t.Run("GoodCert", func(_ *testing.T) { //nolint:paralleltest // asserts through the parent test's gomega
+	t.Run("GoodCert", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -95,10 +94,11 @@ func TestTLSCAValidation(t *testing.T) { //nolint:tparallel // subtests assert t
 		err := mspImpl.setupTLSCAs(&msp.FabricMSPConfig{
 			TlsRootCerts: [][]byte{[]byte(caCert)},
 		})
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 	})
 
-	t.Run("ExpiredCert", func(_ *testing.T) { //nolint:paralleltest // asserts through the parent test's gomega
+	t.Run("ExpiredCert", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -106,10 +106,11 @@ func TestTLSCAValidation(t *testing.T) { //nolint:tparallel // subtests assert t
 		err := mspImpl.setupTLSCAs(&msp.FabricMSPConfig{
 			TlsRootCerts: [][]byte{[]byte(caExpired)},
 		})
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 	})
 
-	t.Run("NonCACert", func(_ *testing.T) { //nolint:paralleltest // asserts through the parent test's gomega
+	t.Run("NonCACert", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -117,10 +118,11 @@ func TestTLSCAValidation(t *testing.T) { //nolint:tparallel // subtests assert t
 		err := mspImpl.setupTLSCAs(&msp.FabricMSPConfig{
 			TlsRootCerts: [][]byte{[]byte(nonCACert)},
 		})
-		gt.Expect(err).To(gomega.MatchError("CA Certificate did not have the CA attribute, (SN: c9dff7f76657d46f082570f6965051f5)"))
+		require.EqualError(t, err, "CA Certificate did not have the CA attribute, (SN: c9dff7f76657d46f082570f6965051f5)")
 	})
 
-	t.Run("NoSKICert", func(_ *testing.T) { //nolint:paralleltest // asserts through the parent test's gomega
+	t.Run("NoSKICert", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -128,26 +130,24 @@ func TestTLSCAValidation(t *testing.T) { //nolint:tparallel // subtests assert t
 		err := mspImpl.setupTLSCAs(&msp.FabricMSPConfig{
 			TlsRootCerts: [][]byte{[]byte(caWithoutSKI)},
 		})
-		gt.Expect(err).To(gomega.MatchError("CA Certificate problem with Subject Key Identifier extension, (SN: ab0ae311f3e32036): subjectKeyIdentifier not found in certificate"))
+		require.EqualError(t, err, "CA Certificate problem with Subject Key Identifier extension, (SN: ab0ae311f3e32036): subjectKeyIdentifier not found in certificate")
 	})
 }
 
 func TestMalformedCertsChainSetup(t *testing.T) {
 	t.Parallel()
 
-	gt := gomega.NewGomegaWithT(t)
-
 	ca, err := tlsgen.NewCA()
-	gt.Expect(err).NotTo(gomega.HaveOccurred())
+	require.NoError(t, err)
 
 	inter, err := ca.NewIntermediateCA()
-	gt.Expect(err).NotTo(gomega.HaveOccurred())
+	require.NoError(t, err)
 
 	cp, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
-	gt.Expect(err).NotTo(gomega.HaveOccurred())
+	require.NoError(t, err)
 
 	_, err = cp.GetHash(&bccsp.SHA256Opts{})
-	gt.Expect(err).NotTo(gomega.HaveOccurred())
+	require.NoError(t, err)
 	mspImpl := &bccspmsp{
 		opts:  &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		bccsp: cp,
@@ -159,63 +159,64 @@ func TestMalformedCertsChainSetup(t *testing.T) {
 	// Add root CA certificate
 	// cert, err := mspImpl.getCertFromPem([]byte(ca.CertBytes()))
 	certInter, err := mspImpl.getCertFromPem(inter.CertBytes())
-	gt.Expect(err).NotTo(gomega.HaveOccurred())
+	require.NoError(t, err)
 	mspImpl.opts.Roots.AddCert(certInter)
 	mspImpl.rootCerts = []Identity{&identity{cert: certInter}}
 
 	err = mspImpl.finalizeSetupCAs()
-	gt.Expect(err).NotTo(gomega.HaveOccurred())
+	require.NoError(t, err)
 
 	// Extract identity from the leaf certificate
 	_, _, err = mspImpl.getIdentityFromConf(inter.CertBytes())
-	gt.Expect(err).To(gomega.HaveOccurred())
-	gt.Expect(err.Error()).To(gomega.ContainSubstring("failed to traverse certificate verification chain"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to traverse certificate verification chain")
 }
 
-func TestCAValidation(t *testing.T) { //nolint:tparallel // subtests assert through this test's gomega
+func TestCAValidation(t *testing.T) {
 	t.Parallel()
 
-	gt := gomega.NewGomegaWithT(t)
-
-	t.Run("GoodCert", func(_ *testing.T) { //nolint:paralleltest // asserts through the parent test's gomega
+	t.Run("GoodCert", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
 		cert, err := mspImpl.getCertFromPem([]byte(caCert))
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 
 		mspImpl.opts.Roots.AddCert(cert)
 		mspImpl.rootCerts = []Identity{&identity{cert: cert}}
 
 		err = mspImpl.finalizeSetupCAs()
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 	})
 
-	t.Run("NonCACert", func(_ *testing.T) { //nolint:paralleltest // asserts through the parent test's gomega
+	t.Run("NonCACert", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
 		cert, err := mspImpl.getCertFromPem([]byte(nonCACert))
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 
 		mspImpl.opts.Roots.AddCert(cert)
 		mspImpl.rootCerts = []Identity{&identity{cert: cert}}
 
 		err = mspImpl.finalizeSetupCAs()
-		gt.Expect(err).To(gomega.MatchError("CA Certificate did not have the CA attribute, (SN: c9dff7f76657d46f082570f6965051f5)"))
+		require.EqualError(t, err, "CA Certificate did not have the CA attribute, (SN: c9dff7f76657d46f082570f6965051f5)")
 	})
 
-	t.Run("NoSKICert", func(_ *testing.T) { //nolint:paralleltest // asserts through the parent test's gomega
+	t.Run("NoSKICert", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
 		cert, err := mspImpl.getCertFromPem([]byte(caWithoutSKI))
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 
 		mspImpl.opts.Roots.AddCert(cert)
 		mspImpl.rootCerts = []Identity{&identity{cert: cert}}
 
 		err = mspImpl.finalizeSetupCAs()
-		gt.Expect(err).To(gomega.MatchError("CA Certificate problem with Subject Key Identifier extension, (SN: ab0ae311f3e32036): subjectKeyIdentifier not found in certificate"))
+		require.EqualError(t, err, "CA Certificate problem with Subject Key Identifier extension, (SN: ab0ae311f3e32036): subjectKeyIdentifier not found in certificate")
 	})
 }

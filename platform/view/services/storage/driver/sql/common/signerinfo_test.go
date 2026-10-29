@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
@@ -34,11 +34,11 @@ func passthroughErrorWrapper() *mock.SQLErrorWrapper {
 	return w
 }
 
-func TestFilterExistingSigners(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestFilterExistingSigners(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id1 := view.Identity("signer1")
 	id2 := view.Identity("signer2")
@@ -55,16 +55,16 @@ func TestFilterExistingSigners(t *testing.T) { //nolint:paralleltest
 	store := mockSignerInfoStore(db, false)
 	result, err := store.FilterExistingSigners(context.Background(), id1, id2)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(ContainElements(id1, id2))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.Subset(t, result, []view.Identity{id1, id2})
 }
 
-func TestFilterExistingSigners_QueryError(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestFilterExistingSigners_QueryError(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id := view.Identity("signer1")
 	query := "SELECT id FROM signer_info WHERE id IN ($1)"
@@ -77,16 +77,16 @@ func TestFilterExistingSigners_QueryError(t *testing.T) { //nolint:paralleltest
 	store := mockSignerInfoStore(db, false)
 	_, err = store.FilterExistingSigners(context.Background(), id)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(HaveOccurred())
-	Expect(err.Error()).To(ContainSubstring("error querying db"))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error querying db")
 }
 
-func TestFilterExistingSigners_ScanError(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestFilterExistingSigners_ScanError(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id := view.Identity("signer1")
 	query := "SELECT id FROM signer_info WHERE id IN ($1)"
@@ -99,16 +99,16 @@ func TestFilterExistingSigners_ScanError(t *testing.T) { //nolint:paralleltest
 	store := mockSignerInfoStore(db, false)
 	_, err = store.FilterExistingSigners(context.Background(), id)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(HaveOccurred())
-	Expect(err.Error()).To(ContainSubstring("failed scanning row"))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed scanning row")
 }
 
-func TestPutSigner(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPutSigner(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id := view.Identity("signer1")
 
@@ -122,15 +122,15 @@ func TestPutSigner(t *testing.T) { //nolint:paralleltest
 	store := mockSignerInfoStore(db, false)
 	err = store.PutSigner(context.Background(), id)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
 }
 
-func TestPutSigner_ExecError(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPutSigner_ExecError(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id := view.Identity("signer1")
 	query := "INSERT INTO signer_info (id) VALUES ($1)"
@@ -143,16 +143,16 @@ func TestPutSigner_ExecError(t *testing.T) { //nolint:paralleltest
 	store := mockSignerInfoStore(db, false)
 	err = store.PutSigner(context.Background(), id)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(HaveOccurred())
-	Expect(err.Error()).To(ContainSubstring("failed executing query"))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed executing query")
 }
 
-func TestPutSigner_UniqueViolation(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPutSigner_UniqueViolation(t *testing.T) {
+	t.Parallel()
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	id := view.Identity("signer1")
 	query := "INSERT INTO signer_info (id) VALUES ($1)"
@@ -165,8 +165,8 @@ func TestPutSigner_UniqueViolation(t *testing.T) { //nolint:paralleltest
 	store := mockSignerInfoStore(db, true)
 	err = store.PutSigner(context.Background(), id)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(BeNil())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
 }
 
 func mockSignerInfoStore(db *sql.DB, isdummyUniqueErrorWrapper bool) *common.SignerInfoStore {

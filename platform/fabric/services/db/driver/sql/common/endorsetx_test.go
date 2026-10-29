@@ -14,37 +14,43 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 )
 
-func TestEnvelope_GetData(t *testing.T) { //nolint:paralleltest
+func TestEnvelope_GetData(t *testing.T) {
+	t.Parallel()
 	GetData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockEnvelopeStore(db).GetEnvelope(context.Background(), key)
 	})
 }
 
-func TestEnvelope_GetData_NoData(t *testing.T) { //nolint:paralleltest
+func TestEnvelope_GetData_NoData(t *testing.T) {
+	t.Parallel()
 	GetDataNoData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockEnvelopeStore(db).GetEnvelope(context.Background(), key)
 	})
 }
 
-func TestEnvelope_ExistData_True(t *testing.T) { //nolint:paralleltest
+func TestEnvelope_ExistData_True(t *testing.T) {
+	t.Parallel()
 	ExistDataTrue(t, func(db *sql.DB, key string) (bool, error) {
 		return mockEnvelopeStore(db).ExistsEnvelope(context.Background(), key)
 	})
 }
 
-func TestEnvelope_ExistData_False(t *testing.T) { //nolint:paralleltest
+func TestEnvelope_ExistData_False(t *testing.T) {
+	t.Parallel()
 	ExistDataFalse(t, func(db *sql.DB, key string) (bool, error) {
 		return mockEnvelopeStore(db).ExistsEnvelope(context.Background(), key)
 	})
 }
 
-func TestEnvelope_PutData_Success(t *testing.T) { //nolint:paralleltest
+func TestEnvelope_PutData_Success(t *testing.T) {
+	t.Parallel()
 	PutDataSuccess(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEnvelopeStore(db).PutEnvelope(context.Background(), key, data)
 	})
 }
 
-func TestEnvelope_PutData_Conflict(t *testing.T) { //nolint:paralleltest
+func TestEnvelope_PutData_Conflict(t *testing.T) {
+	t.Parallel()
 	PutDataConflict(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEnvelopeStore(db).PutEnvelope(context.Background(), key, data)
 	})

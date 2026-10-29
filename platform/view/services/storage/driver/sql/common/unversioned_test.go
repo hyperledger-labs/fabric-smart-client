@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -36,11 +35,11 @@ func (*dummyErrorWrapper) WrapError(err error) error {
 	return err
 }
 
-func TestGetState(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestGetState(t *testing.T) {
+	t.Parallel()
 
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectQuery(query).WithArgs(ns, key).
@@ -49,16 +48,16 @@ func TestGetState(t *testing.T) { //nolint:paralleltest
 	store := mockKeyValueStore(db, db)
 	result, err := store.GetState(context.Background(), ns, string(key))
 
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(value))
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.Equal(t, value, result)
 }
 
-func TestGetState_QueryError(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestGetState_QueryError(t *testing.T) {
+	t.Parallel()
 
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectQuery(query).WithArgs(ns, key).WillReturnError(sql.ErrConnDone)
@@ -66,15 +65,15 @@ func TestGetState_QueryError(t *testing.T) { //nolint:paralleltest
 	store := mockKeyValueStore(db, db)
 	_, err = store.GetState(context.Background(), ns, string(key))
 
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(HaveOccurred())
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.Error(t, err)
 }
 
-func TestSetState(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestSetState(t *testing.T) {
+	t.Parallel()
 
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query := regexp.QuoteMeta("INSERT INTO kv_table (ns,pkey,val) VALUES ($1,$2,$3) ON CONFLICT (ns, pkey) DO UPDATE SET val = EXCLUDED.val")
 	mock.ExpectExec(query).WithArgs(ns, key, value).WillReturnResult(sqlmock.NewResult(1, 1))
@@ -82,15 +81,15 @@ func TestSetState(t *testing.T) { //nolint:paralleltest
 	store := mockKeyValueStore(db, db)
 	err = store.SetState(context.Background(), ns, string(key), value)
 
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
 }
 
-func TestSetState_ExecError(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestSetState_ExecError(t *testing.T) {
+	t.Parallel()
 
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query := regexp.QuoteMeta("INSERT INTO kv_table (ns,pkey,val) VALUES ($1,$2,$3) ON CONFLICT (ns, pkey) DO UPDATE SET val = EXCLUDED.val")
 	mock.ExpectExec(query).WithArgs(ns, key, value).WillReturnError(sql.ErrConnDone)
@@ -98,15 +97,15 @@ func TestSetState_ExecError(t *testing.T) { //nolint:paralleltest
 	store := mockKeyValueStore(db, db)
 	err = store.SetState(context.Background(), ns, string(key), value)
 
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(HaveOccurred())
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.Error(t, err)
 }
 
-func TestDeleteState(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestDeleteState(t *testing.T) {
+	t.Parallel()
 
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectExec(query).WithArgs(ns, key).WillReturnResult(sqlmock.NewResult(1, 1))
@@ -114,15 +113,15 @@ func TestDeleteState(t *testing.T) { //nolint:paralleltest
 	store := mockKeyValueStore(db, db)
 	err = store.DeleteState(context.Background(), ns, string(key))
 
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
 }
 
-func TestDeleteState_ExecError(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestDeleteState_ExecError(t *testing.T) {
+	t.Parallel()
 
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectExec(query).WithArgs(ns, key).WillReturnError(sql.ErrConnDone)
@@ -130,14 +129,14 @@ func TestDeleteState_ExecError(t *testing.T) { //nolint:paralleltest
 	store := mockKeyValueStore(db, db)
 	err = store.DeleteState(context.Background(), ns, string(key))
 
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
-	Expect(err).To(HaveOccurred())
+	require.NoError(t, mock.ExpectationsWereMet())
+	require.Error(t, err)
 }
 
-func TestGetStateRangeScanIterator(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestGetStateRangeScanIterator(t *testing.T) {
+	t.Parallel()
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	startKey := []byte("a")
 	endKey := []byte("z")
@@ -149,25 +148,18 @@ func TestGetStateRangeScanIterator(t *testing.T) { //nolint:paralleltest
 
 	store := mockKeyValueStore(db, db)
 	iter, err := store.GetStateRangeScanIterator(context.Background(), ns, string(startKey), string(endKey))
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
-	var results []string
-	for {
-		val, err := iter.Next()
-		if val == nil {
-			break // Iterator is exhausted
-		}
-		Expect(err).ToNot(HaveOccurred())
-		results = append(results, string(val.Raw))
-	}
-	Expect(results).To(ConsistOf("val1", "val2"))
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
+	reads, err := iterators.ReadAllValues(iter)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []driver.UnversionedRead{{Key: "a", Raw: []byte("val1")}, {Key: "b", Raw: []byte("val2")}}, reads)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestGetStateSetIterator(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestGetStateSetIterator(t *testing.T) {
+	t.Parallel()
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	keys := []string{"a", "b"}
 
@@ -178,25 +170,18 @@ func TestGetStateSetIterator(t *testing.T) { //nolint:paralleltest
 
 	store := mockKeyValueStore(db, db)
 	iter, err := store.GetStateSetIterator(context.Background(), ns, keys...)
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
-	var results []string
-	for {
-		val, err := iter.Next()
-		if val == nil {
-			break // Iterator is exhausted
-		}
-		Expect(err).ToNot(HaveOccurred())
-		results = append(results, string(val.Raw))
-	}
-	Expect(results).To(ConsistOf("val1", "val2"))
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
+	reads, err := iterators.ReadAllValues(iter)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []driver.UnversionedRead{{Key: "a", Raw: []byte("val1")}, {Key: "b", Raw: []byte("val2")}}, reads)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestExec(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestExec(t *testing.T) {
+	t.Parallel()
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	query := "UPDATE kv_table SET val = $1 WHERE ns = $2 AND pkey = $3"
 	mock.ExpectBegin()
@@ -205,39 +190,39 @@ func TestExec(t *testing.T) { //nolint:paralleltest
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	tx, err := db.Begin()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	store := mockKeyValueStore(db, db)
 	store.Txn = tx
 
 	_, err = store.Exec(context.Background(), query, []byte("v"), "ns", []byte("key"))
-	Expect(err).ToNot(HaveOccurred())
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestStats(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestStats(t *testing.T) {
+	t.Parallel()
 	db, _, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	store := mockKeyValueStore(db, db)
 	stats := store.Stats()
-	Expect(stats).ToNot(BeNil())
+	require.NotNil(t, stats)
 }
 
-func TestClose(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestClose(t *testing.T) {
+	t.Parallel()
 
 	db, mock, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	// expect a Close() call on the database
 	mock.ExpectClose()
 
 	store := mockKeyValueStore(db, db)
 	err = store.Close()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(mock.ExpectationsWereMet()).To(Succeed())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func mockKeyValueStore(write, read *sql.DB) *common.KeyValueStore {

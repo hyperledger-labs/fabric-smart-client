@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 )
 
 type (
@@ -23,10 +23,9 @@ type (
 
 func GetData(t *testing.T, get getFunc) {
 	t.Helper()
-	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	key := "key1"
 	data := []byte("value1")
@@ -39,17 +38,16 @@ func GetData(t *testing.T, get getFunc) {
 
 	result, err := get(db, key)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(data))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.Equal(t, data, result)
 }
 
 func GetDataNoData(t *testing.T, get getFunc) {
 	t.Helper()
-	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	key := "missing"
 	query := regexp.QuoteMeta("SELECT data FROM test_table WHERE key = $1")
@@ -61,17 +59,16 @@ func GetDataNoData(t *testing.T, get getFunc) {
 
 	result, err := get(db, key)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(BeNil())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.Nil(t, result)
 }
 
 func ExistDataTrue(t *testing.T, exists existsFunc) {
 	t.Helper()
-	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	key := "key1"
 	data := []byte("value1")
@@ -84,17 +81,16 @@ func ExistDataTrue(t *testing.T, exists existsFunc) {
 
 	result, err := exists(db, key)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(BeTrue())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.True(t, result)
 }
 
 func ExistDataFalse(t *testing.T, exist existsFunc) {
 	t.Helper()
-	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	key := "missing"
 	query := regexp.QuoteMeta("SELECT data FROM test_table WHERE key = $1")
@@ -106,17 +102,16 @@ func ExistDataFalse(t *testing.T, exist existsFunc) {
 
 	result, err := exist(db, key)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(BeFalse())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.False(t, result)
 }
 
 func PutDataSuccess(t *testing.T, put putFunc) {
 	t.Helper()
-	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	key := "key1"
 	data := []byte("value1")
@@ -129,16 +124,15 @@ func PutDataSuccess(t *testing.T, put putFunc) {
 
 	err = put(db, key, data)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
 }
 
 func PutDataConflict(t *testing.T, put putFunc) {
 	t.Helper()
-	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
 	key := "key1"
 	data := []byte("value1")
@@ -151,6 +145,6 @@ func PutDataConflict(t *testing.T, put putFunc) {
 
 	err = put(db, key, data)
 
-	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, mockDB.ExpectationsWereMet())
+	require.NoError(t, err)
 }

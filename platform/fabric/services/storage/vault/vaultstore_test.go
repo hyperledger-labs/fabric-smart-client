@@ -10,14 +10,11 @@ import (
 	"context"
 	"testing"
 
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 )
 
@@ -31,9 +28,12 @@ const (
 	unknown
 )
 
+// matrixItem describes one pagination walk over the eight transactions
+// testPagination writes: the query each page renders to and the TxIDs it
+// returns, in any order.
 type matrixItem struct {
 	pagination   driver.Pagination
-	matcher      []types.GomegaMatcher
+	pages        [][]string
 	sqlForward   []string
 	argsForward  [][]sqlbuild.Param
 	sqlBackward  []string
@@ -41,131 +41,89 @@ type matrixItem struct {
 	deserialize  func([]byte) (driver.Pagination, error)
 }
 
-var matrix = []matrixItem{
-	{
-		pagination: pagination.None(),
-		deserialize: func(data []byte) (driver.Pagination, error) {
-			return pagination.NoneFromRaw(data)
-		},
-		sqlForward: []string{
-			"SELECT * FROM test",
-			"SELECT * FROM test LIMIT 0", // This makes sure that no rows are returned, so we get the same behaviour as for offset pagination
-		},
-		argsForward: [][]sqlbuild.Param{
-			nil,
-			nil,
-		},
-		sqlBackward: []string{},
-		matcher: []types.GomegaMatcher{
-			ConsistOf(
-				HaveField("TxID", Equal("txid1")),
-				HaveField("TxID", Equal("txid2")),
-				HaveField("TxID", Equal("txid10")),
-				HaveField("TxID", Equal("txid12")),
-				HaveField("TxID", Equal("txid21")),
-				HaveField("TxID", Equal("txid100")),
-				HaveField("TxID", Equal("txid200")),
-				HaveField("TxID", Equal("txid1025")),
-			),
-		},
-	},
-	{
-		pagination: NewOffsetPagination(0, 2),
-		deserialize: func(data []byte) (driver.Pagination, error) {
-			return pagination.OffsetFromRaw(data)
-		},
-		sqlForward: []string{
-			"SELECT * FROM test LIMIT 2",
-			"SELECT * FROM test LIMIT 2 OFFSET 2",
-			"SELECT * FROM test LIMIT 2 OFFSET 4",
-			"SELECT * FROM test LIMIT 2 OFFSET 6",
-			"SELECT * FROM test LIMIT 2 OFFSET 8",
-		},
-		argsForward: [][]sqlbuild.Param{nil, nil, nil, nil, nil},
-		sqlBackward: []string{},
-		matcher: []types.GomegaMatcher{
-			ConsistOf(
-				HaveField("TxID", Equal("txid1")),
-				HaveField("TxID", Equal("txid2")),
-			),
-			ConsistOf(
-				HaveField("TxID", Equal("txid10")),
-				HaveField("TxID", Equal("txid12")),
-			),
-			ConsistOf(
-				HaveField("TxID", Equal("txid21")),
-				HaveField("TxID", Equal("txid100")),
-			),
-			ConsistOf(
-				HaveField("TxID", Equal("txid200")),
-				HaveField("TxID", Equal("txid1025")),
-			),
-		},
-	},
-	{
-		pagination: NewKeysetPagination(0, 2, "tx_id", "TxID"),
-		deserialize: func(data []byte) (driver.Pagination, error) {
-			return pagination.KeysetFromRaw[string](data, "TxID")
-		},
-		sqlForward: []string{
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2",
-			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
-			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
-			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
-			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
-		},
-		argsForward: [][]sqlbuild.Param{
-			nil,
-			{"txid10"},
-			{"txid1025"},
-			{"txid2"},
-			{"txid21"},
-		},
+func paginationMatrix(t *testing.T) []matrixItem {
+	t.Helper()
 
-		sqlBackward: []string{
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 2",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 4",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 6",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 8",
-		},
-		argsBackward: [][]sqlbuild.Param{nil, nil, nil, nil, nil},
+	offset, err := pagination.Offset(0, 2)
+	require.NoError(t, err)
+	keyset, err := pagination.KeysetWithField[string](0, 2, "tx_id", "TxID")
+	require.NoError(t, err)
 
-		matcher: []types.GomegaMatcher{
-			ConsistOf(
-				HaveField("TxID", Equal("txid1")),
-				HaveField("TxID", Equal("txid10")),
-			),
-			ConsistOf(
-				HaveField("TxID", Equal("txid100")),
-				HaveField("TxID", Equal("txid1025")),
-			),
-			ConsistOf(
-				HaveField("TxID", Equal("txid12")),
-				HaveField("TxID", Equal("txid2")),
-			),
-			ConsistOf(
-				HaveField("TxID", Equal("txid200")),
-				HaveField("TxID", Equal("txid21")),
-			),
+	return []matrixItem{
+		{
+			pagination: pagination.None(),
+			deserialize: func(data []byte) (driver.Pagination, error) {
+				return pagination.NoneFromRaw(data)
+			},
+			sqlForward: []string{
+				"SELECT * FROM test",
+				"SELECT * FROM test LIMIT 0", // This makes sure that no rows are returned, so we get the same behaviour as for offset pagination
+			},
+			argsForward: [][]sqlbuild.Param{
+				nil,
+				nil,
+			},
+			pages: [][]string{
+				{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"},
+			},
 		},
-	},
-}
+		{
+			pagination: offset,
+			deserialize: func(data []byte) (driver.Pagination, error) {
+				return pagination.OffsetFromRaw(data)
+			},
+			sqlForward: []string{
+				"SELECT * FROM test LIMIT 2",
+				"SELECT * FROM test LIMIT 2 OFFSET 2",
+				"SELECT * FROM test LIMIT 2 OFFSET 4",
+				"SELECT * FROM test LIMIT 2 OFFSET 6",
+				"SELECT * FROM test LIMIT 2 OFFSET 8",
+			},
+			argsForward: [][]sqlbuild.Param{nil, nil, nil, nil, nil},
+			pages: [][]string{
+				{"txid1", "txid2"},
+				{"txid10", "txid12"},
+				{"txid21", "txid100"},
+				{"txid200", "txid1025"},
+			},
+		},
+		{
+			pagination: keyset,
+			deserialize: func(data []byte) (driver.Pagination, error) {
+				return pagination.KeysetFromRaw[string](data, "TxID")
+			},
+			sqlForward: []string{
+				"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2",
+				"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
+				"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
+				"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
+				"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
+			},
+			argsForward: [][]sqlbuild.Param{
+				nil,
+				{"txid10"},
+				{"txid1025"},
+				{"txid2"},
+				{"txid21"},
+			},
 
-func NewOffsetPagination(offset, pageSize int) driver.Pagination {
-	offsetPagination, err := pagination.Offset(offset, pageSize)
-	if err != nil {
-		Expect(err).ToNot(HaveOccurred())
+			sqlBackward: []string{
+				"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2",
+				"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 2",
+				"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 4",
+				"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 6",
+				"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 8",
+			},
+			argsBackward: [][]sqlbuild.Param{nil, nil, nil, nil, nil},
+
+			pages: [][]string{
+				{"txid1", "txid10"},
+				{"txid100", "txid1025"},
+				{"txid12", "txid2"},
+				{"txid200", "txid21"},
+			},
+		},
 	}
-	return offsetPagination
-}
-
-func NewKeysetPagination(offset, pageSize int, sqlIDName dbdriver.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
-	keysetPagination, err := pagination.KeysetWithField[string](offset, pageSize, sqlIDName, idFieldName)
-	if err != nil {
-		Expect(err).ToNot(HaveOccurred())
-	}
-	return keysetPagination
 }
 
 // renderPaginated builds the query the store would build for this pagination.
@@ -180,12 +138,29 @@ func renderPaginated(pag driver.Pagination) (string, []sqlbuild.Param) {
 		Build()
 }
 
-func testPagination(store driver.VaultStore) {
+// readPage returns the TxIDs of one page of GetAllTxStatuses along with the
+// pagination the store hands back for it.
+func readPage(t *testing.T, store driver.VaultStore, pag driver.Pagination) ([]string, driver.Pagination) {
+	t.Helper()
+	p, err := store.GetAllTxStatuses(context.Background(), pag)
+	require.NoError(t, err)
+	statuses, err := collections.ReadAll(p.Items)
+	require.NoError(t, err)
+	txIDs := make([]string, len(statuses))
+	for i, s := range statuses {
+		txIDs[i] = s.TxID
+	}
+	return txIDs, p.Pagination
+}
+
+func testPagination(t *testing.T, store driver.VaultStore) {
+	t.Helper()
+
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
-	Expect(err).ToNot(HaveOccurred())
+	require.NoError(t, err)
 
-	for _, item := range matrix {
+	for _, item := range paginationMatrix(t) {
 		if len(item.sqlBackward) == 0 {
 			item.sqlBackward = item.sqlForward
 			item.argsBackward = item.argsForward
@@ -195,75 +170,68 @@ func testPagination(store driver.VaultStore) {
 		for ; true; page++ {
 			// We don't need to build the query here but we do it just to test that it was build correctly
 			query, args := renderPaginated(pag)
-			Expect(query).To(Equal(item.sqlForward[page]))
-			Expect(args).To(Equal(item.argsForward[page]))
+			require.Equal(t, item.sqlForward[page], query)
+			require.Equal(t, item.argsForward[page], args)
 
-			p, err := store.GetAllTxStatuses(context.Background(), pag)
-			Expect(err).ToNot(HaveOccurred())
-			statuses, err := collections.ReadAll(p.Items)
-			Expect(err).ToNot(HaveOccurred())
+			txIDs, returned := readPage(t, store, pag)
 			// Test we get 0 statuses when we reach the end
-			if len(statuses) == 0 {
+			if len(txIDs) == 0 {
 				break
 			}
-			Expect(page).To(BeNumerically("<", len(item.matcher)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statuses).To(item.matcher[page])
+			require.Less(t, page, len(item.pages))
+			require.ElementsMatch(t, item.pages[page], txIDs)
 
-			// checking that sending and receiving the pagination to
-			buf, err := p.Pagination.Serialize()
-			Expect(err).ToNot(HaveOccurred())
-			p2, err := item.deserialize(buf)
-			Expect(err).ToNot(HaveOccurred())
+			// the pagination survives a serialization round trip
+			buf, err := returned.Serialize()
+			require.NoError(t, err)
+			returned, err = item.deserialize(buf)
+			require.NoError(t, err)
 
-			p.Pagination = p2
-
-			pag, err = p.Pagination.Next()
-			Expect(err).ToNot(HaveOccurred())
+			pag, err = returned.Next()
+			require.NoError(t, err)
 		}
 		// test that we read everything
-		Expect(page).To(BeNumerically("==", len(item.matcher)))
+		require.Len(t, item.pages, page)
 
 		// Test that Prev() work. Start by advancing the pagination pointer 2 steps forward
-		if len(item.matcher) < 2 {
+		if len(item.pages) < 2 {
 			continue
 		}
 		pag = item.pagination
 		for page = 0; page < 2; page++ {
 			pag, err = pag.Next()
-			Expect(err).ToNot(HaveOccurred())
+			require.NoError(t, err)
 		}
 		for ; page >= 0; page-- {
 			query, _ := renderPaginated(pag)
-			Expect(query).To(Equal(item.sqlBackward[page]))
-			p, err := store.GetAllTxStatuses(context.Background(), pag)
-			Expect(err).ToNot(HaveOccurred())
-			pag = p.Pagination
-			statuses, err := collections.ReadAll(p.Items)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statuses).To(item.matcher[page])
+			require.Equal(t, item.sqlBackward[page], query)
+			var txIDs []string
+			txIDs, pag = readPage(t, store, pag)
+			require.ElementsMatch(t, item.pages[page], txIDs)
 			if page > 0 {
 				pag, err = pag.Prev()
-				Expect(err).ToNot(HaveOccurred())
+				require.NoError(t, err)
 			}
 		}
 	}
 }
 
-func TestPaginationStoreMem(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
-	db, err := OpenMemoryVault("testdb")
+// The memory driver keeps one SQLite database per process, so each memory test
+// opens its tables under a name no other test uses.
+func TestPaginationStoreMem(t *testing.T) {
+	t.Parallel()
+	db, err := OpenMemoryVault("paginationdb")
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
 
-	testPagination(db)
+	testPagination(t, db)
 }
 
-func TestPaginationStoreSqlite(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPaginationStoreSqlite(t *testing.T) {
+	t.Parallel()
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	require.NoError(t, err)
 	require.NotNil(t, db)
@@ -271,22 +239,22 @@ func TestPaginationStoreSqlite(t *testing.T) { //nolint:paralleltest
 		_ = db.Close()
 	})
 
-	testPagination(db)
+	testPagination(t, db)
 }
 
-func TestPaginationStoreSPostgres(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestPaginationStoreSPostgres(t *testing.T) {
+	t.Parallel()
 	db, terminate, err := OpenPostgresVault("testdb")
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	t.Cleanup(terminate)
 
-	testPagination(db)
+	testPagination(t, db)
 }
 
-func TestVaultStoreMem(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
-	db, err := OpenMemoryVault("testdb")
+func TestVaultStoreMem(t *testing.T) {
+	t.Parallel()
+	db, err := OpenMemoryVault("vaultstoredb")
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	t.Cleanup(func() {
@@ -297,8 +265,8 @@ func TestVaultStoreMem(t *testing.T) { //nolint:paralleltest
 	testOneMore(t, db)
 }
 
-func TestVaultStoreSqlite(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestVaultStoreSqlite(t *testing.T) {
+	t.Parallel()
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	require.NoError(t, err)
 	require.NotNil(t, db)
@@ -310,8 +278,8 @@ func TestVaultStoreSqlite(t *testing.T) { //nolint:paralleltest
 	testOneMore(t, db)
 }
 
-func TestVaultStorePostgres(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
+func TestVaultStorePostgres(t *testing.T) {
+	t.Parallel()
 	db, terminate, err := OpenPostgresVault("testdb")
 	require.NoError(t, err)
 	require.NotNil(t, db)
@@ -331,8 +299,7 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	require.NoError(t, err)
 	require.Equal(t, driver.TxStatusCode(valid), tx.Code)
 
-	txids, err := fetchAll(store)
-	require.NoError(t, err)
+	txids, _ := readPage(t, store, pagination.None())
 	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3"}, txids)
 
 	last, err := store.GetLast(context.Background())
@@ -348,8 +315,7 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	require.Equal(t, "txid3", last.TxID)
 
 	// iterate again
-	txids, err = fetchAll(store)
-	require.NoError(t, err)
+	txids, _ = readPage(t, store, pagination.None())
 	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
 
 	// update the busy tx
@@ -361,35 +327,17 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	require.Equal(t, "txid4", last.TxID)
 
 	// iterate again
-	txids, err = fetchAll(store)
-	require.NoError(t, err)
+	txids, _ = readPage(t, store, pagination.None())
 	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
-}
-
-func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	pageIt, err := store.GetAllTxStatuses(context.Background(), pagination.None())
-	if err != nil {
-		return nil, err
-	}
-	txStatuses, err := collections.ReadAll(pageIt.Items)
-	if err != nil {
-		return nil, err
-	}
-	txids := make([]driver.TxID, len(txStatuses))
-	for i, txStatus := range txStatuses {
-		txids[i] = txStatus.TxID
-	}
-	return txids, nil
 }
 
 func testVaultStore(t *testing.T, store driver.VaultStore) {
 	t.Helper()
 
-	txids, err := fetchAll(store)
-	require.NoError(t, err)
+	txids, _ := readPage(t, store, pagination.None())
 	require.Empty(t, txids)
 
-	err = store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
+	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
 	require.NoError(t, err)
 
@@ -411,8 +359,7 @@ func testVaultStore(t *testing.T, store driver.VaultStore) {
 	require.NoError(t, err)
 	require.Equal(t, "txid1025", last.TxID)
 
-	txids, err = fetchAll(store)
-	require.NoError(t, err)
+	txids, _ = readPage(t, store, pagination.None())
 	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
 	itr, err = store.GetTxStatuses(context.Background(), "boh")

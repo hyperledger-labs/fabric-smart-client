@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp/signer"
 	"github.com/hyperledger/fabric-lib-go/bccsp/utils"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
@@ -103,12 +103,11 @@ UdiVmT6jldSKIETZm+kszfkANWxzKZXcXg==
 // sign the MESSAGE, while the ECDSA signing will
 // sign the DIGEST
 // The same applies to the Verify function
-func TestSignatureAlgorithms(t *testing.T) { //nolint:tparallel // subtests assert through this test's gomega
+func TestSignatureAlgorithms(t *testing.T) {
 	t.Parallel()
 
-	gt := gomega.NewGomegaWithT(t)
-
-	t.Run("Test ecdsa sign with digest and ed25519 sign with full message", func(_ *testing.T) {
+	t.Run("Test ecdsa sign with digest and ed25519 sign with full message", func(t *testing.T) {
+		t.Parallel()
 		bccspDefault := factory.GetDefault()
 		mspImpl, _ := newBccspMsp(MSPv3_0, bccspDefault)
 		mspImpl.(*bccspmsp).cryptoConfig = &msp.FabricCryptoConfig{
@@ -152,7 +151,7 @@ func TestSignatureAlgorithms(t *testing.T) { //nolint:tparallel // subtests asse
 		sigEcdsa, _ := ecdsaSigningIdentity.Sign([]byte("TEST"))
 
 		expectedSig := ed25519.Sign(ed25519PrivKey.(ed25519.PrivateKey), []byte("TEST"))
-		gt.Expect(expectedSig).To(gomega.Equal(sigEd25519))
+		require.Equal(t, expectedSig, sigEd25519)
 
 		msgDgst := sha256.Sum256([]byte("TEST"))
 		r, s, _ := ecdsa.Sign(rand.Reader, ecdsaPrivKey, msgDgst[:])
@@ -160,19 +159,19 @@ func TestSignatureAlgorithms(t *testing.T) { //nolint:tparallel // subtests asse
 		expectedSig, _ = utils.MarshalECDSASignature(r, s)
 
 		err := ed25519SigningIdentity.Verify([]byte("TEST"), sigEd25519)
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 		err = ecdsaSigningIdentity.Verify([]byte("TEST"), sigEcdsa)
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 		err = ecdsaSigningIdentity.Verify([]byte("TEST"), expectedSig)
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 	})
 }
 
-func TestIdentityValidation(t *testing.T) { //nolint:tparallel // subtests assert through this test's gomega
+func TestIdentityValidation(t *testing.T) {
 	t.Parallel()
 
-	gt := gomega.NewGomegaWithT(t)
-	t.Run("Test MSPv3_0 ed2551 identity validation", func(_ *testing.T) {
+	t.Run("Test MSPv3_0 ed2551 identity validation", func(t *testing.T) {
+		t.Parallel()
 		bccspDefault := factory.GetDefault()
 		mspImpl, _ := newBccspMsp(MSPv1_4_3, bccspDefault)
 		cryptoConfig := &msp.FabricCryptoConfig{
@@ -186,7 +185,7 @@ func TestIdentityValidation(t *testing.T) { //nolint:tparallel // subtests asser
 			Admins:    [][]byte{[]byte(ecdsaCertPem)},
 		})
 		err := mspImpl.Setup(&msp.MSPConfig{Config: mspConfigBytes})
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 
 		ed25519Der, _ := pem.Decode([]byte(ed25519Pem))
 		ed25519Cert, _ := x509.ParseCertificate(ed25519Der.Bytes)
@@ -201,21 +200,21 @@ func TestIdentityValidation(t *testing.T) { //nolint:tparallel // subtests asser
 		ecdsaIdentity, _ := newIdentity(ecdsaCert, ecdsaFabricPubKey, mspImpl.(*bccspmsp))
 
 		err = mspImpl.Validate(ed25519Identity)
-		gt.Expect(err).To(gomega.HaveOccurred())
+		require.Error(t, err)
 		err = mspImpl.Validate(ecdsaIdentity)
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 
 		mspImpl, _ = newBccspMsp(MSPv3_0, bccspDefault)
 		mspImpl.(*bccspmsp).cryptoConfig = cryptoConfig
 		err = mspImpl.Setup(&msp.MSPConfig{Config: mspConfigBytes})
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 
 		ed25519Identity, _ = newIdentity(ed25519Cert, ed25519FabricPubKey, mspImpl.(*bccspmsp))
 		ecdsaIdentity, _ = newIdentity(ecdsaCert, ecdsaFabricPubKey, mspImpl.(*bccspmsp))
 
 		err = mspImpl.Validate(ed25519Identity)
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 		err = mspImpl.Validate(ecdsaIdentity)
-		gt.Expect(err).NotTo(gomega.HaveOccurred())
+		require.NoError(t, err)
 	})
 }
