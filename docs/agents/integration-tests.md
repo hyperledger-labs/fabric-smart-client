@@ -35,7 +35,10 @@ Appending the target to `INTEGRATION_TARGETS` in the [`Makefile`](../../Makefile
 enough when the name follows the `<platform>-<suite>` convention, which maps to
 `integration/<platform>/<suite>`. Otherwise:
 
-- **Name does not match the directory** → set `INTEGRATION_DIR_<target>`.
+- **Name does not match the directory** → set `INTEGRATION_DIR_<target>`. The target
+  then shares the suite's ports, containers and `out/` with the suite's other targets,
+  so those targets cannot run at the same time; see
+  [One target at a time](../dev/development.md#one-target-at-a-time).
 - **The suite needs ginkgo flags** (e.g. a `--label-filter` so one suite becomes several
   parallel CI entries) → set `INTEGRATION_FLAGS_<target>`.
 - **The suite needs `-tags pkcs11`** → add it to `HSM_INTEGRATION_TARGETS` instead of
@@ -326,6 +329,9 @@ make list-integration-tests                             # every target
 make integration-tests-fabric-iou                       # one target
 GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
 ```
+
+Run one target at a time: concurrent targets share ports, containers and `out/`, and
+fail. See [One target at a time](../dev/development.md#one-target-at-a-time).
 
 A target's platform prefix decides which toolchain it needs: `fabric-*` targets
 need `make install-fabric-bins` (binaries in `$FAB_BINS`), `fabricx-*` targets

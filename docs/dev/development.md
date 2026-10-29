@@ -221,6 +221,25 @@ GOCOVERDIR=covdata make integration-tests
 go tool covdata textfmt -i=covdata -o profile.txt
 ```
 
+#### One target at a time
+
+Run one target at a time per machine. `make integration-tests` runs them one after
+another. Under `make -j` or in a second shell, targets that share a resource fail with
+`address already in use`, `port is already allocated` or `container name ... is
+already in use`. Targets share these resources:
+
+- Each suite takes its ports from a constant in `integration/ports.go`, and suites
+  share them: `integration.IOUPort` backs `fabric/iou` and four `fabricx` suites,
+  `integration.PingPongPort` backs `fsc/pingpong` and `fsc/stoprestart`.
+- The monitoring containers bind fixed host ports, among them Jaeger 4317 and 16686,
+  Prometheus 9090 and Grafana 3000.
+- Postgres containers are named after their database (`fr-bob`, `borrower-db`).
+- Targets that run the same suite directory (see `INTEGRATION_DIR_<target>` in the
+  `Makefile`, e.g. `fabric-iou` and `fabric-iou-libp2p`) share its `out/` directory,
+  which `make clean-<target>` deletes.
+
+CI runs each target as a job on its own runner, so this applies only locally.
+
 ### What CI Gates
 
 CI gates every pull request on the following. It drives the linter through
