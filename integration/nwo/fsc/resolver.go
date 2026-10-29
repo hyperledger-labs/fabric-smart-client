@@ -38,6 +38,9 @@ func (p *Platform) GenerateResolverMap() {
 			// ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Ctx.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 			P2PPort: p2pEndpoint,
 		}
+		if lb, ok := p.loadBalancers[peer.Name]; ok {
+			addresses[P2PPort] = lb
+		}
 		if peerRoutes, ok := routing[peer.Name]; ok {
 			routing[peer.Name] = append(peerRoutes, p2pEndpoint)
 		} else {

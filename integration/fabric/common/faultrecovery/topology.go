@@ -15,6 +15,7 @@ import (
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fscnode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
@@ -30,10 +31,29 @@ import (
 // same reason a container name set on the ContainerConfig here would not reach the
 // container. Suites that may run at the same time need different prefixes.
 func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
-	db := &integration.ReplicationOptions{SQLConfigs: map[string]*postgres.ContainerConfig{
-		"alice": postgres.DefaultConfig(postgres.WithDBName(DBName(dbPrefix, "alice"))),
-		"bob":   postgres.DefaultConfig(postgres.WithDBName(DBName(dbPrefix, "bob"))),
-	}}
+	return newFSCTopology(sdk, dbPrefix, nil, nil)
+}
+
+// ReplicatedFSCTopology returns the nodes of FSCTopology with two replicas each, every
+// replica on its node's one database. Bob's replicas sit behind a load balancer
+// (fsc.WithLoadBalancer), so the sessions alice opens to bob are spread over them;
+// alice has none.
+func ReplicatedFSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
+	return newFSCTopology(sdk, dbPrefix,
+		map[string]int{"alice": 2, "bob": 2},
+		map[string][]fscnode.Option{"bob": {fsc.WithLoadBalancer()}},
+	)
+}
+
+func newFSCTopology(sdk node.SDK, dbPrefix string, replicas map[string]int, opts map[string][]fscnode.Option) *fsc.Topology {
+	db := &integration.ReplicationOptions{
+		ReplicationFactors: replicas,
+		SQLConfigs: map[string]*postgres.ContainerConfig{
+			"alice": postgres.DefaultConfig(postgres.WithDBName(DBName(dbPrefix, "alice"))),
+			"bob":   postgres.DefaultConfig(postgres.WithDBName(DBName(dbPrefix, "bob"))),
+		},
+		NodeOptions: opts,
+	}
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.EnablePrometheusMetrics()

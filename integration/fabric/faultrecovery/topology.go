@@ -31,6 +31,16 @@ var Orderers = []string{"orderer", "orderer2", "orderer3"}
 // Topology returns two peers (Org1, Org2), three raft orderers, and the FSC nodes of
 // faultrecovery.FSCTopology, running sdk, on Postgres databases with the given prefix.
 func Topology(dbPrefix string, sdk node.SDK) []api.Topology {
+	return []api.Topology{fabricTopology(), faultrecovery.FSCTopology(sdk, dbPrefix)}
+}
+
+// ReplicatedTopology returns the network of Topology with the FSC nodes of
+// faultrecovery.ReplicatedFSCTopology.
+func ReplicatedTopology(dbPrefix string, sdk node.SDK) []api.Topology {
+	return []api.Topology{fabricTopology(), faultrecovery.ReplicatedFSCTopology(sdk, dbPrefix)}
+}
+
+func fabricTopology() *topology.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
@@ -43,7 +53,7 @@ func Topology(dbPrefix string, sdk node.SDK) []api.Topology {
 		p.Orderers = slices.Clone(Orderers)
 	}
 
-	return []api.Topology{fabricTopology, faultrecovery.FSCTopology(sdk, dbPrefix)}
+	return fabricTopology
 }
 
 // SetCommitRetries sets committer.retries and committer.retrySleep of every channel in

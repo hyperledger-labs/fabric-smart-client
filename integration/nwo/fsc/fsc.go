@@ -68,6 +68,15 @@ func WithReplicationFactor(factor int) nwonode.Option {
 	}
 }
 
+// WithLoadBalancer puts the node's replicas behind a round-robin TCP proxy, whose address
+// the other nodes resolve as the node's P2P address.
+func WithLoadBalancer() nwonode.Option {
+	return func(o *nwonode.Options) error {
+		o.Put("LoadBalancer", true)
+		return nil
+	}
+}
+
 func WithAlias(alias string) nwonode.Option {
 	return func(o *nwonode.Options) error {
 		o.AddAlias(alias)
@@ -89,6 +98,10 @@ type Platform struct {
 	colorIndex               int
 	metricsAggregatorProcess ifrit.Process
 	cleanDB                  func()
+
+	// loadBalancers holds, by node name, the proxy address of each node with WithLoadBalancer.
+	loadBalancers map[string]string
+	proxies       map[string]*common.Proxy
 }
 
 func NewPlatform(registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
@@ -241,6 +254,30 @@ func (p *Platform) Members() []grouper.Member {
 
 func (p *Platform) PreRun() {
 	startPostgres(p)
+	p.startLoadBalancers()
+}
+
+// startLoadBalancers starts the proxy of each node in loadBalancers, forwarding to the
+// P2P port of every replica of the node.
+func (p *Platform) startLoadBalancers() {
+	p.proxies = map[string]*common.Proxy{}
+	for name, address := range p.loadBalancers {
+		var backends []string
+		for _, peer := range p.Peers {
+			if peer.Name == name {
+				backends = append(backends, p.PeerAddress(peer, P2PPort))
+			}
+		}
+		proxy, err := common.StartProxy(address, backends...)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		p.proxies[name] = proxy
+	}
+}
+
+// LoadBalancer returns the proxy in front of the replicas of the named node, or nil if
+// the node has none or the network has not started.
+func (p *Platform) LoadBalancer(name string) *common.Proxy {
+	return p.proxies[name]
 }
 
 // postgresTLSDir is the directory that holds the TLS material of the nwo-started database dbName.
@@ -398,6 +435,10 @@ func (p *Platform) koanf(peer *nwonode.Replica) *koanf.Koanf {
 }
 
 func (p *Platform) Cleanup() {
+	for _, proxy := range p.proxies {
+		_ = proxy.Close()
+	}
+
 	if p.metricsAggregatorProcess != nil {
 		p.metricsAggregatorProcess.Signal(os.Kill)
 	}
@@ -430,6 +471,12 @@ func (p *Platform) CheckTopology() {
 	for _, node := range p.Topology.Nodes {
 		if p.P2PCommunicationType() != WebSocket && node.Options.ReplicationFactor() > 1 {
 			panic("replication only supported for websocket p2p communication")
+		}
+		if node.Options.LoadBalancer() {
+			if p.loadBalancers == nil {
+				p.loadBalancers = map[string]string{}
+			}
+			p.loadBalancers[node.Name] = fmt.Sprintf("127.0.0.1:%d", p.Context.ReservePort())
 		}
 		for _, uniqueName := range node.ReplicaUniqueNames() {
 			var extraIdentities []*nwonode.PeerIdentity

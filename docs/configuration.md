@@ -433,6 +433,10 @@ fsc:
   # one of Listen, View or P2P (case-insensitive).
   # An entry that reuses the name of an earlier entry, such as a replica of the same node, does not get
   # its own addresses: its identity is bound to the identity of the earlier entry.
+  # A replicated node is therefore reached at one P2P address, that of a TCP load balancer in front of
+  # its replicas. The balancer must pass TCP through rather than terminate TLS, because the websocket
+  # transport authenticates both sides from the TLS certificates, and every replica must hold the same
+  # TLS key pair. Use GET /readyz on the fsc.web listener as the balancer's health check.
   endpoint:
     resolvers:
     # name is a name that describes the FSC node (must also match name used in the view) it isn't a P2P bootstrap node

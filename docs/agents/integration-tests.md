@@ -235,7 +235,8 @@ until its sidecar, query and ordering services accept connections.
 
 Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
-`fabric-faultrecovery-postgres-outage` and `fabricx-faultrecovery`). Both run the FSC
+`fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication` and
+`fabricx-faultrecovery`). Both run the FSC
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
 `Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
 the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`), and the helpers that drive them.
@@ -281,6 +282,25 @@ negative filter. The Fabric
 suite's `postgres-outage` `Describe` and the `fabric-faultrecovery-postgres-outage`
 target are the example; its failover spec is last because it points bob at another
 database.
+
+### Replicated nodes
+
+Replicas of a node share its name, and the other nodes use only the first resolver entry
+for a name, so without a load balancer every session they open lands on replica 0. The
+node option `fsc.WithLoadBalancer()` starts a round-robin TCP proxy (`common.Proxy`) in
+front of the P2P ports of the node's replicas and writes the proxy's address as the node's
+P2P address in every other node's `core.yaml`. The proxy forwards each new connection to
+the next replica that accepts a dial and passes the bytes through, so TLS ends at the
+replica; this works because nwo gives every replica of a node the same TLS key pair, which
+the websocket transport requires since it authenticates both sides from the TLS
+certificates. `FscPlatform.LoadBalancer(name).Connections()` returns the open connections
+per replica P2P address, so a spec can find the replica that holds a peer's connection.
+`StopFSCNode`, `KillFSCNode` and `StartFSCNode` take a replica name such as `bob.1` to act
+on that replica alone, and `Client("fsc.bob.1")` and `WebClient("fsc.bob.1")` reach it. A
+node name selects the first replica in the fault calls and the last one in `Client` and
+`WebClient`. The Fabric suite's `replication` `Describe` runs on
+`faultrecovery.ReplicatedFSCTopology`: bob with two replicas behind a load balancer, alice
+with two replicas without one, each node on its own database.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.

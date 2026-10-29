@@ -40,6 +40,8 @@ const (
 	// postgresOutage labels the long Postgres outage specs, which run in a target of
 	// their own.
 	postgresOutage = "postgres-outage"
+	// replication labels the specs on replicated nodes, which run in a target of their own.
+	replication = "replication"
 )
 
 var (
@@ -175,6 +177,26 @@ var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault",
 			}, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed(), "tx %d [%s] not rebuilt on bob", i, txID)
 		}
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+})
+
+// Bob's two replicas sit behind a load balancer; alice has two replicas without one. The
+// specs share one network and must leave every replica running, see
+// faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnFailure, Label(fsc.WebSocket, replication), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(
+			integration.FabricFaultRecoveryPort.StartPortForNode(),
+			integration.WithRaceDetection,
+			fabricfaultrecovery.ReplicatedTopology(dbPrefix, &fabricsdk.SDK{})...,
+		)
+	})
+	faultrecovery.ShareNetwork(s)
+
+	It("commits through the load balancer", func() {
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 10)).To(HaveLen(10))
+		// Alice multiplexes her sessions to bob over one connection, held by one replica.
+		Expect(s.II.FscPlatform.LoadBalancer("bob").Connections()).To(HaveLen(1))
 	})
 })
 
