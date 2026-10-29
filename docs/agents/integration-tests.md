@@ -249,14 +249,16 @@ nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, name
 `Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
 the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final
-on both nodes; `WaitFinal` does the waiting alone, and `WaitFinalOn` waits on one node or
-replica. `Endorse` and `Order` split one
+on both nodes; `SubmitAndWaitFinalFrom` does the same from one of alice's replicas,
+`WaitFinal` does the waiting alone, and `WaitFinalOn` waits on one node or replica.
+`Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
 transaction is ordered. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election. `Echo` runs a two-party view that
 touches no ledger; with `block` set, bob's responder receives the message and never
-replies, so a spec can kill bob mid-view. `MetricSum` reads a counter or gauge from a
-node's metrics. Both nodes serve the `configseq` view, so a spec can change the channel
+replies, so a spec can kill bob mid-view; `AwaitEcho` has bob's responder wait for a
+second message that never comes, so a spec can kill alice mid-view. `MetricSum` reads a
+counter or gauge from a node's metrics, such as `ViewContexts` or `Sessions`. Both nodes serve the `configseq` view, so a spec can change the channel
 configuration with the `configupdate` helpers (`SetBatchTimeout`, `ConfigSequenceOn`) and
 check which configuration a node holds. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
 budget before the network starts, and `SetFinalityWaitTimeout` how long `IsFinal` waits

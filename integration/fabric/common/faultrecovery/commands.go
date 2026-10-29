@@ -35,11 +35,19 @@ const (
 // SubmitAndWaitFinal endorses and orders n transactions between alice and bob, one
 // after the other, and returns their IDs once each is final on both nodes.
 func SubmitAndWaitFinal(ii *integration.Infrastructure, n int) []string {
+	return SubmitAndWaitFinalFrom(ii, "alice", n)
+}
+
+// SubmitAndWaitFinalFrom is SubmitAndWaitFinal with initiator, alice or one of her replica
+// IDs such as fsc.alice.0, in alice's place.
+func SubmitAndWaitFinalFrom(ii *integration.Infrastructure, initiator string, n int) []string {
 	txIDs := make([]string, 0, n)
 	for i := range n {
-		txIDs = append(txIDs, Order(ii, Endorse(ii, i)))
+		tx := endorseFrom(ii, initiator, i)
+		txIDs = append(txIDs, orderFrom(ii, initiator, tx))
 	}
-	WaitFinal(ii, txIDs...)
+	WaitFinalOn(ii, initiator, txIDs...)
+	WaitFinalOn(ii, "bob", txIDs...)
 	return txIDs
 }
 
@@ -67,15 +75,23 @@ func WaitFinalOn(ii *integration.Infrastructure, node string, txIDs ...string) {
 // transaction, not yet ordered, for Order. On Fabric, bob's vault then holds the
 // transaction as Busy.
 func Endorse(ii *integration.Infrastructure, value int) *views.Endorsed {
+	return endorseFrom(ii, "alice", value)
+}
+
+func endorseFrom(ii *integration.Infrastructure, initiator string, value int) *views.Endorsed {
 	tx := &views.Endorsed{}
-	common.JSONUnmarshal(callView(ii, "alice", "endorse", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), tx)
+	common.JSONUnmarshal(callView(ii, initiator, "endorse", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), tx)
 	return tx
 }
 
 // Order runs alice's order view on a transaction Endorse returned and returns its ID
 // once it is final on alice.
 func Order(ii *integration.Infrastructure, tx *views.Endorsed) string {
-	return common.JSONUnmarshalString(callView(ii, "alice", "order", &views.Order{Tx: tx.Tx}))
+	return orderFrom(ii, "alice", tx)
+}
+
+func orderFrom(ii *integration.Infrastructure, initiator string, tx *views.Endorsed) string {
+	return common.JSONUnmarshalString(callView(ii, initiator, "order", &views.Order{Tx: tx.Tx}))
 }
 
 // OrderEventually is Order for a network that rejects broadcasts while it recovers,
@@ -150,9 +166,19 @@ func Echo(ii *integration.Infrastructure, block bool) error {
 
 // EchoWith is Echo called through c, a view client of alice.
 func EchoWith(ii *integration.Infrastructure, c api.ViewClient, block bool) error {
+	return callEcho(c, &views.Echo{Responder: ii.Identity("bob"), Block: block})
+}
+
+// AwaitEcho runs alice's echo view through c, a view client of alice, with bob's responder
+// waiting for a second message that never comes. It returns the view's error.
+func AwaitEcho(ii *integration.Infrastructure, c api.ViewClient) error {
+	return callEcho(c, &views.Echo{Responder: ii.Identity("bob"), Await: true})
+}
+
+func callEcho(c api.ViewClient, in *views.Echo) error {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
-	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(&views.Echo{Responder: ii.Identity("bob"), Block: block}))
+	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(in))
 	return err
 }
 
