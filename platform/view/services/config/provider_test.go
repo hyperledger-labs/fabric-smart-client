@@ -64,6 +64,7 @@ func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest // t.Setenv
 	t.Setenv("CORE_NON_EXISTENT_KEY", "new")
 	t.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
 	t.Setenv("CORE_CORE_ISFINE", "yes")
+	t.Setenv("COREPACK_ENABLE_AUTO_PIN", "0")
 
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
@@ -102,16 +103,6 @@ func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest // t.Setenv
 	assert.Equal(t, "new", p.GetString("non.existent.key"))
 	assert.Equal(t, 1, p.GetInt("nested.keys.one"))
 	assert.Equal(t, "yes", p.GetString("core.isFine"))
-}
-
-func TestEnvPrefixFiltering(t *testing.T) { //nolint:paralleltest
-	t.Setenv("COREPACK_ENABLE_AUTO_PIN", "0")
-	t.Setenv("CORE_STR", "override")
-
-	p, err := NewProvider("./testdata")
-	require.NoError(t, err)
-
-	assert.Equal(t, "override", p.GetString("str"))
 	assert.NotContains(t, p.Backend.Keys(), "corepack.enable.auto.pin")
 }
 

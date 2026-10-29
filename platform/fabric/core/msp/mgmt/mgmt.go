@@ -31,12 +31,16 @@ var (
 	mspLogger = logging.MustGetLogger("msp")
 )
 
+// envPrefix selects the environment variables getConfig loads; the trailing "_" keeps
+// unrelated variables such as COREPACK_ENABLE_AUTO_PIN out of the configuration.
+const envPrefix = "CORE_"
+
 func getConfig() (*koanf.Koanf, error) {
 	k := koanf.New(".")
 	err := k.Load(env.Provider(".", env.Opt{
-		Prefix: "CORE",
+		Prefix: envPrefix,
 		TransformFunc: func(k, v string) (string, any) {
-			return strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(k, "CORE_")), "_", "."), v
+			return strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(k, envPrefix)), "_", "."), v
 		},
 	}), nil)
 	return k, err

@@ -186,6 +186,16 @@ func TestLoadLocalMSP_UnknownType(t *testing.T) { //nolint:paralleltest // share
 	}, "expected panic for unknown MSP type")
 }
 
+func TestGetConfig_EnvPrefix(t *testing.T) { //nolint:paralleltest // t.Setenv
+	t.Setenv("CORE_PEER_LOCALMSPTYPE", "idemix")
+	t.Setenv("COREPACK_ENABLE_AUTO_PIN", "0")
+
+	cfg, err := getConfig()
+	require.NoError(t, err)
+	require.Equal(t, "idemix", cfg.String("peer.localmsptype"))
+	require.NotContains(t, cfg.Keys(), "corepack.enable.auto.pin")
+}
+
 func TestMain(m *testing.M) {
 	mspDir := "../testdata/sampleconfig"
 
