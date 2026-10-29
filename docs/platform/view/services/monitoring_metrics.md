@@ -444,7 +444,6 @@ The following labels are part of the current FSC metric surface.
 
 The following families have implementation caveats:
 
-- `fsc_connection_*`: the `database_notifier` component reports no connection state, so no series are exported for it.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.
 - `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
