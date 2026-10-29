@@ -266,6 +266,42 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		configupdate.SetBatchTimeout(s.II, original)
 		expectConfigSequence(s.II, before+2, replicas...)
 	})
+
+	It("closes the responder session when an initiator replica dies", func() {
+		// Either bob replica may hold alice.1's session, so the gauges are summed over both.
+		Eventually(func() float64 {
+			return bobSum(s.II, faultrecovery.ViewContexts)
+		}, time.Minute, time.Second).Should(BeZero())
+		// A session left over from an earlier spec closes on its own sessionStreamGrace (5 s)
+		// after its stream died, so the baseline is a count that holds for 10 s.
+		var sessions float64
+		Eventually(func(g Gomega) {
+			sessions = bobSum(s.II, faultrecovery.Sessions)
+			g.Consistently(func() float64 {
+				return bobSum(s.II, faultrecovery.Sessions)
+			}, 10*time.Second, time.Second).Should(Equal(sessions))
+		}, time.Minute, time.Second).Should(Succeed())
+
+		echo := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			echo <- faultrecovery.AwaitEcho(s.II, s.II.Client("fsc.alice.1"))
+		}()
+		Eventually(func() float64 {
+			return bobSum(s.II, faultrecovery.ViewContexts)
+		}, time.Minute, 100*time.Millisecond).Should(BeNumerically(">", 0))
+		// Bob registers the responder session before it creates the responder's context.
+		Expect(bobSum(s.II, faultrecovery.Sessions)).To(Equal(sessions + 1))
+		s.II.KillFSCNode("alice.1")
+		DeferCleanup(s.II.StartFSCNode, "alice.1")
+		Eventually(echo, time.Minute).Should(Receive(HaveOccurred()))
+
+		Eventually(func(g Gomega) {
+			g.Expect(bobSum(s.II, faultrecovery.ViewContexts)).To(BeZero())
+			g.Expect(bobSum(s.II, faultrecovery.Sessions)).To(Equal(sessions))
+		}, faultrecovery.SessionCloseTimeout, time.Second).Should(Succeed())
+		Expect(faultrecovery.SubmitAndWaitFinalFrom(s.II, "fsc.alice.0", 1)).To(HaveLen(1))
+	})
 })
 
 // expectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
@@ -277,6 +313,11 @@ func expectSettled(ii *integration.Infrastructure, node, txID string, value int)
 		g.Expect(res).To(Equal(&views.QueryResult{Status: fdriver.Valid, Value: value}))
 	}, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed(), "tx [%s] not settled on [%s]", txID, node)
 	faultrecovery.WaitFinalOn(ii, node, txID)
+}
+
+// bobSum returns the sum of the counter or gauge name over bob's replicas.
+func bobSum(ii *integration.Infrastructure, name string) float64 {
+	return faultrecovery.MetricSum(ii, "fsc.bob.0", name) + faultrecovery.MetricSum(ii, "fsc.bob.1", name)
 }
 
 // expectConfigSequence waits until every node holds channel configuration sequence want.

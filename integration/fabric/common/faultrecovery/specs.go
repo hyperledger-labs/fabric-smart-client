@@ -32,14 +32,18 @@ const RecoveryTimeout = 2 * time.Minute
 // (postgres.DefaultStartupConnectTimeout, 60 s), or the node gives up and exits.
 const startupOutage = 10 * time.Second
 
-// sessionCloseTimeout bounds how long a view waiting on a session takes to fail after its
+// SessionCloseTimeout bounds how long a view waiting on a session takes to fail after its
 // counterparty dies: the comm package closes a session 5 s after its last stream died
 // (comm's sessionStreamGrace), plus 10 s for the survivor to see the dead stream and for
 // the error to reach the client.
-const sessionCloseTimeout = 15 * time.Second
+const SessionCloseTimeout = 15 * time.Second
 
-// viewContexts is the gauge of the view contexts a node holds, a responder's included.
-const viewContexts = "fsc_view_services_view_contexts"
+const (
+	// ViewContexts is the gauge of the view contexts a node holds, a responder's included.
+	ViewContexts = "fsc_view_services_view_contexts"
+	// Sessions is the gauge of the sessions a node holds.
+	Sessions = "fsc_view_services_comm_sessions"
+)
 
 // ShareNetwork makes the specs of the enclosing Ordered, ContinueOnFailure container share
 // one network, set up before the first spec and torn down after the last. Each spec in
@@ -48,12 +52,16 @@ const viewContexts = "fsc_view_services_view_contexts"
 // may leave the network broken, so the network is rebuilt before the next spec runs; if
 // the rebuild fails, that spec fails before its body runs and the next one tries again.
 // A spec that changes the network for good may share it only as the last spec of the
-// container. When the suite timeout expires, ginkgo skips the remaining specs without
-// running AfterAll, so the network is left running.
+// container. The network is torn down by a DeferCleanup registered in BeforeAll, which
+// ginkgo runs after the DeferCleanup of the last spec, so a spec may restart a node it
+// killed in a DeferCleanup. When the suite timeout expires, ginkgo skips the remaining
+// specs without tearing down, so the network is left running.
 func ShareNetwork(s *integration.TestSuite) {
 	var broken bool
-	ginkgo.BeforeAll(s.Setup)
-	ginkgo.AfterAll(s.TearDown)
+	ginkgo.BeforeAll(func() {
+		s.Setup()
+		ginkgo.DeferCleanup(s.TearDown)
+	})
 	ginkgo.BeforeEach(func() {
 		if broken {
 			s.TearDown()
@@ -75,7 +83,7 @@ func CrashSpecs(s *integration.TestSuite) {
 		// The echo view waits a minute for the reply, so only the closed session ends it
 		// this early.
 		var err error
-		gomega.Eventually(echo, sessionCloseTimeout).Should(gomega.Receive(&err))
+		gomega.Eventually(echo, SessionCloseTimeout).Should(gomega.Receive(&err))
 		gomega.Expect(err).To(gomega.MatchError(view.ErrViewExecutionFailed))
 		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("session receive channel is closed")))
 
@@ -159,7 +167,7 @@ func ClientSpecs(s *integration.TestSuite) {
 			c := cl.get()
 			echo := blockedEcho(s, c)
 			// blockedEcho saw exactly this call's responder.
-			gomega.Expect(MetricSum(s.II, "bob", viewContexts)).To(gomega.Equal(1.0))
+			gomega.Expect(MetricSum(s.II, "bob", ViewContexts)).To(gomega.Equal(1.0))
 			s.II.KillFSCNode("alice")
 			// The call's own deadline is viewTimeout, so a client that retried it would
 			// still be blocked after 10 s.
@@ -179,7 +187,7 @@ func blockedEcho(s *integration.TestSuite, c api.ViewClient) <-chan error {
 	// On a shared network the previous spec's responder may still hold its context for
 	// a moment after its view ends, so the baseline waits for it.
 	gomega.EventuallyWithOffset(1, func() float64 {
-		return MetricSum(s.II, "bob", viewContexts)
+		return MetricSum(s.II, "bob", ViewContexts)
 	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeZero())
 	echo := make(chan error, 1)
 	go func() {
@@ -197,7 +205,7 @@ func blockedEcho(s *integration.TestSuite, c api.ViewClient) <-chan error {
 		}
 		families, err := s.II.WebClient("bob").Metrics()
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		return sumFamily(families, viewContexts)
+		return sumFamily(families, ViewContexts)
 	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", 0))
 	return echo
 }

@@ -212,6 +212,9 @@ const echoTimeout = time.Minute
 // blockMessage asks EchoResponderView to hold the session open without replying.
 const blockMessage = "block"
 
+// awaitMessage asks EchoResponderView to wait for a second message and echo that one.
+const awaitMessage = "await"
+
 // Echo is the input of EchoView.
 type Echo struct {
 	// Responder is the FSC node that answers.
@@ -219,6 +222,9 @@ type Echo struct {
 	// Block makes the responder receive the message and then wait, without replying,
 	// until its view context ends, so a spec can kill the responder's node mid-view.
 	Block bool
+	// Await makes the responder wait for a second message, which EchoView never sends,
+	// so a spec can kill the initiator's node while the responder reads its session.
+	Await bool
 }
 
 // EchoView sends one message to the responder and returns once the responder echoes it.
@@ -235,6 +241,9 @@ func (v *EchoView) Call(viewCtx view.Context) (any, error) {
 	msg := []byte("echo")
 	if v.Block {
 		msg = []byte(blockMessage)
+	}
+	if v.Await {
+		msg = []byte(awaitMessage)
 	}
 	if err := s.Send(viewCtx.Context(), msg); err != nil {
 		return nil, errors.WithMessage(err, "failed sending")
@@ -257,7 +266,7 @@ func (*EchoViewFactory) NewView(in []byte) (view.View, error) {
 }
 
 // EchoResponderView answers EchoView: it sends the message back, or, when asked to block,
-// waits until its view context ends.
+// waits until its view context ends, or, when asked to await, echoes the next message.
 type EchoResponderView struct{}
 
 func (*EchoResponderView) Call(viewCtx view.Context) (any, error) {
@@ -268,6 +277,11 @@ func (*EchoResponderView) Call(viewCtx view.Context) (any, error) {
 	if string(msg) == blockMessage {
 		<-viewCtx.Context().Done()
 		return nil, viewCtx.Context().Err()
+	}
+	if string(msg) == awaitMessage {
+		if msg, err = session.ReadMessageWithTimeout(s, echoTimeout); err != nil {
+			return nil, err
+		}
 	}
 	return nil, s.Send(viewCtx.Context(), msg)
 }

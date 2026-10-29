@@ -35,11 +35,20 @@ const (
 // SubmitAndWaitFinal endorses and orders n transactions between alice and bob, one
 // after the other, and returns their IDs once each is final on both nodes.
 func SubmitAndWaitFinal(ii *integration.Infrastructure, n int) []string {
+	return SubmitAndWaitFinalFrom(ii, "alice", n)
+}
+
+// SubmitAndWaitFinalFrom is SubmitAndWaitFinal with initiator, alice or one of her replica
+// IDs such as fsc.alice.0, in alice's place.
+func SubmitAndWaitFinalFrom(ii *integration.Infrastructure, initiator string, n int) []string {
 	txIDs := make([]string, 0, n)
 	for i := range n {
-		txIDs = append(txIDs, Order(ii, Endorse(ii, i)))
+		tx := &views.Endorsed{}
+		common.JSONUnmarshal(callView(ii, initiator, "endorse", &views.Submit{Value: i, Responder: ii.Identity("bob")}).([]byte), tx)
+		txIDs = append(txIDs, common.JSONUnmarshalString(callView(ii, initiator, "order", &views.Order{Tx: tx.Tx})))
 	}
-	WaitFinal(ii, txIDs...)
+	WaitFinalOn(ii, initiator, txIDs...)
+	WaitFinalOn(ii, "bob", txIDs...)
 	return txIDs
 }
 
@@ -150,9 +159,19 @@ func Echo(ii *integration.Infrastructure, block bool) error {
 
 // EchoWith is Echo called through c, a view client of alice.
 func EchoWith(ii *integration.Infrastructure, c api.ViewClient, block bool) error {
+	return callEcho(c, &views.Echo{Responder: ii.Identity("bob"), Block: block})
+}
+
+// AwaitEcho runs alice's echo view through c, a view client of alice, with bob's responder
+// waiting for a second message that never comes. It returns the view's error.
+func AwaitEcho(ii *integration.Infrastructure, c api.ViewClient) error {
+	return callEcho(c, &views.Echo{Responder: ii.Identity("bob"), Await: true})
+}
+
+func callEcho(c api.ViewClient, in *views.Echo) error {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
-	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(&views.Echo{Responder: ii.Identity("bob"), Block: block}))
+	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(in))
 	return err
 }
 
