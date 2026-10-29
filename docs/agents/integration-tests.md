@@ -254,11 +254,14 @@ on both nodes; `SubmitAndWaitFinalFrom` does the same from one of alice's replic
 `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
 transaction is ordered. `OrderEventually` retries `Order` while the orderers reject
-broadcasts, for example during a raft leader election. `Echo` runs a two-party view that
-touches no ledger; with `block` set, bob's responder receives the message and never
-replies, so a spec can kill bob mid-view; `AwaitEcho` has bob's responder wait for a
-second message that never comes, so a spec can kill alice mid-view. `MetricSum` reads a
-counter or gauge from a node's metrics, such as `ViewContexts` or `Sessions`. Both nodes serve the `configseq` view, so a spec can change the channel
+broadcasts, for example during a raft leader election; `EndorseEventually` retries
+`Endorse` while alice's connection to bob fails over to another replica. `Echo` runs a
+two-party view that touches no ledger; with `block` set, bob's responder receives the
+message and never replies, so a spec can kill bob mid-view. `BlockedEcho` starts such an
+echo and returns once the responder blocks on a given node or replica. `AwaitEcho` has
+bob's responder wait for a second message that never comes, so a spec can kill alice
+mid-view. `MetricSum` reads a counter or gauge from a node's metrics, such as
+`ViewContexts` or `Sessions`. Both nodes serve the `configseq` view, so a spec can change the channel
 configuration with the `configupdate` helpers (`SetBatchTimeout`, `ConfigSequenceOn`) and
 check which configuration a node holds. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
 budget before the network starts, and `SetFinalityWaitTimeout` how long `IsFinal` waits

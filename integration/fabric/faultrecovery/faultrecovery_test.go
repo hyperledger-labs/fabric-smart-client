@@ -26,6 +26,7 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 const (
@@ -212,6 +213,56 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		}
 		s.II.StartFSCNode(endorser.UniqueName)
 		expectSettled(s.II, endorser.ID(), tx.TxID, 1)
+	})
+
+	It("serves new sessions after the replica holding them dies", func() {
+		// The first tx opens alice's connection, which ConnectedReplica looks for.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+		held, others := faultrecovery.ConnectedReplica(s.II, "bob")
+		Expect(others).To(HaveLen(1))
+		survivor := others[0]
+		s.II.KillFSCNode(held.UniqueName)
+
+		// The kill closes alice's connection, so her next session dials the load balancer
+		// again and reaches the survivor.
+		tx := faultrecovery.EndorseEventually(s.II, 1)
+		expectSettled(s.II, survivor.ID(), faultrecovery.Order(s.II, tx), 1)
+		now, _ := faultrecovery.ConnectedReplica(s.II, "bob")
+		Expect(now.UniqueName).To(Equal(survivor.UniqueName))
+
+		s.II.StartFSCNode(held.UniqueName)
+		txIDs := faultrecovery.SubmitAndWaitFinal(s.II, 10)
+		last := len(txIDs) - 1
+		for _, r := range []string{held.ID(), survivor.ID()} {
+			expectSettled(s.II, r, txIDs[last], last)
+		}
+	})
+
+	It("fails an in-flight view cleanly when its replica dies", func() {
+		// An echo opens alice's connection, which ConnectedReplica looks for.
+		Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
+		held, others := faultrecovery.ConnectedReplica(s.II, "bob")
+		Expect(others).To(HaveLen(1))
+		survivor := others[0]
+
+		echo := faultrecovery.BlockedEcho(s.II, s.II.Client("alice"), held.ID())
+		s.II.KillFSCNode(held.UniqueName)
+		// The echo view waits a minute for the reply, so only the closed session ends it
+		// this early, and a retried view would still be blocked.
+		var err error
+		Eventually(echo, faultrecovery.SessionCloseTimeout).Should(Receive(&err))
+		Expect(err).To(MatchError(view.ErrViewExecutionFailed))
+		Expect(err).To(MatchError(ContainSubstring("session receive channel is closed")))
+		// No message of the failed view reaches the survivor: it would open a responder
+		// context for it.
+		Consistently(func() float64 {
+			return faultrecovery.MetricSum(s.II, survivor.ID(), faultrecovery.ViewContexts)
+		}, 2*time.Second, 100*time.Millisecond).Should(BeZero())
+
+		Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
+		now, _ := faultrecovery.ConnectedReplica(s.II, "bob")
+		Expect(now.UniqueName).To(Equal(survivor.UniqueName))
+		s.II.StartFSCNode(held.UniqueName)
 	})
 
 	It("keeps committing when one replica is killed", func() {
