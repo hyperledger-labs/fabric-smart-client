@@ -47,19 +47,14 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 
-	// Pending: the all-in-one committer container also runs a mock orderer that keeps
-	// blocks in memory only. After StartCommitter it restarts from the genesis block while
-	// the sidecar resumes from the block it recovered from its database, so a transaction
-	// ordered after the restart never commits. The spec runs once nwo can restart the
-	// committer without the orderer (#2268).
-	PIt("survives committer restart", func() {
+	It("survives committer restart", func() {
 		notification := fsc.Connection{Component: connstate.ComponentFabricxNotification}
 		committer := nwofabricx.FxPlatform(s.II)
 		tx := faultrecovery.Endorse(s.II, 1)
 
-		// The committer container also runs the orderer, so the transaction is ordered
-		// only once it is back. Bob's listener is registered while it is down, so it
-		// waits on no stream and is requested on the one opened after the restart.
+		// Bob's listener is registered while the committer is down, so it waits on no
+		// stream and is requested on the one opened after the restart. The transaction
+		// is ordered after the restart, so the restarted sidecar has to deliver it.
 		committer.StopCommitter()
 		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
 		final := make(chan error, 1)

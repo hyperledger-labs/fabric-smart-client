@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"strconv"
@@ -169,7 +170,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 	return nil
 }
 
-// containerTimeout bounds how long StopContainer and StartContainer wait.
+// containerTimeout bounds how long StopContainer, StartContainer, and Exec wait.
 const containerTimeout = time.Minute
 
 // StopContainer stops the named container and returns once it has exited. The
@@ -272,6 +273,48 @@ func PortBindings(ports ...int) network.PortMap {
 		}}
 	}
 	return m
+}
+
+// Exec runs cmd in the named, running container and returns once it has
+// exited. It fails if cmd exits non-zero or runs longer than containerTimeout.
+// Its output is discarded, so a command that leaves a process running in the
+// background must redirect that process's output.
+func (d *Docker) Exec(name string, cmd ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), containerTimeout)
+	defer cancel()
+	created, err := d.Client.ExecCreate(ctx, name, dcli.ExecCreateOptions{Cmd: cmd, AttachStdout: true, AttachStderr: true})
+	if err != nil {
+		return errors.Wrapf(err, "failed creating exec %v in container [%s]", cmd, name)
+	}
+	attached, err := d.Client.ExecAttach(ctx, created.ID, dcli.ExecAttachOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "failed starting exec %v in container [%s]", cmd, name)
+	}
+	defer attached.Close()
+	// The hijacked stream ignores ctx; closing it on timeout unblocks the copy.
+	defer context.AfterFunc(ctx, attached.Close)()
+	// The output stream ends once cmd has exited.
+	if _, err := io.Copy(io.Discard, attached.Reader); err != nil && ctx.Err() == nil {
+		return errors.Wrapf(err, "failed running exec %v in container [%s]", cmd, name)
+	}
+	// The daemon may record the exit code shortly after the stream ends.
+	for {
+		inspect, err := d.Client.ExecInspect(ctx, created.ID, dcli.ExecInspectOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed inspecting exec %v in container [%s]", cmd, name)
+		}
+		if !inspect.Running {
+			if inspect.ExitCode != 0 {
+				return errors.Errorf("exec %v in container [%s] exited with code %d", cmd, name, inspect.ExitCode)
+			}
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return errors.Wrapf(ctx.Err(), "exec %v in container [%s] did not finish", cmd, name)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
 
 func StartLogs(cli dcli.APIClient, containerID, _ string) error {

@@ -52,22 +52,47 @@ func (e *Extension) ports() (sidecar, query, ordering int) {
 		int(e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
 }
 
-// StopCommitter stops the committer container and returns once it has exited.
-// The container keeps its state, so StartCommitter resumes the same ledger.
+// committerProcesses matches the committer services the image's run script
+// starts for its committer operation: verifier, vc, query, coordinator, and
+// sidecar. The brackets keep the pattern from matching the shell that runs it.
+const committerProcesses = "$BINS_PATH/[c]ommitter start"
+
+// StopCommitter stops the committer services in the committer container and
+// returns once they have exited. The container's database and mock orderer keep
+// running: the mock orderer of the committer test container holds its blocks in
+// memory only, so restarting it would lose the blocks the sidecar resumes from.
+// For the same reason nwo offers no way to restart the Fabric-x orderer.
 func (e *Extension) StopCommitter() {
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect(d.StopContainer(e.containerName())).To(gomega.Succeed())
+	gomega.Expect(d.Exec(e.containerName(), "sh", "-c", fmt.Sprintf(
+		`pkill -f "%[1]s"; while pgrep -f "%[1]s" >/dev/null; do sleep 0.1; done`, committerProcesses,
+	))).To(gomega.Succeed())
 }
 
-// StartCommitter restarts the container stopped by StopCommitter and returns
-// once its sidecar, query, and ordering services accept connections.
+// StartCommitter starts the committer services stopped by StopCommitter and
+// returns once its sidecar, query, and ordering services accept connections.
+// The services resume from their database, and the sidecar fetches the blocks
+// it has not processed yet from the mock orderer, so a transaction ordered after
+// StartCommitter returns commits. The test fails at once if the services exit
+// before they are ready.
 func (e *Extension) StartCommitter() {
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	since := time.Now().Format(time.RFC3339Nano)
-	gomega.Expect(d.StartContainer(e.containerName())).To(gomega.Succeed())
-	e.followLogsAndWait(d.Client, e.containerName(), since)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	// The run script waits for the services it starts, so its output stream ends
+	// once they have all exited.
+	created, err := d.Client.ExecCreate(ctx, e.containerName(), dcli.ExecCreateOptions{
+		Cmd:          containerCmd(containerConfig{TLSEnabled: e.network.TLSEnabled}, "committer"),
+		TTY:          true,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	attached, err := d.Client.ExecAttach(ctx, created.ID, dcli.ExecAttachOptions{TTY: true})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	e.waitUntilReady(e.forwardLogs(attached.Reader, attached.Close))
 }
 
 func (e *Extension) launchContainer() {
@@ -134,7 +159,7 @@ func (e *Extension) launchContainer() {
 				AttachStderr: true,
 				ExposedPorts: docker.PortSet(sidecarPort, queryServicePort, orderingServicePort),
 				Env:          containerEnvVars(cfg),
-				Cmd:          containerCmd(cfg),
+				Cmd:          containerCmd(cfg, "db", "orderer", "committer"),
 			},
 			HostConfig: &container.HostConfig{
 				ExtraHosts: extraHosts,
@@ -172,47 +197,46 @@ func (e *Extension) launchContainer() {
 	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	e.followLogsAndWait(cli, resp.ID, "")
-}
-
-// followLogsAndWait forwards the logs the running committer container writes
-// from since on (all of them if since is empty) to the logger until the
-// container stops, and waits until its services accept connections. The test
-// fails if they do not within 90 seconds or the container stops first.
-func (e *Extension) followLogsAndWait(cli dcli.APIClient, containerID, since string) {
-	containerName := e.containerName()
-	sidecarPeer := e.network.Peer(e.cfg.SidecarOrg, e.cfg.SidecarName)
-	sidecarPort, queryServicePort, orderingServicePort := e.ports()
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	dockerLogger := logging.MustGetLogger("sc.container." + containerName)
-	reader, errx := cli.ContainerLogs(context.TODO(), containerID, dcli.ContainerLogsOptions{
+	logs, err := cli.ContainerLogs(ctx, resp.ID, dcli.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,
-		Since:      since,
 	})
-	gomega.Expect(errx).NotTo(gomega.HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	e.waitUntilReady(e.forwardLogs(logs, func() { _ = logs.Close() }))
+}
+
+// forwardLogs forwards what the committer container writes to r to the logger
+// until r ends, then calls closeReader. The returned context is canceled once r
+// ends, which happens when the processes writing to it exit.
+func (e *Extension) forwardLogs(r io.Reader, closeReader func()) context.Context {
+	containerName := e.containerName()
+	ctx, cancel := context.WithCancel(context.Background())
+	dockerLogger := logging.MustGetLogger("sc.container." + containerName)
 	go func() {
 		defer cancel()
 		dockerLogger.Debugf("fetch logs from container [%s]", containerName)
 		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
-		defer func() {
-			_ = reader.Close()
-		}()
+		defer closeReader()
 
 		w := &zapio.Writer{
 			Log:   dockerLogger.Zap(),
 			Level: zap.DebugLevel,
 		}
-
-		// copy returns when the container is stopped
-		// and therefore cancels the context
-		_, copyErr := io.Copy(w, reader)
+		_, copyErr := io.Copy(w, r)
 		if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, io.ErrClosedPipe) {
 			dockerLogger.Error(copyErr)
 		}
 	}()
+	return ctx
+}
+
+// waitUntilReady waits until the sidecar, query, and ordering services of the
+// committer container accept connections. The test fails if they do not within
+// 90 seconds or ctx ends first.
+func (e *Extension) waitUntilReady(ctx context.Context) {
+	sidecarPeer := e.network.Peer(e.cfg.SidecarOrg, e.cfg.SidecarName)
+	sidecarPort, queryServicePort, orderingServicePort := e.ports()
 
 	var tlsConfig credentials.TransportCredentials
 	if e.network.TLSEnabled {
@@ -234,14 +258,8 @@ func (e *Extension) followLogsAndWait(cli dcli.APIClient, containerID, since str
 		})
 	}
 
-	const timeout = 90 * time.Second
-	// we extend container logging context with a timeout;
-	// if the container is closed or the timeout fires;
-	// the context is canceled and aborts the wait function
-	ctx, cancel = context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-
-	// let's wait until the sidecar is ready
 	g, ctx := errgroup.WithContext(ctx)
 	for _, p := range []int{sidecarPort, orderingServicePort, queryServicePort} {
 		g.Go(func() error {

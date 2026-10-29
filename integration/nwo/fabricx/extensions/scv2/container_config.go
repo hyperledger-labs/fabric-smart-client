@@ -35,8 +35,10 @@ func containerImage(cfg containerConfig) string {
 	return cmp.Or(cfg.Image, committerImageName)
 }
 
-func containerCmd(cfg containerConfig) []string {
-	cmd := []string{"run", "db", "orderer", "committer"}
+// containerCmd returns the command that runs the image's run script for the
+// given operations, such as "db", "orderer", and "committer".
+func containerCmd(cfg containerConfig, ops ...string) []string {
+	cmd := append([]string{"run"}, ops...)
 
 	if !cfg.TLSEnabled {
 		cmd = append(cmd, "--insecure")
