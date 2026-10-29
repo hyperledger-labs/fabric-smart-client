@@ -26,7 +26,7 @@ func TestGenerateCoreConfig_LoadBalancer(t *testing.T) { //nolint:paralleltest /
 	topology.AddNodeByName("alice")
 	topology.AddNodeByName("bob").AddOptions(WithReplicationFactor(2), WithLoadBalancer())
 	p := NewPlatform(nwocontext.New(t.TempDir(), 20000, nil), topology, nil)
-	lb := p.LoadBalancers["bob"]
+	lb := p.loadBalancers["bob"]
 	require.NotEmpty(t, lb)
 
 	p.GenerateResolverMap()

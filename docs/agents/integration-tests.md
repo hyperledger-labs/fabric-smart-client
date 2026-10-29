@@ -300,7 +300,7 @@ on that replica alone, and `Client("fsc.bob.1")` and `WebClient("fsc.bob.1")` re
 node name selects the first replica in the fault calls and the last one in `Client` and
 `WebClient`. The Fabric suite's `replication` `Describe` runs on
 `faultrecovery.ReplicatedFSCTopology`: bob with two replicas behind a load balancer, alice
-with two replicas without one, each node on its one database.
+with two replicas without one, each node on its own database.
 
 `fsc.Connection` holds the four labels of a series: `Network`, `Channel`, `Component`
 and `Endpoint`. An empty field matches any value, and at least one series must match.

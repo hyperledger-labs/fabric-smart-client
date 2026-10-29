@@ -99,8 +99,8 @@ type Platform struct {
 	metricsAggregatorProcess ifrit.Process
 	cleanDB                  func()
 
-	// LoadBalancers holds, by node name, the proxy address of each node with WithLoadBalancer.
-	LoadBalancers map[string]string
+	// loadBalancers holds, by node name, the proxy address of each node with WithLoadBalancer.
+	loadBalancers map[string]string
 	proxies       map[string]*common.Proxy
 }
 
@@ -257,11 +257,11 @@ func (p *Platform) PreRun() {
 	p.startLoadBalancers()
 }
 
-// startLoadBalancers starts the proxy of each node in LoadBalancers, forwarding to the
+// startLoadBalancers starts the proxy of each node in loadBalancers, forwarding to the
 // P2P port of every replica of the node.
 func (p *Platform) startLoadBalancers() {
 	p.proxies = map[string]*common.Proxy{}
-	for name, address := range p.LoadBalancers {
+	for name, address := range p.loadBalancers {
 		var backends []string
 		for _, peer := range p.Peers {
 			if peer.Name == name {
@@ -473,10 +473,10 @@ func (p *Platform) CheckTopology() {
 			panic("replication only supported for websocket p2p communication")
 		}
 		if node.Options.LoadBalancer() {
-			if p.LoadBalancers == nil {
-				p.LoadBalancers = map[string]string{}
+			if p.loadBalancers == nil {
+				p.loadBalancers = map[string]string{}
 			}
-			p.LoadBalancers[node.Name] = fmt.Sprintf("127.0.0.1:%d", p.Context.ReservePort())
+			p.loadBalancers[node.Name] = fmt.Sprintf("127.0.0.1:%d", p.Context.ReservePort())
 		}
 		for _, uniqueName := range node.ReplicaUniqueNames() {
 			var extraIdentities []*nwonode.PeerIdentity
