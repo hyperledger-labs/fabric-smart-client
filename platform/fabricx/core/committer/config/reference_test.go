@@ -23,6 +23,9 @@ func TestReferenceConfiguration(t *testing.T) {
 	r.Decode(network+".queryService", &config.Config{}, "endpoints")
 	r.DecodeEndpoints(network + ".queryService.endpoints")
 
+	r.Decode(network+".notificationService", &config.Config{}, "endpoints")
+	r.DecodeEndpoints(network + ".notificationService.endpoints")
+
 	// Read by platform/fabricx/core/channel/config.
 	r.Read(
 		network+".configMonitor.pollInterval",
@@ -31,5 +34,5 @@ func TestReferenceConfiguration(t *testing.T) {
 		network+".configMonitor.maxRetryDelay",
 	)
 
-	r.RequireComplete(network+".queryService", network+".configMonitor")
+	r.RequireComplete(network+".queryService", network+".notificationService", network+".configMonitor")
 }

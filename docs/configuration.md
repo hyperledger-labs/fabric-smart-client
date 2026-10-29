@@ -24,6 +24,9 @@ fsc:
 
   # This is the identity of the node
   identity:
+    # Selects the key-management driver. file is the default and the only built-in driver;
+    # an unknown value is rejected with an error.
+    type: file
     cert:
       file: /path/to/cert.pem
     key:
@@ -713,7 +716,30 @@ fabric:
             clientKey:
               file: /path/to/client.key
         - address: 'sidecar2:4001'
-    # notificationService takes the same endpoints and tls shape.
+    # Fabric-x notification service: pushes transaction finality events to this node.
+    # endpoints and tls take the same shape as queryService. handlerTimeout, handlerWorkers,
+    # handlerQueueSize and sweepInterval fall back to their default when set to 0.
+    notificationService:
+      # Sent to the committer as the subscription timeout. Default: 30s. Unlike
+      # queryService, an explicit 0 or negative value lets the committer choose its own
+      # maximum timeout.
+      requestTimeout: 30s
+      endpoints:
+        - address: 'sidecar:4001'
+      # Deadline on the context passed to one finality listener callback. Advisory:
+      # a callback that ignores cancellation is not stopped. Default: 5s.
+      handlerTimeout: 5s
+      # How many listener callbacks may run at the same time. A callback that never
+      # returns occupies one worker for good. Default: 16.
+      handlerWorkers: 16
+      # How many pending callbacks are buffered while all workers are busy. Default: 1000.
+      handlerQueueSize: 1000
+      # How long a listener waits for a notification before it is settled as Unknown.
+      # Default: 2m. An explicit 0 disables this local expiry.
+      listenerTTL: 2m
+      # How often expired listeners are collected, so a listener lives at most
+      # listenerTTL + sweepInterval. Default: 30s.
+      sweepInterval: 30s
 
      # Channel Configuration Monitor settings (FabricX only)
      # Applies to all channels in this network
