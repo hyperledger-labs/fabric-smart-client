@@ -349,6 +349,25 @@ func (i *Infrastructure) KillFSCNode(id string) {
 	i.NWO.KillFSCNode(id)
 }
 
+// PauseFSCNode freezes the FSC node with the given id with SIGSTOP, keeping its
+// process and connections. Continue it with ResumeFSCNode.
+func (i *Infrastructure) PauseFSCNode(id string) {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+
+	i.NWO.PauseFSCNode(id)
+}
+
+// ResumeFSCNode continues the FSC node frozen by PauseFSCNode.
+func (i *Infrastructure) ResumeFSCNode(id string) {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+
+	i.NWO.ResumeFSCNode(id)
+}
+
 // StopPeer stops the Fabric peer with the given name and returns once it is gone.
 // The test fails unless exactly one running Fabric network has a peer of that name.
 func (i *Infrastructure) StopPeer(name string) { i.NWO.StopMember(i.fabricMember("peer", name)) }

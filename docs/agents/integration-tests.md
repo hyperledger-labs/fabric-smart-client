@@ -220,6 +220,7 @@ around it.
 |---|---|
 | `StopFSCNode(id)` / `StartFSCNode(id)` | SIGTERM the node and wait for exit / start it again and wait for readiness |
 | `KillFSCNode(id)` | SIGKILL the node, as a crash would; restart with `StartFSCNode` |
+| `PauseFSCNode(id)` / `ResumeFSCNode(id)` | SIGSTOP / SIGCONT the node: it keeps its process and connections but falls behind, e.g. a replica while another commits |
 | `StopPeer(name)` / `StartPeer(name)` | the same for a Fabric peer, e.g. `Org1_peer_0` |
 | `StopOrderer(name)` / `StartOrderer(name)` | the same for a Fabric orderer, e.g. `orderer` |
 | `StopPostgres(dbName)` / `StartPostgres(dbName)` | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive |
@@ -303,7 +304,10 @@ per replica P2P address, so a spec can find the replica that holds a peer's conn
 `StopFSCNode`, `KillFSCNode` and `StartFSCNode` take a replica name such as `bob.1` to act
 on that replica alone, and `Client("fsc.bob.1")` and `WebClient("fsc.bob.1")` reach it. A
 node name selects the first replica in the fault calls and the last one in `Client` and
-`WebClient`. The Fabric suite's `replication` `Describe` runs on
+`WebClient`. Helpers that take a node name, such as `faultrecovery.WaitFinal`, therefore
+reach its last replica; while a replica is down, poll the survivor by replica ID, for
+example with `WaitFinalOn(ii, "fsc.bob.0", txID)`. The
+Fabric suite's `replication` `Describe` runs on
 `faultrecovery.ReplicatedFSCTopology`: bob with two replicas behind a load balancer, alice
 with two replicas without one, each node on its own database.
 
