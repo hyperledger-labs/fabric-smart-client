@@ -60,7 +60,7 @@ func TestReferenceConfiguration(t *testing.T) {
 		}
 	}
 
-	r.Delegate(network+".queryService", network+".configMonitor")
+	r.Delegate(network+".queryService", network+".notificationService", network+".configMonitor")
 
 	r.RequireComplete("fabric")
 }

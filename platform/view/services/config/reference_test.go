@@ -34,6 +34,7 @@ func TestReferenceConfiguration(t *testing.T) {
 		"fsc.id",
 		"fsc.identity.cert.file",
 		"fsc.identity.key.file",
+		"fsc.identity.type",
 		"fsc.kvs.cache.size",
 		"fsc.metrics.provider",
 	)
