@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 // Package web is the HTTP binding of the view service (see protos.ProcessCommandHTTPPath).
 // Its handlers decode protojson messages and call the same protos.ViewServiceServer that
 // serves gRPC, so authentication, binding, replay protection, view execution and response
-// signing are one implementation for both transports.
+// signing are one implementation for both transports. Decoding ignores unknown fields, as
+// gRPC does, so peers of different versions interoperate when a message gains a field.
 package web
 
 import (
@@ -56,7 +57,7 @@ func NewProcessCommandHandler(svc protos.ViewServiceServer, maxRecvMsgSize int, 
 			return
 		}
 		sc := &protos.SignedCommand{}
-		if err := protojson.Unmarshal(body, sc); err != nil {
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(body, sc); err != nil {
 			http.Error(w, "request body is not a SignedCommand", http.StatusBadRequest)
 			return
 		}

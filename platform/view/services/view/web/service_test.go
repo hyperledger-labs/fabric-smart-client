@@ -257,3 +257,12 @@ func TestStreamCommandHandlerStopsOnCancel(t *testing.T) {
 		t.Fatal("stream handler did not return after its context was cancelled")
 	}
 }
+
+// A peer of a newer version may send fields this version does not know; the handler ignores
+// them, as gRPC does.
+func TestProcessCommandHandlerIgnoresUnknownFields(t *testing.T) {
+	t.Parallel()
+	ts := newTestServer(t, &echoService{}, 1024)
+	code, raw := post(t, ts.URL+protos.ProcessCommandHTTPPath, []byte(`{"command":"Y21k","futureField":7}`))
+	require.Equal(t, http.StatusOK, code, string(raw))
+}

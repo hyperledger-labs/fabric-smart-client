@@ -93,3 +93,8 @@ for the trust and identity model.
 - TLS is configurable for all network communication.
 - View sessions verify peer identity; endorsement policies are validated.
 - Keep endorser/HSM key material out of application views.
+- The view API's HTTP binding ignores unknown JSON fields, as gRPC ignores unknown protobuf
+  fields, so an older node accepts a message with a field it does not know and does not
+  honour it. Never add a field with security meaning (an audience, a target node, a signature
+  algorithm) to an existing view-API message; add a new command type, which an older server
+  rejects with `ErrCommandNotRecognized`.
