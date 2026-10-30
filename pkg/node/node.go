@@ -9,6 +9,7 @@ package node
 import (
 	"context"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"time"
 
@@ -259,13 +260,13 @@ func (n *Node) teardown(timeout time.Duration) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for i := len(n.sdks) - 1; i >= 0; i-- {
-			s, ok := n.sdks[i].(stopper)
+		for _, v := range slices.Backward(n.sdks) {
+			s, ok := v.(stopper)
 			if !ok {
 				continue
 			}
 			if err := s.Stop(); err != nil {
-				logger.Errorf("failed stopping sdk [%T]: %s", n.sdks[i], err)
+				logger.Errorf("failed stopping sdk [%T]: %s", v, err)
 			}
 		}
 	}()
