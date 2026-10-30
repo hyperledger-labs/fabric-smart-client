@@ -26,3 +26,11 @@ func (*InitiatorViewFactory) NewView(in []byte) (view.View, error) {
 	}
 	return initiator, nil
 }
+
+// UnhostedViewFactory is the factory of Unhosted views
+type UnhostedViewFactory struct{}
+
+// NewView returns a new instance of the Unhosted view
+func (*UnhostedViewFactory) NewView([]byte) (view.View, error) {
+	return &Unhosted{}, nil
+}

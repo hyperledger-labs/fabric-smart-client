@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -91,13 +92,21 @@ func (p *P2PNode) newNetworkStreamSession(sessionID, endpointAddress, contextID,
 }
 
 // ReplyError sends payload as an error to the party with the given pkid on the session with
-// sessionID, through a one-shot session that is never registered. Messages for sessionID are
-// therefore not routed to it, and a registered session with that ID, such as one a responder
-// is about to create or already uses, is not touched.
-func (p *P2PNode) ReplyError(ctx context.Context, sessionID, contextID, endpoint string, pkid, payload []byte) error {
-	s := p.newNetworkStreamSession(sessionID, endpoint, contextID, "", nil, pkid)
-	defer s.Close()
-	return s.SendError(ctx, payload)
+// sessionID. The packet has status view.ERROR and an empty caller, which the receiver's view
+// service drops instead of answering, so rejections cannot loop between two nodes.
+//
+// ReplyError never registers a session: messages for sessionID are not routed to it, and a
+// registered session with that ID, such as one a responder is about to create or already uses,
+// is not touched. It also never opens a connection: it writes only to a stream to the peer
+// that already exists (on WebSocket, the sub-connection the rejected message arrived on; on
+// libp2p, any live stream to that peer), so that answering an unwanted message never costs a
+// dial. If there is none, it returns an error wrapping errStreamNotFound. ctx is not consulted:
+// the write is bounded by the transport's write deadline where it has one (WebSocket), and
+// otherwise by the stream's lifetime (libp2p).
+func (p *P2PNode) ReplyError(_ context.Context, sessionID, contextID, endpoint string, pkid, payload []byte) error {
+	info := host.StreamInfo{RemotePeerID: string(pkid), RemotePeerAddress: endpoint, ContextID: contextID, SessionID: sessionID}
+	packet := &ViewPacket{SessionID: sessionID, ContextID: contextID, Status: view.ERROR, Payload: payload}
+	return p.sendWithCachedStreams(p.host.StreamHash(info), packet, nil)
 }
 
 func (p *P2PNode) NewSession(callerViewID, contextID, endpoint string, pkid []byte) (view.Session, error) {

@@ -33,6 +33,9 @@ func main() {
 		if err := registry.RegisterFactory("stream", &pingpong.StreamerViewFactory{}); err != nil {
 			return err
 		}
+		if err := registry.RegisterFactory("unhosted", &pingpong.UnhostedViewFactory{}); err != nil {
+			return err
+		}
 		return nil
 	})
 }

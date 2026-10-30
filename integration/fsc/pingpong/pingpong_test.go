@@ -160,6 +160,7 @@ var _ = Describe("EndToEnd", func() {
 			AfterAll(s.TearDown)
 			It("pings the responder", func() { s.TestPingPong("initiator") })
 			It("gets a mock pong only from a mocked responder", s.TestMockPingPong)
+			It("fails at once on a view the responder does not host", s.TestUnhostedView)
 		})
 	}
 
@@ -311,6 +312,16 @@ func (s *TestSuite) TestMockPingPong() {
 	res, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&fake.Params{Mock: true}))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+}
+
+// TestUnhostedView checks that a view the responder hosts no responder for fails at once with
+// the responder's unknown_view rejection, instead of waiting for its session to time out.
+func (s *TestSuite) TestUnhostedView() {
+	start := time.Now()
+	_, err := s.II.Client("initiator").CallView("unhosted", nil)
+	Expect(err).To(MatchError(ContainSubstring("unknown_view: github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/Unhosted")))
+	// Well under roundTimeout (one minute), which the call takes without the rejection.
+	Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
 }
 
 // newWebClient returns a view client that reaches the node in confDir over HTTP, signed as

@@ -116,8 +116,9 @@ func (s *Service) NewResponderSession(caller []byte, msg *view.Message) (view.Se
 	)
 }
 
-// ReplyError sends payload as an error to the sender of msg on msg's session, without
-// registering a session; see P2PNode.ReplyError.
+// ReplyError sends payload as an error to the sender of msg on msg's session, on a stream
+// that already exists, without registering a session or opening a connection; see
+// P2PNode.ReplyError.
 func (s *Service) ReplyError(ctx context.Context, msg *view.Message, payload []byte) error {
 	if err := s.init(); err != nil {
 		return ErrNotInitialized

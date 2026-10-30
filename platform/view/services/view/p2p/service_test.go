@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	endpointmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	p2pmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
@@ -271,6 +273,7 @@ func TestService_HandleResponderError(t *testing.T) {
 	// Send a message
 	msg := &view.Message{
 		ContextID: "ctx1",
+		Caller:    "caller",
 		Ctx:       ctx,
 	}
 	ch <- msg
@@ -303,7 +306,7 @@ func TestService_ClosesSessionWithoutContext(t *testing.T) {
 	ctx := t.Context()
 	require.NoError(t, service.Start(ctx))
 
-	ch <- &view.Message{ContextID: "ctx1", SessionID: "sess1", FromPKID: []byte("pkid1"), Ctx: ctx}
+	ch <- &view.Message{ContextID: "ctx1", SessionID: "sess1", Caller: "caller", FromPKID: []byte("pkid1"), Ctx: ctx}
 
 	require.Eventually(t, func() bool { return responderSession.CloseCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
 	require.Zero(t, sess.CloseCallCount(), "the master session stays open")
@@ -547,8 +550,9 @@ func TestService_LimitsRespondersPerPeer(t *testing.T) {
 	require.Never(t, func() bool { return len(lt.runner.entered) > 0 || len(rejectSending) > 0 }, 100*time.Millisecond, 5*time.Millisecond)
 	require.Equal(t, 2, lt.cl.NewResponderSessionCallCount(), "sessions for a1 and b1")
 	require.Equal(t, 1, lt.cl.ReplyErrorCallCount(), "rejection of a2")
-	_, rejected, _ := lt.cl.ReplyErrorArgsForCall(0)
+	_, rejected, payload := lt.cl.ReplyErrorArgsForCall(0)
 	require.Equal(t, "sess-a2", rejected.SessionID)
+	require.Equal(t, "busy: too many concurrent responders for this peer", string(payload))
 
 	// Free a1's slot while a2's rejection is still pending: peerA can run a responder again
 	// once the slot is released. Attempts before that are dropped, as the rejection bound
@@ -590,4 +594,219 @@ func TestNewService_MaxRespondersPerPeerConfig(t *testing.T) {
 			require.Never(t, func() bool { return len(lt.runner.entered) > tc.want }, 50*time.Millisecond, 5*time.Millisecond)
 		})
 	}
+}
+
+// countingCounter counts the additions to a metrics.Counter per label values.
+type countingCounter struct {
+	mu     sync.Mutex
+	counts map[string]float64
+}
+
+func newCountingCounter() *countingCounter { return &countingCounter{counts: map[string]float64{}} }
+
+func (c *countingCounter) With(labelValues ...string) metrics.Counter {
+	return labeledCounter{c, strings.Join(labelValues, "=")}
+}
+
+func (*countingCounter) Add(float64) { panic("rejections are always labeled") }
+
+func (c *countingCounter) count(labels string) float64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.counts[labels]
+}
+
+type labeledCounter struct {
+	*countingCounter
+	labels string
+}
+
+func (l labeledCounter) Add(delta float64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.counts[l.labels] += delta
+}
+
+// metricsProvider hands out counter for the rejections counter and checks its name.
+type metricsProvider struct {
+	metrics.Provider
+	t       *testing.T
+	counter *countingCounter
+}
+
+func (p *metricsProvider) NewCounter(o metrics.CounterOpts) metrics.Counter {
+	require.Equal(p.t, "rejections", o.Name)
+	require.Equal(p.t, []string{"reason"}, o.LabelNames)
+	return p.counter
+}
+
+// unknownViewDeps hosts a responder only for the caller "hosted".
+type unknownViewDeps struct{ freshContextDeps }
+
+func (d *unknownViewDeps) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
+	if caller != "hosted" {
+		return nil, nil, errors.New("no view found initiatable by [" + caller + "]")
+	}
+	return d.responder, nil, nil
+}
+
+// rejectTest wires a Service whose only responder answers the caller "hosted", with the
+// given per-peer limit and a rejections counter.
+type rejectTest struct {
+	*limitTest
+	counter *countingCounter
+	service *p2p.Service
+}
+
+func newRejectTest(t *testing.T, limit int) *rejectTest {
+	t.Helper()
+	rt := &rejectTest{
+		limitTest: &limitTest{
+			t:      t,
+			runner: &releasableRunner{entered: make(chan struct{}, 10)},
+			cl:     &p2pmock.CommLayer{},
+			ch:     make(chan *view.Message, 10),
+		},
+		counter: newCountingCounter(),
+	}
+	masterSess := &mock.Session{}
+	masterSess.ReceiveReturns(rt.ch)
+	rt.cl.MasterSessionReturns(masterSess, nil)
+	rt.cl.NewResponderSessionReturns(&mock.Session{}, nil)
+	deps := &unknownViewDeps{freshContextDeps{leakTestDeps{responder: &mock.View{}}}}
+	rt.service = p2p.NewService(deps, deps, rt.cl, deps, rt.runner, limitConfig(limit), p2p.WithMetrics(&metricsProvider{t: t, counter: rt.counter}))
+	require.NoError(t, rt.service.Start(t.Context()))
+	return rt
+}
+
+func (rt *rejectTest) sendMsg(msg *view.Message) {
+	if msg.Ctx == nil {
+		msg.Ctx = context.Background()
+	}
+	if msg.FromPKID == nil {
+		msg.FromPKID = []byte("peer")
+	}
+	rt.ch <- msg
+}
+
+// TestService_UnknownViewGetsErrorReply checks that a first message for a view with no
+// responder on this node gets the error "unknown_view: <caller>" instead of only a log line,
+// so that the initiator fails at once, and that no responder session is created for it.
+func TestService_UnknownViewGetsErrorReply(t *testing.T) {
+	t.Parallel()
+	rt := newRejectTest(t, 1)
+
+	rt.sendMsg(&view.Message{ContextID: "ctx", SessionID: "sess", Caller: "github.com/acme/app/Unhosted"})
+
+	require.Eventually(t, func() bool { return rt.cl.ReplyErrorCallCount() == 1 }, 5*time.Second, 5*time.Millisecond)
+	_, msg, payload := rt.cl.ReplyErrorArgsForCall(0)
+	require.Equal(t, "sess", msg.SessionID)
+	require.Equal(t, "unknown_view: github.com/acme/app/Unhosted", string(payload))
+	require.Zero(t, rt.cl.NewResponderSessionCallCount())
+	require.Eventually(t, func() bool { return rt.counter.count("reason=unknown_view") == 1 }, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestService_UnknownViewTakesRejectionSlot checks that unknown-view rejections share the
+// per-peer bound on pending rejections, and do not take a responder slot.
+func TestService_UnknownViewTakesRejectionSlot(t *testing.T) {
+	t.Parallel()
+	rt := newRejectTest(t, 1)
+	sending := make(chan struct{}, 10)
+	unblock := make(chan struct{})
+	rt.cl.ReplyErrorStub = func(context.Context, *view.Message, []byte) error {
+		sending <- struct{}{}
+		<-unblock
+		return nil
+	}
+
+	rt.sendMsg(&view.Message{ContextID: "u1", SessionID: "u1", Caller: "unhosted"})
+	rt.wait(sending, "u1 to be rejected")
+	rt.sendMsg(&view.Message{ContextID: "u2", SessionID: "u2", Caller: "unhosted"}) // rejection bound full: dropped
+	rt.sendMsg(&view.Message{ContextID: "h1", SessionID: "h1", Caller: "hosted"})
+	rt.wait(rt.runner.entered, "h1 to run")
+
+	require.Never(t, func() bool { return len(sending) > 0 }, 50*time.Millisecond, 5*time.Millisecond)
+	require.Equal(t, 1, rt.cl.ReplyErrorCallCount())
+	close(unblock)
+	close(rt.runner.release("h1"))
+}
+
+// TestService_BusyRejectionFreesItsSlot checks that the busy reply reaches the initiator,
+// that its rejection slot is freed once sent, and that the responder limit still holds.
+func TestService_BusyRejectionFreesItsSlot(t *testing.T) {
+	t.Parallel()
+	rt := newRejectTest(t, 1)
+
+	rt.sendMsg(&view.Message{ContextID: "a1", SessionID: "a1", Caller: "hosted"})
+	rt.wait(rt.runner.entered, "a1 to run")
+	for i := range 3 { // each busy rejection must free its slot, or the later ones are dropped
+		rt.sendMsg(&view.Message{ContextID: fmt.Sprint("b", i), SessionID: fmt.Sprint("b", i), Caller: "hosted"})
+		require.Eventually(t, func() bool { return rt.cl.ReplyErrorCallCount() == i+1 }, 5*time.Second, 5*time.Millisecond)
+	}
+	for i := range 3 {
+		_, _, payload := rt.cl.ReplyErrorArgsForCall(i)
+		require.Equal(t, "busy: too many concurrent responders for this peer", string(payload))
+	}
+	require.Empty(t, rt.runner.entered, "the responder limit holds")
+	require.Equal(t, 1, rt.cl.NewResponderSessionCallCount())
+	require.Eventually(t, func() bool { return rt.counter.count("reason=busy") == 3 }, 5*time.Second, 5*time.Millisecond)
+	close(rt.runner.release("a1"))
+}
+
+// TestService_DropsUnanswerableMessages checks that a first message with status ERROR or an
+// empty caller neither starts a responder nor gets a reply, whether or not its view is hosted.
+func TestService_DropsUnanswerableMessages(t *testing.T) {
+	t.Parallel()
+	for name, msg := range map[string]*view.Message{
+		"error status, hosted view":  {Status: view.ERROR, Caller: "hosted"},
+		"error status, unknown view": {Status: view.ERROR, Caller: "unhosted"},
+		"error status, empty caller": {Status: view.ERROR},
+		"ok status, empty caller":    {Status: view.OK},
+		"zero status, empty caller":  {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			rt := newRejectTest(t, 1)
+			msg.ContextID, msg.SessionID = "ctx", "sess"
+			rt.sendMsg(msg)
+			// A hosted message sent afterwards runs, so the dropped one was already handled.
+			rt.sendMsg(&view.Message{ContextID: "h", SessionID: "h", Caller: "hosted", FromPKID: []byte("other")})
+			rt.wait(rt.runner.entered, "the hosted message to run")
+			// A responder started for the dropped message would show up on entered too.
+			require.Never(t, func() bool { return len(rt.runner.entered) > 0 }, 50*time.Millisecond, 5*time.Millisecond)
+			require.Zero(t, rt.cl.ReplyErrorCallCount())
+			require.Equal(t, 1, rt.cl.NewResponderSessionCallCount())
+			close(rt.runner.release("h"))
+		})
+	}
+}
+
+// TestService_RejectionsDoNotLoop wires two services whose comm layers deliver each other's
+// error replies to the other's master session, as the transport does: A rejects B's message
+// for an unknown view once, and B never answers the rejection.
+func TestService_RejectionsDoNotLoop(t *testing.T) {
+	t.Parallel()
+	a, b := newRejectTest(t, 1), newRejectTest(t, 1)
+	deliver := func(to *rejectTest, from string) func(context.Context, *view.Message, []byte) error {
+		return func(_ context.Context, msg *view.Message, payload []byte) error {
+			// A ViewPacket from ReplyError: status ERROR, empty caller.
+			to.sendMsg(&view.Message{ContextID: msg.ContextID, SessionID: msg.SessionID, Status: view.ERROR, Payload: payload, FromPKID: []byte(from)})
+			return nil
+		}
+	}
+	a.cl.ReplyErrorStub = deliver(b, "a")
+	b.cl.ReplyErrorStub = deliver(a, "b")
+
+	a.sendMsg(&view.Message{ContextID: "ctx", SessionID: "sess", Caller: "unhosted", FromPKID: []byte("b")})
+
+	require.Eventually(t, func() bool { return a.cl.ReplyErrorCallCount() == 1 }, 5*time.Second, 5*time.Millisecond)
+	require.Never(t, func() bool { return b.cl.ReplyErrorCallCount() > 0 || a.cl.ReplyErrorCallCount() > 1 }, 100*time.Millisecond, 5*time.Millisecond)
+}
+
+func TestSanitizeDetail(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, "github.com/acme/app/View", p2p.SanitizeDetail("github.com/acme/app/View"))
+	require.Equal(t, "a?b?c?", p2p.SanitizeDetail("a\nb\x1bc\u00e9"))
+	require.Equal(t, strings.Repeat("x", 256), p2p.SanitizeDetail(strings.Repeat("x", 300)))
+	require.Empty(t, p2p.SanitizeDetail(""))
 }

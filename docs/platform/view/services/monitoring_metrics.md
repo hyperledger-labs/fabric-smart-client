@@ -142,6 +142,20 @@ Operational notes:
 
 Primary implementation: `platform/view/services/comm/metrics.go`, with updates in `platform/view/services/comm/master.go` and `platform/view/services/comm/p2p.go`.
 
+### P2P Service
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `unknown_view` when no responder is registered for the caller view. |
+
+Operational notes:
+
+- A rejection is counted when the node attempts it; it is not sent if no stream to the peer is left.
+- Rejections dropped because the peer already has `fsc.p2p.maxRespondersPerPeer` rejections pending, and first messages dropped for status `ERROR` or an empty caller, are not counted.
+- A rising `unknown_view` rate usually means the nodes run different versions of the application.
+
+Primary implementation: `platform/view/services/view/p2p/service.go`.
+
 ### Libp2p Transport
 
 | Metric | Type | Labels | Description |

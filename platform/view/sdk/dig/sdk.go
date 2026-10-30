@@ -133,7 +133,18 @@ func (p *SDK) Install() error {
 			dig.As(new(viewgrpcserver.ViewManager), new(p2p.ViewManager)),
 		),
 		p.Container().Provide(p2p.NewDefaultRunner),
-		p.Container().Provide(p2p.NewService),
+		// A closure, because dig does not fill variadic parameters such as NewService's options.
+		p.Container().Provide(func(
+			viewManager p2p.ViewManager,
+			identityProvider p2p.IdentityProvider,
+			commLayer p2p.CommLayer,
+			endpointService p2p.EndpointService,
+			runner p2p.Runner,
+			configService p2p.ConfigService,
+			metricsProvider metrics.Provider,
+		) *p2p.Service {
+			return p2p.NewService(viewManager, identityProvider, commLayer, endpointService, runner, configService, p2p.WithMetrics(metricsProvider))
+		}),
 
 		// Comm service
 		p.Container().Provide(provider.NewHostProvider),
