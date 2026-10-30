@@ -145,7 +145,7 @@ func (t *httpTransport) ProcessCommand(ctx context.Context, sc *protos.SignedCom
 		return nil, errors.Errorf("response larger than [%d] bytes", t.maxRecvMsgSize)
 	}
 	scr := &protos.SignedCommandResponse{}
-	if err := protojson.Unmarshal(raw, scr); err != nil {
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, scr); err != nil {
 		return nil, errors.Wrap(err, "response is not a SignedCommandResponse")
 	}
 	return scr, nil

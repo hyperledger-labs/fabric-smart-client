@@ -6,7 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 // Package wsproto frames protobuf messages on a WebSocket: one protojson-encoded text frame
 // per message. Both ends of the view service's HTTP binding use it, so they agree on the
-// encoding by construction.
+// encoding by construction. Read ignores unknown fields, as gRPC does, so peers of different
+// versions interoperate when a message gains a field.
 package wsproto
 
 import (
@@ -41,7 +42,7 @@ func Read(conn *websocket.Conn, m proto.Message) error {
 	if typ != websocket.TextMessage {
 		return errors.Errorf("unexpected websocket message type [%d], want text", typ)
 	}
-	if err := protojson.Unmarshal(raw, m); err != nil {
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, m); err != nil {
 		return errors.Wrapf(err, "failed decoding [%T]", m)
 	}
 	return nil

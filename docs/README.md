@@ -36,3 +36,9 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 - [FSC CLI reference](reference/fsc-cli.md)
 - [Node CLI reference](reference/node-cli.md)
 - [Benchmark examples](../integration/benchmark/README.md)
+
+## Upgrading
+
+A node or database older than v0.26.0 is upgraded to v0.26.x first, then to later releases.
+
+- [Upgrading from v0.13 to v0.26](upgrade/v0.13-to-v0.26.md)

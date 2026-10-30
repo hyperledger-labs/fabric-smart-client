@@ -34,9 +34,10 @@ transports.
 | `GET` (WebSocket) | `/v1/ViewService/StreamCommand` | text frames, see [Streams](#streams) |
 
 The paths are `protos.ProcessCommandHTTPPath` and `protos.StreamCommandHTTPPath`. Bodies and
-frames are protojson; `bytes` fields are base64 strings. The `response` field of a
-`SignedCommandResponse` holds the binary encoding of a `CommandResponse`, exactly as on gRPC, so a
-client decodes and checks it the same way on both transports.
+frames are protojson; `bytes` fields are base64 strings. Both ends ignore unknown fields, as gRPC
+does, so nodes and clients of different versions interoperate when a message gains a field. The
+`response` field of a `SignedCommandResponse` holds the binary encoding of a `CommandResponse`,
+exactly as on gRPC, so a client decodes and checks it the same way on both transports.
 
 ## Errors
 

@@ -99,14 +99,21 @@ Display version information.
 **Output:**
 ```
 node:
- Go version: go1.21.0
+ Go version: go1.27.3
  OS/Arch: darwin/arm64
+ FSC version: v0.27.0
+ Application: github.com/acme/app v1.4.0
+ Revision: 7c647bd239b9e626ec4f02d4a2cca157c251e264 (modified)
 ```
 
 **Description:**
-- Shows program name
-- Displays Go version used to build
-- Shows OS and architecture
+- Shows program name, the Go version used to build, and the OS and architecture
+- `FSC version` is the Fabric Smart Client module the binary was built with; with a `replace`
+  in `go.mod` it is the replacement's version, or `(devel)` for a local directory
+- `Application` is the main module and its version; a build from a local checkout prints a
+  pseudo-version or `(devel)`, and a binary without build info prints `unknown`
+- `Revision` is the main module's VCS revision, with `(modified)` for a dirty working tree,
+  and `unknown` when the build recorded no VCS information (e.g. `go build -buildvcs=false`)
 
 ## Environment Variables
 
