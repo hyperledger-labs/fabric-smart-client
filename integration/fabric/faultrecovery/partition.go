@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package faultrecovery
 
 import (
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -34,7 +35,7 @@ const (
 // FaultProxies are the proxies SetFaultProxies puts in the links of alice and bob. Partition
 // and Heal on one of them cut and restore that link without either side seeing it close.
 type FaultProxies struct {
-	// Peer forwards to the only peer alice's delivery and endorsement use, Org1_peer_0.
+	// Peer forwards to Org1_peer_0, the only peer alice's delivery and finality use.
 	Peer *common.Proxy
 	// Postgres forwards to bob's database. Bob's, not alice's: alice's views read alice's
 	// vault, so alice could not order a transaction while hers is cut off.
@@ -52,8 +53,9 @@ func (p *FaultProxies) Close() {
 
 // SetFaultProxies starts a proxy in front of alice's peer, bob's P2P port and bob's
 // database, points the core.yaml of alice and bob at them, and enables alice's gRPC client
-// keepalive (see KeepaliveTime). Every other link is direct. Call it after the network is
-// generated and before it starts; the proxies forward until Close.
+// keepalive (see KeepaliveTime). Every other link is direct. It assumes alice and bob have
+// one replica each. Call it after the network is generated and before it starts; the
+// proxies forward until Close.
 func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	n := fabric.Network(ii.NWOCtx, "default").Network
 	peer := n.PeerAddress(n.PeerByName("Org1_peer_0"), network.ListenPort)
@@ -65,11 +67,14 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 		Postgres: startProxy(db.Host + ":" + db.Port),
 		Bob:      startProxy(bob),
 	}
-	_, dbPort, _ := strings.Cut(p.Postgres.Addr(), ":")
+	_, dbPort, err := net.SplitHostPort(p.Postgres.Addr())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	// Every persistence of bob shares one dataSource.
 	rewrite(ii, "bob", nil, "host="+db.Host+" port="+db.Port+" ", "host=127.0.0.1 port="+dbPort+" ")
 	rewrite(ii, "alice", func(core map[string]any) {
-		core["fabric"].(map[string]any)["default"].(map[string]any)["keepalive"] = map[string]any{
+		network, ok := core["fabric"].(map[string]any)["default"].(map[string]any)
+		gomega.Expect(ok).To(gomega.BeTrue(), "core.yaml of alice has no fabric.default")
+		network["keepalive"] = map[string]any{
 			"time":                  KeepaliveTime.String(),
 			"timeout":               KeepaliveTimeout.String(),
 			"permit-without-stream": true,
@@ -79,15 +84,15 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 }
 
 // rewrite replaces each old address with its new one in the core.yaml of node, then
-// applies patch, if any, to the parsed configuration. Each old address must occur in the
-// file and be unique to the link it names.
+// applies patch, if any, to the parsed configuration. Each old address must occur exactly
+// once in the file, so the replacement rewrites only the link it names.
 func rewrite(ii *integration.Infrastructure, node string, patch func(core map[string]any), oldnew ...string) {
 	path := ii.FscPlatform.NodeConfigPath(faultrecovery.Replica(ii, node))
 	raw, err := os.ReadFile(path)
 	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
 	cfg := string(raw)
 	for i := 0; i < len(oldnew); i += 2 {
-		gomega.ExpectWithOffset(1, cfg).To(gomega.ContainSubstring(oldnew[i]), "core.yaml of [%s]", node)
+		gomega.ExpectWithOffset(1, strings.Count(cfg, oldnew[i])).To(gomega.Equal(1), "[%s] in core.yaml of [%s]", oldnew[i], node)
 	}
 	cfg = strings.NewReplacer(oldnew...).Replace(cfg)
 	if patch != nil {

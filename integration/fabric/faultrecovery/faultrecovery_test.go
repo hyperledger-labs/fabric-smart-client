@@ -541,7 +541,11 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 		return ii, nil
 	})
 	faultrecovery.ShareNetwork(s)
-	AfterAll(func() { proxies.Close() })
+	AfterAll(func() {
+		if proxies != nil {
+			proxies.Close()
+		}
+	})
 
 	It("detects a silent partition of the delivery peer", func() {
 		s.II.EventuallyConnectionState("alice", delivery, connstate.Connected, time.Minute)
@@ -557,6 +561,10 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
+	// Heal delivers the bytes the proxy held, so bob's queries blocked in the partition
+	// complete on their own connections: the spec covers the database monitor and commits
+	// resuming, not the committer's retry after a lost connection, which the Postgres
+	// restart specs cover.
 	It("resumes commits after a Postgres partition", func() {
 		// Endorsing writes to bob's database, so the tx is endorsed before the partition
 		// and ordered during it.
@@ -573,14 +581,17 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
-	It("fails a view when alice is cut off from bob", func() {
+	// The websocket between alice and bob neither pings nor, on alice's side, has a read
+	// deadline, so FSC does not detect the cut: the view ends on EchoView's own receive
+	// timeout. The spec checks that the cut reaches alice's sessions and that they work
+	// again after Heal; detecting the cut is #2407.
+	It("times out a view while alice is cut off from bob", func() {
 		// Opens alice's connection to bob, so the echo below sends on it.
 		Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
 
 		proxies.Bob.Partition()
 		DeferCleanup(proxies.Bob.Heal)
-		// The echo succeeds whenever bob gets the message. Neither side sees the connection
-		// close, so only the echo view's own receive timeout of a minute ends the view.
+		// The echo succeeds whenever bob gets the message.
 		err := faultrecovery.Echo(s.II, false)
 		Expect(err).To(MatchError(view.ErrViewExecutionFailed))
 		Expect(err).To(MatchError(ContainSubstring("time out reached")))
