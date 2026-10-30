@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"io"
 	"maps"
 	"net"
 	"testing"
@@ -32,6 +33,25 @@ func backend(t *testing.T, name string) net.Listener {
 		}
 	}()
 	return l
+}
+
+// echoBackend listens on a free port, writes back what each connection sends, and returns
+// its address.
+func echoBackend(t *testing.T) string {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = l.Close() })
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			go func() { defer func() { _ = c.Close() }(); _, _ = io.Copy(c, c) }()
+		}
+	}()
+	return l.Addr().String()
 }
 
 func newTestProxy(t *testing.T, backends ...string) *Proxy {
@@ -93,4 +113,71 @@ func TestProxy_ConnectionsCountsOpen(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return maps.Equal(map[string]int{a: 1, b: 1}, p.Connections())
 	}, 5*time.Second, 10*time.Millisecond)
+}
+
+func TestProxy_CloseEndsPartition(t *testing.T) {
+	t.Parallel()
+	p := newTestProxy(t, echoBackend(t))
+	c, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.NoError(t, c.SetReadDeadline(time.Now().Add(5*time.Second)))
+	buf := make([]byte, 1)
+	// A round trip first, so the proxy has accepted the connection before Close.
+	_, err = c.Write([]byte{'a'})
+	require.NoError(t, err)
+	_, err = c.Read(buf)
+	require.NoError(t, err)
+
+	p.Partition()
+	_, err = c.Write([]byte{'b'})
+	require.NoError(t, err)
+	require.NoError(t, p.Close())
+
+	// Close ended the partition, so the held byte reaches the backend and comes back.
+	_, err = c.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "b", string(buf))
+}
+
+func TestProxy_PartitionHoldsBytesUntilHeal(t *testing.T) {
+	t.Parallel()
+	p := newTestProxy(t, echoBackend(t))
+	c, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	buf := make([]byte, 1)
+	roundTrip := func(b byte) error {
+		if _, err := c.Write([]byte{b}); err != nil {
+			return err
+		}
+		_, err := c.Read(buf)
+		return err
+	}
+	require.NoError(t, c.SetReadDeadline(time.Now().Add(5*time.Second)))
+	require.NoError(t, roundTrip('a'))
+
+	p.Partition()
+	p.Partition()
+	require.NoError(t, c.SetReadDeadline(time.Now().Add(200*time.Millisecond)))
+	var nerr net.Error
+	require.ErrorAs(t, roundTrip('b'), &nerr)
+	require.True(t, nerr.Timeout(), "the connection must stay open while partitioned")
+	// A connection accepted during the partition is held too.
+	late, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = late.Close() })
+	_, err = late.Write([]byte{'c'})
+	require.NoError(t, err)
+
+	p.Heal()
+	p.Heal()
+	require.NoError(t, c.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, err = c.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "b", string(buf))
+	require.NoError(t, late.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, err = late.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "c", string(buf))
 }

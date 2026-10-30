@@ -91,7 +91,7 @@ func Promote(standby string) {
 
 // DataSource returns the data source nwo configured for node's default persistence.
 func DataSource(ii *integration.Infrastructure, node string) *postgres.ContainerConfig {
-	opts := replica(ii, node).Options.GetPostgresPersistences()["default"]
+	opts := Replica(ii, node).Options.GetPostgresPersistences()["default"]
 	gomega.Expect(opts).NotTo(gomega.BeNil(), "FSC node [%s] has no Postgres default persistence", node)
 	c, err := postgres.ConfigFromDataSource(opts.DataSource)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -101,7 +101,7 @@ func DataSource(ii *integration.Infrastructure, node string) *postgres.Container
 // SetDataSource sets the dataSource of the default persistence in the core.yaml of the
 // stopped FSC node, which reads it on its next start.
 func SetDataSource(ii *integration.Infrastructure, node, dataSource string) {
-	path := ii.FscPlatform.NodeConfigPath(replica(ii, node))
+	path := ii.FscPlatform.NodeConfigPath(Replica(ii, node))
 
 	raw, err := os.ReadFile(path)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -115,8 +115,8 @@ func SetDataSource(ii *integration.Infrastructure, node, dataSource string) {
 	gomega.Expect(os.WriteFile(path, raw, 0o600)).To(gomega.Succeed())
 }
 
-// replica returns the FSC node named node.
-func replica(ii *integration.Infrastructure, node string) *nwonode.Replica {
+// Replica returns the first replica of the FSC node named node.
+func Replica(ii *integration.Infrastructure, node string) *nwonode.Replica {
 	i := slices.IndexFunc(ii.FscPlatform.Peers, func(p *nwonode.Replica) bool { return p.Name == node })
 	gomega.ExpectWithOffset(1, i).NotTo(gomega.Equal(-1), "no FSC node named [%s]", node)
 	return ii.FscPlatform.Peers[i]

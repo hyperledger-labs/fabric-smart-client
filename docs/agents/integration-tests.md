@@ -244,7 +244,8 @@ Fabric-x spec cannot restart the orderer.
 Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
 `fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication`,
-`fabricx-faultrecovery` and `fabricx-faultrecovery-replication`). Both run the FSC
+`fabric-faultrecovery-partition`, `fabricx-faultrecovery` and
+`fabricx-faultrecovery-replication`). Both run the FSC
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
 `Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
 the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`,
@@ -298,6 +299,17 @@ negative filter. The Fabric
 suite's `postgres-outage` `Describe` and the `fabric-faultrecovery-postgres-outage`
 target are the example; its failover spec is last because it points bob at another
 database.
+
+Killing a process makes the OS reset its connections, so the other side notices at once.
+A network partition is silent. `common.Proxy.Partition()` reproduces it: the proxy stops
+forwarding in both directions but closes nothing, and `Heal()` delivers the held bytes,
+so every connection resumes where it stopped. The Fabric suite's `partition` `Describe`
+calls `SetFaultProxies` in its generator, which puts a proxy in front of alice's peer,
+bob's P2P port and bob's database, and rewrites the `core.yaml` of both nodes to use them.
+It also turns on alice's gRPC client keepalive (`KeepaliveTime`, 60 s, plus
+`KeepaliveTimeout`, 10 s).
+nwo leaves keepalive off for every other node, and without it a silent partition of the
+delivery peer is never detected. Each spec there heals the proxy it partitions.
 
 ### Replicated nodes
 
