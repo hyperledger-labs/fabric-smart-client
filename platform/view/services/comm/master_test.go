@@ -7,14 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
+	"bytes"
+	"context"
+	stdio "io"
 	"maps"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -107,6 +114,78 @@ func TestNewResponderSession(t *testing.T) {
 	}
 }
 
+// dialCountingHost counts the streams the node opens.
+type dialCountingHost struct {
+	mockHost
+	dials atomic.Int32
+}
+
+func (h *dialCountingHost) NewStream(ctx context.Context, info host.StreamInfo) (host.P2PStream, error) {
+	h.dials.Add(1)
+	return h.mockHost.NewStream(ctx, info)
+}
+
+// heldStream is a stream with the mock host's hash that stays open until closed and records
+// what is written to it.
+type heldStream struct {
+	host.P2PStream
+	mu      sync.Mutex
+	written bytes.Buffer
+	closed  chan struct{}
+	once    sync.Once
+}
+
+func newHeldStream() *heldStream { return &heldStream{closed: make(chan struct{})} }
+
+func (*heldStream) Hash() host.StreamHash      { return "hash" }
+func (*heldStream) RemotePeerID() host.PeerID  { return "pkid" }
+func (*heldStream) RemotePeerAddress() string  { return "ep" }
+func (*heldStream) Context() context.Context   { return context.Background() }
+func (s *heldStream) Read([]byte) (int, error) { <-s.closed; return 0, stdio.EOF }
+func (s *heldStream) Close() error             { s.once.Do(func() { close(s.closed) }); return nil }
+func (s *heldStream) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.written.Write(p)
+}
+
+// packet decodes the one message written to s.
+func (s *heldStream) packet(t *testing.T) *ViewPacket {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	packet := &ViewPacket{}
+	require.NoError(t, io.NewVarintProtoReader(bytes.NewReader(s.written.Bytes()), 1024, 1024).ReadMsg(packet))
+	return packet
+}
+
+// TestReplyErrorNeverDials checks that ReplyError only writes to a stream that already exists, so
+// that a rejection never opens a connection to the peer it rejects.
+func TestReplyErrorNeverDials(t *testing.T) {
+	t.Parallel()
+
+	h := &dialCountingHost{}
+	p, err := NewNode(t.Context(), h, &disabled.Provider{})
+	require.NoError(t, err)
+	stopNode(t, p)
+
+	err = p.ReplyError(t.Context(), "sess", "ctx", "ep", []byte("pkid"), []byte("rejected"))
+	require.ErrorIs(t, err, errStreamNotFound)
+	require.Zero(t, h.dials.Load())
+
+	stream := newHeldStream()
+	p.handleIncomingStream(stream)
+	require.NoError(t, p.ReplyError(t.Context(), "sess", "ctx", "ep", []byte("pkid"), []byte("rejected")))
+	require.Zero(t, h.dials.Load())
+
+	packet := stream.packet(t)
+	assert.Equal(t, int32(view.ERROR), packet.Status)
+	assert.Empty(t, packet.Caller)
+	assert.Equal(t, "sess", packet.SessionID)
+	assert.Equal(t, "ctx", packet.ContextID)
+	assert.Equal(t, []byte("rejected"), packet.Payload)
+}
+
 // TestReplyError checks that ReplyError neither registers a session nor touches a
 // registered one with the same ID, so that a rejection cannot disturb a responder that owns
 // or is about to create that session.
@@ -117,6 +196,7 @@ func TestReplyError(t *testing.T) {
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
 	stopNode(t, p)
+	p.handleIncomingStream(newHeldStream())
 
 	owned, err := p.NewResponderSession("sess", "ctx", "ep", []byte("pkid"), view.Identity("alice"), nil)
 	require.NoError(t, err)

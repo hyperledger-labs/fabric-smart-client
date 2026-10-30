@@ -42,3 +42,4 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 A node or database older than v0.26.0 is upgraded to v0.26.x first, then to later releases.
 
 - [Upgrading from v0.13 to v0.26](upgrade/v0.13-to-v0.26.md)
+- [Upgrading from v0.26 to v0.27](upgrade/v0.26-to-v0.27.md)

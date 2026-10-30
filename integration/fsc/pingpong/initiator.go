@@ -147,3 +147,15 @@ func (p *Initiator) rounds() int {
 	}
 	return p.Rounds
 }
+
+// Unhosted pings the responder from a view that no node registers a responder for, so the
+// responder rejects its first message as an unknown view.
+type Unhosted struct{}
+
+func (*Unhosted) Call(viewCtx view.Context) (any, error) {
+	identityProvider, err := id.GetProvider(viewCtx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed getting identity provider")
+	}
+	return (&PingView{responder: identityProvider.Identity("responder")}).Call(viewCtx)
+}
