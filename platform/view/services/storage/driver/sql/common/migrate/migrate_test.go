@@ -64,6 +64,10 @@ func sqliteBackend(t *testing.T) backend {
 		db, err := sql.Open("sqlite", dsn)
 		require.NoError(t, err)
 		db.SetMaxOpenConns(1) // the write pool the drivers pass
+		// The drivers ping every pool on open, which applies the pragmas
+		// before concurrent use; switching a new file to WAL can fail with
+		// SQLITE_BUSY without waiting for busy_timeout.
+		require.NoError(t, db.Ping())
 		t.Cleanup(func() { _ = db.Close() })
 		return db
 	}}

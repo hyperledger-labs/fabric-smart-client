@@ -25,8 +25,8 @@ SPDX-License-Identifier: Apache-2.0
 //
 // # Locking
 //
-// Migrate reads the store's row without a lock first, so a store with nothing
-// pending opens without waiting for, or blocking, anyone. When steps are
+// Migrate reads the store's row without taking the migration lock, so a store
+// with nothing pending never waits for a running migration. When steps are
 // pending:
 //
 //   - On Postgres, Migrate takes a dedicated connection and holds a session-level
@@ -63,8 +63,8 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"hash/fnv"
+	"reflect"
 	"sync"
 	"time"
 
@@ -212,15 +212,15 @@ type registeredKey struct {
 // stores cannot share one version row in a process.
 var (
 	registeredMu sync.Mutex
-	registered   = map[registeredKey]string{}
+	registered   = map[registeredKey]reflect.Type{}
 )
 
 func register(db *sql.DB, table, store string, v Versioned) error {
 	registeredMu.Lock()
 	defer registeredMu.Unlock()
-	key, typ := registeredKey{db: db, table: table, store: store}, fmt.Sprintf("%T", v)
+	key, typ := registeredKey{db: db, table: table, store: store}, reflect.TypeOf(v)
 	if other, ok := registered[key]; ok && other != typ {
-		return errors.Errorf("store [%s] in [%s] is used by both %s and %s", store, table, other, typ)
+		return errors.Errorf("store [%s] in [%s] is used by both %v and %v", store, table, other, typ)
 	}
 	registered[key] = typ
 	return nil
