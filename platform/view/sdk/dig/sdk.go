@@ -43,12 +43,21 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	viewgrpcserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
+	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
 var logger = logging.MustGetLogger()
 
+// SDK installs and runs the view platform: the view manager, P2P and comm services, the web,
+// gRPC and operations servers, and the KVS. Its Stop stops the servers, then the comm service,
+// then the KVS. Node.Stop drains it through the view manager, which it finds in the registry
+// as a node.Drainer, before any SDK stops, so that running views can finish; SDKs that wrap
+// this one need not pass the drain through.
 type SDK struct {
 	commondig.SDK
+
+	// stop stops what Start started; nil before Start succeeded.
+	stop func()
 }
 
 func NewSDKFromContainer(c commondig.Container, registry services.Registry) *SDK {
@@ -130,7 +139,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewDefaultRunner),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
-			dig.As(new(viewgrpcserver.ViewManager), new(p2p.ViewManager)),
+			dig.As(new(viewgrpcserver.ViewManager), new(p2p.ViewManager), new(drainState), new(p2p.DrainState)),
 		),
 		p.Container().Provide(p2p.NewDefaultRunner),
 		// A closure, because dig does not fill variadic parameters such as NewService's options.
@@ -142,8 +151,9 @@ func (p *SDK) Install() error {
 			runner p2p.Runner,
 			configService p2p.ConfigService,
 			metricsProvider metrics.Provider,
+			drain p2p.DrainState,
 		) *p2p.Service {
-			return p2p.NewService(viewManager, identityProvider, commLayer, endpointService, runner, configService, p2p.WithMetrics(metricsProvider))
+			return p2p.NewService(viewManager, identityProvider, commLayer, endpointService, runner, configService, p2p.WithMetrics(metricsProvider), p2p.WithDrainState(drain))
 		}),
 
 		// Comm service
@@ -248,7 +258,8 @@ func (p *SDK) Start(ctx context.Context) error {
 		ConfigService    driver.ConfigService
 		Remote           RemoteConfig
 		ConnStates       *connstate.Metrics
-		Backends         []Backend `group:"view-remote-backends"`
+		Backends         []Backend  `group:"view-remote-backends"`
+		Drain            drainState `optional:"true"`
 	},
 	) (err error) {
 		// The gRPC listener bound its address when it was built. Until Serve takes it over,
@@ -260,9 +271,18 @@ func (p *SDK) Start(ctx context.Context) error {
 				}
 			}()
 		}
+		viewService := in.ViewService
+		var gates []web.ReadinessGate
+		if in.Drain != nil {
+			gate := drainGate{Service: in.ViewService, state: in.Drain}
+			viewService, gates = gate, []web.ReadinessGate{gate}
+			if hs, ok := in.GRPCServer.(interface{ SetNotServing() }); ok {
+				in.Drain.OnDrain(hs.SetNotServing)
+			}
+		}
 		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, RemoteViewTimeout(in.ConfigService))
-		mountHealth(in.WebServer, in.ConnStates)
-		if err := mountBackends(in.Remote, in.Backends, in.ViewService); err != nil {
+		mountHealth(in.WebServer, in.ConnStates, gates...)
+		if err := mountBackends(in.Remote, in.Backends, viewService); err != nil {
 			return err
 		}
 		in.CommService.Start(ctx)
@@ -271,10 +291,31 @@ func (p *SDK) Start(ctx context.Context) error {
 			return err
 		}
 
-		Serve(in.GRPCServer, in.WebServer, in.OperationsServer, in.System, in.KVS, ctx)
+		_, stopServers := startServe(in.GRPCServer, in.WebServer, in.OperationsServer, in.System, nil)
+		p.stop = func() { //nolint:contextcheck // Stop runs after the node context is cancelled, so it has none to pass
+			stopServers()
+			logger.Info("comm service stopping...")
+			in.CommService.Stop()
+			if in.KVS != nil {
+				logger.Info("kvs stopping...")
+				in.KVS.Stop()
+			}
+		}
 
 		return nil
 	})
+}
+
+// Stop stops the web, metrics, gRPC and operations servers, waiting within a bound for their
+// in-flight handlers, then the comm service, then the KVS, and then the SDK it wraps. The node
+// context passed to Start is cancelled by then, so view-API calls and responders still running
+// have been cancelled. It does nothing for an SDK that has not started.
+func (p *SDK) Stop() error {
+	if p.stop != nil {
+		p.stop()
+		p.stop = nil
+	}
+	return p.SDK.Stop()
 }
 
 func (p *SDK) PostStart(ctx context.Context) error {

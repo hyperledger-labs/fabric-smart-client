@@ -20,9 +20,20 @@ import (
 
 var logger = logging.MustGetLogger()
 
-type Initiator struct{}
+const (
+	// SlowPing makes the responder wait SlowResponderDelay before it answers.
+	SlowPing = "slow-ping"
+	// SlowResponderDelay is how long the responder takes to answer SlowPing.
+	SlowResponderDelay = 3 * time.Second
+)
 
-func (*Initiator) Call(viewCtx view.Context) (any, error) {
+// Initiator pings bob and expects a pong. With Slow set, it sends SlowPing, so that the
+// responder is still running for SlowResponderDelay.
+type Initiator struct {
+	Slow bool
+}
+
+func (i *Initiator) Call(viewCtx view.Context) (any, error) {
 	// Retrieve responder identity
 	identityProvider, err := id.GetProvider(viewCtx)
 	assert.NoError(err, "failed getting identity provider")
@@ -35,7 +46,11 @@ func (*Initiator) Call(viewCtx view.Context) (any, error) {
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	assert.NoError(err) // Send a ping
 	logger.DebugfContext(viewCtx.Context(), "send_ping")
-	err = session.Send(viewCtx.Context(), []byte("ping"))
+	ping := "ping"
+	if i.Slow {
+		ping = SlowPing
+	}
+	err = session.Send(viewCtx.Context(), []byte(ping))
 	assert.NoError(err) // Wait for the pong
 	logger.DebugfContext(viewCtx.Context(), "wait_pong")
 	ch := session.Receive()

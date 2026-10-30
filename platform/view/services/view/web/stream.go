@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -30,8 +32,10 @@ const (
 
 // NewStreamCommandHandler serves StreamCommand over a WebSocket. svc sees the connection as a
 // protos.ViewService_StreamCommandServer whose messages are wsproto frames. When svc returns,
-// the connection closes normally, or with code 1011 when svc returned an error; svc reports
-// command failures in its final response before that, as on gRPC. When the request context
+// the connection closes normally, or when svc returned an error with code 1013 (try again
+// later) for a node that drains before it stops, and with code 1011 otherwise, the reason
+// naming a view the node's shutdown cancelled; svc reports command failures in its final
+// response before that, as on gRPC. When the request context
 // ends, the connection is closed, so a view waiting for the client returns.
 func NewStreamCommandHandler(svc protos.ViewServiceServer, maxRecvMsgSize int) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,8 +50,16 @@ func NewStreamCommandHandler(svc protos.ViewServiceServer, maxRecvMsgSize int) h
 		stop := context.AfterFunc(r.Context(), func() { _ = conn.Close() })
 		defer stop()
 		if err := svc.StreamCommand(stream); err != nil {
-			logger.Errorf("view service stream from [%s] failed: %s", r.RemoteAddr, err)
-			stream.close(websocket.CloseInternalServerErr, "stream command failed")
+			switch st := status.Convert(err); st.Code() {
+			case codes.Unavailable:
+				stream.close(websocket.CloseTryAgainLater, st.Message())
+			case codes.Aborted:
+				// No close code means "check the outcome"; the reason carries it.
+				stream.close(websocket.CloseInternalServerErr, st.Message())
+			default:
+				logger.Errorf("view service stream from [%s] failed: %s", r.RemoteAddr, err)
+				stream.close(websocket.CloseInternalServerErr, "stream command failed")
+			}
 			return
 		}
 		stream.close(websocket.CloseNormalClosure, "")

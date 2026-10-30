@@ -20,7 +20,9 @@ import (
 	"github.com/gorilla/websocket"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -118,6 +120,9 @@ func (t *httpTransport) Open() (protos.ViewServiceClient, io.Closer, error) {
 
 func (t *httpTransport) Certificate() *tls.Certificate { return t.cert }
 
+// ProcessCommand posts sc to the view service. A 503 answer (a draining node) becomes a gRPC
+// Unavailable status and a 409 answer (a view the node's shutdown cancelled) an Aborted one,
+// as the gRPC transport would report them.
 func (t *httpTransport) ProcessCommand(ctx context.Context, sc *protos.SignedCommand, _ ...grpc.CallOption) (*protos.SignedCommandResponse, error) {
 	body, err := protojson.Marshal(sc)
 	if err != nil {
@@ -135,7 +140,14 @@ func (t *httpTransport) ProcessCommand(ctx context.Context, sc *protos.SignedCom
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
-		return nil, errors.Errorf("view service at [%s] answered [%s]: %s", req.URL, resp.Status, bytes.TrimSpace(msg))
+		err := errors.Errorf("view service at [%s] answered [%s]: %s", req.URL, resp.Status, bytes.TrimSpace(msg))
+		switch resp.StatusCode {
+		case http.StatusServiceUnavailable:
+			return nil, status.Error(codes.Unavailable, err.Error())
+		case http.StatusConflict:
+			return nil, status.Error(codes.Aborted, err.Error())
+		}
+		return nil, err
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, int64(t.maxRecvMsgSize)+1))
 	if err != nil {

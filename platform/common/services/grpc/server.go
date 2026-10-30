@@ -256,6 +256,15 @@ func (gServer *GRPCServer) Start() error {
 	return gServer.server.Serve(gServer.listener)
 }
 
+// SetNotServing makes the health service report NOT_SERVING for the server and every
+// registered service, so that health-checking clients and load balancers stop sending new
+// calls while running ones finish. It does nothing without HealthCheckEnabled.
+func (gServer *GRPCServer) SetNotServing() {
+	if gServer.healthServer != nil {
+		gServer.healthServer.Shutdown()
+	}
+}
+
 // Stop closes the listener and every connection, cancels the contexts of in-flight RPCs,
 // and returns once their handlers have returned, so callers can release resources the
 // handlers use. It waits at most 10s; handlers still running after that are logged and

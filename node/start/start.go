@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package start
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -97,8 +96,11 @@ func serve(n Node) error {
 		defer profiler.Stop()
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	// Not signal.NotifyContext: it reports only the first signal, and a second one must reach
+	// n.Stop to skip the rest of the drain.
+	signals := make(chan os.Signal, 2)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
 
 	if err := n.Start(); err != nil {
 		logger.Errorf("Failed starting platform [%s]", err)
@@ -110,8 +112,18 @@ func serve(n Node) error {
 
 	logger.Infof("Started peer with ID=[%s]", n.ID())
 
-	<-ctx.Done()
+	<-signals
 	logger.Infof("Received signal, exiting...")
+	stopped := make(chan struct{})
+	defer close(stopped)
+	go func() {
+		select {
+		case <-signals:
+			logger.Infof("Received second signal, skipping the rest of the drain...")
+			n.Stop()
+		case <-stopped:
+		}
+	}()
 	n.Stop()
 
 	return nil

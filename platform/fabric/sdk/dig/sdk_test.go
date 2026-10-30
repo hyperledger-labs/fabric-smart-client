@@ -98,14 +98,39 @@ fabric:
 	require.NoError(t, err)
 	s.fnsProvider = fnsProvider
 
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
+	require.NoError(t, s.PostStart(t.Context()))
+	require.True(t, s.started)
 
-	// PostStart spawns a goroutine that stops fnsProvider when ctx is cancelled; t.Cleanup
-	// cancels ctx so that goroutine unwinds instead of leaking past the test. fnsProvider is a
-	// concrete *core.FSNProvider (not an interface), so its Stop() has no unit-observable effect
-	// to assert on here — the shutdown wiring is covered by integration tests.
-	require.NoError(t, s.PostStart(ctx))
+	// Stop stops fnsProvider, once, then the wrapped SDK.
+	require.NoError(t, s.Stop())
+	require.False(t, s.started)
+	require.NoError(t, s.Stop())
+}
+
+// stopRecorder is a wrapped SDK that records its Stop.
+type stopRecorder struct {
+	commondig.SDK
+	stopped bool
+	err     error
+}
+
+func (r *stopRecorder) Stop() error {
+	r.stopped = true
+	return r.err
+}
+
+func TestSDK_Stop_StopsWrappedSDK(t *testing.T) {
+	t.Parallel()
+	cfgProvider, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte(`
+fabric:
+  enabled: false
+`))
+	require.NoError(t, err)
+	wrapped := &stopRecorder{SDK: commondig.NewBaseSDK(sdk.NewContainer(), cfgProvider), err: errors.New("wrapped failed")}
+	s := NewFrom(wrapped)
+
+	require.ErrorIs(t, s.Stop(), wrapped.err)
+	require.True(t, wrapped.stopped, "an SDK that never started still stops the SDK it wraps")
 }
 
 func TestSDK_PostStart_StartError(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"text/template"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
@@ -133,4 +134,19 @@ func TestTopology_SetP2PMessageSizeLimits(t *testing.T) {
 
 	topology.SetP2PMessageSizeLimits(-5, 0)
 	require.Equal(t, P2P{}, topology.P2P)
+}
+
+func TestCoreTemplate_ShutdownTimeouts(t *testing.T) {
+	t.Parallel()
+	topology := NewTopology()
+	topology.Shutdown.DrainTimeout = 2 * time.Second
+	core := renderCoreTemplate(t, node.CoreTemplate, topology)
+
+	var cfg struct {
+		FSC struct {
+			Shutdown map[string]string `yaml:"shutdown"`
+		} `yaml:"fsc"`
+	}
+	require.NoError(t, yaml.Unmarshal([]byte(core), &cfg))
+	require.Equal(t, map[string]string{"drainTimeout": "2s", "teardownTimeout": "10s"}, cfg.FSC.Shutdown)
 }

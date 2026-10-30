@@ -77,6 +77,9 @@ type MultiplexedProvider struct {
 	// handshake or write timeout, and stream creation to other peers must proceed.
 	mu      sync.RWMutex
 	clients map[clientKey]*multiplexedClientConn
+	// retired holds the client websockets Retire took out of clients; they serve the streams
+	// already open on them until they close.
+	retired map[*multiplexedClientConn]struct{}
 	servers map[*multiplexedServerConn]struct{}
 	dialing map[clientKey]*inFlightDial
 	closed  bool
@@ -102,14 +105,18 @@ func (c *MultiplexedProvider) KillAll() error {
 		c.mu.Lock()
 		c.closed = true
 		close(c.trackerDone)
-		conns := make([]*multiplexedBaseConn, 0, len(c.clients)+len(c.servers))
+		conns := make([]*multiplexedBaseConn, 0, len(c.clients)+len(c.retired)+len(c.servers))
 		for _, cl := range c.clients {
+			conns = append(conns, cl.multiplexedBaseConn)
+		}
+		for cl := range c.retired {
 			conns = append(conns, cl.multiplexedBaseConn)
 		}
 		for sc := range c.servers {
 			conns = append(conns, sc.multiplexedBaseConn)
 		}
 		clear(c.clients)
+		clear(c.retired)
 		clear(c.servers)
 		clear(c.dialing)
 		c.mu.Unlock()
@@ -137,6 +144,7 @@ func NewMultiplexedProvider(tracerProvider tracing.Provider, metricsProvider met
 	}
 	p := &MultiplexedProvider{
 		clients: make(map[clientKey]*multiplexedClientConn),
+		retired: make(map[*multiplexedClientConn]struct{}),
 		servers: make(map[*multiplexedServerConn]struct{}),
 		dialing: make(map[clientKey]*inFlightDial),
 		tracer: tracerProvider.Tracer("multiplexed_ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
@@ -262,6 +270,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 		if c.clients[key] == conn {
 			delete(c.clients, key)
 		}
+		delete(c.retired, conn)
 	})
 	if c.closed {
 		delete(c.dialing, key)
@@ -300,6 +309,22 @@ func (c *MultiplexedProvider) NewClientStream(info host.StreamInfo, ctx context.
 	}
 
 	return conn.newClientSubConn(ctx, src, info)
+}
+
+// Retire makes NewClientStream dial a new websocket for the next stream to peerID, instead of
+// reusing a cached one. The cached websockets to peerID keep serving the streams already open
+// on them and close when the peer closes them or the provider is closed. A node calls it when
+// the peer refuses new work, typically because it drains before it stops, so that a load
+// balancer in front of the peer's replicas can route the new websocket to another replica.
+func (c *MultiplexedProvider) Retire(peerID host.PeerID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for key, conn := range c.clients {
+		if key.peerID == peerID {
+			delete(c.clients, key)
+			c.retired[conn] = struct{}{}
+		}
+	}
 }
 
 func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host.P2PStream)) error {

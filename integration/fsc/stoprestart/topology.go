@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
-// Topology returns the FSC nodes alice, which serves the init view, and bob, which
+// Topology returns the FSC nodes alice, which serves the init and slow views, and bob, which
 // answers it under its name and under the alias bob_alias, communicating over commType.
 // Both nodes expose Prometheus metrics and export traces to the OTLP collector of the
 // monitoring topology.
@@ -25,7 +25,8 @@ func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 	topology.EnablePrometheusMetrics()
 
 	topology.AddNodeByName("alice").
-		RegisterViewFactory("init", &InitiatorViewFactory{})
+		RegisterViewFactory("init", &InitiatorViewFactory{}).
+		RegisterViewFactory("slow", &SlowInitiatorViewFactory{})
 
 	topology.AddNodeByName("bob").
 		RegisterResponder(&Responder{}, &Initiator{}).

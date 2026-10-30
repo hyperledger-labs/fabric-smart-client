@@ -70,6 +70,9 @@ fsc:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
       {{- end }}
+  shutdown:
+    drainTimeout: {{ Topology.Shutdown.DrainTimeout }}
+    teardownTimeout: {{ Topology.Shutdown.TeardownTimeout }}
   # P2P configuration
   p2p:
     type: {{ .P2PCommunicationType }}

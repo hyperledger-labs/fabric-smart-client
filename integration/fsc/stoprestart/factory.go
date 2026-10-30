@@ -13,3 +13,10 @@ type InitiatorViewFactory struct{}
 func (*InitiatorViewFactory) NewView(_ []byte) (view.View, error) {
 	return &Initiator{}, nil
 }
+
+// SlowInitiatorViewFactory returns an Initiator whose responder takes SlowResponderDelay.
+type SlowInitiatorViewFactory struct{}
+
+func (*SlowInitiatorViewFactory) NewView(_ []byte) (view.View, error) {
+	return &Initiator{Slow: true}, nil
+}

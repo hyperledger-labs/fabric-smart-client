@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package stoprestart_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -25,6 +27,7 @@ var _ = Describe("EndToEnd", func() {
 			BeforeEach(s.Setup)
 			AfterEach(s.TearDown)
 			It("answers a view call after the responder restarts", s.TestSucceeded)
+			It("finishes a running view when its responder stops gracefully", s.TestDrains)
 		})
 	}
 })
@@ -54,4 +57,20 @@ func (s *TestSuite) TestSucceeded() {
 	m, err := s.II.WebClient("alice").Metrics()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(m).NotTo(BeNil())
+}
+
+// TestDrains stops bob while its responder runs: the stop drains, so the view completes.
+func (s *TestSuite) TestDrains() {
+	res := make(chan any, 1)
+	go func() {
+		defer GinkgoRecover()
+		r, err := s.II.Client("alice").CallView("slow", nil)
+		Expect(err).NotTo(HaveOccurred())
+		res <- r
+	}()
+	time.Sleep(stoprestart.SlowResponderDelay / 3) // the responder runs
+
+	s.II.StopFSCNode("bob")
+	Eventually(res, 2*stoprestart.SlowResponderDelay).Should(Receive(WithTransform(common.JSONUnmarshalString, BeEquivalentTo("OK"))))
+	s.II.StartFSCNode("bob")
 }

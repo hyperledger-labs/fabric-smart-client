@@ -160,6 +160,16 @@ func (h *host) Lookup(peerID commhost.PeerID) ([]commhost.PeerIPAddress, bool) {
 	return h.routing.LookupAll(peerID)
 }
 
+// Retire implements commhost.RetiringHost when the stream provider caches websockets.
+func (h *host) Retire(peerID commhost.PeerID) {
+	if h.client == nil {
+		return
+	}
+	if r, ok := h.client.streamProvider.(commhost.RetiringHost); ok {
+		r.Retire(peerID)
+	}
+}
+
 func (*host) StreamHash(info commhost.StreamInfo) string {
 	return StreamHash(info)
 }
