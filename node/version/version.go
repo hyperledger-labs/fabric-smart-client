@@ -72,7 +72,7 @@ func fromBuildInfo(bi *debug.BuildInfo, ok bool) buildInfo {
 	}
 	info.appModule, info.appVersion = bi.Main.Path, bi.Main.Version
 	if bi.Main.Path == fscModule {
-		info.fscVersion = bi.Main.Version
+		info.fscVersion = cmp.Or(bi.Main.Version, info.fscVersion)
 	}
 	for _, d := range bi.Deps {
 		if d.Path == fscModule {

@@ -77,6 +77,12 @@ func TestFromBuildInfo(t *testing.T) {
 			want: buildInfo{fscVersion: "v0.27.0", appModule: fscModule, appVersion: "v0.27.0"},
 		},
 		{
+			name: "main module without a version",
+			bi:   &debug.BuildInfo{Main: debug.Module{Path: fscModule}},
+			ok:   true,
+			want: buildInfo{fscVersion: "(devel)", appModule: fscModule},
+		},
+		{
 			name: "missing",
 			want: buildInfo{fscVersion: "(devel)"},
 		},
@@ -98,6 +104,7 @@ func TestFormat(t *testing.T) {
 
 	got = format(buildInfo{fscVersion: "(devel)"})
 	require.True(t, strings.HasPrefix(got, prefix), got)
+	require.Contains(t, got, " FSC version: (devel)\n")
 	require.Contains(t, got, " Application: unknown\n")
 	require.Contains(t, got, " Revision: unknown\n")
 }
