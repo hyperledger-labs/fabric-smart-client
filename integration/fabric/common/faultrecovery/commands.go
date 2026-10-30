@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 const (
@@ -62,14 +63,30 @@ func WaitFinal(ii *integration.Infrastructure, txIDs ...string) {
 
 // WaitFinalOn waits until each of txIDs is final on node, a node name or a replica ID such as fsc.bob.1.
 func WaitFinalOn(ii *integration.Infrastructure, node string, txIDs ...string) {
+	waitFinalOnWithOffset(2, ii, node, txIDs...)
+}
+
+// waitFinalOnWithOffset is WaitFinalOn reporting a failure offset frames above its caller.
+func waitFinalOnWithOffset(offset int, ii *integration.Infrastructure, node string, txIDs ...string) {
 	for _, txID := range txIDs {
-		gomega.EventuallyWithOffset(1, func() error {
+		gomega.EventuallyWithOffset(offset, func() error {
 			ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
 			defer cancel()
 			_, err := ii.Client(node).CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: txID}))
 			return err
 		}, viewTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not final on [%s]", txID, node)
 	}
+}
+
+// ExpectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
+// value and its finality view returns no error.
+func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int) {
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
+		res, err := Query(ii, node, txID)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: value}))
+	}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not settled on [%s]", txID, node)
+	waitFinalOnWithOffset(2, ii, node, txID)
 }
 
 // Endorse runs alice's endorse view with bob as responder and returns the endorsed
