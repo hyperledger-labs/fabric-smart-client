@@ -231,6 +231,18 @@ Notes:
 - metadata values are marshaled from a `map[string][]byte`
 - unlike the View KVS, the vault state table is the main persisted application state surface for many Fabric applications
 
+## Schema Versions Table
+
+Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions` by default) with one row per store that implements `migrate.Versioned`. The first migration of such a store creates the table.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `store` | `TEXT PRIMARY KEY` | the store's primary table name, e.g. `fsc_kvs` |
+| `version` | `INT NOT NULL` | the highest step applied |
+| `readable_by` | `INT NOT NULL` | the lowest step version a binary must know to read the store; equal to `version` |
+
+A store without a row has applied no step. A binary refuses to open a store whose `readable_by` is above the highest step it knows. The table decides which SQL a node runs, so only the roles that run migrations should be able to write it. See [Schema versions](db-driver.md#schema-versions).
+
 ## Backend Differences
 
 The logical layout is the same across supported SQL backends, but some physical SQL details differ.

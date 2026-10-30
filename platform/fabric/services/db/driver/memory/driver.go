@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
@@ -14,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	viewsqlite "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
@@ -55,7 +58,7 @@ func (d *Driver) NewVault(_ driver.PersistenceName, params ...string) (cdriver.V
 }
 
 // newPersistenceWithOpts constructs a V backed by an in-memory sqlite database, using params to
-// compute its table names, and invokes constructor to build the store before creating its schema.
+// compute its table names, and invokes constructor to build the store before preparing its schema with migrate.CreateSchema.
 func newPersistenceWithOpts[V common.DBObject](dbProvider viewsqlite.DbProvider, constructor fsqlcommon.PersistenceConstructor[V], params ...string) (V, error) {
 	var zero V
 
@@ -72,7 +75,7 @@ func newPersistenceWithOpts[V common.DBObject](dbProvider viewsqlite.DbProvider,
 	if err != nil {
 		return zero, err
 	}
-	if err := p.CreateSchema(); err != nil {
+	if err := migrate.CreateSchema(context.Background(), dbs.WriteDB, migrate.SQLite, opts.TablePrefix, p); err != nil {
 		return zero, err
 	}
 

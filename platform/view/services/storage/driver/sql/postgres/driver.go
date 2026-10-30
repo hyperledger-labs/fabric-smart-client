@@ -7,11 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 const (
@@ -59,7 +62,7 @@ func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (dr
 
 // NewPersistenceWithOpts constructs a V backed by the postgres persistence configured under name and
 // params: it resolves the connection options and table names, opens the database, and invokes
-// constructor to build the store, creating its schema unless configured to skip.
+// constructor to build the store, preparing its schema with migrate.CreateSchema unless configured to skip.
 func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *ConfigProvider, dbProvider DbProvider, name driver.PersistenceName, constructor sqlcommon.PersistenceConstructor[V], params ...string) (V, error) {
 	var zero V
 
@@ -82,7 +85,7 @@ func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *ConfigProvider, dbProv
 		return zero, err
 	}
 	if !o.SkipCreateTable {
-		if err := p.CreateSchema(); err != nil {
+		if err := migrate.CreateSchema(context.Background(), dbs.WriteDB, migrate.Postgres, opts.TablePrefix, p); err != nil {
 			return zero, err
 		}
 	}
