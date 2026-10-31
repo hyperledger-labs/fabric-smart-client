@@ -91,6 +91,7 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 	faultrecovery.CrashSpecs(s)
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
+	faultrecovery.HostileSpecs(s)
 
 	It("applies a config update made while down", func() {
 		original := configupdate.BatchTimeout(s.II)
