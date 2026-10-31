@@ -175,7 +175,22 @@ func (s *OrderStore) Steps() []migrate.Step {
 
 Write step 1 with `IF NOT EXISTS` so that it accepts a database created by the store's earlier `CreateSchema`. Never edit, reorder or remove a released step: a database that applied it does not run it again. Every step must leave the store readable by the previous release.
 
-A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store)` where it calls `CreateSchema()` today. On SQLite, pass the single-connection write pool.
+A step whose change SQL cannot express sets `Go`, which runs after the step's `SQL` in the same transaction. Typical cases are a backfill computed in Go and a SQLite table rebuild. The function runs its statements through the `migrate.Execer` it receives and must not begin, commit or roll back a transaction. If it returns an error, the step rolls back, `SQL` included:
+
+```go
+{Version: 3, Name: "backfill orders.hash", SQL: []string{
+	"ALTER TABLE " + s.table + " ADD COLUMN hash TEXT",
+}, Go: func(ctx context.Context, q migrate.Execer) error {
+	// read rows with q.QueryContext, close them, then write with q.ExecContext
+	return nil
+}},
+```
+
+The rules for released steps cover the Go function too: a database that applied the step never runs a changed function body.
+
+A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store)` where it calls `CreateSchema()` today. On SQLite, pass the single-connection write pool. When the persistence sets `skipCreateTable: true`, pass `migrate.WithCheckOnly()` instead of skipping the call. A `Versioned` store then runs no step and returns `migrate.ErrPending` if steps are pending, and a plain store's `CreateSchema()` is not called.
+
+A table that several stores use is versioned by one of them, its owner: only the owner lists steps for the table, so the table has a single row in the versions table. Each store migrates when it is opened, so steps that depend on another store's tables, for example through a foreign key, run after that store has been opened.
 
 ## Extending the Driver on the same Project
 

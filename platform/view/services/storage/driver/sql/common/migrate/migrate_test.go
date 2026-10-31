@@ -50,6 +50,11 @@ func newStore(name string, n int) *store {
 // otherStore has the same StoreName as a store but a different type.
 type otherStore struct{ *store }
 
+// plainStore is a DBObject that does not implement Versioned.
+type plainStore struct{ calls int }
+
+func (p *plainStore) CreateSchema() error { p.calls++; return nil }
+
 type backend struct {
 	dialect migrate.Dialect
 	// open returns a new pool on the same database each call.
@@ -288,12 +293,85 @@ func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
 		require.Equal(t, "mixed_schema_versions", name)
 	})
 
+	t.Run("GoStep", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		backfill := func(ctx context.Context, q migrate.Execer) error {
+			ids, err := readIDs(ctx, q)
+			if err != nil {
+				return err
+			}
+			for _, id := range ids {
+				if _, err := q.ExecContext(ctx, "UPDATE go_s SET sq = $1 WHERE id = $2", id*id, id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		s := &store{name: "go_s", steps: []migrate.Step{
+			{Version: 1, Name: "create", SQL: []string{"CREATE TABLE go_s (id INT)", "INSERT INTO go_s (id) VALUES (2), (3)"}},
+			{Version: 2, Name: "add sq", SQL: []string{"ALTER TABLE go_s ADD COLUMN sq INT"}, Go: func(context.Context, migrate.Execer) error {
+				return errors.New("backfill failed")
+			}},
+		}}
+		err := migrate.Migrate(t.Context(), db, b.dialect, "go", s)
+		require.ErrorContains(t, err, "backfill failed")
+		require.ErrorContains(t, err, "add sq")
+		requireVersion(t, db, "go_schema_versions", "go_s", 1)
+		_, err = db.Exec("SELECT sq FROM go_s")
+		require.Error(t, err, "the step's SQL rolled back with its Go function")
+
+		s.steps[1].Go = backfill
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "go", s))
+		requireVersion(t, db, "go_schema_versions", "go_s", 2)
+		var sum int
+		require.NoError(t, db.QueryRow("SELECT sum(sq) FROM go_s").Scan(&sum))
+		require.Equal(t, 13, sum)
+	})
+
+	t.Run("CreateSchemaCheckOnly", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		v := newStore("cso_s", 1)
+		require.ErrorIs(t, migrate.CreateSchema(t.Context(), db, b.dialect, "cso", v, migrate.WithCheckOnly()), migrate.ErrPending)
+		requireNoTable(t, db, b.dialect, "cso_s_t1")
+		require.NoError(t, migrate.CreateSchema(t.Context(), db, b.dialect, "cso", v))
+		require.NoError(t, migrate.CreateSchema(t.Context(), db, b.dialect, "cso", v, migrate.WithCheckOnly()))
+
+		p := &plainStore{}
+		require.NoError(t, migrate.CreateSchema(t.Context(), db, b.dialect, "cso", p, migrate.WithCheckOnly()))
+		require.Zero(t, p.calls)
+		require.NoError(t, migrate.CreateSchema(t.Context(), db, b.dialect, "cso", p))
+		require.Equal(t, 1, p.calls)
+	})
+
 	t.Run("StepsMustBeNumbered", func(t *testing.T) {
 		t.Parallel()
 		b := newBackend(t)
 		s := &store{name: "num_s", steps: []migrate.Step{{Version: 2, Name: "skip one"}}}
 		require.ErrorContains(t, migrate.Migrate(t.Context(), b.open(t), b.dialect, "num", s), "expected 1")
 	})
+}
+
+// readIDs reads go_s.id, closing the rows before the caller writes: SQLite
+// cannot update a table while a query on it is open on the same connection.
+func readIDs(ctx context.Context, q migrate.Execer) ([]int, error) {
+	rows, err := q.QueryContext(ctx, "SELECT id FROM go_s")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func requireVersion(t *testing.T, db *sql.DB, table, store string, want int) {

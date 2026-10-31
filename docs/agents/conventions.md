@@ -67,8 +67,10 @@ rows in whatever order the plan produces.
 A store whose schema changes implements `migrate.Versioned`
 (`platform/view/services/storage/driver/sql/common/migrate`) and adds a new
 `Step` for every change; the driver constructors run pending steps through
-`migrate.CreateSchema`. Never edit, reorder or remove a released step, and keep
-every step readable by the previous release. Do not add new schema probes to
+`migrate.CreateSchema`. Never edit, reorder or remove a released step,
+including the body of its `Go` function, and keep every step readable by the
+previous release. A table shared by several stores has one owning store that
+lists its steps. Do not add new schema probes to
 `CreateSchema`. See
 [`docs/platform/view/services/db-driver.md`](../platform/view/services/db-driver.md#schema-versions).
 
