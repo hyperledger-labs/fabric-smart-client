@@ -249,13 +249,14 @@ Fault scenarios go in `integration/fabric/faultrecovery` and
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
 `Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
 the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`,
-and `FailoverSpecs` on replicated nodes), and the helpers that drive them.
+`HostileSpecs`, and `FailoverSpecs` on replicated nodes), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final
 on both nodes; `SubmitAndWaitFinalFrom` does the same from one of alice's replicas,
 `WaitFinal` does the waiting alone, and `WaitFinalOn` waits on one node or replica.
 `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
-transaction is ordered. `OrderEventually` retries `Order` while the orderers reject
+transaction is ordered. `EndorseLiar` runs alice's `endorseLiar` view with bob as responder
+and returns the transaction ID and the view's error. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election; `EndorseEventually` retries
 `Endorse` while alice's connection to bob fails over to another replica. `Echo` runs a
 two-party view that touches no ledger; with `block` set, bob's responder receives the

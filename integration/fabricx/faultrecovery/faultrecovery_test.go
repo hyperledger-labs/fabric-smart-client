@@ -64,6 +64,7 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 	faultrecovery.CrashSpecs(s)
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
+	faultrecovery.HostileSpecs(s)
 
 	It("survives committer restart", func() {
 		committer := nwofabricx.FxPlatform(s.II)
