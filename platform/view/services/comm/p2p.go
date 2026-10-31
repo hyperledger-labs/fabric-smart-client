@@ -256,9 +256,9 @@ const DrainingPrefix = "draining: "
 // retireIfDraining retires the host's connections to the sender of msg when msg is a draining
 // peer's refusal of a session this node opened, so that the next session to that peer dials
 // again and can reach another replica behind a load balancer. The refusal still reaches the
-// session.
+// session. Only a rejection counts: it has an empty caller, unlike an error a peer's view sends.
 func (p *P2PNode) retireIfDraining(msg *view.Message) {
-	if msg.Status != view.ERROR || !bytes.HasPrefix(msg.Payload, []byte(DrainingPrefix)) {
+	if msg.Status != view.ERROR || len(msg.Caller) != 0 || !bytes.HasPrefix(msg.Payload, []byte(DrainingPrefix)) {
 		return
 	}
 	if r, ok := p.host.(host.RetiringHost); ok {

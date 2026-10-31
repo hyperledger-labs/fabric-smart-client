@@ -115,6 +115,7 @@ func mountBackends(cfg RemoteConfig, backends []Backend, svc viewgrpcserver.Serv
 // drainState is the view manager's drain, as the SDK uses it.
 type drainState interface {
 	Draining() bool
+	TryTrack() (done func(), ok bool)
 	OnDrain(f func())
 }
 
@@ -123,24 +124,28 @@ type drainState interface {
 var ErrDraining = status.Error(codes.Unavailable, "node is draining")
 
 // drainGate wraps the view service so that new commands are refused with ErrDraining while the
-// node drains, and reports the drain as a readiness gate. A command that arrived before the
-// drain keeps running.
+// node drains, and reports the drain as a readiness gate. A command it admits counts as running
+// until it returns, from before its header and policy checks, so the drain waits for it.
 type drainGate struct {
 	viewgrpcserver.Service
 	state drainState
 }
 
 func (g drainGate) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.SignedCommandResponse, error) {
-	if g.state.Draining() {
+	done, ok := g.state.TryTrack()
+	if !ok {
 		return nil, ErrDraining
 	}
+	defer done()
 	return g.Service.ProcessCommand(ctx, sc)
 }
 
 func (g drainGate) StreamCommand(server protos.ViewService_StreamCommandServer) error {
-	if g.state.Draining() {
+	done, ok := g.state.TryTrack()
+	if !ok {
 		return ErrDraining
 	}
+	defer done()
 	return g.Service.StreamCommand(server)
 }
 

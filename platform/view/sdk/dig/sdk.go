@@ -285,7 +285,15 @@ func (p *SDK) Start(ctx context.Context) error {
 		if err := mountBackends(in.Remote, in.Backends, viewService); err != nil {
 			return err
 		}
-		in.CommService.Start(ctx)
+		// Comm outlives the node context: Stop stops it after the servers, so that responders
+		// cancelled with the node context can still send their replies.
+		commCtx, stopComm := context.WithCancel(context.WithoutCancel(ctx))
+		in.CommService.Start(commCtx)
+		defer func() {
+			if err != nil {
+				stopComm()
+			}
+		}()
 
 		if err := in.P2PService.Start(ctx); err != nil {
 			return err
@@ -295,6 +303,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		p.stop = func() { //nolint:contextcheck // Stop runs after the node context is cancelled, so it has none to pass
 			stopServers()
 			logger.Info("comm service stopping...")
+			stopComm()
 			in.CommService.Stop()
 			if in.KVS != nil {
 				logger.Info("kvs stopping...")

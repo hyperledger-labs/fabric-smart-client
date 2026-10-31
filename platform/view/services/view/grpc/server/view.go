@@ -30,7 +30,7 @@ var ErrViewTimedOut = errors.New("view execution timed out")
 // shutdown cancelled the view. The view may have had effects before it was cancelled, such as
 // a submitted transaction that still commits, so the client checks its outcome rather than
 // retrying it.
-var ErrAbortedByShutdown = status.Error(codes.Aborted, "view cancelled by node shutdown")
+var ErrAbortedByShutdown = status.Error(codes.Aborted, protos.AbortedByShutdownMessage)
 
 type viewHandler struct {
 	viewManager ViewManager

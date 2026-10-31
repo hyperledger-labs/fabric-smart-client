@@ -28,6 +28,8 @@ func (drainState) IsParty(contextID string, pkid []byte) bool {
 
 func (drainState) Track() func() { return func() {} }
 
+func (drainState) TryTrack() (func(), bool) { return nil, false }
+
 func TestService_DrainingAdmission(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -70,6 +72,8 @@ func (d *countingDrain) Track() func() {
 	d.running.Add(1)
 	return func() { d.running.Add(-1) }
 }
+
+func (d *countingDrain) TryTrack() (func(), bool) { return d.Track(), true }
 
 // A responder counts as running from the moment dispatch admits its first message, before it has
 // a view context, so a drain that starts in between waits for it.

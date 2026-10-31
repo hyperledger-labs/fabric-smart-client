@@ -40,7 +40,8 @@ func (h *retiringHost) get() []host.PeerID {
 
 // A draining peer's refusal of a session this node opened retires the host's connections to
 // that peer, so the next session dials again, and still reaches the session; another error,
-// or a refusal on a session this node does not know, retires nothing.
+// an error a peer's view sent (it has a caller), or a refusal on a session this node does not
+// know, retires nothing.
 func TestRedialAfterDraining(t *testing.T) {
 	t.Parallel()
 	h := &retiringHost{}
@@ -62,6 +63,11 @@ func TestRedialAfterDraining(t *testing.T) {
 	<-s.Receive()
 	deliver("unknown", view.ERROR, DrainingPrefix+"node is draining")
 	deliver("s", view.OK, DrainingPrefix+"a payload, not a refusal")
+	<-s.Receive()
+	p.incomingMessages <- &messageWithStream{
+		message: &view.Message{SessionID: "s", FromPKID: []byte("bob"), Caller: "app/View", Status: view.ERROR, Payload: []byte(DrainingPrefix + "sent by a view")},
+		stream:  &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p},
+	}
 	<-s.Receive()
 	assert.Empty(t, h.get())
 

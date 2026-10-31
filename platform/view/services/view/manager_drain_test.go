@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	grpcmock "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/mock"
 	servicesmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -185,4 +186,68 @@ func TestManagerDrain_ConcurrentTrack(t *testing.T) {
 		wg.Go(func() { require.NoError(t, m.Drain(t.Context())) })
 		wg.Wait()
 	}
+}
+
+// A view's context outlives the view: work it leaves running keeps the caller's context. Only
+// the drain deadline cancels it.
+func TestManager_InitiatorContextNotCancelledOnReturn(t *testing.T) {
+	t.Parallel()
+	m, _ := newResponderManager()
+	var viewCtx context.Context
+	v := &mock.View{}
+	v.CallCalls(func(c viewapi.Context) (any, error) {
+		viewCtx = c.Context()
+		return "ok", nil
+	})
+	_, err := m.InitiateView(context.Background(), v)
+	require.NoError(t, err)
+	require.NoError(t, viewCtx.Err(), "returning does not cancel the view's context")
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
+	defer cancel()
+	_ = m.Drain(ctx)
+	require.NoError(t, viewCtx.Err(), "the drain cancels only registered contexts; this one was deleted")
+}
+
+// TryTrack refuses new work once the drain started, and the drain waits for what it admitted.
+func TestManagerTryTrack(t *testing.T) {
+	t.Parallel()
+	m, _ := newResponderManager()
+	done, ok := m.TryTrack()
+	require.True(t, ok)
+
+	drained := make(chan error, 1)
+	go func() { drained <- m.Drain(context.Background()) }()
+	require.Eventually(t, m.Draining, time.Second, time.Millisecond)
+	_, ok = m.TryTrack()
+	require.False(t, ok, "a drain refuses new work")
+	select {
+	case <-drained:
+		t.Fatal("Drain returned while admitted work ran")
+	case <-time.After(20 * time.Millisecond):
+	}
+	done()
+	require.NoError(t, <-drained)
+}
+
+// A view cancelled by the drain keeps its own error in the chain.
+func TestManagerDrain_CancelledKeepsViewError(t *testing.T) {
+	t.Parallel()
+	m, _ := newResponderManager()
+	viewErr := errors.New("submit interrupted")
+	entered := make(chan struct{})
+	v := &mock.View{}
+	v.CallCalls(func(c viewapi.Context) (any, error) {
+		close(entered)
+		<-c.Context().Done()
+		return nil, viewErr
+	})
+	errs := initiate(m, v)
+	<-entered
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
+	defer cancel()
+	_ = m.Drain(ctx)
+	err := <-errs
+	require.ErrorIs(t, err, view.ErrCancelledByShutdown)
+	require.ErrorIs(t, err, viewErr)
 }

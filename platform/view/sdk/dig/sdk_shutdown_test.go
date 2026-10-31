@@ -12,15 +12,19 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	viewmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
@@ -39,6 +43,13 @@ func (f *fakeDrain) Draining() bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.draining
+}
+
+func (f *fakeDrain) TryTrack() (func(), bool) {
+	if f.Draining() {
+		return nil, false
+	}
+	return func() {}, true
 }
 
 func (f *fakeDrain) OnDrain(fn func()) {
@@ -131,20 +142,49 @@ func TestSDK_DrainSetsHealthNotServingAndGate(t *testing.T) {
 	require.Equal(t, http.StatusOK, ws.get(t, "/healthz"))
 }
 
-// The KVS outlives the teardown of every SDK installed after the view SDK: Node.Stop stops
-// those first, and the view SDK closes the KVS in its own Stop.
+// networkSDK wraps the view SDK as the Fabric SDK does: its Stop stops a network provider,
+// which writes to the KVS, and then the SDK it wraps.
+type networkSDK struct {
+	commondig.SDK
+	kvs      *kvs.KVS
+	writeErr error
+}
+
+func (n *networkSDK) Stop() error {
+	n.writeErr = n.kvs.Put(context.Background(), "flushed", "v")
+	return n.SDK.Stop()
+}
+
+// Node.Stop cancels the node context and then calls Stop on the outermost SDK. A network
+// provider that writes to the KVS while it stops finds it open, because the view SDK closes the
+// KVS only in its own Stop, which the wrapper calls last.
 func TestSDK_StopOrder(t *testing.T) {
 	t.Parallel()
 	p := providerFrom(t, "")
 	kvsInst, err := newKVS(p, newMuxDriver(p, mem.NewNamedDriver(sqlite.NewDbProvider())))
 	require.NoError(t, err)
-	s := startSDK(t, sdkDeps{kvs: kvsInst})
 
-	// A network provider stopping after the node context was cancelled still writes.
-	require.NoError(t, kvsInst.Put(context.Background(), "k", "v"))
-	require.NoError(t, s.Stop())
-	require.Error(t, kvsInst.Put(context.Background(), "k", "v"), "Stop closes the KVS")
-	require.NoError(t, s.Stop(), "a second Stop does nothing")
+	c := NewContainer()
+	registry := view.NewServiceProvider()
+	require.NoError(t, registry.RegisterService(p))
+	viewSDK := NewSDKFrom(commondig.NewBaseSDK(c, p), registry)
+	outer := &networkSDK{SDK: viewSDK, kvs: kvsInst}
+	sess := &viewmock.Session{}
+	sess.ReceiveReturns(make(chan *viewapi.Message))
+	commMock := &p2pmock.CommLayer{}
+	commMock.MasterSessionReturns(sess, nil)
+	tp, err := newTracerProvider(&disabled.Provider{}, p)
+	require.NoError(t, err)
+	wireSDKDeps(t, c, tp, commMock, sdkDeps{kvs: kvsInst})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	require.NoError(t, outer.Start(ctx))
+	cancel() // as Node.Stop does before the teardown
+	require.NoError(t, outer.Stop())
+
+	require.NoError(t, outer.writeErr, "the KVS is open while the network provider stops")
+	require.Error(t, kvsInst.Put(context.Background(), "k", "v"), "the view SDK closes the KVS last")
+	require.NoError(t, viewSDK.Stop(), "a second Stop does nothing")
 }
 
 func TestSDK_StopBeforeStart(t *testing.T) {
@@ -173,4 +213,56 @@ func TestDrainGate(t *testing.T) {
 	_, err = g.ProcessCommand(t.Context(), &protos.SignedCommand{})
 	require.Equal(t, codes.Unavailable, status.Code(err))
 	require.Equal(t, codes.Unavailable, status.Code(g.StreamCommand(nil)))
+}
+
+// closeHost is a P2P host that records Close, which the comm layer calls when it stops.
+type closeHost struct {
+	host.P2PHost
+	closed chan struct{}
+	once   sync.Once
+}
+
+func (*closeHost) PeerID() host.PeerID                        { return "me" }
+func (*closeHost) Start(func(host.P2PStream)) error           { return nil }
+func (*closeHost) Wait()                                      {}
+func (h *closeHost) Close() error                             { h.once.Do(func() { close(h.closed) }); return nil }
+func (h *closeHost) GetNewHost() (host.P2PHost, error)        { return h, nil }
+func (*closeHost) StreamHash(host.StreamInfo) host.StreamHash { return "" }
+
+// The comm layer outlives the node context: responders cancelled with it can still reply, and
+// only Stop, after the servers, closes the host.
+func TestSDK_CommStopsInStopNotOnCancel(t *testing.T) {
+	t.Parallel()
+	h := &closeHost{closed: make(chan struct{})}
+	c := NewContainer()
+	registry := view.NewServiceProvider()
+	cfg := providerFrom(t, "")
+	commSvc, err := comm.NewService(h, nil, cfg, &disabled.Provider{})
+	require.NoError(t, err)
+	require.NoError(t, registry.RegisterService(cfg))
+	s := NewSDKFrom(commondig.NewBaseSDK(c, cfg), registry)
+	sess := &viewmock.Session{}
+	sess.ReceiveReturns(make(chan *viewapi.Message))
+	commMock := &p2pmock.CommLayer{}
+	commMock.MasterSessionReturns(sess, nil)
+	tp, err := newTracerProvider(&disabled.Provider{}, cfg)
+	require.NoError(t, err)
+	wireSDKDeps(t, c, tp, commMock, sdkDeps{comm: commSvc})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	require.NoError(t, s.Start(ctx))
+	require.Eventually(t, func() bool { _, err := commSvc.MasterSession(); return err == nil }, 5*time.Second, 10*time.Millisecond, "comm initializes")
+
+	cancel()
+	select {
+	case <-h.closed:
+		t.Fatal("the node context closed the comm host before Stop")
+	case <-time.After(200 * time.Millisecond):
+	}
+	require.NoError(t, s.Stop())
+	select {
+	case <-h.closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop did not close the comm host")
+	}
 }

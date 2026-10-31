@@ -15,20 +15,25 @@ before it stops its components, and stops them in an order where none outlives w
    - A new view-API command is refused (see [View-API clients](#view-api-clients)).
    - A first P2P message for a new protocol is refused (see [P2P peers](#p2p-peers)).
 2. Views already running get up to `fsc.shutdown.drainTimeout` to finish. The node
-   logs every 5s that it is still waiting. A view counts as running from the moment
-   `InitiateView` (or the view service) starts it, and a responder from the moment its first
-   message is admitted, until it returns. Only the view API and P2P refuse new work: a view
+   logs every 5s how many views still run. A view counts as running from the moment
+   `InitiateView` starts it, a view-API command from the moment it is admitted, and a
+   responder from the moment its first message is admitted, until it returns. Only the view API and P2P refuse new work: a view
    the application starts itself with `InitiateView` during the drain still runs and is
    waited for. Goroutines a view starts itself, such as with
    `view.RunView`, are not waited for.
 3. At the timeout, every initiator view still running is cancelled with
    `view.ErrCancelledByShutdown`, and the node waits at most one more second for them to
-   return. It does not wait for a view that ignores cancellation.
-4. The node context is cancelled, and `Stop()` is called on every SDK in reverse
-   install order, for at most `fsc.shutdown.teardownTimeout` in total. With the usual
+   return. It does not wait for a view that ignores cancellation. A view's context is
+   cancelled only by this step or by its caller, not when the view returns, so work a view
+   leaves running keeps its caller's context.
+4. The node context is cancelled, which cancels the responders still running, and `Stop()`
+   is called on every SDK in reverse install order, for at most
+   `fsc.shutdown.teardownTimeout` in total. With the usual
    `fabricsdk.NewFrom(viewsdk.NewSDK(...))` this stops the Fabric networks (delivery and
    committer) first, then the view SDK's web, metrics, gRPC and operations servers, then the
-   comm service, then the KVS. An SDK still stopping at the timeout is logged and left running.
+   comm service, then the KVS. The comm service runs on a context of its own until then, so
+   cancelled responders can still send their replies. An SDK still stopping at the timeout is
+   logged and left running.
 
 A second SIGTERM or SIGINT, or a second `Node.Stop` call, skips the rest of the drain and goes
 on with the teardown.
@@ -37,9 +42,11 @@ on with the teardown.
 fsc:
   shutdown:
     # How long running views may take to finish. Set it at least as long as the longest view,
-    # typically the finality timeout. 0 does not wait; unset or negative is 30s.
+    # typically the finality timeout. 0 cancels running initiator views at once, without the
+    # one-second grace; unset or negative is 30s.
     drainTimeout: 30s
-    # How long the SDKs may take to stop. 0 does not wait; unset or negative is 30s.
+    # How long the SDKs may take to stop. 0 does not wait: Node.Stop returns while the SDKs,
+    # the KVS included, are still stopping. Unset or negative is 30s.
     teardownTimeout: 30s
 ```
 

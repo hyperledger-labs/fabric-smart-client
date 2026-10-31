@@ -11,6 +11,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/tls"
+	stderrors "errors"
 	"io"
 	"net"
 	"net/http"
@@ -182,10 +183,28 @@ func (c *wsCommandClient) Send(m *protos.SignedCommand) error { return wsproto.W
 
 func (c *wsCommandClient) Recv() (*protos.SignedCommandResponse, error) {
 	m := &protos.SignedCommandResponse{}
-	if err := wsproto.Read(c.conn, m); err != nil {
+	if err := c.read(m); err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+// read reads m from the stream. A close by a node that drains (code 1013) becomes a gRPC
+// Unavailable status, and a close naming a view the node's shutdown cancelled an Aborted one,
+// as the gRPC transport reports them.
+func (c *wsCommandClient) read(m proto.Message) error {
+	err := wsproto.Read(c.conn, m)
+	var ce *websocket.CloseError
+	if !stderrors.As(err, &ce) {
+		return err
+	}
+	switch {
+	case ce.Code == websocket.CloseTryAgainLater:
+		return status.Error(codes.Unavailable, ce.Text)
+	case ce.Code == websocket.CloseInternalServerErr && ce.Text == protos.AbortedByShutdownMessage:
+		return status.Error(codes.Aborted, ce.Text)
+	}
+	return err
 }
 
 func (c *wsCommandClient) SendMsg(m any) error {
@@ -201,7 +220,7 @@ func (c *wsCommandClient) RecvMsg(m any) error {
 	if !ok {
 		return errors.Errorf("cannot receive into [%T]: not a protobuf message", m)
 	}
-	return wsproto.Read(c.conn, pm)
+	return c.read(pm)
 }
 
 func (*wsCommandClient) Header() (metadata.MD, error) { return metadata.MD{}, nil }

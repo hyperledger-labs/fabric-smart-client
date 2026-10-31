@@ -291,6 +291,7 @@ type sdkDeps struct {
 	kvs        *kvs.KVS
 	drain      drainState
 	webServer  WebServer
+	comm       *comm.Service
 }
 
 func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2p.CommLayer, deps ...sdkDeps) *fakeViewService {
@@ -301,7 +302,10 @@ func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2
 	}
 
 	p2pSvc := p2p.NewService(&fakeP2PViewManager{}, &fakeIdentityProvider{}, commMock, nil, nil, nil)
-	commSvc := &comm.Service{HostProvider: &fakeHostProvider{}}
+	commSvc := d.comm
+	if commSvc == nil {
+		commSvc = &comm.Service{HostProvider: &fakeHostProvider{}}
+	}
 	viewSvc := &fakeViewService{}
 
 	require.NoError(t, errors.Join(

@@ -78,6 +78,11 @@ type Manager struct {
 	responders map[string]*responderContext
 	contextsMu sync.RWMutex
 
+	// shutdown is cancelled with ErrCancelledByShutdown at the drain deadline; initiator
+	// contexts follow it.
+	shutdown       context.Context
+	cancelShutdown context.CancelCauseFunc
+
 	// drainMu guards the fields below.
 	drainMu sync.Mutex
 	// running counts the views in flight, see Track.
@@ -86,8 +91,9 @@ type Manager struct {
 	// idle, once Drain started, is closed when running reaches zero.
 	idle    chan struct{}
 	onDrain []func()
-	// initiated holds the cancel funcs of the registered initiator contexts, by context ID.
-	initiated map[string]context.CancelCauseFunc
+	// initiated holds, by context ID, the funcs that stop the shutdown cancellation of the
+	// registered initiator contexts.
+	initiated map[string]func() bool
 }
 
 // responderContext is a responder context shared by the responders that run in it. It is
@@ -109,12 +115,15 @@ func NewManager(
 	contextFactory ContextFactory,
 	runner Runner,
 ) *Manager {
+	shutdown, cancelShutdown := context.WithCancelCause(context.Background())
 	return &Manager{
+		shutdown:         shutdown,
+		cancelShutdown:   cancelShutdown,
 		identityProvider: identityProvider,
 
 		contexts:   map[string]DisposableContext{},
 		responders: map[string]*responderContext{},
-		initiated:  map[string]context.CancelCauseFunc{},
+		initiated:  map[string]func() bool{},
 		registry:   registry,
 
 		metrics:        metrics,
@@ -198,7 +207,7 @@ func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View,
 	if err != nil {
 		logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), c.ID(), err)
 		if errors.Is(context.Cause(c.Context()), ErrCancelledByShutdown) { //nolint:contextcheck // the view context carries the shutdown cause, not ctx
-			return nil, errors.Wrapf(ErrCancelledByShutdown, "view [%s]: %v", logging.Identifier(view), err)
+			return nil, errors.Join(ErrCancelledByShutdown, err)
 		}
 		return nil, err
 	}
@@ -239,10 +248,12 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 }
 
 // newChildContextForInitiator creates and registers an initiator context. Its go context is
-// derived from ctx so that Drain can cancel it with ErrCancelledByShutdown until DeleteContext
-// removes it.
+// derived from ctx and is cancelled with ErrCancelledByShutdown at the drain deadline, until
+// DeleteContext removes it. DeleteContext does not cancel it, so work a view leaves running on
+// its context keeps the context of its caller.
 func (cm *Manager) newChildContextForInitiator(ctx context.Context, view view.View, id view.Identity, contextID string) (*ChildContext, error) {
 	ctx, cancel := context.WithCancelCause(ctx)
+	stop := context.AfterFunc(cm.shutdown, func() { cancel(context.Cause(cm.shutdown)) }) //nolint:contextcheck // the manager's shutdown context cancels ctx; it is not a parent
 	viewContext, err := cm.contextFactory.NewForInitiator(
 		ctx,
 		contextID,
@@ -250,6 +261,7 @@ func (cm *Manager) newChildContextForInitiator(ctx context.Context, view view.Vi
 		view,
 	)
 	if err != nil {
+		stop()
 		cancel(nil)
 		return nil, err
 	}
@@ -260,7 +272,7 @@ func (cm *Manager) newChildContextForInitiator(ctx context.Context, view view.Vi
 	cm.contextsMu.Unlock()
 
 	cm.drainMu.Lock()
-	cm.initiated[c.ID()] = cancel
+	cm.initiated[c.ID()] = stop
 	cm.drainMu.Unlock()
 
 	return c, nil
@@ -428,9 +440,9 @@ func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Ident
 // responders release their context with the func returned by NewResponderContext instead.
 func (cm *Manager) DeleteContext(contextID string) {
 	cm.drainMu.Lock()
-	if cancel, ok := cm.initiated[contextID]; ok {
+	if stop, ok := cm.initiated[contextID]; ok {
 		delete(cm.initiated, contextID)
-		defer cancel(nil)
+		stop()
 	}
 	cm.drainMu.Unlock()
 
@@ -480,6 +492,11 @@ func (cm *Manager) Track() (done func()) {
 	cm.drainMu.Lock()
 	cm.running++
 	cm.drainMu.Unlock()
+	return cm.trackDone()
+}
+
+// trackDone returns the func that ends one count of Track or TryTrack, once.
+func (cm *Manager) trackDone() func() {
 	return sync.OnceFunc(func() {
 		cm.drainMu.Lock()
 		defer cm.drainMu.Unlock()
@@ -489,6 +506,19 @@ func (cm *Manager) Track() (done func()) {
 			cm.idle = nil
 		}
 	})
+}
+
+// TryTrack is Track for new work: it counts the view as running and returns true, unless the
+// manager drains, in which case it counts nothing and returns false. The check and the count
+// are one step, so a drain that starts concurrently either refuses the view or waits for it.
+func (cm *Manager) TryTrack() (done func(), ok bool) {
+	cm.drainMu.Lock()
+	defer cm.drainMu.Unlock()
+	if cm.draining {
+		return nil, false
+	}
+	cm.running++
+	return cm.trackDone(), true
 }
 
 // Draining reports whether Drain has been called. A draining node refuses new work.
@@ -501,9 +531,10 @@ func (cm *Manager) Draining() bool {
 // Drain marks the manager as draining, runs the funcs registered with OnDrain, and waits for
 // the tracked views to return. When ctx is done first, it cancels the go context of every
 // registered initiator context (from InitiateView, InitiateContext and their variants) with
-// ErrCancelledByShutdown, waits at most one more second for them, and returns ctx's error, so
-// a view that ignores cancellation cannot hold shutdown. Contexts that are registered but no longer run a view, such as one from
-// InitiateContext its caller never deleted, do not hold it. Drain implements node.Drainer and
+// ErrCancelledByShutdown, waits at most one more second for them when ctx timed out, and returns
+// ctx's error, so
+// a view that ignores cancellation cannot hold shutdown. Contexts that are registered but no
+// longer run a view, such as one from InitiateContext its caller never deleted, do not hold it. Drain implements node.Drainer and
 // is called once per node lifetime.
 func (cm *Manager) Drain(ctx context.Context) error {
 	cm.drainMu.Lock()
@@ -523,28 +554,45 @@ func (cm *Manager) Drain(ctx context.Context) error {
 		f()
 	}
 
-	select {
-	case <-idle:
-		return nil
-	case <-ctx.Done():
+	ticker := time.NewTicker(drainLogInterval)
+	defer ticker.Stop()
+	for waiting := true; waiting; {
+		select {
+		case <-idle:
+			return nil
+		case <-ctx.Done():
+			waiting = false
+		case <-ticker.C:
+			logger.Infof("draining: [%d] views still running", cm.runningViews())
+		}
 	}
 
-	cm.drainMu.Lock()
-	for _, cancel := range cm.initiated {
-		cancel(ErrCancelledByShutdown)
-	}
-	cm.drainMu.Unlock()
+	logger.Warnf("draining: cancelling [%d] views still running", cm.runningViews())
+	cm.cancelShutdown(ErrCancelledByShutdown)
 	// Give the cancelled views a moment to return, so that the view service still answers
-	// them with Aborted before the node stops its servers.
-	select {
-	case <-idle:
-	case <-time.After(cancelGrace):
+	// them with Aborted before the node stops its servers. A drain cancelled rather than timed
+	// out, by a second Stop or fsc.shutdown.drainTimeout: 0, skips it.
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		select {
+		case <-idle:
+		case <-time.After(cancelGrace):
+		}
 	}
 	return ctx.Err()
 }
 
-// cancelGrace is how long Drain waits for views it cancelled at its deadline.
-const cancelGrace = time.Second
+const (
+	// cancelGrace is how long Drain waits for views it cancelled at its deadline.
+	cancelGrace = time.Second
+	// drainLogInterval is how often Drain logs how many views still run.
+	drainLogInterval = 5 * time.Second
+)
+
+func (cm *Manager) runningViews() int {
+	cm.drainMu.Lock()
+	defer cm.drainMu.Unlock()
+	return cm.running
+}
 
 // OnDrain registers f to run when Drain starts, before it waits, so that components outside
 // the manager, such as readiness reporting, follow the drain. f must not block.

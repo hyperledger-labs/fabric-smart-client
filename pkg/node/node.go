@@ -192,7 +192,13 @@ func (n *Node) Stop() {
 	first := n.stopped == nil
 	if first {
 		n.stopped = make(chan struct{})
-		n.drainCtx, n.skipDrain = context.WithTimeout(context.Background(), drainTimeout(n.config))
+		if d := drainTimeout(n.config); d > 0 {
+			n.drainCtx, n.skipDrain = context.WithTimeout(context.Background(), d)
+		} else {
+			// No drain: cancelled at once, without the grace a timed-out drain gets.
+			n.drainCtx, n.skipDrain = context.WithCancel(context.Background())
+			n.skipDrain()
+		}
 	} else {
 		logger.Infof("shutdown in progress, skipping the rest of the drain")
 		n.skipDrain()
@@ -218,8 +224,7 @@ func (n *Node) Stop() {
 	logger.Infof("node stopped in %s", time.Since(start))
 }
 
-// drain runs the Drainer registered in the registry, if any, and logs what still runs every
-// 5s until it returns.
+// drain runs the Drainer registered in the registry, if any. The Drainer logs its own progress.
 func (n *Node) drain(ctx context.Context) {
 	if n.registry == nil {
 		return
@@ -233,27 +238,12 @@ func (n *Node) drain(ctx context.Context) {
 		return
 	}
 	logger.Infof("draining running views...")
-	done := make(chan error, 1)
-	go func() { done <- d.Drain(ctx) }()
-	ticker := time.NewTicker(drainLogInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case err := <-done:
-			if err != nil {
-				logger.Warnf("draining running views...stopped before they finished: %s", err)
-				return
-			}
-			logger.Infof("draining running views...done")
-			return
-		case <-ticker.C:
-			logger.Infof("draining running views...still waiting")
-		}
+	if err := d.Drain(ctx); err != nil {
+		logger.Warnf("draining running views...stopped before they finished: %s", err)
+		return
 	}
+	logger.Infof("draining running views...done")
 }
-
-// drainLogInterval is how often drain logs that it is still waiting.
-const drainLogInterval = 5 * time.Second
 
 // teardown stops the SDKs in reverse install order, within timeout.
 func (n *Node) teardown(timeout time.Duration) {

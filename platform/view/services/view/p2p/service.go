@@ -107,6 +107,9 @@ type DrainState interface {
 	// Track counts a responder as running until the returned func is called, so that the drain
 	// waits for it.
 	Track() (done func())
+	// TryTrack is Track unless the node drains, in which case it counts nothing and returns
+	// false, as one step with the check.
+	TryTrack() (done func(), ok bool)
 }
 
 // Runner models a view runner.
@@ -270,7 +273,20 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 	responder, id, err := s.viewManager.ExistResponderForCaller(msg.Caller)
 	known := err == nil
 	peer := string(msg.FromPKID)
-	draining := known && s.drain != nil && s.drain.Draining() && !s.drain.IsParty(msg.ContextID, msg.FromPKID)
+	// Counting the responder before admitting it means a drain that starts concurrently either
+	// refuses it or waits for it.
+	var done func()
+	draining := false
+	if known && s.drain != nil {
+		var ok bool
+		if done, ok = s.drain.TryTrack(); !ok {
+			if s.drain.IsParty(msg.ContextID, msg.FromPKID) {
+				done = s.drain.Track()
+			} else {
+				draining = true
+			}
+		}
+	}
 
 	s.inflightMu.Lock()
 	load := s.inflight[peer]
@@ -283,15 +299,19 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 		load.rejections++
 	default:
 		s.inflightMu.Unlock()
+		if done != nil {
+			done()
+		}
 		logger.Debugf("dropping first message for context [%s] from [%s]: too many pending rejections", msg.ContextID, msg.FromEndpoint)
 		return
 	}
 	s.inflight[peer] = load
 	s.inflightMu.Unlock()
 
-	var done func()
-	if run && s.drain != nil {
-		done = s.drain.Track()
+	if !run && done != nil {
+		// Busy: a rejection does not hold the drain.
+		done()
+		done = nil
 	}
 	s.wg.Go(func() {
 		defer s.release(peer, run)

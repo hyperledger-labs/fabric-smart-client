@@ -363,13 +363,15 @@ fsc:
   shutdown:
     # How long running views may take to finish; at the timeout, initiator views still running
     # are cancelled and view-API calls get Aborted (HTTP 409). Set it at least as long as the
-    # longest view, typically the finality timeout. 0 does not wait; unset or negative is 30s.
-    drainTimeout: 30s
-    # How long the SDKs may take to stop once the drain is over. 0 does not wait; unset or
+    # longest view, typically the finality timeout. 0 cancels running views at once; unset or
     # negative is 30s.
+    drainTimeout: 30s
+    # How long the SDKs may take to stop once the drain is over. 0 does not wait for them;
+    # unset or negative is 30s.
     teardownTimeout: 30s
   # The fsc.grpc listener always serves the gRPC health service (grpc.health.v1.Health); it
-  # reports NOT_SERVING while the node drains.
+  # reports NOT_SERVING while the node drains. An application must not register that service
+  # on fsc.grpc itself: a second registration panics at startup.
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
