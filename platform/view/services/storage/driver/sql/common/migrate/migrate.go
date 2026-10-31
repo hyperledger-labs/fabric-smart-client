@@ -92,9 +92,10 @@ const (
 	Postgres Dialect = "postgres"
 )
 
-// Step is one schema change. SQL runs in a single transaction together with the
-// update of the store's version, so a step cannot hold statements that refuse
-// to run inside a transaction, such as Postgres CREATE INDEX CONCURRENTLY.
+// Step is one schema change. SQL and then Go run in a single transaction
+// together with the update of the store's version, so a step cannot hold
+// statements that refuse to run inside a transaction, such as Postgres CREATE
+// INDEX CONCURRENTLY.
 type Step struct {
 	// Version is the step's position, starting at 1.
 	Version int
@@ -102,6 +103,18 @@ type Step struct {
 	Name string
 	// SQL holds the statements to run, in order.
 	SQL []string
+	// Go, if set, runs after SQL, for changes SQL cannot express such as
+	// backfilling a value computed in Go. q runs statements in the step's
+	// transaction; Go must not run BEGIN, COMMIT or ROLLBACK. An error rolls
+	// the step back.
+	Go func(ctx context.Context, q Execer) error
+}
+
+// Execer runs statements. *sql.DB, *sql.Conn and *sql.Tx implement it.
+type Execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 // Versioned is implemented by stores whose schema is managed by Migrate.
@@ -120,8 +133,18 @@ type options struct {
 // Option configures Migrate.
 type Option func(*options)
 
+func newOptions(opts []Option) options {
+	o := options{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
 // WithCheckOnly makes Migrate run no step and create nothing. It returns
-// ErrPending if any step is pending.
+// ErrPending if any step is pending. CreateSchema with WithCheckOnly does not
+// call CreateSchema on a store that is not Versioned. This is the behavior a
+// store needs under skipCreateTable: true.
 func WithCheckOnly() Option {
 	return func(o *options) { o.checkOnly = true }
 }
@@ -135,12 +158,15 @@ var (
 
 var tableNames = db.NewTableNameCreator("fsc")
 
-// CreateSchema prepares obj's schema: it runs Migrate if obj implements
-// Versioned, and obj.CreateSchema otherwise. db is the pool Migrate uses; see
-// the package documentation for which pool each dialect needs.
-func CreateSchema(ctx context.Context, db *sql.DB, d Dialect, prefix string, obj drivercommon.DBObject) error {
+// CreateSchema prepares obj's schema: it runs Migrate with opts if obj
+// implements Versioned, and obj.CreateSchema otherwise. db is the pool Migrate
+// uses; see the package documentation for which pool each dialect needs.
+func CreateSchema(ctx context.Context, db *sql.DB, d Dialect, prefix string, obj drivercommon.DBObject, opts ...Option) error {
 	if v, ok := obj.(Versioned); ok {
-		return Migrate(ctx, db, d, prefix, v)
+		return Migrate(ctx, db, d, prefix, v, opts...)
+	}
+	if newOptions(opts).checkOnly {
+		return nil
 	}
 	return obj.CreateSchema()
 }
@@ -152,10 +178,7 @@ func CreateSchema(ctx context.Context, db *sql.DB, d Dialect, prefix string, obj
 // WithCheckOnly when steps are pending, and an error naming the store and the
 // step when a step fails. The package documentation describes the locking.
 func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versioned, opts ...Option) error {
-	o := options{}
-	for _, opt := range opts {
-		opt(&o)
-	}
+	o := newOptions(opts)
 	store, steps := v.StoreName(), v.Steps()
 	for i, s := range steps {
 		if s.Version != i+1 {
@@ -226,14 +249,10 @@ func register(db *sql.DB, table, store string, v Versioned) error {
 	return nil
 }
 
-type querier interface {
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-}
-
 // readVersion returns the store's recorded version, 0 if the versions table or
 // the row does not exist. It returns ErrSchemaTooNew if readable_by is above
 // latest.
-func readVersion(ctx context.Context, q querier, d Dialect, table, store string, latest int) (int, error) {
+func readVersion(ctx context.Context, q Execer, d Dialect, table, store string, latest int) (int, error) {
 	exists := "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1)"
 	if d == Postgres {
 		exists = "SELECT to_regclass($1) IS NOT NULL"
@@ -249,7 +268,7 @@ func readVersion(ctx context.Context, q querier, d Dialect, table, store string,
 }
 
 // readRow is readVersion for a versions table that exists.
-func readRow(ctx context.Context, q querier, table, store string, latest int) (int, error) {
+func readRow(ctx context.Context, q Execer, table, store string, latest int) (int, error) {
 	var version, readableBy int
 	err := q.QueryRowContext(ctx, "SELECT version, readable_by FROM "+table+" WHERE store = $1", store).Scan(&version, &readableBy) //nolint:gosec // table name comes from configuration, not user input
 	if errors.Is(err, sql.ErrNoRows) {
@@ -297,6 +316,11 @@ func apply(ctx context.Context, conn *sql.Conn, d Dialect, table, store string, 
 	logger.Infof("store [%s]: running schema step %d [%s]", store, s.Version, s.Name)
 	for _, stmt := range s.SQL {
 		if _, err := conn.ExecContext(ctx, stmt); err != nil {
+			return errors.Wrapf(err, "store [%s]: step %d [%s] failed", store, s.Version, s.Name)
+		}
+	}
+	if s.Go != nil {
+		if err := s.Go(ctx, conn); err != nil {
 			return errors.Wrapf(err, "store [%s]: step %d [%s] failed", store, s.Version, s.Name)
 		}
 	}
