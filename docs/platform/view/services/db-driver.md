@@ -68,7 +68,7 @@ Aside to the database-related implementations of the `Driver` interface (i.e. `m
 During instantiation, the driver has access to the persistence `opts`.
 This way, it takes care of:
 * opening the connection pool to the DB (unless a pool for the same `dataSource` is already open)
-* the creation of the schema (`CREATE TABLE IF NOT EXISTS`), skipped for every store of the persistence when `skipCreateTable: true`
+* preparing the schema, skipped for every store of the persistence when `skipCreateTable: true` (see [Schema versions](#schema-versions))
 * the instantiation of the service that builds and executes the queries to the database
 
 The driver interface, from `platform/view/services/storage/driver/driver.go`:
@@ -144,6 +144,53 @@ The drivers resolve a persistence name to its `fsc.persistences.<name>` block th
 
 Postgres accepts every `driver.IsolationLevel` except `LevelWriteCommitted` and `LevelLinearizable`, which the pgx driver does not support; FSC rejects both before it begins the transaction. `LevelSnapshot` runs as `REPEATABLE READ`.
 SQLite accepts only `LevelDefault` and `LevelSerializable` and rejects any other level.
+
+## Schema versions
+
+After building a store, every driver constructor (sqlite, postgres and memory, for both the view and the fabric stores) passes it to `migrate.CreateSchema` in `platform/view/services/storage/driver/sql/common/migrate`:
+
+* a store that implements `migrate.Versioned` is brought up to date by `migrate.Migrate`, which runs its pending steps and records the store's version in `<prefix>_schema_versions` (see [Database layout](database-layout.md#schema-versions-table));
+* any other store gets `CreateSchema()`.
+
+`Migrate` reads the version without taking the migration lock, so a store that is up to date never waits for a running migration. When steps are pending, Postgres migrators of one table prefix exclude each other with an advisory lock; a waiting node logs every 10 seconds and has no timeout. The lock is held by one session across several transactions, so the migrating node needs a direct connection or a session-pooling proxy, not PgBouncer in transaction-pooling mode. SQLite runs each step in a `BEGIN IMMEDIATE` transaction on the write connection, so a second process on the same file waits at most for the connection's `busy_timeout`; after that its step fails with `SQLITE_BUSY` and the store does not open. A failed step rolls back and the store does not open. A database whose `readable_by` is above the highest step the binary knows fails with `migrate.ErrSchemaTooNew`.
+
+### Versioning an application store
+
+A store adopts versioning by adding two methods next to `CreateSchema`. `StoreName` returns the store's primary table name, and `Steps` returns every step in order, starting at version 1:
+
+```go
+func (s *OrderStore) StoreName() string { return s.table }
+
+func (s *OrderStore) Steps() []migrate.Step {
+	return []migrate.Step{
+		{Version: 1, Name: "create orders", SQL: []string{
+			"CREATE TABLE IF NOT EXISTS " + s.table + " (id TEXT PRIMARY KEY, amount BIGINT NOT NULL)",
+		}},
+		{Version: 2, Name: "add orders.note", SQL: []string{
+			"ALTER TABLE " + s.table + " ADD COLUMN note TEXT NOT NULL DEFAULT ''",
+		}},
+	}
+}
+```
+
+Write step 1 with `IF NOT EXISTS` so that it accepts a database created by the store's earlier `CreateSchema`. Never edit, reorder or remove a released step: a database that applied it does not run it again. Every step must leave the store readable by the previous release.
+
+A step whose change SQL cannot express sets `Go`, which runs after the step's `SQL` in the same transaction. Typical cases are a backfill computed in Go and a SQLite table rebuild. The function runs its statements through the `migrate.Execer` it receives and must not begin, commit or roll back a transaction. If it returns an error, the step rolls back, `SQL` included:
+
+```go
+{Version: 3, Name: "backfill orders.hash", SQL: []string{
+	"ALTER TABLE " + s.table + " ADD COLUMN hash TEXT",
+}, Go: func(ctx context.Context, q migrate.Execer) error {
+	// read rows with q.QueryContext, close them, then write with q.ExecContext
+	return nil
+}},
+```
+
+The rules for released steps cover the Go function too: a database that applied the step never runs a changed function body.
+
+A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store)` where it calls `CreateSchema()` today. On SQLite, pass the single-connection write pool. When the persistence sets `skipCreateTable: true`, pass `migrate.WithCheckOnly()` instead of skipping the call. A `Versioned` store then runs no step and returns `migrate.ErrPending` if steps are pending, and a plain store's `CreateSchema()` is not called.
+
+A table that several stores use is versioned by one of them, its owner: only the owner lists steps for the table, so the table has a single row in the versions table. Each store migrates when it is opened, so steps that depend on another store's tables, for example through a foreign key, run after that store has been opened.
 
 ## Extending the Driver on the same Project
 
