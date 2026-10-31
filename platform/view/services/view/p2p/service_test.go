@@ -658,7 +658,7 @@ type rejectTest struct {
 	service *p2p.Service
 }
 
-func newRejectTest(t *testing.T, limit int) *rejectTest {
+func newRejectTest(t *testing.T, limit int, opts ...p2p.Option) *rejectTest {
 	t.Helper()
 	rt := &rejectTest{
 		limitTest: &limitTest{
@@ -674,7 +674,8 @@ func newRejectTest(t *testing.T, limit int) *rejectTest {
 	rt.cl.MasterSessionReturns(masterSess, nil)
 	rt.cl.NewResponderSessionReturns(&mock.Session{}, nil)
 	deps := &unknownViewDeps{freshContextDeps{leakTestDeps{responder: &mock.View{}}}}
-	rt.service = p2p.NewService(deps, deps, rt.cl, deps, rt.runner, limitConfig(limit), p2p.WithMetrics(&metricsProvider{t: t, counter: rt.counter}))
+	opts = append([]p2p.Option{p2p.WithMetrics(&metricsProvider{t: t, counter: rt.counter})}, opts...)
+	rt.service = p2p.NewService(deps, deps, rt.cl, deps, rt.runner, limitConfig(limit), opts...)
 	require.NoError(t, rt.service.Start(t.Context()))
 	return rt
 }

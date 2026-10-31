@@ -17,4 +17,9 @@ const (
 	// DefaultHTTPMaxRecvMsgSize is the largest request body, response body or WebSocket
 	// message an end of the HTTP binding reads when it is configured with no limit: 100 MiB.
 	DefaultHTTPMaxRecvMsgSize = 100 * 1024 * 1024
+
+	// AbortedByShutdownMessage is the message of the gRPC Aborted status a view call ends with
+	// when the node's shutdown cancelled the view. A stream carries it as the reason of its
+	// close frame, with code 1011, so that a client tells it from other server errors.
+	AbortedByShutdownMessage = "view cancelled by node shutdown"
 )

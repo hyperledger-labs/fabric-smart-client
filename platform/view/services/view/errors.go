@@ -48,4 +48,9 @@ var (
 	ErrIdentityNotRecognized = errors.New("identity not recognized")
 	// ErrInvalidConfig occurs when a configuration is invalid.
 	ErrInvalidConfig = errors.New("invalid configuration")
+	// ErrCancelledByShutdown occurs when a node's shutdown cancels an initiator view that was
+	// still running at the end of the drain. The view may have had effects before it was
+	// cancelled, such as a submitted transaction that still commits, so its outcome must be
+	// checked rather than the view retried.
+	ErrCancelledByShutdown = errors.New("view cancelled by node shutdown")
 )

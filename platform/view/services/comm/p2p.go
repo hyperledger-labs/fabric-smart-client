@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
+	"bytes"
 	"context"
 	goio "io"
 	"runtime/debug"
@@ -205,6 +206,8 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			if !in {
 				logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
 				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+			} else {
+				p.retireIfDraining(msg.message)
 			}
 			p.dispatchMutex.Unlock()
 
@@ -243,6 +246,24 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			logger.Info("closing p2p comm dispatcher (node stopped)...")
 			return
 		}
+	}
+}
+
+// DrainingPrefix starts the payload of the error a draining peer replies to a first message it
+// refuses. It equals p2p.DrainingPrefix of the view layer, which sends these replies.
+const DrainingPrefix = "draining: "
+
+// retireIfDraining retires the host's connections to the sender of msg when msg is a draining
+// peer's refusal of a session this node opened, so that the next session to that peer dials
+// again and can reach another replica behind a load balancer. The refusal still reaches the
+// session. Only a rejection counts: it has an empty caller, unlike an error a peer's view sends.
+func (p *P2PNode) retireIfDraining(msg *view.Message) {
+	if msg.Status != view.ERROR || len(msg.Caller) != 0 || !bytes.HasPrefix(msg.Payload, []byte(DrainingPrefix)) {
+		return
+	}
+	if r, ok := p.host.(host.RetiringHost); ok {
+		logger.Infof("peer [%s] is draining, new sessions to it use a new connection", view.Identity(msg.FromPKID))
+		r.Retire(host.PeerID(msg.FromPKID))
 	}
 }
 

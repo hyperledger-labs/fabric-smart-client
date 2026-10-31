@@ -64,11 +64,10 @@ func (f *fakeServer) stopped() bool {
 }
 
 func TestServe_WaitsForServersOnShutdown(t *testing.T) { //nolint:paralleltest // relies on server-goroutine shutdown timing; must run serially
-	ctx, cancel := context.WithCancel(context.Background())
 	ws := newFakeServer() // Start blocks until Stop
 	// Zero OperationsServer: the endpoints share the web listener, so startServe starts none.
-	wg := startServe(nil, ws, OperationsServer{}, nil, nil, ctx)
-	cancel()
+	wg, stop := startServe(nil, ws, OperationsServer{}, nil, nil)
+	stop()
 	done := make(chan struct{})
 	go func() { wg.Wait(); close(done) }()
 	select {
@@ -629,8 +628,6 @@ func TestNewViewServiceServer(t *testing.T) {
 }
 
 func TestServe_FullLifecycle(t *testing.T) { //nolint:paralleltest // relies on server lifecycle and goroutines
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	ws := newFakeServer()
 	ownOps := newFakeServer()
@@ -648,9 +645,9 @@ func TestServe_FullLifecycle(t *testing.T) { //nolint:paralleltest // relies on 
 	kvsInst, err := newKVS(p, muxDriver)
 	require.NoError(t, err)
 
-	wg := startServe(nil, ws, ops, opsSystem, kvsInst, ctx)
-	// Cancel context to initiate shutdown
-	cancel()
+	wg, stop := startServe(nil, ws, ops, opsSystem, kvsInst)
+	stop()
+	stop() // a second call returns at once
 
 	done := make(chan struct{})
 	go func() {

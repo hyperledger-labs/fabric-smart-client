@@ -8,6 +8,7 @@ package fsc
 
 import (
 	"slices"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
@@ -36,6 +37,16 @@ type P2P struct {
 	MaxSendMsgSize int `yaml:"maxSendMsgSize,omitempty"`
 }
 
+// Shutdown holds the fsc.shutdown timeouts rendered into every node's core.yaml. The defaults
+// of NewTopology are shorter than the node's, so that a test that stops a node with a view still
+// running does not wait the production drain.
+type Shutdown struct {
+	// DrainTimeout bounds the wait for running views when a node stops (fsc.shutdown.drainTimeout).
+	DrainTimeout time.Duration `yaml:"drainTimeout,omitempty"`
+	// TeardownTimeout bounds the wait for the SDKs to stop (fsc.shutdown.teardownTimeout).
+	TeardownTimeout time.Duration `yaml:"teardownTimeout,omitempty"`
+}
+
 type P2PCommunicationType = string
 
 const (
@@ -55,6 +66,8 @@ type Topology struct {
 	P2PCommunicationType P2PCommunicationType `yaml:"p2p_communication_type,omitempty"`
 	// P2P holds the P2P message-size limits applied to every FSC node of the topology.
 	P2P P2P `yaml:"p2p,omitempty"`
+	// Shutdown holds the shutdown timeouts applied to every FSC node of the topology.
+	Shutdown Shutdown `yaml:"shutdown,omitempty"`
 	// WebEnabled is used to activate the FSC web server
 	WebEnabled bool `yaml:"web_enabled,omitempty"`
 }
@@ -83,6 +96,7 @@ func NewTopology() *Topology {
 			TLS:         true,
 		},
 		P2PCommunicationType: WebSocket,
+		Shutdown:             Shutdown{DrainTimeout: 5 * time.Second, TeardownTimeout: 10 * time.Second},
 	}
 }
 

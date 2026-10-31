@@ -43,6 +43,24 @@ func (p *SDK) Start(ctx context.Context) error {
   collections (e.g. storage drivers register into the `db-drivers` group).
 - Dependencies are resolved automatically via constructor injection.
 
+## Lifecycle and shutdown
+
+`pkg/node.Node` runs `Install`, then `Start(ctx)`, then `PostStart(ctx)` on every SDK, in
+install order. `Node.Stop` reverses that ([shutdown.md](../platform/view/services/shutdown.md)):
+
+1. It calls `Drain(ctx)` on the `node.Drainer` in the node's registry, bounded by
+   `fsc.shutdown.drainTimeout`. The view SDK registers the view manager, which refuses new work
+   and waits for running views.
+2. It cancels the `ctx` passed to `Start`.
+3. It calls `Stop()` on every SDK in reverse install order, bounded by
+   `fsc.shutdown.teardownTimeout`.
+
+So an SDK that wraps another stops its own components in `Stop()` and then calls the wrapped
+SDK's `Stop()`: what it uses (the KVS, comm, the servers of the view SDK) is still running
+while it stops. Do not tear down in a `ctx.Done()` goroutine: nothing orders it against the
+other SDKs. The drain needs nothing from an SDK; `Drain` is not part of `commondig.SDK`, so
+wrappers need not pass it through.
+
 ## Listeners and view transports
 
 The view SDK (`platform/view/sdk/dig`) owns the `fsc.grpc.enabled`, `fsc.web.enabled` and

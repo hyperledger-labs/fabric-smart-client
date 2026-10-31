@@ -19,8 +19,10 @@ import (
 	"net/http"
 	"time"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -36,7 +38,9 @@ const writeSlack = 30 * time.Second
 // SignedCommand gets 200 and the SignedCommandResponse svc returns, failures included, as on
 // gRPC. Other statuses report what keeps a command from existing: 400 for an undecodable
 // body, 405 for a method other than POST, 413 for a body over maxRecvMsgSize, and 500 when
-// svc itself returns an error. The write deadline is extended to viewTimeout plus slack, so
+// svc itself returns an error, except 503 for a node that drains before it stops (gRPC
+// Unavailable: retry on another replica) and 409 for a view the node's shutdown cancelled (gRPC
+// Aborted: check the view's outcome rather than retrying). The write deadline is extended to viewTimeout plus slack, so
 // a view that runs up to its timeout still delivers its response.
 func NewProcessCommandHandler(svc protos.ViewServiceServer, maxRecvMsgSize int, viewTimeout time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -63,8 +67,11 @@ func NewProcessCommandHandler(svc protos.ViewServiceServer, maxRecvMsgSize int, 
 		}
 		resp, err := svc.ProcessCommand(withPeer(r.Context(), r), sc)
 		if err != nil {
-			logger.Errorf("view service failed processing command from [%s]: %s", r.RemoteAddr, err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
+			code, msg := httpStatus(err)
+			if code == http.StatusInternalServerError {
+				logger.Errorf("view service failed processing command from [%s]: %s", r.RemoteAddr, err)
+			}
+			http.Error(w, msg, code)
 			return
 		}
 		raw, err := protojson.Marshal(resp)
@@ -95,3 +102,17 @@ func (remoteAddr) Network() string  { return "tcp" }
 func (a remoteAddr) String() string { return string(a) }
 
 var _ net.Addr = remoteAddr("")
+
+// httpStatus maps an error the view service returns to the HTTP status and body that report
+// it. Only the fixed messages of the drain statuses reach the client; other errors stay on the
+// server.
+func httpStatus(err error) (int, string) {
+	switch st := status.Convert(err); st.Code() {
+	case codes.Unavailable:
+		return http.StatusServiceUnavailable, st.Message()
+	case codes.Aborted:
+		return http.StatusConflict, st.Message()
+	default:
+		return http.StatusInternalServerError, "internal error"
+	}
+}

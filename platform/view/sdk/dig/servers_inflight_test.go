@@ -65,8 +65,8 @@ func TestServe_KVSOutlivesInFlightWebRequest(t *testing.T) { //nolint:parallelte
 		h.handle(r.Context())
 	}), false)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	startServe(nil, ws, OperationsServer{}, nil, h.kvs, ctx).Wait() // web listener is bound
+	wg, stop := startServe(nil, ws, OperationsServer{}, nil, h.kvs)
+	wg.Wait() // web listener is bound
 	go func() {
 		resp, err := http.Get("http://" + ws.Addr() + "/slow")
 		if err == nil {
@@ -75,7 +75,7 @@ func TestServe_KVSOutlivesInFlightWebRequest(t *testing.T) { //nolint:parallelte
 	}()
 	<-h.entered
 
-	cancel()
+	go stop()
 	time.AfterFunc(6*time.Second, func() { close(h.release) }) // past the 5s grace period
 	h.requireKVSClosedAfterHandler(t)
 }
@@ -98,8 +98,7 @@ func TestServe_KVSOutlivesInFlightGRPCCall(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	testpb.RegisterEmptyServiceServer(gs.Server(), inFlightEmptyService{inFlightHandler: h})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	startServe(gs, newFakeServer(), OperationsServer{}, nil, h.kvs, ctx)
+	_, stop := startServe(gs, newFakeServer(), OperationsServer{}, nil, h.kvs)
 	cc, err := grpc.NewClient(gs.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	defer func() { _ = cc.Close() }()
@@ -110,7 +109,7 @@ func TestServe_KVSOutlivesInFlightGRPCCall(t *testing.T) { //nolint:paralleltest
 	}()
 	<-h.entered
 
-	cancel()
+	go stop()
 	require.Error(t, <-callErr, "Stop closes the connection of the in-flight call")
 	time.Sleep(200 * time.Millisecond) // let shutdown get as far as it would without the wait
 	close(h.release)

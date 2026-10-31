@@ -62,6 +62,7 @@ Explicit overrides are used in the following places within the current catalog:
 
 - `platform/fabric/core/generic/metrics/metrics.go` registers `fsc_fabric_core_generic_ordering_ordered_transactions`
 - `platform/view/services/metrics/connstate/connstate.go` registers the `fsc_connection_*` families
+- `platform/view/services/view/metrics.go` registers `fsc_shutdown_draining`
 
 ### Labels
 
@@ -113,6 +114,7 @@ Primary implementation: `platform/view/services/metrics/operations/metrics.go`, 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
 | `fsc_view_services_view_contexts` | gauge | none | Number of active view contexts currently tracked by the view manager. |
+| `fsc_shutdown_draining` | gauge | none | `1` while the node drains running views before it stops, `0` otherwise ([shutdown.md](shutdown.md)). |
 
 The `contexts` gauge tracks the size of the manager's internal context registry. It increases when initiator or responder contexts are created or registered, and decreases when they are deleted.
 

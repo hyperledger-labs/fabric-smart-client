@@ -8,9 +8,12 @@ package sdk
 
 import (
 	"cmp"
+	"context"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -108,3 +111,43 @@ func mountBackends(cfg RemoteConfig, backends []Backend, svc viewgrpcserver.Serv
 	}
 	return nil
 }
+
+// drainState is the view manager's drain, as the SDK uses it.
+type drainState interface {
+	Draining() bool
+	TryTrack() (done func(), ok bool)
+	OnDrain(f func())
+}
+
+// ErrDraining is the gRPC Unavailable status a view-API command gets while the node drains;
+// the client should retry on another replica.
+var ErrDraining = status.Error(codes.Unavailable, "node is draining")
+
+// drainGate wraps the view service so that new commands are refused with ErrDraining while the
+// node drains, and reports the drain as a readiness gate. A command it admits counts as running
+// until it returns, from before its header and policy checks, so the drain waits for it.
+type drainGate struct {
+	viewgrpcserver.Service
+	state drainState
+}
+
+func (g drainGate) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.SignedCommandResponse, error) {
+	done, ok := g.state.TryTrack()
+	if !ok {
+		return nil, ErrDraining
+	}
+	defer done()
+	return g.Service.ProcessCommand(ctx, sc)
+}
+
+func (g drainGate) StreamCommand(server protos.ViewService_StreamCommandServer) error {
+	done, ok := g.state.TryTrack()
+	if !ok {
+		return ErrDraining
+	}
+	defer done()
+	return g.Service.StreamCommand(server)
+}
+
+// NotReady reports "draining" while the node drains.
+func (g drainGate) NotReady() (string, bool) { return "draining", g.state.Draining() }

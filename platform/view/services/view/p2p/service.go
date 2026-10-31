@@ -42,7 +42,15 @@ const (
 	rejectBusy rejectReason = "busy"
 	// rejectUnknownView rejects a message whose caller view has no responder on this node.
 	rejectUnknownView rejectReason = "unknown_view"
+	// rejectDraining rejects a message that would start new work on a node that drains before
+	// it stops.
+	rejectDraining rejectReason = "draining"
 )
+
+// DrainingPrefix starts the payload of the error reply to a first message that a draining node
+// refuses. An initiator that gets it should open its next session on a fresh connection, so
+// that a load balancer can route it to another replica.
+const DrainingPrefix = string(rejectDraining) + ": "
 
 // ConfigService models the configuration service.
 type ConfigService interface {
@@ -88,6 +96,22 @@ type EndpointService interface {
 	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
 }
 
+// DrainState reports whether the node drains before it stops, and which peers take part in a
+// responder context. The view manager implements it.
+type DrainState interface {
+	// Draining reports whether the node drains.
+	Draining() bool
+	// IsParty reports whether the peer with the given PKID takes part in the responder context
+	// with contextID.
+	IsParty(contextID string, pkid []byte) bool
+	// Track counts a responder as running until the returned func is called, so that the drain
+	// waits for it.
+	Track() (done func())
+	// TryTrack is Track unless the node drains, in which case it counts nothing and returns
+	// false, as one step with the check.
+	TryTrack() (done func(), ok bool)
+}
+
 // Runner models a view runner.
 type Runner interface {
 	// RunView runs the given responder view in the given view context.
@@ -126,6 +150,9 @@ type Service struct {
 
 	// rejections counts the error replies sent by reject, by reason.
 	rejections metrics.Counter
+
+	// drain, if set, makes dispatch refuse new work while the node drains.
+	drain DrainState
 }
 
 // Option configures a Service.
@@ -141,6 +168,12 @@ func WithMetrics(provider metrics.Provider) Option {
 			LabelNames: []string{"reason"},
 		})
 	}
+}
+
+// WithDrainState makes the Service refuse first messages that start new work while d reports
+// that the node drains. Without it, the Service never refuses for that reason.
+func WithDrainState(d DrainState) Option {
+	return func(s *Service) { s.drain = d }
 }
 
 // NewService returns a new instance of the P2P service. The per-peer responder limit is
@@ -220,7 +253,10 @@ type peerLoad struct{ responders, rejections int }
 // caller and is dropped; it carries the initiator's view as caller, and is rejected, only if the
 // initiator sent more than one message on that session. A
 // message from a peer (msg.FromPKID, set by the comm layer from the authenticated stream)
-// that already has maxRespondersPerPeer responders running is rejected as busy. While
+// that already has maxRespondersPerPeer responders running is rejected as busy. While the node
+// drains (see WithDrainState), a message for a known view is rejected as draining, unless its
+// sender already takes part in the responder context it names, so that protocols in progress
+// can finish; the per-peer limit still applies to such a message. While
 // maxRespondersPerPeer rejections for that peer are pending, further rejections are dropped.
 // The two counts are independent, so pending rejections never keep a peer from starting
 // responders. This caps what dispatch creates for one peer at maxRespondersPerPeer
@@ -237,10 +273,24 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 	responder, id, err := s.viewManager.ExistResponderForCaller(msg.Caller)
 	known := err == nil
 	peer := string(msg.FromPKID)
+	// Counting the responder before admitting it means a drain that starts concurrently either
+	// refuses it or waits for it.
+	var done func()
+	draining := false
+	if known && s.drain != nil {
+		var ok bool
+		if done, ok = s.drain.TryTrack(); !ok {
+			if s.drain.IsParty(msg.ContextID, msg.FromPKID) {
+				done = s.drain.Track()
+			} else {
+				draining = true
+			}
+		}
+	}
 
 	s.inflightMu.Lock()
 	load := s.inflight[peer]
-	run := known && load.responders < s.maxRespondersPerPeer
+	run := known && !draining && load.responders < s.maxRespondersPerPeer
 	reject := !run && load.rejections < s.maxRespondersPerPeer
 	switch {
 	case run:
@@ -249,17 +299,30 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 		load.rejections++
 	default:
 		s.inflightMu.Unlock()
+		if done != nil {
+			done()
+		}
 		logger.Debugf("dropping first message for context [%s] from [%s]: too many pending rejections", msg.ContextID, msg.FromEndpoint)
 		return
 	}
 	s.inflight[peer] = load
 	s.inflightMu.Unlock()
 
+	if !run && done != nil {
+		// Busy: a rejection does not hold the drain.
+		done()
+		done = nil
+	}
 	s.wg.Go(func() {
 		defer s.release(peer, run)
+		if done != nil {
+			defer done()
+		}
 		switch {
 		case run:
 			s.handleMessage(ctx, msg, responder, id)
+		case draining:
+			s.reject(ctx, msg, rejectDraining, "node is draining")
 		case known:
 			s.reject(ctx, msg, rejectBusy, "too many concurrent responders for this peer")
 		default:

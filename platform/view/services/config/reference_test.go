@@ -37,6 +37,8 @@ func TestReferenceConfiguration(t *testing.T) {
 		"fsc.identity.type",
 		"fsc.kvs.cache.size",
 		"fsc.metrics.provider",
+		"fsc.shutdown.drainTimeout",
+		"fsc.shutdown.teardownTimeout",
 	)
 
 	r.Decode("fsc.tls", &tlsconfig.ServerTLS{})

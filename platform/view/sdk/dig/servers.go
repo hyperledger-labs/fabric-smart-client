@@ -187,12 +187,12 @@ func NewWebServer(configProvider driver.ConfigService) (WebServer, error) {
 }
 
 // mountHealth serves /healthz and /readyz on the web listener, with readiness taken from
-// connStates. They skip the client-certificate check of the view endpoints, but not the
+// gates, then from connStates. They skip the client-certificate check of the view endpoints, but not the
 // listener's TLS handshake. They are mounted by the SDK rather than by a WebServerConstructor,
 // so a replaced listener serves them too; a disabled listener is a no-op server.
-func mountHealth(ws WebServer, connStates *connstate.Metrics) {
+func mountHealth(ws WebServer, connStates *connstate.Metrics, gates ...web.ReadinessGate) {
 	ws.RegisterHandler("/healthz", http.HandlerFunc(web.Healthz), false)
-	ws.RegisterHandler("/readyz", web.Readyz(connStates), false)
+	ws.RegisterHandler("/readyz", web.Readyz(connStates, gates...), false)
 }
 
 // OperationsServer is the listener the operations endpoints (/metrics, /logspec) are served
@@ -382,6 +382,8 @@ func NewServerConfig(configProvider driver.ConfigService) (commongrpc.ServerConf
 		},
 
 		ServerStatsHandler: otelgrpc.NewServerHandler(),
+		// The SDK reports NOT_SERVING while the node drains.
+		HealthCheckEnabled: true,
 	}
 	if configProvider.IsSet(KeepAliveConfigKey) {
 		keepAliveConfig := &commongrpc.ServerKeepAliveConfig{}
@@ -393,21 +395,24 @@ func NewServerConfig(configProvider driver.ConfigService) (commongrpc.ServerConf
 	return serverConfig, nil
 }
 
-// Serve starts the gRPC server, web server and operations system, and stops them when ctx
-// is done. It returns immediately; each server runs in its own goroutine. A nil server is
-// skipped.
+// Serve starts the gRPC server, web server and operations system, and stops them, then
+// kvss, when ctx is done. It returns immediately; each server runs in its own goroutine. A nil
+// server is skipped. The SDK does not use Serve: it stops the servers from SDK.Stop, after the
+// other SDKs have stopped, so that none of them finds the KVS closed.
 func Serve(grpcServer GRPCServer, webServer WebServer, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) {
-	startServe(grpcServer, webServer, ops, operationsSystem, kvss, ctx)
+	_, stop := startServe(grpcServer, webServer, ops, operationsSystem, kvss)
+	context.AfterFunc(ctx, stop)
 }
 
 // startServe starts the GRPC server, web server, metrics server and operations system in
-// their own goroutines, plus a shutdown goroutine that stops them when ctx is done and then
-// stops kvss. The web and gRPC servers' Stop return only once their in-flight handlers have
-// returned, within a bound, so the KVS is not closed under a request still using it.
+// their own goroutines and returns the func that stops them and then stops kvss. The web and
+// gRPC servers' Stop return only once their in-flight handlers have returned, within a bound,
+// so the KVS is not closed under a request still using it. stop runs once; later calls return
+// at once.
 // The returned *sync.WaitGroup tracks the start goroutines of the web server, metrics
 // server and operations system: the first two finish once their listener is bound, the
 // last once the operations system has stopped.
-func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) *sync.WaitGroup {
+func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS) (*sync.WaitGroup, func()) {
 	var wg sync.WaitGroup
 
 	// Not tracked by wg: Serve returns only once every handler has, so joining it would
@@ -450,8 +455,7 @@ func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer
 		}
 	})
 
-	go func() {
-		<-ctx.Done()
+	return &wg, sync.OnceFunc(func() {
 		logger.Info("web server stopping...")
 		if err := webServer.Stop(); err != nil {
 			logger.Errorf("failed stopping web server [%s]", err)
@@ -491,9 +495,7 @@ func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer
 			kvss.Stop()
 			logger.Info("kvs stopping...done")
 		}
-	}()
-
-	return &wg
+	})
 }
 
 // RemoteViewTimeout returns the execution timeout of views called remotely, through the view

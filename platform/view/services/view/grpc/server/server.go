@@ -136,7 +136,9 @@ func (l limitedStream) RecvMsg(m any) error {
 	return nil
 }
 
-// ProcessCommand processes the passed command ensuring proper access control.
+// ProcessCommand processes the passed command ensuring proper access control. A failure is
+// returned as an error response, except a view cancelled by the node's shutdown, which ends the
+// call with ErrAbortedByShutdown.
 func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (cr *protos.SignedCommandResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -189,6 +191,10 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	} else {
 		err = errors.Wrapf(view.ErrCommandNotRecognized, "command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}
+	if errors.Is(err, ErrAbortedByShutdown) {
+		// A status, not an error response, so that the client tells it from a failed view.
+		return nil, err
+	}
 	if err != nil {
 		logger.ErrorfContext(ctx, "command execution failed with err [%s]", err.Error())
 		payload = &protos.CommandResponse_Err{
@@ -203,7 +209,9 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	return cr, err
 }
 
-// StreamCommand processes the passed streaming command ensuring proper access control.
+// StreamCommand processes the passed streaming command ensuring proper access control. A
+// failure is sent as an error response, except a view cancelled by the node's shutdown, which
+// ends the stream with ErrAbortedByShutdown.
 func (s *Server) StreamCommand(server protos.ViewService_StreamCommandServer) error {
 	sc := &protos.SignedCommand{}
 	if err := server.RecvMsg(sc); err != nil {
@@ -261,6 +269,9 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 		err = streamer(sc, command, commandServer, s.Marshaller)
 	default:
 		err = errors.Wrapf(view.ErrCommandNotRecognized, "stream command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
+	}
+	if errors.Is(err, ErrAbortedByShutdown) {
+		return err
 	}
 	if err != nil {
 		logger.ErrorfContext(ctx, "stream command execution failed with err [%s]", err.Error())

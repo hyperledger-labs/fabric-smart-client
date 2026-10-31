@@ -288,6 +288,10 @@ type sdkDeps struct {
 	grpcServer GRPCServer
 	remote     RemoteConfig
 	backends   []Backend
+	kvs        *kvs.KVS
+	drain      drainState
+	webServer  WebServer
+	comm       *comm.Service
 }
 
 func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2p.CommLayer, deps ...sdkDeps) *fakeViewService {
@@ -298,7 +302,10 @@ func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2
 	}
 
 	p2pSvc := p2p.NewService(&fakeP2PViewManager{}, &fakeIdentityProvider{}, commMock, nil, nil, nil)
-	commSvc := &comm.Service{HostProvider: &fakeHostProvider{}}
+	commSvc := d.comm
+	if commSvc == nil {
+		commSvc = &comm.Service{HostProvider: &fakeHostProvider{}}
+	}
 	viewSvc := &fakeViewService{}
 
 	require.NoError(t, errors.Join(
@@ -307,10 +314,15 @@ func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2
 		c.Provide(func() *p2p.Service { return p2pSvc }),
 		c.Provide(func() viewgrpcserver.Service { return viewSvc }),
 		c.Provide(func() *comm.Service { return commSvc }),
-		c.Provide(func() WebServer { return newFakeServer() }),
+		c.Provide(func() WebServer {
+			if d.webServer != nil {
+				return d.webServer
+			}
+			return newFakeServer()
+		}),
 		c.Provide(func() OperationsServer { return OperationsServer{} }),
 		c.Provide(func() *operations.System { return nil }),
-		c.Provide(func() *kvs.KVS { return nil }),
+		c.Provide(func() *kvs.KVS { return d.kvs }),
 		c.Provide(func() tracing.Provider { return tp.Default }),
 		c.Provide(func() viewgrpcserver.IdentityProvider { return &fakeIdentityProvider{} }),
 		c.Provide(func() RemoteConfig { return d.remote }),
@@ -318,6 +330,9 @@ func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2
 	))
 	for _, b := range d.backends {
 		require.NoError(t, c.Provide(func() Backend { return b }, dig.Group(BackendsGroup)))
+	}
+	if d.drain != nil {
+		require.NoError(t, c.Provide(func() drainState { return d.drain }))
 	}
 
 	return viewSvc

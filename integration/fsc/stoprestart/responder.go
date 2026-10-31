@@ -41,6 +41,11 @@ func (*Responder) Call(viewCtx view.Context) (any, error) {
 
 	// Respond with a pong if a ping is received, an error otherwise
 	m := string(payload)
+	if m == SlowPing {
+		// A view still running when the node stops: a graceful stop lets it finish.
+		time.Sleep(SlowResponderDelay)
+		m = "ping"
+	}
 	switch {
 	case m != "ping":
 		// reply with an error

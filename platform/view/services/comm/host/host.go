@@ -67,6 +67,14 @@ type SharedStreamsHost interface {
 	SharedStreams() bool
 }
 
+// RetiringHost is an optional interface for a P2PHost that caches connections to a peer. Retire
+// makes the next stream to peerID use a new connection; streams already open keep theirs. The
+// comm layer calls it when the peer refuses new work because it drains before it stops, so that
+// a load balancer in front of the peer's replicas can route the new connection elsewhere.
+type RetiringHost interface {
+	Retire(peerID PeerID)
+}
+
 type P2PStream interface {
 	// RemotePeerID returns the peerID of the peer we are connected to (passed with P2PHost.NewStream)
 	RemotePeerID() PeerID

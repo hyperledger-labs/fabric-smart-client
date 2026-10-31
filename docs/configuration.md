@@ -300,11 +300,13 @@ fsc:
   # client without a certificate is rejected before it reaches them.
   #   GET /healthz -> 200 while the process serves HTTP. It never checks external
   #                   components, so a peer or orderer outage does not fail liveness.
-  #   GET /readyz  -> 200 when every component that reports connection state
-  #                   (fsc_connection_state) has been connected since startup and none
-  #                   is stopped; reconnecting is still ready. Otherwise 503, with a JSON
-  #                   list of the unready components (network, channel, component, and
-  #                   reason: stopped or never connected). Endpoints are on /metrics.
+  #   GET /readyz  -> 503 {"status":"not ready","reason":"draining"} while the node drains
+  #                   before it stops (see fsc.shutdown). Otherwise 200 when every component
+  #                   that reports connection state (fsc_connection_state) has been connected
+  #                   since startup and none is stopped; reconnecting is still ready. Otherwise
+  #                   503, with a JSON list of the unready components (network, channel,
+  #                   component, and reason: stopped or never connected). Endpoints are on
+  #                   /metrics.
   #
   # When a view fails, the view service returns its error text to the client verbatim, in
   # Error.Message, on fsc.grpc and fsc.web alike. A view that exceeds fsc.view.remote.timeout
@@ -352,6 +354,24 @@ fsc:
       clientRootCAs:
         files:
         - path/to/client/tls/ca.crt
+
+  # ------------------- Shutdown Configuration -------------------------
+  # On SIGTERM, SIGINT or Node.Stop the node drains: /readyz answers 503, new view-API commands
+  # get Unavailable (HTTP 503), new P2P protocols get a "draining" error, and running views may
+  # finish. Then it stops its components in order. See
+  # docs/platform/view/services/shutdown.md.
+  shutdown:
+    # How long running views may take to finish; at the timeout, initiator views still running
+    # are cancelled and view-API calls get Aborted (HTTP 409). Set it at least as long as the
+    # longest view, typically the finality timeout. 0 cancels running views at once; unset or
+    # negative is 30s.
+    drainTimeout: 30s
+    # How long the SDKs may take to stop once the drain is over. 0 does not wait for them;
+    # unset or negative is 30s.
+    teardownTimeout: 30s
+  # The fsc.grpc listener always serves the gRPC health service (grpc.health.v1.Health); it
+  # reports NOT_SERVING while the node drains. An application must not register that service
+  # on fsc.grpc itself: a second registration panics at startup.
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
@@ -439,7 +459,8 @@ fsc:
   # A replicated node is therefore reached at one P2P address, that of a TCP load balancer in front of
   # its replicas. The balancer must pass TCP through rather than terminate TLS, because the websocket
   # transport authenticates both sides from the TLS certificates, and every replica must hold the same
-  # TLS key pair. Use GET /readyz on the fsc.web listener as the balancer's health check.
+  # TLS key pair. Use GET /readyz on the fsc.web listener as the balancer's health check: a replica that
+  # drains before it stops turns unready at once (see fsc.shutdown).
   endpoint:
     resolvers:
     # name is a name that describes the FSC node (must also match name used in the view) it isn't a P2P bootstrap node

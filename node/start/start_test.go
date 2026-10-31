@@ -11,6 +11,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"testing"
 
@@ -20,15 +21,23 @@ import (
 type mockStartNode struct {
 	startErr error
 	ch       chan error
+	// stops receives a value on each Stop call; stop, if set, runs in Stop.
+	stops chan struct{}
+	stop  func()
 }
 
-func (*mockStartNode) ID() string               { return "test-id" }
-func (m *mockStartNode) Start() error           { return m.startErr }
-func (*mockStartNode) Stop()                    {}
+func (*mockStartNode) ID() string     { return "test-id" }
+func (m *mockStartNode) Start() error { return m.startErr }
+func (m *mockStartNode) Stop() {
+	m.stops <- struct{}{}
+	if m.stop != nil {
+		m.stop()
+	}
+}
 func (m *mockStartNode) Callback() chan<- error { return m.ch }
 
 func newMockStartNode(startErr error) *mockStartNode {
-	return &mockStartNode{ch: make(chan error, 1), startErr: startErr}
+	return &mockStartNode{ch: make(chan error, 1), stops: make(chan struct{}, 2), startErr: startErr}
 }
 
 func TestCmd(t *testing.T) {
@@ -102,12 +111,11 @@ func TestServe_ProfilerStartError(t *testing.T) { //nolint:paralleltest
 	require.Error(t, <-n.ch)
 }
 
-func TestServe_HappyPath(t *testing.T) {
-	t.Parallel()
+func TestServe_HappyPath(t *testing.T) { //nolint:paralleltest // signals the process
 	n := newMockStartNode(nil)
 	// Once serve() sends nil on the callback channel we know Start() succeeded
-	// and it is blocked on ctx.Done(). Send SIGTERM so signal.NotifyContext
-	// cancels the context, letting serve() return cleanly.
+	// and it is waiting for a signal. Send SIGTERM so serve() stops the node and
+	// returns.
 	go func() {
 		select {
 		case <-n.ch:
@@ -116,4 +124,27 @@ func TestServe_HappyPath(t *testing.T) {
 		}
 	}()
 	require.NoError(t, serve(n))
+}
+
+// A second signal while the first Stop still drains calls Stop again, which skips the rest
+// of the drain.
+func TestServe_SecondSignalSkipsDrain(t *testing.T) { //nolint:paralleltest // signals the process
+	n := newMockStartNode(nil)
+	release := make(chan struct{})
+	var calls atomic.Int32
+	n.stop = func() {
+		if calls.Add(1) == 1 {
+			<-release // the first Stop drains until the second one arrives
+			return
+		}
+		close(release)
+	}
+	go func() {
+		<-n.ch
+		_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
+		<-n.stops
+		_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
+	}()
+	require.NoError(t, serve(n))
+	<-n.stops
 }

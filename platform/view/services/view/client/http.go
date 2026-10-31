@@ -11,6 +11,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/tls"
+	stderrors "errors"
 	"io"
 	"net"
 	"net/http"
@@ -20,7 +21,9 @@ import (
 	"github.com/gorilla/websocket"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -118,6 +121,9 @@ func (t *httpTransport) Open() (protos.ViewServiceClient, io.Closer, error) {
 
 func (t *httpTransport) Certificate() *tls.Certificate { return t.cert }
 
+// ProcessCommand posts sc to the view service. A 503 answer (a draining node) becomes a gRPC
+// Unavailable status and a 409 answer (a view the node's shutdown cancelled) an Aborted one,
+// as the gRPC transport would report them.
 func (t *httpTransport) ProcessCommand(ctx context.Context, sc *protos.SignedCommand, _ ...grpc.CallOption) (*protos.SignedCommandResponse, error) {
 	body, err := protojson.Marshal(sc)
 	if err != nil {
@@ -135,7 +141,14 @@ func (t *httpTransport) ProcessCommand(ctx context.Context, sc *protos.SignedCom
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
-		return nil, errors.Errorf("view service at [%s] answered [%s]: %s", req.URL, resp.Status, bytes.TrimSpace(msg))
+		err := errors.Errorf("view service at [%s] answered [%s]: %s", req.URL, resp.Status, bytes.TrimSpace(msg))
+		switch resp.StatusCode {
+		case http.StatusServiceUnavailable:
+			return nil, status.Error(codes.Unavailable, err.Error())
+		case http.StatusConflict:
+			return nil, status.Error(codes.Aborted, err.Error())
+		}
+		return nil, err
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, int64(t.maxRecvMsgSize)+1))
 	if err != nil {
@@ -170,10 +183,28 @@ func (c *wsCommandClient) Send(m *protos.SignedCommand) error { return wsproto.W
 
 func (c *wsCommandClient) Recv() (*protos.SignedCommandResponse, error) {
 	m := &protos.SignedCommandResponse{}
-	if err := wsproto.Read(c.conn, m); err != nil {
+	if err := c.read(m); err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+// read reads m from the stream. A close by a node that drains (code 1013) becomes a gRPC
+// Unavailable status, and a close naming a view the node's shutdown cancelled an Aborted one,
+// as the gRPC transport reports them.
+func (c *wsCommandClient) read(m proto.Message) error {
+	err := wsproto.Read(c.conn, m)
+	var ce *websocket.CloseError
+	if !stderrors.As(err, &ce) {
+		return err
+	}
+	switch {
+	case ce.Code == websocket.CloseTryAgainLater:
+		return status.Error(codes.Unavailable, ce.Text)
+	case ce.Code == websocket.CloseInternalServerErr && ce.Text == protos.AbortedByShutdownMessage:
+		return status.Error(codes.Aborted, ce.Text)
+	}
+	return err
 }
 
 func (c *wsCommandClient) SendMsg(m any) error {
@@ -189,7 +220,7 @@ func (c *wsCommandClient) RecvMsg(m any) error {
 	if !ok {
 		return errors.Errorf("cannot receive into [%T]: not a protobuf message", m)
 	}
-	return wsproto.Read(c.conn, pm)
+	return c.read(pm)
 }
 
 func (*wsCommandClient) Header() (metadata.MD, error) { return metadata.MD{}, nil }

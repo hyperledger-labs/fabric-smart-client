@@ -43,6 +43,8 @@ var logger = logging.MustGetLogger()
 type SDK struct {
 	commondig.SDK
 	fnsProvider *core.FSNProvider
+	// started is set once PostStart has started fnsProvider, which Stop then stops.
+	started bool
 }
 
 // NewSDK builds a Fabric SDK on top of a fresh view SDK for the given services.Registry.
@@ -143,15 +145,22 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	if err := p.fnsProvider.Start(ctx); err != nil {
 		return errors.Wrap(err, "failed starting fabric network service provider")
 	}
-
-	go func() {
-		<-ctx.Done()
-		if err := p.fnsProvider.Stop(); err != nil {
-			logger.Errorf("failed stopping fabric network service provider [%s]", err)
-		}
-	}()
+	p.started = true
 
 	return nil
+}
+
+// Stop stops the Fabric networks, and with them delivery and the committer, and then the SDK it
+// wraps, so that the KVS and the other services of the view SDK outlive them.
+func (p *SDK) Stop() error {
+	var err error
+	if p.started {
+		p.started = false
+		if err = p.fnsProvider.Stop(); err != nil {
+			err = errors.WithMessage(err, "failed stopping fabric network service provider")
+		}
+	}
+	return errors.Join(err, p.SDK.Stop())
 }
 
 func registerProcessorsForDrivers(in struct {

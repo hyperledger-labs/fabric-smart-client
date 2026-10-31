@@ -97,3 +97,35 @@ func TestHealthz_IgnoresComponents(t *testing.T) {
 	server.Healthz(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
+
+type gate struct {
+	reason   string
+	notReady bool
+}
+
+func (g gate) NotReady() (string, bool) { return g.reason, g.notReady }
+
+func TestReadyz_GateNotReady(t *testing.T) {
+	t.Parallel()
+	// A gate that is not ready wins over connections that are.
+	m := connstate.NewMetrics(&disabled.Provider{})
+	m.Tracker("net", "ch", connstate.ComponentDelivery, "peer0:7051").Set(connstate.Connected)
+
+	rec := httptest.NewRecorder()
+	server.Readyz(m, gate{}, gate{reason: "draining", notReady: true}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.JSONEq(t, `{"status":"not ready","reason":"draining"}`, rec.Body.String())
+}
+
+func TestReadyz_GatesReadyKeepsConnstate(t *testing.T) {
+	t.Parallel()
+	m := connstate.NewMetrics(&disabled.Provider{})
+	m.Tracker("net", "ch", connstate.ComponentDelivery, "peer0:7051").Set(connstate.Connecting)
+
+	rec := httptest.NewRecorder()
+	server.Readyz(m, gate{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	var body []connstate.Status
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, connstate.ReasonNeverConnected, body[0].Reason)
+}

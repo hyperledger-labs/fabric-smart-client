@@ -253,6 +253,62 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		}
 	})
 
+	// Each bob replica stops gracefully and restarts in turn while alice submits. The stopping
+	// replica drains: /readyz takes it out of the load balancer, alice's sessions in progress
+	// finish, and a new one gets "draining", after which alice dials again and reaches the
+	// other replica. So at most one submission fails per restart.
+	It("keeps committing through a rolling restart of one replica", func() {
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+
+		type result struct {
+			txID  string
+			value int
+			err   error
+		}
+		stop := make(chan struct{})
+		results := make(chan result, 1000)
+		go func() {
+			defer GinkgoRecover()
+			defer close(results)
+			for i := 0; ; i++ {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				txID, err := faultrecovery.TrySubmit(s.II, i)
+				results <- result{txID, i, err}
+			}
+		}()
+
+		for _, r := range bobReplicas {
+			time.Sleep(2 * time.Second) // submissions run
+			s.II.StopFSCNode(r)
+			s.II.StartFSCNode(r)
+			s.II.EventuallyConnectionState(r, delivery, connstate.Connected, time.Minute)
+		}
+		time.Sleep(2 * time.Second)
+		close(stop)
+
+		var committed []result
+		failed := 0
+		for res := range results {
+			if res.err != nil {
+				GinkgoWriter.Printf("submission failed: %v\n", res.err)
+				failed++
+				continue
+			}
+			committed = append(committed, res)
+		}
+		Expect(failed).To(BeNumerically("<=", len(bobReplicas)), "at most one failed submission per restart")
+		Expect(committed).NotTo(BeEmpty())
+		for _, res := range committed {
+			for _, r := range bobReplicas {
+				faultrecovery.ExpectSettled(s.II, r, res.txID, res.value)
+			}
+		}
+	})
+
 	// Guards #2253: each replica holds its own membership service, so each must apply a
 	// config block, also one that another replica already recorded in the shared vault.
 	It("applies a config update another replica recorded", func() {

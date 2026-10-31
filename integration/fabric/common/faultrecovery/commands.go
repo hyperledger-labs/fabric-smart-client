@@ -89,6 +89,26 @@ func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int)
 	waitFinalOnWithOffset(2, ii, node, txID)
 }
 
+// TrySubmit endorses and orders one transaction between alice and bob, like
+// SubmitAndWaitFinal, and returns its ID, or the error of the view that failed.
+func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+	defer cancel()
+	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responder: ii.Identity("bob")}))
+	if err != nil {
+		return "", err
+	}
+	tx := &views.Endorsed{}
+	if err := json.Unmarshal(raw.([]byte), tx); err != nil {
+		return "", err
+	}
+	res, err := ii.Client("alice").CallViewWithContext(ctx, "order", common.JSONMarshall(&views.Order{Tx: tx.Tx}))
+	if err != nil {
+		return "", err
+	}
+	return common.JSONUnmarshalString(res), nil
+}
+
 // Endorse runs alice's endorse view with bob as responder and returns the endorsed
 // transaction, not yet ordered, for Order. On Fabric, bob's vault then holds the
 // transaction as Busy.

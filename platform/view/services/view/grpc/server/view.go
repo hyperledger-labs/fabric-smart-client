@@ -12,6 +12,9 @@ import (
 	"reflect"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -23,9 +26,21 @@ import (
 // and nothing of the view's own error.
 var ErrViewTimedOut = errors.New("view execution timed out")
 
+// ErrAbortedByShutdown is the gRPC Aborted status a view call ends with when the node's
+// shutdown cancelled the view. The view may have had effects before it was cancelled, such as
+// a submitted transaction that still commits, so the client checks its outcome rather than
+// retrying it.
+var ErrAbortedByShutdown = status.Error(codes.Aborted, protos.AbortedByShutdownMessage)
+
 type viewHandler struct {
 	viewManager ViewManager
 	timeout     time.Duration
+}
+
+// tracker is implemented by a view manager that counts running views, so that a draining node
+// waits for the views the view service runs in a context of their own.
+type tracker interface {
+	Track() (done func())
 }
 
 // InstallViewHandler registers the CallView command on server: as a unary processor, which
@@ -90,6 +105,9 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	if err != nil {
 		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
+	if t, ok := s.viewManager.(tracker); ok {
+		defer t.Track()()
+	}
 	ctx, cancel := s.withTimeout(commandServer.Context())
 	defer cancel()
 	viewCtx, err := s.viewManager.InitiateContext(ctx, f)
@@ -108,6 +126,9 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 
 	result, err := viewCtx.RunView(f)
 	if err != nil {
+		if errors.Is(context.Cause(viewCtx.Context()), view.ErrCancelledByShutdown) { //nolint:contextcheck // the view's own context carries the shutdown cause
+			err = view.ErrCancelledByShutdown
+		}
 		s.viewManager.DeleteContext(viewCtx.ID())
 		return viewErr(ctx, fid, err)
 	}
@@ -145,7 +166,13 @@ func (s *viewHandler) withTimeout(ctx context.Context) (context.Context, context
 // viewErr maps a failure of view fid to the error returned to the client. The expiry of
 // ctx's deadline (the view timeout, or an earlier deadline the client set) is a timeout; a
 // view that fails with a deadline error of its own while ctx is live reports that failure.
+//
+// A view the node's shutdown cancelled (view.ErrCancelledByShutdown) is ErrAbortedByShutdown,
+// which the server returns as a gRPC Aborted status rather than an error response.
 func viewErr(ctx context.Context, fid string, err error) error {
+	if errors.Is(err, view.ErrCancelledByShutdown) {
+		return ErrAbortedByShutdown
+	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return ErrViewTimedOut
 	}
