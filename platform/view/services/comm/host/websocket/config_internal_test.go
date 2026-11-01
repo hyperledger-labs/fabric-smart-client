@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -186,6 +187,33 @@ fsc:
 
 			_, err = NewConfig(p)
 			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestKeepalive(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name     string
+		yaml     string
+		interval time.Duration
+		timeout  time.Duration
+	}{
+		{name: "unset keeps the default on", interval: DefaultKeepaliveInterval, timeout: DefaultKeepaliveTimeout},
+		{name: "configured", yaml: "        keepalive:\n          interval: 1m\n          timeout: 5s\n", interval: time.Minute, timeout: 5 * time.Second},
+		{name: "zero interval turns it off", yaml: "        keepalive:\n          interval: 0s\n", interval: 0, timeout: DefaultKeepaliveTimeout},
+		{name: "negative interval turns it off", yaml: "        keepalive:\n          interval: -1s\n", interval: 0, timeout: DefaultKeepaliveTimeout},
+		{name: "non-positive timeout falls back to the default", yaml: "        keepalive:\n          interval: 1m\n          timeout: 0s\n", interval: time.Minute, timeout: DefaultKeepaliveTimeout},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir, _, _ := writeNodeDir(t, p2pCore+tt.yaml)
+			p, err := viewconfig.NewProvider(dir)
+			require.NoError(t, err)
+			cfg, err := NewConfig(p)
+			require.NoError(t, err)
+			require.Equal(t, tt.interval, cfg.KeepaliveInterval())
+			require.Equal(t, tt.timeout, cfg.KeepaliveTimeout())
 		})
 	}
 }

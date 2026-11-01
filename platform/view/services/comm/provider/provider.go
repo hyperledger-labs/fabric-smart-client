@@ -50,5 +50,6 @@ func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endp
 	streamProvider := ws.NewMultiplexedProvider(tracerProvider, metricsProvider, restConfig.MaxSubConns())
 	streamProvider.MaxRecvMsgSize = restConfig.MaxRecvMsgSize()
 	streamProvider.MaxSendMsgSize = restConfig.MaxSendMsgSize()
+	streamProvider.Keepalive = ws.Keepalive{Interval: restConfig.KeepaliveInterval(), Timeout: restConfig.KeepaliveTimeout()}
 	return websocket.NewEndpointBasedProvider(restConfig, endpointService, discovery, streamProvider), nil
 }

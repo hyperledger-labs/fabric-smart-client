@@ -33,6 +33,7 @@ type configService interface {
 	IsSet(key string) bool
 	TranslatePath(path string) string
 	GetInt(key string) int
+	GetDuration(key string) time.Duration
 	RawSubtree(key string) (map[string]any, bool)
 }
 
@@ -50,7 +51,20 @@ type Config interface {
 	WriteTimeout() time.Duration
 	IdleTimeout() time.Duration
 	CORSAllowedOrigins() []string
+	// KeepaliveInterval and KeepaliveTimeout are the liveness check of every multiplexed
+	// websocket, see ws.Keepalive. A zero interval disables it.
+	KeepaliveInterval() time.Duration
+	KeepaliveTimeout() time.Duration
 }
+
+const (
+	// DefaultKeepaliveInterval is how often a websocket is pinged when
+	// fsc.p2p.opts.websocket.keepalive.interval is unset.
+	DefaultKeepaliveInterval = 30 * time.Second
+	// DefaultKeepaliveTimeout is how long a pong may take when
+	// fsc.p2p.opts.websocket.keepalive.timeout is unset or not positive.
+	DefaultKeepaliveTimeout = 10 * time.Second
+)
 
 // ExtraCAPoolProvider supplies trust anchors discovered at runtime rather than configured.
 // The websocket host uses it to trust the identity certificates of known peers, so an empty
@@ -122,6 +136,16 @@ func NewConfig(cs configService) (*config, error) {
 		}
 	}
 
+	// An explicit zero or negative interval turns the keepalive off; unset keeps it on.
+	keepaliveInterval := DefaultKeepaliveInterval
+	if cs.IsSet("fsc.p2p.opts.websocket.keepalive.interval") {
+		keepaliveInterval = max(cs.GetDuration("fsc.p2p.opts.websocket.keepalive.interval"), 0)
+	}
+	keepaliveTimeout := DefaultKeepaliveTimeout
+	if v := cs.GetDuration("fsc.p2p.opts.websocket.keepalive.timeout"); v > 0 {
+		keepaliveTimeout = v
+	}
+
 	keyValue := cs.GetString("fsc.p2p.listenAddress")
 	listenAddress, err := comm.ConvertAddress(keyValue)
 	if err != nil {
@@ -139,6 +163,8 @@ func NewConfig(cs configService) (*config, error) {
 		maxRecvMsgSize:     maxRecvMsgSize,
 		maxSendMsgSize:     maxSendMsgSize,
 		corsAllowedOrigins: corsAllowedOrigins,
+		keepaliveInterval:  keepaliveInterval,
+		keepaliveTimeout:   keepaliveTimeout,
 	}, nil
 }
 
@@ -155,6 +181,8 @@ type config struct {
 	maxRecvMsgSize     int
 	maxSendMsgSize     int
 	corsAllowedOrigins []string
+	keepaliveInterval  time.Duration
+	keepaliveTimeout   time.Duration
 
 	serverRootCAPool *x509.CertPool
 	clientRootCAPool *x509.CertPool
@@ -189,6 +217,14 @@ func (*config) WriteTimeout() time.Duration { return 30 * time.Second }
 
 // IdleTimeout returns how long an idle connection is kept open.
 func (*config) IdleTimeout() time.Duration { return 120 * time.Second }
+
+// KeepaliveInterval returns how often a multiplexed websocket is pinged
+// (fsc.p2p.opts.websocket.keepalive.interval); zero disables the keepalive.
+func (c *config) KeepaliveInterval() time.Duration { return c.keepaliveInterval }
+
+// KeepaliveTimeout returns how long a pong may take before a multiplexed websocket is closed
+// (fsc.p2p.opts.websocket.keepalive.timeout).
+func (c *config) KeepaliveTimeout() time.Duration { return c.keepaliveTimeout }
 
 // CORSAllowedOrigins returns the origins permitted to open a websocket connection. An empty
 // result disables CORS.

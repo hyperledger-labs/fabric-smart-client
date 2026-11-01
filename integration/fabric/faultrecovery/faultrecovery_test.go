@@ -690,20 +690,26 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
-	// The websocket between alice and bob neither pings nor, on alice's side, has a read
-	// deadline, so FSC does not detect the cut: the view ends on EchoView's own receive
-	// timeout. The spec checks that the cut reaches alice's sessions and that they work
-	// again after Heal; detecting the cut is #2407.
-	It("times out a view while alice is cut off from bob", func() {
-		// Opens alice's connection to bob, so the echo below sends on it.
-		Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
+	// Alice and bob ping each other on their websocket, see
+	// fabricfaultrecovery.P2PKeepaliveInterval, so a silent cut closes it, and the sessions
+	// on it, within the keepalive interval plus timeout: the view in flight fails then, well
+	// before EchoView's own one-minute receive timeout. Only alice's link to bob goes
+	// through the proxy, so bob's responder, ended by its closed session, may report its
+	// error to alice over a websocket of its own before alice's session closes; either way
+	// the view fails on the closed session, not on the receive timeout.
+	It("fails a view while alice is cut off from bob", func() {
+		echo := faultrecovery.BlockedEcho(s.II, s.II.Client("alice"), "bob")
 
 		proxies.Bob.Partition()
 		DeferCleanup(proxies.Bob.Heal)
-		// The echo succeeds whenever bob gets the message.
-		err := faultrecovery.Echo(s.II, false)
+		var err error
+		Eventually(echo, fabricfaultrecovery.P2PKeepaliveInterval+fabricfaultrecovery.P2PKeepaliveTimeout+faultrecovery.SessionCloseTimeout).Should(Receive(&err))
 		Expect(err).To(MatchError(view.ErrViewExecutionFailed))
-		Expect(err).To(MatchError(ContainSubstring("time out reached")))
+		Expect(err).To(Or(
+			MatchError(ContainSubstring("session receive channel is closed")),
+			MatchError(ContainSubstring("received error from remote")),
+		))
+		Expect(err).NotTo(MatchError(ContainSubstring("time out reached")))
 
 		proxies.Bob.Heal()
 		Eventually(func() error { return faultrecovery.Echo(s.II, false) }, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed())

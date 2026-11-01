@@ -327,8 +327,12 @@ FSC reads the ordering endpoints from the channel configuration, not from `core.
 and peers then reach the orderers through them, while raft traffic stays direct.
 It also turns on alice's gRPC client keepalive (`KeepaliveTime`, 60 s, plus
 `KeepaliveTimeout`, 10 s).
-nwo leaves keepalive off for every other node, and without it a silent partition of the
-delivery peer is never detected. Each spec there heals the proxy it partitions.
+nwo leaves gRPC keepalive off for every other node, and without it a silent partition of
+the delivery peer is never detected. The websocket between two FSC nodes has a keepalive of
+its own, on by default (`fsc.p2p.opts.websocket.keepalive`, 30 s plus 10 s), which closes a
+silently cut websocket and its sessions; `SetFaultProxies` shortens it for alice and bob to
+`P2PKeepaliveInterval` plus `P2PKeepaliveTimeout`, 5 s each, so a spec sees the cut well
+within a view's own receive timeout. Each spec there heals the proxy it partitions.
 
 The Fabric-x suite's `partition` `Describe` calls its own `SetFaultProxies`, which puts a
 proxy in front of the committer's notification service and points bob's `core.yaml` at it;
