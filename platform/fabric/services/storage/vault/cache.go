@@ -100,6 +100,11 @@ func (s *cachedStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 		return err
 	}
 
+	if code == driver.Busy {
+		// The backed store keeps a Valid status, so the cache must reread it.
+		s.cache.Delete(txIDs...)
+		return nil
+	}
 	for _, txID := range txIDs {
 		s.cache.Put(txID, &entry{Code: code, Message: message})
 	}

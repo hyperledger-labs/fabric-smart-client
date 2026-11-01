@@ -263,6 +263,7 @@ func TestVaultStoreMem(t *testing.T) {
 
 	testVaultStore(t, db)
 	testOneMore(t, db)
+	testKeepsValid(t, db)
 }
 
 func TestVaultStoreSqlite(t *testing.T) {
@@ -276,6 +277,7 @@ func TestVaultStoreSqlite(t *testing.T) {
 
 	testVaultStore(t, db)
 	testOneMore(t, db)
+	testKeepsValid(t, db)
 }
 
 func TestVaultStorePostgres(t *testing.T) {
@@ -287,6 +289,7 @@ func TestVaultStorePostgres(t *testing.T) {
 
 	testVaultStore(t, db)
 	testOneMore(t, db)
+	testKeepsValid(t, db)
 }
 
 func testOneMore(t *testing.T, store driver.VaultStore) {
@@ -329,6 +332,20 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	// iterate again
 	txids, _ = readPage(t, store, pagination.None())
 	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
+}
+
+// testKeepsValid checks that a committed transaction stays Valid when its status is
+// set to Busy, as a responder does when another node sends it a transaction with that ID.
+func testKeepsValid(t *testing.T, store driver.VaultStore) {
+	t.Helper()
+	ctx := context.Background()
+
+	require.NoError(t, store.Store(ctx, []driver.TxID{"t1"}, nil, nil))
+	require.NoError(t, store.SetStatuses(ctx, driver.TxStatusCode(busy), "", "t1"))
+
+	tx, err := store.GetTxStatus(ctx, "t1")
+	require.NoError(t, err)
+	require.Equal(t, driver.TxStatusCode(valid), tx.Code)
 }
 
 func testVaultStore(t *testing.T, store driver.VaultStore) {

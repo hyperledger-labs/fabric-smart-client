@@ -127,6 +127,8 @@ func (db *VaultStore) buildGlobalLockVaultReader() (*vaultReader, releaseFunc, e
 	}, release, nil
 }
 
+// SetStatuses sets code and message for every transaction in txIDs. A Busy code does not
+// replace a Valid status, so a committed transaction stays committed.
 func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
@@ -139,11 +141,14 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 		rows[i] = sqlbuild.Tuple{txID, code, message}
 	}
 
-	query, params := sqlbuild.New().
+	b := sqlbuild.New().
 		WriteString("INSERT INTO " + db.tables.StatusTable + " (tx_id,code,message) VALUES ").
 		WriteTuples(rows).
-		WriteString(" ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code, message = EXCLUDED.message").
-		Build()
+		WriteString(" ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code, message = EXCLUDED.message")
+	if code == driver.Busy {
+		db.keepValid(b)
+	}
+	query, params := b.Build()
 
 	logger.Debug(query, params)
 
@@ -154,9 +159,9 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 }
 
 // SetStatusesBusy builds an INSERT ... ON CONFLICT DO UPDATE statement that marks all
-// transactions in txIDs as Busy in the status table. It returns the SQL query string
-// and the corresponding argument slice ready for execution, or ErrNoValues if txIDs
-// is empty.
+// transactions in txIDs as Busy in the status table, except those already Valid. It
+// returns the SQL query string and the corresponding argument slice ready for
+// execution, or ErrNoValues if txIDs is empty.
 func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID) (string, []any, error) {
 	if len(txIDs) == 0 {
 		return "", nil, sqlbuild.ErrNoValues
@@ -166,12 +171,19 @@ func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID) (string, []any, error
 		rows[i] = sqlbuild.Tuple{txID, driver.Busy}
 	}
 
-	query, params := sqlbuild.New().
+	b := sqlbuild.New().
 		WriteString("INSERT INTO " + db.tables.StatusTable + " (tx_id,code) VALUES ").
 		WriteTuples(rows).
-		WriteString(" ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code").
-		Build()
+		WriteString(" ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code")
+	db.keepValid(b)
+	query, params := b.Build()
 	return query, params, nil
+}
+
+// keepValid restricts the ON CONFLICT DO UPDATE clause written to b to rows that are
+// not Valid.
+func (db *VaultStore) keepValid(b *sqlbuild.Builder) {
+	b.WriteString(" WHERE " + db.tables.StatusTable + ".code <> ").WriteParam(driver.Valid)
 }
 
 func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites) (string, []any, error) {

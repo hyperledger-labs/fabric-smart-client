@@ -101,8 +101,8 @@ func TestVaultSQL_SetStatusesBusy(t *testing.T) {
 	query, args, err := store.SetStatusesBusy([]driver.TxID{"tx1", "tx2"})
 	require.NoError(t, err)
 	require.Equal(t, "INSERT INTO status (tx_id,code) VALUES ($1,$2),($3,$4) "+
-		"ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code", query)
-	require.Equal(t, []any{"tx1", driver.Busy, "tx2", driver.Busy}, args)
+		"ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code WHERE status.code <> $5", query)
+	require.Equal(t, []any{"tx1", driver.Busy, "tx2", driver.Busy, driver.Valid}, args)
 }
 
 func TestVaultSQL_UpsertStates(t *testing.T) {
