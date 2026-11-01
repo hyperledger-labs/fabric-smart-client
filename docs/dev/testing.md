@@ -53,13 +53,17 @@ The fuzz targets live across several packages handling untrusted pre-auth bytes:
 
 - [`platform/fabric/core/generic/transaction/fuzz_test.go`](../../platform/fabric/core/generic/transaction/fuzz_test.go):
   `FuzzUnpackSignedProposal`, `FuzzUnpackEnvelopeFromBytes`, `FuzzTransactionSetFromBytes`,
-  `FuzzTransactionSetFromEnvelopeBytes`.
+  `FuzzTransactionSetFromEnvelopeBytes`, `FuzzNewProposalResponseFromBytes`.
+- [`platform/fabricx/core/transaction/fuzz_test.go`](../../platform/fabricx/core/transaction/fuzz_test.go):
+  `FuzzFabricxNewProposalResponseFromBytes`, `FuzzFabricxUnpackEnvelopeFromBytes`.
 - [`platform/fabric/core/generic/msp/x509/fuzz_test.go`](../../platform/fabric/core/generic/msp/x509/fuzz_test.go):
   `FuzzDeserializeVerifier`.
 - [`platform/view/services/comm/io/fuzz_test.go`](../../platform/view/services/comm/io/fuzz_test.go):
   `FuzzVarintReaderReadData`.
 - [`platform/view/services/comm/fuzz_test.go`](../../platform/view/services/comm/fuzz_test.go):
   `FuzzPKExtractorExtractPublicKey`.
+- [`platform/view/services/comm/host/websocket/ws/fuzz_test.go`](../../platform/view/services/comm/host/websocket/ws/fuzz_test.go):
+  `FuzzMultiplexedMessage`, one websocket message handled by a server connection's read loop.
 
 A plain `go test` (via `make unit-tests` and friends) only replays their in-code seed corpus
 (the `f.Add(...)` calls) as ordinary subtests; it does not mutate anything.

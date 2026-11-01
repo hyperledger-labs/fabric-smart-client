@@ -166,3 +166,35 @@ func FuzzTransactionSetFromEnvelopeBytes(f *testing.F) {
 		_ = tx.SetFromEnvelopeBytes(raw)
 	})
 }
+
+// FuzzNewProposalResponseFromBytes fuzzes transaction.NewProposalResponseFromBytes, which
+// decodes the proposal response an endorser of another organization returns before its
+// signature is verified. It either fails or returns a response whose accessors don't panic.
+func FuzzNewProposalResponseFromBytes(f *testing.F) {
+	valid, err := proto.Marshal(createValidProposalResponse(f))
+	require.NoError(f, err)
+
+	f.Add(valid)
+	f.Add([]byte(nil))
+	f.Add([]byte(""))
+	f.Add([]byte("not a protobuf message"))
+
+	f.Fuzz(func(t *testing.T, raw []byte) {
+		pr, err := transaction.NewProposalResponseFromBytes(raw)
+		if err != nil {
+			return
+		}
+		require.NotEmpty(t, pr.Results())
+		_ = pr.Endorser()
+		_ = pr.EndorserSignature()
+		_ = pr.Payload()
+		_ = pr.ResponseStatus()
+		_ = pr.ResponseMessage()
+		_ = pr.PR()
+		_, err = pr.Bytes()
+		require.NoError(t, err)
+		provider := &mock.VerifierProvider{}
+		provider.GetVerifierReturns(&mock.Verifier{}, nil)
+		_ = pr.VerifyEndorsement(provider)
+	})
+}

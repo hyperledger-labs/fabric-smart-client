@@ -17,20 +17,20 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
 )
 
-func createValidProposalResponse(t *testing.T) *peer.ProposalResponse { //nolint:unparam
-	t.Helper()
+func createValidProposalResponse(tb testing.TB) *peer.ProposalResponse { //nolint:unparam
+	tb.Helper()
 
 	ccAction := &peer.ChaincodeAction{
 		Results: []byte("results"),
 	}
 	ccActionBytes, err := proto.Marshal(ccAction)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	prp := &peer.ProposalResponsePayload{
 		Extension: ccActionBytes,
 	}
 	prpBytes, err := proto.Marshal(prp)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	return &peer.ProposalResponse{
 		Payload: prpBytes,

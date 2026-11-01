@@ -38,6 +38,14 @@ jobs:
             path: platform/view/services/comm/io
           - name: FuzzPKExtractorExtractPublicKey
             path: platform/view/services/comm
+          - name: FuzzMultiplexedMessage
+            path: platform/view/services/comm/host/websocket/ws
+          - name: FuzzNewProposalResponseFromBytes
+            path: platform/fabric/core/generic/transaction
+          - name: FuzzFabricxNewProposalResponseFromBytes
+            path: platform/fabricx/core/transaction
+          - name: FuzzFabricxUnpackEnvelopeFromBytes
+            path: platform/fabricx/core/transaction
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
