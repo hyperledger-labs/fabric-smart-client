@@ -62,7 +62,8 @@ func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (dr
 
 // NewPersistenceWithOpts constructs a V backed by the postgres persistence configured under name and
 // params: it resolves the connection options and table names, opens the database, and invokes
-// constructor to build the store, preparing its schema with migrate.CreateSchema unless configured to skip.
+// constructor to build the store, preparing its schema with migrate.CreateSchema. With skipCreateTable it runs no
+// schema step and fails with migrate.ErrPending if the store has steps pending.
 func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *ConfigProvider, dbProvider DbProvider, name driver.PersistenceName, constructor sqlcommon.PersistenceConstructor[V], params ...string) (V, error) {
 	var zero V
 
@@ -84,10 +85,12 @@ func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *ConfigProvider, dbProv
 	if err != nil {
 		return zero, err
 	}
-	if !o.SkipCreateTable {
-		if err := migrate.CreateSchema(context.Background(), dbs.WriteDB, migrate.Postgres, opts.TablePrefix, p); err != nil {
-			return zero, err
-		}
+	var migrateOpts []migrate.Option
+	if o.SkipCreateTable {
+		migrateOpts = append(migrateOpts, migrate.WithCheckOnly())
+	}
+	if err := migrate.CreateSchema(context.Background(), dbs.WriteDB, migrate.Postgres, opts.TablePrefix, p, migrateOpts...); err != nil {
+		return zero, err
 	}
 	return p, nil
 }
