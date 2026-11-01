@@ -13,13 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 )
 
-// MSPInfo models the MSP information.
-type MSPInfo struct {
-	MSPConfigPath string
-	MSPID         string
-	MSPType       string
-}
-
 // Config aggregates configuration of the view service client.
 type Config struct {
 	ID               string

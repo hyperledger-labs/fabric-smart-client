@@ -40,14 +40,10 @@ var (
 	ErrInvalidIdentity = errors.New("invalid identity")
 	// ErrCommandHeaderInvalid occurs when a command header is invalid or missing required fields.
 	ErrCommandHeaderInvalid = errors.New("command header invalid")
-	// ErrPanic occurs when a panic is recovered.
-	ErrPanic = errors.New("panic recovered")
 	// ErrCommandNotRecognized occurs when a command type is not recognized.
 	ErrCommandNotRecognized = errors.New("command type not recognized")
 	// ErrIdentityNotRecognized occurs when an identity is not recognized.
 	ErrIdentityNotRecognized = errors.New("identity not recognized")
-	// ErrInvalidConfig occurs when a configuration is invalid.
-	ErrInvalidConfig = errors.New("invalid configuration")
 	// ErrCancelledByShutdown occurs when a node's shutdown cancels an initiator view that was
 	// still running at the end of the drain. The view may have had effects before it was
 	// cancelled, such as a submitted transaction that still commits, so its outcome must be
