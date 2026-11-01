@@ -88,6 +88,5 @@ func FuzzFabricxUnpackEnvelopeFromBytes(f *testing.F) {
 		}
 		require.Equal(t, int32(common.HeaderType_MESSAGE), typ)
 		_ = upe.ID()
-		_ = upe.Results
 	})
 }
