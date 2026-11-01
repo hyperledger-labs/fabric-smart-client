@@ -12,11 +12,8 @@ import (
 type BindingStore struct {
 	GetLongTermStub        func(context.Context, view.Identity) (view.Identity, error)
 	getLongTermMutex       sync.RWMutex
-	getLongTermArgsForCall []struct {
-		arg1 context.Context
-		arg2 view.Identity
-	}
-	getLongTermReturns struct {
+	getLongTermArgsForCall []BindingStoreGetLongTermArgs
+	getLongTermReturns     struct {
 		result1 view.Identity
 		result2 error
 	}
@@ -26,12 +23,8 @@ type BindingStore struct {
 	}
 	HaveSameBindingStub        func(context.Context, view.Identity, view.Identity) (bool, error)
 	haveSameBindingMutex       sync.RWMutex
-	haveSameBindingArgsForCall []struct {
-		arg1 context.Context
-		arg2 view.Identity
-		arg3 view.Identity
-	}
-	haveSameBindingReturns struct {
+	haveSameBindingArgsForCall []BindingStoreHaveSameBindingArgs
+	haveSameBindingReturns     struct {
 		result1 bool
 		result2 error
 	}
@@ -41,31 +34,66 @@ type BindingStore struct {
 	}
 	PutBindingsStub        func(context.Context, view.Identity, ...view.Identity) error
 	putBindingsMutex       sync.RWMutex
-	putBindingsArgsForCall []struct {
-		arg1 context.Context
-		arg2 view.Identity
-		arg3 []view.Identity
-	}
-	putBindingsReturns struct {
+	putBindingsArgsForCall []BindingStorePutBindingsArgs
+	putBindingsReturns     struct {
 		result1 error
 	}
 	putBindingsReturnsOnCall map[int]struct {
 		result1 error
 	}
+	ReplaceBindingStub        func(context.Context, view.Identity, view.Identity) error
+	replaceBindingMutex       sync.RWMutex
+	replaceBindingArgsForCall []BindingStoreReplaceBindingArgs
+	replaceBindingReturns     struct {
+		result1 error
+	}
+	replaceBindingReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
+// BindingStoreGetLongTermArgs holds the arguments of one call to GetLongTerm.
+type BindingStoreGetLongTermArgs struct {
+	Arg1 context.Context
+	Arg2 view.Identity
+}
+
+// BindingStoreHaveSameBindingArgs holds the arguments of one call to HaveSameBinding.
+type BindingStoreHaveSameBindingArgs struct {
+	Arg1 context.Context
+	Arg2 view.Identity
+	Arg3 view.Identity
+}
+
+// BindingStorePutBindingsArgs holds the arguments of one call to PutBindings.
+type BindingStorePutBindingsArgs struct {
+	Arg1 context.Context
+	Arg2 view.Identity
+	Arg3 []view.Identity
+}
+
+// BindingStoreReplaceBindingArgs holds the arguments of one call to ReplaceBinding.
+type BindingStoreReplaceBindingArgs struct {
+	Arg1 context.Context
+	Arg2 view.Identity
+	Arg3 view.Identity
+}
+
 func (fake *BindingStore) GetLongTerm(arg1 context.Context, arg2 view.Identity) (view.Identity, error) {
+	var arg2Copy view.Identity
+	if arg2 != nil {
+		arg2Copy = make(view.Identity, len(arg2))
+		copy(arg2Copy, arg2)
+	}
 	fake.getLongTermMutex.Lock()
 	ret, specificReturn := fake.getLongTermReturnsOnCall[len(fake.getLongTermArgsForCall)]
-	fake.getLongTermArgsForCall = append(fake.getLongTermArgsForCall, struct {
-		arg1 context.Context
-		arg2 view.Identity
-	}{arg1, arg2})
+	fake.getLongTermArgsForCall = append(fake.getLongTermArgsForCall, BindingStoreGetLongTermArgs{arg1, arg2Copy})
 	stub := fake.GetLongTermStub
 	fakeReturns := fake.getLongTermReturns
-	fake.recordInvocation("GetLongTerm", []interface{}{arg1, arg2})
+	fake.recordInvocation("GetLongTerm", []interface{}{arg1, arg2Copy})
 	fake.getLongTermMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -92,7 +120,15 @@ func (fake *BindingStore) GetLongTermArgsForCall(i int) (context.Context, view.I
 	fake.getLongTermMutex.RLock()
 	defer fake.getLongTermMutex.RUnlock()
 	argsForCall := fake.getLongTermArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *BindingStore) GetLongTermArgs() []BindingStoreGetLongTermArgs {
+	fake.getLongTermMutex.RLock()
+	defer fake.getLongTermMutex.RUnlock()
+	args := make([]BindingStoreGetLongTermArgs, len(fake.getLongTermArgsForCall))
+	copy(args, fake.getLongTermArgsForCall)
+	return args
 }
 
 func (fake *BindingStore) GetLongTermReturns(result1 view.Identity, result2 error) {
@@ -122,16 +158,22 @@ func (fake *BindingStore) GetLongTermReturnsOnCall(i int, result1 view.Identity,
 }
 
 func (fake *BindingStore) HaveSameBinding(arg1 context.Context, arg2 view.Identity, arg3 view.Identity) (bool, error) {
+	var arg2Copy view.Identity
+	if arg2 != nil {
+		arg2Copy = make(view.Identity, len(arg2))
+		copy(arg2Copy, arg2)
+	}
+	var arg3Copy view.Identity
+	if arg3 != nil {
+		arg3Copy = make(view.Identity, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.haveSameBindingMutex.Lock()
 	ret, specificReturn := fake.haveSameBindingReturnsOnCall[len(fake.haveSameBindingArgsForCall)]
-	fake.haveSameBindingArgsForCall = append(fake.haveSameBindingArgsForCall, struct {
-		arg1 context.Context
-		arg2 view.Identity
-		arg3 view.Identity
-	}{arg1, arg2, arg3})
+	fake.haveSameBindingArgsForCall = append(fake.haveSameBindingArgsForCall, BindingStoreHaveSameBindingArgs{arg1, arg2Copy, arg3Copy})
 	stub := fake.HaveSameBindingStub
 	fakeReturns := fake.haveSameBindingReturns
-	fake.recordInvocation("HaveSameBinding", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("HaveSameBinding", []interface{}{arg1, arg2Copy, arg3Copy})
 	fake.haveSameBindingMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -158,7 +200,15 @@ func (fake *BindingStore) HaveSameBindingArgsForCall(i int) (context.Context, vi
 	fake.haveSameBindingMutex.RLock()
 	defer fake.haveSameBindingMutex.RUnlock()
 	argsForCall := fake.haveSameBindingArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *BindingStore) HaveSameBindingArgs() []BindingStoreHaveSameBindingArgs {
+	fake.haveSameBindingMutex.RLock()
+	defer fake.haveSameBindingMutex.RUnlock()
+	args := make([]BindingStoreHaveSameBindingArgs, len(fake.haveSameBindingArgsForCall))
+	copy(args, fake.haveSameBindingArgsForCall)
+	return args
 }
 
 func (fake *BindingStore) HaveSameBindingReturns(result1 bool, result2 error) {
@@ -188,16 +238,22 @@ func (fake *BindingStore) HaveSameBindingReturnsOnCall(i int, result1 bool, resu
 }
 
 func (fake *BindingStore) PutBindings(arg1 context.Context, arg2 view.Identity, arg3 ...view.Identity) error {
+	var arg2Copy view.Identity
+	if arg2 != nil {
+		arg2Copy = make(view.Identity, len(arg2))
+		copy(arg2Copy, arg2)
+	}
+	var arg3Copy []view.Identity
+	if arg3 != nil {
+		arg3Copy = make([]view.Identity, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.putBindingsMutex.Lock()
 	ret, specificReturn := fake.putBindingsReturnsOnCall[len(fake.putBindingsArgsForCall)]
-	fake.putBindingsArgsForCall = append(fake.putBindingsArgsForCall, struct {
-		arg1 context.Context
-		arg2 view.Identity
-		arg3 []view.Identity
-	}{arg1, arg2, arg3})
+	fake.putBindingsArgsForCall = append(fake.putBindingsArgsForCall, BindingStorePutBindingsArgs{arg1, arg2Copy, arg3Copy})
 	stub := fake.PutBindingsStub
 	fakeReturns := fake.putBindingsReturns
-	fake.recordInvocation("PutBindings", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("PutBindings", []interface{}{arg1, arg2Copy, arg3Copy})
 	fake.putBindingsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3...)
@@ -224,7 +280,15 @@ func (fake *BindingStore) PutBindingsArgsForCall(i int) (context.Context, view.I
 	fake.putBindingsMutex.RLock()
 	defer fake.putBindingsMutex.RUnlock()
 	argsForCall := fake.putBindingsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *BindingStore) PutBindingsArgs() []BindingStorePutBindingsArgs {
+	fake.putBindingsMutex.RLock()
+	defer fake.putBindingsMutex.RUnlock()
+	args := make([]BindingStorePutBindingsArgs, len(fake.putBindingsArgsForCall))
+	copy(args, fake.putBindingsArgsForCall)
+	return args
 }
 
 func (fake *BindingStore) PutBindingsReturns(result1 error) {
@@ -250,6 +314,83 @@ func (fake *BindingStore) PutBindingsReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *BindingStore) ReplaceBinding(arg1 context.Context, arg2 view.Identity, arg3 view.Identity) error {
+	var arg2Copy view.Identity
+	if arg2 != nil {
+		arg2Copy = make(view.Identity, len(arg2))
+		copy(arg2Copy, arg2)
+	}
+	var arg3Copy view.Identity
+	if arg3 != nil {
+		arg3Copy = make(view.Identity, len(arg3))
+		copy(arg3Copy, arg3)
+	}
+	fake.replaceBindingMutex.Lock()
+	ret, specificReturn := fake.replaceBindingReturnsOnCall[len(fake.replaceBindingArgsForCall)]
+	fake.replaceBindingArgsForCall = append(fake.replaceBindingArgsForCall, BindingStoreReplaceBindingArgs{arg1, arg2Copy, arg3Copy})
+	stub := fake.ReplaceBindingStub
+	fakeReturns := fake.replaceBindingReturns
+	fake.recordInvocation("ReplaceBinding", []interface{}{arg1, arg2Copy, arg3Copy})
+	fake.replaceBindingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *BindingStore) ReplaceBindingCallCount() int {
+	fake.replaceBindingMutex.RLock()
+	defer fake.replaceBindingMutex.RUnlock()
+	return len(fake.replaceBindingArgsForCall)
+}
+
+func (fake *BindingStore) ReplaceBindingCalls(stub func(context.Context, view.Identity, view.Identity) error) {
+	fake.replaceBindingMutex.Lock()
+	defer fake.replaceBindingMutex.Unlock()
+	fake.ReplaceBindingStub = stub
+}
+
+func (fake *BindingStore) ReplaceBindingArgsForCall(i int) (context.Context, view.Identity, view.Identity) {
+	fake.replaceBindingMutex.RLock()
+	defer fake.replaceBindingMutex.RUnlock()
+	argsForCall := fake.replaceBindingArgsForCall[i]
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *BindingStore) ReplaceBindingArgs() []BindingStoreReplaceBindingArgs {
+	fake.replaceBindingMutex.RLock()
+	defer fake.replaceBindingMutex.RUnlock()
+	args := make([]BindingStoreReplaceBindingArgs, len(fake.replaceBindingArgsForCall))
+	copy(args, fake.replaceBindingArgsForCall)
+	return args
+}
+
+func (fake *BindingStore) ReplaceBindingReturns(result1 error) {
+	fake.replaceBindingMutex.Lock()
+	defer fake.replaceBindingMutex.Unlock()
+	fake.ReplaceBindingStub = nil
+	fake.replaceBindingReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *BindingStore) ReplaceBindingReturnsOnCall(i int, result1 error) {
+	fake.replaceBindingMutex.Lock()
+	defer fake.replaceBindingMutex.Unlock()
+	fake.ReplaceBindingStub = nil
+	if fake.replaceBindingReturnsOnCall == nil {
+		fake.replaceBindingReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.replaceBindingReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *BindingStore) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -260,9 +401,18 @@ func (fake *BindingStore) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *BindingStore) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *BindingStore) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

@@ -32,6 +32,10 @@ var (
 	// where repeating it is idempotent. database/sql opens a fresh connection on
 	// the next query.
 	ErrConnectionLost = errors.New("database connection lost")
+	// ErrBindingRefused means a binding store refused to bind an identity as an ephemeral
+	// because it is a known long-term identity, so binding it would redirect it to another
+	// party.
+	ErrBindingRefused = errors.New("binding refused")
 )
 
 type UnversionedRead = driver.UnversionedRead

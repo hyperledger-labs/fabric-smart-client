@@ -9,14 +9,15 @@ package security
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	fscview "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -99,23 +100,36 @@ func TestRejections_RateLimitsWarnLogs(t *testing.T) {
 // This is the only test that touches it.
 func TestGetRejections_NoneRegisteredIsSharedNoop(t *testing.T) {
 	t.Parallel()
-	r := GetRejections(view.NewServiceProvider())
+	r := GetRejections(newProvider())
 	require.NotNil(t, r)
-	require.Same(t, r, GetRejections(view.NewServiceProvider()))
+	require.Same(t, r, GetRejections(newProvider()))
 
 	warns := 0
 	warnf := r.warnf
 	t.Cleanup(func() { r.warnf = warnf })
 	r.warnf = func(context.Context, string, ...any) { warns++ }
-	GetRejections(view.NewServiceProvider()).Report(t.Context(), kindOther, []byte("peer"), "tx1", "bad")
-	GetRejections(view.NewServiceProvider()).Report(t.Context(), kindOther, []byte("peer"), "tx1", "bad")
+	GetRejections(newProvider()).Report(t.Context(), kindOther, []byte("peer"), "tx1", "bad")
+	GetRejections(newProvider()).Report(t.Context(), kindOther, []byte("peer"), "tx1", "bad")
 	require.Equal(t, 1, warns)
 }
 
 func TestGetRejections_ReturnsRegistered(t *testing.T) {
 	t.Parallel()
-	sp := view.NewServiceProvider()
+	sp := newProvider()
 	r := NewRejections(nil)
-	require.NoError(t, sp.RegisterService(r))
+	sp.services[reflect.TypeOf(r)] = r
 	require.Same(t, r, GetRejections(sp))
+}
+
+// provider is a services.Provider over a map; services/view imports this package
+// through the endpoint service, so its provider cannot be used here.
+type provider struct{ services map[reflect.Type]any }
+
+func newProvider() *provider { return &provider{services: map[reflect.Type]any{}} }
+
+func (p *provider) GetService(v any) (any, error) {
+	if s, ok := p.services[v.(reflect.Type)]; ok {
+		return s, nil
+	}
+	return nil, errors.New("not found")
 }

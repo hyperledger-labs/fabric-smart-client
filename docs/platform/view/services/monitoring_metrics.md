@@ -350,17 +350,28 @@ Primary implementation: `platform/fabric/core/generic/committer/metrics.go`, upd
 
 Operational notes:
 
-- `kind` is currently `invalid_tx`: a transaction received from a peer that failed
-  `endorser.ValidateReceived` (see [Security Model](../security-model.md#data-received-from-peers)).
-  Later checks add more kinds.
-- A rejection is not a degrade and is not counted in `commit_failures`: the endorser refuses the
-  transaction before it reaches the committer, so no channel's block stream is affected.
-- Each rejection also logs one warn line naming the remote peer and the txID, rate-limited to one
-  line per kind per second since the remote peer controls how often it fires; the counter itself
-  counts every rejection. Peer and txID are never counter labels.
+- `kind` is one of:
+  - `invalid_tx`: a transaction received from a peer that failed `endorser.ValidateReceived`
+    (see [Security Model](../security-model.md#data-received-from-peers)).
+  - `binding_refused`: a bind that would have stored a known long-term identity, one with a
+    resolver or a self-row, as another identity's ephemeral. The row is not written (see
+    [Security Model](../security-model.md#identity-bindings)).
+  - `binding_conflict`: an unproven bind of an ephemeral already bound to a different long-term
+    identity. The existing row is kept.
+- `binding_refused` and `binding_conflict` name the long-term identity of the bind as the peer, and
+  no txID. An isolated `binding_conflict` after a remote node rotated its certificate is expected:
+  its alias rows still point at the old certificate. A steady rate, or any `binding_refused`, means
+  a peer is claiming identities it does not own, or a node's own MSP identity is configured as a
+  separate resolver.
+- An `invalid_tx` rejection is not a degrade and is not counted in `commit_failures`: the endorser
+  refuses the transaction before it reaches the committer, so no channel's block stream is affected.
+- Each rejection also logs one warn line naming the peer and, for `invalid_tx`, the txID; the
+  binding kinds have no txID. The line is rate-limited to one per kind per second since the remote
+  peer controls how often it fires; the counter itself counts every rejection, and the binding
+  kinds count one per refused or conflicting ephemeral. Peer and txID are never counter labels.
 
 Primary implementation: `platform/view/services/security/rejections.go`, updated from
-`platform/fabric/services/endorser/validate.go`.
+`platform/fabric/services/endorser/validate.go` and `platform/view/services/endpoint/service.go`.
 
 ### Vault
 

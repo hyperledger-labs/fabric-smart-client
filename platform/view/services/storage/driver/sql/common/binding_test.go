@@ -121,8 +121,9 @@ func TestHaveSameBinding_MissingEntries(t *testing.T) {
 	require.Contains(t, err.Error(), "1 entries found instead of 2")
 }
 
-// PutBindings resolves the canonical long-term id first, then writes one
-// multi-row INSERT whose first tuple is the long-term id bound to itself.
+// PutBindings resolves the canonical long-term id first, checks each ephemeral
+// for a self-row, then writes one multi-row INSERT whose first tuple is the
+// long-term id bound to itself.
 func TestPutBindings(t *testing.T) {
 	t.Parallel()
 
@@ -151,11 +152,14 @@ func expectPutBindings(t *testing.T, query string, ephemerals ...view.Identity) 
 
 	longTerm := view.Identity("long_term")
 
-	// the canonical-id lookup returns no row, so longTerm is used as given
-	mockDB.
-		ExpectQuery("SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1").
-		WithArgs(longTerm.UniqueID()).
-		WillReturnRows(mockDB.NewRows([]string{"long_term_id"}))
+	// the canonical-id lookup returns no row, so longTerm is used as given, and no
+	// ephemeral has a self-row
+	for _, id := range append([]view.Identity{longTerm}, ephemerals...) {
+		mockDB.
+			ExpectQuery("SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1").
+			WithArgs(id.UniqueID()).
+			WillReturnRows(mockDB.NewRows([]string{"long_term_id"}))
+	}
 
 	args := []driver.Value{longTerm.UniqueID(), []byte(longTerm)}
 	for _, eph := range ephemerals {
@@ -167,6 +171,36 @@ func expectPutBindings(t *testing.T, query string, ephemerals ...view.Identity) 
 		WillReturnResult(sqlmock.NewResult(1, int64(len(ephemerals)+1)))
 
 	require.NoError(t, mockBindingStore(db).PutBindings(context.Background(), longTerm, ephemerals...))
+	require.NoError(t, mockDB.ExpectationsWereMet())
+}
+
+// ReplaceBinding checks the ephemeral for a self-row, without resolving the
+// long-term id, then, in one transaction, inserts the long-term self-row unless the
+// long term is bound and upserts the ephemeral's row.
+func TestReplaceBinding(t *testing.T) {
+	t.Parallel()
+
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	longTerm, eph := view.Identity("long_term"), view.Identity("eph")
+
+	mockDB.
+		ExpectQuery("SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1").
+		WithArgs(eph.UniqueID()).
+		WillReturnRows(mockDB.NewRows([]string{"long_term_id"}).AddRow([]byte("planted")))
+	mockDB.ExpectBegin()
+	mockDB.
+		ExpectExec("INSERT INTO bindings (ephemeral_hash, long_term_id) VALUES ($1,$2) ON CONFLICT DO NOTHING;").
+		WithArgs(longTerm.UniqueID(), []byte(longTerm)).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mockDB.
+		ExpectExec("INSERT INTO bindings (ephemeral_hash, long_term_id) VALUES ($1,$2) "+
+			"ON CONFLICT (ephemeral_hash) DO UPDATE SET long_term_id = EXCLUDED.long_term_id;").
+		WithArgs(eph.UniqueID(), []byte(longTerm)).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mockDB.ExpectCommit()
+
+	require.NoError(t, mockBindingStore(db).ReplaceBinding(context.Background(), longTerm, eph))
 	require.NoError(t, mockDB.ExpectationsWereMet())
 }
 
