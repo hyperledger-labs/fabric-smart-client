@@ -291,6 +291,10 @@ The specs in the main `Describe` of each faultrecovery suite share one network
 network is set up once rather than per spec. A spec there must leave the network
 healthy: restart every node it stops or kills, bring back every database, and leave the
 node configuration alone. After a spec fails, the network is rebuilt before the next one.
+A spec that passes must also leave no sessions or view contexts behind: after its own
+`DeferCleanup`s, every FSC node and replica must hold, within `SessionCloseTimeout`, no more
+`fsc_view_services_comm_sessions` and `fsc_view_services_view_contexts` than before it, or
+the spec fails. A spec may therefore restart a node it killed in a `DeferCleanup`.
 A spec that changes the network for good may share it only as the last spec of an
 `Ordered` container, which runs its specs in declaration order. Specs that change the
 configuration before the network starts (such as `SetCommitRetries` or

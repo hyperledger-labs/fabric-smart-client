@@ -58,6 +58,11 @@ const (
 // ginkgo runs after the DeferCleanup of the last spec, so a spec may restart a node it
 // killed in a DeferCleanup. When the suite timeout expires, ginkgo skips the remaining
 // specs without tearing down, so the network is left running.
+//
+// After each spec that passed, every FSC node and replica must hold no more sessions and
+// view contexts than before it, see expectNoLeaks; a spec that leaks fails. The check runs
+// in a DeferCleanup registered before the spec body, so it runs after the spec's own
+// cleanups, once the nodes they restart are back.
 func ShareNetwork(s *integration.TestSuite) {
 	var broken bool
 	ginkgo.BeforeAll(func() {
@@ -69,8 +74,52 @@ func ShareNetwork(s *integration.TestSuite) {
 			s.TearDown()
 			s.Setup()
 		}
+		// Cleanups run last-registered first: the leak check, then the bookkeeping.
+		ginkgo.DeferCleanup(func() { broken = ginkgo.CurrentSpecReport().Failed() })
+		before := leakGauges(s.II)
+		ginkgo.DeferCleanup(func() {
+			// A failed spec may leave nodes down; the network is rebuilt anyway.
+			if !ginkgo.CurrentSpecReport().Failed() {
+				expectNoLeaks(s, before)
+			}
+		})
 	})
-	ginkgo.AfterEach(func() { broken = ginkgo.CurrentSpecReport().Failed() })
+}
+
+// leakGauges returns the Sessions and ViewContexts gauges of every FSC node and replica of
+// ii, keyed by replica ID and gauge, once they have been unchanged for 2 s: a responder of
+// the previous spec may still hold its context for a moment.
+func leakGauges(ii *integration.Infrastructure) map[string]float64 {
+	var gauges map[string]float64
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
+		gauges = readLeakGauges(g, ii)
+		g.Consistently(func(g gomega.Gomega) map[string]float64 {
+			return readLeakGauges(g, ii)
+		}, 2*time.Second, 500*time.Millisecond).Should(gomega.Equal(gauges))
+	}, time.Minute, time.Second).Should(gomega.Succeed())
+	return gauges
+}
+
+func readLeakGauges(g gomega.Gomega, ii *integration.Infrastructure) map[string]float64 {
+	gauges := map[string]float64{}
+	for _, r := range ii.FscPlatform.Peers {
+		families, err := ii.WebClient(r.ID()).Metrics()
+		g.Expect(err).NotTo(gomega.HaveOccurred(), "metrics of [%s]", r.ID())
+		for _, name := range []string{Sessions, ViewContexts} {
+			gauges[r.ID()+" "+name] = sumFamily(families, name)
+		}
+	}
+	return gauges
+}
+
+// expectNoLeaks waits up to SessionCloseTimeout until, on every FSC node and replica of s,
+// the Sessions and ViewContexts gauges are at most their value in before.
+func expectNoLeaks(s *integration.TestSuite, before map[string]float64) {
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
+		for k, v := range readLeakGauges(g, s.II) {
+			g.Expect(v).To(gomega.BeNumerically("<=", before[k]), "[%s] was %v before the spec", k, before[k])
+		}
+	}, SessionCloseTimeout, time.Second).Should(gomega.Succeed(), "sessions or view contexts leaked")
 }
 
 // CrashSpecs registers the node crash and catch-up specs for the suite s. The recovery
