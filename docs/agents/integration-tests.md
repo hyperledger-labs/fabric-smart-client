@@ -247,7 +247,11 @@ Fault scenarios go in `integration/fabric/faultrecovery` and
 `fabric-faultrecovery-partition`, `fabric-faultrecovery-bft`, `fabricx-faultrecovery` and
 `fabricx-faultrecovery-replication`). Both run the FSC
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
-`Orderers`, and its `bft` `Describe` runs on the four SmartBFT orderers of `BFTTopology`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
+`Orderers`, and its `bft` `Describe` runs on the four SmartBFT orderers of `BFTTopology`.
+Both Fabric topologies give Org2, bob's organization, the two peers in `Org2Peers`. Bob's
+delivery reports each peer it has used as a `fsc_connection_state` series of its own, and
+sets the one it left `disconnected`, so a spec that checks bob's delivery after a peer
+fault looks at the one series that is not. What the two suites share lives in `integration/fabric/common/faultrecovery`:
 the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`,
 `HostileSpecs`, and `FailoverSpecs` on replicated nodes), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final

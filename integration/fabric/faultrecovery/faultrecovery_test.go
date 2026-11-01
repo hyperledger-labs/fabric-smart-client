@@ -8,6 +8,7 @@ package faultrecovery_test
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -21,6 +22,8 @@ import (
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	fabricfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -31,9 +34,6 @@ import (
 
 const (
 	dbPrefix = "fr"
-	// bobPeer is the only peer bob's delivery attaches to: an FSC node is configured
-	// with the peers of its own organization.
-	bobPeer = "Org2_peer_0"
 
 	commitRetries  = "fsc_fabric_core_generic_committer_commit_retries"
 	commitFailures = "fsc_fabric_core_generic_committer_commit_failures"
@@ -122,20 +122,55 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 	})
 
 	It("survives delivery peer restart", func() {
-		// Endorsing needs bob's peer for service discovery, so the tx is endorsed first.
+		// Endorsing needs bob's peers for service discovery, so the tx is endorsed first.
+		// An FSC node is configured with the peers of its own organization, so with both of
+		// Org2's peers down bob's delivery can only wait.
 		tx := faultrecovery.Endorse(s.II, 1)
-		s.II.StopPeer(bobPeer)
-		s.II.EventuallyConnectionState("bob", delivery, connstate.Reconnecting, time.Minute)
+		for _, p := range fabricfaultrecovery.Org2Peers {
+			s.II.StopPeer(p)
+		}
+		expectDelivery(s.II, "bob", connstate.Reconnecting, time.Minute)
 
 		// Alice orders through the orderers and learns finality from Org1's peer, so only
 		// bob misses the block.
 		faultrecovery.Order(s.II, tx)
-		s.II.StartPeer(bobPeer)
+		for _, p := range fabricfaultrecovery.Org2Peers {
+			s.II.StartPeer(p)
+		}
 
 		faultrecovery.WaitFinal(s.II, tx.TxID)
-		s.II.EventuallyConnectionState("bob", delivery, connstate.Connected, time.Minute)
-		// A full transaction proves that bob's peer endorses again before the next spec runs.
+		expectDelivery(s.II, "bob", connstate.Connected, time.Minute)
+		// A full transaction proves that bob's peers endorse again before the next spec runs.
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
+	It("fails over delivery to the other peer", func() {
+		n := fabric.Network(s.II.NWOCtx, "default").Network
+		addresses := map[string]string{}
+		for _, p := range fabricfaultrecovery.Org2Peers {
+			addresses[p] = n.PeerAddress(n.PeerByName(p), network.ListenPort)
+		}
+		core, err := os.ReadFile(s.II.FscPlatform.NodeConfigPath(faultrecovery.Replica(s.II, "bob")))
+		Expect(err).NotTo(HaveOccurred())
+		for _, a := range addresses {
+			Expect(string(core)).To(ContainSubstring(a), "core.yaml of bob lists every peer of Org2")
+		}
+
+		used := expectDelivery(s.II, "bob", connstate.Connected, time.Minute)
+		var stopped, other string
+		for p, a := range addresses {
+			if a == used {
+				stopped = p
+			} else {
+				other = p
+			}
+		}
+		Expect(stopped).NotTo(BeEmpty(), "bob's delivery uses [%s], no peer of Org2", used)
+		s.II.StopPeer(stopped)
+		DeferCleanup(s.II.StartPeer, stopped)
+
+		Expect(expectDelivery(s.II, "bob", connstate.Connected, faultrecovery.RecoveryTimeout)).To(Equal(addresses[other]))
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 2)).To(HaveLen(2))
 	})
 
 	It("broadcasts via remaining orderers", func() {
@@ -445,6 +480,30 @@ func bobSum(ii *integration.Infrastructure, name string) float64 {
 		sum += faultrecovery.MetricSum(ii, r, name)
 	}
 	return sum
+}
+
+// expectDelivery waits until the delivery of node, a node name or a replica ID, holds
+// want on one peer and has given up every other peer it used, and returns that peer's
+// address. A node's delivery reports each peer it has used as a series of its own, so
+// the peer in use is the one series that is not disconnected.
+func expectDelivery(ii *integration.Infrastructure, node string, want connstate.State, timeout time.Duration) string {
+	var endpoint string
+	EventuallyWithOffset(1, func(g Gomega) {
+		families, err := ii.WebClient(node).Metrics()
+		g.Expect(err).NotTo(HaveOccurred())
+		live := map[string]connstate.State{}
+		for c, st := range fsc.ParseConnectionState(families, delivery) {
+			if st != connstate.Disconnected {
+				live[c.Endpoint] = st
+			}
+		}
+		g.Expect(live).To(HaveLen(1))
+		for e, st := range live {
+			g.Expect(st).To(Equal(want))
+			endpoint = e
+		}
+	}, timeout, 500*time.Millisecond).Should(Succeed(), "delivery of [%s] never held state %d on one peer", node, want)
+	return endpoint
 }
 
 // expectConfigSequence waits until every node holds channel configuration sequence want.
