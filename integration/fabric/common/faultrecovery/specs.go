@@ -308,15 +308,14 @@ func HostileSpecs(s *integration.TestSuite) {
 		gomega.Expect(rejected.Responder).To(gomega.Equal("bob"))
 		gomega.Expect(rejected.Reason).To(gomega.ContainSubstring("received different results"))
 
-		// Bob never saw a valid transaction, so its vault does not know it.
-		res, err := Query(s.II, "bob", rejected.TxID)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(res.Status).To(gomega.Equal(fdriver.Unknown))
-		// Alice simulated the transaction, so on Fabric its vault keeps it Busy; on
-		// Fabric-x, where status reads the committer, it is Unknown. Neither is Valid.
-		res, err = Query(s.II, "alice", rejected.TxID)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(res.Status).To(gomega.Or(gomega.Equal(fdriver.Unknown), gomega.Equal(fdriver.Busy)))
+		// Both nodes opened the transaction's read-write set, which on Fabric marks it Busy
+		// in their vaults; on Fabric-x, where status reads the committer, it is Unknown.
+		// Neither node may report it Valid or Invalid, since it was never ordered.
+		for _, node := range []string{"alice", "bob"} {
+			res, err := Query(s.II, node, rejected.TxID)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(res.Status).To(gomega.Or(gomega.Equal(fdriver.Unknown), gomega.Equal(fdriver.Busy)), "status on [%s]", node)
+		}
 
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 	})
