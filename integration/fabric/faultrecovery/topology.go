@@ -68,12 +68,7 @@ func fabricTopology() *topology.Topology {
 func fabricTopologyOn(orderers []string) *topology.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1")
-	// AddOrganization appends a new organization on each call, so both peers are added
-	// to the one it returns.
-	org2 := fabricTopology.AddOrganization("Org2")
-	for _, name := range Org2Peers {
-		org2.AddPeer(name)
-	}
+	fabricTopology.AddOrganization("Org2").AddPeer(Org2Peers[0]).AddPeer(Org2Peers[1])
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespace(views.Namespace, topology.Unanimity("Org1"))
 	fabricTopology.Orderers = nil

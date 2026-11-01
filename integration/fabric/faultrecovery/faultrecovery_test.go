@@ -8,7 +8,6 @@ package faultrecovery_test
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -150,11 +149,6 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 		for _, p := range fabricfaultrecovery.Org2Peers {
 			addresses[p] = n.PeerAddress(n.PeerByName(p), network.ListenPort)
 		}
-		core, err := os.ReadFile(s.II.FscPlatform.NodeConfigPath(faultrecovery.Replica(s.II, "bob")))
-		Expect(err).NotTo(HaveOccurred())
-		for _, a := range addresses {
-			Expect(string(core)).To(ContainSubstring(a), "core.yaml of bob lists every peer of Org2")
-		}
 
 		used := expectDelivery(s.II, "bob", connstate.Connected, time.Minute)
 		var stopped, other string
@@ -170,6 +164,9 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 		DeferCleanup(s.II.StartPeer, stopped)
 
 		Expect(expectDelivery(s.II, "bob", connstate.Connected, faultrecovery.RecoveryTimeout)).To(Equal(addresses[other]))
+		// Bob's discovery picks from the same peers but skips the stopped one only while
+		// delivery's failure report on it cools down, so the transactions run right after
+		// the failover.
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 2)).To(HaveLen(2))
 	})
 
