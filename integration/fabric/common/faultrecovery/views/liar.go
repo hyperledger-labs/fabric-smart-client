@@ -8,7 +8,6 @@ package views
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
@@ -16,9 +15,22 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// LiarEndorseView creates an Asset and collects endorsements for it, expecting the
-// responder to alter the transaction output and cause endorsement verification to fail.
-// It returns an error naming the responder and the rejected transaction ID.
+// Rejected is what LiarEndorseView returns when the initiator rejects the responder's
+// endorsement.
+type Rejected struct {
+	// TxID is the ID of the rejected transaction.
+	TxID string
+	// Responder is the name of the responder whose endorsement was rejected.
+	Responder string
+	// Reason is the error the endorsement collection failed with.
+	Reason string
+}
+
+// LiarEndorseView creates an Asset and collects endorsements for it from a responder
+// running LiarResponderView. It returns Rejected when the collection fails, and an error
+// when the collection succeeds, since an endorsement over changed results must be
+// rejected. It has its own type, so LiarResponderView can be registered for it without
+// replacing the honest responder of EndorseView.
 type LiarEndorseView struct {
 	Submit
 }
@@ -34,21 +46,15 @@ func (v *LiarEndorseView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	me := tx.FabricNetworkService().IdentityProvider().DefaultIdentity()
-	if _, err := viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, v.Responder)); err != nil {
-		resolver, _ := endpoint.GetService(viewCtx).GetResolver(viewCtx.Context(), v.Responder)
-		responderName := "bob"
-		if resolver != nil && resolver.GetName() != "" {
-			responderName = resolver.GetName()
-		} else if len(v.Responder) > 0 && !strings.Contains(string(v.Responder), "-----BEGIN") {
-			responderName = string(v.Responder)
-		}
-		return nil, errors.Wrapf(err, "tx [%s]: endorsement by [%s] failed", tx.ID(), responderName)
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, v.Responder))
+	if err == nil {
+		return nil, errors.Errorf("tx [%s]: endorsement over changed results was accepted", tx.ID())
 	}
-	raw, err := tx.Bytes()
-	if err != nil {
-		return nil, err
+	resolver, rerr := endpoint.GetService(viewCtx).GetResolver(viewCtx.Context(), v.Responder)
+	if rerr != nil {
+		return nil, errors.WithMessagef(rerr, "failed resolving responder of rejected tx [%s]", tx.ID())
 	}
-	return &Endorsed{Tx: raw, TxID: tx.ID()}, nil
+	return &Rejected{TxID: tx.ID(), Responder: resolver.GetName(), Reason: err.Error()}, nil
 }
 
 // LiarEndorseViewFactory instantiates LiarEndorseView from JSON input.
@@ -62,8 +68,8 @@ func (*LiarEndorseViewFactory) NewView(in []byte) (view.View, error) {
 	return f, nil
 }
 
-// LiarResponderView alters the write value of the proposed transaction before
-// endorsing it, simulating a malicious counterparty that attempts to tamper with the state.
+// LiarResponderView increments the value of the proposed transaction's Asset before
+// endorsing it, acting as a counterparty that tampers with the read-write set.
 type LiarResponderView struct{}
 
 func (*LiarResponderView) Call(viewCtx view.Context) (any, error) {
@@ -71,8 +77,10 @@ func (*LiarResponderView) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	asset := &Asset{ID: tx.ID(), Value: 999}
-	_ = tx.GetOutputAt(0, asset)
+	asset := &Asset{}
+	if err := tx.GetOutputAt(0, asset); err != nil {
+		return nil, err
+	}
 	asset.Value++
 	if err := tx.AddOutput(asset); err != nil {
 		return nil, err

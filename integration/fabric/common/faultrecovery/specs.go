@@ -303,20 +303,21 @@ func DependencySpecs(s *integration.TestSuite, dbPrefix string) {
 // leaves the network healthy, so the specs can run under ShareNetwork.
 func HostileSpecs(s *integration.TestSuite) {
 	ginkgo.It("rejects an endorsement over a changed read-write set", func() {
-		txID, err := EndorseLiar(s.II, 1)
-		gomega.Expect(err).To(gomega.HaveOccurred())
-		gomega.Expect(err.Error()).To(gomega.ContainSubstring("bob"))
-		gomega.Expect(err.Error()).To(gomega.ContainSubstring("received different results"))
-		gomega.Expect(txID).NotTo(gomega.BeEmpty())
+		rejected := EndorseLiar(s.II, 1)
+		gomega.Expect(rejected.TxID).NotTo(gomega.BeEmpty())
+		gomega.Expect(rejected.Responder).To(gomega.Equal("bob"))
+		gomega.Expect(rejected.Reason).To(gomega.ContainSubstring("received different results"))
 
-		for _, node := range []string{"alice", "bob"} {
-			res, err := Query(s.II, node, txID)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			// Bob never received a committed transaction, so its vault reports Unknown.
-			// Alice simulated the transaction locally, so on Fabric her vault leaves it
-			// Busy; on Fabric-x, where status reads the shared committer, both report Unknown.
-			gomega.Expect(res.Status).To(gomega.Or(gomega.Equal(fdriver.Unknown), gomega.Equal(fdriver.Busy)), "status on [%s]", node)
-		}
+		// Bob never saw a valid transaction, so its vault does not know it.
+		res, err := Query(s.II, "bob", rejected.TxID)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(res.Status).To(gomega.Equal(fdriver.Unknown))
+		// Alice simulated the transaction, so on Fabric its vault keeps it Busy; on
+		// Fabric-x, where status reads the committer, it is Unknown. Neither is Valid.
+		res, err = Query(s.II, "alice", rejected.TxID)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(res.Status).To(gomega.Or(gomega.Equal(fdriver.Unknown), gomega.Equal(fdriver.Busy)))
+
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 	})
 }

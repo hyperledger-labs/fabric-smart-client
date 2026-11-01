@@ -255,8 +255,9 @@ on both nodes; `SubmitAndWaitFinalFrom` does the same from one of alice's replic
 `WaitFinal` does the waiting alone, and `WaitFinalOn` waits on one node or replica.
 `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
-transaction is ordered. `EndorseLiar` runs alice's `endorseLiar` view with bob as responder
-and returns the transaction ID and the view's error. `OrderEventually` retries `Order` while the orderers reject
+transaction is ordered. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
+changes the transaction before endorsing it, and returns how alice rejected the
+endorsement. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election; `EndorseEventually` retries
 `Endorse` while alice's connection to bob fails over to another replica. `Echo` runs a
 two-party view that touches no ledger; with `block` set, bob's responder receives the

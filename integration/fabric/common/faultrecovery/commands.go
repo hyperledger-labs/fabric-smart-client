@@ -9,7 +9,6 @@ package faultrecovery
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -22,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -126,23 +124,12 @@ func Order(ii *integration.Infrastructure, tx *views.Endorsed) string {
 	return common.JSONUnmarshalString(callView(ii, "alice", "order", &views.Order{Tx: tx.Tx}))
 }
 
-// EndorseLiar runs alice's endorseLiar view with bob as responder and returns the
-// transaction ID and the view's error.
-func EndorseLiar(ii *integration.Infrastructure, value int) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
-	defer cancel()
-	_, err := ii.Client("alice").CallViewWithContext(ctx, "endorseLiar", common.JSONMarshall(&views.Submit{Value: value, Responder: ii.Identity("bob")}))
-	if err == nil {
-		return "", errors.New("expected endorseLiar to fail")
-	}
-	var txID string
-	if idx := strings.Index(err.Error(), "tx ["); idx != -1 {
-		rest := err.Error()[idx+len("tx ["):]
-		if before, _, ok := strings.Cut(rest, "]"); ok {
-			txID = before
-		}
-	}
-	return txID, err
+// EndorseLiar runs alice's endorseLiar view with bob as responder and returns how
+// alice rejected bob's endorsement. The view fails when alice accepts it.
+func EndorseLiar(ii *integration.Infrastructure, value int) *views.Rejected {
+	res := &views.Rejected{}
+	common.JSONUnmarshal(callView(ii, "alice", "endorseLiar", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), res)
+	return res
 }
 
 // EndorseEventually is Endorse for a responder whose connection is failing over, such as
