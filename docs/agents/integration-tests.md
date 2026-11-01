@@ -294,7 +294,7 @@ node configuration alone. After a spec fails, the network is rebuilt before the 
 A spec that passes must also leave no sessions or view contexts behind: after its own
 `DeferCleanup`s, every FSC node and replica must hold, within `SessionCloseTimeout`, no more
 `fsc_view_services_comm_sessions` and `fsc_view_services_view_contexts` than before it, or
-the spec fails. A spec may therefore restart a node it killed in a `DeferCleanup`.
+the spec fails. A spec may restart a node it killed in a `DeferCleanup`.
 A spec that changes the network for good may share it only as the last spec of an
 `Ordered` container, which runs its specs in declaration order. Specs that change the
 configuration before the network starts (such as `SetCommitRetries` or

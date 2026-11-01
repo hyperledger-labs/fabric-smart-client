@@ -80,7 +80,7 @@ func ShareNetwork(s *integration.TestSuite) {
 		ginkgo.DeferCleanup(func() {
 			// A failed spec may leave nodes down; the network is rebuilt anyway.
 			if !ginkgo.CurrentSpecReport().Failed() {
-				expectNoLeaks(s, before)
+				expectNoLeaks(s.II, before)
 			}
 		})
 	})
@@ -88,7 +88,9 @@ func ShareNetwork(s *integration.TestSuite) {
 
 // leakGauges returns the Sessions and ViewContexts gauges of every FSC node and replica of
 // ii, keyed by replica ID and gauge, once they have been unchanged for 2 s: a responder of
-// the previous spec may still hold its context for a moment.
+// the previous spec may still hold its context for a moment. The wait is shorter than
+// comm's sessionStreamGrace (5 s), so a session whose stream died may still be counted.
+// That only raises the baseline: the check may miss a leak but never reports a false one.
 func leakGauges(ii *integration.Infrastructure) map[string]float64 {
 	var gauges map[string]float64
 	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
@@ -112,11 +114,11 @@ func readLeakGauges(g gomega.Gomega, ii *integration.Infrastructure) map[string]
 	return gauges
 }
 
-// expectNoLeaks waits up to SessionCloseTimeout until, on every FSC node and replica of s,
+// expectNoLeaks waits up to SessionCloseTimeout until, on every FSC node and replica of ii,
 // the Sessions and ViewContexts gauges are at most their value in before.
-func expectNoLeaks(s *integration.TestSuite, before map[string]float64) {
+func expectNoLeaks(ii *integration.Infrastructure, before map[string]float64) {
 	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
-		for k, v := range readLeakGauges(g, s.II) {
+		for k, v := range readLeakGauges(g, ii) {
 			g.Expect(v).To(gomega.BeNumerically("<=", before[k]), "[%s] was %v before the spec", k, before[k])
 		}
 	}, SessionCloseTimeout, time.Second).Should(gomega.Succeed(), "sessions or view contexts leaked")
