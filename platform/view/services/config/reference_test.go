@@ -67,6 +67,8 @@ func TestReferenceConfiguration(t *testing.T) {
 		"fsc.p2p.opts.libp2p.connManager.gracePeriod",
 		"fsc.p2p.opts.websocket.maxSubConns",
 		"fsc.p2p.opts.websocket.corsAllowedOrigins",
+		"fsc.p2p.opts.websocket.keepalive.interval",
+		"fsc.p2p.opts.websocket.keepalive.timeout",
 	)
 	r.Decode("fsc.p2p.opts.websocket.tls", &tlsconfig.TLS{})
 
