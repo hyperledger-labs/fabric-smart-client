@@ -46,6 +46,8 @@ const (
 	// partition labels the specs that cut links silently through fault proxies, which run
 	// in a target of their own.
 	partition = "partition"
+	// bft labels the specs on SmartBFT orderers, which run in a target of their own.
+	bft = "bft"
 )
 
 var (
@@ -655,5 +657,26 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 
 		proxies.Bob.Heal()
 		Eventually(func() error { return faultrecovery.Echo(s.II, false) }, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed())
+	})
+})
+
+// Its own Describe, so the SmartBFT orderers apply to these specs only. The specs share
+// one network, see faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric on SmartBFT orderers", Ordered, ContinueOnFailure, Label(fsc.WebSocket, bft), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(
+			integration.FabricFaultRecoveryPort.StartPortForNode(),
+			integration.WithRaceDetection,
+			fabricfaultrecovery.BFTTopology(dbPrefix, &fabricsdk.SDK{})...,
+		)
+	})
+	faultrecovery.ShareNetwork(s)
+
+	It("orders with one BFT orderer down", func() {
+		// Four orderers tolerate one fault, so the BFT broadcaster still gets a quorum.
+		// nwo does not say which orderer leads, so one spec covers f = 1.
+		s.II.StopOrderer(fabricfaultrecovery.BFTOrderers[1])
+		DeferCleanup(s.II.StartOrderer, fabricfaultrecovery.BFTOrderers[1])
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 3)).To(HaveLen(3))
 	})
 })

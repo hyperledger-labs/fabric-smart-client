@@ -28,10 +28,25 @@ import (
 // "orderer".
 var Orderers = []string{"orderer", "orderer2", "orderer3"}
 
+// BFTOrderers names the four SmartBFT orderers of BFTTopology: four is the minimum FSC's
+// BFT broadcaster accepts, and tolerates one faulty orderer.
+var BFTOrderers = []string{"orderer", "orderer2", "orderer3", "orderer4"}
+
 // Topology returns two peers (Org1, Org2), three raft orderers, and the FSC nodes of
 // faultrecovery.FSCTopology, running sdk, on Postgres databases with the given prefix.
 func Topology(dbPrefix string, sdk node.SDK) []api.Topology {
 	return []api.Topology{fabricTopology(), faultrecovery.FSCTopology(sdk, dbPrefix)}
+}
+
+// BFTTopology returns the network of Topology on the four SmartBFT orderers of
+// BFTOrderers instead of the raft ones.
+func BFTTopology(dbPrefix string, sdk node.SDK) []api.Topology {
+	fabricTopology := fabricTopologyOn(BFTOrderers)
+	fabricTopology.Consensus.Type = "BFT"
+	for _, p := range fabricTopology.Profiles {
+		p.ChannelCapabilities = []string{"V3_0"}
+	}
+	return []api.Topology{fabricTopology, faultrecovery.FSCTopology(sdk, dbPrefix)}
 }
 
 // ReplicatedTopology returns the network of Topology with the FSC nodes of
@@ -41,16 +56,21 @@ func ReplicatedTopology(dbPrefix string, sdk node.SDK) []api.Topology {
 }
 
 func fabricTopology() *topology.Topology {
+	return fabricTopologyOn(Orderers)
+}
+
+// fabricTopologyOn returns the peers and namespace of Topology with the given orderers.
+func fabricTopologyOn(orderers []string) *topology.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespace(views.Namespace, topology.Unanimity("Org1"))
 	fabricTopology.Orderers = nil
-	for _, name := range Orderers {
+	for _, name := range orderers {
 		fabricTopology.Orderers = append(fabricTopology.Orderers, &topology.Orderer{Name: name, Organization: "OrdererOrg"})
 	}
 	for _, p := range fabricTopology.Profiles {
-		p.Orderers = slices.Clone(Orderers)
+		p.Orderers = slices.Clone(orderers)
 	}
 
 	return fabricTopology

@@ -244,10 +244,10 @@ Fabric-x spec cannot restart the orderer.
 Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
 `fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication`,
-`fabric-faultrecovery-partition`, `fabricx-faultrecovery` and
+`fabric-faultrecovery-partition`, `fabric-faultrecovery-bft`, `fabricx-faultrecovery` and
 `fabricx-faultrecovery-replication`). Both run the FSC
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
-`Orderers`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
+`Orderers`, and its `bft` `Describe` runs on the four SmartBFT orderers of `BFTTopology`. What the two suites share lives in `integration/fabric/common/faultrecovery`:
 the nodes, their views, the specs both suites run (`CrashSpecs`, `ClientSpecs`, `DependencySpecs`,
 `HostileSpecs`, and `FailoverSpecs` on replicated nodes), and the helpers that drive them.
 `SubmitAndWaitFinal(ii, n)` runs `n` two-party transactions and waits until each is final

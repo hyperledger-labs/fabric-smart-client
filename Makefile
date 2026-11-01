@@ -247,6 +247,8 @@ INTEGRATION_TARGETS += fabric-faultrecovery-postgres-outage
 INTEGRATION_TARGETS += fabric-faultrecovery-replication
 # Its specs cut links silently through fault proxies in a network of their own.
 INTEGRATION_TARGETS += fabric-faultrecovery-partition
+# Its specs on SmartBFT orderers need a topology of their own.
+INTEGRATION_TARGETS += fabric-faultrecovery-bft
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
 # them as parallel matrix entries rather than serially in one job.
@@ -275,6 +277,7 @@ INTEGRATION_DIR_fabric-iou-libp2p = fabric/iou
 INTEGRATION_DIR_fabric-faultrecovery-postgres-outage = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-replication = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-partition = fabric/faultrecovery
+INTEGRATION_DIR_fabric-faultrecovery-bft = fabric/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-replication = fabricx/faultrecovery
 
 # Per-target ginkgo flags. A suite split into several targets selects each
@@ -283,10 +286,11 @@ INTEGRATION_DIR_fabricx-faultrecovery-replication = fabricx/faultrecovery
 # rather than silently running in neither job.
 INTEGRATION_FLAGS_fabric-iou        = --label-filter='!libp2p'
 INTEGRATION_FLAGS_fabric-iou-libp2p = --label-filter=libp2p
-INTEGRATION_FLAGS_fabric-faultrecovery                 = --label-filter='!postgres-outage && !replication && !partition'
+INTEGRATION_FLAGS_fabric-faultrecovery                 = --label-filter='!postgres-outage && !replication && !partition && !bft'
 INTEGRATION_FLAGS_fabric-faultrecovery-postgres-outage = --label-filter=postgres-outage
 INTEGRATION_FLAGS_fabric-faultrecovery-replication     = --label-filter=replication
 INTEGRATION_FLAGS_fabric-faultrecovery-partition       = --label-filter=partition
+INTEGRATION_FLAGS_fabric-faultrecovery-bft             = --label-filter=bft
 INTEGRATION_FLAGS_fabricx-faultrecovery             = --label-filter='!replication'
 INTEGRATION_FLAGS_fabricx-faultrecovery-replication = --label-filter=replication
 
