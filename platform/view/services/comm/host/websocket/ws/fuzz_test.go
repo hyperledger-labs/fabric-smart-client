@@ -70,8 +70,8 @@ func FuzzMultiplexedMessage(f *testing.F) {
 		}()
 
 		require.NoError(t, peer.WriteMessage(gwebsocket.TextMessage, raw))
-		// ID "probe" is unused by every seed, so the server opens a sub-connection for it
-		// unless the fuzzed message made it close the connection. The fuzzed message may
+		// ID "probe" is unused by the fuzzed message, so the server opens a sub-connection for
+		// it unless the fuzzed message made it close the connection. The fuzzed message may
 		// open a sub-connection of its own first, and the cap of 2 leaves room for both.
 		if err := peer.WriteMessage(gwebsocket.TextMessage, mustMarshal(MultiplexedMessage{ID: "probe", Msg: probe})); err != nil {
 			<-closed
