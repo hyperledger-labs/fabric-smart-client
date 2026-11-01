@@ -34,6 +34,14 @@ func FuzzMultiplexedMessage(f *testing.F) {
 	f.Add([]byte(""))
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
+			// A fuzzed message with ID "probe" turns the probe below into data for its own
+			// sub-connection, so no new stream opens. Decode with the server's decoder so the
+			// check matches the ID the server sees.
+			var mm MultiplexedMessage
+			if json.Unmarshal(raw, &mm) == nil && mm.ID == "probe" {
+					return
+			}
+
 		streams := make(chan host.P2PStream, 2)
 		sc, peer := newPipedServerConn(t, peerID, 2, func(s host.P2PStream) { streams <- s })
 		t.Cleanup(func() {
