@@ -469,6 +469,24 @@ func TestVerifyEndorsementRejectsEmptyResponse(t *testing.T) {
 	require.Error(t, pr.VerifyEndorsement(fakeProvider))
 }
 
+// TestVerifyEndorsementRejectsNoNamespaces verifies that a well-formed response whose
+// payload has no namespaces, and so no signature to check, does not verify.
+func TestVerifyEndorsementRejectsNoNamespaces(t *testing.T) {
+	t.Parallel()
+	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
+		Endorsement: &peer.Endorsement{
+			Endorser:  []byte("endorser"),
+			Signature: mustSerializedEndorsements(t, nil),
+		},
+	})
+	require.NoError(t, err)
+
+	fakeProvider := &mock.VerifierProvider{}
+	fakeProvider.GetVerifierReturns(&mock.Verifier{}, nil)
+
+	require.ErrorContains(t, pr.VerifyEndorsement(fakeProvider), "has no namespaces")
+}
+
 // TestManagerRejectsGarbledProposalResponse verifies that the transaction manager, which
 // parses the responses an endorsement collector receives, rejects bytes that are not a
 // proposal response.

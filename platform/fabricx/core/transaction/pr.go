@@ -99,6 +99,11 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 		return errors.Wrap(err, "unmarshal endorsement signatures")
 	}
 
+	// a tx without namespaces carries no signature to check, so it would verify vacuously
+	if len(tx.GetNamespaces()) == 0 {
+		return errors.Errorf("proposal response from [%s] has no namespaces", endorser)
+	}
+
 	// check that we have a signature for each namespace
 	if len(tx.GetNamespaces()) != len(endorsements) {
 		return errors.New("mismatch number of signatures and namespaces")
