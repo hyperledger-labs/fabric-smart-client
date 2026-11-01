@@ -151,9 +151,11 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 }
 
 // SetFromBytes populates the transaction from its JSON encoding. When the transaction carries
-// a signed proposal, function and arguments are read from it. SetFromBytes fails if a proposal
-// response endorses a different transaction ID, or if the transaction carries proposal responses
-// without a signed proposal.
+// a signed proposal, txID, nonce, creator, function and arguments are read from it. SetFromBytes
+// fails if a proposal response names a different transaction ID, or if the transaction carries
+// proposal responses without a signed proposal. A Fabric-x proposal response carries no proposal
+// hash, so the txID is its only binding to the signed proposal. SetFromBytes does not validate
+// data received from a peer; use endorser.ValidateReceived.
 func (t *Transaction) SetFromBytes(raw []byte) error {
 	if err := json.Unmarshal(raw, t); err != nil {
 		return errors.Wrap(err, "json unmarshal from bytes")
@@ -183,9 +185,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 		}
 		t.TChannel = up.ChannelHeader.ChannelId
 		t.TProposal = up.Proposal
-		if len(t.TCreator) == 0 {
-			t.TCreator = up.SignatureHeader.Creator
-		}
+		t.TCreator = up.SignatureHeader.Creator
 		t.signedProposal, err = newSignedProposal(t.TSignedProposal)
 		if err != nil {
 			return errors.Wrap(err, "new signed proposal")

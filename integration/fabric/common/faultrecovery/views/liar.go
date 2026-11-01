@@ -15,8 +15,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// Rejected is what LiarEndorseView returns when the initiator rejects the responder's
-// endorsement.
+// Rejected is what LiarEndorseView and ForgedTxIDView return when the endorsement
+// collection fails: the initiator rejects the responder's endorsement, or the responder
+// refuses the transaction.
 type Rejected struct {
 	// TxID is the ID of the rejected transaction.
 	TxID string

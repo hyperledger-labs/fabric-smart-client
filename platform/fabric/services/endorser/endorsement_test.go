@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -126,9 +128,19 @@ func TestCollectEndorsementsView(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestEndorseView(t *testing.T) {
-	t.Parallel()
+// endorseFixture is a view context for endorseView whose transaction is a
+// valid received transaction for channel ch1 of network net1.
+type endorseFixture struct {
+	ctx *mock.Context
+	tx  *mock.Transaction
+	ts  *mock.EndorserTransactionService
+	et  *Transaction
+}
+
+func newEndorseFixture(t *testing.T) *endorseFixture {
+	t.Helper()
 	fakeCtx := &mock.Context{}
+	fakeCtx.ContextReturns(t.Context())
 	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
@@ -137,7 +149,9 @@ func TestEndorseView(t *testing.T) {
 	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
 	fakeTx.ChannelReturns("ch1")
-	fakeTx.IDReturns("tx1")
+	fakeTx.IDReturns(testTxID)
+	fakeTx.NonceReturns(testNonce)
+	fakeTx.CreatorReturns(testCreator)
 	fakeTx.BytesReturns([]byte("txraw"), nil)
 	fakeTx.ProposalResponseReturns([]byte("pr"), nil)
 
@@ -145,7 +159,12 @@ func TestEndorseView(t *testing.T) {
 	fakeFNS.NameReturns("net1")
 	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
+	fakeCH.ChannelMembershipReturns(&mock.ChannelMembership{})
 	fakeFNS.ChannelReturns(fakeCH, nil)
+	fakeFNS.ConfigServiceReturns(&mock.ConfigService{})
+	fakeTM := &mock.TransactionManager{}
+	fakeTM.ComputeTxIDStub = func(id *driver.TxIDComponents) string { return protoutil.ComputeTxID(id.Nonce, id.Creator) }
+	fakeFNS.TransactionManagerReturns(fakeTM)
 
 	fakeVault := &mock.Vault{}
 	fakeCH.VaultReturns(fakeVault)
@@ -173,86 +192,54 @@ func TestEndorseView(t *testing.T) {
 		return nil, nil
 	})
 
+	fakeCtx.SessionReturns(&mock.Session{})
+
 	fns := fabric.NewNetworkService(nil, fakeFNS, "net1")
-	ft := fabric.NewTransaction(fns, fakeTx)
-	et := &Transaction{
-		Transaction: ft,
+	return &endorseFixture{
+		ctx: fakeCtx,
+		tx:  fakeTx,
+		ts:  fakeTS,
+		et:  &Transaction{Transaction: fabric.NewTransaction(fns, fakeTx)},
 	}
+}
 
-	ev := NewEndorseView(et)
+func TestEndorseView(t *testing.T) {
+	t.Parallel()
+	f := newEndorseFixture(t)
+	ev := NewEndorseView(f.et)
 
-	fakeSession := &mock.Session{}
-	fakeCtx.SessionReturns(fakeSession)
-
-	_, err := ev.Call(fakeCtx)
+	_, err := ev.Call(f.ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, fakeTS.StoreTransactionCallCount())
+	require.Equal(t, 1, f.ts.StoreTransactionCallCount())
 
 	// Error path: tx.EndorseWithIdentity failure
-	fakeTx.EndorseWithIdentityReturns(fmt.Errorf("err"))
-	_, err = ev.Call(fakeCtx)
+	f.tx.EndorseWithIdentityReturns(fmt.Errorf("err"))
+	_, err = ev.Call(f.ctx)
 	require.Error(t, err)
-	fakeTx.EndorseWithIdentityReturns(nil)
+	f.tx.EndorseWithIdentityReturns(nil)
 
 	// Error path: tx.ProposalResponse failure
-	fakeTx.ProposalResponseReturns(nil, fmt.Errorf("err"))
-	_, err = ev.Call(fakeCtx)
+	f.tx.ProposalResponseReturns(nil, fmt.Errorf("err"))
+	_, err = ev.Call(f.ctx)
 	require.Error(t, err)
+}
+
+func TestEndorseView_RejectsForgedTxIDBeforeSigning(t *testing.T) {
+	t.Parallel()
+	f := newEndorseFixture(t)
+	f.tx.IDReturns("forged")
+
+	_, err := NewEndorseView(f.et).Call(f.ctx)
+	require.ErrorIs(t, err, ErrInvalidTransaction)
+	require.Zero(t, f.tx.EndorseWithIdentityCallCount())
+	require.Zero(t, f.ts.StoreTransactionCallCount())
 }
 
 func TestAcceptView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.Context{}
-	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v any) (any, error) {
-		return fakeSP.GetService(v)
-	})
+	f := newEndorseFixture(t)
 
-	fakeTx := &mock.Transaction{}
-	fakeTx.NetworkReturns("net1")
-	fakeTx.ChannelReturns("ch1")
-	fakeTx.IDReturns("tx1")
-	fakeTx.BytesReturns([]byte("txraw"), nil)
-	fakeTx.ProposalResponseReturns([]byte("pr"), nil)
-
-	fakeFNS := &mock.FabricNetworkService{}
-	fakeFNS.NameReturns("net1")
-	fakeCH := &mock.Channel{}
-	fakeCH.NameReturns("ch1")
-	fakeFNS.ChannelReturns(fakeCH, nil)
-
-	fakeVault := &mock.Vault{}
-	fakeCH.VaultReturns(fakeVault)
-	fakeTS := &mock.EndorserTransactionService{}
-	fakeCH.TransactionServiceReturns(fakeTS)
-
-	fakeIP := &mock.IdentityProvider{}
-	fakeIP.IdentityReturns([]byte("alice"), nil)
-	fakeFNS.IdentityProviderReturns(fakeIP)
-
-	fakeFNSP := &mock.FabricNetworkServiceProvider{}
-	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
-	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
-
-	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
-	fakeSP.GetServiceCalls(func(v any) (any, error) {
-		if v == networkServiceProviderType {
-			return fakeNSP, nil
-		}
-		return nil, nil
-	})
-
-	fns := fabric.NewNetworkService(nil, fakeFNS, "net1")
-	ft := fabric.NewTransaction(fns, fakeTx)
-	et := &Transaction{
-		Transaction: ft,
-	}
-
-	fakeSession := &mock.Session{}
-	fakeCtx.SessionReturns(fakeSession)
-
-	ev := NewAcceptView(et, []byte("alice"))
-	_, err := ev.Call(fakeCtx)
+	_, err := NewAcceptView(f.et, []byte("alice")).Call(f.ctx)
 	require.NoError(t, err)
 }
 

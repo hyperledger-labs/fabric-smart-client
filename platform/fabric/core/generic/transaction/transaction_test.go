@@ -1270,3 +1270,24 @@ func TestTransaction_ChannelErrors(t *testing.T) {
 		require.ErrorIs(t, f.tx.SetFromEnvelopeBytes(mustMarshal(t, createValidEnvelope(t))), channelErr)
 	})
 }
+
+// TestSetFromBytes_CreatorFromProposal checks that a received transaction takes
+// its creator from the signed proposal, not from the TCreator field the sender
+// chose.
+func TestSetFromBytes_CreatorFromProposal(t *testing.T) {
+	t.Parallel()
+	sp := createSignedProposalWithArgs(t, [][]byte{[]byte("invoke")})
+	up, err := transaction.UnpackSignedProposal(sp)
+	require.NoError(t, err)
+
+	channelProvider := &mock.ChannelProvider{}
+	channelProvider.ChannelReturns(&mock.Channel{}, nil)
+	tx, err := transaction.NewEndorserTransactionFactory("network", channelProvider, &mock.SignerService{}).
+		NewTransaction(t.Context(), "channel", nil, nil, "", nil)
+	require.NoError(t, err)
+
+	raw, err := json.Marshal(&transaction.Transaction{TCreator: []byte("other"), TSignedProposal: sp})
+	require.NoError(t, err)
+	require.NoError(t, tx.SetFromBytes(raw))
+	require.Equal(t, view.Identity(up.SignatureHeader.Creator), tx.Creator())
+}

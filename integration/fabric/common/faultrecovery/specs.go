@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -434,7 +435,9 @@ func DependencySpecs(s *integration.TestSuite, dbPrefix string) {
 }
 
 // HostileSpecs registers the hostile counterparty specs for the suite s. Each spec
-// leaves the network healthy, so the specs can run under ShareNetwork.
+// leaves the network healthy, so the specs can run under ShareNetwork. The forged txID
+// spec skips on Fabric-x, whose endorsers do not check that the txID is derived from
+// nonce and creator.
 func HostileSpecs(s *integration.TestSuite) {
 	ginkgo.It("rejects an endorsement over a changed read-write set", func() {
 		rejected := EndorseLiar(s.II, 1)
@@ -450,6 +453,24 @@ func HostileSpecs(s *integration.TestSuite) {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(res.Status).To(gomega.Or(gomega.Equal(fdriver.Unknown), gomega.Equal(fdriver.Busy)), "status on [%s]", node)
 		}
+
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
+	})
+
+	ginkgo.It("refuses a transaction whose txID the sender chose", func() {
+		if nwofabricx.FxPlatform(s.II) != nil {
+			ginkgo.Skip("Fabric-x does not derive the txID from nonce and creator, so endorsers do not check it; see docs/platform/view/security-model.md")
+		}
+		rejected := EndorseForgedTxID(s.II, 1)
+		gomega.Expect(rejected.TxID).NotTo(gomega.BeEmpty())
+		gomega.Expect(rejected.Responder).To(gomega.Equal("bob"))
+		gomega.Expect(rejected.Reason).To(gomega.ContainSubstring("txID is not derived from nonce and creator"))
+
+		// Bob refuses the transaction before it opens its read-write set, so his vault
+		// holds nothing under the forged txID.
+		res, err := Query(s.II, "bob", rejected.TxID)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(res.Status).To(gomega.Equal(fdriver.Unknown))
 
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 	})

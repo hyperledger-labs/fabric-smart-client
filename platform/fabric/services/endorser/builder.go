@@ -49,6 +49,8 @@ func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.Transaction
 	)
 }
 
+// NewTransactionFromBytes decodes a transaction from its serialized form. It
+// does not validate data received from a peer; use ValidateReceived.
 func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
 	tx, err := t.buildTransaction(context.Background(), nil, "", "", nil, bytes, false)
 	if err != nil {
@@ -142,6 +144,9 @@ func NewTransaction(viewCtx view.Context, opts ...fabric.TransactionOption) (*Bu
 	return txBuilder, tx, nil
 }
 
+// NewTransactionFromBytes decodes a transaction received from the remote peer
+// of viewCtx and validates it with ValidateReceived before returning it. A
+// failure that wraps ErrInvalidTransaction is reported to security.Rejections.
 func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Transaction, error) {
 	txBuilder, err := NewBuilder(viewCtx)
 	if err != nil {
@@ -149,6 +154,10 @@ func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Tra
 	}
 	tx, err := txBuilder.NewTransactionFromBytes(bytes)
 	if err != nil {
+		return nil, nil, err
+	}
+	if err := checkReceived(viewCtx, tx.Transaction); err != nil {
+		tx.Close()
 		return nil, nil, err
 	}
 	viewCtx.OnError(tx.Close)

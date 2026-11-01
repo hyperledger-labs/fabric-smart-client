@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
@@ -189,6 +190,7 @@ func (p *SDK) Install() error {
 		}),
 		p.Container().Provide(viewgrpcserver.NewMetrics),
 		p.Container().Provide(connstate.NewMetrics),
+		p.Container().Provide(security.NewRejections),
 
 		// Listeners. A developer replaces one by decorating its constructor; the SDK calls the
 		// constructor only when the listener is enabled.
@@ -226,6 +228,7 @@ func (p *SDK) Install() error {
 		digutils.Register[*config.Provider](p.Container()),
 		digutils.Register[*endpoint.Service](p.Container()),
 		digutils.Register[*id.Provider](p.Container()),
+		digutils.Register[*security.Rejections](p.Container()),
 		digutils.Register[*sig.Service](p.Container()),
 		digutils.Register[tracing.Provider](p.Container()),
 		digutils.Register[*view.Manager](p.Container()),

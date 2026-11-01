@@ -208,6 +208,11 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 		s.identities = []view.Identity{fns.IdentityProvider().DefaultIdentity()}
 	}
 
+	// The transaction may come from the remote peer; check it before signing or storing it.
+	if err := checkReceived(viewCtx, s.tx.Transaction); err != nil {
+		return nil, err
+	}
+
 	var responses [][]byte
 	for _, id := range s.identities {
 		err := s.tx.EndorseWithIdentity(id)

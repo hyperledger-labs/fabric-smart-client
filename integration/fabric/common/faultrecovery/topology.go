@@ -62,6 +62,7 @@ func newFSCTopology(sdk node.SDK, dbPrefix string, replicas map[string]int, opts
 		AddOptions(db.For("alice")...).
 		RegisterViewFactory("endorse", &views.EndorseViewFactory{}).
 		RegisterViewFactory("endorseLiar", &views.LiarEndorseViewFactory{}).
+		RegisterViewFactory("forgedTxID", &views.ForgedTxIDViewFactory{}).
 		RegisterViewFactory("order", &views.OrderViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
@@ -73,6 +74,7 @@ func newFSCTopology(sdk node.SDK, dbPrefix string, replicas map[string]int, opts
 		AddOptions(db.For("bob")...).
 		RegisterResponder(&views.ResponderView{}, &views.EndorseView{}).
 		RegisterResponder(&views.LiarResponderView{}, &views.LiarEndorseView{}).
+		RegisterResponder(&views.ResponderView{}, &views.ForgedTxIDView{}).
 		RegisterResponder(&views.EchoResponderView{}, &views.EchoView{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).

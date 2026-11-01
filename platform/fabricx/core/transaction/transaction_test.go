@@ -2043,3 +2043,55 @@ func TestTransactionEnvelope(t *testing.T) {
 		require.ErrorContains(t, err, "could not assemble transaction")
 	})
 }
+
+// TestSetFromBytes_CreatorFromProposal checks that a received transaction takes
+// its creator from the signed proposal, not from the TCreator field the sender
+// chose.
+func TestSetFromBytes_CreatorFromProposal(t *testing.T) {
+	t.Parallel()
+	signedProposal := testSignedProposalBytes(t)
+	raw, err := json.Marshal(&Transaction{TCreator: []byte("other"), TSignedProposal: signedProposal})
+	require.NoError(t, err)
+
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ChannelReturns(&mock.Channel{}, nil)
+	tx := &Transaction{fns: fakeFNS}
+	require.NoError(t, tx.SetFromBytes(raw))
+
+	expected, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: []byte("cert-bytes")})
+	require.NoError(t, err)
+	require.Equal(t, view.Identity(expected), tx.Creator())
+}
+
+// TestFabricxSetFromBytes_ResponseMustNameProposalTxID pins the only binding
+// between a Fabric-x proposal response and the signed proposal: the txID in
+// Response.Payload. Fabric-x responses carry no ProposalResponsePayload, so
+// there is no proposal hash to compare.
+func TestFabricxSetFromBytes_ResponseMustNameProposalTxID(t *testing.T) {
+	t.Parallel()
+	signedProposal := testSignedProposalBytes(t)
+	for name, tc := range map[string]struct {
+		txID    string
+		wantErr string
+	}{
+		"names the proposal txID": {txID: "tx-signed"},
+		"names another txID":      {txID: "tx-other", wantErr: "proposal response does not endorse transaction [tx-signed]"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			raw, err := json.Marshal(&Transaction{
+				TSignedProposal:    signedProposal,
+				TProposalResponses: []*peer.ProposalResponse{{Response: &peer.Response{Payload: []byte(tc.txID)}}},
+			})
+			require.NoError(t, err)
+			fakeFNS := &mock.FabricNetworkService{}
+			fakeFNS.ChannelReturns(&mock.Channel{}, nil)
+			err = (&Transaction{fns: fakeFNS}).SetFromBytes(raw)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
