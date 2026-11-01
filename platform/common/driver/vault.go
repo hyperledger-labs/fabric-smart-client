@@ -185,7 +185,8 @@ type VaultStore interface {
 	// Store stores atomically the transaction statuses, writes and metadata writes
 	Store(ctx context.Context, txIDs []TxID, writes Writes, metaWrites MetaWrites) error
 
-	// SetStatuses sets the status and message for the given transactions
+	// SetStatuses sets the status and message for the given transactions.
+	// A Busy code leaves a Valid status unchanged.
 	SetStatuses(ctx context.Context, code TxStatusCode, message string, txIDs ...TxID) error
 
 	// Close closes the vault store

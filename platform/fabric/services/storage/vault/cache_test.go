@@ -231,10 +231,12 @@ func TestCachedStoreSetStatusesBusyRereadsBacked(t *testing.T) {
 	s := newCachedTestStore(backed)
 	s.cache.Put("tx1", &entry{Code: driver.Valid})
 
-	require.NoError(t, s.SetStatuses(context.Background(), driver.Busy, "", "tx1"))
+	require.NoError(t, s.SetStatuses(t.Context(), driver.Busy, "", "tx1"))
 
-	_, ok := s.cache.Get("tx1")
-	require.False(t, ok)
+	before := backed.getCalls.Load()
+	_, err := s.GetTxStatus(context.Background(), "tx1")
+	require.NoError(t, err)
+	require.Equal(t, before+1, backed.getCalls.Load())
 }
 
 func TestCachedStoreSetStatusesPropagatesError(t *testing.T) {

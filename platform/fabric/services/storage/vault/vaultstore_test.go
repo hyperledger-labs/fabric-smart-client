@@ -334,8 +334,7 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
 }
 
-// testKeepsValid checks that a committed transaction stays Valid when its status is
-// set to Busy, as a responder does when another node sends it a transaction with that ID.
+// testKeepsValid checks that a Busy write leaves a committed transaction Valid.
 func testKeepsValid(t *testing.T, store driver.VaultStore) {
 	t.Helper()
 	ctx := context.Background()
