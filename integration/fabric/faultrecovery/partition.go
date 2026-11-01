@@ -13,12 +13,13 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"go.yaml.in/yaml/v3"
+	"github.com/onsi/gomega/gexec"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
@@ -42,20 +43,27 @@ type FaultProxies struct {
 	Postgres *common.Proxy
 	// Bob forwards alice's P2P connections to bob.
 	Bob *common.Proxy
+	// Orderers forward to the orderers, one per entry of Orderers. The channel
+	// configuration lists them as the ordering endpoints, so every client of the
+	// orderers, FSC nodes and peers alike, broadcasts and pulls blocks through them.
+	Orderers []*common.Proxy
 }
 
 // Close closes the proxies.
 func (p *FaultProxies) Close() {
-	for _, proxy := range []*common.Proxy{p.Peer, p.Postgres, p.Bob} {
+	for _, proxy := range append([]*common.Proxy{p.Peer, p.Postgres, p.Bob}, p.Orderers...) {
 		_ = proxy.Close()
 	}
 }
 
-// SetFaultProxies starts a proxy in front of alice's peer, bob's P2P port and bob's
-// database, points the core.yaml of alice and bob at them, and enables alice's gRPC client
-// keepalive (see KeepaliveTime). Every other link is direct. It assumes alice and bob have
-// one replica each. Call it after the network is generated and before it starts; the
-// proxies forward until Close.
+// SetFaultProxies starts a proxy in front of alice's peer, bob's P2P port, bob's database
+// and each orderer, points the core.yaml of alice and bob at the first three, and enables
+// alice's gRPC client keepalive (see KeepaliveTime). FSC reads the ordering endpoints from
+// the channel configuration, not from core.yaml, so SetFaultProxies lists the orderer
+// proxies as the ordering endpoints in configtx.yaml and builds the channel genesis block
+// again. Every other link, the raft traffic between orderers included, is direct. It
+// assumes alice and bob have one replica each. Call it after the network is generated and
+// before it starts; the proxies forward until Close.
 func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	n := fabric.Network(ii.NWOCtx, "default").Network
 	peer := n.PeerAddress(n.PeerByName("Org1_peer_0"), network.ListenPort)
@@ -63,15 +71,16 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	bob := ii.FscPlatform.PeerAddress(faultrecovery.Replica(ii, "bob"), fsc.P2PPort)
 
 	p := &FaultProxies{
-		Peer:     startProxy(peer),
-		Postgres: startProxy(db.Host + ":" + db.Port),
-		Bob:      startProxy(bob),
+		Peer:     faultrecovery.StartProxy(peer),
+		Postgres: faultrecovery.StartProxy(db.Host + ":" + db.Port),
+		Bob:      faultrecovery.StartProxy(bob),
 	}
+	p.Orderers = proxyOrderers(n)
 	_, dbPort, err := net.SplitHostPort(p.Postgres.Addr())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	// Every persistence of bob shares one dataSource.
-	rewrite(ii, "bob", nil, "host="+db.Host+" port="+db.Port+" ", "host=127.0.0.1 port="+dbPort+" ")
-	rewrite(ii, "alice", func(core map[string]any) {
+	faultrecovery.RewriteCore(ii, "bob", nil, "host="+db.Host+" port="+db.Port+" ", "host=127.0.0.1 port="+dbPort+" ")
+	faultrecovery.RewriteCore(ii, "alice", func(core map[string]any) {
 		network, ok := core["fabric"].(map[string]any)["default"].(map[string]any)
 		gomega.Expect(ok).To(gomega.BeTrue(), "core.yaml of alice has no fabric.default")
 		network["keepalive"] = map[string]any{
@@ -83,31 +92,34 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	return p
 }
 
-// rewrite replaces each old address with its new one in the core.yaml of node, then
-// applies patch, if any, to the parsed configuration. Each old address must occur exactly
-// once in the file, so the replacement rewrites only the link it names.
-func rewrite(ii *integration.Infrastructure, node string, patch func(core map[string]any), oldnew ...string) {
-	path := ii.FscPlatform.NodeConfigPath(faultrecovery.Replica(ii, node))
+// proxyOrderers starts one proxy per orderer of n, replaces each orderer's listen address
+// with its proxy in the OrdererEndpoints of configtx.yaml, and builds the genesis block of
+// every channel again from it. Each listen address must occur exactly once in configtx.yaml,
+// so only the ordering endpoint changes.
+func proxyOrderers(n *network.Network) []*common.Proxy {
+	path := n.ConfigTxConfigPath()
 	raw, err := os.ReadFile(path)
 	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
 	cfg := string(raw)
-	for i := 0; i < len(oldnew); i += 2 {
-		gomega.ExpectWithOffset(1, strings.Count(cfg, oldnew[i])).To(gomega.Equal(1), "[%s] in core.yaml of [%s]", oldnew[i], node)
-	}
-	cfg = strings.NewReplacer(oldnew...).Replace(cfg)
-	if patch != nil {
-		var core map[string]any
-		gomega.ExpectWithOffset(1, yaml.Unmarshal([]byte(cfg), &core)).To(gomega.Succeed())
-		patch(core)
-		out, err := yaml.Marshal(core)
-		gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
-		cfg = string(out)
+	proxies := make([]*common.Proxy, len(n.Orderers))
+	for i, o := range n.Orderers {
+		addr := n.OrdererAddress(o, network.ListenPort)
+		gomega.ExpectWithOffset(1, strings.Count(cfg, "- "+addr+"\n")).To(gomega.Equal(1), "ordering endpoint [%s] in configtx.yaml", addr)
+		proxies[i] = faultrecovery.StartProxy(addr)
+		cfg = strings.Replace(cfg, "- "+addr+"\n", "- "+proxies[i].Addr()+"\n", 1)
 	}
 	gomega.ExpectWithOffset(1, os.WriteFile(path, []byte(cfg), 0o600)).To(gomega.Succeed())
-}
 
-func startProxy(backend string) *common.Proxy {
-	p, err := common.StartProxy("127.0.0.1:0", backend)
-	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
-	return p
+	for _, c := range n.Channels {
+		sess, err := n.ConfigTxGen(commands.OutputBlock{
+			NetworkPrefix: n.Prefix,
+			ChannelID:     c.Name,
+			Profile:       c.Profile,
+			ConfigPath:    n.ConfigDir(),
+			OutputBlock:   n.OutputBlockPath(c.Name),
+		})
+		gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
+		gomega.EventuallyWithOffset(1, sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	}
+	return proxies
 }

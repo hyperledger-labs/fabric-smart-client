@@ -181,3 +181,30 @@ func TestProxy_PartitionHoldsBytesUntilHeal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "c", string(buf))
 }
+
+func TestProxy_SetLatencyDelaysEachChunk(t *testing.T) {
+	t.Parallel()
+	p := newTestProxy(t, echoBackend(t))
+	c, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.NoError(t, c.SetReadDeadline(time.Now().Add(5*time.Second)))
+	buf := make([]byte, 1)
+	roundTrip := func() time.Duration {
+		start := time.Now()
+		_, err := c.Write([]byte{'a'})
+		require.NoError(t, err)
+		_, err = c.Read(buf)
+		require.NoError(t, err)
+		return time.Since(start)
+	}
+	require.Less(t, roundTrip(), 200*time.Millisecond)
+
+	const latency = 200 * time.Millisecond
+	p.SetLatency(latency)
+	// The request and the echo are each delayed.
+	require.GreaterOrEqual(t, roundTrip(), 2*latency)
+
+	p.SetLatency(0)
+	require.Less(t, roundTrip(), 200*time.Millisecond)
+}

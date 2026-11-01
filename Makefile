@@ -269,6 +269,7 @@ INTEGRATION_TARGETS += fabricx-configupdate
 INTEGRATION_TARGETS += fabricx-faultrecovery
 # Its specs on replicated nodes run in a target of their own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-replication
+INTEGRATION_TARGETS += fabricx-faultrecovery-partition
 
 # Targets are normally named <platform>-<suite> and map onto
 # ./integration/<platform>/<suite>. Targets that run one suite under a
@@ -279,6 +280,7 @@ INTEGRATION_DIR_fabric-faultrecovery-replication = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-partition = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-bft = fabric/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-replication = fabricx/faultrecovery
+INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
 
 # Per-target ginkgo flags. A suite split into several targets selects each
 # target's specs by label. The suite's default target uses a negative filter
@@ -291,8 +293,9 @@ INTEGRATION_FLAGS_fabric-faultrecovery-postgres-outage = --label-filter=postgres
 INTEGRATION_FLAGS_fabric-faultrecovery-replication     = --label-filter=replication
 INTEGRATION_FLAGS_fabric-faultrecovery-partition       = --label-filter=partition
 INTEGRATION_FLAGS_fabric-faultrecovery-bft             = --label-filter=bft
-INTEGRATION_FLAGS_fabricx-faultrecovery             = --label-filter='!replication'
+INTEGRATION_FLAGS_fabricx-faultrecovery             = --label-filter='!replication && !partition'
 INTEGRATION_FLAGS_fabricx-faultrecovery-replication = --label-filter=replication
+INTEGRATION_FLAGS_fabricx-faultrecovery-partition   = --label-filter=partition
 
 integration_default_dir = $(firstword $(subst -, ,$(1)))/$(subst $(firstword $(subst -, ,$(1)))-,,$(1))
 integration_dir = $(or $(INTEGRATION_DIR_$(1)),$(call integration_default_dir,$(1)))

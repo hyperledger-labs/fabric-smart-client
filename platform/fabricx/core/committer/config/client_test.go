@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
@@ -242,4 +243,100 @@ func invokeHealthCheck(t *testing.T, cc *grpc.ClientConn) {
 	resp, err := healthpb.NewHealthClient(cc).Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
 	require.NoError(t, err)
 	require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.GetStatus())
+}
+
+// TestClientProvider_KeepAliveDetectsSilentCut checks that the configured keepalive reaches
+// the connection: once the link stops forwarding without closing, the client's ping goes
+// unanswered and gRPC drops the connection, while without keepalive it stays READY. gRPC
+// raises a client ping interval below 10 s to 10 s, so detection takes about that plus the
+// timeout.
+func TestClientProvider_KeepAliveDetectsSilentCut(t *testing.T) {
+	t.Parallel()
+	const pingInterval = 10 * time.Second
+	for _, tt := range []struct {
+		name      string
+		keepAlive *commongrpc.ClientKeepAliveConfig
+		dropped   bool
+	}{
+		{name: "keepalive", keepAlive: &commongrpc.ClientKeepAliveConfig{Time: pingInterval, Timeout: time.Second, PermitWithoutStream: true}, dropped: true},
+		{name: "no keepalive", dropped: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			addr := startTestServer(t, grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: time.Millisecond, PermitWithoutStream: true}))
+			link := newSilentLink(t, addr)
+			fakeConfigProvider := &mock.ServiceConfigProvider{}
+			fakeConfigProvider.QueryServiceConfigStub = func(string) (*config.Config, error) {
+				return &config.Config{Endpoints: []commongrpc.ConnectionConfig{{Address: link.addr()}}, KeepAlive: tt.keepAlive}, nil
+			}
+
+			cc, err := config.NewClientProvider(fakeConfigProvider).QueryServiceClient("test-network")
+			require.NoError(t, err)
+			cc.Connect()
+			require.Eventually(t, func() bool { return cc.GetState() == connectivity.Ready }, 5*time.Second, 10*time.Millisecond)
+
+			link.cut()
+			if tt.dropped {
+				require.Eventually(t, func() bool { return cc.GetState() != connectivity.Ready }, 2*pingInterval+5*time.Second, 50*time.Millisecond)
+			} else {
+				require.Never(t, func() bool { return cc.GetState() != connectivity.Ready }, pingInterval+5*time.Second, 100*time.Millisecond)
+			}
+		})
+	}
+}
+
+// silentLink forwards TCP connections to a backend until cut, after which it stops
+// forwarding without closing anything, so neither side sees a reset.
+type silentLink struct {
+	listener net.Listener
+	cutCh    chan struct{}
+}
+
+func newSilentLink(t *testing.T, backend string) *silentLink {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	link := &silentLink{listener: l, cutCh: make(chan struct{})}
+	t.Cleanup(func() { _ = l.Close() })
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			b, err := net.Dial("tcp", backend)
+			if err != nil {
+				_ = c.Close()
+				continue
+			}
+			t.Cleanup(func() { _ = c.Close(); _ = b.Close() })
+			go link.pipe(b, c)
+			go link.pipe(c, b)
+		}
+	}()
+	return link
+}
+
+func (l *silentLink) addr() string { return l.listener.Addr().String() }
+
+func (l *silentLink) cut() { close(l.cutCh) }
+
+func (l *silentLink) pipe(dst, src net.Conn) {
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := src.Read(buf)
+		select {
+		case <-l.cutCh:
+			return
+		default:
+		}
+		if n > 0 {
+			if _, err := dst.Write(buf[:n]); err != nil {
+				return
+			}
+		}
+		if err != nil {
+			return
+		}
+	}
 }

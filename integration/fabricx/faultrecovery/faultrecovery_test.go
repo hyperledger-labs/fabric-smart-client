@@ -29,6 +29,9 @@ const (
 	dbPrefix = "frx"
 	// replication labels the specs on replicated nodes, which run in a target of their own.
 	replication = "replication"
+	// partition labels the specs that cut bob's links to the committer silently through
+	// fault proxies, which run in a target of their own.
+	partition = "partition"
 )
 
 var (
@@ -153,6 +156,44 @@ var _ = Describe("Fault Recovery with Fabric-x and replicas", Ordered, ContinueO
 			}
 		}
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 3)).To(HaveLen(3))
+	})
+})
+
+// Its own Describe, so the fault proxies and the keepalive apply to these specs only.
+// Each spec heals what it partitions, so the specs share one network, see
+// faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric-x during a network partition", Ordered, ContinueOnFailure, Label(fsc.WebSocket, partition), func() {
+	var proxies *fxfaultrecovery.FaultProxies
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		ii, err := newInfrastructure(fxfaultrecovery.Topology(dbPrefix)...)
+		if err != nil {
+			return nil, err
+		}
+		if proxies != nil {
+			proxies.Close()
+		}
+		proxies = fxfaultrecovery.SetFaultProxies(ii)
+		return ii, nil
+	})
+	faultrecovery.ShareNetwork(s)
+	AfterAll(func() {
+		if proxies != nil {
+			proxies.Close()
+		}
+	})
+
+	It("detects a silent partition of the notification stream", func() {
+		s.II.EventuallyConnectionState("bob", notification, connstate.Connected, time.Minute)
+
+		proxies.Notification.Partition()
+		DeferCleanup(proxies.Notification.Heal)
+		// Only the keepalive notices: the committer pushes nothing while no tx is ordered.
+		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting,
+			fxfaultrecovery.KeepaliveTime+fxfaultrecovery.KeepaliveTimeout+10*time.Second)
+
+		proxies.Notification.Heal()
+		s.II.EventuallyConnectionState("bob", notification, connstate.Connected, 2*time.Minute)
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 })
 

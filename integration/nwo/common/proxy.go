@@ -28,6 +28,8 @@ type Proxy struct {
 	open map[string]int
 	// healed is closed by Heal; it is nil while the proxy is not partitioned.
 	healed chan struct{}
+	// latency delays each forwarded chunk, see SetLatency.
+	latency time.Duration
 }
 
 // StartProxy listens on address and forwards to backends until Close.
@@ -88,14 +90,25 @@ func (p *Proxy) Heal() {
 	}
 }
 
-// waitHealed blocks while the proxy is partitioned.
+// SetLatency delays every chunk the proxy forwards, in both directions, by d, until it is
+// set again; zero forwards without delay. It applies to open connections from their next
+// chunk on. Chunks of one direction stay in order, so a connection's throughput drops to
+// one chunk per d.
+func (p *Proxy) SetLatency(d time.Duration) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.latency = d
+}
+
+// waitHealed blocks while the proxy is partitioned, then waits out the latency.
 func (p *Proxy) waitHealed() {
 	p.mu.Lock()
-	healed := p.healed
+	healed, latency := p.healed, p.latency
 	p.mu.Unlock()
 	if healed != nil {
 		<-healed
 	}
+	time.Sleep(latency)
 }
 
 func (p *Proxy) serve() {
@@ -138,7 +151,7 @@ func (p *Proxy) forward(c net.Conn) {
 }
 
 // pipe copies src to dst until src ends or dst fails. It holds each chunk, and the end of
-// src, while the proxy is partitioned.
+// src, while the proxy is partitioned, and delays each by the latency.
 func (p *Proxy) pipe(dst io.Writer, src io.Reader) {
 	buf := make([]byte, 32*1024)
 	for {

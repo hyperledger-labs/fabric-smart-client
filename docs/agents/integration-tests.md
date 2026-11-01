@@ -244,8 +244,8 @@ Fabric-x spec cannot restart the orderer.
 Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
 `fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication`,
-`fabric-faultrecovery-partition`, `fabric-faultrecovery-bft`, `fabricx-faultrecovery` and
-`fabricx-faultrecovery-replication`). Both run the FSC
+`fabric-faultrecovery-partition`, `fabric-faultrecovery-bft`, `fabricx-faultrecovery`,
+`fabricx-faultrecovery-replication` and `fabricx-faultrecovery-partition`). Both run the FSC
 nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
 `Orderers`, and its `bft` `Describe` runs on the four SmartBFT orderers of `BFTTopology`.
 Both Fabric topologies give Org2, bob's organization, the two peers in `Org2Peers`. Bob's
@@ -314,13 +314,27 @@ database.
 Killing a process makes the OS reset its connections, so the other side notices at once.
 A network partition is silent. `common.Proxy.Partition()` reproduces it: the proxy stops
 forwarding in both directions but closes nothing, and `Heal()` delivers the held bytes,
-so every connection resumes where it stopped. The Fabric suite's `partition` `Describe`
+so every connection resumes where it stopped. `SetLatency(d)` delays every chunk the proxy
+forwards by `d`. The Fabric suite's `partition` `Describe`
 calls `SetFaultProxies` in its generator, which puts a proxy in front of alice's peer,
 bob's P2P port and bob's database, and rewrites the `core.yaml` of both nodes to use them.
+FSC reads the ordering endpoints from the channel configuration, not from `core.yaml`, so
+`SetFaultProxies` also puts a proxy in front of each orderer, lists those proxies as the
+`OrdererEndpoints` in `configtx.yaml` and builds the channel genesis block again; FSC nodes
+and peers then reach the orderers through them, while raft traffic stays direct.
 It also turns on alice's gRPC client keepalive (`KeepaliveTime`, 60 s, plus
 `KeepaliveTimeout`, 10 s).
 nwo leaves keepalive off for every other node, and without it a silent partition of the
 delivery peer is never detected. Each spec there heals the proxy it partitions.
+
+The Fabric-x suite's `partition` `Describe` calls its own `SetFaultProxies`, which puts a
+proxy in front of the committer's notification and query services and points bob's
+`core.yaml` at them. It turns on the keepalive of bob's notification service
+(`notificationService.keepalive`, see [configuration](../configuration.md)) with the same
+60 s and 10 s: the committer's sidecar rejects pings more often than every 60 s, and the
+committer pushes nothing while no transaction is ordered, so the keepalive is what detects
+a silently cut notification stream. `RewriteCore` and `StartProxy` in
+`integration/fabric/common/faultrecovery` serve both suites.
 
 ### Replicated nodes
 

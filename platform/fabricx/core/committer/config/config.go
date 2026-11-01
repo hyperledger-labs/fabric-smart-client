@@ -104,6 +104,21 @@ type Config struct {
 	// collected. Only meaningful for the notification service. A value of zero
 	// falls back to DefaultSweepInterval.
 	SweepInterval time.Duration `yaml:"sweepInterval,omitempty"`
+	// KeepAlive is the gRPC client keepalive of every endpoint: the client pings the
+	// committer after KeepAlive.Time without activity and closes the connection when no
+	// reply arrives within KeepAlive.Timeout, which detects a connection cut without a
+	// reset. It is nil, and no ping is sent, unless KeepAlive.Time is positive. The
+	// committer rejects pings more often than its enforcement policy allows (60 s by
+	// default), so Time must not be below that.
+	KeepAlive *grpc.ClientKeepAliveConfig `yaml:"keepalive,omitempty"`
+}
+
+// normalizeKeepAlive clears c.KeepAlive unless its Time is positive: gRPC raises a zero
+// Time to a 10 s ping interval, which the committer rejects.
+func (c *Config) normalizeKeepAlive() {
+	if c.KeepAlive != nil && c.KeepAlive.Time <= 0 {
+		c.KeepAlive = nil
+	}
 }
 
 // ServiceBackend defines the interface for retrieving configuration values. It is satisfied
@@ -164,6 +179,7 @@ func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error)
 	if err := resolveEndpointTLS(configService, "notificationService", config.Endpoints); err != nil {
 		return config, err
 	}
+	config.normalizeKeepAlive()
 
 	if config.HandlerTimeout <= 0 {
 		config.HandlerTimeout = DefaultHandlerTimeout
@@ -196,6 +212,7 @@ func NewQueryServiceConfig(configService ServiceBackend) (*Config, error) {
 	if err := resolveEndpointTLS(configService, "queryService", config.Endpoints); err != nil {
 		return config, err
 	}
+	config.normalizeKeepAlive()
 
 	if config.RequestTimeout <= 0 {
 		config.RequestTimeout = DefaultRequestTimeout
