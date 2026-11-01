@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 // NewEnvelopeStore returns an envelope store over table, reading through readDB
@@ -40,3 +41,9 @@ func (db *EnvelopeStore) PutEnvelope(ctx context.Context, key string, data []byt
 func (db *EnvelopeStore) CreateSchema() error {
 	return db.p.CreateSchema()
 }
+
+// StoreName returns the table name; it identifies the store in the versions table.
+func (db *EnvelopeStore) StoreName() string { return db.p.StoreName() }
+
+// Steps returns the store's schema steps. Step 1 creates the table if it does not exist.
+func (db *EnvelopeStore) Steps() []migrate.Step { return db.p.Steps() }

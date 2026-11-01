@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
+	"context"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/node/start"
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
@@ -32,6 +34,7 @@ type FSCNode interface {
 
 // Node is a cobra based application that offers the following commands:
 // - `node start` to instantiate and start the Fabric Smart Client stack.
+// - `node migrate` to prepare the schema of every store and exit; `--check` only checks it.
 // - `version` to get the version of the executed code.
 type Node struct {
 	FSCNode
@@ -63,6 +66,15 @@ func newWithFSCNode(fscNode FSCNode) *Node {
 	mainCmd.AddCommand(start.Cmd(node))
 
 	return node
+}
+
+// Migrate runs Migrate on the wrapped FSCNode; see node.Node.Migrate.
+func (n *Node) Migrate(ctx context.Context, checkOnly bool) error {
+	m, ok := n.FSCNode.(start.Migrator)
+	if !ok {
+		return errors.Errorf("node [%T] does not support migrate", n.FSCNode)
+	}
+	return m.Migrate(ctx, checkOnly)
 }
 
 func (n *Node) Callback() chan<- error {

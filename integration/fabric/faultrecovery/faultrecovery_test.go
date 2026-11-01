@@ -8,6 +8,8 @@ package faultrecovery_test
 
 import (
 	"context"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -257,6 +259,42 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 	})
 
 	faultrecovery.FailoverSpecs(s, delivery)
+
+	// Both replicas migrate the shared database at once; the migration lock lets one run
+	// step 1 while the other waits (TestPostgresMigrate covers that each step runs once).
+	It("starts both replicas at once on a v0.26 database", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+		for _, r := range []string{"bob.0", "bob.1"} {
+			s.II.StopFSCNode(r)
+		}
+		// Turn bob's database into the v0.26 layout: no versions table, and the KVS and every
+		// vault state table keyed (pkey, ns). Step 1 of those stores reorders the key.
+		faultrecovery.Psql(db, "DROP TABLE fsc_schema_versions")
+		tables := strings.Fields(faultrecovery.Psql(db, "SELECT string_agg(tablename, ' ') FROM pg_tables WHERE schemaname = 'public' AND (tablename = 'fsc_kvs' OR tablename LIKE '%_vstate')"))
+		Expect(tables).To(ContainElement("fsc_kvs"))
+		Expect(len(tables)).To(BeNumerically(">=", 2), "bob has a vault state table")
+		for _, t := range tables {
+			pk := faultrecovery.Psql(db, "SELECT conname FROM pg_constraint WHERE conrelid = '"+t+"'::regclass AND contype = 'p'")
+			faultrecovery.Psql(db, "ALTER TABLE "+t+" DROP CONSTRAINT "+pk+", ADD PRIMARY KEY (pkey, ns)")
+		}
+
+		var wg sync.WaitGroup
+		for _, r := range []string{"bob.0", "bob.1"} {
+			wg.Go(func() {
+				defer GinkgoRecover()
+				s.II.StartFSCNode(r)
+			})
+		}
+		wg.Wait()
+
+		// Both replicas started, so every store reached its latest step, and the key of every
+		// reordered table is (ns, pkey) again.
+		for _, t := range tables {
+			Expect(faultrecovery.Psql(db, "SELECT count(*) FROM fsc_schema_versions WHERE store = '"+t+"'")).To(Equal("1"), t)
+			Expect(faultrecovery.Psql(db, "SELECT string_agg(a.attname, ',' ORDER BY k.ord) FROM pg_constraint c CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum WHERE c.conrelid = '"+t+"'::regclass AND c.contype = 'p'")).To(Equal("ns,pkey"), t)
+		}
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
 
 	It("keeps committing when one replica is killed", func() {
 		// Both replicas commit every block to the shared vault. The killed replica holds no
@@ -571,6 +609,26 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		}
 		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
 		Expect(faultrecovery.MetricSum(s.II, "bob", commitFailures)).To(Equal(failures))
+	})
+
+	It("migrates a node that skips table creation", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+		s.II.StopFSCNode("bob")
+		// Without its version rows every store of bob has step 1 pending.
+		faultrecovery.Psql(db, "DROP TABLE fsc_schema_versions")
+		faultrecovery.SetSkipCreateTable(s.II, "bob", true)
+		DeferCleanup(faultrecovery.SetSkipCreateTable, s.II, "bob", false)
+
+		check := s.II.MigrateFSCNode("bob", true)
+		Expect(check.ExitCode()).NotTo(BeZero())
+		Expect(string(check.Err.Contents()) + string(check.Out.Contents())).To(ContainSubstring("schema migration pending"))
+
+		Expect(s.II.MigrateFSCNode("bob", false).ExitCode()).To(BeZero())
+		// --check passes only when every store is at its latest step.
+		Expect(s.II.MigrateFSCNode("bob", true).ExitCode()).To(BeZero())
+
+		s.II.StartFSCNode("bob")
+		faultrecovery.SubmitAndWaitFinal(s.II, 1)
 	})
 
 	It("reports a never-ordered tx as busy after a restart", func() {

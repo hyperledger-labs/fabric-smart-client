@@ -7,15 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
-// rowQuerier is satisfied by both *sql.DB and *sql.Tx.
+// rowQuerier is satisfied by *sql.DB, *sql.Conn, *sql.Tx and migrate.Execer.
 type rowQuerier interface {
-	QueryRow(query string, args ...any) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 // ReorderPrimaryKey changes table's primary key from (pkey, ns) to (ns, pkey)
@@ -35,12 +37,13 @@ type rowQuerier interface {
 // table already reordered on its next start. This function does not retry
 // that error.
 func ReorderPrimaryKey(readDB *sql.DB, writeDB common.WriteDB, table, columnDefs, copyColumns string) error {
-	cols, err := PrimaryKeyColumns(readDB, table)
+	ctx := context.Background()
+	cols, err := readPrimaryKeyColumns(ctx, readDB, table)
 	if err != nil || cols == "ns,pkey" {
 		return err
 	}
 
-	tx, err := writeDB.Begin()
+	tx, err := writeDB.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate db transaction")
 	}
@@ -50,14 +53,23 @@ func ReorderPrimaryKey(readDB *sql.DB, writeDB common.WriteDB, table, columnDefs
 	// replica that finishes the rebuild first is visible here. Do not remove
 	// it: without it two replicas both read the order as readers, and the one
 	// that upgrades to a writer second fails with SQLITE_BUSY.
-	if _, err := tx.Exec("UPDATE " + table + " SET ns = ns WHERE 0"); err != nil { //nolint:gosec // table name comes from configuration, not user input
+	if _, err := tx.ExecContext(ctx, "UPDATE "+table+" SET ns = ns WHERE 0"); err != nil { //nolint:gosec // table name comes from configuration, not user input
 		return errors.Wrapf(err, "failed locking table [%s]", table)
 	}
-	if cols, err = PrimaryKeyColumns(tx, table); err != nil {
+	if err := ReorderPrimaryKeyTx(ctx, tx, table, columnDefs, copyColumns); err != nil {
 		return err
 	}
-	if cols == "ns,pkey" {
-		return nil
+	return tx.Commit()
+}
+
+// ReorderPrimaryKeyTx is ReorderPrimaryKey inside the caller's transaction q,
+// which must already hold the write lock, such as a BEGIN IMMEDIATE
+// transaction: it reads the key order and rebuilds a table keyed (pkey, ns).
+// Any order other than (ns, pkey) or (pkey, ns) is an error.
+func ReorderPrimaryKeyTx(ctx context.Context, q migrate.Execer, table, columnDefs, copyColumns string) error {
+	cols, err := readPrimaryKeyColumns(ctx, q, table)
+	if err != nil || cols == "ns,pkey" {
+		return err
 	}
 	if cols != "pkey,ns" {
 		return errors.Errorf("table [%s] primary key is (%s), expected (ns, pkey)", table, cols)
@@ -72,19 +84,23 @@ func ReorderPrimaryKey(readDB *sql.DB, writeDB common.WriteDB, table, columnDefs
 		"ALTER TABLE " + staging + " RENAME TO " + table,
 	}
 	for _, statement := range statements {
-		if _, err := tx.Exec(statement); err != nil { //nolint:gosec // table name and column list come from configuration, not user input
+		if _, err := q.ExecContext(ctx, statement); err != nil {
 			return errors.Wrapf(err, "failed reordering primary key of table [%s]", table)
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // PrimaryKeyColumns returns table's primary-key columns in index order, joined
 // by commas. The table name is bound, so a connection that rejects
 // double-quoted string literals still works.
 func PrimaryKeyColumns(q rowQuerier, table string) (string, error) {
+	return readPrimaryKeyColumns(context.Background(), q, table)
+}
+
+func readPrimaryKeyColumns(ctx context.Context, q rowQuerier, table string) (string, error) {
 	var cols sql.NullString
-	if err := q.QueryRow(`
+	if err := q.QueryRowContext(ctx, `
 		SELECT group_concat(ii.name, ',' ORDER BY ii.seqno)
 		FROM pragma_index_list(?) il, pragma_index_info(il.name) ii
 		WHERE il.origin = 'pk'`,

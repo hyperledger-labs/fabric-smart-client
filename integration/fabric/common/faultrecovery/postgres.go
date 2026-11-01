@@ -35,12 +35,12 @@ import (
 // so the standby keeps running when the primary is killed.
 func StartStandby(primary, standby string) string {
 	docker("exec", primary, "sh", "-c", `echo "host replication all all trust" >> "$PGDATA/pg_hba.conf"`)
-	psql(primary, "SELECT pg_reload_conf()")
+	Psql(primary, "SELECT pg_reload_conf()")
 	ip := docker("inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", primary)
 	gomega.Expect(ip).NotTo(gomega.BeEmpty(), "container [%s] has no bridge IP address", primary)
 	image := docker("inspect", "-f", "{{.Config.Image}}", primary)
-	user := psql(primary, "SELECT current_user")
-	db := psql(primary, "SELECT current_database()")
+	user := Psql(primary, "SELECT current_user")
+	db := Psql(primary, "SELECT current_database()")
 
 	removeStandby := func() { _ = exec.Command("docker", "rm", "-f", "-v", standby).Run() }
 	removeStandby()
@@ -63,7 +63,7 @@ func StartStandby(primary, standby string) string {
 
 // WaitReplicated returns once standby has replayed everything primary has written so far.
 func WaitReplicated(primary, standby string) {
-	lsn := psql(primary, "SELECT pg_current_wal_lsn()")
+	lsn := Psql(primary, "SELECT pg_current_wal_lsn()")
 	gomega.Eventually(func() (string, error) {
 		out, err := exec.Command("docker", "exec", standby, "sh", "-c", psqlCmd,
 			"SELECT pg_last_wal_replay_lsn() >= '"+lsn+"'::pg_lsn").Output()
@@ -77,7 +77,7 @@ func WaitReplicated(primary, standby string) {
 // container keeps running. Stop the node first, or it fails on its closed connections.
 func WipePostgres(name string) {
 	docker("exec", name, "sh", "-c", `dropdb --force -U "$POSTGRES_USER" "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"`)
-	gomega.Expect(psql(name, "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")).To(gomega.Equal("0"))
+	gomega.Expect(Psql(name, "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")).To(gomega.Equal("0"))
 }
 
 // KillPostgres kills the Postgres container name without a clean shutdown.
@@ -86,7 +86,7 @@ func KillPostgres(name string) { docker("kill", name) }
 // Promote promotes standby to a primary that accepts writes. pg_promote waits until
 // the promotion has completed.
 func Promote(standby string) {
-	gomega.Expect(psql(standby, "SELECT pg_promote()")).To(gomega.Equal("t"))
+	gomega.Expect(Psql(standby, "SELECT pg_promote()")).To(gomega.Equal("t"))
 }
 
 // DataSource returns the data source nwo configured for node's default persistence.
@@ -115,6 +115,23 @@ func SetDataSource(ii *integration.Infrastructure, node, dataSource string) {
 	gomega.Expect(os.WriteFile(path, raw, 0o600)).To(gomega.Succeed())
 }
 
+// SetSkipCreateTable sets skipCreateTable of the default persistence in the
+// core.yaml of the stopped FSC node, which reads it on its next start.
+func SetSkipCreateTable(ii *integration.Infrastructure, node string, skip bool) {
+	path := ii.FscPlatform.NodeConfigPath(Replica(ii, node))
+
+	raw, err := os.ReadFile(path)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	var cfg map[string]any
+	gomega.Expect(yaml.Unmarshal(raw, &cfg)).To(gomega.Succeed())
+
+	at(cfg, "fsc", "persistences", "default", "opts")["skipCreateTable"] = skip
+
+	raw, err = yaml.Marshal(cfg)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.WriteFile(path, raw, 0o600)).To(gomega.Succeed())
+}
+
 // Replica returns the first replica of the FSC node named node.
 func Replica(ii *integration.Infrastructure, node string) *nwonode.Replica {
 	i := slices.IndexFunc(ii.FscPlatform.Peers, func(p *nwonode.Replica) bool { return p.Name == node })
@@ -136,8 +153,8 @@ func at(m map[string]any, keys ...string) map[string]any {
 // the bare result.
 const psqlCmd = `psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$0"`
 
-// psql runs query in container with psqlCmd.
-func psql(container, query string) string {
+// Psql runs query in the nwo-started Postgres container with psqlCmd and returns the bare result.
+func Psql(container, query string) string {
 	return docker("exec", container, "sh", "-c", psqlCmd, query)
 }
 

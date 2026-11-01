@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	viewsvc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
@@ -68,6 +69,59 @@ func newTestNode() *Node {
 		registry: viewsvc.NewServiceProvider(),
 		id:       "test-node",
 	}
+}
+
+// storeOpenerSDK registers a StoreOpener on Install that records the
+// configured skipCreateTable of persistence "mydb" when it is called.
+type storeOpenerSDK struct {
+	mockSDK
+	n       *Node
+	skipped []bool
+	err     error
+}
+
+func (s *storeOpenerSDK) Install() error {
+	return s.n.RegisterService(storeOpenerFunc(func(context.Context) error {
+		var opts struct{ SkipCreateTable bool }
+		if err := s.n.config.(*config.Provider).UnmarshalKey("fsc.persistences.mydb.opts", &opts); err != nil {
+			return err
+		}
+		s.skipped = append(s.skipped, opts.SkipCreateTable)
+		return s.err
+	}))
+}
+
+type storeOpenerFunc func(context.Context) error
+
+func (f storeOpenerFunc) OpenStores(ctx context.Context) error { return f(ctx) }
+
+// Migrate installs every SDK without starting it and calls the registered
+// StoreOpener with skipCreateTable forced to checkOnly; the opener's error is
+// returned.
+func TestNode_Migrate(t *testing.T) {
+	t.Parallel()
+
+	for _, checkOnly := range []bool{false, true} {
+		n, err := NewFromConfPathE(filepath.Join("..", "..", "platform", "view", "services", "config", "testdata"))
+		require.NoError(t, err)
+		sdk := &storeOpenerSDK{n: n}
+		n.AddSDK(sdk)
+		require.NoError(t, n.Migrate(t.Context(), checkOnly))
+		require.Equal(t, []bool{checkOnly}, sdk.skipped)
+		require.False(t, sdk.started)
+	}
+
+	n, err := NewFromConfPathE(filepath.Join("..", "..", "platform", "view", "services", "config", "testdata"))
+	require.NoError(t, err)
+	n.AddSDK(&storeOpenerSDK{n: n, err: errors.New("pending")})
+	require.ErrorContains(t, n.Migrate(t.Context(), true), "pending")
+}
+
+func TestNode_Migrate_NoStoreOpener(t *testing.T) {
+	t.Parallel()
+	n, err := NewFromConfPathE(filepath.Join("..", "..", "platform", "view", "services", "config", "testdata"))
+	require.NoError(t, err)
+	require.ErrorContains(t, n.Migrate(t.Context(), false), "no store opener registered")
 }
 
 func TestNode_ID(t *testing.T) {

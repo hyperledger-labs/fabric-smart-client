@@ -121,6 +121,10 @@ Mocks are generated with [counterfeiter](https://github.com/maxbrunsfeld/counter
 (pinned in `tools/tools.go`). Regenerate with `make generate-mocks` after changing a
 mocked interface. See [`docs/dev/mocks.md`](../dev/mocks.md).
 
+## Storage fixtures
+
+`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. Add a release with `testdata/generate.sh <release>` and list it in `fixtureVersions`; see `testdata/README.md`. Never edit a fixture by hand.
+
 ## Shared test helpers
 
 Helpers that other packages import cannot live in a `_test.go` file, so conformance

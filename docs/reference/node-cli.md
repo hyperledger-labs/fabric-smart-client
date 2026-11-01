@@ -87,6 +87,18 @@ export FSCNODE_PROFILER=true
 nohup ./mynode node start > node.log 2>&1 &
 ```
 
+### `node migrate`
+
+Prepare the schema of every store the node uses and exit.
+
+**Usage:**
+```bash
+./mynode node migrate          # run every pending schema step
+./mynode node migrate --check  # run nothing; exit 1 if a step is pending
+```
+
+The command reads the same configuration as `node start` and installs every SDK, which loads the node's identities, but starts no server, P2P or delivery. It then opens each store the SDKs register (see [Reaching stores from `node migrate`](../platform/view/services/db-driver.md#reaching-stores-from-node-migrate)), with `skipCreateTable` set to `false` for this run, or to `true` with `--check`. A pending store makes `--check` fail with `schema migration pending`, naming the store. Run it before starting nodes that use `skipCreateTable: true`; see [Schema migrations](../platform/view/services/schema-migrations.md).
+
 ### `version`
 
 Display version information.
@@ -184,4 +196,4 @@ Views that observe their context (`ctx.Done()`) return promptly once it is cance
 | Code | Meaning |
 |------|---------|
 | `0` | Clean shutdown |
-| `1` | Error during startup or operation |
+| `1` | Error during startup or operation; for `node migrate --check`, a store with pending steps |

@@ -67,11 +67,14 @@ rows in whatever order the plan produces.
 A store whose schema changes implements `migrate.Versioned`
 (`platform/view/services/storage/driver/sql/common/migrate`) and adds a new
 `Step` for every change; the driver constructors run pending steps through
-`migrate.CreateSchema`. Never edit, reorder or remove a released step,
+`migrate.CreateSchema`. Every FSC store is versioned; its step 1 creates the
+tables as `CreateSchema` does. Never edit, reorder or remove a released step,
 including the body of its `Go` function, and keep every step readable by the
 previous release. A table shared by several stores has one owning store that
-lists its steps. Do not add new schema probes to
-`CreateSchema`. See
+lists its steps. A step that rewrites existing data, such as a backfill or a
+key conversion, comes with a test that checks the rewritten values; the
+fixture tests only check that the rows they wrote still read back. Do not add
+new schema probes to `CreateSchema`. See
 [`docs/platform/view/services/db-driver.md`](../platform/view/services/db-driver.md#schema-versions).
 
 ## Identity management

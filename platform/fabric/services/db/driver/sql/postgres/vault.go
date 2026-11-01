@@ -16,6 +16,7 @@ import (
 	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -105,11 +106,43 @@ func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes d
 // CreateSchema creates the status and state tables if they do not exist. The
 // state table's primary key is (ns, pkey). An existing table is then brought to
 // that layout: pkey is converted from TEXT to BYTEA when needed (see
-// convertTextKeys), and a primary key of (pkey, ns) is reordered to (ns, pkey).
-// Each step locks the table only when a change is required, and replicas
-// sharing the database perform each change once.
+// convertTextKeysTx), and a primary key of (pkey, ns) is reordered to (ns, pkey).
+// Each change reads the layout once without a lock, so an upgraded table never
+// blocks, and again under ACCESS EXCLUSIVE, so replicas sharing the database
+// perform each change once.
 func (db *VaultStore) CreateSchema() error {
-	if err := common.InitSchema(db.writeDB, fmt.Sprintf(`
+	if err := common.InitSchema(db.writeDB, db.schema()); err != nil {
+		return err
+	}
+	if err := db.inTx(context.Background(), db.convertTextKeysTx); err != nil {
+		return err
+	}
+	return postgres.ReorderPrimaryKey(db.writeDB, db.tables.StateTable)
+}
+
+// StoreName returns the state table name; it identifies the vault in the
+// versions table.
+func (db *VaultStore) StoreName() string { return db.tables.StateTable }
+
+// Steps returns the vault's schema steps. Step 1 creates the status and state
+// tables if they do not exist, converts a TEXT pkey to BYTEA and reorders a
+// primary key of (pkey, ns) to (ns, pkey).
+func (db *VaultStore) Steps() []migrate.Step {
+	return []migrate.Step{{
+		Version: 1,
+		Name:    "create tables",
+		SQL:     []string{db.schema()},
+		Go: func(ctx context.Context, q migrate.Execer) error {
+			if err := db.convertTextKeysTx(ctx, q); err != nil {
+				return err
+			}
+			return postgres.ReorderPrimaryKeyTx(ctx, q, db.tables.StateTable)
+		},
+	}}
+}
+
+func (db *VaultStore) schema() string {
+	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		pos SERIAL PRIMARY KEY,
 		tx_id TEXT UNIQUE NOT NULL,
@@ -128,43 +161,44 @@ func (db *VaultStore) CreateSchema() error {
 	);`, db.tables.StatusTable,
 		driver.Unknown,
 		db.tables.StatusTable, db.tables.StatusTable,
-		db.tables.StateTable)); err != nil {
-		return err
-	}
-	if err := db.convertTextKeys(); err != nil {
-		return err
-	}
-	return postgres.ReorderPrimaryKey(db.writeDB, db.tables.StateTable)
+		db.tables.StateTable)
 }
 
-// convertTextKeys converts a state table whose pkey column is TEXT to BYTEA in
-// place. A TEXT pkey column holds keys in an escaped form, U+0000 as "?0?" and
-// U+10FFFF as "?1?", which keys bound by encodeKey would never match. The
-// conversion maps both sequences back to their UTF-8 bytes, so every key reads
-// back as it did through the escaped form. A literal "?0?" or "?1?" in a key is
-// indistinguishable from an escape and is converted too; where the two overlap,
-// as in "?0?1?", "?0?" is converted first.
-//
-// The conversion rewrites the table under an ACCESS EXCLUSIVE lock. The column
-// type is read once without the lock, so opening a BYTEA table never blocks,
-// and again under it, so replicas sharing the database convert the table once.
-// Any pkey type other than TEXT or BYTEA is an error.
-func (db *VaultStore) convertTextKeys() error {
-	pkeyType, err := db.pkeyType(db.writeDB)
-	if err != nil || pkeyType == "bytea" {
-		return err
-	}
-
-	tx, err := db.writeDB.Begin()
+// inTx runs f in one transaction on the write pool.
+func (db *VaultStore) inTx(ctx context.Context, f func(context.Context, migrate.Execer) error) error {
+	tx, err := db.writeDB.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate db transaction")
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := f(ctx, tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 
-	if _, err := tx.Exec("LOCK TABLE " + db.tables.StateTable + " IN ACCESS EXCLUSIVE MODE"); err != nil {
+// convertTextKeysTx converts a state table whose pkey column is TEXT to BYTEA
+// in place, inside the caller's transaction q. A TEXT pkey column holds keys in
+// an escaped form, U+0000 as "?0?" and U+10FFFF as "?1?", which keys bound by
+// encodeKey would never match. The conversion maps both sequences back to their
+// UTF-8 bytes, so every key reads back as it did through the escaped form. A
+// literal "?0?" or "?1?" in a key is indistinguishable from an escape and is
+// converted too; where the two overlap, as in "?0?1?", "?0?" is converted
+// first.
+//
+// It reads the column type without a lock, so a BYTEA table is never locked;
+// otherwise it locks the table in ACCESS EXCLUSIVE mode and reads the type
+// again, so a node converting the same table at the same time waits and then
+// finds a BYTEA column. Any pkey type other than TEXT or BYTEA is an error.
+func (db *VaultStore) convertTextKeysTx(ctx context.Context, q migrate.Execer) error {
+	if t, err := db.pkeyType(ctx, q); err != nil || t == "bytea" {
+		return err
+	}
+	if _, err := q.ExecContext(ctx, "LOCK TABLE "+db.tables.StateTable+" IN ACCESS EXCLUSIVE MODE"); err != nil {
 		return errors.Wrapf(err, "failed locking state table [%s]", db.tables.StateTable)
 	}
-	if pkeyType, err = db.pkeyType(tx); err != nil {
+	pkeyType, err := db.pkeyType(ctx, q)
+	if err != nil {
 		return err
 	}
 	switch pkeyType {
@@ -175,25 +209,20 @@ func (db *VaultStore) convertTextKeys() error {
 		// The replacements run on the hex form, since Postgres has no bytea
 		// replace. A match cannot straddle a byte boundary: that would need the
 		// byte 0xF3 followed by 0x03 or 0x13, which is not valid UTF-8.
-		if _, err := tx.Exec("ALTER TABLE " + db.tables.StateTable + ` ALTER COLUMN pkey TYPE BYTEA USING
+		if _, err := q.ExecContext(ctx, "ALTER TABLE "+db.tables.StateTable+` ALTER COLUMN pkey TYPE BYTEA USING
 			decode(replace(replace(encode(convert_to(pkey, 'UTF8'), 'hex'), '3f303f', '00'), '3f313f', 'f48fbfbf'), 'hex')`); err != nil {
 			return errors.Wrapf(err, "failed converting pkey of state table [%s] to bytea", db.tables.StateTable)
 		}
-		return tx.Commit()
+		return nil
 	default:
 		return errors.Errorf("state table [%s] stores pkey as [%s], expected [bytea]", db.tables.StateTable, pkeyType)
 	}
 }
 
-// rowQuerier is satisfied by both *sql.DB and *sql.Tx.
-type rowQuerier interface {
-	QueryRow(query string, args ...any) *sql.Row
-}
-
 // pkeyType returns the SQL type of the state table's pkey column.
-func (db *VaultStore) pkeyType(q rowQuerier) (string, error) {
+func (db *VaultStore) pkeyType(ctx context.Context, q migrate.Execer) (string, error) {
 	var t string
-	if err := q.QueryRow(
+	if err := q.QueryRowContext(ctx,
 		"SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = $1::regclass AND attname = 'pkey'",
 		db.tables.StateTable,
 	).Scan(&t); err != nil {

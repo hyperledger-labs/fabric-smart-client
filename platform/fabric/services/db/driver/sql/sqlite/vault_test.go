@@ -156,3 +156,28 @@ func TestVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	require.NotContains(t, plan, "USE TEMP B-TREE FOR ORDER BY")
 	require.NotContains(t, plan, "SCAN")
 }
+
+// Step 1 of the vault rebuilds a state table keyed (pkey, ns) inside the
+// migration's BEGIN IMMEDIATE transaction, keeps every row and records version 1.
+func TestVaultStoreMigratesOldLayout(t *testing.T) {
+	t.Parallel()
+
+	ds := "file:" + filepath.Join(t.TempDir(), "vault.db")
+	store := openSQLiteVault(t, ds, false)
+	ctx := t.Context()
+	recreateStateTable(t, store, "PRIMARY KEY (pkey, ns)")
+	require.NoError(t, store.Store(ctx, nil, driver.Writes{
+		"ns-a": {"k1": {Raw: []byte("a1"), Version: []byte("v")}},
+		"ns-b": {"k1": {Raw: []byte("b1"), Version: []byte("v")}},
+	}, nil))
+	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE fsc_schema_versions")
+	require.NoError(t, err)
+
+	reopened := openSQLiteVault(t, ds, false)
+	requireSQLitePrimaryKey(t, reopened, "ns,pkey")
+	requireState(t, reopened, "ns-a", "k1", "a1")
+	requireState(t, reopened, "ns-b", "k1", "b1")
+	var version int
+	require.NoError(t, reopened.readDB.QueryRowContext(ctx, "SELECT version FROM fsc_schema_versions WHERE store = $1", reopened.StoreName()).Scan(&version))
+	require.Equal(t, len(reopened.Steps()), version)
+}

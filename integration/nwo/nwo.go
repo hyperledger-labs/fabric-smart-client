@@ -9,12 +9,15 @@ package nwo
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit"
@@ -47,6 +50,8 @@ type NWO struct {
 	StartEventuallyTimeout time.Duration
 	StopEventuallyTimeout  time.Duration
 	ViewMembers            grouper.Members
+	// processesMu guards Processes, which concurrent StartFSCNode calls append to.
+	processesMu sync.Mutex
 
 	nwoCtx    *context.NWOContext
 	isLoading bool
@@ -236,6 +241,25 @@ func (n *NWO) StartFSCNode(id string) {
 	}
 }
 
+// MigrateFSCNode runs `node migrate` for the named FSC node, which must be
+// stopped, with `--check` if check is set, and returns the finished session. It
+// uses the node's binary, configuration and environment.
+func (n *NWO) MigrateFSCNode(id string, check bool) *gexec.Session {
+	i := n.fscIndex(id)
+	gomega.Expect(i).NotTo(gomega.Equal(-1), "FSC node [%s] not found", id)
+	start := n.ViewMembers[i].Runner.(*runner.Runner).Command
+	args := []string{"node", "migrate"}
+	if check {
+		args = append(args, "--check")
+	}
+	cmd := exec.Command(start.Path, args...)
+	cmd.Env, cmd.Dir = start.Env, start.Dir
+	session, err := gexec.Start(cmd, ginkgo.GinkgoWriter, ginkgo.GinkgoWriter)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(session, n.StartEventuallyTimeout).Should(gexec.Exit())
+	return session
+}
+
 // StopMember stops the platform member with the given name, such as a Fabric
 // peer or orderer, and returns once its process is gone. The test fails if no
 // such member exists.
@@ -293,7 +317,9 @@ func (n *NWO) restart(member grouper.Member) grouper.Member {
 func (n *NWO) invoke(member grouper.Member) {
 	logger.Infof("Run [%s]...", member.Name)
 	process := ifrit.Background(member.Runner)
+	n.processesMu.Lock()
 	n.Processes = append(n.Processes, process)
+	n.processesMu.Unlock()
 	gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed(), "[%s] did not start", member.Name)
 }
 

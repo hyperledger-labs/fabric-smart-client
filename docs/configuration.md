@@ -301,7 +301,10 @@ fsc:
   #   GET /healthz -> 200 while the process serves HTTP. It never checks external
   #                   components, so a peer or orderer outage does not fail liveness.
   #   GET /readyz  -> 503 {"status":"not ready","reason":"draining"} while the node drains
-  #                   before it stops (see fsc.shutdown). Otherwise 200 when every component
+  #                   before it stops (see fsc.shutdown), and 503 with reason "migrating"
+  #                   while a store runs schema steps or waits for another node's migration,
+  #                   such as a vault converted on the first start after an upgrade (see
+  #                   docs/platform/view/services/schema-migrations.md). Otherwise 200 when every component
   #                   that reports connection state (fsc_connection_state) has been connected
   #                   since startup and none is stopped; reconnecting is still ready. Otherwise
   #                   503, with a JSON list of the unready components (network, channel,
@@ -1037,7 +1040,7 @@ fsc:
       opts:
         dataSource: file:/some/path/fsc.sqlite?_txlock=immediate
         tablePrefix: fsc  # optional
-        skipCreateTable: true # tells FSC _not_ to create its tables at startup (because they already exist), for every store on this persistence.
+        skipCreateTable: true # optional: run no schema step at startup; an FSC store with pending steps fails to open until `node migrate` runs. Applies to every store on this persistence.
         skipPragmas: true # optional, SQLite only: do not add the default pragmas below; only the pragmas in the dataSource apply.
         maxOpenConns: 20  # optional: max open read connections to the database. Defaults to unlimited. See https://go.dev/doc/database/manage-connections.
         maxIdleConns: 20  # optional: max idle read connections to the database. Defaults to 2.
@@ -1206,8 +1209,8 @@ Without that privilege the node fails to start and the table is left unchanged.
 > older version against a converted database, and back up the database before upgrading: downgrading means restoring the
 > backup.
 
-With `skipCreateTable: true` neither the column check, the conversion, nor the primary-key reorder runs, so a schema managed outside FSC must declare the vault state table's `pkey` as
-`BYTEA` with `PRIMARY KEY (ns, pkey)`, and the key-value store table the same way. To convert an existing vault `TEXT` column by hand, run:
+The column check, the conversion and the primary-key reorder are step 1 of the vault and key-value stores (see [Schema migrations](platform/view/services/schema-migrations.md)). With `skipCreateTable: true` the node runs no step and refuses a store whose step 1 has not run; `node migrate` runs it. A schema managed entirely outside FSC must declare the vault state table's `pkey` as
+`BYTEA` with `PRIMARY KEY (ns, pkey)`, the key-value store table the same way, and record each store in `<prefix>_schema_versions`. To convert an existing vault `TEXT` column by hand, run:
 
 ```sql
 ALTER TABLE <prefix>_vstate ALTER COLUMN pkey TYPE BYTEA USING

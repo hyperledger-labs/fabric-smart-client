@@ -122,3 +122,32 @@ func TestKVSRetriesBusyWrite(t *testing.T) {
 	require.ErrorIs(t, store.SetState(t.Context(), "ns", "k", []byte("v")), driver.SqlBusy)
 	require.Equal(t, maxBusyRetries, hook.busy)
 }
+
+// Step 1 of the KVS rebuilds a table keyed (pkey, ns) through Migrate and
+// keeps every row.
+func TestKVSMigratesOldLayout(t *testing.T) {
+	t.Parallel()
+
+	ds := "file:" + filepath.Join(t.TempDir(), "kvs.db")
+	store := openSQLiteKVS(t, ds, false)
+	table := store.table
+	for _, stmt := range []string{
+		"DROP TABLE " + table,
+		"DROP TABLE fsc_schema_versions",
+		"CREATE TABLE " + table + " (ns TEXT NOT NULL, pkey BYTEA NOT NULL, val BYTEA NOT NULL DEFAULT '', PRIMARY KEY (pkey, ns))",
+	} {
+		_, err := store.writeDB.Exec(stmt)
+		require.NoError(t, err)
+	}
+	_, err := store.writeDB.Exec("INSERT INTO "+table+" (ns, pkey, val) VALUES (?, ?, ?), (?, ?, ?)",
+		"ns-a", []byte("k1"), []byte("a1"), "ns-b", []byte("k1"), []byte("b1"))
+	require.NoError(t, err)
+
+	reopened := openSQLiteKVS(t, ds, false)
+	cols, err := PrimaryKeyColumns(reopened.readDB, table)
+	require.NoError(t, err)
+	require.Equal(t, "ns,pkey", cols)
+	got, err := reopened.GetState(t.Context(), "ns-b", "k1")
+	require.NoError(t, err)
+	require.Equal(t, []byte("b1"), got)
+}

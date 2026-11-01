@@ -16,12 +16,9 @@ import (
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 )
 
-func openPostgresKVS(t *testing.T, pgConnStr string, skipCreate bool) *KeyValueStore {
+func openPostgresKVS(t *testing.T, pgConnStr string) *KeyValueStore {
 	t.Helper()
-	cp := NewConfigProvider(drivertesting.MockConfig(Config{
-		DataSource:      pgConnStr,
-		SkipCreateTable: skipCreate,
-	}))
+	cp := NewConfigProvider(drivertesting.MockConfig(Config{DataSource: pgConnStr}))
 	store, err := NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
@@ -34,10 +31,12 @@ func openPostgresKVS(t *testing.T, pgConnStr string, skipCreate bool) *KeyValueS
 func TestPostgresKVSReordersPrimaryKey(t *testing.T) {
 	t.Parallel()
 
-	store := openPostgresKVS(t, setupDB(t), true)
+	dbs, err := NewDbProvider().Get(Opts{DataSource: setupDB(t), MaxOpenConns: 2})
+	require.NoError(t, err)
+	store := buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, "fsc_kvs")
 	ctx := t.Context()
 	table := store.table
-	_, err := store.writeDB.Exec(`CREATE TABLE ` + table + ` (
+	_, err = store.writeDB.Exec(`CREATE TABLE ` + table + ` (
 		ns TEXT NOT NULL,
 		pkey BYTEA NOT NULL,
 		val BYTEA NOT NULL DEFAULT '',
@@ -75,7 +74,7 @@ func TestPostgresKVSReordersPrimaryKey(t *testing.T) {
 func TestPostgresKVSRangePlanUsesNamespaceKey(t *testing.T) {
 	t.Parallel()
 
-	store := openPostgresKVS(t, setupDB(t), false)
+	store := openPostgresKVS(t, setupDB(t))
 	ctx := t.Context()
 	for _, ns := range []string{"ns-a", "ns-b"} {
 		require.NoError(t, store.BeginUpdate())

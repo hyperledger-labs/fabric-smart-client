@@ -20,6 +20,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
@@ -337,6 +338,16 @@ func (i *Infrastructure) StartFSCNode(id string) {
 	}
 
 	i.NWO.StartFSCNode(id)
+}
+
+// MigrateFSCNode runs `node migrate` (`--check` if check is set) for the
+// stopped FSC node with the given id and returns the finished session.
+func (i *Infrastructure) MigrateFSCNode(id string, check bool) *gexec.Session {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+
+	return i.NWO.MigrateFSCNode(id, check)
 }
 
 // KillFSCNode sends SIGKILL to the FSC node with the given id and returns once

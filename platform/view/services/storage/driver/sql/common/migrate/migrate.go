@@ -39,6 +39,9 @@ SPDX-License-Identifier: Apache-2.0
 //     write pool. Within a process that pool serializes migrators; across
 //     processes the wait is bounded by the connection's busy_timeout.
 //
+// InProgress reports whether a Migrate call of this process waits for the lock or
+// runs steps; a node reports it on /readyz.
+//
 // Each step's transaction re-reads the row and skips the step if another
 // migrator applied it meanwhile, then runs the step's statements and updates the
 // row. A failed step rolls back, leaves the row at the previous version, and
@@ -66,6 +69,7 @@ import (
 	"hash/fnv"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -81,7 +85,8 @@ var (
 	// that knows more steps than this one, so this binary cannot read it.
 	ErrSchemaTooNew = errors.New("schema is newer than this binary supports")
 	// ErrPending is returned by WithCheckOnly when the store has steps to run.
-	ErrPending = errors.New("schema migration pending")
+	// Its text names `node migrate`, the FSC command that runs them.
+	ErrPending = errors.New("schema migration pending; run node migrate")
 )
 
 // Dialect selects the SQL dialect and the locking strategy.
@@ -158,6 +163,14 @@ var (
 
 var tableNames = db.NewTableNameCreator("fsc")
 
+// inProgress counts the Migrate calls of this process that have steps pending and
+// are waiting for the migration lock or running steps.
+var inProgress atomic.Int64
+
+// InProgress reports whether a Migrate call of this process is waiting for the
+// migration lock or running steps. A node reports it as not ready while it is.
+func InProgress() bool { return inProgress.Load() > 0 }
+
 // CreateSchema prepares obj's schema: it runs Migrate with opts if obj
 // implements Versioned, and obj.CreateSchema otherwise. db is the pool Migrate
 // uses; see the package documentation for which pool each dialect needs.
@@ -200,6 +213,8 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 	if o.checkOnly {
 		return errors.Wrapf(ErrPending, "store [%s] is at version %d, binary expects %d", store, version, len(steps))
 	}
+	inProgress.Add(1)
+	defer inProgress.Add(-1)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {

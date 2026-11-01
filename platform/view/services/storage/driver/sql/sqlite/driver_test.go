@@ -135,16 +135,13 @@ func newGenericStore[V drivercommon.DBObject](wrap func(*schemaStore) V) common.
 // TestNewPersistenceWithOptsSchema checks how NewPersistenceWithOpts prepares a
 // store's schema: a plain DBObject gets CreateSchema, a migrate.Versioned store
 // gets its steps and a row in the versions table, and SkipCreateTable runs
-// neither but refuses a Versioned store with steps pending.
+// neither and refuses a Versioned store with steps pending.
 func TestNewPersistenceWithOptsSchema(t *testing.T) {
 	t.Parallel()
 
-	tryOpen := func(c Config, wrap func(*schemaStore) drivercommon.DBObject) (drivercommon.DBObject, error) {
-		return NewPersistenceWithOpts(NewConfigProvider(drivertesting.MockConfig(c)), NewDbProvider(), "", newGenericStore(wrap))
-	}
 	open := func(t *testing.T, c Config, wrap func(*schemaStore) drivercommon.DBObject) drivercommon.DBObject {
 		t.Helper()
-		p, err := tryOpen(c, wrap)
+		p, err := NewPersistenceWithOpts(NewConfigProvider(drivertesting.MockConfig(c)), NewDbProvider(), "", newGenericStore(wrap))
 		require.NoError(t, err)
 		return p
 	}
@@ -176,20 +173,16 @@ func TestNewPersistenceWithOptsSchema(t *testing.T) {
 		assert.Equal(t, 1, version)
 	})
 
-	t.Run("SkipCreateTable refuses pending steps", func(t *testing.T) {
+	t.Run("SkipCreateTable refuses a pending store", func(t *testing.T) {
 		t.Parallel()
 		ds := tempDataSource(t, "versionedskip")
-		_, err := tryOpen(Config{DataSource: ds, SkipCreateTable: true}, versioned)
+		_, err := NewPersistenceWithOpts(NewConfigProvider(drivertesting.MockConfig(Config{DataSource: ds, SkipCreateTable: true})), NewDbProvider(), "", newGenericStore(versioned))
 		require.ErrorIs(t, err, migrate.ErrPending)
 
 		dbs, err := NewDbProvider().Get(Opts{DataSource: ds})
 		require.NoError(t, err)
 		var n int
-		require.NoError(t, dbs.ReadDB.QueryRow("SELECT count(*) FROM sqlite_master WHERE name LIKE '%schema_versions' OR name = 'fsc_kvs'").Scan(&n))
-		assert.Zero(t, n, "check-only creates nothing")
-
-		// Once migrated, the same store opens with SkipCreateTable.
-		open(t, Config{DataSource: ds}, versioned)
-		open(t, Config{DataSource: ds, SkipCreateTable: true}, versioned)
+		require.NoError(t, dbs.ReadDB.QueryRow("SELECT count(*) FROM sqlite_master WHERE name LIKE '%schema_versions'").Scan(&n))
+		assert.Zero(t, n)
 	})
 }

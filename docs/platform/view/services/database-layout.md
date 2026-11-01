@@ -233,7 +233,7 @@ Notes:
 
 ## Schema Versions Table
 
-Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions` by default) with one row per store that implements `migrate.Versioned`. The first migration of such a store creates the table.
+Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions` by default) with one row per store that implements `migrate.Versioned`, which includes every FSC store. The first migration of such a store creates the table.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
