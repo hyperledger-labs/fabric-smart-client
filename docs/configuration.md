@@ -371,7 +371,8 @@ fsc:
     teardownTimeout: 30s
   # The fsc.grpc listener always serves the gRPC health service (grpc.health.v1.Health); it
   # reports NOT_SERVING while the node drains. An application must not register that service
-  # on fsc.grpc itself: a second registration panics at startup.
+  # on fsc.grpc itself: gRPC reports a second registration as fatal, and the process exits at
+  # startup.
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
