@@ -7,31 +7,175 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
+	kmsdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// Node identities of the recipient tests: this node is ownNodeID, the
+// initiator's counterparty "other" resolves to otherNodeID, and a responder's
+// caller is callerID.
+var (
+	ownNodeID   = view.Identity("own-node")
+	otherNodeID = view.Identity("other-node")
+	callerID    = view.Identity("caller")
+	// noVerifierID signs, but testKeys has no verifier for it, like an idemix
+	// identity from an issuer this node holds no credential for.
+	noVerifierID = view.Identity("no-verifier")
+)
+
+// sessionID is the ID of every recipient test session.
+const sessionID = "session"
+
+// testKeyring is a signer service with one ECDSA key per identity, created on first use,
+// so a test can sign as any identity and the code under test verifies with
+// the real key.
+type testKeyring struct {
+	mu   sync.Mutex
+	keys map[string]*ecdsa.PrivateKey
+}
+
+var testKeys = &testKeyring{keys: map[string]*ecdsa.PrivateKey{}}
+
+func (k *testKeyring) key(id view.Identity) *ecdsa.PrivateKey {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if key, ok := k.keys[string(id)]; ok {
+		return key
+	}
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	k.keys[string(id)] = key
+	return key
+}
+
+func (k *testKeyring) GetSigner(id view.Identity) (cdriver.Signer, error) {
+	return &testECDSASigner{key: k.key(id)}, nil
+}
+
+func (k *testKeyring) GetVerifier(id view.Identity) (cdriver.Verifier, error) {
+	if len(id) == 0 {
+		return nil, errors.New("empty identity")
+	}
+	if id.Equal(noVerifierID) {
+		return nil, errors.New("cannot deserialize")
+	}
+	return &testECDSAVerifier{pub: &k.key(id).PublicKey}, nil
+}
+
+func (*testKeyring) GetSigningIdentity(view.Identity) (cdriver.SigningIdentity, error) {
+	return nil, errors.New("not supported")
+}
+func (*testKeyring) IsMe(context.Context, view.Identity) bool         { return false }
+func (*testKeyring) AreMe(context.Context, ...view.Identity) []string { return nil }
+
+// sign returns x's proof for p, as the honest owner of x would make it.
+func sign(t *testing.T, p ProofContext) []byte {
+	t.Helper()
+	signer, err := testKeys.GetSigner(p.Identity)
+	require.NoError(t, err)
+	proof, err := SignRecipientProof(signer, p)
+	require.NoError(t, err)
+	return proof
+}
+
+// testKMS loads ownNodeID as the node identity.
+type testKMS struct{}
+
+func (testKMS) Load(kmsdriver.ConfigProvider) (view.Identity, kmsdriver.Signer, kmsdriver.Verifier, error) {
+	return ownNodeID, nil, nil, nil
+}
+
+type nopConfig struct{}
+
+func (nopConfig) GetPath(string) string          { return "" }
+func (nopConfig) GetStringSlice(string) []string { return nil }
+func (nopConfig) TranslatePath(string) string    { return "" }
+
+type nopSigService struct{}
+
+func (nopSigService) RegisterSigner(context.Context, view.Identity, cdriver.Signer, cdriver.Verifier) error {
+	return nil
+}
+
+// rejectionCounter counts security rejections by kind.
+type rejectionCounter struct {
+	disabled.Provider
+	mu     sync.Mutex
+	counts map[string]float64
+}
+
+func (r *rejectionCounter) NewCounter(metrics.CounterOpts) metrics.Counter {
+	return &labelCounter{r: r}
+}
+
+type labelCounter struct {
+	r    *rejectionCounter
+	kind string
+}
+
+func (c *labelCounter) With(labelValues ...string) metrics.Counter {
+	return &labelCounter{r: c.r, kind: labelValues[len(labelValues)-1]}
+}
+
+func (c *labelCounter) Add(delta float64) {
+	c.r.mu.Lock()
+	defer c.r.mu.Unlock()
+	c.r.counts[c.kind] += delta
+}
+
+func (r *rejectionCounter) count(kind security.Kind) float64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.counts[string(kind)]
+}
+
 type recipientsEnv struct {
-	ctx     *mockViewContext
-	session *mockSession
-	store   *testBindingStore
+	ctx        *mockViewContext
+	session    *mockSession
+	store      *testBindingStore
+	rejections *rejectionCounter
 }
 
 // newRecipientsEnv wires a view context whose session is session and whose
-// services are nsp (absent when nil) and an endpoint service backed by an
-// in-memory binding store.
+// services are nsp (absent when nil), a node identity provider for ownNodeID,
+// a rejections counter, and an endpoint service backed by an in-memory binding
+// store with a resolver "other" for otherNodeID. A session without an ID gets
+// sessionID.
 func newRecipientsEnv(t *testing.T, session *mockSession, nsp *fabric.NetworkServiceProvider) *recipientsEnv {
 	t.Helper()
+	if session.info.ID == "" {
+		session.info.ID = sessionID
+	}
 	store := newTestBindingStore()
 	es, err := endpoint.NewService(store)
 	require.NoError(t, err)
+	_, err = es.AddResolver("other", "", nil, nil, otherNodeID)
+	require.NoError(t, err)
+	idp, err := id.NewProvider(nopConfig{}, nopSigService{}, es, &kms.KMS{Driver: testKMS{}})
+	require.NoError(t, err)
+	rc := &rejectionCounter{counts: map[string]float64{}}
+	rejections := security.NewRejections(rc)
 	ctx := &mockViewContext{
 		session: session,
 		getSessionFn: func(view.View, view.Identity, ...view.View) (view.Session, error) {
@@ -45,11 +189,15 @@ func newRecipientsEnv(t *testing.T, session *mockSession, nsp *fabric.NetworkSer
 				}
 			case reflect.TypeFor[*endpoint.Service]():
 				return es, nil
+			case reflect.TypeFor[*id.Provider]():
+				return idp, nil
+			case reflect.TypeFor[*security.Rejections]():
+				return rejections, nil
 			}
 			return nil, errors.New("service missing")
 		},
 	}
-	return &recipientsEnv{ctx: ctx, session: session, store: store}
+	return &recipientsEnv{ctx: ctx, session: session, store: store, rejections: rc}
 }
 
 func recipientsNSP() *fabric.NetworkServiceProvider {
@@ -81,12 +229,41 @@ func okMsg(t *testing.T, payload interface{ Bytes() ([]byte, error) }) *view.Mes
 	return &view.Message{Status: view.OK, Payload: raw}
 }
 
+// remoteProof returns the context a remote node signs over when it sends x to
+// this node with tag: from otherNodeID on initiator sessions, from callerID on
+// responder sessions.
+func remoteProof(tag ProofTag, signerNode, x view.Identity) ProofContext {
+	return ProofContext{Tag: tag, SessionID: sessionID, ContextID: "ctx", SignerNode: signerNode, VerifierNode: ownNodeID, Identity: x}
+}
+
+// provenReply is the honest reply of otherNodeID carrying x, for tag.
+func provenReply(t *testing.T, tag ProofTag, x view.Identity) *view.Message {
+	t.Helper()
+	return okMsg(t, &RecipientData{Identity: x, Proof: sign(t, remoteProof(tag, otherNodeID, x))})
+}
+
+// provenRequest is callerID's honest exchange request carrying x.
+func provenRequest(t *testing.T, x view.Identity) *view.Message {
+	t.Helper()
+	return okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: x, Proof: sign(t, remoteProof(TagExchangeRequest, callerID, x))}})
+}
+
+// requireOwnProof checks that data carries a valid proof by this node, toward
+// verifierNode, for its identity.
+func requireOwnProof(t *testing.T, tag ProofTag, verifierNode view.Identity, data *RecipientData) {
+	t.Helper()
+	v, err := testKeys.GetVerifier(data.Identity)
+	require.NoError(t, err)
+	p := ProofContext{Tag: tag, SessionID: sessionID, ContextID: "ctx", SignerNode: ownNodeID, VerifierNode: verifierNode, Identity: data.Identity}
+	require.NoError(t, VerifyRecipientProof(v, p, data.Proof))
+}
+
 func TestExchangeRecipientIdentitiesViewCall(t *testing.T) {
 	t.Parallel()
 
 	reply := func(t *testing.T) *view.Message {
 		t.Helper()
-		return okMsg(t, &RecipientData{Identity: view.Identity("other-recipient")})
+		return provenReply(t, TagExchangeReply, view.Identity("other-recipient"))
 	}
 
 	for _, tc := range []struct {
@@ -110,9 +287,10 @@ func TestExchangeRecipientIdentitiesViewCall(t *testing.T) {
 			require.NoError(t, req.FromBytes(env.session.sent[0]))
 			require.Equal(t, []byte("other"), req.WalletID)
 			require.Equal(t, tc.me, req.RecipientData.Identity)
+			requireOwnProof(t, TagExchangeRequest, otherNodeID, req.RecipientData)
 
 			require.Equal(t, map[string]view.Identity{
-				"other-recipient": view.Identity("other"),
+				"other-recipient": otherNodeID,
 				string(tc.me):     view.Identity("me"),
 			}, env.store.bindings)
 		})
@@ -157,7 +335,7 @@ func TestExchangeRecipientIdentitiesViewCall(t *testing.T) {
 			sent:    1,
 			wantErr: "invalid character",
 		},
-		{name: "bind other error", failBind: view.Identity("other"), sent: 1, wantErr: "failed storing bindings"},
+		{name: "bind other error", failBind: otherNodeID, sent: 1, wantErr: "failed storing binding"},
 		{name: "bind me error", failBind: view.Identity("me"), sent: 1, wantErr: "failed storing bindings"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -185,9 +363,9 @@ func TestRespondExchangeRecipientIdentitiesViewCall(t *testing.T) {
 
 	request := func(t *testing.T) *view.Message {
 		t.Helper()
-		return okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: view.Identity("other-recipient")}})
+		return provenRequest(t, view.Identity("other-recipient"))
 	}
-	caller := view.SessionInfo{Caller: view.Identity("caller")}
+	caller := view.SessionInfo{Caller: callerID}
 
 	for _, tc := range []struct {
 		name  string
@@ -209,10 +387,11 @@ func TestRespondExchangeRecipientIdentitiesViewCall(t *testing.T) {
 			data := &RecipientData{}
 			require.NoError(t, data.FromBytes(env.session.sent[0]))
 			require.Equal(t, tc.me, data.Identity)
+			requireOwnProof(t, TagExchangeReply, callerID, data)
 
 			require.Equal(t, map[string]view.Identity{
 				string(tc.me):     view.Identity("me"),
-				"other-recipient": view.Identity("caller"),
+				"other-recipient": callerID,
 			}, env.store.bindings)
 		})
 	}
@@ -231,7 +410,7 @@ func TestRespondExchangeRecipientIdentitiesViewCall(t *testing.T) {
 		{name: "no default identity", nsp: noDefaultNSP, wantErr: "no identity found with label"},
 		{name: "send error", sendErr: errors.New("send failed"), wantErr: "send failed"},
 		{name: "bind me error", failBind: view.Identity("me"), sent: 1, wantErr: "failed storing bindings"},
-		{name: "bind caller error", failBind: view.Identity("caller"), sent: 1, wantErr: "failed storing bindings"},
+		{name: "bind caller error", failBind: callerID, sent: 1, wantErr: "failed storing binding"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -252,30 +431,13 @@ func TestRespondExchangeRecipientIdentitiesViewCall(t *testing.T) {
 func TestRequestRecipientIdentityViewBindings(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range []struct {
-		name     string
-		failBind view.Identity
-		wantErr  string
-	}{
-		{name: "binds recipient to other"},
-		{name: "bind error", failBind: view.Identity("other"), wantErr: "failed storing bindings"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			reply := okMsg(t, &RecipientData{Identity: view.Identity("other-recipient")})
-			env := newRecipientsEnv(t, &mockSession{recv: newRecv(reply)}, nil)
-			env.store.failLongTerm = tc.failBind
+	reply := provenReply(t, TagRequestReply, view.Identity("other-recipient"))
+	env := newRecipientsEnv(t, &mockSession{recv: newRecv(reply)}, recipientsNSP())
 
-			out, err := (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
-			if tc.wantErr != "" {
-				require.ErrorContains(t, err, tc.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, view.Identity("other-recipient"), out)
-			require.Equal(t, map[string]view.Identity{"other-recipient": view.Identity("other")}, env.store.bindings)
-		})
-	}
+	out, err := (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
+	require.NoError(t, err)
+	require.Equal(t, view.Identity("other-recipient"), out)
+	require.Equal(t, map[string]view.Identity{"other-recipient": otherNodeID}, env.store.bindings)
 }
 
 func TestRequestRecipientIdentityViewBadReply(t *testing.T) {
@@ -295,7 +457,7 @@ func TestRequestRecipientIdentityViewBadReply(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			env := newRecipientsEnv(t, &mockSession{recv: tc.recv}, nil)
+			env := newRecipientsEnv(t, &mockSession{recv: tc.recv}, recipientsNSP())
 
 			var err error
 			require.NotPanics(t, func() {
@@ -319,20 +481,20 @@ func TestRespondRequestRecipientIdentityViewCall(t *testing.T) {
 		want     view.Identity
 		wantErr  string
 	}{
-		// A preset identity needs no network service: none is registered.
 		{name: "preset identity", identity: view.Identity("preset"), want: view.Identity("preset")},
-		{name: "default identity", nsp: recipientsNSP, want: view.Identity("me-id")},
+		{name: "default identity", want: view.Identity("me-id")},
 		{name: "fns error", nsp: failingNSP, wantErr: "fns failed"},
 		{name: "send error", identity: view.Identity("preset"), sendErr: errors.New("send failed"), wantErr: "send failed"},
 		{name: "bind error", identity: view.Identity("preset"), failBind: view.Identity("me"), wantErr: "failed storing bindings"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			var nsp *fabric.NetworkServiceProvider
+			nsp := recipientsNSP()
 			if tc.nsp != nil {
 				nsp = tc.nsp()
 			}
-			env := newRecipientsEnv(t, &mockSession{recv: newRecv(okMsg(t, &RecipientRequest{})), sendErr: tc.sendErr}, nsp)
+			session := &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(okMsg(t, &RecipientRequest{})), sendErr: tc.sendErr}
+			env := newRecipientsEnv(t, session, nsp)
 			env.store.failLongTerm = tc.failBind
 
 			out, err := (&RespondRequestRecipientIdentityView{Identity: tc.identity}).Call(env.ctx)
@@ -347,6 +509,7 @@ func TestRespondRequestRecipientIdentityViewCall(t *testing.T) {
 			data := &RecipientData{}
 			require.NoError(t, data.FromBytes(env.session.sent[0]))
 			require.Equal(t, tc.want, data.Identity)
+			requireOwnProof(t, TagRequestReply, callerID, data)
 			require.Equal(t, map[string]view.Identity{string(tc.want): view.Identity("me")}, env.store.bindings)
 		})
 	}
@@ -417,4 +580,183 @@ func TestRecipientWrappersErrors(t *testing.T) {
 			require.EqualError(t, err, "expected 2 identities, got [1]")
 		})
 	}
+}
+
+func TestRespondExchange_MissingProofRepliesError(t *testing.T) {
+	t.Parallel()
+	req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: view.Identity("x")}})
+	env := newRecipientsEnv(t, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)}, recipientsNSP())
+
+	_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+	require.ErrorIs(t, err, ErrRecipientProof)
+	require.ErrorContains(t, err, "recipient proof: missing")
+	require.Empty(t, env.session.sent, "no success reply")
+	require.Equal(t, [][]byte{[]byte("recipient proof: missing")}, env.session.sentErrs)
+	require.Empty(t, env.store.bindings)
+	require.InDelta(t, 1, env.rejections.count(security.KindRecipientProof), 0)
+}
+
+func TestRespondExchange_ValidProofBinds(t *testing.T) {
+	t.Parallel()
+	env := newRecipientsEnv(t, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(provenRequest(t, view.Identity("x")))}, recipientsNSP())
+
+	_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+	require.NoError(t, err)
+	require.Len(t, env.session.sent, 1)
+	data := &RecipientData{}
+	require.NoError(t, data.FromBytes(env.session.sent[0]))
+	requireOwnProof(t, TagExchangeReply, callerID, data)
+	require.Equal(t, callerID, env.store.bindings["x"])
+	require.Zero(t, env.rejections.count(security.KindRecipientProof))
+}
+
+// A refused proof must not be answered with this node's identity: the
+// initiator would get a proven identity for an exchange the responder refused.
+func TestRespondExchange_VerifiesBeforeReplying(t *testing.T) {
+	t.Parallel()
+	for name, p := range map[string]ProofContext{
+		"wrong direction": remoteProof(TagExchangeReply, callerID, view.Identity("x")),
+		"other session":   {Tag: TagExchangeRequest, SessionID: "other", ContextID: "ctx", SignerNode: callerID, VerifierNode: ownNodeID, Identity: view.Identity("x")},
+		"other signer":    remoteProof(TagExchangeRequest, view.Identity("mallory"), view.Identity("x")),
+		"other identity":  remoteProof(TagExchangeRequest, callerID, view.Identity("y")),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: view.Identity("x"), Proof: sign(t, p)}})
+			env := newRecipientsEnv(t, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)}, recipientsNSP())
+
+			_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+			require.ErrorIs(t, err, ErrRecipientProof)
+			require.Empty(t, env.session.sent)
+			require.Len(t, env.session.sentErrs, 1)
+			require.Empty(t, env.store.bindings)
+		})
+	}
+}
+
+// Mallory relays a proof that x's owner made for mallory's node to carol: it
+// names mallory as verifier, so carol refuses it.
+func TestRespondExchange_RelayedProofRefused(t *testing.T) {
+	t.Parallel()
+	relayed := ProofContext{Tag: TagExchangeRequest, SessionID: sessionID, ContextID: "ctx", SignerNode: callerID, VerifierNode: view.Identity("mallory"), Identity: view.Identity("x")}
+	req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: view.Identity("x"), Proof: sign(t, relayed)}})
+	env := newRecipientsEnv(t, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)}, recipientsNSP())
+
+	_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+	require.ErrorIs(t, err, ErrRecipientProof)
+	require.Empty(t, env.store.bindings)
+	require.InDelta(t, 1, env.rejections.count(security.KindRecipientProof), 0)
+}
+
+func TestRequestRecipient_UnprovenReplyRefused(t *testing.T) {
+	t.Parallel()
+	reply := okMsg(t, &RecipientData{Identity: view.Identity("x")})
+	env := newRecipientsEnv(t, &mockSession{recv: newRecv(reply)}, recipientsNSP())
+
+	_, err := (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
+	require.ErrorIs(t, err, ErrRecipientProof)
+	require.ErrorContains(t, err, "recipient proof: missing")
+	require.Empty(t, env.store.bindings)
+	require.InDelta(t, 1, env.rejections.count(security.KindRecipientProof), 0)
+}
+
+func TestExchange_UnprovenReplyRefused(t *testing.T) {
+	t.Parallel()
+	for name, reply := range map[string]*view.Message{
+		"missing":      okMsg(t, &RecipientData{Identity: view.Identity("x")}),
+		"request tag":  provenReply(t, TagRequestReply, view.Identity("x")),
+		"other signer": okMsg(t, &RecipientData{Identity: view.Identity("x"), Proof: sign(t, remoteProof(TagExchangeReply, view.Identity("mallory"), view.Identity("x")))}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			env := newRecipientsEnv(t, &mockSession{recv: newRecv(reply)}, recipientsNSP())
+
+			_, err := (&ExchangeRecipientIdentitiesView{Other: view.Identity("other")}).Call(env.ctx)
+			require.ErrorIs(t, err, ErrRecipientProof)
+			require.Empty(t, env.store.bindings, "neither the counterparty's nor this node's identity is bound")
+		})
+	}
+}
+
+func TestRecipient_ProvenBindRepairsPlantedRow(t *testing.T) {
+	t.Parallel()
+	env := newRecipientsEnv(t, &mockSession{recv: newRecv(provenReply(t, TagExchangeReply, view.Identity("x")))}, recipientsNSP())
+	env.store.bindings["x"] = view.Identity("mallory")
+
+	_, err := (&ExchangeRecipientIdentitiesView{Other: view.Identity("other")}).Call(env.ctx)
+	require.NoError(t, err)
+	require.Equal(t, otherNodeID, env.store.bindings["x"])
+}
+
+func TestCheckProof_Reasons(t *testing.T) {
+	t.Parallel()
+	fns, err := recipientsNSP().FabricNetworkService("")
+	require.NoError(t, err)
+	x := view.Identity("x")
+	valid := remoteProof(TagExchangeRequest, callerID, x)
+	noSession := valid
+	noSession.SessionID = ""
+	noVerifier := remoteProof(TagExchangeRequest, callerID, noVerifierID)
+	for name, tc := range map[string]struct {
+		p      ProofContext
+		proof  []byte
+		reason string
+	}{
+		"missing":            {p: valid, reason: reasonMissing},
+		"incomplete context": {p: noSession, proof: sign(t, noSession), reason: reasonIncompleteContext},
+		"no verifier":        {p: noVerifier, proof: sign(t, noVerifier), reason: reasonNoVerifier},
+		"invalid signature":  {p: valid, proof: sign(t, remoteProof(TagExchangeReply, callerID, x)), reason: reasonInvalidSignature},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			reason, err := checkProof(fns, tc.p, tc.proof)
+			require.ErrorIs(t, err, ErrRecipientProof)
+			require.Equal(t, tc.reason, reason)
+		})
+	}
+	reason, err := checkProof(fns, valid, sign(t, valid))
+	require.NoError(t, err)
+	require.Empty(t, reason)
+}
+
+// A counterparty whose identity this node cannot deserialize is refused, and
+// nothing is bound.
+func TestRespondExchange_NoVerifierRefused(t *testing.T) {
+	t.Parallel()
+	p := remoteProof(TagExchangeRequest, callerID, noVerifierID)
+	req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: noVerifierID, Proof: sign(t, p)}})
+	env := newRecipientsEnv(t, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)}, recipientsNSP())
+
+	_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+	require.ErrorIs(t, err, ErrRecipientProof)
+	require.ErrorContains(t, err, "recipient proof: no verifier")
+	require.Empty(t, env.session.sent)
+	require.Len(t, env.session.sentErrs, 1)
+	require.Empty(t, env.store.bindings)
+	require.InDelta(t, 1, env.rejections.count(security.KindRecipientProof), 0)
+}
+
+// Without a RemotePKID, the initiator takes the node identity from the
+// resolver of the party it dialed: the proof must name otherNodeID, not the
+// party, and the binding goes to otherNodeID.
+func TestRequestRecipient_ResolverFallback(t *testing.T) {
+	t.Parallel()
+	x := view.Identity("x")
+
+	env := newRecipientsEnv(t, &mockSession{recv: newRecv(provenReply(t, TagRequestReply, x))}, recipientsNSP())
+	_, err := (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
+	require.NoError(t, err)
+	require.Equal(t, otherNodeID, env.store.bindings["x"])
+
+	byParty := okMsg(t, &RecipientData{Identity: x, Proof: sign(t, remoteProof(TagRequestReply, view.Identity("other"), x))})
+	env = newRecipientsEnv(t, &mockSession{recv: newRecv(byParty)}, recipientsNSP())
+	_, err = (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
+	require.ErrorIs(t, err, ErrRecipientProof)
+	require.Empty(t, env.store.bindings)
+
+	env = newRecipientsEnv(t, &mockSession{recv: newRecv(provenReply(t, TagRequestReply, x))}, recipientsNSP())
+	_, err = (&RequestRecipientIdentityView{Other: view.Identity("unknown")}).Call(env.ctx)
+	require.ErrorContains(t, err, "failed resolving node identity of")
+	require.Empty(t, env.session.sent, "nothing is sent to an unresolvable party")
+	require.Empty(t, env.store.bindings)
 }

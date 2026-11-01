@@ -480,4 +480,23 @@ func HostileSpecs(s *integration.TestSuite) {
 
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 	})
+
+	ginkgo.It("refuses a recipient identity claimed without proof of ownership", func() {
+		// Alice claims bob's own default identity, which she holds no key for.
+		claimed := RecipientOwner(s.II, nil)
+		gomega.Expect(claimed.Name).To(gomega.Equal("bob"))
+
+		refused := ExchangeForgedRecipient(s.II, claimed.Identity)
+		gomega.Expect(refused.Reason).To(gomega.ContainSubstring("received error from remote [recipient proof: missing]"))
+
+		// Bob bound nothing: the claimed identity still routes to bob, not to alice.
+		gomega.Expect(RecipientOwner(s.II, claimed.Identity).Name).To(gomega.Equal("bob"))
+
+		// An exchange with proofs still binds each identity to its owner.
+		exchanged := ExchangeRecipients(s.II)
+		gomega.Expect(exchanged.Receiver).To(gomega.Equal(claimed.Identity))
+		gomega.Expect(RecipientOwner(s.II, exchanged.Sender).Name).To(gomega.Equal("alice"))
+
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
+	})
 }

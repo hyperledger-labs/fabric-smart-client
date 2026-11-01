@@ -14,18 +14,38 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
+// LoadIdentity reads the PEM-encoded certificate at certPath and returns it in
+// the canonical form CanonicalIdentity produces. It fails if the file holds no
+// parsable certificate.
 func LoadIdentity(certPath string) ([]byte, error) {
 	raw, err := readPemFile(certPath)
 	if err != nil {
 		return nil, err
 	}
+	return canonicalCert(raw)
+}
+
+// CanonicalIdentity returns raw with its first PEM block re-encoded as a bare
+// CERTIFICATE block of the parsed certificate's DER bytes, dropping PEM
+// headers, surrounding text, further blocks and whitespace differences. This
+// is the form LoadIdentity returns, so two encodings of the same certificate
+// map to the same bytes. raw is returned unchanged if its first PEM block is
+// not a parsable certificate.
+func CanonicalIdentity(raw []byte) []byte {
+	out, err := canonicalCert(raw)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+func canonicalCert(raw []byte) ([]byte, error) {
 	cert, err := getCertFromPem(raw)
 	if err != nil {
 		return nil, err
 	}
 
-	pb := &pem.Block{Bytes: cert.Raw, Type: "CERTIFICATE"}
-	pemBytes := pem.EncodeToMemory(pb)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Bytes: cert.Raw, Type: "CERTIFICATE"})
 	if pemBytes == nil {
 		return nil, errors.New("encoding of identity failed")
 	}

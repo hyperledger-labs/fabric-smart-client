@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -864,6 +865,81 @@ func TestCollectEndorsementsView_RejectsGarbledResponse(t *testing.T) {
 	_, err := f.view.Call(f.ctx)
 	require.ErrorContains(t, err, "failed unmarshalling received proposal response")
 	require.Zero(t, f.tx.AppendProposalResponseCallCount())
+}
+
+// TestEndorsement_HijackerEndorsementRefused shows that a proven binding of a
+// recipient identity X to its owner's node defeats a hijack: mallory, who
+// planted X -> mallory before X's owner proved X, binds her own Fabric
+// identity M to her node and answers CollectEndorsementsView(tx, X) with an
+// endorsement signed by M. Once the owner's proven bind replaces the planted
+// row, M is not bound to X and the endorsement is refused.
+func TestEndorsement_HijackerEndorsementRefused(t *testing.T) {
+	t.Parallel()
+	ownerNode, malloryNode := view.Identity("owner-node"), view.Identity("mallory-node")
+	x, m := view.Identity("x"), view.Identity("m")
+
+	store, err := mem.NewDriver().NewBinding("", "hijack")
+	require.NoError(t, err)
+	endpointService, err := endpoint.NewService(store)
+	require.NoError(t, err)
+	_, err = endpointService.AddResolver("owner", "", nil, nil, ownerNode)
+	require.NoError(t, err)
+	_, err = endpointService.AddResolver("mallory", "", nil, nil, malloryNode)
+	require.NoError(t, err)
+	ctx := t.Context()
+	require.NoError(t, endpointService.Bind(ctx, malloryNode, x, m))
+	require.True(t, endpointService.IsBoundTo(ctx, m, x), "the planted row makes M pass as X")
+
+	require.NoError(t, endpointService.BindProven(ctx, ownerNode, x))
+	require.False(t, endpointService.IsBoundTo(ctx, m, x))
+
+	fakeCtx := &mock.Context{}
+	fakeCtx.ContextReturns(ctx)
+	fakeTx := &mock.Transaction{}
+	fakeTx.ChannelReturns("ch1")
+	fakeTx.NetworkReturns("net1")
+	fakeRWS := &mock.RWSet{}
+	fakeRWS.BytesReturns([]byte("results"), nil)
+	fakeTx.GetRWSetReturns(fakeRWS, nil)
+	fakeTx.BytesReturns([]byte("bytes"), nil)
+	fakeTx.ResultsReturns([]byte("results"), nil)
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.NameReturns("net1")
+	fakeCH := &mock.Channel{}
+	fakeCH.NameReturns("ch1")
+	fakeCH.ChannelMembershipReturns(&mock.ChannelMembership{})
+	fakeFNS.ChannelReturns(fakeCH, nil)
+	fakeTM := &mock.TransactionManager{}
+	fakeFNS.TransactionManagerReturns(fakeTM)
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
+	nsp := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
+		switch v {
+		case reflect.TypeFor[*fabric.NetworkServiceProvider]():
+			return nsp, nil
+		case reflect.TypeFor[*endpoint.Service]():
+			return endpointService, nil
+		}
+		return nil, nil
+	})
+
+	fakeSession := &mock.Session{}
+	fakeCtx.GetSessionReturns(fakeSession, nil)
+	msgCh := make(chan *view.Message, 1)
+	fakeSession.ReceiveReturns(msgCh)
+	resp := &mock.ProposalResponse{}
+	resp.EndorserReturns(m)
+	resp.ResultsReturns([]byte("results"))
+	resp.VerifyEndorsementReturns(nil)
+	fakeTM.NewProposalResponseFromBytesReturns(resp, nil)
+	payload, err := json.Marshal([][]byte{[]byte("resp-from-mallory")})
+	require.NoError(t, err)
+	msgCh <- &view.Message{Payload: payload}
+
+	et := &Transaction{Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx)}
+	_, err = NewCollectEndorsementsView(et, x).Call(fakeCtx)
+	require.ErrorContains(t, err, "invalid endorsement, expected one signed by")
 }
 
 func TestVerifierProviderWrapper(t *testing.T) {

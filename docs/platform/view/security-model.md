@@ -84,6 +84,65 @@ counted as a rejection. If the node received a channel configuration and refused
 returns an error wrapping `driver.ErrConfigRejected`, also not counted; a retry does not clear it,
 so surface it to the operator instead of retrying.
 
+## Recipient proof of ownership
+
+The recipient views in `platform/fabric/services/state/recipients.go`
+(`RequestRecipientIdentityView`, `ExchangeRecipientIdentitiesView` and their responders) send a
+recipient identity X together with a proof that the sender controls it. The receiver binds X to
+the sender's node only after checking that proof. Without a proof, a peer could claim another
+party's recipient identity. It would then receive that party's traffic and could pass off its own
+endorsement as that party's: the endorsement check accepts an endorser bound to the party it asked.
+
+The proof, carried in `RecipientData.Proof`, is X's signature over:
+
+```
+0x00 || tag || sessionID || contextID || signerNode || verifierNode || X
+```
+
+Every field is length-prefixed. The fields and the reason for each:
+
+- The leading `0x00` makes the payload unparsable as a protobuf message, so the signature cannot
+  be confused with one over a proposal or envelope made with the same key.
+- `tag` names the view and the direction: `fsc/recipient/v1/request-reply`,
+  `fsc/recipient/v1/exchange-request` or `fsc/recipient/v1/exchange-reply`. A proof for one
+  message is invalid for any other.
+- `sessionID` and `contextID` tie the proof to one session. No extra round trip is needed.
+- `signerNode` and `verifierNode` are FSC node identities: the identity from `fsc.identity` that
+  the resolver maps to the peer's transport key, not a Fabric identity. The receiver fills them in
+  from its own view of the session. `verifierNode` is its own node identity. `signerNode` is
+  `Session().Info().Caller` on a responder, and on an initiator the resolver identity of the
+  session's `RemotePKID`, or of the party dialed. A proof obtained from a victim names the
+  relaying node as verifier and is refused by everyone else. Both node identities are encoded in
+  the canonical PEM form of `id.CanonicalIdentity`, so a node whose certificate file differs in
+  formatting from its peers' resolver configuration still produces matching proofs.
+
+X is signed and verified with the Fabric network's signature service
+(`fabric.NetworkService.SignerService()`). It resolves X through the deserializers of the node's
+locally configured MSPs, not the channel MSPs that endorsement verification uses:
+
+- An x509 identity always deserializes, to a verifier for its public key. It is not checked
+  against any MSP, so a verified proof shows that the sender holds the key for X, not that X
+  belongs to an MSP. Anything that needs membership must check it separately.
+- An idemix identity deserializes only if the receiver has a local idemix MSP from the same
+  issuer. A local idemix MSP loads only with a credential, so the receiver must hold its own
+  idemix credential from that issuer. These views do not support idemix recipients from any
+  other issuer: the receiver refuses them.
+
+The exchange responder verifies the initiator's proof before it replies. On failure it replies
+with an error and binds nothing, so the initiator gets
+`received error from remote [recipient proof: ...]`. A failed proof returns an error wrapping
+`state.ErrRecipientProof`, is counted as `recipient_proof` (see
+[Security metrics](services/monitoring_metrics.md#security)), and binds nothing. A verified
+identity is bound with `endpoint.Service.BindProven` to the counterparty's node identity.
+
+An idemix signature over this payload can be verified by anyone who holds the issuer's public
+material, not only by `verifierNode`. Whoever sees the proof can therefore link the idemix
+pseudonym to `signerNode`, which gives up idemix's unlinkability toward observers of the proof.
+
+Applications with their own recipient exchange can produce and check the same proof with
+`state.SignRecipientProof` and `state.VerifyRecipientProof`. Identities that cannot sign, such as
+remote wallets or script and multisig owners, need their own exchange and handling.
+
 ## Identity bindings
 
 The endpoint service resolves an identity a node does not know directly, such as a recipient

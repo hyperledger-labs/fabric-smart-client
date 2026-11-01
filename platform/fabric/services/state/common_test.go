@@ -399,7 +399,7 @@ func newTestStateTransaction(ns string) (*Transaction, *testRWSet, *testDriverTr
 
 type testBindingStore struct {
 	bindings map[string]view.Identity
-	// failLongTerm makes PutBindings fail when binding to this long-term identity.
+	// failLongTerm makes PutBindings and ReplaceBinding fail when binding to this long-term identity.
 	failLongTerm view.Identity
 }
 
@@ -426,6 +426,9 @@ func (t *testBindingStore) PutBindings(_ context.Context, longTerm view.Identity
 }
 
 func (t *testBindingStore) ReplaceBinding(_ context.Context, longTerm, ephemeral view.Identity) error {
+	if t.failLongTerm != nil && longTerm.Equal(t.failLongTerm) {
+		return fmt.Errorf("replace binding for [%s] failed", longTerm)
+	}
 	t.bindings[string(ephemeral)] = longTerm
 	return nil
 }
@@ -545,7 +548,7 @@ func (*testFabricDriverFNS) Committer(string) (fdriver.Committer, error) {
 }
 
 func (*testFabricDriverFNS) SignerService() fdriver.SignerService {
-	return nil
+	return testKeys
 }
 
 func (*testFabricDriverFNS) ConfigService() fdriver.ConfigService {

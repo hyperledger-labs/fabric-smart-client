@@ -237,6 +237,17 @@ For a more complete example with error handling and timeouts, see the [stopresta
 
 The responder does not create the session. It consumes the session associated with the incoming protocol request.
 
+A message payload is input from the remote party. The transport authenticates who sent it, as
+`Session().Info().Caller`, but not what the payload claims. A responder that acts on a claim in
+the payload, such as an identity the caller says it owns, must check that claim against `Caller`.
+For identities, that means binding a remote identity in the endpoint service only after the
+caller has proved it controls the identity. The FSC recipient views do this with a signed proof.
+Applications with their own recipient exchange can reuse the same proof:
+`state.SignRecipientProof` and `state.VerifyRecipientProof`
+(`platform/fabric/services/state/proof.go`) sign and check it, and `endpoint.Service.BindProven`
+binds the verified identity to the caller's node identity. See
+[Security Model](security-model.md#recipient-proof-of-ownership).
+
 For more details on initiator/responder dispatch and responder registration, see [View service](services/view-service.md).
 
 ## View Factories and Registration

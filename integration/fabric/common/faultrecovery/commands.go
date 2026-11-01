@@ -181,6 +181,31 @@ func EndorseForgedTxID(ii *integration.Infrastructure, value int) *views.Rejecte
 	return res
 }
 
+// ExchangeRecipients runs alice's honestExchange view with bob and returns the recipient
+// identities the two exchanged.
+func ExchangeRecipients(ii *integration.Infrastructure) *views.Exchanged {
+	res := &views.Exchanged{}
+	common.JSONUnmarshal(callView(ii, "alice", "honestExchange", &views.Recipient{Responder: ii.Identity("bob")}).([]byte), res)
+	return res
+}
+
+// ExchangeForgedRecipient runs alice's forgedRecipient view with bob, claiming claim
+// without a proof of ownership, and returns how bob refused it. The view fails when bob
+// accepts the claim.
+func ExchangeForgedRecipient(ii *integration.Infrastructure, claim []byte) *views.RecipientRefused {
+	res := &views.RecipientRefused{}
+	common.JSONUnmarshal(callView(ii, "alice", "forgedRecipient", &views.Recipient{Responder: ii.Identity("bob"), Claim: claim}).([]byte), res)
+	return res
+}
+
+// RecipientOwner returns the FSC node bob's endpoint service routes the recipient
+// identity id to; for an empty id, that of bob's own default identity.
+func RecipientOwner(ii *integration.Infrastructure, id []byte) *views.Owner {
+	res := &views.Owner{}
+	common.JSONUnmarshal(callView(ii, "bob", "recipientOwner", &views.RecipientOwner{Identity: id}).([]byte), res)
+	return res
+}
+
 // EndorseEventually is Endorse for a responder whose connection is failing over, such as
 // a replicated node whose replica holding alice's connection died: an attempt that goes
 // out before alice sees the connection close fails within SessionCloseTimeout, so the
