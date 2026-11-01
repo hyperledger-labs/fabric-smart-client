@@ -234,7 +234,7 @@ func TestCachedStoreSetStatusesBusyRereadsBacked(t *testing.T) {
 	require.NoError(t, s.SetStatuses(t.Context(), driver.Busy, "", "tx1"))
 
 	before := backed.getCalls.Load()
-	_, err := s.GetTxStatus(context.Background(), "tx1")
+	_, err := s.GetTxStatus(t.Context(), "tx1")
 	require.NoError(t, err)
 	require.Equal(t, before+1, backed.getCalls.Load())
 }

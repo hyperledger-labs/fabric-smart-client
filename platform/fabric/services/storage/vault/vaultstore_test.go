@@ -337,7 +337,7 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 // testKeepsValid checks that a Busy write leaves a committed transaction Valid.
 func testKeepsValid(t *testing.T, store driver.VaultStore) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, store.Store(ctx, []driver.TxID{"t1"}, nil, nil))
 	require.NoError(t, store.SetStatuses(ctx, driver.TxStatusCode(busy), "", "t1"))
