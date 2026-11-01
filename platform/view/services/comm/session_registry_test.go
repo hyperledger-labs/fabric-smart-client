@@ -101,6 +101,50 @@ func TestDispatch_DropsMessagesForSelfClosedSession(t *testing.T) {
 	}
 }
 
+// TestDispatch_SameSessionIDFromAnotherSenderGetsOwnSession checks that sessions are keyed
+// by session ID and sender, so a sender that reuses another sender's session ID does not
+// reach that session.
+func TestDispatch_SameSessionIDFromAnotherSenderGetsOwnSession(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
+	require.NoError(t, err)
+	stopNode(t, p)
+	p.Start(t.Context())
+	master, err := p.MasterSession()
+	require.NoError(t, err)
+
+	alice, err := p.NewSessionWithID("s1", "ctx", "ep", []byte("alice"))
+	require.NoError(t, err)
+
+	for _, from := range []string{"mallory", "alice"} {
+		p.incomingMessages <- &messageWithStream{
+			message: &view.Message{SessionID: "s1", FromPKID: []byte(from), Payload: []byte(from)},
+			stream:  &streamHandler{stream: &mockStream{ctx: t.Context()}, node: p},
+		}
+	}
+
+	// mallory has no session s1 of its own, so its message goes to the master session,
+	// where a responder would start one.
+	select {
+	case msg := <-master.Receive():
+		require.Equal(t, "mallory", string(msg.Payload))
+	case <-time.After(3 * time.Second):
+		t.Fatal("message from mallory did not reach the master session")
+	}
+	select {
+	case msg := <-alice.Receive():
+		require.Equal(t, "alice", string(msg.Payload))
+	case <-time.After(3 * time.Second):
+		t.Fatal("message from alice not delivered")
+	}
+	select {
+	case msg := <-alice.Receive():
+		t.Fatalf("alice's session received [%s]", msg.Payload)
+	default:
+	}
+}
+
 func TestSession_MasterNeverUnregistered(t *testing.T) {
 	t.Parallel()
 	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})

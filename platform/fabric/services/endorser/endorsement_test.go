@@ -844,6 +844,117 @@ func TestCollectEndorsementsView_RejectsEndorsementFromUnboundParty(t *testing.T
 	require.ErrorContains(t, err, "invalid endorsement, expected one signed by", "endorsement from an unbound identity must be rejected")
 }
 
+// collectFixture is a collectEndorsementsView that asks "bob" to endorse a tx whose
+// results are "results". bob's reply is pushed on msgCh, and tm parses each response.
+type collectFixture struct {
+	ctx   *mock.Context
+	tx    *mock.Transaction
+	tm    *mock.TransactionManager
+	msgCh chan *view.Message
+	view  *collectEndorsementsView
+}
+
+func newCollectFixture() *collectFixture {
+	fakeCtx := &mock.Context{}
+	fakeSP := &mock.Provider{}
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
+		return fakeSP.GetService(v)
+	})
+
+	fakeTx := &mock.Transaction{}
+	fakeTx.ChannelReturns("ch1")
+	fakeTx.NetworkReturns("net1")
+	fakeRWS := &mock.RWSet{}
+	fakeRWS.BytesReturns([]byte("results"), nil)
+	fakeTx.GetRWSetReturns(fakeRWS, nil)
+	fakeTx.BytesReturns([]byte("bytes"), nil)
+	fakeTx.ResultsReturns([]byte("results"), nil)
+
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.NameReturns("net1")
+	fakeCH := &mock.Channel{}
+	fakeCH.NameReturns("ch1")
+	fakeFNS.ChannelReturns(fakeCH, nil)
+	fakeTM := &mock.TransactionManager{}
+	fakeFNS.TransactionManagerReturns(fakeTM)
+
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
+	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
+	endpointService, _ := endpoint.NewService(&mock.BindingStore{})
+
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	endpointServiceType := reflect.TypeFor[*endpoint.Service]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
+		if v == networkServiceProviderType {
+			return fakeNSP, nil
+		}
+		if v == endpointServiceType {
+			return endpointService, nil
+		}
+		return nil, nil
+	})
+
+	fns := fabric.NewNetworkService(nil, fakeFNS, "net1")
+	et := &Transaction{Transaction: fabric.NewTransaction(fns, fakeTx)}
+
+	fakeCtx.IsMeReturns(false)
+	fakeSession := &mock.Session{}
+	fakeCtx.GetSessionReturns(fakeSession, nil)
+	msgCh := make(chan *view.Message, 1)
+	fakeSession.ReceiveReturns(msgCh)
+
+	return &collectFixture{ctx: fakeCtx, tx: fakeTx, tm: fakeTM, msgCh: msgCh, view: NewCollectEndorsementsView(et, []byte("bob"))}
+}
+
+// reply pushes bob's reply carrying responses.
+func (f *collectFixture) reply(t *testing.T, responses ...[]byte) {
+	t.Helper()
+	if responses == nil {
+		responses = [][]byte{}
+	}
+	payload, err := json.Marshal(responses)
+	require.NoError(t, err)
+	f.msgCh <- &view.Message{Payload: payload}
+}
+
+func TestCollectEndorsementsView_RejectsDifferentResults(t *testing.T) {
+	t.Parallel()
+	f := newCollectFixture()
+	// bob signs validly, but over results other than the ones the tx holds.
+	resp := &mock.ProposalResponse{}
+	resp.EndorserReturns([]byte("bob"))
+	resp.ResultsReturns([]byte("other"))
+	resp.VerifyEndorsementReturns(nil)
+	f.tm.NewProposalResponseFromBytesReturns(resp, nil)
+	f.reply(t, []byte("resp"))
+
+	_, err := f.view.Call(f.ctx)
+	require.ErrorContains(t, err, "received different results")
+	require.Zero(t, f.tx.AppendProposalResponseCallCount())
+}
+
+func TestCollectEndorsementsView_RejectsEmptyResponse(t *testing.T) {
+	t.Parallel()
+	f := newCollectFixture()
+	f.reply(t)
+
+	_, err := f.view.Call(f.ctx)
+	require.ErrorContains(t, err, "invalid endorsement, expected one signed by")
+	require.Zero(t, f.tx.AppendProposalResponseCallCount())
+}
+
+func TestCollectEndorsementsView_RejectsGarbledResponse(t *testing.T) {
+	t.Parallel()
+	f := newCollectFixture()
+	f.tm.NewProposalResponseFromBytesReturns(nil, errors.New("garbled"))
+	f.reply(t, []byte("garbled"))
+
+	_, err := f.view.Call(f.ctx)
+	require.ErrorContains(t, err, "failed unmarshalling received proposal response")
+	require.Zero(t, f.tx.AppendProposalResponseCallCount())
+}
+
 func TestVerifierProviderWrapper(t *testing.T) {
 	t.Parallel()
 	v := &verifierProviderWrapper{m: &fabric.MSPManager{}}

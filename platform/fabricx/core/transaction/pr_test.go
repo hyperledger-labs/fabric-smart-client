@@ -417,6 +417,67 @@ func TestVerifyEndorsementInvalidNamespaceSignature(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid namespace signature")
 }
 
+// TestVerifyEndorsementRejectsDifferentResults verifies that a response whose payload
+// is not the tx its endorser signed is rejected: the signature is checked against the
+// digest of the payload, so it does not verify.
+func TestVerifyEndorsementRejectsDifferentResults(t *testing.T) {
+	t.Parallel()
+	txID := "tx1"
+	signed, err := sampleTx("ns1", "key1", "value1").Namespaces[0].ASN1Marshal(txID, nil)
+	require.NoError(t, err)
+	rawOther, err := proto.Marshal(sampleTx("ns1", "key1", "other"))
+	require.NoError(t, err)
+
+	endorser, identity := mustEndorserAndIdentity(t, "Org1MSP")
+	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
+		Payload: rawOther,
+		Endorsement: &peer.Endorsement{
+			Endorser: endorser,
+			Signature: mustSerializedEndorsements(t, []*applicationpb.Endorsements{
+				namespaceEndorsementWithIdentity(identity, "sig-over-signed"),
+			}),
+		},
+		Response: &peer.Response{Payload: []byte(txID)},
+	})
+	require.NoError(t, err)
+
+	fakeProvider := &mock.VerifierProvider{}
+	fakeVerifier := &mock.Verifier{}
+	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
+	// The verifier accepts only the endorser's signature over the tx it signed.
+	fakeVerifier.VerifyCalls(func(digest, _ []byte) error {
+		if string(digest) != string(signed) {
+			return errors.New("bad signature")
+		}
+		return nil
+	})
+
+	err = pr.VerifyEndorsement(fakeProvider)
+	require.ErrorContains(t, err, "invalid namespace signature")
+}
+
+// TestVerifyEndorsementRejectsEmptyResponse verifies that a response with no fields set,
+// which NewProposalResponseFromBytes accepts from zero bytes, does not verify.
+func TestVerifyEndorsementRejectsEmptyResponse(t *testing.T) {
+	t.Parallel()
+	pr, err := NewProposalResponseFromBytes(nil)
+	require.NoError(t, err)
+
+	fakeProvider := &mock.VerifierProvider{}
+	fakeProvider.GetVerifierReturns(&mock.Verifier{}, nil)
+
+	require.Error(t, pr.VerifyEndorsement(fakeProvider))
+}
+
+// TestManagerRejectsGarbledProposalResponse verifies that the transaction manager, which
+// parses the responses an endorsement collector receives, rejects bytes that are not a
+// proposal response.
+func TestManagerRejectsGarbledProposalResponse(t *testing.T) {
+	t.Parallel()
+	_, err := (&Manager{}).NewProposalResponseFromBytes([]byte("garbled"))
+	require.ErrorContains(t, err, "unmarshal proposal response")
+}
+
 // TestMarshalAndUnmarshalEndorsementsForProposalResponse verifies the happy path:
 // endorsements are marshaled into the proposal-response representation and then
 // unmarshaled back without losing content.
