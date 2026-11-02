@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -290,4 +291,39 @@ func TestResolveServerNameOverrideInherits(t *testing.T) {
 		map[string]any{"servernameoverride": "orderer0.example.com"})
 	require.NoError(t, err)
 	require.Equal(t, "orderer0.example.com", overridden.ServerNameOverride)
+}
+
+// reloadInterval inherits from fsc.tls like every other field, a listener can override it,
+// and the resolved options carry the file paths the listener re-reads.
+func TestResolveServerReloadInterval(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	cert, key, _ := writeKeyPair(t, dir)
+	src := func(child map[string]any) fakeSource {
+		return fakeSource{dir: dir, subtrees: map[string]map[string]any{
+			"fsc.tls": {
+				"enabled":        true,
+				"cert":           map[string]any{"file": cert},
+				"key":            map[string]any{"file": key},
+				"reloadinterval": "30s",
+			},
+			"fsc.grpc.tls": child,
+		}}
+	}
+
+	got, err := ResolveServer(src(nil), "fsc.tls", "fsc.grpc.tls")
+	require.NoError(t, err)
+	require.Equal(t, 30*time.Second, got.ReloadInterval, "inherited from fsc.tls")
+	require.Equal(t, filepath.Join(dir, cert), got.CertFile)
+	require.Equal(t, filepath.Join(dir, key), got.KeyFile)
+
+	got, err = ResolveServer(src(map[string]any{"reloadinterval": "0s"}), "fsc.tls", "fsc.grpc.tls")
+	require.NoError(t, err)
+	require.Zero(t, got.ReloadInterval, "an explicit 0 turns an inherited interval off")
+
+	for _, bad := range []string{"-1s", "30"} {
+		_, err = ResolveServer(src(map[string]any{"reloadinterval": bad}), "fsc.tls", "fsc.grpc.tls")
+		require.ErrorContains(t, err, "reloadInterval", bad)
+		require.ErrorContains(t, err, "fsc.grpc.tls", bad)
+	}
 }

@@ -24,6 +24,8 @@ SPDX-License-Identifier: Apache-2.0
 // documented in docs/configuration.md.
 package tlsconfig
 
+import "time"
+
 // File is a single configured path, in the nested `{file: ...}` form Hyperledger Fabric
 // uses. The path is resolved relative to the configuration file.
 type File struct {
@@ -45,14 +47,19 @@ type Files struct {
 // TLS 1.3. Absent means the default range, which each listener's own fallback fills in --
 // fsc.web and fsc.metrics through SecureOptions.TLSConfig, fsc.grpc through the chained
 // fallback in grpc/server.go's NewGRPCServerFromListener.
+//
+// ReloadInterval is how often the listener re-reads its cert and key files, as a duration
+// string such as 30s; absent or 0 never re-reads them, so rotating the certificate needs a
+// restart. A negative value, or one below a second, is an error.
 type ServerTLS struct {
-	Enabled            *bool   `yaml:"enabled"`
-	Cert               *File   `yaml:"cert"`
-	Key                *File   `yaml:"key"`
-	ClientAuthRequired *bool   `yaml:"clientAuthRequired"`
-	ClientRootCAs      *Files  `yaml:"clientRootCAs"`
-	MinVersion         *uint16 `yaml:"minVersion"`
-	MaxVersion         *uint16 `yaml:"maxVersion"`
+	Enabled            *bool          `yaml:"enabled"`
+	Cert               *File          `yaml:"cert"`
+	Key                *File          `yaml:"key"`
+	ClientAuthRequired *bool          `yaml:"clientAuthRequired"`
+	ClientRootCAs      *Files         `yaml:"clientRootCAs"`
+	MinVersion         *uint16        `yaml:"minVersion"`
+	MaxVersion         *uint16        `yaml:"maxVersion"`
+	ReloadInterval     *time.Duration `yaml:"reloadInterval"`
 }
 
 // ClientTLS is the configured TLS of a connection being dialled out. Its fields follow the

@@ -269,8 +269,9 @@ func (p *SDK) Start(ctx context.Context) error {
 		ConfigService    driver.ConfigService
 		Remote           RemoteConfig
 		ConnStates       *connstate.Metrics
-		Backends         []Backend  `group:"view-remote-backends"`
-		Drain            drainState `optional:"true"`
+		MetricsProvider  metrics.Provider `optional:"true"`
+		Backends         []Backend        `group:"view-remote-backends"`
+		Drain            drainState       `optional:"true"`
 	},
 	) (err error) {
 		// The gRPC listener bound its address when it was built. Until Serve takes it over,
@@ -293,6 +294,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		}
 		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, RemoteViewTimeout(in.ConfigService))
 		mountHealth(in.WebServer, in.ConnStates, gates...)
+		reportCertExpiry(in.MetricsProvider, in.GRPCServer, in.WebServer, in.OperationsServer.Own)
 		if err := mountBackends(in.Remote, in.Backends, viewService); err != nil {
 			return err
 		}

@@ -8,6 +8,7 @@ package tlsconfig
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -59,4 +60,12 @@ func TestMergeClientChildOverridesOnlyWhatItSets(t *testing.T) {
 	require.Equal(t, []string{"ca.crt"}, got.RootCAs.Files)
 	require.Equal(t, "orderer.example.com", *got.ServerNameOverride)
 	require.False(t, *got.ClientAuthEnabled, "explicit false suppresses inherited creds")
+}
+
+func TestMergeServerReloadInterval(t *testing.T) {
+	t.Parallel()
+	parent := ServerTLS{ReloadInterval: new(30 * time.Second)}
+
+	require.Equal(t, 30*time.Second, *mergeServer(parent, ServerTLS{}).ReloadInterval)
+	require.Equal(t, time.Minute, *mergeServer(parent, ServerTLS{ReloadInterval: new(time.Minute)}).ReloadInterval)
 }

@@ -44,6 +44,9 @@ type Server struct {
 	httpServer *http.Server
 	mux        *http.ServeMux
 	addr       string
+	// certs serves the listener's TLS certificate; nil without TLS. It is built by
+	// NewServer so the certificate's expiry can be reported before Start.
+	certs *grpc.CertReloader
 
 	// cancelRequests cancels the base context every request context derives from.
 	cancelRequests context.CancelFunc
@@ -56,14 +59,26 @@ type Server struct {
 	handlers sync.WaitGroup
 }
 
+// NewServer returns a listener for o; it binds nothing until Start. A TLS keypair that does
+// not parse is reported by Start.
 func NewServer(o Options) *Server {
 	server := &Server{
 		options: o,
+	}
+	if o.TLS.UseTLS {
+		// On error certs stays nil and listen reports the same error from TLSConfig.
+		server.certs, _ = grpc.NewCertReloader(o.TLS)
 	}
 
 	server.initializeServer()
 
 	return server
+}
+
+// CertReloader returns the reloader serving the listener's TLS certificate, or nil when TLS
+// is disabled or its keypair does not parse.
+func (s *Server) CertReloader() *grpc.CertReloader {
+	return s.certs
 }
 
 func (s *Server) Run(signals <-chan os.Signal, ready chan<- struct{}) error {
@@ -85,6 +100,7 @@ func (s *Server) Start() error {
 	}
 	s.addr = listener.Addr().String()
 
+	s.certs.Start()
 	go func() {
 		_ = s.httpServer.Serve(listener)
 	}()
@@ -98,6 +114,7 @@ func (s *Server) Start() error {
 // 10s more. It returns an error when handlers are still running after that; they are left
 // running.
 func (s *Server) Stop() error {
+	s.certs.Stop()
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownGracePeriod)
 	defer cancel()
 	// Shutdown's error only reports connections still active at the deadline; the
@@ -188,16 +205,24 @@ func (s *Server) Addr() string {
 }
 
 func (s *Server) listen() (net.Listener, error) {
-	listener, err := net.Listen("tcp", s.options.ListenAddress)
+	// TLS first, so an invalid configuration does not leave the address bound.
+	tlsConfig, err := s.options.TLS.TLSConfig()
 	if err != nil {
 		return nil, err
 	}
-	tlsConfig, err := s.options.TLS.TLSConfig()
+	listener, err := net.Listen("tcp", s.options.ListenAddress)
 	if err != nil {
 		return nil, err
 	}
 	if tlsConfig != nil {
 		logger.Infof("TLS enabled")
+		if s.certs != nil {
+			// Served through GetCertificate so a reloaded certificate takes effect.
+			// Certificates must stay empty: crypto/tls prefers Certificates[0] to
+			// GetCertificate when the client sends no SNI.
+			tlsConfig.Certificates = nil
+			tlsConfig.GetCertificate = s.certs.GetCertificate
+		}
 		listener = tls.NewListener(listener, tlsConfig)
 	} else {
 		logger.Infof("TLS disabled")

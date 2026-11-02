@@ -12,7 +12,6 @@ import (
 	"crypto/x509"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
@@ -32,9 +31,9 @@ type GRPCServer struct {
 	listener net.Listener
 	// GRPC server
 	server *grpc.Server
-	// Certificate presented by the server for TLS communication
-	// stored as an atomic reference
-	serverCertificate atomic.Value
+	// certs serves the server's TLS certificate and reloads it from disk when configured;
+	// nil without TLS.
+	certs *CertReloader
 	// lock to protect concurrent access to append / remove
 	lock *sync.Mutex
 	// Set of PEM-encoded X509 certificate authorities used to populate
@@ -82,27 +81,16 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 		if secureConfig.Key == nil || secureConfig.Certificate == nil {
 			return nil, errors.New("serverConfig.SecOpts must contain both Key and Certificate when UseTLS is true")
 		}
-		// load server public and private keys
-		commLogger.Debugf("Load server public and private keys")
-		cert, err := tls.X509KeyPair(secureConfig.Certificate, secureConfig.Key)
+		certs, err := NewCertReloader(secureConfig)
 		if err != nil {
 			return nil, err
 		}
-
-		grpcServer.serverCertificate.Store(cert)
+		grpcServer.certs = certs
 
 		// set up our TLS config
 		if len(secureConfig.CipherSuites) == 0 {
 			secureConfig.CipherSuites = DefaultTLSCipherSuites
 		}
-		getCert := func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert, ok := grpcServer.serverCertificate.Load().(tls.Certificate)
-			if !ok {
-				return nil, errors.New("unexpected server certificate type stored")
-			}
-			return &cert, nil
-		}
-
 		// The listener's default is 1.2 for BOTH bounds -- what serverCreds has always
 		// pinned -- so an unconfigured listener negotiates exactly what it does today.
 		// MaxVersion falls back through MinVersion before the package default: an explicit
@@ -115,7 +103,7 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 
 		grpcServer.tls = NewTLSConfig(&tls.Config{
 			VerifyPeerCertificate:  secureConfig.VerifyCertificate,
-			GetCertificate:         getCert,
+			GetCertificate:         certs.GetCertificate,
 			SessionTicketsDisabled: true,
 			CipherSuites:           secureConfig.CipherSuites,
 			MinVersion:             minVersion,
@@ -189,9 +177,18 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 	return grpcServer, nil
 }
 
-// SetServerCertificate assigns the current TLS certificate to be the peer's server certificate
+// SetServerCertificate serves cert from the next TLS handshake on, until the next reload.
+// A cert whose leaf does not parse is refused with a warning. It panics when TLS is disabled.
 func (gServer *GRPCServer) SetServerCertificate(cert tls.Certificate) {
-	gServer.serverCertificate.Store(cert)
+	if err := gServer.certs.set(cert); err != nil {
+		commLogger.Warnf("keeping the current TLS certificate: %v", err)
+	}
+}
+
+// CertReloader returns the reloader serving the server's TLS certificate, or nil when TLS is
+// disabled.
+func (gServer *GRPCServer) CertReloader() *CertReloader {
+	return gServer.certs
 }
 
 // Address returns the listen address for this GRPCServer instance
@@ -215,13 +212,11 @@ func (gServer *GRPCServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	gServer.server.RegisterService(desc, impl)
 }
 
-// ServerCertificate returns the tls.Certificate used by the grpc.Server
+// ServerCertificate returns the TLS certificate the server currently presents. It panics
+// when TLS is disabled.
 func (gServer *GRPCServer) ServerCertificate() tls.Certificate {
-	cert, ok := gServer.serverCertificate.Load().(tls.Certificate)
-	if !ok {
-		panic(errors.New("unexpected server certificate type stored"))
-	}
-	return cert
+	cert, _ := gServer.certs.GetCertificate(nil)
+	return *cert
 }
 
 // TLSEnabled is a flag indicating whether or not TLS is enabled for the
@@ -237,8 +232,10 @@ func (gServer *GRPCServer) MutualTLSRequired() bool {
 		gServer.tls.Config().ClientAuth == tls.RequireAndVerifyClientCert
 }
 
-// Start starts the underlying grpc.Server
+// Start starts the underlying grpc.Server, and the periodic certificate reload when one is
+// configured. It blocks until the server stops.
 func (gServer *GRPCServer) Start() error {
+	gServer.certs.Start()
 	// if health check is enabled, set the health status for all registered services
 	if gServer.healthServer != nil {
 		for name := range gServer.server.GetServiceInfo() {
@@ -270,6 +267,7 @@ func (gServer *GRPCServer) SetNotServing() {
 // handlers use. It waits at most 10s; handlers still running after that are logged and
 // left running.
 func (gServer *GRPCServer) Stop() {
+	gServer.certs.Stop()
 	done := make(chan struct{})
 	go func() {
 		gServer.server.Stop()
