@@ -81,6 +81,7 @@ func Open(opts Opts) (*common.RWDB, error) {
 		timeout = DefaultStartupConnectTimeout
 	}
 	label := dataSourceLabel(opts.DataSource)
+	logger.Infof("connecting to database [%s] as role [%s]", label, dataSourceUser(opts.DataSource))
 	if err := waitForDB(db, label, timeout); err != nil {
 		_ = db.Close()
 		return nil, err

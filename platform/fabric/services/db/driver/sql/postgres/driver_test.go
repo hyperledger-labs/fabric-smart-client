@@ -57,11 +57,12 @@ func mockDB(t *testing.T) (*drivercommon.RWDB, sqlmock.Sqlmock) {
 	return &drivercommon.RWDB{ReadDB: db, WriteDB: db}, m
 }
 
-// expectMigrated expects the read of a store's row in the versions table and
-// answers that the store is at version 1.
+// expectMigrated expects the read of a store's row in the versions table,
+// answers that the store is at version 1, and expects the opener to be recorded.
 func expectMigrated(m sqlmock.Sqlmock) {
 	m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	m.ExpectQuery("SELECT version, readable_by FROM").WillReturnRows(sqlmock.NewRows([]string{"version", "readable_by"}).AddRow(1, 1))
+	m.ExpectExec("INSERT INTO fsc_schema_openers").WillReturnResult(sqlmock.NewResult(0, 1))
 }
 
 // validConfig builds a Config the driver accepts: GetOpts only requires a
@@ -156,7 +157,7 @@ func TestNewPersistenceWithOptsPassesParams(t *testing.T) {
 }
 
 // SkipCreateTable runs no schema step: opening a store that is up to date only
-// reads its row in the versions table, and a store with a step pending fails
+// reads its row in the versions table and records the opener, and a store with a step pending fails
 // with migrate.ErrPending. The mock fails any statement it does not expect, and
 // ExpectationsWereMet confirms that nothing else ran.
 func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {

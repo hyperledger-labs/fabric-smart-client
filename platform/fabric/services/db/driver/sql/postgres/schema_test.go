@@ -45,7 +45,7 @@ func pgCatalog(t *testing.T, db *sql.DB, prefix string) string {
 			for rows.Next() {
 				var f [6]string
 				require.NoError(t, rows.Scan(&f[0], &f[1], &f[2], &f[3], &f[4], &f[5]))
-				if strings.HasSuffix(f[0], "_schema_versions") {
+				if strings.HasSuffix(f[0], "_schema_versions") || strings.HasSuffix(f[0], "_schema_openers") {
 					continue
 				}
 				fmt.Fprintln(&b, strings.ReplaceAll(strings.Join(f[:], " | "), prefix+"_", "P_"))

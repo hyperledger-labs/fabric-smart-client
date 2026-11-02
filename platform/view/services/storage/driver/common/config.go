@@ -83,6 +83,11 @@ func (c *Config) GetDriverType(name dbdriver.PersistenceName) (driver.Persistenc
 	return d, nil
 }
 
+// UnmarshalKey unmarshals the value of any configuration key, such as fsc.id, into v.
+func (c *Config) UnmarshalKey(key string, v any) error {
+	return c.configProvider.UnmarshalKey(key, v)
+}
+
 func (c *Config) UnmarshalDriverOpts(name dbdriver.PersistenceName, v any) error {
 	return c.configProvider.UnmarshalKey(persistenceKey(name)+".opts", v)
 }

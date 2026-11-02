@@ -193,6 +193,12 @@ type StoreOpener interface {
 // so Migrate needs the same configuration and key material as a running node.
 // Stores opened only after Start, such as a channel's vault added at runtime,
 // are not reached.
+//
+// Installing builds services that open stores, so with checkOnly a store with
+// pending steps can fail Install. Migrate then still calls the StoreOpener if
+// one was registered, so every store is reported, and joins both errors.
+// Without checkOnly a failed Install ends Migrate, so no step runs on a node
+// that cannot install.
 func (n *Node) Migrate(ctx context.Context, checkOnly bool) error {
 	if n.running {
 		return errors.New("cannot migrate a running node")
@@ -204,20 +210,28 @@ func (n *Node) Migrate(ctx context.Context, checkOnly bool) error {
 	if err := c.ForceSkipCreateTable(checkOnly); err != nil {
 		return err
 	}
+	var installErr error
 	for _, p := range n.sdks {
 		if err := p.Install(); err != nil {
-			return errors.WithMessage(err, "failed installing sdk")
+			if !checkOnly {
+				return errors.WithMessage(err, "failed installing sdk")
+			}
+			installErr = errors.WithMessage(err, "failed installing sdk")
+			break
 		}
 	}
 	s, err := n.registry.GetService(new(StoreOpener))
 	if err != nil {
+		if installErr != nil {
+			return installErr
+		}
 		return errors.WithMessage(err, "no store opener registered; install the view SDK")
 	}
 	opener, ok := s.(StoreOpener)
 	if !ok {
 		return errors.Errorf("unexpected store opener type [%T]", s)
 	}
-	return opener.OpenStores(ctx)
+	return errors.Join(installErr, opener.OpenStores(ctx))
 }
 
 // Stop shuts the node down and returns once it has stopped:

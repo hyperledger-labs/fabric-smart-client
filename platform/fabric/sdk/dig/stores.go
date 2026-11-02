@@ -23,28 +23,37 @@ import (
 // newStoreOpener opens the Fabric stores: the endorse tx, metadata and
 // envelope stores, and the vault of every channel configured for a network
 // that uses the generic driver. Other drivers, such as fabricx, keep no local
-// vault.
+// vault. It opens every store even if one fails, and joins their errors with
+// viewsdk.ErrMemoryFallback if one of them uses the memory driver by fallback.
 func newStoreOpener(c commondig.Container) viewsdk.StoreOpenerEntry {
 	return viewsdk.StoreOpenerEntry{Opener: viewsdk.StoreOpenerFunc(func(context.Context) error {
-		return c.Invoke(func(
-			_ driver.EndorseTxStore, _ driver.MetadataStore, _ driver.EnvelopeStore,
-			networks *core.Config, configs config.Provider, drivers multiplexed.Driver,
-		) error {
+		errs := []error{
+			c.Invoke(func(driver.EndorseTxStore) {}),
+			c.Invoke(func(driver.MetadataStore) {}),
+			c.Invoke(func(driver.EnvelopeStore) {}),
+		}
+		errs = append(errs, c.Invoke(func(networks *core.Config, configs config.Provider, drivers multiplexed.Driver) error {
+			var vaultErrs []error
 			for _, network := range networks.Names() {
 				cs, err := configs.GetConfig(network)
 				if err != nil {
-					return errors.WithMessagef(err, "failed reading configuration of network [%s]", network)
+					vaultErrs = append(vaultErrs, errors.WithMessagef(err, "failed reading configuration of network [%s]", network))
+					continue
 				}
 				if cs.DriverName() != genericconfig.GenericDriver {
 					continue
 				}
 				for _, channel := range cs.ChannelIDs() {
 					if _, err := fvault.NewStore(cs.VaultPersistenceName(), drivers, network, channel); err != nil {
-						return errors.WithMessagef(err, "failed opening vault of channel [%s] of network [%s]", channel, network)
+						vaultErrs = append(vaultErrs, errors.WithMessagef(err, "failed opening vault of channel [%s] of network [%s]", channel, network))
 					}
 				}
 			}
-			return nil
-		})
+			if drivers.FellBackToMemory() {
+				vaultErrs = append(vaultErrs, viewsdk.ErrMemoryFallback)
+			}
+			return errors.Join(vaultErrs...)
+		}))
+		return errors.Join(errs...)
 	})}
 }

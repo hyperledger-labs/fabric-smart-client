@@ -75,7 +75,7 @@ func catalog(t *testing.T, db *sql.DB) string {
 	t.Helper()
 	rows, err := db.QueryContext(t.Context(), `
 		SELECT type, name, coalesce(sql, '') FROM sqlite_master
-		WHERE name NOT LIKE '%schema_versions' AND name NOT LIKE 'sqlite_%'
+		WHERE name NOT LIKE '%schema_versions' AND name NOT LIKE '%schema_openers' AND name NOT LIKE 'sqlite_%'
 		ORDER BY type, name`)
 	require.NoError(t, err)
 	defer func() { _ = rows.Close() }()
@@ -90,7 +90,7 @@ func catalog(t *testing.T, db *sql.DB) string {
 	cols, err := db.QueryContext(t.Context(), `
 		SELECT m.name, c.cid, c.name, c.type, c."notnull", coalesce(c.dflt_value, ''), c.pk
 		FROM sqlite_master m, pragma_table_info(m.name) c
-		WHERE m.type = 'table' AND m.name NOT LIKE '%schema_versions'
+		WHERE m.type = 'table' AND m.name NOT LIKE '%schema_versions' AND m.name NOT LIKE '%schema_openers'
 		ORDER BY m.name, c.cid`)
 	require.NoError(t, err)
 	defer func() { _ = cols.Close() }()

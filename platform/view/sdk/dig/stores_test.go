@@ -104,3 +104,19 @@ func TestReadyzMigrating(t *testing.T) { //nolint:paralleltest // reads package-
 	code, _ = get()
 	require.Equal(t, http.StatusOK, code)
 }
+
+// storeOpeners calls every opener even if one fails, and joins their errors.
+func TestStoreOpenersReportEveryStore(t *testing.T) {
+	t.Parallel()
+	c := NewContainer()
+	calls := 0
+	for _, err := range []error{migrate.ErrPending, migrate.ErrSchemaTooNew} {
+		require.NoError(t, c.Provide(func() StoreOpenerEntry {
+			return StoreOpenerEntry{Opener: StoreOpenerFunc(func(context.Context) error { calls++; return err })}
+		}))
+	}
+	err := storeOpeners{c: c}.OpenStores(t.Context())
+	require.Equal(t, 2, calls)
+	require.ErrorIs(t, err, migrate.ErrPending)
+	require.ErrorIs(t, err, migrate.ErrSchemaTooNew)
+}

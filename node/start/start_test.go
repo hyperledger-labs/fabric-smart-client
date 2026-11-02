@@ -10,6 +10,8 @@ package start
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -17,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 type mockStartNode struct {
@@ -174,11 +178,57 @@ func TestMigrateCmd(t *testing.T) {
 	cmd.SetArgs([]string{"migrate", "--check"})
 	require.NoError(t, cmd.Execute())
 	require.Equal(t, []bool{false, true}, n.checkOnly)
+}
 
-	n.err = errors.New("store [fsc_kvs] is at version 0, binary expects 1: schema migration pending")
-	cmd.SetArgs([]string{"migrate", "--check"})
-	require.ErrorContains(t, cmd.Execute(), "schema migration pending")
+// Each outcome of Migrate gives its exit code; a joined error, one per store,
+// takes the most severe code.
+func TestMigrateCmdExitCodes(t *testing.T) {
+	t.Parallel()
 
-	cmd.SetArgs([]string{"migrate", "extra"})
-	require.ErrorContains(t, cmd.Execute(), "trailing args detected")
+	pending := errors.Join(fmt.Errorf("store [a]: %w", migrate.ErrPending), fmt.Errorf("store [b]: %w", migrate.ErrPending))
+	for name, tc := range map[string]struct {
+		err  error
+		code int
+	}{
+		"pending":              {pending, ExitPending},
+		"too new":              {fmt.Errorf("store [a]: %w", migrate.ErrSchemaTooNew), ExitSchemaTooNew},
+		"unreachable":          {errors.New("database [h:5432/db] not reachable"), ExitFailed},
+		"pending and too new":  {errors.Join(pending, migrate.ErrSchemaTooNew), ExitSchemaTooNew},
+		"pending and failed":   {errors.Join(migrate.ErrPending, errors.New("lock")), ExitFailed},
+		"wrapped joined error": {fmt.Errorf("open: %w", pending), ExitPending},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			n := &mockMigrateNode{mockStartNode: newMockStartNode(nil), err: tc.err}
+			cmd := Cmd(n)
+			cmd.SetArgs([]string{"migrate", "--check"})
+			var e *ExitError
+			require.ErrorAs(t, cmd.Execute(), &e)
+			require.Equal(t, tc.code, e.Code)
+			require.ErrorIs(t, e, tc.err)
+		})
+	}
+}
+
+// Invalid arguments exit 2 without calling the migrator; --help never calls it.
+func TestMigrateCmdUsage(t *testing.T) {
+	t.Parallel()
+
+	for _, args := range [][]string{{"migrate", "extra"}, {"migrate", "--force"}, {"migrate", "--check=maybe"}} {
+		n := &mockMigrateNode{mockStartNode: newMockStartNode(nil)}
+		cmd := Cmd(n)
+		cmd.SetArgs(args)
+		cmd.SetErr(io.Discard)
+		var e *ExitError
+		require.ErrorAs(t, cmd.Execute(), &e, "%v", args)
+		require.Equal(t, ExitUsage, e.Code, "%v", args)
+		require.Empty(t, n.checkOnly, "%v called the migrator", args)
+	}
+
+	n := &mockMigrateNode{mockStartNode: newMockStartNode(nil)}
+	cmd := Cmd(n)
+	cmd.SetArgs([]string{"migrate", "--help"})
+	cmd.SetOut(io.Discard)
+	require.NoError(t, cmd.Execute())
+	require.Empty(t, n.checkOnly)
 }

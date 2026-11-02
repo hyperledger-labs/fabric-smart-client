@@ -38,6 +38,17 @@ func TestDataSourceLabel_StripsCredentials(t *testing.T) {
 	assert.Equal(t, "unknown", dataSourceLabel("postgres://u:secret@h:notaport/db"))
 }
 
+func TestDataSourceUser(t *testing.T) {
+	t.Parallel()
+	for _, dsn := range []string{
+		"postgres://u:secret@h:5432/db",
+		"host=h port=5432 user=u password=secret dbname=db",
+	} {
+		assert.Equal(t, "u", dataSourceUser(dsn), dsn)
+	}
+	assert.Equal(t, "unknown", dataSourceUser("postgres://u:secret@h:notaport/db"))
+}
+
 func TestDataSourceLabel_ResolvesTLSRegisteredName(t *testing.T) {
 	t.Parallel()
 

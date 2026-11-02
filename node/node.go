@@ -8,6 +8,7 @@ package node
 
 import (
 	"context"
+	stderrors "errors"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -81,10 +82,15 @@ func (n *Node) Callback() chan<- error {
 	return n.callbackChannel
 }
 
+// Execute runs the command line and exits the process if a command fails: with
+// the code of a start.ExitError, 1 otherwise.
 func (n *Node) Execute(executeCallbackFunc ExecuteCallbackFunc) {
 	n.executeCallbackFunc = executeCallbackFunc
 	go n.listen()
-	if n.mainCmd.Execute() != nil {
+	if err := n.mainCmd.Execute(); err != nil {
+		if e, ok := stderrors.AsType[*start.ExitError](err); ok {
+			os.Exit(e.Code)
+		}
 		os.Exit(1)
 	}
 }

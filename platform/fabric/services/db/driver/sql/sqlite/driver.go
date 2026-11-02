@@ -95,9 +95,9 @@ func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *sqlite.ConfigProvider,
 	if err != nil {
 		return zero, err
 	}
-	var migrateOpts []migrate.Option
-	if o.SkipCreateTable {
-		migrateOpts = append(migrateOpts, migrate.WithCheckOnly())
+	migrateOpts, err := cfg.MigrateOptions(o.SkipCreateTable)
+	if err != nil {
+		return zero, err
 	}
 	if err := migrate.CreateSchema(context.Background(), dbs.WriteDB, migrate.SQLite, o.TablePrefix, p, migrateOpts...); err != nil {
 		return zero, err

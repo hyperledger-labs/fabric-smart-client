@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
@@ -34,11 +33,9 @@ func tempDataSource(t *testing.T, name string) string {
 func driverConfig(c Config) *mock.ConfigProvider {
 	cp := &mock.ConfigProvider{}
 	cp.UnmarshalKeyCalls(func(_ string, v any) error {
-		ptr, ok := v.(*Config)
-		if !ok {
-			return errors.Errorf("unexpected target type [%T]", v)
+		if ptr, ok := v.(*Config); ok {
+			*ptr = c
 		}
-		*ptr = c
 		return nil
 	})
 

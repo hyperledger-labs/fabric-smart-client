@@ -243,6 +243,19 @@ Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions
 
 A store without a row has applied no step. A binary refuses to open a store whose `readable_by` is above the highest step it knows. The table decides which SQL a node runs, so only the roles that run migrations should be able to write it. See [Schema versions](db-driver.md#schema-versions).
 
+## Schema Openers Table
+
+Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers` by default), created together with the versions table. Every successful open of a versioned store upserts one row.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `store` | `TEXT NOT NULL` | the store, as in the versions table |
+| `node` | `TEXT NOT NULL` | the opening node's `fsc.id` |
+| `highest_step` | `INT NOT NULL` | the highest step the opening binary knows |
+| `opened_at` | `TIMESTAMP NOT NULL` | the database's time, in UTC, of the last such open |
+
+The primary key is `(store, node, highest_step)`. Replicas of a node share its `fsc.id`, so a replica on another binary adds a row instead of overwriting one. Rows are never deleted by FSC. See [Which binaries use a store](schema-migrations.md#which-binaries-use-a-store).
+
 ## Backend Differences
 
 The logical layout is the same across supported SQL backends, but some physical SQL details differ.

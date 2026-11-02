@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/node/start"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
@@ -556,13 +557,19 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		faultrecovery.SetSkipCreateTable(s.II, "bob", true)
 		DeferCleanup(faultrecovery.SetSkipCreateTable, s.II, "bob", false)
 
+		// --check lists every store with pending steps, not only the first, and exits 10.
 		check := s.II.MigrateFSCNode("bob", true)
-		Expect(check.ExitCode()).NotTo(BeZero())
-		Expect(string(check.Err.Contents()) + string(check.Out.Contents())).To(ContainSubstring("schema migration pending"))
+		Expect(check.ExitCode()).To(Equal(start.ExitPending))
+		out := string(check.Err.Contents()) + string(check.Out.Contents())
+		for _, store := range []string{"fsc_kvs", "fsc_default_bind", "fsc_default_sign", "fsc_default_aud", "fsc_default_etx", "fsc_default_meta", "fsc_default_env", "fsc_default__testchannel_vstate"} {
+			Expect(strings.Contains(out, "store ["+store+"] is at version 0, binary expects 1; pending: step 1 [")).To(BeTrue(), "store [%s] not listed as pending", store)
+		}
 
 		Expect(s.II.MigrateFSCNode("bob", false).ExitCode()).To(BeZero())
 		// --check passes only when every store is at its latest step.
 		Expect(s.II.MigrateFSCNode("bob", true).ExitCode()).To(BeZero())
+		// Every open records bob in the openers table.
+		Expect(faultrecovery.Psql(db, "SELECT DISTINCT node FROM fsc_schema_openers")).To(ContainSubstring("bob"))
 
 		s.II.StartFSCNode("bob")
 		faultrecovery.SubmitAndWaitFinal(s.II, 1)

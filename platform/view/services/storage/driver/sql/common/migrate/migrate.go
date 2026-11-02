@@ -23,6 +23,25 @@ SPDX-License-Identifier: Apache-2.0
 // column exists so that steps which drop or rewrite data can later record that
 // older binaries no longer understand the store, without migrating this table.
 //
+// # Openers table
+//
+// <prefix>_schema_openers records which binaries use each store. Migrate
+// creates it together with the versions table:
+//
+//	CREATE TABLE IF NOT EXISTS <prefix>_schema_openers (
+//	    store        TEXT NOT NULL,      -- as in the versions table
+//	    node         TEXT NOT NULL,      -- the node's FSC id, see WithNode
+//	    highest_step INT NOT NULL,       -- the latest step the opening binary knows
+//	    opened_at    TIMESTAMP NOT NULL, -- the database's clock (UTC) at the last open
+//	    PRIMARY KEY (store, node, highest_step)
+//	);
+//
+// Every successful Migrate, including one WithCheckOnly, upserts the row of its
+// store, node and latest step. Replicas of one node share an FSC id, so the key
+// includes highest_step: replicas on different binaries keep separate rows, and
+// a row stays until it is deleted. A step that the previous release cannot read
+// must check this table for binaries that still open the store.
+//
 // # Locking
 //
 // Migrate reads the store's row without taking the migration lock, so a store
@@ -31,9 +50,11 @@ SPDX-License-Identifier: Apache-2.0
 //
 //   - On Postgres, Migrate takes a dedicated connection and holds a session-level
 //     advisory lock keyed by the versions table name while it creates the
-//     versions table and runs the steps. Waiting for the lock does not time out
-//     (only ctx ends it) and is logged every 10 seconds. Each step runs in its
-//     own transaction on that connection.
+//     versions and openers tables and runs the steps. Every 10 seconds a waiting
+//     migrator logs the session holding the lock: its pid, application_name,
+//     state and how long its current statement has run. The wait ends with ctx,
+//     or with an error naming the holder after WithLockTimeout. Each step runs in
+//     its own transaction on that connection.
 //   - On SQLite, each step runs in its own BEGIN IMMEDIATE transaction on a
 //     dedicated connection from the pool it is given; pass the single-connection
 //     write pool. Within a process that pool serializes migrators; across
@@ -51,7 +72,9 @@ SPDX-License-Identifier: Apache-2.0
 //
 //   - Steps are numbered 1, 2, 3, ... in the order they run.
 //   - A step that has been released is never edited, reordered or removed:
-//     databases that already applied it will not run it again.
+//     databases that already applied it will not run it again. Step.Hash and
+//     the migratetest package check this for the SQL part of a step; a Go
+//     function of a released step must not change either.
 //   - Every step keeps the store readable by the previous release, so a node
 //     that has not been upgraded yet keeps working against a migrated database.
 //
@@ -64,10 +87,16 @@ package migrate
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"hash/fnv"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -115,6 +144,24 @@ type Step struct {
 	Go func(ctx context.Context, q Execer) error
 }
 
+// Hash returns the hex SHA-256 of the step's version, name and SQL statements.
+// Each field is length-prefixed, so steps that differ in any field, or whose
+// statements are split differently, hash differently. Go is not covered.
+func (s Step) Hash() string {
+	h := sha256.New()
+	write := func(v string) {
+		_ = binary.Write(h, binary.BigEndian, uint64(len(v)))
+		_, _ = h.Write([]byte(v))
+	}
+	write(strconv.Itoa(s.Version))
+	write(s.Name)
+	_ = binary.Write(h, binary.BigEndian, uint64(len(s.SQL)))
+	for _, stmt := range s.SQL {
+		write(stmt)
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // Execer runs statements. *sql.DB, *sql.Conn and *sql.Tx implement it.
 type Execer interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
@@ -132,7 +179,9 @@ type Versioned interface {
 }
 
 type options struct {
-	checkOnly bool
+	checkOnly   bool
+	node        string
+	lockTimeout time.Duration
 }
 
 // Option configures Migrate.
@@ -152,6 +201,19 @@ func newOptions(opts []Option) options {
 // store needs under skipCreateTable: true.
 func WithCheckOnly() Option {
 	return func(o *options) { o.checkOnly = true }
+}
+
+// WithNode sets the node recorded in the openers table, the node's FSC id.
+// Without it the node is recorded as the empty string.
+func WithNode(id string) Option {
+	return func(o *options) { o.node = id }
+}
+
+// WithLockTimeout bounds how long a Postgres migrator waits for the migration
+// lock; it then fails with an error that names the holder. Zero, the default,
+// waits until ctx ends.
+func WithLockTimeout(d time.Duration) Option {
+	return func(o *options) { o.lockTimeout = d }
 }
 
 var (
@@ -186,9 +248,10 @@ func CreateSchema(ctx context.Context, db *sql.DB, d Dialect, prefix string, obj
 
 // Migrate brings v's schema up to date: it runs every step of v whose version
 // is above the one recorded in <prefix>_schema_versions, records each applied
-// step, and returns once v is at its latest version. It returns ErrSchemaTooNew
-// if the database records a readable_by above v's latest step, ErrPending with
-// WithCheckOnly when steps are pending, and an error naming the store and the
+// step, records the opener in <prefix>_schema_openers, and returns once v is at
+// its latest version. It returns ErrSchemaTooNew if the database records a
+// readable_by above v's latest step, ErrPending with WithCheckOnly when steps
+// are pending, naming each pending step, and an error naming the store and the
 // step when a step fails. The package documentation describes the locking.
 func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versioned, opts ...Option) error {
 	o := newOptions(opts)
@@ -202,17 +265,59 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 	if err != nil {
 		return errors.Wrapf(err, "store [%s]: invalid table prefix", store)
 	}
+	openers, err := tableNames.CreateTableName(prefix, "schema_openers")
+	if err != nil {
+		return errors.Wrapf(err, "store [%s]: invalid table prefix", store)
+	}
 	if err := register(db, table, store, v); err != nil {
 		return err
 	}
 
 	version, err := readVersion(ctx, db, d, table, store, len(steps))
-	if err != nil || version >= len(steps) {
+	if err != nil {
 		return err
 	}
-	if o.checkOnly {
-		return errors.Wrapf(ErrPending, "store [%s] is at version %d, binary expects %d", store, version, len(steps))
+	if version < len(steps) {
+		if o.checkOnly {
+			return errors.Wrapf(ErrPending, "store [%s] is at version %d, binary expects %d; pending: %s", store, version, len(steps), describe(steps[version:]))
+		}
+		if err := run(ctx, db, d, table, openers, store, steps[version:], len(steps), o.lockTimeout); err != nil {
+			return err
+		}
 	}
+	return recordOpener(ctx, db, d, openers, store, o, len(steps))
+}
+
+// openersColumns is the column list of the openers table.
+const openersColumns = "store TEXT NOT NULL, node TEXT NOT NULL, highest_step INT NOT NULL, opened_at TIMESTAMP NOT NULL, PRIMARY KEY (store, node, highest_step)"
+
+// recordOpener upserts the row of store, o.node and latest with the database's
+// current UTC time. run creates the table together with the versions table; a
+// missing table fails the open. The upsert needs SELECT, INSERT and UPDATE.
+func recordOpener(ctx context.Context, db *sql.DB, d Dialect, openers, store string, o options, latest int) error {
+	now := "CURRENT_TIMESTAMP" // UTC on SQLite
+	if d == Postgres {
+		now = "(now() AT TIME ZONE 'UTC')"
+	}
+	if _, err := db.ExecContext(ctx, "INSERT INTO "+openers+" (store, node, highest_step, opened_at) VALUES ($1, $2, $3, "+now+") ON CONFLICT (store, node, highest_step) DO UPDATE SET opened_at = excluded.opened_at", store, o.node, latest); err != nil { //nolint:gosec // table name comes from configuration, not user input
+		return errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
+	}
+	return nil
+}
+
+// describe lists steps as "step <n> [<name>]", comma-separated.
+func describe(steps []Step) string {
+	names := make([]string, len(steps))
+	for i, s := range steps {
+		names[i] = fmt.Sprintf("step %d [%s]", s.Version, s.Name)
+	}
+	return strings.Join(names, ", ")
+}
+
+// run takes the migration lock, creates the versions and openers tables, and
+// runs pending in order. Postgres CREATE TABLE IF NOT EXISTS is not safe
+// against concurrent callers, so both tables are created under the lock.
+func run(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, pending []Step, latest int, lockTimeout time.Duration) error {
 	inProgress.Add(1)
 	defer inProgress.Add(-1)
 
@@ -222,17 +327,22 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 	}
 	defer func() { _ = conn.Close() }()
 	if d == Postgres {
-		unlock, err := lock(ctx, conn, table, store)
+		unlock, err := lock(ctx, conn, table, store, lockTimeout)
 		if err != nil {
 			return err
 		}
 		defer unlock()
 	}
-	if _, err := conn.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS "+table+" (store TEXT PRIMARY KEY, version INT NOT NULL, readable_by INT NOT NULL)"); err != nil {
-		return errors.Wrapf(err, "store [%s]: failed to create [%s]", store, table)
+	for _, t := range [][2]string{
+		{table, "store TEXT PRIMARY KEY, version INT NOT NULL, readable_by INT NOT NULL"},
+		{openers, openersColumns},
+	} {
+		if _, err := conn.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS "+t[0]+" ("+t[1]+")"); err != nil {
+			return errors.Wrapf(err, "store [%s]: failed to create [%s]", store, t[0])
+		}
 	}
-	for _, s := range steps[version:] {
-		if err := apply(ctx, conn, d, table, store, s, len(steps)); err != nil {
+	for _, s := range pending {
+		if err := apply(ctx, conn, d, table, store, s, latest); err != nil {
 			return err
 		}
 	}
@@ -346,9 +456,10 @@ func apply(ctx context.Context, conn *sql.Conn, d Dialect, table, store string, 
 }
 
 // lock takes the Postgres advisory lock for table on conn, polling until it is
-// granted or ctx ends. pg_try_advisory_lock never waits inside the server, so
-// lock_timeout and statement_timeout do not apply to the wait.
-func lock(ctx context.Context, conn *sql.Conn, table, store string) (unlock func(), err error) {
+// granted, ctx ends, or timeout (if positive) elapses. pg_try_advisory_lock
+// never waits inside the server, so lock_timeout and statement_timeout do not
+// apply to the wait.
+func lock(ctx context.Context, conn *sql.Conn, table, store string, timeout time.Duration) (unlock func(), err error) {
 	key := lockKey(table)
 	start, lastLog := time.Now(), time.Now()
 	for {
@@ -360,8 +471,11 @@ func lock(ctx context.Context, conn *sql.Conn, table, store string) (unlock func
 		if ok {
 			break
 		}
+		if timeout > 0 && time.Since(start) >= timeout {
+			return nil, errors.Errorf("store [%s]: migration lock on [%s] not granted within %s; held by %s", store, table, timeout, lockHolder(ctx, conn, key))
+		}
 		if time.Since(lastLog) >= lockLogInterval {
-			logger.Infof("store [%s]: waiting %s for another node to finish migrating [%s]", store, time.Since(start).Round(time.Second), table)
+			logger.Infof("store [%s]: waiting %s for the migration lock on [%s], held by %s", store, time.Since(start).Round(time.Second), table, lockHolder(ctx, conn, key))
 			lastLog = time.Now()
 		}
 		select {
@@ -376,6 +490,37 @@ func lock(ctx context.Context, conn *sql.Conn, table, store string) (unlock func
 			discard(conn)
 		}
 	}, nil
+}
+
+// lockHolder describes the session holding the advisory lock key in the current
+// database, for logs and errors. A bigint advisory key is split into classid
+// (high 32 bits) and objid (low 32 bits) with objsubid 1. pg_stat_activity hides
+// the state and statement start of another role's session unless the reader has
+// pg_read_all_stats; they are then reported as unknown.
+func lockHolder(ctx context.Context, conn *sql.Conn, key int64) string {
+	var (
+		pid                int
+		app, state, runFor sql.NullString
+	)
+	err := conn.QueryRowContext(ctx, `SELECT a.pid, a.application_name, a.state, (clock_timestamp() - a.query_start)::text
+		FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
+		WHERE l.locktype = 'advisory' AND l.granted AND l.objsubid = 1
+		  AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+		  AND l.classid::bigint = $1 AND l.objid::bigint = $2`,
+		int64(uint64(key)>>32), int64(uint32(key))).Scan(&pid, &app, &state, &runFor) //nolint:gosec // splitting the key into its two unsigned halves
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "no session (just released)"
+		}
+		return fmt.Sprintf("an unknown session (%v)", err)
+	}
+	unknown := func(v sql.NullString) string {
+		if v.Valid {
+			return v.String
+		}
+		return "unknown"
+	}
+	return fmt.Sprintf("pid %d (application_name [%s], state %s, statement running for %s)", pid, app.String, unknown(state), unknown(runFor))
 }
 
 // lockKey derives the advisory lock key from the versions table name, so

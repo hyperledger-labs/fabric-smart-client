@@ -154,9 +154,9 @@ After building a store, every driver constructor (sqlite, postgres and memory, f
 
 Every FSC store (KVS, binding, signer info, audit info, endorse tx, metadata, envelope and vault) implements `migrate.Versioned`. Its `StoreName` is its primary table, for the vault the state table. Step 1 creates the store's tables with `IF NOT EXISTS`, so it accepts an empty database and one created by an earlier release. On the KVS and the vault, step 1 also runs `ReorderPrimaryKeyTx`, and on a Postgres vault `convertTextKeysTx` before it, inside the step's transaction; both change nothing on a table that already has the current layout. `CreateSchema()` on an FSC store still creates the tables and runs the same probes, without recording a version.
 
-With `skipCreateTable: true` the constructors pass `migrate.WithCheckOnly()`: nothing is created or migrated, `CreateSchema()` is not called, and a `Versioned` store with steps pending fails with `migrate.ErrPending`, naming the store and both versions. A database managed outside the node must therefore be migrated before the node opens it. Run `node migrate` (see [Node CLI](../../../reference/node-cli.md#node-migrate)) with a role that may change the schema, then start the node.
+The constructors pass the options from `sqlcommon.MigrateOptions`: `migrate.WithNode` with the node's `fsc.id`, which every open records in `<prefix>_schema_openers` (see [Database layout](database-layout.md#schema-openers-table)), and `migrate.WithLockTimeout` with `fsc.storage.migrationLockTimeout`. With `skipCreateTable: true` they also pass `migrate.WithCheckOnly()`: no step runs, no table is created, `CreateSchema()` is not called, and a `Versioned` store with steps pending fails with `migrate.ErrPending`, naming the store, both versions and each pending step. The open still records the opener, so the node role needs `SELECT`, `INSERT` and `UPDATE` on the openers table. A database managed outside the node must therefore be migrated before the node opens it. Run `node migrate` (see [Node CLI](../../../reference/node-cli.md#node-migrate)) with a role that may change the schema, then start the node.
 
-`Migrate` reads the version without taking the migration lock, so a store that is up to date never waits for a running migration. When steps are pending, Postgres migrators of one table prefix exclude each other with an advisory lock; a waiting node logs every 10 seconds and has no timeout. The lock is held by one session across several transactions, so the migrating node needs a direct connection or a session-pooling proxy, not PgBouncer in transaction-pooling mode. SQLite runs each step in a `BEGIN IMMEDIATE` transaction on the write connection, so a second process on the same file waits at most for the connection's `busy_timeout`; after that its step fails with `SQLITE_BUSY` and the store does not open. A failed step rolls back and the store does not open. A database whose `readable_by` is above the highest step the binary knows fails with `migrate.ErrSchemaTooNew`.
+`Migrate` reads the version without taking the migration lock, so a store that is up to date never waits for a running migration. When steps are pending, Postgres migrators of one table prefix exclude each other with an advisory lock; every 10 seconds a waiting node logs the session that holds it, read from `pg_locks` and `pg_stat_activity`, and it waits until `WithLockTimeout` elapses, without limit by default. The lock is held by one session across several transactions, so the migrating node needs a direct connection or a session-pooling proxy, not PgBouncer in transaction-pooling mode. SQLite runs each step in a `BEGIN IMMEDIATE` transaction on the write connection, so a second process on the same file waits at most for the connection's `busy_timeout`; after that its step fails with `SQLITE_BUSY` and the store does not open. A failed step rolls back and the store does not open. A database whose `readable_by` is above the highest step the binary knows fails with `migrate.ErrSchemaTooNew`.
 
 ### Versioning an application store
 
@@ -179,6 +179,41 @@ func (s *OrderStore) Steps() []migrate.Step {
 
 Write step 1 with `IF NOT EXISTS` so that it accepts a database created by the store's earlier `CreateSchema`. Never edit, reorder or remove a released step: a database that applied it does not run it again. Every step must leave the store readable by the previous release.
 
+`Step.Hash` is a SHA-256 over a step's version, name and SQL. The `migrate/migratetest` package checks a store's steps against a golden file with one line per step, `<version> <hash> <name>`, and fails when a recorded line changes or disappears. New steps are appended by running the test with `FSC_UPDATE_STEPS=1`, which never rewrites a recorded line. Build the store with fixed table names, since steps embed them:
+
+```go
+func TestOrderStoreSteps(t *testing.T) {
+	s, err := NewOrderStore(&drivercommon.RWDB{}, "orders")
+	require.NoError(t, err)
+	migratetest.CheckSteps(t, "testdata/steps/orders.steps", s.Steps())
+}
+```
+
+The FSC stores keep their golden files under `platform/view/services/storage/driver/sql/testdata/steps` and `platform/fabric/services/db/driver/sql/testdata/steps`, one per dialect and store. On every pull request, `scripts/check-step-files.sh` checks that each step file of the latest release tag is a line prefix of the file at HEAD, so a step cannot be changed in the golden file and the code together. The hash does not cover a step's `Go` function.
+
+A store whose databases may have received manual changes before it adopted versioning needs a step 1 that converges from each of them. Probe the catalog before each change instead of assuming a starting layout:
+
+```go
+{Version: 1, Name: "create orders", Go: func(ctx context.Context, q migrate.Execer) error {
+	if _, err := q.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS "+s.table+" (id TEXT PRIMARY KEY, amount BIGINT NOT NULL)"); err != nil {
+		return err
+	}
+	// Postgres: SELECT EXISTS (SELECT 1 FROM information_schema.columns
+	//           WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2)
+	var has bool
+	if err := q.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pragma_table_info($1) WHERE name = $2)", s.table, "note").Scan(&has); err != nil {
+		return err
+	}
+	if has {
+		return nil
+	}
+	_, err := q.ExecContext(ctx, "ALTER TABLE "+s.table+" ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+	return err
+}},
+```
+
+Such a step does its work in `Go`, so its hash covers only its version and name.
+
 A step whose change SQL cannot express sets `Go`, which runs after the step's `SQL` in the same transaction. Typical cases are a backfill computed in Go and a SQLite table rebuild. The function runs its statements through the `migrate.Execer` it receives and must not begin, commit or roll back a transaction. If it returns an error, the step rolls back, `SQL` included:
 
 ```go
@@ -192,7 +227,7 @@ A step whose change SQL cannot express sets `Go`, which runs after the step's `S
 
 The rules for released steps cover the Go function too: a database that applied the step never runs a changed function body. A step that rewrites existing data needs a test that checks the rewritten values; the fixture tests under `platform/fabric/services/db/driver/sql/testdata` only check that the rows they wrote still read back after every step.
 
-A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store)` where it calls `CreateSchema()` today. On SQLite, pass the single-connection write pool. When the persistence sets `skipCreateTable: true`, pass `migrate.WithCheckOnly()` as the FSC constructors do, instead of skipping the call.
+A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store, opts...)` where it calls `CreateSchema()` today, with `opts` from the persistence's `ConfigProvider.MigrateOptions(skipCreateTable)`, as the FSC constructors do. On SQLite, pass the single-connection write pool.
 
 A table that several stores use is versioned by one of them, its owner: only the owner lists steps for the table, so the table has a single row in the versions table. Each store migrates when it is opened, so steps that depend on another store's tables, for example through a foreign key, run after that store has been opened.
 
@@ -208,7 +243,7 @@ p.Container().Provide(func() viewsdk.StoreOpenerEntry {
 })
 ```
 
-SDKs nested in each other share one container, so an entry provided by an inner or outer SDK is reached. Stores that are opened only after `Start`, such as the vault of a channel added at runtime, or that an application opens outside its entry, are not migrated by the command; they migrate when the node opens them, or refuse to open under `skipCreateTable: true`.
+The command calls every entry even if one fails and joins their errors, so an entry should report every store it fails to open rather than stop at the first. An entry whose stores use a `multiplexed.Driver` returns `viewsdk.ErrMemoryFallback` when `FellBackToMemory` reports that one of them uses memory by fallback. SDKs nested in each other share one container, so an entry provided by an inner or outer SDK is reached. Stores that are opened only after `Start`, such as the vault of a channel added at runtime, or that an application opens outside its entry, are not migrated by the command; they migrate when the node opens them, or refuse to open under `skipCreateTable: true`.
 
 ## Extending the Driver on the same Project
 
