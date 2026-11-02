@@ -7,14 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
-// rowQuerier is satisfied by both *sql.DB and *sql.Tx.
+// rowQuerier is satisfied by *sql.DB, *sql.Conn, *sql.Tx and migrate.Execer.
 type rowQuerier interface {
-	QueryRow(query string, args ...any) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 // ReorderPrimaryKey changes table's primary key from (pkey, ns) to (ns, pkey).
@@ -26,44 +28,61 @@ type rowQuerier interface {
 // configurable. Any other column order is an error and the table is left
 // unchanged.
 func ReorderPrimaryKey(writeDB *sql.DB, table string) error {
-	_, cols, err := PrimaryKey(writeDB, table)
+	ctx := context.Background()
+	_, cols, err := readPrimaryKey(ctx, writeDB, table)
 	if err != nil || cols == "ns,pkey" {
 		return err
 	}
 
-	tx, err := writeDB.Begin()
+	tx, err := writeDB.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate db transaction")
 	}
 	defer func() { _ = tx.Rollback() }()
-
-	if _, err := tx.Exec("LOCK TABLE " + table + " IN ACCESS EXCLUSIVE MODE"); err != nil { //nolint:gosec // table name comes from configuration, not user input
-		return errors.Wrapf(err, "failed locking table [%s]", table)
-	}
-	constraint, cols, err := PrimaryKey(tx, table)
-	if err != nil {
+	if err := ReorderPrimaryKeyTx(ctx, tx, table); err != nil {
 		return err
 	}
-	if cols == "ns,pkey" {
-		return nil
+	return tx.Commit()
+}
+
+// ReorderPrimaryKeyTx is ReorderPrimaryKey inside the caller's transaction q.
+// It reads the key order without a lock, so a table keyed (ns, pkey) is never
+// locked; otherwise it locks table in ACCESS EXCLUSIVE mode until q ends, reads
+// the order again and replaces a (pkey, ns) key, so a node running
+// ReorderPrimaryKey on the same table at the same time waits and then finds the
+// key reordered. Any order other than (ns, pkey) or (pkey, ns) is an error.
+func ReorderPrimaryKeyTx(ctx context.Context, q migrate.Execer, table string) error {
+	if _, cols, err := readPrimaryKey(ctx, q, table); err != nil || cols == "ns,pkey" {
+		return err
+	}
+	if _, err := q.ExecContext(ctx, "LOCK TABLE "+table+" IN ACCESS EXCLUSIVE MODE"); err != nil {
+		return errors.Wrapf(err, "failed locking table [%s]", table)
+	}
+	constraint, cols, err := readPrimaryKey(ctx, q, table)
+	if err != nil || cols == "ns,pkey" {
+		return err
 	}
 	if cols != "pkey,ns" {
 		return errors.Errorf("table [%s] primary key is (%s), expected (ns, pkey)", table, cols)
 	}
 	logger.Infof("reordering primary key of table [%s] to (ns, pkey)", table)
-	if _, err := tx.Exec("ALTER TABLE " + table + " DROP CONSTRAINT " + constraint); err != nil { //nolint:gosec // table name comes from configuration, not user input
+	if _, err := q.ExecContext(ctx, "ALTER TABLE "+table+" DROP CONSTRAINT "+constraint); err != nil {
 		return errors.Wrapf(err, "failed dropping primary key of table [%s]", table)
 	}
-	if _, err := tx.Exec("ALTER TABLE " + table + " ADD PRIMARY KEY (ns, pkey)"); err != nil { //nolint:gosec // table name comes from configuration, not user input
+	if _, err := q.ExecContext(ctx, "ALTER TABLE "+table+" ADD PRIMARY KEY (ns, pkey)"); err != nil {
 		return errors.Wrapf(err, "failed adding primary key (ns, pkey) on table [%s]", table)
 	}
-	return tx.Commit()
+	return nil
 }
 
 // PrimaryKey returns table's primary-key constraint name, quoted for use in
 // DDL, and its columns in key order, joined by commas.
 func PrimaryKey(q rowQuerier, table string) (constraint, cols string, err error) {
-	if err := q.QueryRow(`
+	return readPrimaryKey(context.Background(), q, table)
+}
+
+func readPrimaryKey(ctx context.Context, q rowQuerier, table string) (constraint, cols string, err error) {
+	if err := q.QueryRowContext(ctx, `
 		SELECT quote_ident(c.conname), string_agg(a.attname, ',' ORDER BY k.ord)
 		FROM pg_constraint c
 		CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)

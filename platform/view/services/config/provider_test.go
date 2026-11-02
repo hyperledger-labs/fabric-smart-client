@@ -538,3 +538,18 @@ fsc:
 	// "___" reads as "__" then "_", so no level after the first can start with "_".
 	assert.Equal(t, "a_.b", envKeyReplacer.Replace("a___b"))
 }
+
+// ForceSkipCreateTable overrides skipCreateTable on every persistence, whether
+// or not the file sets it, and the value reaches a persistence's options.
+func TestForceSkipCreateTable(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewProvider("./testdata")
+	require.NoError(t, err)
+	for _, skip := range []bool{true, false} {
+		require.NoError(t, p.ForceSkipCreateTable(skip))
+		var opts struct{ SkipCreateTable bool }
+		require.NoError(t, p.UnmarshalKey("fsc.persistences.mydb.opts", &opts))
+		require.Equal(t, skip, opts.SkipCreateTable)
+	}
+}

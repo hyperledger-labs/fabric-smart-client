@@ -392,3 +392,44 @@ func requireNoTable(t *testing.T, db *sql.DB, d migrate.Dialect, table string) {
 	require.NoError(t, db.QueryRow(q, table).Scan(&n))
 	require.Zero(t, n, "table [%s] exists", table)
 }
+
+// InProgress is true while a step runs and false once Migrate returns, also
+// after a failed step. Go runs a test without t.Parallel before the parallel
+// ones, so no other migrator of the package runs meanwhile.
+func TestInProgress(t *testing.T) { //nolint:paralleltest // reads package-level state
+	db := sqliteBackend(t).open(t)
+	require.False(t, migrate.InProgress())
+
+	for _, fail := range []bool{false, true} {
+		running, release := make(chan struct{}), make(chan struct{})
+		s := &store{name: fmt.Sprintf("progress_%v", fail), steps: []migrate.Step{{
+			Version: 1, Name: "block",
+			Go: func(context.Context, migrate.Execer) error {
+				close(running)
+				<-release
+				if fail {
+					return errors.New("step failed")
+				}
+				return nil
+			},
+		}}}
+		done := make(chan error, 1)
+		go func() { done <- migrate.Migrate(t.Context(), db, migrate.SQLite, "", s) }()
+		<-running
+		require.True(t, migrate.InProgress(), "while the step runs")
+		close(release)
+		err := <-done
+		if fail {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
+		require.False(t, migrate.InProgress(), "after Migrate returns")
+	}
+
+	// A store with nothing pending and a check-only call never count; neither waits.
+	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "", newStore("progress_done", 1)))
+	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "", newStore("progress_done", 1)))
+	require.ErrorIs(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "", newStore("progress_check", 1), migrate.WithCheckOnly()), migrate.ErrPending)
+	require.False(t, migrate.InProgress())
+}

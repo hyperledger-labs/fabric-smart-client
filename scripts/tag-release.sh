@@ -81,3 +81,5 @@ for tag in "${TAGS[@]}"; do
 done
 
 echo "Done. Run 'git push origin --tags' to publish."
+echo "Once the tags are public, add the storage fixtures of $VERSION (see platform/fabric/services/db/driver/sql/testdata/README.md):"
+echo "  platform/fabric/services/db/driver/sql/testdata/generate.sh $VERSION"

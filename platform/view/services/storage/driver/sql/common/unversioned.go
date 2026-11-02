@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 var logger = logging.MustGetLogger()
@@ -236,11 +237,25 @@ func (db *KeyValueStore) Stats() any {
 // key (ns, pkey). A table created by an older version, whose primary key is
 // (pkey, ns), is reordered by the Postgres and SQLite stores that wrap this one.
 func (db *KeyValueStore) CreateSchema() error {
-	return InitSchema(db.writeDB, fmt.Sprintf(`
+	return InitSchema(db.writeDB, db.schema())
+}
+
+// StoreName returns the table name; it identifies the store in the versions table.
+func (db *KeyValueStore) StoreName() string { return db.table }
+
+// Steps returns the store's schema steps. Step 1 creates the table if it does
+// not exist; the Postgres and SQLite stores that wrap this one add the
+// primary-key reorder to it.
+func (db *KeyValueStore) Steps() []migrate.Step {
+	return []migrate.Step{{Version: 1, Name: "create table", SQL: []string{db.schema()}}}
+}
+
+func (db *KeyValueStore) schema() string {
+	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
 		pkey BYTEA NOT NULL,
 		val BYTEA NOT NULL DEFAULT '',
 		PRIMARY KEY (ns, pkey)
-	);`, db.table))
+	);`, db.table)
 }

@@ -233,6 +233,21 @@ func (p *Provider) MergeConfig(raw []byte) error {
 	return nil
 }
 
+// ForceSkipCreateTable sets skipCreateTable to skip on every persistence under
+// fsc.persistences, overriding the configured value, so that one run of the
+// node either prepares every store's schema or only checks it.
+func (p *Provider) ForceSkipCreateTable(skip bool) error {
+	p.mergeConfigMutex.Lock()
+	defer p.mergeConfigMutex.Unlock()
+
+	for _, name := range p.Backend.MapKeys("fsc.persistences") {
+		if err := p.Backend.Set("fsc.persistences."+name+".opts.skipcreatetable", skip); err != nil {
+			return errors.Wrapf(err, "failed setting skipCreateTable on persistence [%s]", name)
+		}
+	}
+	return nil
+}
+
 // OnMergeConfig registers an event handler to be notified when the configuration is merged.
 func (p *Provider) OnMergeConfig(handler OnMergeConfigEventHandler) {
 	p.eventSystem.Subscribe(MergeConfigEventTopic, &eventListener{handler: handler})

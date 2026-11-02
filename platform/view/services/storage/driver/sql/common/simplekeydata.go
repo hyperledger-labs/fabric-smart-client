@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 // NewSimpleKeyDataStore returns a simple key-data store over table, reading
@@ -70,9 +71,21 @@ func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []by
 }
 
 func (db *SimpleKeyDataStore) CreateSchema() error {
-	return InitSchema(db.writeDB, fmt.Sprintf(`
+	return InitSchema(db.writeDB, db.schema())
+}
+
+// StoreName returns the table name; it identifies the store in the versions table.
+func (db *SimpleKeyDataStore) StoreName() string { return db.table }
+
+// Steps returns the store's schema steps. Step 1 creates the table if it does not exist.
+func (db *SimpleKeyDataStore) Steps() []migrate.Step {
+	return []migrate.Step{{Version: 1, Name: "create table", SQL: []string{db.schema()}}}
+}
+
+func (db *SimpleKeyDataStore) schema() string {
+	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		key TEXT NOT NULL PRIMARY KEY,
 		data BYTEA NOT NULL
-	);`, db.table))
+	);`, db.table)
 }

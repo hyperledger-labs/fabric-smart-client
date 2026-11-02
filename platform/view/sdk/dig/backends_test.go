@@ -35,13 +35,16 @@ func (*fakeGRPCServer) Start() error { return nil }
 func (f *fakeGRPCServer) Stop()      { f.stopped++ }
 
 // recordingWebServer records the patterns registered on it and whether they were secure.
-type recordingWebServer struct{ secure map[string]bool }
+type recordingWebServer struct {
+	secure   map[string]bool
+	handlers map[string]http.Handler
+}
 
-func (r *recordingWebServer) RegisterHandler(p string, _ http.Handler, secure bool) {
+func (r *recordingWebServer) RegisterHandler(p string, h http.Handler, secure bool) {
 	if r.secure == nil {
-		r.secure = map[string]bool{}
+		r.secure, r.handlers = map[string]bool{}, map[string]http.Handler{}
 	}
-	r.secure[p] = secure
+	r.secure[p], r.handlers[p] = secure, h
 }
 func (*recordingWebServer) Start() error { return nil }
 func (*recordingWebServer) Stop() error  { return nil }

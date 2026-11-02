@@ -113,6 +113,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(binding.NewDefaultStore),
 		p.Container().Provide(signerinfo.NewDefaultStore),
 		p.Container().Provide(auditinfo.NewDefaultStore),
+		p.Container().Provide(func() StoreOpenerEntry { return newViewStoreOpener(p.Container()) }),
 
 		// Endpoint Service
 		p.Container().Provide(endpoint.NewService),
@@ -220,6 +221,7 @@ func (p *SDK) Install() error {
 
 	// Register services in services.Registry
 	err = errors.Join(
+		p.Container().Invoke(func(r services.Registry) error { return r.RegisterService(storeOpeners{c: p.Container()}) }),
 		digutils.Register[*comm.Service](p.Container()),
 		digutils.Register[*config.Provider](p.Container()),
 		digutils.Register[*endpoint.Service](p.Container()),

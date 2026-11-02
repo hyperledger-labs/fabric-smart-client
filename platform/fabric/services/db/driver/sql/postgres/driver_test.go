@@ -19,6 +19,7 @@ import (
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -44,21 +45,23 @@ func (p *fakeDbProvider) Get(o postgres.Opts) (*drivercommon.RWDB, error) {
 
 // mockDB returns an RWDB whose read and write handles are the same sqlmock
 // connection, matching Open's single-handle layout, plus the mock controller.
-// The schema transaction CreateSchema runs, and the vault's pkey type and
-// primary-key checks, are expected but their statements are not matched: these tests assert on
-// construction, not on DDL.
+// Every store is recorded at version 1 in the versions table, so opening one
+// reads its row and runs no schema step: these tests assert on construction,
+// not on DDL.
 func mockDB(t *testing.T) (*drivercommon.RWDB, sqlmock.Sqlmock) {
 	t.Helper()
 	db, m, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
-	m.MatchExpectationsInOrder(false)
-	m.ExpectBegin()
-	m.ExpectExec(".*").WillReturnResult(sqlmock.NewResult(0, 0))
-	m.ExpectCommit()
-	m.ExpectQuery("SELECT format_type").WillReturnRows(sqlmock.NewRows([]string{"format_type"}).AddRow("bytea"))
-	m.ExpectQuery("SELECT quote_ident").WillReturnRows(sqlmock.NewRows([]string{"conname", "cols"}).AddRow("vstate_pkey", "ns,pkey"))
+	expectMigrated(m)
 	return &drivercommon.RWDB{ReadDB: db, WriteDB: db}, m
+}
+
+// expectMigrated expects the read of a store's row in the versions table and
+// answers that the store is at version 1.
+func expectMigrated(m sqlmock.Sqlmock) {
+	m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	m.ExpectQuery("SELECT version, readable_by FROM").WillReturnRows(sqlmock.NewRows([]string{"version", "readable_by"}).AddRow(1, 1))
 }
 
 // validConfig builds a Config the driver accepts: GetOpts only requires a
@@ -152,9 +155,10 @@ func TestNewPersistenceWithOptsPassesParams(t *testing.T) {
 	require.Equal(t, "postgres://user:pass@localhost:5432/testdb", p.opts[0].DataSource)
 }
 
-// SkipCreateTable short-circuits CreateSchema, so no statement reaches the
-// database. The mock is deliberately given no expectations: any Begin or Exec
-// then fails the read, and ExpectationsWereMet confirms nothing ran at all.
+// SkipCreateTable runs no schema step: opening a store that is up to date only
+// reads its row in the versions table, and a store with a step pending fails
+// with migrate.ErrPending. The mock fails any statement it does not expect, and
+// ExpectationsWereMet confirms that nothing else ran.
 func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {
 	t.Parallel()
 
@@ -169,20 +173,27 @@ func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {
 		return nil
 	})
 
-	db, m, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	t.Run("up to date", func(t *testing.T) {
+		t.Parallel()
+		dbs, m := mockDB(t)
+		store, err := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: dbs}).NewVault("")
+		require.NoError(t, err)
+		require.NotNil(t, store)
+		require.NoError(t, m.ExpectationsWereMet())
+	})
 
-	d := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: &drivercommon.RWDB{ReadDB: db, WriteDB: db}})
-	store, err := d.NewVault("")
-	require.NoError(t, err)
-	require.NotNil(t, store)
-	require.NoError(t, m.ExpectationsWereMet())
+	t.Run("pending", func(t *testing.T) {
+		t.Parallel()
+		db, m, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		_, err = NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: &drivercommon.RWDB{ReadDB: db, WriteDB: db}}).NewVault("")
+		require.ErrorIs(t, err, migrate.ErrPending)
+		require.NoError(t, m.ExpectationsWereMet())
+	})
 }
 
-// An unusable TablePrefix fails table-name computation after the database is
-// already open, so the error surfaces from GetTableNames rather than from
-// GetOpts or the provider.
 func TestNewPersistenceWithOptsBadTablePrefix(t *testing.T) {
 	t.Parallel()
 

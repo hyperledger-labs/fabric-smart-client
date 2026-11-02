@@ -187,12 +187,12 @@ func NewWebServer(configProvider driver.ConfigService) (WebServer, error) {
 }
 
 // mountHealth serves /healthz and /readyz on the web listener, with readiness taken from
-// gates, then from connStates. They skip the client-certificate check of the view endpoints, but not the
+// gates, then from a store running schema steps (reason "migrating"), then from connStates. They skip the client-certificate check of the view endpoints, but not the
 // listener's TLS handshake. They are mounted by the SDK rather than by a WebServerConstructor,
 // so a replaced listener serves them too; a disabled listener is a no-op server.
 func mountHealth(ws WebServer, connStates *connstate.Metrics, gates ...web.ReadinessGate) {
 	ws.RegisterHandler("/healthz", http.HandlerFunc(web.Healthz), false)
-	ws.RegisterHandler("/readyz", web.Readyz(connStates, gates...), false)
+	ws.RegisterHandler("/readyz", web.Readyz(connStates, append(gates, migratingGate{})...), false)
 }
 
 // OperationsServer is the listener the operations endpoints (/metrics, /logspec) are served

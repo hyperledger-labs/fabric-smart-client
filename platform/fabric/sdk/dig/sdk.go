@@ -94,6 +94,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(generic.NewMetadataStore),
 		p.Container().Provide(generic.NewEnvelopeStore),
 		p.Container().Provide(generic.NewEndorseTxStore),
+		p.Container().Provide(func() viewsdk.StoreOpenerEntry { return newStoreOpener(p.Container()) }),
 	)
 	if err != nil {
 		return err

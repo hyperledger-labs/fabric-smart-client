@@ -177,6 +177,49 @@ func (n *Node) Start() (err error) {
 	return nil
 }
 
+// StoreOpener opens every store an SDK uses, so that opening them prepares their
+// schema. The view SDK registers one in the node's registry that calls every
+// entry of the dig value group "fsc-store-openers"; an SDK provides an entry with
+// a dig.Out struct whose field has the tag `group:"fsc-store-openers"`. OpenStores
+// returns the first store that fails to open.
+type StoreOpener interface {
+	OpenStores(ctx context.Context) error
+}
+
+// Migrate installs every SDK without starting it, so no server, P2P or delivery
+// starts, and opens every store through the StoreOpener in the registry. With
+// checkOnly it runs no schema step and fails if a store has steps pending;
+// otherwise it runs the pending steps. Installing loads the node's identities,
+// so Migrate needs the same configuration and key material as a running node.
+// Stores opened only after Start, such as a channel's vault added at runtime,
+// are not reached.
+func (n *Node) Migrate(ctx context.Context, checkOnly bool) error {
+	if n.running {
+		return errors.New("cannot migrate a running node")
+	}
+	c, ok := n.config.(interface{ ForceSkipCreateTable(skip bool) error })
+	if !ok {
+		return errors.Errorf("configuration [%T] cannot override skipCreateTable", n.config)
+	}
+	if err := c.ForceSkipCreateTable(checkOnly); err != nil {
+		return err
+	}
+	for _, p := range n.sdks {
+		if err := p.Install(); err != nil {
+			return errors.WithMessage(err, "failed installing sdk")
+		}
+	}
+	s, err := n.registry.GetService(new(StoreOpener))
+	if err != nil {
+		return errors.WithMessage(err, "no store opener registered; install the view SDK")
+	}
+	opener, ok := s.(StoreOpener)
+	if !ok {
+		return errors.Errorf("unexpected store opener type [%T]", s)
+	}
+	return opener.OpenStores(ctx)
+}
+
 // Stop shuts the node down and returns once it has stopped:
 //  1. it drains: the Drainer in the registry refuses new work and waits for running views, for
 //     at most fsc.shutdown.drainTimeout;

@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
@@ -99,13 +100,41 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	return tx.Commit()
 }
 
+// stateColumns declares the state table's columns without the primary key, for
+// the staging table of a primary-key reorder.
+const stateColumns = "ns TEXT NOT NULL, pkey TEXT NOT NULL, val BYTEA DEFAULT '', kversion BYTEA DEFAULT '', metadata BYTEA DEFAULT ''"
+
 // CreateSchema creates the status and state tables if they do not exist. The
 // state table's primary key is (ns, pkey). A table whose primary key is
 // (pkey, ns) is rebuilt in one transaction, copying every row. The key order
 // is read once before that transaction, so an upgraded table is left alone,
 // and again after a write lock, so replicas sharing the file rebuild it once.
 func (db *VaultStore) CreateSchema() error {
-	if err := sqlcommon.InitSchema(db.writeDB, fmt.Sprintf(`
+	if err := sqlcommon.InitSchema(db.writeDB, db.schema()); err != nil {
+		return err
+	}
+	return sqlite.ReorderPrimaryKey(db.readDB, db.writeDB, db.tables.StateTable, stateColumns, "ns, pkey, val, kversion, metadata")
+}
+
+// StoreName returns the state table name; it identifies the vault in the
+// versions table.
+func (db *VaultStore) StoreName() string { return db.tables.StateTable }
+
+// Steps returns the vault's schema steps. Step 1 creates the status and state
+// tables if they do not exist and rebuilds a state table keyed (pkey, ns).
+func (db *VaultStore) Steps() []migrate.Step {
+	return []migrate.Step{{
+		Version: 1,
+		Name:    "create tables",
+		SQL:     []string{db.schema()},
+		Go: func(ctx context.Context, q migrate.Execer) error {
+			return sqlite.ReorderPrimaryKeyTx(ctx, q, db.tables.StateTable, stateColumns, "ns, pkey, val, kversion, metadata")
+		},
+	}}
+}
+
+func (db *VaultStore) schema() string {
+	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		pos INTEGER PRIMARY KEY,
 		tx_id TEXT UNIQUE NOT NULL,
@@ -124,10 +153,5 @@ func (db *VaultStore) CreateSchema() error {
 	);`, db.tables.StatusTable,
 		driver.Unknown,
 		db.tables.StatusTable, db.tables.StatusTable,
-		db.tables.StateTable)); err != nil {
-		return err
-	}
-	return sqlite.ReorderPrimaryKey(db.readDB, db.writeDB, db.tables.StateTable,
-		"ns TEXT NOT NULL, pkey TEXT NOT NULL, val BYTEA DEFAULT '', kversion BYTEA DEFAULT '', metadata BYTEA DEFAULT ''",
-		"ns, pkey, val, kversion, metadata")
+		db.tables.StateTable)
 }

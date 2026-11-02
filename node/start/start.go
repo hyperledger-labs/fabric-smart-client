@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package start
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -22,7 +23,7 @@ import (
 
 const (
 	nodeFuncName = "node"
-	nodeCmdDes   = "Operate a fabric smart client node: start."
+	nodeCmdDes   = "Operate a fabric smart client node: start, migrate."
 )
 
 type Node interface {
@@ -42,7 +43,45 @@ func Cmd(n Node) *cobra.Command {
 		Long:  fmt.Sprint(nodeCmdDes),
 	}
 	nodeCmd.AddCommand(startCmd(n))
+	if m, ok := n.(Migrator); ok {
+		nodeCmd.AddCommand(migrateCmd(m))
+	}
 	return nodeCmd
+}
+
+// Migrator prepares the schema of every store a node opens, without starting
+// the node.
+type Migrator interface {
+	Migrate(ctx context.Context, checkOnly bool) error
+}
+
+func migrateCmd(m Migrator) *cobra.Command {
+	var check bool
+	cmd := &cobra.Command{
+		Use:   "migrate",
+		Short: "Runs the pending schema steps of every store and exits.",
+		Long: `Opens every store the node uses, without starting servers, P2P or delivery, and runs
+their pending schema steps. With --check it runs no step and exits non-zero if a store has
+steps pending. The command reads the node's full configuration, including its identities.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return errors.New("trailing args detected")
+			}
+			cmd.SilenceUsage = true
+			// No signal handler: a migrator waiting for the lock must die on SIGTERM.
+			if err := m.Migrate(cmd.Context(), check); err != nil {
+				return err
+			}
+			if check {
+				logger.Infof("no schema steps pending")
+			} else {
+				logger.Infof("schema migration done")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&check, "check", false, "run no step; exit non-zero if a store has steps pending")
+	return cmd
 }
 
 func startCmd(n Node) *cobra.Command {

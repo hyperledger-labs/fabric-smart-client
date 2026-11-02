@@ -43,3 +43,4 @@ A node or database older than v0.26.0 is upgraded to v0.26.x first, then to late
 
 - [Upgrading from v0.13 to v0.26](upgrade/v0.13-to-v0.26.md)
 - [Upgrading from v0.26 to v0.27](upgrade/v0.26-to-v0.27.md)
+- [Upgrading from v0.27 to v0.28](upgrade/v0.27-to-v0.28.md)

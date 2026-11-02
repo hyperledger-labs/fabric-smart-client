@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 package start
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -147,4 +148,37 @@ func TestServe_SecondSignalSkipsDrain(t *testing.T) { //nolint:paralleltest // s
 	}()
 	require.NoError(t, serve(n))
 	<-n.stops
+}
+
+type mockMigrateNode struct {
+	*mockStartNode
+	checkOnly []bool
+	err       error
+}
+
+func (m *mockMigrateNode) Migrate(_ context.Context, checkOnly bool) error {
+	m.checkOnly = append(m.checkOnly, checkOnly)
+	return m.err
+}
+
+// Cmd adds migrate for a node that supports it, and --check selects checkOnly.
+func TestMigrateCmd(t *testing.T) {
+	t.Parallel()
+
+	require.Len(t, Cmd(newMockStartNode(nil)).Commands(), 1, "a node without Migrate gets no migrate command")
+
+	n := &mockMigrateNode{mockStartNode: newMockStartNode(nil)}
+	cmd := Cmd(n)
+	cmd.SetArgs([]string{"migrate"})
+	require.NoError(t, cmd.Execute())
+	cmd.SetArgs([]string{"migrate", "--check"})
+	require.NoError(t, cmd.Execute())
+	require.Equal(t, []bool{false, true}, n.checkOnly)
+
+	n.err = errors.New("store [fsc_kvs] is at version 0, binary expects 1: schema migration pending")
+	cmd.SetArgs([]string{"migrate", "--check"})
+	require.ErrorContains(t, cmd.Execute(), "schema migration pending")
+
+	cmd.SetArgs([]string{"migrate", "extra"})
+	require.ErrorContains(t, cmd.Execute(), "trailing args detected")
 }

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -303,7 +305,7 @@ func createTextKeyTable(t *testing.T, store *VaultStore, ns string, keys []drive
 
 func requirePkeyType(t *testing.T, store *VaultStore, want string) {
 	t.Helper()
-	got, err := store.pkeyType(store.writeDB)
+	got, err := store.pkeyType(t.Context(), store.writeDB)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -564,4 +566,59 @@ func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	// the index condition; only (ns, pkey) puts ns first.
 	require.Contains(t, plan.String(), "Index Cond: ((ns = ")
 	require.NotContains(t, plan.String(), "Sort")
+}
+
+// Step 1 of the vault converts a v0.26 state table, keyed (pkey, ns) with a
+// TEXT pkey, when four migrators run it at once: one of them converts and
+// reorders the table, every key reads back, and the store is at version 1.
+func TestPostgresVaultStoreMigratesOldLayoutConcurrently(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStore(t)
+	ctx := t.Context()
+	createTextKeyTable(t, store, "ns", textKeys)
+	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE fsc_schema_versions")
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	errs := make([]error, 4)
+	for i := range errs {
+		wg.Go(func() { errs[i] = migrate.Migrate(ctx, store.writeDB, migrate.Postgres, "", store) })
+	}
+	wg.Wait()
+	for _, err := range errs {
+		require.NoError(t, err)
+	}
+	requirePkeyType(t, store, "bytea")
+	requirePrimaryKey(t, store, "ns,pkey")
+	for _, k := range textKeys {
+		read, err := store.GetState(ctx, "ns", k)
+		require.NoError(t, err)
+		require.NotNil(t, read, "key [%q]", k)
+		require.Equal(t, driver.RawValue(k), read.Raw)
+	}
+	var version int
+	require.NoError(t, store.writeDB.QueryRowContext(ctx, "SELECT version FROM fsc_schema_versions WHERE store = $1", store.StoreName()).Scan(&version))
+	require.Equal(t, len(store.Steps()), version)
+}
+
+// Step 1 on an up-to-date vault takes no table lock: it completes while
+// another session holds ACCESS SHARE on the state table, as an older node
+// reading the vault does.
+func TestPostgresVaultStoreStepOneDoesNotLockCurrentLayout(t *testing.T) {
+	t.Parallel()
+
+	store := newPostgresVaultStore(t)
+	ctx := t.Context()
+	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE fsc_schema_versions")
+	require.NoError(t, err)
+	reader, err := store.writeDB.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = reader.Rollback() })
+	_, err = reader.ExecContext(ctx, "LOCK TABLE "+store.tables.StateTable+" IN ACCESS SHARE MODE")
+	require.NoError(t, err)
+
+	migrateCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	require.NoError(t, migrate.Migrate(migrateCtx, store.writeDB, migrate.Postgres, "", store))
 }
