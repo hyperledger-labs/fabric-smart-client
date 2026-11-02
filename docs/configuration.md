@@ -744,9 +744,22 @@ fabric:
             clientKey:
               file: /path/to/client.key
         - address: 'sidecar2:4001'
+      # gRPC client keepalive for every endpoint of this service. Off unless time is
+      # positive. The client pings after time without activity and drops the connection
+      # when no reply comes within timeout, which detects a connection cut without a reset.
+      # The committer rejects pings more often than its enforcement policy allows, 60s by
+      # default, so time must not be below that; gRPC raises any value below 10s to 10s.
+      # Pings without an open stream are sent only with permit-without-stream, and the
+      # committer accepts them only if its policy permits them too.
+      keepalive:
+        time: 60s
+        timeout: 10s
+        permit-without-stream: false
     # Fabric-x notification service: pushes transaction finality events to this node.
-    # endpoints and tls take the same shape as queryService. handlerTimeout, handlerWorkers,
-    # handlerQueueSize and sweepInterval fall back to their default when set to 0.
+    # endpoints, tls and keepalive take the same shape as queryService. A keepalive here
+    # detects a silently cut notification stream, which otherwise stays open with no event.
+    # handlerTimeout, handlerWorkers, handlerQueueSize and sweepInterval fall back to their
+    # default when set to 0.
     notificationService:
       # Sent to the committer as the subscription timeout. Default: 30s. Unlike
       # queryService, an explicit 0 or negative value lets the committer choose its own

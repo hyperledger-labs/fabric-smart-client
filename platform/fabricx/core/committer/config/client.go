@@ -98,6 +98,7 @@ func dial(loadCfg func(string) (*Config, error)) func(string) ([]*grpc.ClientCon
 			clientCfg := endpoint.ClientConfig()
 			// Without blocking, an endpoint that is down at startup still gets a conn that gRPC keeps retrying.
 			clientCfg.AsyncConnect = true
+			clientCfg.KeepAliveConfig = cfg.KeepAlive
 			client, err := commongrpc.NewGRPCClient(clientCfg)
 			if err != nil {
 				errs = append(errs, errors.Wrapf(err, "failed creating grpc client for [%s]", endpoint.Address))

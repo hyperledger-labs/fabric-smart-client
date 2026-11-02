@@ -772,6 +772,27 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 		proxies.Bob.Heal()
 		Eventually(func() error { return faultrecovery.Echo(s.II, false) }, faultrecovery.RecoveryTimeout, time.Second).Should(Succeed())
 	})
+
+	It("commits with 500 ms latency to the orderer", func() {
+		for _, p := range proxies.Orderers {
+			p.SetLatency(500 * time.Millisecond)
+			DeferCleanup(p.SetLatency, time.Duration(0))
+		}
+		start := time.Now()
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+		// The broadcast alone passes one delayed chunk, so the latency was in effect.
+		Expect(time.Since(start)).To(BeNumerically(">=", 500*time.Millisecond))
+
+		// The ordering endpoints in the channel configuration are the proxies, so the
+		// broadcast and the peers' block pulls went through them.
+		var conns int
+		for _, p := range proxies.Orderers {
+			for _, n := range p.Connections() {
+				conns += n
+			}
+		}
+		Expect(conns).To(BeNumerically(">", 0))
+	})
 })
 
 // Its own Describe, so the SmartBFT orderers apply to these specs only. The specs share

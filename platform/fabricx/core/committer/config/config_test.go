@@ -323,3 +323,39 @@ func TestEndpointTLSHonorsExplicitMinVersion(t *testing.T) {
 	require.Len(t, cfg.Endpoints, 1)
 	require.Equal(t, uint16(tls.VersionTLS12), cfg.Endpoints[0].TLS.MinVersion)
 }
+
+func TestKeepAlive(t *testing.T) {
+	t.Parallel()
+	for _, service := range []string{"notificationService", "queryService"} {
+		load := func(t *testing.T, raw string) *config.Config {
+			t.Helper()
+			backend, err := (&viewconfig.Provider{}).ProvideFromRaw([]byte(service + ":\n" + raw))
+			require.NoError(t, err)
+			var cfg *config.Config
+			if service == "notificationService" {
+				cfg, err = config.NewNotificationServiceConfig(backend)
+			} else {
+				cfg, err = config.NewQueryServiceConfig(backend)
+			}
+			require.NoError(t, err)
+			return cfg
+		}
+
+		t.Run(service+" reads keepalive", func(t *testing.T) {
+			t.Parallel()
+			cfg := load(t, "  keepalive:\n    time: 60s\n    timeout: 10s\n    permit-without-stream: true\n")
+			require.Equal(t, &grpc.ClientKeepAliveConfig{Time: time.Minute, Timeout: 10 * time.Second, PermitWithoutStream: true}, cfg.KeepAlive)
+		})
+		t.Run(service+" without keepalive sends no pings", func(t *testing.T) {
+			t.Parallel()
+			require.Nil(t, load(t, "  requestTimeout: 5s\n").KeepAlive)
+		})
+		// gRPC would raise a zero time to a 10 s ping interval, which the committer rejects.
+		for _, v := range []string{"0", "0s", "-1s"} {
+			t.Run(service+" keepalive time "+v+" sends no pings", func(t *testing.T) {
+				t.Parallel()
+				require.Nil(t, load(t, "  keepalive:\n    time: "+v+"\n    timeout: 10s\n").KeepAlive)
+			})
+		}
+	}
+}
