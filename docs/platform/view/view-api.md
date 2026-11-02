@@ -318,6 +318,7 @@ The runtime registration methods include:
 - `RegisterFactory(id, factory)`: Associates an external view identifier such as `create` or `query` with a factory.
 - `RegisterResponder(responder, initiatedBy)`: Associates a responder view with an initiator view.
 - `RegisterResponderWithIdentity(responder, id, initiatedBy)`: Registers the same mapping with an explicit responder identity.
+- `RegisterResponderWithOptions(responder, initiatedBy, opts...)`: Registers the mapping with options: `WithIdentity(id)` and `WithAuthorizer(a)`, which decides which remote nodes may start the responder (see [Authorizing responders](programming-model.md#authorizing-responders)).
 
 Two identifier systems are involved:
 

@@ -250,6 +250,52 @@ binds the verified identity to the caller's node identity. See
 
 For more details on initiator/responder dispatch and responder registration, see [View service](services/view-service.md).
 
+### Authorizing responders
+
+By default, any node that the transport authenticates can start any registered responder. A
+responder registered with an authorizer runs only for the nodes the authorizer accepts:
+
+```go
+import (
+	"context"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
+
+// allowed holds the canonical node identities that may start the responder.
+var allowed map[string]bool
+
+err := view.GetRegistry(sp).RegisterResponderWithOptions(
+	&Responder{}, &Initiator{},
+	view.WithAuthorizer(view.AuthorizerFunc(func(ctx context.Context, caller viewapi.Identity) error {
+		if !allowed[string(id.CanonicalIdentity(caller))] {
+			return errors.Wrapf(view.ErrDenied, "node [%s]", caller)
+		}
+		return nil
+	})),
+)
+```
+
+`caller` is the FSC node identity the transport authenticated, the same identity the responder
+later sees as `Session().Info().Caller`. The P2P service calls the authorizer for every first
+message of the protocol, before it creates the view context or session, with a context that times
+out after 5 seconds. The authorizer must return once that context is done: the P2P service does not
+abandon a call that ignores it. An error wrapping `view.ErrDenied` refuses the caller with the reply
+`unauthorized: caller may not start this view`; any other error, a timeout, a panic, or a sender
+whose identity the node cannot resolve gives `authorizer_error: authorizer failed`. The
+authorizer's own error text never reaches the caller. A running check holds one of the caller's
+`fsc.p2p.maxRespondersPerPeer` responder slots, so keep it fast.
+
+The authorizer decides who may start the responder. It does not check the payload: the responder
+must still validate every message it receives, as described above.
+
+Each initiator of a responder has its own authorizer. A later registration for the same initiator
+without `WithAuthorizer`, for example a default registration by a library, keeps the authorizer;
+one with `WithAuthorizer` replaces it.
+
 ## View Factories and Registration
 
 Views are often created through factories so that FSC can instantiate them from external input.

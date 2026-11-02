@@ -12,11 +12,15 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
+	viewservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -39,26 +43,35 @@ const (
 )
 
 // rejectReason says why a first message is rejected. It prefixes the error payload and labels
-// the rejections counter.
+// the rejections counter. The values are defined by the comm session package, whose
+// RejectionError maps them to typed errors on the initiator.
 type rejectReason string
 
 const (
 	// rejectBusy rejects a message whose peer already runs maxRespondersPerPeer responders.
-	rejectBusy rejectReason = "busy"
+	rejectBusy rejectReason = session.ReasonBusy
 	// rejectNodeBusy rejects a message whose peer is under maxRespondersPerPeer while the node
 	// already runs maxResponders responders.
-	rejectNodeBusy rejectReason = "node_busy"
+	rejectNodeBusy rejectReason = session.ReasonNodeBusy
 	// rejectUnknownView rejects a message whose caller view has no responder on this node.
-	rejectUnknownView rejectReason = "unknown_view"
+	rejectUnknownView rejectReason = session.ReasonUnknownView
 	// rejectDraining rejects a message that would start new work on a node that drains before
 	// it stops.
-	rejectDraining rejectReason = "draining"
+	rejectDraining rejectReason = session.ReasonDraining
+	// rejectUnauthorized rejects a message whose sender the responder's authorizer refused.
+	rejectUnauthorized rejectReason = session.ReasonUnauthorized
+	// rejectAuthorizerError rejects a message whose responder's authorizer failed, timed out,
+	// or could not be given a caller because the sender's identity is unknown.
+	rejectAuthorizerError rejectReason = session.ReasonAuthorizerError
 )
+
+// authorizeTimeout bounds a responder authorizer's call.
+const authorizeTimeout = 5 * time.Second
 
 // DrainingPrefix starts the payload of the error reply to a first message that a draining node
 // refuses. An initiator that gets it should open its next session on a fresh connection, so
 // that a load balancer can route it to another replica.
-const DrainingPrefix = string(rejectDraining) + ": "
+const DrainingPrefix = session.ReasonDraining + ": "
 
 // ConfigService models the configuration service.
 type ConfigService interface {
@@ -76,8 +89,9 @@ type IdentityProvider interface {
 
 // ViewManager models the view manager for P2P operations.
 type ViewManager interface {
-	// ExistResponderForCaller returns the responder view for the given caller.
-	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
+	// ResponderForCaller returns the responder view for the given caller view ID, the identity
+	// it runs as (none for the default one), and its authorizer (nil to accept every peer).
+	ResponderForCaller(caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error)
 	// NewResponderContext returns a context used to respond to an invocation, and the func that
 	// releases it once the responder returns.
 	NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, func(), error)
@@ -165,6 +179,11 @@ type Service struct {
 
 	// drain, if set, makes dispatch refuse new work while the node drains.
 	drain DrainState
+
+	// securityRejections counts authorizer refusals as security rejections.
+	securityRejections *security.Rejections
+	// authorizeTimeout bounds a responder authorizer's call; tests shorten it.
+	authorizeTimeout time.Duration
 }
 
 // Option configures a Service.
@@ -186,6 +205,13 @@ func WithMetrics(provider metrics.Provider) Option {
 // that the node drains. Without it, the Service never refuses for that reason.
 func WithDrainState(d DrainState) Option {
 	return func(s *Service) { s.drain = d }
+}
+
+// WithRejections makes the Service report a first message that a responder's authorizer
+// refuses to r, as a security rejection of kind security.KindUnauthorized. Without it, such
+// refusals are only counted in the Service's own rejections metric.
+func WithRejections(r *security.Rejections) Option {
+	return func(s *Service) { s.securityRejections = r }
 }
 
 // NewService returns a new instance of the P2P service. The per-peer responder limit is
@@ -221,6 +247,8 @@ func NewService(
 		maxRespondersPerPeer: maxRespondersPerPeer,
 		maxResponders:        maxResponders,
 		inflight:             map[string]peerLoad{},
+		securityRejections:   security.NewRejections(nil),
+		authorizeTimeout:     authorizeTimeout,
 	}
 	WithMetrics(&disabled.Provider{})(s)
 	for _, opt := range opts {
@@ -280,6 +308,10 @@ type peerLoad struct{ responders, rejections int }
 // as draining, unless its sender already takes part in the responder context it names, so that
 // protocols in progress can finish; both limits still apply to such a message.
 //
+// A message that runs is checked by the responder's authorizer, if it has one, in the goroutine
+// dispatch starts (see handleMessage). The check holds the responder slot, so a peer can have at
+// most maxRespondersPerPeer checks running.
+//
 // While maxRespondersPerPeer rejections for that peer, or maxResponders across all peers, are
 // pending, further rejections are dropped. Responders and rejections are counted separately, so
 // pending rejections never keep a peer from starting responders. This caps what dispatch creates
@@ -294,7 +326,7 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 		logger.Debugf("dropping first message for context [%s] from [%s]: status [%d], caller [%s]", msg.ContextID, msg.FromEndpoint, msg.Status, msg.Caller)
 		return
 	}
-	responder, id, err := s.viewManager.ExistResponderForCaller(msg.Caller)
+	responder, id, authorizer, err := s.viewManager.ResponderForCaller(msg.Caller)
 	known := err == nil
 	peer := string(msg.FromPKID)
 	// Counting the responder before admitting it means a drain that starts concurrently either
@@ -347,7 +379,7 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 		}
 		switch {
 		case run:
-			s.handleMessage(ctx, msg, responder, id)
+			s.handleMessage(ctx, msg, responder, id, authorizer)
 		case draining:
 			s.reject(ctx, msg, rejectDraining, "node is draining")
 		case known && peerBusy:
@@ -412,19 +444,67 @@ func sanitizeDetail(detail string) string {
 // none, as the default identity. ctx is the Service's own lifecycle context (as passed to
 // Start); it is threaded down to respond so that responder views have a best-effort way to
 // observe shutdown while Start drains them via its WaitGroup.
-func (s *Service) handleMessage(ctx context.Context, msg *view.Message, responder view.View, id view.Identity) {
+//
+// The caller is the FSC node identity resolved from msg.FromPKID, the peer ID the transport
+// verified; FromEndpoint is the connection's source address, which the peer chooses. If
+// authorizer is set, it must accept the caller first, within authorizeTimeout; otherwise msg is
+// rejected before any view context or session exists for it.
+func (s *Service) handleMessage(ctx context.Context, msg *view.Message, responder view.View, id view.Identity, authorizer viewservice.ResponderAuthorizer) {
 	logger.DebugfContext(ctx, "Will call responder view for context [%s]", msg.ContextID)
+	caller, err := s.endpointService.GetIdentity("", msg.FromPKID)
+	if err != nil {
+		if authorizer != nil {
+			logger.Debugf("cannot authorize context [%s] from [%s]: [%s]", msg.ContextID, msg.FromEndpoint, err)
+			s.reject(ctx, msg, rejectAuthorizerError, "authorizer failed")
+			return
+		}
+		logger.Errorf("[%s] failed resolving caller for context [%s]: [%s]", s.identityProvider.DefaultIdentity(), msg.ContextID, err)
+		return
+	}
+	if authorizer != nil && !s.authorize(ctx, msg, authorizer, caller) {
+		return
+	}
 	if id.IsNone() {
 		id = s.identityProvider.DefaultIdentity()
 	}
 
-	if err := s.respond(ctx, responder, id, msg); err != nil {
+	if err := s.respond(ctx, responder, id, caller, msg); err != nil {
 		logger.Errorf("[%s] error during respond [%s]", s.identityProvider.DefaultIdentity(), err)
 	}
 }
 
+// authorize reports whether authorizer accepts caller, and rejects msg if it does not.
+func (s *Service) authorize(ctx context.Context, msg *view.Message, authorizer viewservice.ResponderAuthorizer, caller view.Identity) bool {
+	err := s.callAuthorizer(ctx, authorizer, caller)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, viewservice.ErrDenied):
+		s.securityRejections.Report(ctx, security.KindUnauthorized, caller, "", "responder "+msg.Caller+" refused the caller")
+		s.reject(ctx, msg, rejectUnauthorized, "caller may not start this view")
+	default:
+		logger.Debugf("authorizer failed for context [%s] from [%s]: [%s]", msg.ContextID, msg.FromEndpoint, err)
+		s.reject(ctx, msg, rejectAuthorizerError, "authorizer failed")
+	}
+	return false
+}
+
+// callAuthorizer calls authorizer within authorizeTimeout and returns its error, or an error if
+// it panics: the authorizer is application code and runs outside respond's recover.
+func (s *Service) callAuthorizer(ctx context.Context, authorizer viewservice.ResponderAuthorizer, caller view.Identity) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("responder authorizer triggered panic: %s\n%s\n", r, debug.Stack())
+			err = errors.Errorf("authorizer panicked [%v]", r)
+		}
+	}()
+	actx, cancel := context.WithTimeout(ctx, s.authorizeTimeout)
+	defer cancel()
+	return authorizer.Authorize(actx, caller)
+}
+
 // respond executes a given responder view.
-func (s *Service) respond(ctx context.Context, responder view.View, id view.Identity, msg *view.Message) (err error) {
+func (s *Service) respond(ctx context.Context, responder view.View, id, remote view.Identity, msg *view.Message) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("respond triggered panic: %s\n%s\n", r, debug.Stack())
@@ -433,7 +513,7 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 	}()
 
 	// get context
-	viewCtx, cleanup, err := s.getOrCreateContext(ctx, id, msg)
+	viewCtx, cleanup, err := s.getOrCreateContext(ctx, id, remote, msg)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting context for [%s,%s]", msg.ContextID, id)
 	}
@@ -456,19 +536,13 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 	return nil
 }
 
-// getOrCreateContext returns a view context for the given arguments, along with a cleanup
-// function the caller MUST invoke (typically via defer) once the responder is done with the
-// context. cleanup releases the view context, which is disposed when its last responder
-// releases it, and the AfterFunc registration and WithCancel resources created below.
-func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg *view.Message) (viewCtx view.Context, cleanup func(), err error) {
+// getOrCreateContext returns a view context for msg, in which this node acts as me and remote is
+// the caller, along with a cleanup function the caller MUST invoke (typically via defer) once the
+// responder is done with the context. cleanup releases the view context, which is disposed when
+// its last responder releases it, and the AfterFunc registration and WithCancel resources
+// created below.
+func (s *Service) getOrCreateContext(ctx context.Context, me, remote view.Identity, msg *view.Message) (viewCtx view.Context, cleanup func(), err error) {
 	noop := func() {}
-
-	// The caller is the peer ID the transport verified, not FromEndpoint: that is the
-	// connection's source address, which the peer chooses.
-	remote, err := s.endpointService.GetIdentity("", msg.FromPKID)
-	if err != nil {
-		return nil, noop, err
-	}
 
 	// create a new session with the ID we received
 	responderSession, err := s.commLayer.NewResponderSession(remote, msg)

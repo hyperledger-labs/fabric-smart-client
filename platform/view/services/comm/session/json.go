@@ -88,7 +88,7 @@ func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
 		}
 		if msg.Status == view.ERROR {
 			logger.ErrorfContext(j.ctx, "Received error message")
-			return nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
+			return nil, RejectionError(msg)
 		}
 		raw = msg.Payload
 	case <-timeout.C:

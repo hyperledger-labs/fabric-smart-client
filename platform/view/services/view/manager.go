@@ -166,6 +166,12 @@ func (cm *Manager) RegisterResponderWithIdentity(responder view.View, id view.Id
 	return cm.registry.RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
+// RegisterResponderWithOptions registers a responder view for the given initiator view; see
+// Registry.RegisterResponderWithOptions.
+func (cm *Manager) RegisterResponderWithOptions(responder view.View, initiatedBy any, opts ...ResponderOption) error {
+	return cm.registry.RegisterResponderWithOptions(responder, initiatedBy, opts...)
+}
+
 // GetResponder returns the responder view for the given initiator view.
 func (cm *Manager) GetResponder(initiatedBy any) (view.View, error) {
 	return cm.registry.GetResponder(initiatedBy)
@@ -433,6 +439,12 @@ func (*Manager) GetIdentifier(f view.View) string {
 // ExistResponderForCaller returns the responder view and identity for the given caller identifier.
 func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
 	return cm.registry.ExistResponderForCaller(caller)
+}
+
+// ResponderForCaller returns the responder view, identity and authorizer for the given caller
+// identifier; see Registry.ResponderForCaller.
+func (cm *Manager) ResponderForCaller(caller string) (view.View, view.Identity, ResponderAuthorizer, error) {
+	return cm.registry.ResponderForCaller(caller)
 }
 
 // DeleteContext removes a context from the manager and calls Dispose on the context. A responder

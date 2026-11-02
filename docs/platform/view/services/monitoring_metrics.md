@@ -157,7 +157,7 @@ Primary implementation: `platform/view/services/comm/metrics.go`, with updates i
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the node already runs `fsc.p2p.maxResponders` responders across all peers, `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the caller view. |
+| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the node already runs `fsc.p2p.maxResponders` responders across all peers, `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the caller view, `unauthorized` when the responder's authorizer refused the sender, `authorizer_error` when the authorizer failed, timed out, or the sender's identity could not be resolved. |
 
 Operational notes:
 
@@ -165,6 +165,7 @@ Operational notes:
 - Rejections dropped because the peer already has `fsc.p2p.maxRespondersPerPeer` rejections pending, or the node already has `fsc.p2p.maxResponders` pending across all peers, and first messages dropped for status `ERROR` or an empty caller, are not counted.
 - A rising `busy` rate points at one peer, a rising `node_busy` rate at overall load.
 - A rising `unknown_view` rate usually means the nodes run different versions of the application.
+- `authorizer_error` points at the application's authorizer, for example a backend it depends on; the cause is logged at debug level only.
 
 Primary implementation: `platform/view/services/view/p2p/service.go`.
 
@@ -382,6 +383,9 @@ Operational notes:
       nodes. The peer forged or replayed it, or the two nodes disagree on one of their FSC node
       identities, for example a node whose `fsc.identity.cert.file` does not match the certificate
       its peers' resolvers hold for it.
+  - `unauthorized`: a first P2P message whose sender a responder's authorizer refused. It names
+    the sender's node identity as the peer, and no txID; the reason names the responder's caller
+    view. The same refusal is counted as `fsc_view_services_view_p2p_rejections{reason="unauthorized"}`.
 - `binding_refused` and `binding_conflict` name the long-term identity of the bind as the peer, and
   no txID. An isolated `binding_conflict` after a remote node rotated its certificate is expected:
   its alias rows still point at the old certificate. A steady rate, or any `binding_refused`, means
@@ -395,8 +399,8 @@ Operational notes:
   kinds count one per refused or conflicting ephemeral. Peer and txID are never counter labels.
 
 Primary implementation: `platform/view/services/security/rejections.go`, updated from
-`platform/fabric/services/endorser/validate.go`, `platform/view/services/endpoint/service.go` and
-`platform/fabric/services/state/recipients.go`.
+`platform/fabric/services/endorser/validate.go`, `platform/view/services/endpoint/service.go`,
+`platform/fabric/services/state/recipients.go` and `platform/view/services/view/p2p/service.go`.
 
 ### Vault
 

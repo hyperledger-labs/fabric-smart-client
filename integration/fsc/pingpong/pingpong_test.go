@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package pingpong_test
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"slices"
@@ -28,9 +30,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	viewclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -125,6 +129,34 @@ var _ = Describe("EndToEnd", func() {
 			client.SigningIdentity = signingIdentity("peers/responder.fsc.example.com", "responder.fsc.example.com")
 			_, err = client.CallView("init", nil)
 			Expect(err).To(MatchError(ContainSubstring("not recognized")))
+		})
+
+		It("refuses a responder to a node its authorizer denies", func() {
+			initiator = newNode("./testdata/fsc/nodes/initiator.0")
+			responder = newNode("./testdata/fsc/nodes/responder.0")
+			Expect(initiator.Start()).To(Succeed())
+			Expect(responder.Start()).To(Succeed())
+			Expect(view.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})).To(Succeed())
+
+			// The authorizer gets the initiator's node identity, as the transport authenticated it.
+			ip, err := id.GetProvider(initiator)
+			Expect(err).NotTo(HaveOccurred())
+			denied := id.CanonicalIdentity(ip.DefaultIdentity())
+			refuse := view.AuthorizerFunc(func(_ context.Context, caller viewapi.Identity) error {
+				if bytes.Equal(id.CanonicalIdentity(caller), denied) {
+					return errors.Wrapf(view.ErrDenied, "node [%s]", caller)
+				}
+				return nil
+			})
+			Expect(view.GetRegistry(responder).RegisterResponderWithOptions(&pingpong.Responder{}, &pingpong.Initiator{}, view.WithAuthorizer(refuse))).To(Succeed())
+			time.Sleep(3 * time.Second)
+
+			start := time.Now()
+			_, err = viewclient.NewLocalClient(initiator).CallView("init", nil)
+			// The initiator's view fails with the responder's rejection; typed errors do not
+			// cross the view API, so match the text.
+			Expect(err).To(MatchError(ContainSubstring("unauthorized: caller may not start this view")))
+			Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
 		})
 
 		It("streams a view call over the web client", func() {
