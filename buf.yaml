@@ -1,0 +1,11 @@
+# buf checks FSC's wire and API protos for breaking changes (make buf-breaking). Generation
+# stays with make generate-protos. Test-only protos and the integration module are not part of
+# FSC's wire formats and are left out.
+version: v2
+modules:
+  - path: .
+    includes:
+      - platform/view
+breaking:
+  use:
+    - FILE

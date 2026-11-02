@@ -175,8 +175,9 @@ Primary implementation: `platform/view/services/view/p2p/service.go`.
 | --- | --- | --- | --- |
 | `fsc_view_services_comm_host_libp2p_bytes_sent` | counter | `peer`, `protocol` | Total bytes sent on libp2p streams, partitioned by remote peer and protocol ID. |
 | `fsc_view_services_comm_host_libp2p_bytes_received` | counter | `peer`, `protocol` | Total bytes received on libp2p streams, partitioned by remote peer and protocol ID. |
+| `fsc_view_services_comm_host_libp2p_rejected_streams` | counter | `reason` | Number of streams reset because of the peer's preamble: `version` when it is malformed, too large or its framing epoch differs (see [Stream preamble](comm/readme.md#stream-preamble)). |
 
-These are traffic-volume counters. They count bytes, not messages.
+The `bytes_*` counters measure traffic volume. They count bytes, not messages.
 
 Primary implementation: `platform/view/services/comm/host/libp2p/metrics.go`, updated by `platform/view/services/comm/host/libp2p/bandwidthreporter.go`.
 
@@ -188,6 +189,7 @@ Primary implementation: `platform/view/services/comm/host/libp2p/metrics.go`, up
 | `fsc_view_services_comm_host_websocket_ws_closed_subconns` | counter | `side` | Number of closed logical sub-connections in the WebSocket multiplexer. |
 | `fsc_view_services_comm_host_websocket_ws_opened_websockets` | counter | `side` | Number of accepted or opened WebSocket connections. |
 | `fsc_view_services_comm_host_websocket_ws_active_subconns` | gauge | none | Number of currently active logical sub-connections across all tracked WebSocket clients. |
+| `fsc_view_services_comm_host_websocket_ws_rejected_streams` | counter | `reason` | Number of sub-connections a server refused because of the client's preamble: `version` when the preamble is malformed or its framing epoch differs (see [Stream preamble](comm/readme.md#stream-preamble)). |
 
 Operational notes:
 
@@ -510,7 +512,7 @@ The following labels are part of the current FSC metric surface.
 | `network` | Fabric network name | deployment-specific network name |
 | `peer` | Remote libp2p peer identifier | peer ID string |
 | `protocol` | Libp2p protocol identifier | protocol ID string |
-| `reason` | Why the view service rejected a request | `stale`, `replay`, `denied` |
+| `reason` | Why the view service rejected a request, or a transport refused a stream | `stale`, `replay`, `denied`; `version` on `*_rejected_streams` |
 | `side` | WebSocket connection side | `client`, `server` |
 | `status` | Committer handler outcome classification | `not_found`, `failure`, `successful` |
 | `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, and `fsc_view_services_view_grpc_server_view_service_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |

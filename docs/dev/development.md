@@ -255,6 +255,10 @@ targets, so the right-hand column is the local equivalent, not the literal CI co
 | PostgreSQL unit tests        | `make unit-tests-postgres`        |
 | integration suites           | `make integration-tests-<target>` |
 | `govulncheck`, per module    | `make govulncheck`                |
+| `buf breaking`, on proto changes | `make buf-breaking`           |
+
+`make buf-breaking` needs the tool from `make install-tools` and the release tags
+(`git fetch --tags`); set `BUF_AGAINST=<tag>` to compare against another release.
 
 `make govulncheck` needs the tool from `make install-tools`. Unlike CI, it exits
 non-zero on any finding, including one already dismissed in code scanning, so a

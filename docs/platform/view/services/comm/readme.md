@@ -56,6 +56,26 @@ Security is integrated at every level of the Comm stack:
     -   **Responders per Peer**: The view P2P service runs at most `fsc.p2p.maxRespondersPerPeer` (default 1000) responders concurrently for each authenticated remote peer. A first message over the limit gets a `busy` error reply (see [Error replies a node sends unasked](#error-replies-a-node-sends-unasked)), so the initiator fails fast. Up to the same number of rejections can be pending per peer, counted separately from the responders; further first messages are dropped. One peer can thus have at most `limit` responders plus `limit` pending rejections, and cannot starve the other peers. A slot is freed only when its responder returns, so responders that never return keep their slot until the node shuts down.
     -   **Responders per Node**: `fsc.p2p.maxResponders` (default 0, unlimited) bounds the responders running concurrently across all peers, so that many peers, each within its own limit, cannot together exhaust the node. A first message from a peer under its own limit that would exceed it gets a `node_busy` error reply; a peer at its own limit gets `busy`, whatever the node-wide count. The same number separately bounds the rejections pending across all peers; further first messages are dropped. A message admitted while the node drains counts against both limits.
 
+### Stream preamble
+
+Every stream opens with a preamble (`platform/view/services/comm/preamble`), so that nodes of different releases learn what the other supports without a decode error or a timeout. Its message only ever gains fields: no field is renumbered, retyped or removed, and `make buf-breaking` checks this against the latest release.
+
+-   **Content**: the FSC version and VCS revision, the framing epoch, and per component (`view`, `fabric`, `fabricx`) the range of wire format versions the binary supports. All three components are at `{1, 1}`.
+-   **Framing epoch**: an integer (`preamble.FramingEpoch`, 1) raised only when the framing of `ViewPacket`s on a stream changes. A node refuses a peer whose epoch differs; the error names both epochs and starts with `version: `. FSC versions and revisions are logged at debug level and never compared, so nodes of different releases keep talking to each other.
+-   **After authentication**: a transport reads the peer's preamble only after it has bound the peer ID to the TLS certificate or the libp2p key.
+-   **Size limits**: a preamble over 4 KiB, or with a string field over 256 bytes, is refused.
+-   **Older peers**: a peer of a release without preambles is accepted and has no preamble; WebSocket logs it once per peer. Such a peer supports version 1 of every FSC component.
+-   **Where nodes find it**: the transport attaches the peer's preamble to the stream (`host.PreambleStream`). `comm.Service.PeerRanges(pkid)` returns the ranges of the newest live stream to that peer. It knows nothing before the first stream to the peer opens, and then answers the same as for a peer without preambles. Replicas of a node share its PKID and may run different releases during an upgrade; the answer describes the replica of the newest stream.
+
+| Transport | Client to server | Server to client | Refusal |
+|-----------|------------------|------------------|---------|
+| WebSocket | `StreamMeta.preamble`, on every sub-connection | `Fsc-Preamble` header (base64) on the upgrade response | a server answers the sub-connection with an Err frame and keeps the websocket; a client closes the websocket it dialed |
+| libp2p | one length-prefixed frame in each direction when a `/fsc/view/2.0.0` stream opens, within 30 seconds or the dialer's context | same | the stream is reset |
+
+The size limits are part of the format and never shrink, so a node never refuses a preamble that an older release accepts.
+
+A libp2p node registers `/fsc/view/2.0.0` and `/fsc/view/1.0.0` and dials `2.0.0` first. Multistream negotiation picks the first protocol the peer supports, so a peer that only knows `1.0.0` gets a stream without a preamble. A preamble that arrives and is refused, because it is malformed, too large or names another epoch, is counted in `fsc_view_services_comm_host_websocket_ws_rejected_streams{reason="version"}` (server side) and `fsc_view_services_comm_host_libp2p_rejected_streams{reason="version"}` (see [Metrics](../monitoring_metrics.md)). They are counted by the transport, not by the view P2P service: the preamble is checked before any `ViewPacket` is read, and a peer of another epoch may not read our `ViewPacket` framing.
+
 ### Error replies a node sends unasked
 
 A first message, one that reaches the master session, either starts a responder view or is answered with an error the initiator did not ask for. The view P2P service (`platform/view/services/view/p2p`) sends every such error through one path:

@@ -12,12 +12,18 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 
 	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 )
 
 type stream struct {
 	network.Stream
 	info commhost.StreamInfo
+	// preamble is the peer's, read when the stream opened; nil on viewProtocol.
+	preamble *preamble.Preamble
 }
+
+// Preamble implements commhost.PreambleStream.
+func (s *stream) Preamble() *preamble.Preamble { return s.preamble }
 
 func (s *stream) RemotePeerID() commhost.PeerID {
 	return s.Conn().RemotePeer().String()

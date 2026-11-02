@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -78,6 +79,8 @@ type P2PNode struct {
 	streamReaderBufferSize     int
 	maxRecvMsgSize             int
 	maxSendMsgSize             int
+	// streamSeq numbers stream handlers in creation order.
+	streamSeq atomic.Uint64
 	// sharedStreams is set when the host multiplexes many sessions on one stream, see host.SharedStreamsHost.
 	sharedStreams bool
 }
@@ -360,6 +363,10 @@ func (p *P2PNode) handleStream(stream host.P2PStream) *streamHandler {
 		reader: io.NewVarintProtoReader(stream, p.streamReaderBufferSize, p.maxRecvMsgSize),
 		writer: io.NewVarintProtoWriter(stream, p.maxSendMsgSize),
 		node:   p,
+		seq:    p.streamSeq.Add(1),
+	}
+	if ps, ok := stream.(host.PreambleStream); ok {
+		sh.preamble = ps.Preamble()
 	}
 
 	streamHash := stream.Hash()
@@ -381,6 +388,27 @@ func (p *P2PNode) handleStream(stream host.P2PStream) *streamHandler {
 	return sh
 }
 
+// PeerPreamble returns the preamble that peerID, a remote peer ID as the transport
+// authenticated it, sent on the most recently opened of its live streams. ok is false when no
+// live stream to peerID carries a preamble: there is no such stream, or the peer runs a release
+// that sends none. Replicas of one node share its peer ID and may run different releases while
+// it upgrades, so the result describes the replica of the newest stream.
+// ponytail: per peer and a scan of every live stream; expose the session stream's preamble
+// when negotiation needs it, and index by peer ID if this is called per message.
+func (p *P2PNode) PeerPreamble(peerID host.PeerID) (pre *preamble.Preamble, ok bool) {
+	p.streamsMutex.RLock()
+	defer p.streamsMutex.RUnlock()
+	var newest uint64
+	for _, handlers := range p.streams {
+		for _, sh := range handlers {
+			if sh.preamble != nil && sh.stream.RemotePeerID() == peerID && sh.seq >= newest {
+				pre, newest, ok = sh.preamble, sh.seq, true
+			}
+		}
+	}
+	return pre, ok
+}
+
 func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 	return p.host.Lookup(peerID)
 }
@@ -395,6 +423,10 @@ type streamHandler struct {
 	refCtr atomic.Int64
 	closed atomic.Bool
 	dead   atomic.Bool
+	// preamble is what the peer sent when the stream opened, nil if it sent none.
+	preamble *preamble.Preamble
+	// seq orders stream handlers by creation, so PeerPreamble returns the newest.
+	seq uint64
 }
 
 func (s *streamHandler) isClosed() bool {

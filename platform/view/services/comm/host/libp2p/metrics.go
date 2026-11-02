@@ -26,16 +26,29 @@ var (
 		Help:       "The amount of data received.",
 		LabelNames: []string{PeerId, ProtocolId},
 	}
+	rejectedStreams = viewmetrics.CounterOpts{
+		Name:       "rejected_streams",
+		Help:       "The number of streams refused, by reason.",
+		LabelNames: []string{reasonLabel},
+	}
+)
+
+const (
+	reasonLabel = "reason"
+	// versionReason labels streams refused because of the peer's preamble.
+	versionReason = "version"
 )
 
 type metrics struct {
-	BytesSent     viewmetrics.Counter
-	BytesReceived viewmetrics.Counter
+	BytesSent       viewmetrics.Counter
+	BytesReceived   viewmetrics.Counter
+	RejectedStreams viewmetrics.Counter
 }
 
 func newMetrics(p viewmetrics.Provider) *metrics {
 	return &metrics{
-		BytesSent:     p.NewCounter(bytesSent),
-		BytesReceived: p.NewCounter(bytesReceived),
+		BytesSent:       p.NewCounter(bytesSent),
+		BytesReceived:   p.NewCounter(bytesReceived),
+		RejectedStreams: p.NewCounter(rejectedStreams),
 	}
 }

@@ -23,6 +23,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
@@ -256,11 +257,17 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	c.dialing[key] = inFlight
 	c.mu.Unlock()
 
-	wsConn, err := client.OpenWSClientConnContextWithLimit(ctx, urlStr, config, wireReadLimit(c.MaxRecvMsgSize))
+	wsConn, header, err := client.OpenWSClientConnWithHeader(ctx, urlStr, config, wireReadLimit(c.MaxRecvMsgSize))
+	var serverPre *preamble.Preamble
 	if err == nil && config != nil {
-		if err = verifyServerPeerID(wsConn, info.RemotePeerID); err != nil {
-			_ = wsConn.Close()
-		}
+		err = verifyServerPeerID(wsConn, info.RemotePeerID)
+	}
+	if err == nil {
+		// Read only after the server's certificate is bound to the dialed peer ID.
+		serverPre, err = serverPreamble(info.RemotePeerID, header)
+	}
+	if err != nil && wsConn != nil {
+		_ = wsConn.Close()
 	}
 	if err != nil {
 		logger.Errorf("Failed to open websocket connection from [%s] to [%s@%s]: %s", src, info.RemotePeerID, info.RemotePeerAddress, err.Error())
@@ -289,6 +296,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 		}
 		delete(c.retired, conn)
 	})
+	conn.preamble = serverPre
 	if c.closed {
 		delete(c.dialing, key)
 		close(inFlight.done)
@@ -350,7 +358,7 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 		return errors.Wrap(err, "failed extracting expected peerID from TLS certificate")
 	}
 
-	conn, err := server.OpenWSServerConnWithLimit(writer, request, wireReadLimit(c.MaxRecvMsgSize))
+	conn, err := server.OpenWSServerConnWithHeader(writer, request, wireReadLimit(c.MaxRecvMsgSize), localPreambleHeader())
 	if err != nil {
 		return errors.Wrap(err, "failed to open websocket")
 	}
@@ -378,6 +386,9 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 
 type multiplexedClientConn struct {
 	*multiplexedBaseConn
+	// preamble is the server's, from the upgrade response; nil if it sent none. It is set
+	// before the connection is published to other goroutines and never changes.
+	preamble *preamble.Preamble
 }
 
 func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, keepalive Keepalive, onClose func()) *multiplexedClientConn {
@@ -402,6 +413,7 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host.P
 		SessionID:   info.SessionID,
 		PeerID:      src,
 		SpanContext: marshalledSpanContext,
+		Preamble:    preamble.LocalBytes(),
 	})
 	if err != nil {
 		return nil, err
@@ -435,7 +447,9 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host.P
 	// otherwise tear down the sub-connection out from under subsequent, unrelated calls that
 	// reuse the same stream. We only propagate the span, as a local parent, for tracing
 	// purposes.
-	return newStreamWithLimit(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info, c.maxSendMsgSize), nil
+	s := newStreamWithLimit(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info, c.maxSendMsgSize)
+	s.preamble = c.preamble
+	return s, nil
 }
 
 func (c *multiplexedClientConn) readIncoming() {
@@ -590,6 +604,15 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 		_ = c.Kill()
 		return
 	}
+	clientPre, err := peerPreamble(meta.PeerID, meta.Preamble)
+	if err != nil {
+		logger.Warnf("rejecting websocket sub-connection [%s] from [%s]: %v", mm.ID, meta.PeerID, err)
+		c.closing[mm.ID] = struct{}{}
+		c.mu.Unlock()
+		c.m.RejectedStreams.With(reasonLabel, versionReason).Add(1)
+		_ = c.write(MultiplexedMessage{ID: mm.ID, Err: err.Error()})
+		return
+	}
 	logger.Debugf("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, meta.SpanContext)
 	// Propagating the request context will not make a difference (see comment in SimpleProvider.NewClientStream)
 	spanContext := remoteSpanContext(&meta)
@@ -602,12 +625,14 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	logger.Debugf("Created server subconn with id [%s]", sc.id)
 
 	logger.Debugf("Accepted stream with remote span context: %v", spanContext)
-	newStreamCallback(newStreamWithLimit(&subConnWithSpan{subConn: sc, span: span}, ctx, host.StreamInfo{
+	s := newStreamWithLimit(&subConnWithSpan{subConn: sc, span: span}, ctx, host.StreamInfo{
 		RemotePeerID:      meta.PeerID,
 		RemotePeerAddress: c.conn.RemoteAddr().String(),
 		ContextID:         meta.ContextID,
 		SessionID:         meta.SessionID,
-	}, c.maxSendMsgSize))
+	}, c.maxSendMsgSize)
+	s.preamble = clientPre
+	newStreamCallback(s)
 } //nolint:spancheck // span is handed off to subConnWithSpan, whose Close() ends it
 
 type multiplexedBaseConn struct {
