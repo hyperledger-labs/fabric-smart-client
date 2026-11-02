@@ -8,11 +8,13 @@ package common
 
 import (
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -112,4 +114,163 @@ func TestManyManyPutBindingsCommon(t *testing.T, db *BindingStore) {
 	}
 	err := db.PutBindings(ctx, longTerm, e...)
 	require.Error(t, err)
+}
+
+// TestPutBindingsRefusesKnownLongTermAsEphemeralCommon checks that PutBindings refuses to bind
+// an identity with a self-row as an ephemeral, and still writes the other ephemerals of the call.
+func TestPutBindingsRefusesKnownLongTermAsEphemeralCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory := view.Identity("alice"), view.Identity("mallory")
+	require.NoError(t, db.PutBindings(ctx, alice, view.Identity("alice-eph")))
+
+	err := db.PutBindings(ctx, mallory, alice, view.Identity("mallory-eph"))
+	require.ErrorIs(t, err, driver.ErrBindingRefused)
+
+	lt, err := db.GetLongTerm(ctx, alice)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+	lt, err = db.GetLongTerm(ctx, view.Identity("mallory-eph"))
+	require.NoError(t, err)
+	require.Equal(t, mallory, lt)
+}
+
+// TestPutBindingsConflictKeepsRowAndReturnsNilCommon checks that a conflicting bind keeps the
+// existing row and returns nil.
+func TestPutBindingsConflictKeepsRowAndReturnsNilCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	x := view.Identity("x")
+	require.NoError(t, db.PutBindings(ctx, view.Identity("alice"), x))
+	require.NoError(t, db.PutBindings(ctx, view.Identity("bob"), x))
+
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Equal(t, view.Identity("alice"), lt)
+}
+
+// TestPutBindingsDoesNotFollowRemoteRedirectCommon checks that a redirect of a long-term
+// identity cannot be stored, so later binds to that long term are not redirected. The self-row
+// check refuses the redirect before canonicalLongTerm is reached; a redirect row that already
+// exists is covered by TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon.
+func TestPutBindingsDoesNotFollowRemoteRedirectCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
+	require.NoError(t, db.PutBindings(ctx, alice, view.Identity("alice-eph")))
+	require.ErrorIs(t, db.PutBindings(ctx, mallory, alice), driver.ErrBindingRefused)
+
+	require.NoError(t, db.PutBindings(ctx, alice, x))
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+}
+
+// TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon checks that PutBindings does not follow a
+// row binding a long term to an identity without a self-row. Both write paths always store the
+// long term's self-row, so such a row exists only if an earlier release wrote it; the test plants
+// it with SQL.
+func TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
+	query, args := sqlbuild.New().
+		WriteString("INSERT INTO " + db.table + " (ephemeral_hash, long_term_id) VALUES ").
+		WriteTuples([]sqlbuild.Tuple{{alice.UniqueID(), mallory}}).
+		Build()
+	_, err := db.writeDB.ExecContext(ctx, query, args...)
+	require.NoError(t, err)
+
+	require.NoError(t, db.PutBindings(ctx, alice, x))
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+}
+
+// TestReplaceBindingReplacesPlantedRowCommon checks that ReplaceBinding overwrites an existing
+// binding of the ephemeral and refuses an ephemeral with a self-row.
+func TestReplaceBindingReplacesPlantedRowCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
+	require.NoError(t, db.PutBindings(ctx, mallory, x))
+
+	require.NoError(t, db.ReplaceBinding(ctx, alice, x))
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+	lt, err = db.GetLongTerm(ctx, alice)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+
+	require.ErrorIs(t, db.ReplaceBinding(ctx, mallory, alice), driver.ErrBindingRefused)
+	lt, err = db.GetLongTerm(ctx, alice)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+
+	// a long term bound to another long term keeps that binding
+	aliceMSP, y := view.Identity("alice-msp"), view.Identity("y")
+	require.NoError(t, db.PutBindings(ctx, alice, aliceMSP))
+	require.NoError(t, db.ReplaceBinding(ctx, aliceMSP, y))
+	lt, err = db.GetLongTerm(ctx, aliceMSP)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+}
+
+// TestPutBindingsConcurrentSameEphemeralCommon checks that concurrent binds of one ephemeral to
+// different long terms all return nil and leave exactly one of them bound.
+func TestPutBindingsConcurrentSameEphemeralCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	x := view.Identity("x")
+	longTerms := []view.Identity{view.Identity("alice"), view.Identity("bob")}
+
+	var wg sync.WaitGroup
+	errs := make([]error, len(longTerms))
+	for i, lt := range longTerms {
+		wg.Go(func() { errs[i] = db.PutBindings(ctx, lt, x) })
+	}
+	wg.Wait()
+	for _, err := range errs {
+		require.NoError(t, err)
+	}
+
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Contains(t, longTerms, lt)
+}
+
+// TestPutBindingsUnknownLongTermIsFirstWriteWinsCommon pins the limit of unproven binds: an
+// identity with neither a self-row nor a resolver can be bound as another party's ephemeral, and
+// later binds to it then follow that binding.
+func TestPutBindingsUnknownLongTermIsFirstWriteWinsCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
+	require.NoError(t, db.PutBindings(ctx, mallory, alice))
+
+	require.NoError(t, db.PutBindings(ctx, alice, x))
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Equal(t, mallory, lt)
+}
+
+// TestReplaceBindingDoesNotFollowPlantedRedirectCommon checks that ReplaceBinding binds the
+// ephemeral to the given long term, not to the identity a planted row binds that long term to.
+func TestReplaceBindingDoesNotFollowPlantedRedirectCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
+	require.NoError(t, db.PutBindings(ctx, mallory, alice))
+
+	require.NoError(t, db.ReplaceBinding(ctx, alice, x))
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+}
+
+// TestReplaceBindingDoesNotRepairPlantedLongTermRowCommon pins that ReplaceBinding leaves a
+// planted row on the long-term identity itself in place: it writes longTerm's self-row with
+// ON CONFLICT DO NOTHING, so only the operator check of the upgrade guide removes such a row.
+func TestReplaceBindingDoesNotRepairPlantedLongTermRowCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
+	require.NoError(t, db.PutBindings(ctx, mallory, alice))
+
+	require.NoError(t, db.ReplaceBinding(ctx, alice, x))
+	lt, err := db.GetLongTerm(ctx, alice)
+	require.NoError(t, err)
+	require.Equal(t, mallory, lt)
 }

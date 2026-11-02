@@ -43,3 +43,57 @@ func TestManyManyPutBindingsSqlite(t *testing.T) {
 	db := newBindingStoreForTests(t)
 	common.TestManyManyPutBindingsCommon(t, db.BindingStore)
 }
+
+func TestPutBindingsRefusesKnownLongTermAsEphemeralSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsRefusesKnownLongTermAsEphemeralCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsConflictKeepsRowAndReturnsNilSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsConflictKeepsRowAndReturnsNilCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsDoesNotFollowRemoteRedirectSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsDoesNotFollowRemoteRedirectCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsDoesNotFollowPreUpgradeRedirectSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon(t, db.BindingStore)
+}
+
+func TestReplaceBindingReplacesPlantedRowSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestReplaceBindingReplacesPlantedRowCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsConcurrentSameEphemeralSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsConcurrentSameEphemeralCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsUnknownLongTermIsFirstWriteWinsSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsUnknownLongTermIsFirstWriteWinsCommon(t, db.BindingStore)
+}
+
+func TestReplaceBindingDoesNotFollowPlantedRedirectSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestReplaceBindingDoesNotFollowPlantedRedirectCommon(t, db.BindingStore)
+}
+
+func TestReplaceBindingDoesNotRepairPlantedLongTermRowSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestReplaceBindingDoesNotRepairPlantedLongTermRowCommon(t, db.BindingStore)
+}

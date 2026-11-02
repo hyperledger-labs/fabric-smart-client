@@ -40,3 +40,57 @@ func TestManyManyPutBindingsPostgres(t *testing.T) {
 	db := newBindingStoreForTests(t)
 	common.TestManyManyPutBindingsCommon(t, db.BindingStore)
 }
+
+func TestPutBindingsRefusesKnownLongTermAsEphemeralPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsRefusesKnownLongTermAsEphemeralCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsConflictKeepsRowAndReturnsNilPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsConflictKeepsRowAndReturnsNilCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsDoesNotFollowRemoteRedirectPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsDoesNotFollowRemoteRedirectCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsDoesNotFollowPreUpgradeRedirectPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon(t, db.BindingStore)
+}
+
+func TestReplaceBindingReplacesPlantedRowPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestReplaceBindingReplacesPlantedRowCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsConcurrentSameEphemeralPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsConcurrentSameEphemeralCommon(t, db.BindingStore)
+}
+
+func TestPutBindingsUnknownLongTermIsFirstWriteWinsPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsUnknownLongTermIsFirstWriteWinsCommon(t, db.BindingStore)
+}
+
+func TestReplaceBindingDoesNotFollowPlantedRedirectPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestReplaceBindingDoesNotFollowPlantedRedirectCommon(t, db.BindingStore)
+}
+
+func TestReplaceBindingDoesNotRepairPlantedLongTermRowPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestReplaceBindingDoesNotRepairPlantedLongTermRowCommon(t, db.BindingStore)
+}

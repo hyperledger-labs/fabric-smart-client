@@ -47,8 +47,10 @@ func TestPut_MapsConnectionLoss(t *testing.T) {
 			},
 		},
 		"PutBindings": {
-			// The long-term identity is resolved first; it is not bound yet.
+			// The long-term identity is resolved first, then the ephemeral is checked for a
+			// self-row; neither is bound yet.
 			expect: func(m sqlmock.Sqlmock) {
+				m.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"long_term_id"}))
 				m.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"long_term_id"}))
 			},
 			put: func(ctx context.Context, db *sql.DB) error {

@@ -19,6 +19,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 	viewendpoint "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	memory "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -475,4 +477,89 @@ func TestLoadResolvers_Success(t *testing.T) {
 		require.NoError(t, loader.LoadResolvers())
 		assert.Equal(t, []string{"alias1", "alias2"}, boundAliases)
 	})
+}
+
+// newCertFile writes a fresh certificate to a temporary file and returns its path.
+func newCertFile(t *testing.T) string {
+	t.Helper()
+	ca, err := tlsgen.NewCA()
+	require.NoError(t, err)
+	kp, err := ca.NewServerCertKeyPair("127.0.0.1")
+	require.NoError(t, err)
+	certFile := filepath.Join(t.TempDir(), "cert.crt")
+	require.NoError(t, os.WriteFile(certFile, kp.Cert, 0o600))
+	return certFile
+}
+
+// aliasConfig configures fsc.id node1 and one resolver named responder with alias bob.
+func aliasConfig(certFile string) *mockConfig {
+	return &mockConfig{
+		values: map[string]string{
+			"fsc.p2p.listenAddress": "/ip4/127.0.0.1/tcp/9000",
+			"fsc.id":                "node1",
+			"fsc.grpc.address":      "127.0.0.1:9001",
+		},
+		isSet: map[string]bool{"fsc.endpoint.resolvers": true},
+		unmarshalFn: func(_ string, val any) error {
+			*val.(*[]*entry) = []*entry{{
+				Name:      "responder",
+				Domain:    "fsc.example.com",
+				Identity:  Identity{Path: certFile},
+				Addresses: map[string]string{"P2P": "127.0.0.1:9100"},
+				Aliases:   []string{"bob"},
+			}}
+			return nil
+		},
+	}
+}
+
+// Aliases bound right after their resolver is added are stored, and resolve to the resolver.
+func TestResolverStartupWithAliases(t *testing.T) {
+	t.Parallel()
+	certFile := newCertFile(t)
+	store, err := memory.NewDriver().NewBinding("", t.Name())
+	require.NoError(t, err)
+	svc, err := viewendpoint.NewService(store)
+	require.NoError(t, err)
+
+	loader, err := NewResolversLoader(aliasConfig(certFile), svc, &mockIdentityService{defaultID: view.Identity("def-id")})
+	require.NoError(t, err)
+	require.NoError(t, loader.LoadResolvers())
+
+	responder, err := id.LoadIdentity(certFile)
+	require.NoError(t, err)
+	lt, err := store.GetLongTerm(t.Context(), view.Identity("bob"))
+	require.NoError(t, err)
+	require.Equal(t, view.Identity(responder), lt)
+	resolved, _, _, err := svc.Resolve(t.Context(), view.Identity("bob"))
+	require.NoError(t, err)
+	require.Equal(t, view.Identity(responder), resolved)
+}
+
+// A node restarted after a remote node rotated its certificate starts, although the alias rows
+// in its binding store still point at the old certificate.
+func TestResolverStartupWithStaleAliasRows(t *testing.T) {
+	t.Parallel()
+	store, err := memory.NewDriver().NewBinding("", t.Name())
+	require.NoError(t, err)
+
+	oldCert := newCertFile(t)
+	svc, err := viewendpoint.NewService(store)
+	require.NoError(t, err)
+	loader, err := NewResolversLoader(aliasConfig(oldCert), svc, &mockIdentityService{defaultID: view.Identity("def-id")})
+	require.NoError(t, err)
+	require.NoError(t, loader.LoadResolvers())
+
+	newCert := newCertFile(t)
+	svc, err = viewendpoint.NewService(store)
+	require.NoError(t, err)
+	loader, err = NewResolversLoader(aliasConfig(newCert), svc, &mockIdentityService{defaultID: view.Identity("def-id")})
+	require.NoError(t, err)
+	require.NoError(t, loader.LoadResolvers())
+
+	rotated, err := id.LoadIdentity(newCert)
+	require.NoError(t, err)
+	resolved, _, _, err := svc.Resolve(t.Context(), view.Identity("bob"))
+	require.NoError(t, err)
+	require.Equal(t, view.Identity(rotated), resolved)
 }

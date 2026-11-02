@@ -425,6 +425,11 @@ func (t *testBindingStore) PutBindings(_ context.Context, longTerm view.Identity
 	return nil
 }
 
+func (t *testBindingStore) ReplaceBinding(_ context.Context, longTerm, ephemeral view.Identity) error {
+	t.bindings[string(ephemeral)] = longTerm
+	return nil
+}
+
 type testLocalMembership struct {
 	defaultIdentity view.Identity
 	byLabel         map[string]view.Identity

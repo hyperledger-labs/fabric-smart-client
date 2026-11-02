@@ -238,6 +238,11 @@ func (p *SDK) Install() error {
 		return err
 	}
 
+	// Bind and BindProven report refused and conflicting bindings to the node's rejections counter.
+	if err := p.Container().Invoke(func(s *endpoint.Service, rj *security.Rejections) { s.SetRejections(rj) }); err != nil {
+		return err
+	}
+
 	// Load endpoint service's resolvers
 	if err := p.Container().Invoke(func(resolverService *digendpoint.ResolversLoader) error { return resolverService.LoadResolvers() }); err != nil {
 		return err

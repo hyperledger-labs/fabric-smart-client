@@ -84,6 +84,49 @@ counted as a rejection. If the node received a channel configuration and refused
 returns an error wrapping `driver.ErrConfigRejected`, also not counted; a retry does not clear it,
 so surface it to the operator instead of retrying.
 
+## Identity bindings
+
+The endpoint service resolves an identity a node does not know directly, such as a recipient
+identity a remote party sent, through the binding store: a table that maps each such ephemeral
+identity to the long-term identity of the party that owns it. A long-term identity is bound to
+itself (its self-row). Which party an identity resolves to decides where messages for it are sent
+and whose signature counts for it, so the store and `endpoint.Service`
+(`platform/view/services/endpoint/service.go`) apply these rules:
+
+- **No redirect.** A known long-term identity is never stored as the ephemeral of another
+  identity. A known long-term identity is one that has a self-row, or that is the identity of a
+  registered resolver; a resolver's name, aliases and addresses do not count. Binding one would
+  redirect every later lookup of that identity, and every later bind to it, to another party. The
+  store's `PutBindings` and `ReplaceBinding` refuse such an ephemeral with an error wrapping
+  `driver.ErrBindingRefused` and write no row for it; the other ephemerals of a `PutBindings` call
+  are still bound.
+- **Unproven binds do not take over.** `Service.Bind` keeps the existing row for an ephemeral that
+  is already bound to a different long-term identity. Both a conflict and a refusal are counted
+  once per ephemeral, as `binding_conflict` and `binding_refused` (see
+  [Security metrics](services/monitoring_metrics.md#security)), and logged at warn level, at most
+  one line per kind per second. `Bind` still returns nil, so
+  configuration-driven binds at startup and application binds keep working.
+- **Proven binds win.** `Service.BindProven` is for callers that verified that the long-term
+  identity proved ownership of the ephemeral. It binds the ephemeral to exactly that long-term
+  identity, never to an identity the long term is itself bound to, replaces an existing binding of
+  the ephemeral, logs the replacement at warn level, and returns the `ErrBindingRefused` error for
+  a known long-term identity. A proven bind therefore replaces a row another party planted for
+  the proven ephemeral. It does not repair a planted row on the long-term identity itself: the
+  long term's self-row is written only if the long term has no row yet. Binds never remove such a
+  row; the operator check in the [upgrade guide](../../upgrade/v0.27-to-v0.28.md#binding-store)
+  does.
+
+The no-redirect rule protects only identities the node already knows. An identity with neither a
+self-row nor a resolver, such as a party this node has not exchanged with yet, can be bound as
+another party's ephemeral by an unproven `Bind`, and later unproven binds to it then resolve to
+that party: the first write wins. Proven binds are the protection against this. `BindProven` is
+not redirected by such a row, so the recipient exchange, which binds after a proof of ownership,
+stores the correct owner.
+
+`Bind` itself does not check ownership. Binding an identity received from a remote party is a
+trust decision: call `Bind` only for identities from local configuration or for which the caller
+holds a proof of ownership.
+
 ## Best Practices
 
 ### 1. Strict View Code Review

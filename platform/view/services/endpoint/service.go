@@ -13,11 +13,14 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -115,6 +118,8 @@ type Service struct {
 	resolversMutex sync.RWMutex
 	bindingKVS     cdriver.BindingStore
 
+	rejectionsCounter atomic.Pointer[security.Rejections]
+
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []PublicKeyExtractor
 	publicKeyIDSynthesizer PublicKeyIDSynthesizer
@@ -170,21 +175,131 @@ func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver,
 
 // Bind associates ephemeral identities with a long-term identity in the binding store.
 // Identities that are equal to the longTerm identity are filtered out.
+//
+// Binding an identity a remote party sent is a trust decision: the binding decides which party
+// that identity resolves to, so the caller must hold proof that longTerm owns each ephemeral, or
+// bind only identities from local configuration. Bind does not let a bind take over an existing
+// binding: an ephemeral already bound to another long-term identity keeps that binding, and the
+// conflict is counted as security.KindBindingConflict. Bind never binds a known long-term
+// identity, the identity of a registered resolver or an identity the store holds as a long-term
+// identity, as an ephemeral, since that would redirect it to longTerm; such an ephemeral is not
+// bound, and the refusal is counted as security.KindBindingRefused. Both counts are per
+// ephemeral, so a call with two refused ephemerals counts two refusals. Conflicts and refusals are
+// not errors: Bind returns an error only if the store fails. Use BindProven to replace an
+// existing binding once ownership is proven.
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs ...view.Identity) error {
-	// filter out any identities equal to the longTerm identity
-	var toBind []view.Identity
-	for _, id := range ephemeralIDs {
-		if !longTerm.Equal(id) {
-			toBind = append(toBind, id)
-		}
+	toBind, refused := r.splitBindable(longTerm, ephemeralIDs)
+	for range refused {
+		r.reportRefused(ctx, longTerm)
 	}
 	if len(toBind) == 0 {
 		return nil
 	}
-	if err := r.bindingKVS.PutBindings(ctx, longTerm, toBind...); err != nil {
-		return errors.WithMessage(err, "failed storing bindings")
+	storeErr := r.bindingKVS.PutBindings(ctx, longTerm, toBind...)
+	if storeErr != nil && !errors.Is(storeErr, driver.ErrBindingRefused) {
+		return errors.WithMessage(storeErr, "failed storing bindings")
+	}
+
+	for _, id := range toBind {
+		lt, err := r.bindingKVS.GetLongTerm(ctx, id)
+		if err != nil {
+			return errors.WithMessagef(err, "failed reading binding of [%s]", id)
+		}
+		// An ephemeral the store refused keeps its self-row; count each one, like resolver
+		// refusals. An ephemeral that is the long term longTerm is bound to is dropped, not refused.
+		if lt.Equal(id) {
+			if storeErr != nil && !r.sameLongTerm(ctx, id, longTerm) {
+				r.reportRefused(ctx, longTerm)
+			}
+			continue
+		}
+		if !lt.IsNone() && !lt.Equal(longTerm) && !r.sameLongTerm(ctx, lt, longTerm) {
+			r.rejections().Report(ctx, security.KindBindingConflict, longTerm, "", "ephemeral already bound to another long-term identity")
+		}
 	}
 	return nil
+}
+
+// BindProven binds ephemeral to exactly longTerm, replacing any existing binding of ephemeral,
+// and does not resolve longTerm through a binding of its own. It must
+// only be called after verifying that longTerm proved ownership of ephemeral, since it lets the
+// caller take over an identity bound to another party. Like Bind, it refuses a known long-term
+// identity as ephemeral, counting security.KindBindingRefused, and in that case returns an error
+// wrapping driver.ErrBindingRefused. An ephemeral equal to longTerm is not bound.
+func (r *Service) BindProven(ctx context.Context, longTerm, ephemeral view.Identity) error {
+	toBind, refused := r.splitBindable(longTerm, []view.Identity{ephemeral})
+	if len(refused) != 0 {
+		r.reportRefused(ctx, longTerm)
+		return errors.Wrapf(driver.ErrBindingRefused, "[%s] is the identity of a resolver", ephemeral)
+	}
+	if len(toBind) == 0 {
+		return nil
+	}
+	previous, err := r.bindingKVS.GetLongTerm(ctx, ephemeral)
+	if err != nil {
+		return errors.WithMessagef(err, "failed reading binding of [%s]", ephemeral)
+	}
+	// not atomic with the checks above; safe because the caller proved ownership of ephemeral
+	if err := r.bindingKVS.ReplaceBinding(ctx, longTerm, ephemeral); err != nil {
+		if errors.Is(err, driver.ErrBindingRefused) {
+			r.reportRefused(ctx, longTerm)
+		}
+		return errors.WithMessage(err, "failed storing binding")
+	}
+	current, err := r.bindingKVS.GetLongTerm(ctx, ephemeral)
+	if err != nil {
+		return errors.WithMessagef(err, "failed reading binding of [%s]", ephemeral)
+	}
+	if !previous.IsNone() && !previous.Equal(current) {
+		logger.WarnfContext(ctx, "proven binding of [%s] to [%s] replaced its binding to [%s]", ephemeral, current, previous)
+	}
+	return nil
+}
+
+// SetRejections sets the counter Bind and BindProven report refused and conflicting bindings to.
+// Without one, the reports are discarded.
+func (r *Service) SetRejections(rj *security.Rejections) { r.rejectionsCounter.Store(rj) }
+
+func (r *Service) rejections() *security.Rejections {
+	if rj := r.rejectionsCounter.Load(); rj != nil {
+		return rj
+	}
+	return security.GetRejections(noServices{})
+}
+
+// noServices is a services.Provider without services.
+type noServices struct{}
+
+func (noServices) GetService(any) (any, error) { return nil, ErrNotFound }
+
+// splitBindable drops the ephemerals equal to longTerm and separates those that are the identity
+// of a registered resolver, which must not be bound as ephemerals, from the others.
+func (r *Service) splitBindable(longTerm view.Identity, ephemeralIDs []view.Identity) (toBind, refused []view.Identity) {
+	r.resolversMutex.RLock()
+	defer r.resolversMutex.RUnlock()
+	for _, id := range ephemeralIDs {
+		if longTerm.Equal(id) {
+			continue
+		}
+		// resolversMap also indexes names, aliases and addresses, so match the resolver's ID
+		if res, ok := r.resolversMap[string(id)]; ok && len(id) != 0 && id.Equal(res.ID) {
+			refused = append(refused, id)
+			continue
+		}
+		toBind = append(toBind, id)
+	}
+	return toBind, refused
+}
+
+// reportRefused counts a refused bind; Rejections.Report writes the rate-limited warn line.
+func (r *Service) reportRefused(ctx context.Context, longTerm view.Identity) {
+	r.rejections().Report(ctx, security.KindBindingRefused, longTerm, "", "long-term identity bound as ephemeral")
+}
+
+// sameLongTerm reports whether a and b are bound to the same long-term identity.
+func (r *Service) sameLongTerm(ctx context.Context, a, b view.Identity) bool {
+	lt, err := r.bindingKVS.GetLongTerm(ctx, b)
+	return err == nil && lt.Equal(a)
 }
 
 // IsBoundTo checks if two identities are bound to the same long-term identity.
@@ -323,17 +438,17 @@ func (r *Service) AddResolver(
 	pkiID := r.PkiResolve(newResolver)
 
 	r.resolversMutex.Lock()
-	defer r.resolversMutex.Unlock()
-
 	// check again
 	resolver, ok = r.resolversMap[name]
-	if ok {
-		// Then bind
-		return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
+	if !ok {
+		r.appendResolver(newResolver, pkiID)
+		r.resolversMutex.Unlock()
+		return nil, nil
 	}
-
-	r.appendResolver(newResolver, pkiID)
-	return nil, nil
+	existingID := resolver.ID
+	// Bind takes resolversMutex itself, so it must run after the lock is released
+	r.resolversMutex.Unlock()
+	return existingID, r.Bind(context.Background(), existingID, id)
 }
 
 // RemoveResolver first check if a resolver is bound to the passed identity.
