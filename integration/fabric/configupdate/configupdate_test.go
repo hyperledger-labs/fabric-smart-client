@@ -45,18 +45,6 @@ func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.Repli
 // CONFIG block independently, so every one of them is asserted on.
 var allNodes = []string{"borrower", "lender", "approver1", "approver2"}
 
-// expectConfigSequence waits for every named node to report the given channel
-// configuration sequence. A CONFIG block reaches a node asynchronously over
-// delivery, so this polls rather than asserting once.
-func expectConfigSequence(s *TestSuite, expected int, nodes ...string) {
-	for _, node := range nodes {
-		gomega.Eventually(func(g gomega.Gomega) int {
-			return configupdate.ConfigSequenceOn(g, s.II, node)
-		}, 60*time.Second, time.Second).Should(gomega.Equal(expected),
-			"node [%s] never reported channel configuration sequence [%d]", node, expected)
-	}
-}
-
 // TestSucceeded drives the IOU flow across two channel configuration changes and a node
 // restart. Each IOU transaction after a change is the assertion: it needs the FSC nodes to
 // still hold a usable view of the channel — its MSPs, for endorsement and validation, and
@@ -75,7 +63,7 @@ func (s *TestSuite) TestSucceeded() {
 
 	// after the initial IOU flow, before any configuration change
 	By("checking every node starts from the genesis configuration")
-	expectConfigSequence(s, 0, allNodes...)
+	configupdate.ExpectConfigSequence(s.II, 0, allNodes...)
 
 	By("changing the channel configuration while the FSC nodes are running")
 	configupdate.SetBatchTimeout(s.II, 2*time.Second)
@@ -83,7 +71,7 @@ func (s *TestSuite) TestSucceeded() {
 
 	// after SetBatchTimeout(2 * time.Second)
 	By("checking every node applied the first configuration update")
-	expectConfigSequence(s, 1, allNodes...)
+	configupdate.ExpectConfigSequence(s.II, 1, allNodes...)
 
 	By("transacting again, which requires the nodes to have followed the change")
 	iou.UpdateIOU(s.II, iouState, 5, "approver2")
@@ -96,7 +84,7 @@ func (s *TestSuite) TestSucceeded() {
 
 	// after SetBatchTimeout(500 * time.Millisecond)
 	By("checking every node applied the second configuration update")
-	expectConfigSequence(s, 2, allNodes...)
+	configupdate.ExpectConfigSequence(s.II, 2, allNodes...)
 
 	iou.UpdateIOU(s.II, iouState, 3, "approver1")
 	iou.CheckState(s.II, "borrower", iouState, 3)
@@ -113,7 +101,7 @@ func (s *TestSuite) TestSucceeded() {
 
 	// after the borrower has been stopped and started again
 	By("checking the restarted node replayed both stored configuration transactions")
-	expectConfigSequence(s, 2, "borrower")
+	configupdate.ExpectConfigSequence(s.II, 2, "borrower")
 
 	By("transacting once more through the restarted node")
 	iou.UpdateIOU(s.II, iouState, 1, "approver2")

@@ -6,13 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 // Package configupdate drives Fabric-X channel configuration changes against a running
 // network, so that a test can observe how FSC nodes react to a configuration that changes
-// while they are up.
+// while they are up. The Fabric-x suites that change the channel configuration share it.
 //
 // The FSC-side path under test is platform/fabricx/core/channel/config: a
 // ChannelConfigMonitor polls the committer's query service for the latest configuration
 // transaction and, on seeing a new one, hands the envelope to membership.Service.Update
-// and reconfigures the ordering service from the new Orderer group. Until this suite
-// existed that loop only ever ran for a channel's genesis configuration.
+// and reconfigures the ordering service from the new Orderer group.
 package configupdate
 
 import (
@@ -30,10 +29,6 @@ import (
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	fxnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )
-
-// AllNodes names the FSC nodes in [Topology]. Each runs its own channel config monitor and
-// applies a configuration independently, so specs assert on all of them.
-var AllNodes = []string{"borrower", "lender", "approver1", "approver2"}
 
 // NetworkOf returns the network of the fabricx platform in the running infrastructure.
 // It aborts the running spec unless the infrastructure holds exactly one.
@@ -58,6 +53,13 @@ func NetworkOf(ii *integration.Infrastructure) *fxnetwork.Network {
 // [fabconfigupdate.ConfigSequenceOn].
 func ConfigSequenceOn(g gomega.Gomega, ii *integration.Infrastructure, node string) int {
 	return fabconfigupdate.ConfigSequenceOn(g, ii, node)
+}
+
+// ExpectConfigSequence waits until every node in nodes reports channel configuration
+// sequence want. The configseq view is the same as on Fabric, see
+// [fabconfigupdate.ExpectConfigSequence].
+func ExpectConfigSequence(ii *integration.Infrastructure, want int, nodes ...string) {
+	fabconfigupdate.ExpectConfigSequence(ii, want, nodes...)
 }
 
 // BatchTimeout returns the orderer BatchTimeout in the channel configuration the committer
@@ -117,7 +119,8 @@ func submit(n *fxnetwork.Network, current, updated *cb.Config, orgs ...string) {
 
 // unsupportedCapability is a capability name no fabric-x binary defines. Requiring it in
 // the Application group is refused by membership.capabilitiesSupported and accepted by the
-// committer, which never checks capability support -- the asymmetry TestRefused needs.
+// committer, which never checks capability support, so a spec can check that a node keeps
+// the configuration in force when it refuses a new one.
 const unsupportedCapability = "V99_0"
 
 // RequireUnsupportedCapability submits a channel configuration update that adds an

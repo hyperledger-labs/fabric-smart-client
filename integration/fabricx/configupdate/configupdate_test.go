@@ -13,6 +13,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	fxconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/configupdate"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/configupdate"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
@@ -57,18 +58,6 @@ func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.Re
 	})}
 }
 
-// expectConfigSequence waits for every named node to report the given channel
-// configuration sequence. A configuration reaches a node asynchronously, through the
-// config monitor's next poll, so this polls rather than asserting once.
-func expectConfigSequence(s *TestSuite, expected int, nodes ...string) {
-	for _, node := range nodes {
-		gomega.Eventually(func(g gomega.Gomega) int {
-			return configupdate.ConfigSequenceOn(g, s.II, node)
-		}, 60*time.Second, time.Second).Should(gomega.Equal(expected),
-			"node [%s] never reported channel configuration sequence [%d]", node, expected)
-	}
-}
-
 // TestSucceeded drives the IOU flow across three channel configuration changes, one of
 // which lands while a node is down.
 //
@@ -76,7 +65,7 @@ func expectConfigSequence(s *TestSuite, expected int, nodes ...string) {
 // Unanimity("Org1") and only approver1 is in Org1. approver2 is here to be asserted on,
 // not to endorse.
 func (s *TestSuite) TestSucceeded() {
-	n := configupdate.NetworkOf(s.II)
+	n := fxconfigupdate.NetworkOf(s.II)
 
 	InitApprover(s.II, "approver1")
 	InitApprover(s.II, "approver2")
@@ -88,14 +77,14 @@ func (s *TestSuite) TestSucceeded() {
 	CheckState(s.II, "lender", iouState, 10)
 
 	By("checking every node starts from the genesis configuration")
-	expectConfigSequence(s, 0, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 0, configupdate.AllNodes...)
 
 	By("changing the channel configuration while the FSC nodes are running")
-	configupdate.SetBatchTimeout(n, 2*time.Second)
-	gomega.Expect(configupdate.BatchTimeout(n)).To(gomega.Equal(2 * time.Second))
+	fxconfigupdate.SetBatchTimeout(n, 2*time.Second)
+	gomega.Expect(fxconfigupdate.BatchTimeout(n)).To(gomega.Equal(2 * time.Second))
 
 	By("checking every node applied the first configuration update")
-	expectConfigSequence(s, 1, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 1, configupdate.AllNodes...)
 
 	By("transacting again, which requires the nodes to have followed the change")
 	second := CreateIOU(s.II, 20, "approver1")
@@ -103,11 +92,11 @@ func (s *TestSuite) TestSucceeded() {
 	CheckState(s.II, "lender", second, 20)
 
 	By("changing the configuration a second time, so more than one update is on the ledger")
-	configupdate.SetBatchTimeout(n, 500*time.Millisecond)
-	gomega.Expect(configupdate.BatchTimeout(n)).To(gomega.Equal(500 * time.Millisecond))
+	fxconfigupdate.SetBatchTimeout(n, 500*time.Millisecond)
+	gomega.Expect(fxconfigupdate.BatchTimeout(n)).To(gomega.Equal(500 * time.Millisecond))
 
 	By("checking every node applied the second configuration update")
-	expectConfigSequence(s, 2, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 2, configupdate.AllNodes...)
 
 	third := CreateIOU(s.II, 30, "approver1")
 	CheckState(s.II, "borrower", third, 30)
@@ -120,12 +109,12 @@ func (s *TestSuite) TestSucceeded() {
 	// restarted node re-applies what it already had, but that a node absent for an update
 	// converges on the configuration it missed.
 	s.II.StopFSCNode("borrower")
-	configupdate.SetBatchTimeout(n, 3*time.Second)
-	gomega.Expect(configupdate.BatchTimeout(n)).To(gomega.Equal(3 * time.Second))
+	fxconfigupdate.SetBatchTimeout(n, 3*time.Second)
+	gomega.Expect(fxconfigupdate.BatchTimeout(n)).To(gomega.Equal(3 * time.Second))
 	s.II.StartFSCNode("borrower")
 
 	By("checking the node that was down caught up on the configuration it missed")
-	expectConfigSequence(s, 3, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 3, configupdate.AllNodes...)
 
 	By("transacting once more through the node that was down")
 	fourth := CreateIOU(s.II, 40, "approver1")
@@ -158,21 +147,21 @@ func (s *TestSuite) TestSucceeded() {
 // calls it synchronously on a one-second ticker, the next round starts as soon as the
 // previous one gives up. That is current behaviour, not a fault in this test.
 func (s *TestSuite) TestRefused() {
-	n := configupdate.NetworkOf(s.II)
+	n := fxconfigupdate.NetworkOf(s.II)
 
 	InitApprover(s.II, "approver1")
 
 	By("transacting on the channel's initial configuration")
 	iouState := CreateIOU(s.II, 10, "approver1")
 	CheckState(s.II, "borrower", iouState, 10)
-	expectConfigSequence(s, 0, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 0, configupdate.AllNodes...)
 
 	By("applying a configuration the nodes accept, so a stalled monitor fails here")
-	configupdate.SetBatchTimeout(n, 2*time.Second)
-	expectConfigSequence(s, 1, configupdate.AllNodes...)
+	fxconfigupdate.SetBatchTimeout(n, 2*time.Second)
+	fxconfigupdate.ExpectConfigSequence(s.II, 1, configupdate.AllNodes...)
 
 	By("submitting a configuration requiring a capability no node supports")
-	configupdate.RequireUnsupportedCapability(n)
+	fxconfigupdate.RequireUnsupportedCapability(n)
 
 	// Asserting that the committer accepted it is what stops this spec from passing for
 	// the wrong reason: were the committer to start refusing the capability itself, every
@@ -185,7 +174,7 @@ func (s *TestSuite) TestRefused() {
 	By("checking no node adopts it")
 	for _, node := range configupdate.AllNodes {
 		gomega.Consistently(func(g gomega.Gomega) int {
-			return configupdate.ConfigSequenceOn(g, s.II, node)
+			return fxconfigupdate.ConfigSequenceOn(g, s.II, node)
 		}, 10*time.Second, time.Second).Should(gomega.Equal(1),
 			"node [%s] adopted a configuration it cannot support", node)
 	}

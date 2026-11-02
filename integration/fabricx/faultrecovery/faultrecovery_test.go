@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	fxconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/configupdate"
 	fxfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -68,6 +69,64 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 	faultrecovery.HostileSpecs(s)
+
+	It("applies a config update made while down", func() {
+		n := fxconfigupdate.NetworkOf(s.II)
+		original := fxconfigupdate.BatchTimeout(n)
+		before := fxconfigupdate.ConfigSequenceOn(Default, s.II, "bob")
+
+		// Bob endorses the tx, then misses the configuration change and the tx's commit.
+		// The mock orderer ignores BatchTimeout, so changing it leaves ordering alone.
+		tx := faultrecovery.Endorse(s.II, 1)
+		s.II.StopFSCNode("bob")
+		fxconfigupdate.SetBatchTimeout(n, original+500*time.Millisecond)
+		faultrecovery.Order(s.II, tx)
+		s.II.StartFSCNode("bob")
+
+		// Bob's channel config monitor reads the new configuration from the committer's
+		// query service on its next poll and applies it, so the sequence moves on bob too.
+		fxconfigupdate.ExpectConfigSequence(s.II, before+1, "bob", "alice")
+		faultrecovery.WaitFinal(s.II, tx.TxID)
+		// A new tx needs bob to endorse it on the new configuration.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+
+		// Leave the shared network's BatchTimeout as this spec found it.
+		fxconfigupdate.SetBatchTimeout(n, original)
+		fxconfigupdate.ExpectConfigSequence(s.II, before+2, "alice", "bob")
+	})
+
+	It("resumes commits after Postgres restart", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+
+		// Endorsing writes to bob's database, so the txs are endorsed before the outage
+		// and ordered during it.
+		txs := make([]*views.Endorsed, 3)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+
+		s.II.StopPostgres(db)
+		// Starting a running container does nothing, so this is safe once the spec has
+		// restarted the database, and brings it back if the spec fails during the outage.
+		DeferCleanup(s.II.StartPostgres, db)
+		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
+		txIDs := make([]string, len(txs))
+		for i, tx := range txs {
+			txIDs[i] = faultrecovery.Order(s.II, tx)
+		}
+
+		// A Fabric-x node learns finality from the committer's notification and query
+		// services, not from its own database, so bob settles the txs while its database is
+		// still down.
+		for i, txID := range txIDs {
+			faultrecovery.ExpectSettled(s.II, "bob", txID, i)
+		}
+
+		s.II.StartPostgres(db)
+		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
+		// Endorsing writes to bob's database, so a new tx commits only once it is back.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
 
 	It("survives committer restart", func() {
 		committer := nwofabricx.FxPlatform(s.II)
