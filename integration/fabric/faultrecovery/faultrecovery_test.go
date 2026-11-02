@@ -778,7 +778,10 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 			p.SetLatency(500 * time.Millisecond)
 			DeferCleanup(p.SetLatency, time.Duration(0))
 		}
+		start := time.Now()
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+		// The broadcast alone passes one delayed chunk, so the latency was in effect.
+		Expect(time.Since(start)).To(BeNumerically(">=", 500*time.Millisecond))
 
 		// The ordering endpoints in the channel configuration are the proxies, so the
 		// broadcast and the peers' block pulls went through them.

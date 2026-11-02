@@ -328,8 +328,9 @@ nwo leaves keepalive off for every other node, and without it a silent partition
 delivery peer is never detected. Each spec there heals the proxy it partitions.
 
 The Fabric-x suite's `partition` `Describe` calls its own `SetFaultProxies`, which puts a
-proxy in front of the committer's notification and query services and points bob's
-`core.yaml` at them. It turns on the keepalive of bob's notification service
+proxy in front of the committer's notification service and points bob's `core.yaml` at it;
+bob's query service stays direct, since each query call is bounded by its own request
+timeout. It turns on the keepalive of bob's notification service
 (`notificationService.keepalive`, see [configuration](../configuration.md)) with the same
 60 s and 10 s: the committer's sidecar rejects pings more often than every 60 s, and the
 committer pushes nothing while no transaction is ordered, so the keepalive is what detects

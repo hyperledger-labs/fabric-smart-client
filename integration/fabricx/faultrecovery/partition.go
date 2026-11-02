@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	fabricnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )
 
 // KeepaliveTime and KeepaliveTimeout are the gRPC client keepalive SetFaultProxies gives
@@ -35,19 +34,17 @@ const (
 type FaultProxies struct {
 	// Notification forwards bob's notification stream to the committer's sidecar.
 	Notification *common.Proxy
-	// Query forwards bob's query service calls to the committer.
-	Query *common.Proxy
 }
 
 // Close closes the proxies.
 func (p *FaultProxies) Close() {
 	_ = p.Notification.Close()
-	_ = p.Query.Close()
 }
 
-// SetFaultProxies starts a proxy in front of the committer's notification and query
-// services, points bob's core.yaml at them, and enables the gRPC client keepalive of bob's
-// notification service (see KeepaliveTime). Every other link, alice's included, is direct.
+// SetFaultProxies starts a proxy in front of the committer's notification service, points
+// bob's core.yaml at it, and enables the gRPC client keepalive of bob's notification
+// service (see KeepaliveTime). Every other link, bob's query service and alice's links
+// included, is direct.
 // It assumes bob has one replica. Call it after the network is generated and before it
 // starts; the proxies forward until Close.
 func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
@@ -55,19 +52,16 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	committer := n.Peer(n.CommitterOrg, n.CommitterName)
 	gomega.Expect(committer).NotTo(gomega.BeNil(), "no committer peer")
 	notification := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committer, fabricnetwork.ListenPort))
-	query := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committer, network.QueryServicePortName))
 
 	p := &FaultProxies{
 		Notification: faultrecovery.StartProxy(notification),
-		Query:        faultrecovery.StartProxy(query),
 	}
-	// Both services are listed under their own key, so each is rewritten through it rather
-	// than by address.
+	// The notification and query services may list the same address, so the notification
+	// service is rewritten through its own key rather than by address.
 	faultrecovery.RewriteCore(ii, "bob", func(core map[string]any) {
 		fabric, ok := core["fabric"].(map[string]any)[n.Topology().Name()].(map[string]any)
 		gomega.Expect(ok).To(gomega.BeTrue(), "core.yaml of bob has no fabric.%s", n.Topology().Name())
 		setEndpoint(fabric, "notificationService", notification, p.Notification.Addr())
-		setEndpoint(fabric, "queryService", query, p.Query.Addr())
 		fabric["notificationService"].(map[string]any)["keepalive"] = map[string]any{
 			"time":    KeepaliveTime.String(),
 			"timeout": KeepaliveTimeout.String(),
