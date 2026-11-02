@@ -47,11 +47,11 @@ func (v *LiarEndorseView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	me := tx.FabricNetworkService().IdentityProvider().DefaultIdentity()
-	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, v.Responder))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, v.Responders[0]))
 	if err == nil {
 		return nil, errors.Errorf("tx [%s]: endorsement over changed results was accepted", tx.ID())
 	}
-	resolver, rerr := endpoint.GetService(viewCtx).GetResolver(viewCtx.Context(), v.Responder)
+	resolver, rerr := endpoint.GetService(viewCtx).GetResolver(viewCtx.Context(), v.Responders[0])
 	if rerr != nil {
 		return nil, errors.WithMessagef(rerr, "failed resolving responder of rejected tx [%s]", tx.ID())
 	}
