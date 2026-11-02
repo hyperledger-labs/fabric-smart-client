@@ -40,7 +40,7 @@ func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *mock.FakeQuery
 	}
 
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice.NewRemoteQueryService(c, func() (committerpb.QueryServiceClient, string, error) { return client, "", nil }, nil)
+	qs := queryservice.NewRemoteQueryService(c, func(string) (committerpb.QueryServiceClient, string, error) { return client, "", nil }, nil)
 
 	return qs, client
 }
@@ -606,7 +606,7 @@ func TestQueryService_ClientPerRequest(t *testing.T) {
 		clientA.GetTransactionStatusReturns(committed, nil)
 		clientB.GetTransactionStatusReturns(committed, nil)
 		clients := []committerpb.QueryServiceClient{clientA, clientB}
-		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, string, error) {
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func(string) (committerpb.QueryServiceClient, string, error) {
 			next := clients[0]
 			clients = clients[1:]
 			return next, "", nil
@@ -624,7 +624,7 @@ func TestQueryService_ClientPerRequest(t *testing.T) {
 	t.Run("factory error fails the request", func(t *testing.T) {
 		t.Parallel()
 		expectedError := errors.New("no endpoint available")
-		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, string, error) {
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func(string) (committerpb.QueryServiceClient, string, error) {
 			return nil, "", expectedError
 		}, nil)
 
@@ -645,7 +645,7 @@ func TestQueryService_RetriesUnavailableOnce(t *testing.T) {
 		down.GetTransactionStatusReturns(nil, status.Error(codes.Unavailable, "down"))
 		up.GetTransactionStatusReturns(committed, nil)
 		clients := []committerpb.QueryServiceClient{down, up}
-		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, string, error) {
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func(string) (committerpb.QueryServiceClient, string, error) {
 			next := clients[0]
 			clients = clients[1:]
 			return next, "", nil
@@ -658,12 +658,32 @@ func TestQueryService_RetriesUnavailableOnce(t *testing.T) {
 		require.Equal(t, 1, up.GetTransactionStatusCallCount())
 	})
 
+	t.Run("retry skips the unavailable endpoint", func(t *testing.T) {
+		t.Parallel()
+		down, up := &mock.FakeQueryServiceClient{}, &mock.FakeQueryServiceClient{}
+		down.GetTransactionStatusReturns(nil, status.Error(codes.Unavailable, "down"))
+		up.GetTransactionStatusReturns(committed, nil)
+		var skips []string
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func(skip string) (committerpb.QueryServiceClient, string, error) {
+			skips = append(skips, skip)
+			if skip == "a" {
+				return up, "b", nil
+			}
+			return down, "a", nil
+		}, nil)
+
+		st, err := qs.GetTransactionStatus("tx1")
+		require.NoError(t, err)
+		require.Equal(t, int32(committerpb.Status_COMMITTED), st)
+		require.Equal(t, []string{"", "a"}, skips, "the first attempt skips nothing, the retry skips the unavailable endpoint")
+	})
+
 	t.Run("unavailable twice fails after two attempts", func(t *testing.T) {
 		t.Parallel()
 		down := &mock.FakeQueryServiceClient{}
 		down.GetTransactionStatusReturns(nil, status.Error(codes.Unavailable, "down"))
 		picks := 0
-		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, string, error) {
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func(string) (committerpb.QueryServiceClient, string, error) {
 			picks++
 			return down, "", nil
 		}, nil)
@@ -679,7 +699,7 @@ func TestQueryService_RetriesUnavailableOnce(t *testing.T) {
 		bad := &mock.FakeQueryServiceClient{}
 		bad.GetTransactionStatusReturns(nil, status.Error(codes.InvalidArgument, "bad request"))
 		picks := 0
-		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, string, error) {
+		qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func(string) (committerpb.QueryServiceClient, string, error) {
 			picks++
 			return bad, "", nil
 		}, nil)
@@ -695,7 +715,7 @@ func TestQueryService_ReportsConnectionState(t *testing.T) {
 	t.Parallel()
 	m, rec := connstatetest.NewMetrics()
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: time.Second}, func() (committerpb.QueryServiceClient, string, error) { return client, "committer", nil }, func(endpoint string) *connstate.Tracker {
+	qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: time.Second}, func(string) (committerpb.QueryServiceClient, string, error) { return client, "committer", nil }, func(endpoint string) *connstate.Tracker {
 		return m.Tracker("net", "ch", connstate.ComponentFabricxQuery, endpoint)
 	})
 	answer := &committerpb.TxStatusResponse{Statuses: []*committerpb.TxStatus{{}}}

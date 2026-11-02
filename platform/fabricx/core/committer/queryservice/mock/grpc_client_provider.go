@@ -9,12 +9,10 @@ import (
 )
 
 type GRPCClientProvider struct {
-	QueryServiceClientStub        func(string) (*grpc.ClientConn, error)
+	QueryServiceClientStub        func(string, string) (*grpc.ClientConn, error)
 	queryServiceClientMutex       sync.RWMutex
-	queryServiceClientArgsForCall []struct {
-		arg1 string
-	}
-	queryServiceClientReturns struct {
+	queryServiceClientArgsForCall []GRPCClientProviderQueryServiceClientArgs
+	queryServiceClientReturns     struct {
 		result1 *grpc.ClientConn
 		result2 error
 	}
@@ -23,21 +21,26 @@ type GRPCClientProvider struct {
 		result2 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *GRPCClientProvider) QueryServiceClient(arg1 string) (*grpc.ClientConn, error) {
+// GRPCClientProviderQueryServiceClientArgs holds the arguments of one call to QueryServiceClient.
+type GRPCClientProviderQueryServiceClientArgs struct {
+	Arg1 string
+	Arg2 string
+}
+
+func (fake *GRPCClientProvider) QueryServiceClient(arg1 string, arg2 string) (*grpc.ClientConn, error) {
 	fake.queryServiceClientMutex.Lock()
 	ret, specificReturn := fake.queryServiceClientReturnsOnCall[len(fake.queryServiceClientArgsForCall)]
-	fake.queryServiceClientArgsForCall = append(fake.queryServiceClientArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.queryServiceClientArgsForCall = append(fake.queryServiceClientArgsForCall, GRPCClientProviderQueryServiceClientArgs{arg1, arg2})
 	stub := fake.QueryServiceClientStub
 	fakeReturns := fake.queryServiceClientReturns
-	fake.recordInvocation("QueryServiceClient", []interface{}{arg1})
+	fake.recordInvocation("QueryServiceClient", []interface{}{arg1, arg2})
 	fake.queryServiceClientMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -51,17 +54,25 @@ func (fake *GRPCClientProvider) QueryServiceClientCallCount() int {
 	return len(fake.queryServiceClientArgsForCall)
 }
 
-func (fake *GRPCClientProvider) QueryServiceClientCalls(stub func(string) (*grpc.ClientConn, error)) {
+func (fake *GRPCClientProvider) QueryServiceClientCalls(stub func(string, string) (*grpc.ClientConn, error)) {
 	fake.queryServiceClientMutex.Lock()
 	defer fake.queryServiceClientMutex.Unlock()
 	fake.QueryServiceClientStub = stub
 }
 
-func (fake *GRPCClientProvider) QueryServiceClientArgsForCall(i int) string {
+func (fake *GRPCClientProvider) QueryServiceClientArgsForCall(i int) (string, string) {
 	fake.queryServiceClientMutex.RLock()
 	defer fake.queryServiceClientMutex.RUnlock()
 	argsForCall := fake.queryServiceClientArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *GRPCClientProvider) QueryServiceClientArgs() []GRPCClientProviderQueryServiceClientArgs {
+	fake.queryServiceClientMutex.RLock()
+	defer fake.queryServiceClientMutex.RUnlock()
+	args := make([]GRPCClientProviderQueryServiceClientArgs, len(fake.queryServiceClientArgsForCall))
+	copy(args, fake.queryServiceClientArgsForCall)
+	return args
 }
 
 func (fake *GRPCClientProvider) QueryServiceClientReturns(result1 *grpc.ClientConn, result2 error) {
@@ -100,9 +111,18 @@ func (fake *GRPCClientProvider) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *GRPCClientProvider) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *GRPCClientProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

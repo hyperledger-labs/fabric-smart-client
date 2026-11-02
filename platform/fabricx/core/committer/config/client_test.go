@@ -40,7 +40,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 		}
 
 		cp := config.NewClientProvider(fakeConfigProvider)
-		cc, err := cp.QueryServiceClient("test-network")
+		cc, err := cp.QueryServiceClient("test-network", "")
 		require.NoError(t, err)
 		require.NotNil(t, cc)
 		require.Equal(t, addr, cc.Target())
@@ -52,7 +52,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 		fakeConfigProvider.QueryServiceConfigReturns(nil, errors.New("boom"))
 
 		cp := config.NewClientProvider(fakeConfigProvider)
-		cc, err := cp.QueryServiceClient("test-network")
+		cc, err := cp.QueryServiceClient("test-network", "")
 		require.ErrorContains(t, err, "boom")
 		require.Nil(t, cc)
 	})
@@ -65,7 +65,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 		}
 
 		cp := config.NewClientProvider(fakeConfigProvider)
-		_, err := cp.QueryServiceClient("test-network")
+		_, err := cp.QueryServiceClient("test-network", "")
 		require.ErrorContains(t, err, "expected at least one endpoint")
 	})
 
@@ -77,7 +77,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 		}
 
 		cp := config.NewClientProvider(fakeConfigProvider)
-		_, err := cp.QueryServiceClient("test-network")
+		_, err := cp.QueryServiceClient("test-network", "")
 		require.ErrorContains(t, err, "address is empty")
 	})
 }
@@ -95,9 +95,45 @@ func TestClientProvider_SkipsFailingEndpoint(t *testing.T) {
 
 	cp := config.NewClientProvider(fakeConfigProvider)
 	require.Eventually(t, func() bool {
-		cc, err := cp.QueryServiceClient("test-network")
+		cc, err := cp.QueryServiceClient("test-network", "")
 		return err == nil && cc.Target() == addr
 	}, 5*time.Second, 10*time.Millisecond, "once the unreachable endpoint fails, the next one must be handed out")
+}
+
+// TestClientProvider_SkipsNamedEndpoint covers a retry right after a call failed: gRPC can
+// fail the call before the connection reports TRANSIENT_FAILURE, so the failed endpoint
+// still looks healthy and only the skip keeps the retry off it. Every endpoint here is up,
+// so none is ever failing and the pick depends on the skip alone, not on timing.
+func TestClientProvider_SkipsNamedEndpoint(t *testing.T) {
+	t.Parallel()
+	a, b := startTestServer(t), startTestServer(t)
+	for _, tt := range []struct {
+		name      string
+		endpoints []string
+		skip      string
+		want      string
+	}{
+		{name: "no skip", endpoints: []string{a, b}, skip: "", want: a},
+		{name: "skip first", endpoints: []string{a, b}, skip: a, want: b},
+		{name: "skip unknown", endpoints: []string{a, b}, skip: "127.0.0.1:1", want: a},
+		{name: "skip only endpoint", endpoints: []string{a}, skip: a, want: a},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fakeConfigProvider := &mock.ServiceConfigProvider{}
+			fakeConfigProvider.QueryServiceConfigStub = func(string) (*config.Config, error) {
+				var endpoints []commongrpc.ConnectionConfig
+				for _, addr := range tt.endpoints {
+					endpoints = append(endpoints, commongrpc.ConnectionConfig{Address: addr})
+				}
+				return &config.Config{Endpoints: endpoints}, nil
+			}
+
+			cc, err := config.NewClientProvider(fakeConfigProvider).QueryServiceClient("test-network", tt.skip)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, cc.Target())
+		})
+	}
 }
 
 func TestClientProvider_AllFailingFallsBackToFirst(t *testing.T) {
@@ -112,7 +148,7 @@ func TestClientProvider_AllFailingFallsBackToFirst(t *testing.T) {
 
 	cp := config.NewClientProvider(fakeConfigProvider)
 	require.Eventually(t, func() bool {
-		cc, err := cp.QueryServiceClient("test-network")
+		cc, err := cp.QueryServiceClient("test-network", "")
 		return err == nil && cc.Target() == "127.0.0.1:1" && cc.GetState() == connectivity.TransientFailure // pick hands out a TRANSIENT_FAILURE conn only when every conn is in it.
 	}, 5*time.Second, 10*time.Millisecond, "when every endpoint is failing, the first one must be handed out")
 }
@@ -146,19 +182,19 @@ func TestClientProvider_CachesPerNetwork(t *testing.T) {
 	}
 
 	cp := config.NewClientProvider(fakeConfigProvider)
-	first, err := cp.QueryServiceClient("net")
+	first, err := cp.QueryServiceClient("net", "")
 	require.NoError(t, err)
 	invokeHealthCheck(t, first)
 
 	for range 30 {
-		cc, err := cp.QueryServiceClient("net")
+		cc, err := cp.QueryServiceClient("net", "")
 		require.NoError(t, err)
 		require.Same(t, first, cc)
 	}
 	require.Equal(t, 1, fakeConfigProvider.QueryServiceConfigCallCount())
 
 	// A different network is a different connection.
-	other, err := cp.QueryServiceClient("other-net")
+	other, err := cp.QueryServiceClient("other-net", "")
 	require.NoError(t, err)
 	require.NotSame(t, first, other)
 	require.Equal(t, 2, fakeConfigProvider.QueryServiceConfigCallCount())
@@ -190,7 +226,7 @@ func TestClientProvider_TLS13(t *testing.T) {
 	}
 
 	cp := config.NewClientProvider(fakeConfigProvider)
-	cc, err := cp.QueryServiceClient("net")
+	cc, err := cp.QueryServiceClient("net", "")
 	require.NoError(t, err)
 	invokeHealthCheck(t, cc)
 }
@@ -270,7 +306,7 @@ func TestClientProvider_KeepAliveDetectsSilentCut(t *testing.T) {
 				return &config.Config{Endpoints: []commongrpc.ConnectionConfig{{Address: link.addr()}}, KeepAlive: tt.keepAlive}, nil
 			}
 
-			cc, err := config.NewClientProvider(fakeConfigProvider).QueryServiceClient("test-network")
+			cc, err := config.NewClientProvider(fakeConfigProvider).QueryServiceClient("test-network", "")
 			require.NoError(t, err)
 			cc.Connect()
 			require.Eventually(t, func() bool { return cc.GetState() == connectivity.Ready }, 5*time.Second, 10*time.Millisecond)

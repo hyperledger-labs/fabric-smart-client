@@ -34,9 +34,10 @@ var (
 )
 
 type RemoteQueryService struct {
-	// newClient returns the stub for one request. It is called per request, so each
-	// request can land on a different endpoint (see config.ClientProvider).
-	newClient func() (committerpb.QueryServiceClient, string, error)
+	// newClient returns the stub for one attempt and its endpoint, avoiding the endpoint
+	// named by skip. It is called per attempt, so each attempt can land on a different
+	// endpoint (see config.ClientProvider).
+	newClient func(skip string) (committerpb.QueryServiceClient, string, error)
 	config    *config.Config
 	newConn   func(endpoint string) *connstate.Tracker
 
@@ -46,10 +47,12 @@ type RemoteQueryService struct {
 }
 
 // NewRemoteQueryService returns a query service that calls clientFactory for the stub of
-// every request and the endpoint it is bound to, and returns its error unchanged when it
-// fails. A query that finds its endpoint unavailable is retried once on a newly picked
-// client: a connection whose server has gone away looks idle rather than failing until a
-// call on it fails, so the first call after an outage can land on it.
+// every attempt and the endpoint it is bound to, and returns its error unchanged when it
+// fails. A query that finds its endpoint unavailable is retried once on a new client, for
+// which clientFactory receives the unavailable endpoint as skip and should return a client
+// for another endpoint if one exists; the first attempt passes an empty skip. The retry
+// exists because a connection whose server has gone away looks healthy until a call on it
+// fails, so the first call after an outage can land on it.
 //
 // The outcome of each query is reported to the tracker newConn returns for the endpoint that
 // served it: connected when the query service answers, including with an error, and
@@ -58,7 +61,7 @@ type RemoteQueryService struct {
 // series exists only once its endpoint has been reached, and a query service that is unused
 // or never reached reports nothing. When a different endpoint answers, as after a failover,
 // the previous endpoint is reported disconnected. A nil newConn reports nothing.
-func NewRemoteQueryService(config *config.Config, clientFactory func() (committerpb.QueryServiceClient, string, error), newConn func(endpoint string) *connstate.Tracker) *RemoteQueryService {
+func NewRemoteQueryService(config *config.Config, clientFactory func(skip string) (committerpb.QueryServiceClient, string, error), newConn func(endpoint string) *connstate.Tracker) *RemoteQueryService {
 	return &RemoteQueryService{
 		newClient: clientFactory,
 		config:    config,
@@ -291,14 +294,15 @@ func createResult(res *committerpb.Rows) map[driver.Namespace]map[driver.PKey]dr
 }
 
 // call runs rpc on a freshly picked client with its own RequestTimeout. If the endpoint
-// turns out to be unavailable, it runs rpc once more on a new pick.
+// turns out to be unavailable, it runs rpc once more on a client that skips that endpoint.
 func call[T any](s *RemoteQueryService, rpc func(context.Context, committerpb.QueryServiceClient) (T, error)) (T, error) {
 	var zero T
 	var err error
 	var endpoint string
 	for range 2 {
 		var client committerpb.QueryServiceClient
-		if client, endpoint, err = s.newClient(); err != nil {
+		// endpoint is empty on the first attempt and the unavailable one on the retry.
+		if client, endpoint, err = s.newClient(endpoint); err != nil {
 			return zero, err
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout) // own deadline per attempt
