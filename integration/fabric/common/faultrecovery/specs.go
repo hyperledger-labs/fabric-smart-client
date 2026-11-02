@@ -31,6 +31,10 @@ import (
 // RecoveryTimeout bounds how long a restarted node may take to settle a transaction.
 const RecoveryTimeout = 2 * time.Minute
 
+// CrashLabel labels the specs CrashSpecs registers, so a suite can run them in a target of
+// their own.
+const CrashLabel = "crash"
+
 // startupOutage is how long a node's database stays down after the node starts. It must
 // stay below the time postgres.Open waits for the database at startup
 // (postgres.DefaultStartupConnectTimeout, 60 s), or the node gives up and exits.
@@ -126,15 +130,28 @@ func expectNoLeaks(ii *integration.Infrastructure, before map[string]float64) {
 	}, SessionCloseTimeout, time.Second).Should(gomega.Succeed(), "sessions or view contexts leaked")
 }
 
-// CrashSpecs registers the node crash and catch-up specs for the suite s. The recovery
-// specs check bob through QueryView: on Fabric that reads bob's own vault, so the specs
-// prove that bob recovers its local state; on Fabric-x, where bob has no local ledger
-// state, they prove only that bob restarts and serves views again. Each spec leaves the
-// network healthy, so the specs can run under ShareNetwork.
-func CrashSpecs(s *integration.TestSuite) {
-	ginkgo.It("fails fast when the responder dies", func() {
-		echo := BlockedEcho(s.II, s.II.Client("alice"), "bob")
-		s.II.KillFSCNode("bob")
+// CrashSpecs registers the node crash and catch-up specs for the suite s, with responder,
+// an FSC node name, as the node that crashes. Each spec name ends in "(<responder>)" and
+// carries the crash label, so a suite can run them for several responders and in a target
+// of their own. The recovery specs check the responder through QueryView: on Fabric that
+// reads its own vault, so the specs prove that it recovers its local state; on Fabric-x,
+// where it has no local ledger state, they prove only that it restarts and serves views
+// again. A responder other than bob endorses together with bob, since Endorse names bob.
+// Each spec leaves the network healthy, so the specs can run under ShareNetwork.
+func CrashSpecs(s *integration.TestSuite, responder string) {
+	label := ginkgo.Label(CrashLabel)
+	name := func(spec string) string { return spec + " (" + responder + ")" }
+	// endorse has the responder endorse the tx, together with bob when it is not bob.
+	endorse := func(value int) *views.Endorsed {
+		if responder == "bob" {
+			return Endorse(s.II, value)
+		}
+		return EndorseFrom(s.II, value, "bob", responder)
+	}
+
+	ginkgo.It(name("fails fast when the responder dies"), label, func() {
+		echo := BlockedEchoTo(s.II, s.II.Client("alice"), responder)
+		s.II.KillFSCNode(responder)
 		// The echo view waits a minute for the reply, so only the closed session ends it
 		// this early.
 		var err error
@@ -142,18 +159,18 @@ func CrashSpecs(s *integration.TestSuite) {
 		gomega.Expect(err).To(gomega.MatchError(view.ErrViewExecutionFailed))
 		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("session receive channel is closed")))
 
-		s.II.StartFSCNode("bob")
-		gomega.Expect(Echo(s.II, false)).To(gomega.Succeed())
+		s.II.StartFSCNode(responder)
+		gomega.Expect(EchoTo(s.II, s.II.Client("alice"), responder, false)).To(gomega.Succeed())
 	})
 
-	ginkgo.It("recovers a node killed mid-transaction", func() {
-		// Bob has endorsed and stored the tx; alice has not ordered it yet.
-		tx := Endorse(s.II, 42)
-		s.II.KillFSCNode("bob")
+	ginkgo.It(name("recovers a node killed mid-transaction"), label, func() {
+		// The responder has endorsed and stored the tx; alice has not ordered it yet.
+		tx := endorse(42)
+		s.II.KillFSCNode(responder)
 		txID := Order(s.II, tx)
-		s.II.StartFSCNode("bob")
+		s.II.StartFSCNode(responder)
 
-		for _, node := range []string{"alice", "bob"} {
+		for _, node := range []string{"alice", responder} {
 			gomega.Eventually(func(g gomega.Gomega) {
 				res, err := Query(s.II, node, txID)
 				g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -163,26 +180,26 @@ func CrashSpecs(s *integration.TestSuite) {
 		}
 	})
 
-	ginkgo.It("catches up blocks committed while down", func() {
-		// Bob endorses every tx, then misses the blocks that commit them.
+	ginkgo.It(name("catches up blocks committed while down"), label, func() {
+		// The responder endorses every tx, then misses the blocks that commit them.
 		txs := make([]*views.Endorsed, 20)
 		for i := range txs {
-			txs[i] = Endorse(s.II, i)
+			txs[i] = endorse(i)
 		}
-		s.II.StopFSCNode("bob")
+		s.II.StopFSCNode(responder)
 		txIDs := make([]string, len(txs))
 		for i, tx := range txs {
 			txIDs[i] = Order(s.II, tx)
 		}
-		s.II.StartFSCNode("bob")
+		s.II.StartFSCNode(responder)
 
-		// Each tx gets its own budget, so a failure names the tx bob has not settled.
+		// Each tx gets its own budget, so a failure names the tx the responder has not settled.
 		for i, txID := range txIDs {
 			gomega.Eventually(func(g gomega.Gomega) {
-				res, err := Query(s.II, "bob", txID)
+				res, err := Query(s.II, responder, txID)
 				g.Expect(err).NotTo(gomega.HaveOccurred())
 				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
-			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on bob", i, txID)
+			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on [%s]", i, txID, responder)
 		}
 	})
 }
@@ -380,15 +397,27 @@ func replicaIDs(ii *integration.Infrastructure, node string) []string {
 // bob's responder blocks in it on responder, bob's node name or one of its replica IDs.
 // The returned channel receives the echo's error.
 func BlockedEcho(ii *integration.Infrastructure, c api.ViewClient, responder string) <-chan error {
+	return startBlockedEcho(ii, c, "bob", responder)
+}
+
+// BlockedEchoTo is BlockedEcho with node, an FSC node name, as both the echo's responder
+// and the node whose responder must block.
+func BlockedEchoTo(ii *integration.Infrastructure, c api.ViewClient, node string) <-chan error {
+	return startBlockedEcho(ii, c, node, node)
+}
+
+// startBlockedEcho starts a blocking echo to responder through c and returns once the responder
+// blocks in it on metrics, responder or one of its replica IDs.
+func startBlockedEcho(ii *integration.Infrastructure, c api.ViewClient, responder, metrics string) <-chan error {
 	// On a shared network the previous spec's responder may still hold its context for
 	// a moment after its view ends, so the baseline waits for it.
 	gomega.EventuallyWithOffset(1, func() float64 {
-		return MetricSum(ii, responder, ViewContexts)
+		return MetricSum(ii, metrics, ViewContexts)
 	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeZero())
 	echo := make(chan error, 1)
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		echo <- EchoWith(ii, c, true)
+		echo <- EchoTo(ii, c, responder, true)
 	}()
 	// Bob creates a responder context when alice's message arrives and holds it while
 	// the responder blocks, so a kill lands mid-view. An echo that ends before then
@@ -399,7 +428,7 @@ func BlockedEcho(ii *integration.Infrastructure, c api.ViewClient, responder str
 			gomega.StopTrying("echo returned before bob's responder blocked").Wrap(err).Now()
 		default:
 		}
-		families, err := ii.WebClient(responder).Metrics()
+		families, err := ii.WebClient(metrics).Metrics()
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		return sumFamily(families, ViewContexts)
 	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", 0))

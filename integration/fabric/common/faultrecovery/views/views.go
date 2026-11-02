@@ -42,8 +42,9 @@ func (a *Asset) GetLinearID() (string, error) { return a.ID, nil }
 type Submit struct {
 	// Value is stored in the created Asset.
 	Value int
-	// Responder is the FSC node that endorses the transaction after the initiator.
-	Responder view.Identity
+	// Responders are the FSC nodes that endorse the transaction after the initiator; the
+	// initiator collects an endorsement from each.
+	Responders []view.Identity
 }
 
 // Endorsed is what EndorseView returns.
@@ -73,7 +74,7 @@ func (v *EndorseView) Call(viewCtx view.Context) (any, error) {
 
 	// The initiator signs first: it belongs to Org1, which the namespace policy requires.
 	me := tx.FabricNetworkService().IdentityProvider().DefaultIdentity()
-	if _, err := viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, v.Responder)); err != nil {
+	if _, err := viewCtx.RunView(state.NewCollectEndorsementsView(tx, append([]view.Identity{me}, v.Responders...)...)); err != nil {
 		return nil, err
 	}
 	raw, err := tx.Bytes()

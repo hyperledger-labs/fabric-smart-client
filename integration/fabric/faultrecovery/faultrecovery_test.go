@@ -91,7 +91,8 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 		Expect(res.UnknownTxErr).To(ContainSubstring("no such transaction ID [" + unknownTxID + "]"))
 	})
 
-	faultrecovery.CrashSpecs(s)
+	faultrecovery.CrashSpecs(s, "bob")
+	faultrecovery.CrashSpecs(s, "charlie")
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 	faultrecovery.HostileSpecs(s)

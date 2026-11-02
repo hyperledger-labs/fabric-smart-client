@@ -65,7 +65,8 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
-	faultrecovery.CrashSpecs(s)
+	faultrecovery.CrashSpecs(s, "bob")
+	faultrecovery.CrashSpecs(s, "charlie")
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 	faultrecovery.HostileSpecs(s)

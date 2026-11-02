@@ -20,10 +20,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
-// FSCTopology returns the FSC nodes alice (Org1, initiator) and bob (Org2, responder),
-// installing sdk on both. Both serve configseq, the sequence of the channel configuration
-// the node holds, and ledger, which reads a transaction back through the ledger API and
-// supports Fabric only. Each node runs on its own Postgres database, named by DBName.
+// FSCTopology returns the FSC nodes alice (Org1, initiator), bob and charlie (Org2,
+// responders), installing sdk on all three. Each serves configseq, the sequence of the
+// channel configuration the node holds, and ledger, which reads a transaction back through
+// the ledger API and supports Fabric only. Alice and bob each run on their own Postgres
+// database, named by DBName; charlie has none, so nwo gives him SQLite, the default
+// persistence, and the crash specs cover a node on it.
 //
 // A node receives only the data source of its database. nwo starts each container
 // from that data source (postgres.ConfigFromDataSource), which names the container
@@ -34,8 +36,8 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 	return newFSCTopology(sdk, dbPrefix, nil, nil)
 }
 
-// ReplicatedFSCTopology returns the nodes of FSCTopology with two replicas each, every
-// replica on its node's one database. Bob's replicas sit behind a load balancer
+// ReplicatedFSCTopology returns the nodes of FSCTopology with two replicas of alice and of
+// bob, every replica on its node's one database, and one charlie. Bob's replicas sit behind a load balancer
 // (fsc.WithLoadBalancer), so the sessions alice opens to bob are spread over them;
 // alice has none.
 func ReplicatedFSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
@@ -69,17 +71,19 @@ func newFSCTopology(sdk node.SDK, dbPrefix string, replicas map[string]int, opts
 		RegisterViewFactory("ledger", &cviews.LedgerViewFactory{}).
 		RegisterViewFactory("echo", &views.EchoViewFactory{}).
 		RegisterViewFactory("configseq", &configviews.ConfigSequenceViewFactory{})
-	fscTopology.AddNodeByName("bob").
-		AddOptions(fabric.WithOrganization("Org2")).
-		AddOptions(db.For("bob")...).
-		RegisterResponder(&views.ResponderView{}, &views.EndorseView{}).
-		RegisterResponder(&views.LiarResponderView{}, &views.LiarEndorseView{}).
-		RegisterResponder(&views.ResponderView{}, &views.ForgedTxIDView{}).
-		RegisterResponder(&views.EchoResponderView{}, &views.EchoView{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
-		RegisterViewFactory("query", &views.QueryViewFactory{}).
-		RegisterViewFactory("ledger", &cviews.LedgerViewFactory{}).
-		RegisterViewFactory("configseq", &configviews.ConfigSequenceViewFactory{})
+	for _, name := range []string{"bob", "charlie"} {
+		fscTopology.AddNodeByName(name).
+			AddOptions(fabric.WithOrganization("Org2")).
+			AddOptions(db.For(name)...).
+			RegisterResponder(&views.ResponderView{}, &views.EndorseView{}).
+			RegisterResponder(&views.LiarResponderView{}, &views.LiarEndorseView{}).
+			RegisterResponder(&views.ResponderView{}, &views.ForgedTxIDView{}).
+			RegisterResponder(&views.EchoResponderView{}, &views.EchoView{}).
+			RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
+			RegisterViewFactory("query", &views.QueryViewFactory{}).
+			RegisterViewFactory("ledger", &cviews.LedgerViewFactory{}).
+			RegisterViewFactory("configseq", &configviews.ConfigSequenceViewFactory{})
+	}
 	fscTopology.AddSDK(sdk)
 
 	return fscTopology

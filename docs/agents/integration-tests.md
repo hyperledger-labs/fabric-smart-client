@@ -246,7 +246,8 @@ Fault scenarios go in `integration/fabric/faultrecovery` and
 `fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication`,
 `fabric-faultrecovery-partition`, `fabric-faultrecovery-bft`, `fabricx-faultrecovery`,
 `fabricx-faultrecovery-replication` and `fabricx-faultrecovery-partition`). Both run the FSC
-nodes alice and bob on Postgres; the Fabric suite adds three raft orderers, named in its
+nodes alice and bob on Postgres, and charlie, a second responder in Org2, on SQLite, the
+default persistence; the Fabric suite adds three raft orderers, named in its
 `Orderers`, and its `bft` `Describe` runs on the four SmartBFT orderers of `BFTTopology`.
 Both Fabric topologies give Org2, bob's organization, the two peers in `Org2Peers`. Bob's
 delivery reports each peer it has used as a `fsc_connection_state` series of its own, and
@@ -260,7 +261,13 @@ on both nodes; `SubmitAndWaitFinalFrom` does the same from one of alice's replic
 `WaitFinal` does the waiting alone, and `WaitFinalOn` waits on one node or replica.
 `Endorse` and `Order` split one
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
-transaction is ordered. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
+transaction is ordered; `EndorseFrom` has alice collect from other responders, in turn.
+`CrashSpecs(s, responder)` registers the crash and catch-up specs with `responder` as the
+node that crashes. Each name ends in `(<responder>)` and carries the `crash` label
+(`CrashLabel`), and both suites call it for bob and for charlie, so a node on SQLite is
+crashed as well as one on Postgres. With charlie, alice collects from bob and charlie,
+since every other spec and `WaitFinal` assume bob takes part. `EchoTo` and `BlockedEchoTo`
+echo to a given responder. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
 changes the transaction before endorsing it, and returns how alice rejected the
 endorsement. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election; `EndorseEventually` retries

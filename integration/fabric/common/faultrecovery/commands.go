@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 const (
@@ -45,7 +46,7 @@ func SubmitAndWaitFinalFrom(ii *integration.Infrastructure, initiator string, n 
 	txIDs := make([]string, 0, n)
 	for i := range n {
 		tx := &views.Endorsed{}
-		common.JSONUnmarshal(callView(ii, initiator, "endorse", &views.Submit{Value: i, Responder: ii.Identity("bob")}).([]byte), tx)
+		common.JSONUnmarshal(callView(ii, initiator, "endorse", &views.Submit{Value: i, Responders: []view.Identity{ii.Identity("bob")}}).([]byte), tx)
 		txIDs = append(txIDs, common.JSONUnmarshalString(callView(ii, initiator, "order", &views.Order{Tx: tx.Tx})))
 	}
 	WaitFinalOn(ii, initiator, txIDs...)
@@ -96,7 +97,7 @@ func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int)
 func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
-	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responder: ii.Identity("bob")}))
+	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}))
 	if err != nil {
 		return "", err
 	}
@@ -138,8 +139,18 @@ func SubmitUntil(ctx context.Context, ii *integration.Infrastructure) []Submissi
 // transaction, not yet ordered, for Order. On Fabric, bob's vault then holds the
 // transaction as Busy.
 func Endorse(ii *integration.Infrastructure, value int) *views.Endorsed {
+	return EndorseFrom(ii, value, "bob")
+}
+
+// EndorseFrom is Endorse with responders, FSC node names, in place of bob: alice collects
+// an endorsement from each in turn.
+func EndorseFrom(ii *integration.Infrastructure, value int, responders ...string) *views.Endorsed {
+	ids := make([]view.Identity, len(responders))
+	for i, r := range responders {
+		ids[i] = ii.Identity(r)
+	}
 	tx := &views.Endorsed{}
-	common.JSONUnmarshal(callView(ii, "alice", "endorse", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), tx)
+	common.JSONUnmarshal(callView(ii, "alice", "endorse", &views.Submit{Value: value, Responders: ids}).([]byte), tx)
 	return tx
 }
 
@@ -153,7 +164,7 @@ func Order(ii *integration.Infrastructure, tx *views.Endorsed) string {
 // alice rejected bob's endorsement. The view fails when alice accepts it.
 func EndorseLiar(ii *integration.Infrastructure, value int) *views.Rejected {
 	res := &views.Rejected{}
-	common.JSONUnmarshal(callView(ii, "alice", "endorseLiar", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), res)
+	common.JSONUnmarshal(callView(ii, "alice", "endorseLiar", &views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}).([]byte), res)
 	return res
 }
 
@@ -161,7 +172,7 @@ func EndorseLiar(ii *integration.Infrastructure, value int) *views.Rejected {
 // bob refused the transaction whose txID alice chose. The view fails when bob endorses it.
 func EndorseForgedTxID(ii *integration.Infrastructure, value int) *views.Rejected {
 	res := &views.Rejected{}
-	common.JSONUnmarshal(callView(ii, "alice", "forgedTxID", &views.Submit{Value: value, Responder: ii.Identity("bob")}).([]byte), res)
+	common.JSONUnmarshal(callView(ii, "alice", "forgedTxID", &views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}).([]byte), res)
 	return res
 }
 
@@ -174,7 +185,7 @@ func EndorseEventually(ii *integration.Infrastructure, value int) *views.Endorse
 	gomega.EventuallyWithOffset(1, func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
 		defer cancel()
-		raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responder: ii.Identity("bob")}))
+		raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}))
 		if err != nil {
 			return err
 		}
@@ -255,7 +266,12 @@ func Echo(ii *integration.Infrastructure, block bool) error {
 
 // EchoWith is Echo called through c, a view client of alice.
 func EchoWith(ii *integration.Infrastructure, c api.ViewClient, block bool) error {
-	return callEcho(c, &views.Echo{Responder: ii.Identity("bob"), Block: block})
+	return EchoTo(ii, c, "bob", block)
+}
+
+// EchoTo is EchoWith with responder, an FSC node name, in place of bob.
+func EchoTo(ii *integration.Infrastructure, c api.ViewClient, responder string, block bool) error {
+	return callEcho(c, &views.Echo{Responder: ii.Identity(responder), Block: block})
 }
 
 // AwaitEcho runs alice's echo view through c, a view client of alice, with bob's responder
