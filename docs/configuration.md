@@ -180,6 +180,13 @@ fsc:
     # The same number separately bounds the rejections pending for one peer.
     # The limit cannot be disabled: zero or negative values fall back to the default.
     maxRespondersPerPeer: 1000
+    # Maximum number of responder views running concurrently on this node, across all peers.
+    # Default: 0 (unlimited). Zero or negative values mean unlimited.
+    # A first message from a peer under maxRespondersPerPeer that would exceed it is rejected
+    # with a node_busy error; a peer at its own limit still gets busy. The same number
+    # separately bounds the rejections pending across all peers; further first messages are
+    # dropped silently. This bounds what many peers together can make the node hold.
+    maxResponders: 0
     opts:
       # ------------------- libp2p specific options -------------------------
       # Only needed when type == libp2p

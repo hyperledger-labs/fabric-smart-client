@@ -61,6 +61,7 @@ func TestReferenceConfiguration(t *testing.T) {
 		"fsc.p2p.maxRecvMsgSize",
 		"fsc.p2p.maxSendMsgSize",
 		"fsc.p2p.maxRespondersPerPeer",
+		"fsc.p2p.maxResponders",
 		"fsc.p2p.opts.libp2p.bootstrapNode",
 		"fsc.p2p.opts.libp2p.connManager.lowWater",
 		"fsc.p2p.opts.libp2p.connManager.highWater",
