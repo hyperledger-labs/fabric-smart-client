@@ -210,7 +210,9 @@ func (db *BindingStore) ReplaceBinding(ctx context.Context, longTerm, ephemeral 
 
 // canonicalLongTerm returns the identity longTerm is bound to if that identity has a self-row,
 // and longTerm otherwise. Only a self-row marks an identity as long-term, so a row that binds
-// longTerm to an identity without one is not followed.
+// longTerm to an identity without one is not followed. PutBindings and ReplaceBinding always
+// store the long term's self-row, so such a row exists only if an earlier release, which did not
+// check binds, wrote it.
 func (db *BindingStore) canonicalLongTerm(ctx context.Context, longTerm view.Identity) (view.Identity, error) {
 	lt, err := db.GetLongTerm(ctx, longTerm)
 	if err != nil {

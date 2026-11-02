@@ -62,6 +62,12 @@ func TestPutBindingsDoesNotFollowRemoteRedirectSqlite(t *testing.T) {
 	common.TestPutBindingsDoesNotFollowRemoteRedirectCommon(t, db.BindingStore)
 }
 
+func TestPutBindingsDoesNotFollowPreUpgradeRedirectSqlite(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon(t, db.BindingStore)
+}
+
 func TestReplaceBindingReplacesPlantedRowSqlite(t *testing.T) {
 	t.Parallel()
 	db := newBindingStoreForTests(t)

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -147,12 +148,34 @@ func TestPutBindingsConflictKeepsRowAndReturnsNilCommon(t *testing.T, db *Bindin
 }
 
 // TestPutBindingsDoesNotFollowRemoteRedirectCommon checks that a redirect of a long-term
-// identity cannot be stored, so later binds to that long term are not redirected.
+// identity cannot be stored, so later binds to that long term are not redirected. The self-row
+// check refuses the redirect before canonicalLongTerm is reached; a redirect row that already
+// exists is covered by TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon.
 func TestPutBindingsDoesNotFollowRemoteRedirectCommon(t *testing.T, db *BindingStore) {
 	ctx := t.Context()
 	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
 	require.NoError(t, db.PutBindings(ctx, alice, view.Identity("alice-eph")))
 	require.ErrorIs(t, db.PutBindings(ctx, mallory, alice), driver.ErrBindingRefused)
+
+	require.NoError(t, db.PutBindings(ctx, alice, x))
+	lt, err := db.GetLongTerm(ctx, x)
+	require.NoError(t, err)
+	require.Equal(t, alice, lt)
+}
+
+// TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon checks that PutBindings does not follow a
+// row binding a long term to an identity without a self-row. Both write paths always store the
+// long term's self-row, so such a row exists only if an earlier release wrote it; the test plants
+// it with SQL.
+func TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon(t *testing.T, db *BindingStore) {
+	ctx := t.Context()
+	alice, mallory, x := view.Identity("alice"), view.Identity("mallory"), view.Identity("x")
+	query, args := sqlbuild.New().
+		WriteString("INSERT INTO " + db.table + " (ephemeral_hash, long_term_id) VALUES ").
+		WriteTuples([]sqlbuild.Tuple{{alice.UniqueID(), mallory}}).
+		Build()
+	_, err := db.writeDB.ExecContext(ctx, query, args...)
+	require.NoError(t, err)
 
 	require.NoError(t, db.PutBindings(ctx, alice, x))
 	lt, err := db.GetLongTerm(ctx, x)

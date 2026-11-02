@@ -59,6 +59,12 @@ func TestPutBindingsDoesNotFollowRemoteRedirectPostgres(t *testing.T) {
 	common.TestPutBindingsDoesNotFollowRemoteRedirectCommon(t, db.BindingStore)
 }
 
+func TestPutBindingsDoesNotFollowPreUpgradeRedirectPostgres(t *testing.T) {
+	t.Parallel()
+	db := newBindingStoreForTests(t)
+	common.TestPutBindingsDoesNotFollowPreUpgradeRedirectCommon(t, db.BindingStore)
+}
+
 func TestReplaceBindingReplacesPlantedRowPostgres(t *testing.T) {
 	t.Parallel()
 	db := newBindingStoreForTests(t)
