@@ -263,11 +263,9 @@ on both nodes; `SubmitAndWaitFinalFrom` does the same from one of alice's replic
 transaction in two, so a spec can stop or kill a node after it has endorsed and before the
 transaction is ordered; `EndorseFrom` has alice collect from other responders, in turn.
 `CrashSpecs(s, responder)` registers the crash and catch-up specs with `responder` as the
-node that crashes. Each name ends in `(<responder>)` and carries the `crash` label
-(`CrashLabel`), and both suites call it for bob and for charlie, so a node on SQLite is
-crashed as well as one on Postgres. With charlie, alice collects from bob and charlie,
-since every other spec and `WaitFinal` assume bob takes part. `EchoTo` and `BlockedEchoTo`
-echo to a given responder. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
+node that crashes. Each name ends in `(<responder>)` and carries the `crash` label, and
+both suites call it for bob and for charlie, so a node on SQLite is crashed as well as one
+on Postgres. `EchoTo` and `BlockedEcho` echo to a given responder. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
 changes the transaction before endorsing it, and returns how alice rejected the
 endorsement. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election; `EndorseEventually` retries

@@ -36,10 +36,10 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 	return newFSCTopology(sdk, dbPrefix, nil, nil)
 }
 
-// ReplicatedFSCTopology returns the nodes of FSCTopology with two replicas of alice and of
-// bob, every replica on its node's one database, and one charlie. Bob's replicas sit behind a load balancer
-// (fsc.WithLoadBalancer), so the sessions alice opens to bob are spread over them;
-// alice has none.
+// ReplicatedFSCTopology returns the nodes of FSCTopology with two replicas each of alice
+// and bob, every replica on its node's one database; charlie has a single replica. Bob's
+// replicas sit behind a load balancer (fsc.WithLoadBalancer), so the sessions alice opens
+// to bob are spread over them; alice has none.
 func ReplicatedFSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 	return newFSCTopology(sdk, dbPrefix,
 		map[string]int{"alice": 2, "bob": 2},

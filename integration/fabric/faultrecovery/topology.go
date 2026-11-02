@@ -37,8 +37,8 @@ var BFTOrderers = []string{"orderer", "orderer2", "orderer3", "orderer4"}
 var Org2Peers = []string{"Org2_peer_0", "Org2_peer_1"}
 
 // Topology returns one peer of Org1, the two peers of Org2 in Org2Peers, three raft
-// orderers, and the FSC nodes of faultrecovery.FSCTopology, running sdk, on Postgres
-// databases with the given prefix.
+// orderers, and the FSC nodes of faultrecovery.FSCTopology, running sdk, with the given
+// Postgres database prefix.
 func Topology(dbPrefix string, sdk node.SDK) []api.Topology {
 	return []api.Topology{fabricTopology(), faultrecovery.FSCTopology(sdk, dbPrefix)}
 }

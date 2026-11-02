@@ -46,7 +46,7 @@ func SubmitAndWaitFinalFrom(ii *integration.Infrastructure, initiator string, n 
 	txIDs := make([]string, 0, n)
 	for i := range n {
 		tx := &views.Endorsed{}
-		common.JSONUnmarshal(callView(ii, initiator, "endorse", &views.Submit{Value: i, Responders: []view.Identity{ii.Identity("bob")}}).([]byte), tx)
+		common.JSONUnmarshal(callView(ii, initiator, "endorse", submit(ii, i, "bob")).([]byte), tx)
 		txIDs = append(txIDs, common.JSONUnmarshalString(callView(ii, initiator, "order", &views.Order{Tx: tx.Tx})))
 	}
 	WaitFinalOn(ii, initiator, txIDs...)
@@ -97,7 +97,7 @@ func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int)
 func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
-	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}))
+	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(submit(ii, value, "bob")))
 	if err != nil {
 		return "", err
 	}
@@ -145,13 +145,18 @@ func Endorse(ii *integration.Infrastructure, value int) *views.Endorsed {
 // EndorseFrom is Endorse with responders, FSC node names, in place of bob: alice collects
 // an endorsement from each in turn.
 func EndorseFrom(ii *integration.Infrastructure, value int, responders ...string) *views.Endorsed {
+	tx := &views.Endorsed{}
+	common.JSONUnmarshal(callView(ii, "alice", "endorse", submit(ii, value, responders...)).([]byte), tx)
+	return tx
+}
+
+// submit returns the Submit of value with responders, FSC node names, as its endorsers.
+func submit(ii *integration.Infrastructure, value int, responders ...string) *views.Submit {
 	ids := make([]view.Identity, len(responders))
 	for i, r := range responders {
 		ids[i] = ii.Identity(r)
 	}
-	tx := &views.Endorsed{}
-	common.JSONUnmarshal(callView(ii, "alice", "endorse", &views.Submit{Value: value, Responders: ids}).([]byte), tx)
-	return tx
+	return &views.Submit{Value: value, Responders: ids}
 }
 
 // Order runs alice's order view on a transaction Endorse returned and returns its ID
@@ -164,7 +169,7 @@ func Order(ii *integration.Infrastructure, tx *views.Endorsed) string {
 // alice rejected bob's endorsement. The view fails when alice accepts it.
 func EndorseLiar(ii *integration.Infrastructure, value int) *views.Rejected {
 	res := &views.Rejected{}
-	common.JSONUnmarshal(callView(ii, "alice", "endorseLiar", &views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}).([]byte), res)
+	common.JSONUnmarshal(callView(ii, "alice", "endorseLiar", submit(ii, value, "bob")).([]byte), res)
 	return res
 }
 
@@ -172,7 +177,7 @@ func EndorseLiar(ii *integration.Infrastructure, value int) *views.Rejected {
 // bob refused the transaction whose txID alice chose. The view fails when bob endorses it.
 func EndorseForgedTxID(ii *integration.Infrastructure, value int) *views.Rejected {
 	res := &views.Rejected{}
-	common.JSONUnmarshal(callView(ii, "alice", "forgedTxID", &views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}).([]byte), res)
+	common.JSONUnmarshal(callView(ii, "alice", "forgedTxID", submit(ii, value, "bob")).([]byte), res)
 	return res
 }
 
@@ -185,7 +190,7 @@ func EndorseEventually(ii *integration.Infrastructure, value int) *views.Endorse
 	gomega.EventuallyWithOffset(1, func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
 		defer cancel()
-		raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(&views.Submit{Value: value, Responders: []view.Identity{ii.Identity("bob")}}))
+		raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(submit(ii, value, "bob")))
 		if err != nil {
 			return err
 		}

@@ -16,7 +16,7 @@ import (
 )
 
 // Topology returns the Fabric-x committer with two organizations and the FSC nodes of
-// faultrecovery.FSCTopology on Postgres databases with the given prefix.
+// faultrecovery.FSCTopology with the given Postgres database prefix.
 func Topology(dbPrefix string) []api.Topology {
 	return []api.Topology{fabricxTopology(), faultrecovery.FSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
 }

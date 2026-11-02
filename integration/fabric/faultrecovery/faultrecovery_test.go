@@ -699,7 +699,7 @@ var _ = Describe("Fault Recovery with Fabric during a network partition", Ordere
 	// error to alice over a websocket of its own before alice's session closes; either way
 	// the view fails on the closed session, not on the receive timeout.
 	It("fails a view while alice is cut off from bob", func() {
-		echo := faultrecovery.BlockedEcho(s.II, s.II.Client("alice"), "bob")
+		echo := faultrecovery.BlockedEcho(s.II, s.II.Client("alice"), "bob", "bob")
 
 		proxies.Bob.Partition()
 		DeferCleanup(proxies.Bob.Heal)
