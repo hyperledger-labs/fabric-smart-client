@@ -21,16 +21,22 @@ var steps = []migrate.Step{
 	{Version: 2, Name: "index", SQL: []string{"CREATE INDEX i ON a (id)"}},
 }
 
-// check runs CheckSteps on a fake T and reports whether it failed.
+// fakeTB records failures instead of failing the test. Fatalf is not reached
+// by these cases, since every golden file is readable.
+type fakeTB struct {
+	testing.TB
+	failed bool
+}
+
+func (*fakeTB) Helper()                          {}
+func (f *fakeTB) Errorf(string, ...any)          { f.failed = true }
+func (f *fakeTB) Fatalf(format string, _ ...any) { f.failed = true; panic("Fatalf: " + format) }
+
+// check runs CheckSteps on a fakeTB and reports whether it failed.
 func check(golden string, steps []migrate.Step) bool {
-	ft := &testing.T{}
-	done := make(chan struct{})
-	go func() { // CheckSteps may call Fatalf, which ends the goroutine
-		defer close(done)
-		CheckSteps(ft, golden, steps)
-	}()
-	<-done
-	return ft.Failed()
+	f := &fakeTB{}
+	CheckSteps(f, golden, steps)
+	return f.failed
 }
 
 func TestCheckSteps(t *testing.T) { //nolint:paralleltest // sets UpdateEnv

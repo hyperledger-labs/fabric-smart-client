@@ -438,6 +438,21 @@ func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
 		require.Equal(t, 2, n)
 	})
 
+	t.Run("OpenersTableAddedToMigratedDatabase", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := newStore("heal_s", 1)
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "heal", s))
+		_, err := db.Exec("DROP TABLE heal_schema_openers")
+		require.NoError(t, err)
+
+		err = migrate.Migrate(t.Context(), db, b.dialect, "heal", s, migrate.WithCheckOnly())
+		require.ErrorContains(t, err, "failed to record opener in [heal_schema_openers]", "check-only creates nothing")
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "heal", s, migrate.WithNode("n")))
+		requireOpener(t, db, "heal_schema_openers", "heal_s", "n", 1)
+	})
+
 	t.Run("StepsMustBeNumbered", func(t *testing.T) {
 		t.Parallel()
 		b := newBackend(t)

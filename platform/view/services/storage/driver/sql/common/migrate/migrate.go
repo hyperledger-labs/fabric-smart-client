@@ -26,7 +26,8 @@ SPDX-License-Identifier: Apache-2.0
 // # Openers table
 //
 // <prefix>_schema_openers records which binaries use each store. Migrate
-// creates it together with the versions table:
+// creates it together with the versions table, and on a store with nothing
+// pending if it is missing:
 //
 //	CREATE TABLE IF NOT EXISTS <prefix>_schema_openers (
 //	    store        TEXT NOT NULL,      -- as in the versions table
@@ -284,6 +285,17 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 		if err := run(ctx, db, d, table, openers, store, steps[version:], len(steps), o.lockTimeout); err != nil {
 			return err
 		}
+	} else if !o.checkOnly {
+		// A database migrated before the openers table existed has none yet.
+		ok, err := tableExists(ctx, db, d, openers)
+		if err != nil {
+			return errors.Wrapf(err, "store [%s]: failed to look up [%s]", store, openers)
+		}
+		if !ok {
+			if err := run(ctx, db, d, table, openers, store, nil, len(steps), o.lockTimeout); err != nil {
+				return err
+			}
+		}
 	}
 	return recordOpener(ctx, db, d, openers, store, o, len(steps))
 }
@@ -292,8 +304,8 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 const openersColumns = "store TEXT NOT NULL, node TEXT NOT NULL, highest_step INT NOT NULL, opened_at TIMESTAMP NOT NULL, PRIMARY KEY (store, node, highest_step)"
 
 // recordOpener upserts the row of store, o.node and latest with the database's
-// current UTC time. run creates the table together with the versions table; a
-// missing table fails the open. The upsert needs SELECT, INSERT and UPDATE.
+// current UTC time. Migrate makes sure the table exists unless WithCheckOnly is
+// set; then a missing table fails the open. The upsert needs SELECT, INSERT and UPDATE.
 func recordOpener(ctx context.Context, db *sql.DB, d Dialect, openers, store string, o options, latest int) error {
 	now := "CURRENT_TIMESTAMP" // UTC on SQLite
 	if d == Postgres {
@@ -378,18 +390,25 @@ func register(db *sql.DB, table, store string, v Versioned) error {
 // the row does not exist. It returns ErrSchemaTooNew if readable_by is above
 // latest.
 func readVersion(ctx context.Context, q Execer, d Dialect, table, store string, latest int) (int, error) {
-	exists := "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1)"
-	if d == Postgres {
-		exists = "SELECT to_regclass($1) IS NOT NULL"
-	}
-	var ok bool
-	if err := q.QueryRowContext(ctx, exists, table).Scan(&ok); err != nil {
+	ok, err := tableExists(ctx, q, d, table)
+	if err != nil {
 		return 0, errors.Wrapf(err, "store [%s]: failed to look up [%s]", store, table)
 	}
 	if !ok {
 		return 0, nil
 	}
 	return readRow(ctx, q, table, store, latest)
+}
+
+// tableExists reports whether table exists.
+func tableExists(ctx context.Context, q Execer, d Dialect, table string) (bool, error) {
+	exists := "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $1)"
+	if d == Postgres {
+		exists = "SELECT to_regclass($1) IS NOT NULL"
+	}
+	var ok bool
+	err := q.QueryRowContext(ctx, exists, table).Scan(&ok)
+	return ok, err
 }
 
 // readRow is readVersion for a versions table that exists.

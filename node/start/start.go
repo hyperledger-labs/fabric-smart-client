@@ -77,7 +77,12 @@ type ExitError struct {
 	Err  error
 }
 
-func (e *ExitError) Error() string { return e.Err.Error() }
+func (e *ExitError) Error() string {
+	if e.Err == nil {
+		return "exit code " + strconv.Itoa(e.Code)
+	}
+	return e.Err.Error()
+}
 func (e *ExitError) Unwrap() error { return e.Err }
 
 // exitCode returns the exit code of a Migrate error. A joined error, such as

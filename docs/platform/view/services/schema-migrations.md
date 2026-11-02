@@ -52,13 +52,15 @@ REVOKE INSERT, UPDATE, DELETE ON fsc_schema_versions FROM fsc_node;
 REVOKE DELETE ON fsc_schema_openers FROM fsc_node;
 ```
 
+Run the last block after `node migrate` has created `fsc_schema_versions` and `fsc_schema_openers`; before that the `REVOKE` statements fail.
+
 Whoever can write the versions table decides which steps a node skips, so keep write access to it with the migration role.
 
 ## When a node refuses to start
 
 | Error | Cause | Action |
 | --- | --- | --- |
-| `store [...] is at version N, binary expects M; pending: step ... : schema migration pending; run node migrate` | `skipCreateTable: true` and the store has steps pending | Run `node migrate`, then start the node. |
+| `store [...] is at version N, binary expects M; pending: step N [...]: schema migration pending; run node migrate` | `skipCreateTable: true` and the store has steps pending | Run `node migrate`, then start the node. |
 | `store [...]: migration lock on [...] not granted within ...; held by pid N (...)` | `fsc.storage.migrationLockTimeout` elapsed while another session held the lock | See [A node waits for the migration lock](#a-node-waits-for-the-migration-lock). |
 | `store [...]: failed to record opener in [<prefix>_schema_openers]: ... permission denied` | The node role cannot write the openers table | Grant `SELECT, INSERT, UPDATE` on it; see [Database roles on Postgres](#database-roles-on-postgres). |
 | `store [...] needs version N, binary knows M: schema is newer than this binary supports` | A newer binary migrated the database | Run the newer binary, or restore a backup taken before its first start. |
