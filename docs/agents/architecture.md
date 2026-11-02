@@ -104,6 +104,16 @@ The SDK constructs every backend in the group to read its name, so a backend's c
 must be free of side effects; `Mount` acquires what the transport needs and returns an error
 if a prerequisite, such as its listener, is missing.
 
+**Restricting who calls which view.** Every command on the remote view API passes the
+`server.PolicyChecker` the view SDK provides: the built-in signature and client check, then every
+checker in the `fsc-view-policy-checkers` dig group. Provide one from a child SDK's `Install`; a
+refusal wraps `view.ErrDenied`. Details and an ACL example:
+[View Service](../platform/view/services/view-service.md#remote-view-api-access-control).
+
+```go
+p.Container().Provide(func() viewsdk.PolicyCheckerEntry { return viewsdk.PolicyCheckerEntry{Checker: myACL} })
+```
+
 ## Multi-network support
 
 FSC can run against multiple Fabric networks simultaneously. Network names are

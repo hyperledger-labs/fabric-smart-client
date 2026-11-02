@@ -398,6 +398,69 @@ When `GetService(type)` is called:
 3. If not found, check global service provider
 4. Return error if not found in either
 
+## Remote View API Access Control
+
+The remote view API (gRPC and HTTP, see [View Service over HTTP](view-service-http.md)) passes
+every command through one `server.PolicyChecker`, on unary and stream calls alike. The server
+calls it after validating the header and the binding to the client TLS certificate, and before
+the replay check, so a refused command is not remembered as accepted. The view SDK builds that
+checker from two parts:
+
+1. `server.AccessControlChecker` accepts a command only if its creator is the node's identity or
+   one of `fsc.view.remote.clients`, and its signature verifies under that identity. A command it
+   refuses goes no further.
+2. Every checker in the dig value group `fsc-view-policy-checkers` must then accept it. The first
+   error refuses the command.
+
+No group checker is registered by default, so every authenticated client may call every view. An
+application narrows that by providing a `PolicyCheckerEntry` from its SDK's `Install`. This one
+lets each creator call only the views listed for it, refuses view calls from a creator it does
+not list (the node's own identity included, so list it if local tools call views remotely), and
+lets other commands through:
+
+```go
+// Creator identity (the header's serialized identity, the PEM certificate for an X.509 client,
+// as a string) -> the views it may call.
+type viewACL map[string][]string
+
+func (a viewACL) Check(_ *protos.SignedCommand, c *protos.Command) error {
+	call := c.GetCallView()
+	if call == nil {
+		return nil // not a view call
+	}
+	if slices.Contains(a[string(c.GetHeader().GetCreator())], call.GetFid()) {
+		return nil
+	}
+	return errors.Wrapf(view.ErrDenied, "view [%s] not allowed", call.GetFid())
+}
+
+func (s *MySDK) Install() error {
+	if err := s.Container().Provide(func() viewsdk.PolicyCheckerEntry {
+		return viewsdk.PolicyCheckerEntry{Checker: viewACL{ /* ... */ }}
+	}); err != nil {
+		return err
+	}
+	return s.SDK.Install()
+}
+```
+
+Rules for a group checker:
+
+- `Command.Payload` is a oneof. A checker that governs only view calls lets commands with no
+  `CallView` through; one that governs other command types handles them explicitly.
+- dig does not keep the order of a group. Checkers must not depend on running before or after
+  each other; since all of them must accept, their order does not change the outcome.
+- A refusal wraps `view.ErrDenied`, which the view service counts as `requests_rejected` with
+  reason `denied`. `errors.Is(err, view.ErrDenied)` holds only on the node: the client receives the
+  error text in the response and reports it wrapped in `view.ErrViewExecutionFailed`.
+- `Check` may be called concurrently. A command it accepts may still be refused by the replay
+  check, so it must not assume an accepted command runs.
+
+The group is the supported extension point. A decorator of the `server.PolicyChecker` binding
+receives the SDK's checker and returns the one the view service uses instead, so the access
+control checker runs only if the decorator calls it, and dig allows one decorator of the binding
+per container.
+
 ## Integration with P2P Service
 
 The View Service integrates with the P2P Service for handling incoming messages:

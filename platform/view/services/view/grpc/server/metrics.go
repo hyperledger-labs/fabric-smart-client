@@ -23,7 +23,7 @@ var (
 	}
 	requestsRejected = metrics.CounterOpts{
 		Name:       "requests_rejected",
-		Help:       "The number of view requests rejected as stale or replayed.",
+		Help:       "The number of view requests rejected as stale, replayed or denied by a policy checker.",
 		LabelNames: []string{"reason"},
 	}
 )
@@ -34,7 +34,8 @@ type Metrics struct {
 	RequestsReceived metrics.Counter
 	// RequestsCompleted returns the number of view requests that have been completed.
 	RequestsCompleted metrics.Counter
-	// RequestsRejected returns the number of view requests rejected as stale or replayed.
+	// RequestsRejected returns the number of view requests rejected as stale, replayed or
+	// denied by a policy checker, by reason: stale, replay or denied.
 	RequestsRejected metrics.Counter
 }
 

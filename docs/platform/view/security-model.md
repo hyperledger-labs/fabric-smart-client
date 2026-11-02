@@ -147,6 +147,8 @@ holds a proof of ownership.
 
 - Use separate FSC nodes for different trust domains
 - Never mix trusted and untrusted views on the same node
+- Every client on `fsc.view.remote.clients` may call every view unless a policy checker narrows it;
+  see [Remote View API Access Control](services/view-service.md#remote-view-api-access-control)
 
 ## Conclusion
 

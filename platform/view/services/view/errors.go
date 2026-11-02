@@ -44,6 +44,8 @@ var (
 	ErrCommandNotRecognized = errors.New("command type not recognized")
 	// ErrIdentityNotRecognized occurs when an identity is not recognized.
 	ErrIdentityNotRecognized = errors.New("identity not recognized")
+	// ErrDenied occurs when a policy refuses a request whose caller is authenticated.
+	ErrDenied = errors.New("access denied")
 	// ErrCancelledByShutdown occurs when a node's shutdown cancels an initiator view that was
 	// still running at the end of the drain. The view may have had effects before it was
 	// cancelled, such as a submitted transaction that still commits, so its outcome must be

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.uber.org/dig"
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -29,6 +30,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
@@ -508,6 +510,46 @@ func RemoteViewTimeout(configProvider driver.ConfigService) time.Duration {
 		}
 	}
 	return DefaultRemoteViewTimeout
+}
+
+// PolicyCheckerEntry provides a server.PolicyChecker into the dig value group
+// "fsc-view-policy-checkers", the extension point for restricting the remote view API, such as
+// which views each client may call. An SDK provides one during Install; SDKs nested in each other
+// share one container, so every entry is reached. None is provided by default.
+//
+// The view service accepts a command, unary or streamed, only if server.AccessControlChecker and
+// then every checker in the group accept it, so a checker sees only authenticated callers. dig
+// does not preserve the order of a group: checkers must not depend on each other's order. Check
+// receives every command type and may be called concurrently; a refusal wraps view.ErrDenied.
+// Decorating the server.PolicyChecker binding replaces the whole composite, the built-in check
+// included. See docs/platform/view/services/view-service.md, "Remote View API Access Control".
+type PolicyCheckerEntry struct {
+	dig.Out
+	Checker server.PolicyChecker `group:"fsc-view-policy-checkers"`
+}
+
+// policyCheckers accepts a command only if every checker in it does. It runs them in slice
+// order and returns the first error without running the rest.
+type policyCheckers []server.PolicyChecker
+
+func (cs policyCheckers) Check(sc *protos.SignedCommand, c *protos.Command) error {
+	for _, checker := range cs {
+		if err := checker.Check(sc, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// newPolicyChecker returns the view service's server.PolicyChecker: the access control
+// checker, then every checker in the "fsc-view-policy-checkers" group.
+func newPolicyChecker(in struct {
+	dig.In
+	AccessControl *server.AccessControlChecker
+	Checkers      []server.PolicyChecker `group:"fsc-view-policy-checkers"`
+},
+) server.PolicyChecker {
+	return append(policyCheckers{in.AccessControl}, in.Checkers...)
 }
 
 // NewViewServiceServer constructs the view service for the DI container. Commands are bound

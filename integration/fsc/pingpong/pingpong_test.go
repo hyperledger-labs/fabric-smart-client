@@ -8,6 +8,8 @@ package pingpong_test
 
 import (
 	"fmt"
+	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,9 +25,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	viewclient "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -80,6 +85,45 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient.SigningIdentity = stranger
 			_, err = initiatorWebClient.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 5}))
+			Expect(err).To(MatchError(ContainSubstring("not recognized")))
+		})
+
+		It("enforces a per-view ACL from a policy checker", func() {
+			// The initiator's ACL lets its own identity call every view, the Admin client (on
+			// fsc.view.remote.clients) only "init", and the responder's identity, which is not
+			// a client, no view.
+			initiator = newNodeWithACL("./testdata/fsc/nodes/initiator.0", viewACL{
+				readCert("users/Admin@fsc.example.com", "Admin@fsc.example.com"):         {"init"},
+				readCert("peers/responder.fsc.example.com", "responder.fsc.example.com"): {},
+			})
+			responder = newNode("./testdata/fsc/nodes/responder.0")
+			Expect(initiator.Start()).To(Succeed())
+			Expect(responder.Start()).To(Succeed())
+			Expect(view.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})).To(Succeed())
+			Expect(view.GetRegistry(initiator).RegisterFactory("stream", &pingpong.StreamerViewFactory{})).To(Succeed())
+			Expect(view.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).To(Succeed())
+			time.Sleep(3 * time.Second)
+
+			client := newWebClient("./testdata/fsc/nodes/initiator.0")
+			stream, err := client.StreamCallView("stream", nil)
+			Expect(err).NotTo(HaveOccurred())
+			var s string
+			Expect(stream.Recv(&s)).To(Succeed())
+			Expect(stream.Send("ciao")).To(Succeed())
+			_, err = stream.Result()
+			Expect(err).NotTo(HaveOccurred(), "a stream from the node identity passes the ACL")
+
+			client.SigningIdentity = signingIdentity("users/Admin@fsc.example.com", "Admin@fsc.example.com")
+			res, err := client.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 1}))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+			_, err = client.CallView("stream", nil)
+			Expect(err).To(MatchError(And(ContainSubstring("access denied"), ContainSubstring("view [stream]"))))
+
+			// The access control check refuses a signer that is not a client before the ACL
+			// runs; the ACL would answer "access denied".
+			client.SigningIdentity = signingIdentity("peers/responder.fsc.example.com", "responder.fsc.example.com")
+			_, err = client.CallView("init", nil)
 			Expect(err).To(MatchError(ContainSubstring("not recognized")))
 		})
 
@@ -192,6 +236,63 @@ func newNode(conf string) FSCNode {
 	Expect(n).NotTo(BeNil())
 	n.AddSDK(libp2psupport.NewFrom(viewsdk.NewSDK(n)))
 	return n
+}
+
+const cryptoDir = "./testdata/fsc/crypto/peerOrganizations/fsc.example.com/"
+
+// readCert returns the PEM certificate of the MSP under cryptoDir+dir, which is the creator of
+// the commands its signing identity signs.
+func readCert(dir, name string) string {
+	raw, err := os.ReadFile(cryptoDir + dir + "/msp/signcerts/" + name + "-cert.pem")
+	Expect(err).NotTo(HaveOccurred())
+	return string(raw)
+}
+
+// signingIdentity loads the signing identity of the MSP under cryptoDir+dir.
+func signingIdentity(dir, name string) viewclient.SigningIdentity {
+	msp := cryptoDir + dir + "/msp/"
+	si, err := viewclient.NewX509SigningIdentity(msp+"signcerts/"+name+"-cert.pem", msp+"keystore/priv_sk")
+	Expect(err).NotTo(HaveOccurred())
+	return si
+}
+
+// newNodeWithACL returns a node whose view API lets each creator in acl call only the views
+// listed for it, and any other creator call every view.
+func newNodeWithACL(conf string, acl viewACL) FSCNode {
+	n := node.NewFromConfPath(conf)
+	Expect(n).NotTo(BeNil())
+	n.AddSDK(&aclSDK{SDK: libp2psupport.NewFrom(viewsdk.NewSDK(n)), acl: acl})
+	return n
+}
+
+// aclSDK stands for an application SDK that adds a policy checker to the view API.
+type aclSDK struct {
+	commondig.SDK
+	acl viewACL
+}
+
+func (s *aclSDK) Install() error {
+	if err := s.Container().Provide(func() viewsdk.PolicyCheckerEntry {
+		return viewsdk.PolicyCheckerEntry{Checker: s.acl}
+	}); err != nil {
+		return err
+	}
+	return s.SDK.Install()
+}
+
+// viewACL maps a creator to the views it may call. It governs view calls only.
+type viewACL map[string][]string
+
+func (a viewACL) Check(_ *protos.SignedCommand, c *protos.Command) error {
+	call := c.GetCallView()
+	if call == nil {
+		return nil
+	}
+	allowed, limited := a[string(c.GetHeader().GetCreator())]
+	if !limited || slices.Contains(allowed, call.GetFid()) {
+		return nil
+	}
+	return errors.Wrapf(view.ErrDenied, "view [%s] not allowed", call.GetFid())
 }
 
 const testdataDir = "./testdata"

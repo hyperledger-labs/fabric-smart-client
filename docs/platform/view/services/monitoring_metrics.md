@@ -195,12 +195,12 @@ The view service counts commands on every transport it is served on, gRPC (`fsc.
 | --- | --- | --- | --- |
 | `fsc_view_services_view_grpc_server_requests_received` | counter | `command` | Number of unary view-service requests that passed the initial validation and reached the processor dispatch stage. |
 | `fsc_view_services_view_grpc_server_requests_completed` | counter | `command`, `success` | Number of unary view-service requests that completed processing. |
-| `fsc_view_services_view_grpc_server_requests_rejected` | counter | `reason` | Number of view-service requests rejected because their timestamp is outside the command time window (`stale`) or the command was already accepted (`replay`). |
+| `fsc_view_services_view_grpc_server_requests_rejected` | counter | `reason` | Number of view-service requests rejected because their timestamp is outside the command time window (`stale`), the command was already accepted (`replay`), or a policy checker refused its authenticated caller (`denied`). |
 
 Operational notes:
 
 - `requests_received` and `requests_completed` are updated only on the unary `ProcessCommand` path; the streaming `StreamCommand` path is not counted by them.
-- `requests_rejected` counts both `ProcessCommand` and `StreamCommand`. `stale` is counted before the signature is checked, so any caller can raise it; `replay` is counted only for commands that passed the policy check.
+- `requests_rejected` counts both `ProcessCommand` and `StreamCommand`. `stale` is counted before the signature is checked, so any caller can raise it; `denied` is counted when the policy checker returns an error wrapping `view.ErrDenied`; the built-in access control checker never does, so an unknown creator or a bad signature is not counted. `replay` is counted only for commands that passed the policy check.
 - `command` is the Go type of the command payload, for example `*protos.Command_CallView`.
 
 Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, updated in `platform/view/services/view/grpc/server/server.go`.
@@ -480,7 +480,7 @@ The following labels are part of the current FSC metric surface.
 | `network` | Fabric network name | deployment-specific network name |
 | `peer` | Remote libp2p peer identifier | peer ID string |
 | `protocol` | Libp2p protocol identifier | protocol ID string |
-| `reason` | Why the view service rejected a request | `stale`, `replay` |
+| `reason` | Why the view service rejected a request | `stale`, `replay`, `denied` |
 | `side` | WebSocket connection side | `client`, `server` |
 | `status` | Committer handler outcome classification | `not_found`, `failure`, `successful` |
 | `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, and `fsc_view_services_view_grpc_server_view_service_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |

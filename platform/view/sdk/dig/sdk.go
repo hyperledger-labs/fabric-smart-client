@@ -205,7 +205,8 @@ func (p *SDK) Install() error {
 
 		// GRPC server
 		p.Container().Provide(viewgrpcserver.NewResponseMarshaler, dig.As(new(viewgrpcserver.Marshaller))),
-		p.Container().Provide(viewgrpcserver.NewAccessControlChecker, dig.As(new(viewgrpcserver.PolicyChecker))),
+		p.Container().Provide(viewgrpcserver.NewAccessControlChecker),
+		p.Container().Provide(newPolicyChecker),
 		p.Container().Provide(LoadRemoteConfig),
 		p.Container().Provide(NewViewServiceServer, dig.As(new(viewgrpcserver.Service))),
 		// Transports of the remote view API, mounted by Start as fsc.view.remote.backends lists.
