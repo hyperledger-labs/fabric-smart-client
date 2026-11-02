@@ -90,8 +90,9 @@ func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int)
 }
 
 // TrySubmit endorses and orders one transaction between alice and bob, like
-// SubmitAndWaitFinal, and returns its ID and the error of the view that failed. The ID
-// is empty only if endorsing failed, when no transaction exists that could commit.
+// SubmitAndWaitFinal, and returns its ID and the error of the view or decoding that
+// failed. The ID is empty when endorsing failed, so no transaction exists that could
+// commit. It reports every failure as an error, so it is safe to call from a goroutine.
 func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
@@ -107,7 +108,11 @@ func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
 	if err != nil {
 		return tx.TxID, err
 	}
-	return common.JSONUnmarshalString(res), nil
+	var txID string
+	if err := json.Unmarshal(res.([]byte), &txID); err != nil {
+		return tx.TxID, err
+	}
+	return txID, nil
 }
 
 // Submission is the outcome of one TrySubmit.

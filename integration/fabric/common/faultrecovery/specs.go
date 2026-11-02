@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package faultrecovery
 
 import (
+	"context"
 	"net/url"
 	"time"
 
@@ -290,6 +291,88 @@ func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection) {
 		s.II.StartFSCNode(held.UniqueName)
 		s.II.EventuallyConnectionState(held.ID(), conn, connstate.Connected, time.Minute)
 	})
+}
+
+// RollingRestartSpecs registers the spec that stops each replica of bob gracefully and
+// restarts it in turn while alice submits, for a suite s on ReplicatedFSCTopology. conn is
+// the connection a restarted replica must report Connected again before the next restart.
+// The spec leaves every replica running, so it can run under ShareNetwork.
+//
+// The stopping replica drains: alice's sessions in progress finish, and a new one gets
+// "draining". The test load balancer does not probe /readyz, so alice's connection stays on
+// the draining replica until that reply; alice then drops it, and her next dial goes
+// round-robin to the other replica. So at most one submission fails per restart, and a
+// failed submission must not commit: alice got an error, so a committed tx would be a
+// success she never saw.
+func RollingRestartSpecs(s *integration.TestSuite, conn fsc.Connection) {
+	ginkgo.It("keeps committing through a rolling restart of one replica", func() {
+		// The first tx opens alice's connection, which ConnectedReplica looks for.
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		done := make(chan []Submission, 1)
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			done <- SubmitUntil(ctx, s.II)
+		}()
+
+		// Only the replica holding alice's connection drains a session; restarting the idle
+		// one tests nothing. Restarting every replica in turn restarts the holder at least once.
+		drained := 0
+		for _, r := range replicaIDs(s.II, "bob") {
+			time.Sleep(2 * time.Second) // submissions run
+			if held, _ := ConnectedReplica(s.II, "bob"); held.ID() == r {
+				drained++
+			}
+			s.II.StopFSCNode(r)
+			s.II.StartFSCNode(r)
+			gomega.Eventually(s.II.WebClient(r).Ready, time.Minute, time.Second).Should(gomega.Succeed())
+			s.II.EventuallyConnectionState(r, conn, connstate.Connected, time.Minute)
+		}
+		gomega.Expect(drained).To(gomega.BeNumerically(">=", 1), "no restarted replica held alice's connection")
+		time.Sleep(2 * time.Second)
+		cancel()
+		var subs []Submission
+		gomega.Eventually(done, viewTimeout).Should(gomega.Receive(&subs), "submissions did not stop")
+
+		failed := 0
+		var committed []Submission
+		for _, sub := range subs {
+			if sub.Err != nil {
+				ginkgo.GinkgoWriter.Printf("submission %d [%s] failed: %v\n", sub.Value, sub.TxID, sub.Err)
+				failed++
+				if sub.TxID != "" {
+					gomega.Consistently(func(g gomega.Gomega) {
+						res, err := Query(s.II, "bob", sub.TxID)
+						g.Expect(err).NotTo(gomega.HaveOccurred())
+						g.Expect(res.Status).NotTo(gomega.Equal(fdriver.Valid))
+					}, 5*time.Second, time.Second).Should(gomega.Succeed(), "failed tx [%s] committed", sub.TxID)
+				}
+				continue
+			}
+			committed = append(committed, sub)
+		}
+		gomega.Expect(failed).To(gomega.BeNumerically("<=", drained), "at most one failed submission per drain")
+		gomega.Expect(committed).NotTo(gomega.BeEmpty())
+		// The order view returns once the tx is final on alice, so only bob is checked.
+		for _, sub := range committed {
+			for _, r := range replicaIDs(s.II, "bob") {
+				ExpectSettled(s.II, r, sub.TxID, sub.Value)
+			}
+		}
+	})
+}
+
+// replicaIDs returns the replica IDs of node, such as fsc.bob.0, in topology order.
+func replicaIDs(ii *integration.Infrastructure, node string) []string {
+	var ids []string
+	for _, r := range ii.FscPlatform.Peers {
+		if r.Name == node {
+			ids = append(ids, r.ID())
+		}
+	}
+	return ids
 }
 
 // BlockedEcho starts a blocking echo through c, alice's view client, and returns once
