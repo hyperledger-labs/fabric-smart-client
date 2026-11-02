@@ -15,6 +15,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
 
+// AllNodes names the FSC nodes in [Topology]. Each runs its own channel config monitor and
+// applies a configuration independently, so specs assert on all of them.
+var AllNodes = []string{"borrower", "lender", "approver1", "approver2"}
+
 // Topology returns the fabricx IOU topology, in which every FSC node can additionally
 // report the sequence of the channel configuration it holds, through the configseq view.
 //

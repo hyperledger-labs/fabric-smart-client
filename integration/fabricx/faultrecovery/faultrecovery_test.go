@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	fxconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/configupdate"
 	fxfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -68,6 +69,67 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 	faultrecovery.ClientSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 	faultrecovery.HostileSpecs(s)
+
+	It("applies a config update made while down", func() {
+		n := fxconfigupdate.NetworkOf(s.II)
+		original := fxconfigupdate.BatchTimeout(n)
+		before := fxconfigupdate.ConfigSequenceOn(Default, s.II, "bob")
+
+		// Bob endorses the tx, then misses the configuration change and the tx's commit.
+		// The mock orderer ignores BatchTimeout, so changing it leaves ordering alone.
+		tx := faultrecovery.Endorse(s.II, 1)
+		s.II.StopFSCNode("bob")
+		fxconfigupdate.SetBatchTimeout(n, original+500*time.Millisecond)
+		faultrecovery.Order(s.II, tx)
+		s.II.StartFSCNode("bob")
+
+		// Bob's channel config monitor reads the new configuration from the committer's
+		// query service on its next poll and applies it, so the sequence moves on bob too.
+		expectConfigSequence(s.II, before+1, "bob", "alice")
+		faultrecovery.WaitFinal(s.II, tx.TxID)
+		// A new tx needs bob to endorse it on the new configuration.
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+
+		// Leave the shared network's BatchTimeout as this spec found it.
+		fxconfigupdate.SetBatchTimeout(n, original)
+		expectConfigSequence(s.II, before+2, "alice", "bob")
+	})
+
+	It("resumes commits after Postgres restart", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+
+		// Endorsing writes to bob's database, so the txs are endorsed before the outage
+		// and ordered during it.
+		txs := make([]*views.Endorsed, 3)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+
+		s.II.StopPostgres(db)
+		down := true
+		// A failure during the outage would leave the database down for the next spec.
+		DeferCleanup(func() {
+			if down {
+				s.II.StartPostgres(db)
+			}
+		})
+		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
+		txIDs := make([]string, len(txs))
+		for i, tx := range txs {
+			txIDs[i] = faultrecovery.Order(s.II, tx)
+		}
+		s.II.StartPostgres(db)
+		down = false
+
+		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
+		// On Fabric-x, Query reads the committer's query service, so it answers the same on
+		// every node; the finality view ExpectSettled then runs on bob is what needs bob's
+		// own database back.
+		for i, txID := range txIDs {
+			faultrecovery.ExpectSettled(s.II, "bob", txID, i)
+		}
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
 
 	It("survives committer restart", func() {
 		committer := nwofabricx.FxPlatform(s.II)
@@ -205,6 +267,16 @@ var _ = Describe("Fault Recovery with Fabric-x during a network partition", Orde
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 })
+
+// expectConfigSequence waits until every node holds channel configuration sequence want.
+// A node reads a new configuration on its config monitor's next poll, so this polls.
+func expectConfigSequence(ii *integration.Infrastructure, want int, nodes ...string) {
+	for _, node := range nodes {
+		EventuallyWithOffset(1, func(g Gomega) int {
+			return fxconfigupdate.ConfigSequenceOn(g, ii, node)
+		}, time.Minute, time.Second).Should(Equal(want), "config sequence on [%s]", node)
+	}
+}
 
 // expectStreamedFinality checks that the notification stream of every replica of bob
 // answers a subscription: each replica's finality view registers its listener before a new
