@@ -157,6 +157,15 @@ var _ = Describe("Fault Recovery with Fabric-x and replicas", Ordered, ContinueO
 		}
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 3)).To(HaveLen(3))
 	})
+
+	// Query and the finality of a tx already final answer from the committer's query
+	// service, so the rolling restart specs show that the committer holds the txs; the
+	// streamed finality shows that each restarted replica serves again.
+	faultrecovery.RollingRestartSpecs(s, notification)
+
+	It("streams finality on every replica after the rolling restart", func() {
+		expectStreamedFinality(s.II)
+	})
 })
 
 // Its own Describe, so the fault proxies and the keepalive apply to these specs only.

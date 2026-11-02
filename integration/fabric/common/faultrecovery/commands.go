@@ -90,7 +90,9 @@ func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int)
 }
 
 // TrySubmit endorses and orders one transaction between alice and bob, like
-// SubmitAndWaitFinal, and returns its ID, or the error of the view that failed.
+// SubmitAndWaitFinal, and returns its ID and the error of the view or decoding that
+// failed. The ID is empty when endorsing failed, so no transaction exists that could
+// commit. It reports every failure as an error, so it is safe to call from a goroutine.
 func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
@@ -104,9 +106,32 @@ func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
 	}
 	res, err := ii.Client("alice").CallViewWithContext(ctx, "order", common.JSONMarshall(&views.Order{Tx: tx.Tx}))
 	if err != nil {
-		return "", err
+		return tx.TxID, err
 	}
-	return common.JSONUnmarshalString(res), nil
+	var txID string
+	if err := json.Unmarshal(res.([]byte), &txID); err != nil {
+		return tx.TxID, err
+	}
+	return txID, nil
+}
+
+// Submission is the outcome of one TrySubmit.
+type Submission struct {
+	Value int
+	TxID  string
+	Err   error
+}
+
+// SubmitUntil runs TrySubmit with values 0, 1, ... one after the other until ctx ends,
+// and returns every submission in order. A submission in progress when ctx ends runs to
+// completion.
+func SubmitUntil(ctx context.Context, ii *integration.Infrastructure) []Submission {
+	var subs []Submission
+	for i := 0; ctx.Err() == nil; i++ {
+		txID, err := TrySubmit(ii, i) //nolint:contextcheck // ctx only says when to stop; cancelling a submission in progress would record a failure the caller did not cause
+		subs = append(subs, Submission{Value: i, TxID: txID, Err: err})
+	}
+	return subs
 }
 
 // Endorse runs alice's endorse view with bob as responder and returns the endorsed
