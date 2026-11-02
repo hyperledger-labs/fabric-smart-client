@@ -63,6 +63,7 @@ Explicit overrides are used in the following places within the current catalog:
 - `platform/fabric/core/generic/metrics/metrics.go` registers `fsc_fabric_core_generic_ordering_ordered_transactions`
 - `platform/view/services/metrics/connstate/connstate.go` registers the `fsc_connection_*` families
 - `platform/view/services/view/metrics.go` registers `fsc_shutdown_draining`
+- `platform/view/sdk/dig/servers.go` registers `fsc_tls_cert_not_after`
 
 ### Labels
 
@@ -108,6 +109,14 @@ If a family is absent, check the matching runtime condition first: communication
 | `fsc_view_services_metrics_operations_fsc_version` | gauge | `version` | FSC version information. The gauge is set to `1` at startup for the active version string. |
 
 Primary implementation: `platform/view/services/metrics/operations/metrics.go`, initialized by `platform/view/services/metrics/operations/system.go`.
+
+### Listener TLS
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `fsc_tls_cert_not_after` | gauge | `listener` | Expiry, in Unix seconds, of the TLS certificate the listener currently serves. It is set at startup and after every successful reload (`reloadInterval`, see [configuration.md](../../../configuration.md)). A listener without TLS has no series. |
+
+Alert on `fsc_tls_cert_not_after - time()` falling below the renewal margin. A failed reload leaves the value unchanged, so a renewed certificate that is refused still shows up as an approaching expiry. The gauge is set by `platform/common/services/grpc/certreloader.go`.
 
 ### View Runtime
 
@@ -475,6 +484,7 @@ The following labels are part of the current FSC metric surface.
 | `data_source` | Postgres data source of a connection pool, without credentials | `host:port/dbname` |
 | `endpoint` | Remote address of a client connection | `host:port`; `host:port/dbname` for `database` |
 | `fid` | View factory identifier used by the local view client tracer | application-defined factory ID |
+| `listener` | FSC listener serving a TLS certificate | `grpc`, `web`; `metrics` when `fsc.metrics.address` gives the operations endpoints a listener of their own |
 | `initiator_view` | Initiator view identifier associated with a child view execution | fully qualified view identifier or empty |
 | `kind` | Security check that rejected input from a remote peer | `invalid_tx` |
 | `network` | Fabric network name | deployment-specific network name |

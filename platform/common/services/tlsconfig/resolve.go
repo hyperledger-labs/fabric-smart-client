@@ -126,6 +126,9 @@ func buildServer(src Source, key string, s ServerTLS, defaultClientAuth, dynamic
 		RequireClientCert: deref(s.ClientAuthRequired, defaultClientAuth),
 		MinVersion:        deref(s.MinVersion, 0),
 		MaxVersion:        deref(s.MaxVersion, 0),
+		ReloadInterval:    deref(s.ReloadInterval, 0),
+		CertFile:          translate(src, s.Cert),
+		KeyFile:           translate(src, s.Key),
 	}
 	var err error
 	if out.Certificate, err = readFile(src, key, "cert", s.Cert); err != nil {
@@ -178,11 +181,20 @@ func deref[T any](p *T, fallback T) T {
 	return *p
 }
 
-func readFile(src Source, key, field string, f *File) ([]byte, error) {
+// translate returns the path f names, resolved relative to the configuration file, or ""
+// when f names none.
+func translate(src Source, f *File) string {
 	if f == nil || f.File == "" {
+		return ""
+	}
+	return src.TranslatePath(f.File)
+}
+
+func readFile(src Source, key, field string, f *File) ([]byte, error) {
+	path := translate(src, f)
+	if path == "" {
 		return nil, nil
 	}
-	path := src.TranslatePath(f.File)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "%s.%s: cannot read [%s]", key, field, path)

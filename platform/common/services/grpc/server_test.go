@@ -512,7 +512,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 			},
 		},
 	)
-	require.EqualError(t, err, "tls: failed to find any PEM data in key input")
+	require.ErrorContains(t, err, "tls: failed to find any PEM data in key input")
 
 	// bad server Certificate
 	_, err = commongrpc.NewGRPCServerFromListener(
@@ -526,7 +526,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 			},
 		},
 	)
-	require.EqualError(t, err, "tls: failed to find any PEM data in certificate input")
+	require.ErrorContains(t, err, "tls: failed to find any PEM data in certificate input")
 
 	srv, err := commongrpc.NewGRPCServerFromListener(
 		lis,

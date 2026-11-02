@@ -25,6 +25,7 @@ import (
 	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
@@ -498,6 +499,37 @@ func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer
 			logger.Info("kvs stopping...done")
 		}
 	})
+}
+
+// certReloaderOwner is implemented by listeners that serve their TLS certificate through a
+// [commongrpc.CertReloader]; both default listeners do.
+type certReloaderOwner interface {
+	CertReloader() *commongrpc.CertReloader
+}
+
+// reportCertExpiry registers fsc_tls_cert_not_after and points it at the certificate of each
+// listener serving one, labelled grpc, web and, when the operations endpoints have a listener
+// of their own, metrics. A listener without TLS, or a replaced one that does not expose its
+// reloader, is skipped. A nil grpcServer or ownOps is skipped too, and so is everything when
+// p is nil.
+func reportCertExpiry(p metrics.Provider, grpcServer, webServer, ownOps any) {
+	if p == nil {
+		return
+	}
+	gauge := p.NewGauge(metrics.GaugeOpts{
+		Namespace:  "fsc",
+		Subsystem:  "tls",
+		Name:       "cert_not_after",
+		Help:       "Expiry of the TLS certificate a listener serves, in Unix seconds.",
+		LabelNames: []string{"listener"},
+	})
+	for listener, s := range map[string]any{"grpc": grpcServer, "web": webServer, "metrics": ownOps} {
+		if o, ok := s.(certReloaderOwner); ok {
+			if r := o.CertReloader(); r != nil {
+				r.ReportExpiry(gauge.With("listener", listener))
+			}
+		}
+	}
 }
 
 // RemoteViewTimeout returns the execution timeout of views called remotely, through the view

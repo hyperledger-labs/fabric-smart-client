@@ -171,6 +171,13 @@ type SecureOptions struct {
 	Certificate []byte
 	// PEM-encoded private key to be used for TLS communication
 	Key []byte
+	// CertFile and KeyFile are the paths Certificate and Key were read from, when they came
+	// from files. A listener with a positive ReloadInterval re-reads them every interval
+	// (see [CertReloader]). Server-side only.
+	CertFile, KeyFile string
+	// ReloadInterval is how often a listener re-reads CertFile and KeyFile; zero never does.
+	// Server-side only.
+	ReloadInterval time.Duration
 	// Set of PEM-encoded X509 certificate authorities used by clients to
 	// verify server certificates
 	ServerRootCAs [][]byte

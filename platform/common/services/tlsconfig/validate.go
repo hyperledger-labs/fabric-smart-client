@@ -8,6 +8,7 @@ package tlsconfig
 
 import (
 	"strings"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
@@ -16,7 +17,15 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// minReloadInterval is the shortest accepted reloadInterval. It catches a unit-less value:
+// the decoder reads `reloadInterval: 30` as 30ns, which would re-read the files continuously.
+const minReloadInterval = time.Second
+
 func validateServer(key string, so grpc.SecureOptions, dynamicClientRootCAs bool) error {
+	if so.ReloadInterval != 0 && so.ReloadInterval < minReloadInterval {
+		return errors.Errorf("[%s] reloadInterval [%s] must be 0 (off) or at least %s, "+
+			"written with a unit such as 30s", key, so.ReloadInterval, minReloadInterval)
+	}
 	if !so.UseTLS {
 		// A disabled block carrying a keypair is a mistake worth naming. Client root CAs
 		// alone are not: clientRootCAs without clientAuthRequired is the supported

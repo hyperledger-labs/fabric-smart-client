@@ -63,6 +63,14 @@ fsc:
     # 772.
     minVersion: 771
     maxVersion: 771
+    # How often each listener re-reads its cert and key files, as a duration such as 30s.
+    # A renewed certificate is then served from the next handshake on, without a restart;
+    # established connections keep theirs until they reconnect. A pair that does not parse,
+    # or whose halves do not match, is refused with a warning and the previous one stays.
+    # Absent or 0 never re-reads the files, so rotating a listener certificate needs a
+    # restart. A negative value, or one below 1s, fails startup. Each listener's certificate
+    # expiry is exported as fsc_tls_cert_not_after.
+    reloadInterval: 0
 
   # ------------------- GRPC Server Configuration -------------------------
   # The gRPC listener. It serves the remote view API when fsc.view.remote.backends lists
@@ -94,6 +102,8 @@ fsc:
       # TLS Key. Inherited from fsc.tls when absent.
       key:
         file: /path/to/tls/server.key
+      # How often to re-read cert and key; see fsc.tls. Inherited from fsc.tls when absent.
+      reloadInterval: 0
 
       # Root certificates used to verify client TLS certificates. Client authentication has
       # the same three states as on fsc.web (see below): clientAuthRequired: true demands a
@@ -352,6 +362,8 @@ fsc:
         file: /path/to/tls/server.crt
       key:
         file: /path/to/tls/server.key
+      # How often to re-read cert and key; see fsc.tls. Inherited from fsc.tls when absent.
+      reloadInterval: 0
       # Client authentication has THREE states, on this listener and on fsc.grpc:
       #
       #   clientAuthRequired: true                    -> a client certificate is required
@@ -458,6 +470,8 @@ fsc:
     # fsc.metrics.tls without fsc.metrics.address is a startup error: the shared listener
     # cannot honour it, and the configuration would be claiming transport security it does
     # not have.
+    #
+    # On its own listener, fsc.metrics.tls.reloadInterval works as on fsc.tls.
     #
     # A plaintext listener cannot verify a client certificate, so it also needs
     # clientAuthRequired: false, replacing the clientAuthRequired line above.

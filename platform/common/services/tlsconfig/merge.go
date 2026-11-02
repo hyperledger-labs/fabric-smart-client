@@ -26,6 +26,7 @@ func mergeServer(parent, child ServerTLS) ServerTLS {
 		ClientRootCAs:      cmp.Or(child.ClientRootCAs, parent.ClientRootCAs),
 		MinVersion:         cmp.Or(child.MinVersion, parent.MinVersion),
 		MaxVersion:         cmp.Or(child.MaxVersion, parent.MaxVersion),
+		ReloadInterval:     cmp.Or(child.ReloadInterval, parent.ReloadInterval),
 	}
 }
 
