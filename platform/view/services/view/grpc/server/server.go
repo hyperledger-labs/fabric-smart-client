@@ -29,7 +29,11 @@ const successLabel tracing.LabelName = "success"
 
 var logger = logging.MustGetLogger()
 
-// A PolicyChecker is responsible for performing policy based access control checks related to view commands.
+// A PolicyChecker decides whether the view service accepts a command. The server calls Check
+// for every command on every transport, after the header and the TLS binding are validated and
+// before the replay check, so a refused command is never remembered as accepted. A non-nil
+// error refuses the command and is sent to the client as error text; a refusal of an
+// authenticated caller wraps view.ErrDenied. Check may be called concurrently.
 type PolicyChecker interface {
 	Check(sc *protos.SignedCommand, c *protos.Command) error
 }
@@ -167,7 +171,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 		return s.MarshalErrorResponse(sc.Command, err)
 	}
 
-	err = s.PolicyChecker.Check(sc, command)
+	err = s.checkPolicy(sc, command)
 	if err != nil {
 		return s.MarshalErrorResponse(sc.Command, err)
 	}
@@ -252,7 +256,7 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 		return s.streamError(err, sc, commandServer)
 	}
 
-	err = s.PolicyChecker.Check(sc, command)
+	err = s.checkPolicy(sc, command)
 	if err != nil {
 		return s.streamError(err, sc, commandServer)
 	}
@@ -305,6 +309,15 @@ func (s *Server) ValidateHeader(header *protos.Header) error {
 	}
 
 	return nil
+}
+
+// checkPolicy runs the policy checker and counts a refusal that wraps view.ErrDenied.
+func (s *Server) checkPolicy(sc *protos.SignedCommand, c *protos.Command) error {
+	err := s.PolicyChecker.Check(sc, c)
+	if errors.Is(err, view.ErrDenied) {
+		s.metrics.RequestsRejected.With("reason", "denied").Add(1)
+	}
+	return err
 }
 
 // checkReplay rejects a command the server has already accepted. It keys on the signed bytes,

@@ -290,8 +290,9 @@ fsc:
       # positive duration.
       timeWindow: 15m
       # Identities, besides the node's default identity (fsc.identity), allowed to call
-      # views. An entry that does not load as a certificate fails startup. From the
-      # environment, a comma-separated list of paths.
+      # views. Application policy checkers can narrow which views each one may call (see
+      # docs/platform/view/services/view-service.md). An entry that does not load as a
+      # certificate fails startup. From the environment, a comma-separated list of paths.
       clients:
       - path/to/client-cert.pem
       # Largest SignedCommand, or later stream frame, the remote view API accepts, in bytes.
