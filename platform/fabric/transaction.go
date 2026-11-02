@@ -163,7 +163,12 @@ type SignedProposal struct {
 	s driver.SignedProposal
 }
 
+// ProposalBytes returns the marshalled proposal, or nil when the transaction has
+// no signed proposal.
 func (p *SignedProposal) ProposalBytes() []byte {
+	if p.s == nil {
+		return nil
+	}
 	return p.s.ProposalBytes()
 }
 
@@ -418,6 +423,8 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 	}, nil
 }
 
+// NewTransactionFromBytes decodes a transaction from its serialized form. It
+// does not validate data received from a peer; use endorser.ValidateReceived.
 func (t *TransactionManager) NewTransactionFromBytes(raw []byte, opts ...TransactionOption) (*Transaction, error) {
 	options, err := CompileTransactionOptions(opts...)
 	if err != nil {

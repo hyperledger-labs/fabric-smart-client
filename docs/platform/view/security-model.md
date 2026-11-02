@@ -34,6 +34,56 @@ The security model extends beyond your own view code:
 - Compromised dependencies can exploit the same vulnerabilities as malicious view code
 - Supply chain attacks are a significant concern
 
+## Data Received from Peers
+
+A Fabric transaction a node receives from a remote peer, before it is signed, endorsed, or stored,
+passes through `endorser.ValidateReceived` (`platform/fabric/services/endorser/validate.go`). This
+closes a gap the shared-TCB model above does not cover on its own: the remote peer is untrusted
+input, not loaded view code, and could otherwise choose the txID its transaction is stored under
+or present a creator that disagrees with its proposal.
+
+`ValidateReceived` checks that:
+
+- the txID equals `ComputeTxID(nonce, creator)` (Fabric networks only; see below for Fabric-x);
+- a signed proposal, if the transaction carries one, is an `ENDORSER_TRANSACTION` with epoch `0`,
+  a non-empty nonce and creator, and a header whose txID, nonce, and creator all equal those of the
+  transaction;
+- the creator is valid for the channel's MSPs.
+
+It does **not** verify the proposal signature against the creator. FSC builds a proposal with the
+transaction's creator in the header, but the first identity that endorses signs it, which need not
+be the creator — anonymous-creator and HSM-based endorser flows rely on this. A node that wants
+signer-equals-creator must check that itself.
+
+On Fabric-x networks the txID-equality check is skipped: the Fabric-x committer does not require
+`txid == ComputeTxID(nonce, creator)` for data transactions, and a Fabric-x proposal response is
+bound to its transaction only by the txID, not by a proposal hash. FSC skips the check there
+because the committer does not enforce it, so on Fabric-x a remote peer can still choose the txID
+its transaction is stored under. The proposal header consistency checks and the creator check still
+apply on Fabric-x.
+
+Validation runs on the two paths that take a transaction from a remote peer: decoding it
+(`endorser.NewTransactionFromBytes`, used by `state.ReceiveTransaction`) and, again, right before an
+`endorseView` signs it. It does not run when the committer reloads a node's own previously stored
+transactions, so a creator certificate that expired or was revoked after endorsement does not block
+that transaction from committing. The lower-level decoding constructors
+(`fabric.TransactionManager.NewTransactionFromBytes`, `endorser.Builder.NewTransactionFromBytes`,
+`Transaction.SetFromBytes`) do not validate either; call `ValidateReceived` explicitly if building
+a transaction from bytes outside those two paths.
+
+A certification envelope (`platform/fabric/services/state/certification.go`, decoded with
+`endorser.NewTransactionFromEnvelopeBytes`) also comes from a peer, but it does not pass through
+`ValidateReceived`: the node only decodes it to check its endorsements against the peers discovery
+returns and to read the certified value, and never endorses or stores it.
+
+A rejected transaction's error wraps `endorser.ErrInvalidTransaction` and is counted and logged as a
+security rejection (see [Security metrics](services/monitoring_metrics.md#security)). While the
+channel's MSP configuration is not loaded yet, such as at startup or during catch-up, the check
+instead returns an error wrapping `driver.ErrNotInitialized`, which a retry can clear, and is not
+counted as a rejection. If the node received a channel configuration and refused it, the check
+returns an error wrapping `driver.ErrConfigRejected`, also not counted; a retry does not clear it,
+so surface it to the operator instead of retrying.
+
 ## Best Practices
 
 ### 1. Strict View Code Review

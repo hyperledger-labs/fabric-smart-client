@@ -342,6 +342,26 @@ Operational notes:
 
 Primary implementation: `platform/fabric/core/generic/committer/metrics.go`, updated in `platform/fabric/core/generic/committer/committer.go`.
 
+### Security
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `fsc_view_services_security_rejections` | counter | `kind` | Number of inputs from remote peers rejected by a security check, by kind. |
+
+Operational notes:
+
+- `kind` is currently `invalid_tx`: a transaction received from a peer that failed
+  `endorser.ValidateReceived` (see [Security Model](../security-model.md#data-received-from-peers)).
+  Later checks add more kinds.
+- A rejection is not a degrade and is not counted in `commit_failures`: the endorser refuses the
+  transaction before it reaches the committer, so no channel's block stream is affected.
+- Each rejection also logs one warn line naming the remote peer and the txID, rate-limited to one
+  line per kind per second since the remote peer controls how often it fires; the counter itself
+  counts every rejection. Peer and txID are never counter labels.
+
+Primary implementation: `platform/view/services/security/rejections.go`, updated from
+`platform/fabric/services/endorser/validate.go`.
+
 ### Vault
 
 | Metric | Type | Labels | Description |
@@ -445,6 +465,7 @@ The following labels are part of the current FSC metric surface.
 | `endpoint` | Remote address of a client connection | `host:port`; `host:port/dbname` for `database` |
 | `fid` | View factory identifier used by the local view client tracer | application-defined factory ID |
 | `initiator_view` | Initiator view identifier associated with a child view execution | fully qualified view identifier or empty |
+| `kind` | Security check that rejected input from a remote peer | `invalid_tx` |
 | `network` | Fabric network name | deployment-specific network name |
 | `peer` | Remote libp2p peer identifier | peer ID string |
 | `protocol` | Libp2p protocol identifier | protocol ID string |

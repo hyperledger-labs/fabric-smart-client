@@ -83,6 +83,16 @@ func NewAnonymousTransaction(viewCtx view.Context) (*Transaction, error) {
 
 func NewTransactionFromBytes(viewCtx view.Context, raw []byte) (*Transaction, error) {
 	_, tx, err := endorser.NewTransactionFromBytes(viewCtx, raw)
+	return wrapReceived(tx, err)
+}
+
+// newTransactionFromPeer decodes and validates a transaction received from peer.
+func newTransactionFromPeer(viewCtx view.Context, peer view.Identity, raw []byte) (*Transaction, error) {
+	_, tx, err := endorser.NewTransactionFromPeer(viewCtx, peer, raw)
+	return wrapReceived(tx, err)
+}
+
+func wrapReceived(tx *endorser.Transaction, err error) (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +160,10 @@ func (f *receiveTransactionView) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewTransactionFromBytes(viewCtx, payload)
+	if f.party.IsNone() {
+		return NewTransactionFromBytes(viewCtx, payload)
+	}
+	return newTransactionFromPeer(viewCtx, f.party, payload)
 }
 
 type sendTransactionView struct {

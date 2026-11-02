@@ -24,6 +24,7 @@ import (
 //go:generate counterfeiter -o mock/binding_store.go -fake-name BindingStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.BindingStore
 //go:generate counterfeiter -o mock/channel.go -fake-name Channel github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Channel
 //go:generate counterfeiter -o mock/channel_membership.go -fake-name ChannelMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChannelMembership
+//go:generate counterfeiter -o mock/config_service.go -fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ConfigService
 //go:generate counterfeiter -o mock/context.go -fake-name Context github.com/hyperledger-labs/fabric-smart-client/platform/view/view.Context
 //go:generate counterfeiter -o mock/envelope.go -fake-name Envelope github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Envelope
 //go:generate counterfeiter -o mock/finality.go -fake-name Finality github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Finality
