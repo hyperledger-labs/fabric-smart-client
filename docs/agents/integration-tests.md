@@ -271,13 +271,11 @@ echo and returns once the responder blocks on a given node or replica. `AwaitEch
 bob's responder wait for a second message that never comes, so a spec can kill alice
 mid-view. `MetricSum` reads a counter or gauge from a node's metrics, such as
 `ViewContexts` or `Sessions`. Both nodes serve the `configseq` view, so a spec can change the channel
-configuration with the `configupdate` helpers (`SetBatchTimeout`, `ConfigSequenceOn`) and
-check which configuration a node holds: `integration/fabric/common/configupdate` on Fabric,
-and `integration/fabricx/common/configupdate` on Fabric-x, where `SetBatchTimeout` takes the
-network from `NetworkOf` and a node applies a new configuration on its config monitor's next
-poll of the committer. `ExpectConfigSequence` in `integration/fabric/common/configupdate`
-waits until nodes report a sequence, on either platform, since both serve the same
-`configseq` view. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
+configuration with the `configupdate` helpers (`SetBatchTimeout`, `ConfigSequenceOn`,
+`ExpectConfigSequence`) and check which configuration a node holds:
+`integration/fabric/common/configupdate` on Fabric, and `integration/fabricx/common/configupdate`
+on Fabric-x, where `SetBatchTimeout` takes the network from `NetworkOf` and a node applies a
+new configuration on its config monitor's next poll of the committer. The Fabric suite's `SetCommitRetries` shortens a node's commit retry
 budget before the network starts, and `SetFinalityWaitTimeout` how long `IsFinal` waits
 for a transaction that is not final; call them in the generator of a `Describe` of its own,
 since they apply to every spec that shares that generator. `Query` returns a node's

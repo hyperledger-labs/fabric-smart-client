@@ -55,6 +55,13 @@ func ConfigSequenceOn(g gomega.Gomega, ii *integration.Infrastructure, node stri
 	return fabconfigupdate.ConfigSequenceOn(g, ii, node)
 }
 
+// ExpectConfigSequence waits until every node in nodes reports channel configuration
+// sequence want. The configseq view is the same as on Fabric, see
+// [fabconfigupdate.ExpectConfigSequence].
+func ExpectConfigSequence(ii *integration.Infrastructure, want int, nodes ...string) {
+	fabconfigupdate.ExpectConfigSequence(ii, want, nodes...)
+}
+
 // BatchTimeout returns the orderer BatchTimeout in the channel configuration the committer
 // currently holds. Like [fxnetwork.GetConfig], it queries the committer on every call.
 func BatchTimeout(n *fxnetwork.Network) time.Duration {

@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	fabconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
@@ -86,14 +85,14 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 
 		// Bob's channel config monitor reads the new configuration from the committer's
 		// query service on its next poll and applies it, so the sequence moves on bob too.
-		fabconfigupdate.ExpectConfigSequence(s.II, before+1, "bob", "alice")
+		fxconfigupdate.ExpectConfigSequence(s.II, before+1, "bob", "alice")
 		faultrecovery.WaitFinal(s.II, tx.TxID)
 		// A new tx needs bob to endorse it on the new configuration.
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 
 		// Leave the shared network's BatchTimeout as this spec found it.
 		fxconfigupdate.SetBatchTimeout(n, original)
-		fabconfigupdate.ExpectConfigSequence(s.II, before+2, "alice", "bob")
+		fxconfigupdate.ExpectConfigSequence(s.II, before+2, "alice", "bob")
 	})
 
 	It("resumes commits after Postgres restart", func() {

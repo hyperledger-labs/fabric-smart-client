@@ -13,7 +13,6 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	fabconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate"
 	fxconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/configupdate"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/common/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/configupdate"
@@ -78,14 +77,14 @@ func (s *TestSuite) TestSucceeded() {
 	CheckState(s.II, "lender", iouState, 10)
 
 	By("checking every node starts from the genesis configuration")
-	fabconfigupdate.ExpectConfigSequence(s.II, 0, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 0, configupdate.AllNodes...)
 
 	By("changing the channel configuration while the FSC nodes are running")
 	fxconfigupdate.SetBatchTimeout(n, 2*time.Second)
 	gomega.Expect(fxconfigupdate.BatchTimeout(n)).To(gomega.Equal(2 * time.Second))
 
 	By("checking every node applied the first configuration update")
-	fabconfigupdate.ExpectConfigSequence(s.II, 1, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 1, configupdate.AllNodes...)
 
 	By("transacting again, which requires the nodes to have followed the change")
 	second := CreateIOU(s.II, 20, "approver1")
@@ -97,7 +96,7 @@ func (s *TestSuite) TestSucceeded() {
 	gomega.Expect(fxconfigupdate.BatchTimeout(n)).To(gomega.Equal(500 * time.Millisecond))
 
 	By("checking every node applied the second configuration update")
-	fabconfigupdate.ExpectConfigSequence(s.II, 2, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 2, configupdate.AllNodes...)
 
 	third := CreateIOU(s.II, 30, "approver1")
 	CheckState(s.II, "borrower", third, 30)
@@ -115,7 +114,7 @@ func (s *TestSuite) TestSucceeded() {
 	s.II.StartFSCNode("borrower")
 
 	By("checking the node that was down caught up on the configuration it missed")
-	fabconfigupdate.ExpectConfigSequence(s.II, 3, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 3, configupdate.AllNodes...)
 
 	By("transacting once more through the node that was down")
 	fourth := CreateIOU(s.II, 40, "approver1")
@@ -155,11 +154,11 @@ func (s *TestSuite) TestRefused() {
 	By("transacting on the channel's initial configuration")
 	iouState := CreateIOU(s.II, 10, "approver1")
 	CheckState(s.II, "borrower", iouState, 10)
-	fabconfigupdate.ExpectConfigSequence(s.II, 0, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 0, configupdate.AllNodes...)
 
 	By("applying a configuration the nodes accept, so a stalled monitor fails here")
 	fxconfigupdate.SetBatchTimeout(n, 2*time.Second)
-	fabconfigupdate.ExpectConfigSequence(s.II, 1, configupdate.AllNodes...)
+	fxconfigupdate.ExpectConfigSequence(s.II, 1, configupdate.AllNodes...)
 
 	By("submitting a configuration requiring a capability no node supports")
 	fxconfigupdate.RequireUnsupportedCapability(n)
