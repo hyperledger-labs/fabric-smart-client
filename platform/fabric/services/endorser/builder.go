@@ -144,10 +144,16 @@ func NewTransaction(viewCtx view.Context, opts ...fabric.TransactionOption) (*Bu
 	return txBuilder, tx, nil
 }
 
-// NewTransactionFromBytes decodes a transaction received from the remote peer
-// of viewCtx and validates it with ValidateReceived before returning it. A
-// failure that wraps ErrInvalidTransaction is reported to security.Rejections.
+// NewTransactionFromBytes decodes a transaction received from the caller of the
+// session of viewCtx; see NewTransactionFromPeer.
 func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Transaction, error) {
+	return NewTransactionFromPeer(viewCtx, sessionCaller(viewCtx), bytes)
+}
+
+// NewTransactionFromPeer decodes a transaction received from peer and validates
+// it with ValidateReceived before returning it. A failure that wraps
+// ErrInvalidTransaction is reported to security.Rejections under peer.
+func NewTransactionFromPeer(viewCtx view.Context, peer view.Identity, bytes []byte) (*Builder, *Transaction, error) {
 	txBuilder, err := NewBuilder(viewCtx)
 	if err != nil {
 		return nil, nil, err
@@ -156,7 +162,7 @@ func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Tra
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := checkReceived(viewCtx, tx.Transaction); err != nil {
+	if err := checkReceived(viewCtx, peer, tx.Transaction); err != nil {
 		tx.Close()
 		return nil, nil, err
 	}

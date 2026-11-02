@@ -46,7 +46,7 @@ func (v *ForgedTxIDView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 	etx := &endorser.Transaction{Provider: viewCtx, Transaction: ftx}
-	viewCtx.OnError(etx.Close)
+	defer etx.Close()
 	tx, err := state.Wrap(etx)
 	if err != nil {
 		return nil, err

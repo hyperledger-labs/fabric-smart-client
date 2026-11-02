@@ -34,28 +34,43 @@ var ErrInvalidTransaction = errors.New("invalid transaction")
 // disagrees with its proposal or, on Fabric, choose the txID the transaction is
 // stored under. It checks that:
 //
+//   - the nonce and creator are non-empty;
 //   - the txID equals ComputeTxID(nonce, creator), unless the network of tx is a
 //     Fabric-x network, whose committer does not derive the txID from nonce and
 //     creator;
 //   - a signed proposal, if present, is an ENDORSER_TRANSACTION with epoch 0, a
 //     non-empty nonce and creator, and a header whose txID, nonce and creator
 //     equal those of tx;
-//   - the creator is valid for ch's MSPs.
+//   - the creator is valid for the MSPs of the channel of tx, in the network tx
+//     was decoded in.
+//
+// SetFromBytes copies txID, nonce and creator from the signed proposal, so the
+// header equality checks fail only for a transaction a view changed after
+// decoding it; endorseView validates again before signing for that reason.
 //
 // It does not verify the proposal signature: the proposal is signed by the
 // first endorser, which need not be the creator.
 //
 // Failures wrap ErrInvalidTransaction and name only the txID, quoted, no other
-// bytes taken from tx. While ch has no configuration in force, the creator check
-// returns an error wrapping driver.ErrNotInitialized or driver.ErrConfigRejected
-// instead, which does not wrap ErrInvalidTransaction.
-func ValidateReceived(ch *fabric.Channel, tx *fabric.Transaction) error {
+// bytes taken from tx. While the channel has no configuration in force, the
+// creator check returns an error wrapping driver.ErrNotInitialized or
+// driver.ErrConfigRejected instead, which does not wrap ErrInvalidTransaction.
+func ValidateReceived(tx *fabric.Transaction) error {
 	txID := tx.ID()
 	invalid := func(reason string) error {
 		return errors.Wrapf(ErrInvalidTransaction, "tx %q: %s", txID, reason)
 	}
 
 	fns := tx.FabricNetworkService()
+	ch, err := fns.Channel(tx.Channel())
+	if err != nil {
+		return errors.WithMessagef(err, "failed getting channel [%s]", tx.Channel())
+	}
+
+	// ComputeTxID draws a random nonce for an empty one, so check it first.
+	if len(tx.Nonce()) == 0 || len(tx.Creator()) == 0 {
+		return invalid("nonce or creator is empty")
+	}
 	if fns.ConfigService().DriverName() != fabricxDriverName {
 		expected := fns.TransactionManager().ComputeTxID(&fabric.TxID{Nonce: tx.Nonce(), Creator: tx.Creator()})
 		if txID != expected {
@@ -95,23 +110,22 @@ func ValidateReceived(ch *fabric.Channel, tx *fabric.Transaction) error {
 	return nil
 }
 
-// checkReceived runs ValidateReceived on tx, received in viewCtx, against the
-// channel of the network tx was decoded in (not the network name tx carries),
-// and reports a rejection to security.Rejections when the error wraps
-// ErrInvalidTransaction, with the error text as the reason.
-func checkReceived(viewCtx view.Context, tx *fabric.Transaction) error {
-	fns := tx.FabricNetworkService()
-	ch, err := fns.Channel(tx.Channel())
-	if err != nil {
-		return errors.WithMessagef(err, "failed getting channel [%s]", tx.Channel())
-	}
-	err = ValidateReceived(ch, tx)
+// checkReceived runs ValidateReceived on tx, received from peer, and reports a
+// rejection to security.Rejections when the error wraps ErrInvalidTransaction,
+// with the error text as the reason.
+func checkReceived(viewCtx view.Context, peer view.Identity, tx *fabric.Transaction) error {
+	err := ValidateReceived(tx)
 	if errors.Is(err, ErrInvalidTransaction) {
-		var peer view.Identity
-		if s := viewCtx.Session(); s != nil {
-			peer = s.Info().Caller
-		}
 		security.GetRejections(viewCtx).Report(viewCtx.Context(), security.KindInvalidTx, peer, tx.ID(), err.Error())
 	}
 	return err
+}
+
+// sessionCaller returns the remote peer of the session of viewCtx, or nil when
+// viewCtx has none.
+func sessionCaller(viewCtx view.Context) view.Identity {
+	if s := viewCtx.Session(); s != nil {
+		return s.Info().Caller
+	}
+	return nil
 }

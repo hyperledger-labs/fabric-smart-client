@@ -203,3 +203,17 @@ func TestNewTransactionFromBytes_FabricxSkipsTxIDCheck(t *testing.T) {
 	_, _, err := NewTransactionFromBytes(f.ctx, []byte("raw"))
 	require.NoError(t, err)
 }
+
+// A transaction read from a session the view opened itself is reported under
+// the peer passed in, so NewTransactionFromPeer never consults the session of
+// the view context.
+func TestNewTransactionFromPeer_DoesNotUseContextSession(t *testing.T) {
+	t.Parallel()
+	f := newReceiveFixture(t, []byte("carol"))
+	f.dtx.IDReturns("forged")
+
+	_, _, err := NewTransactionFromPeer(f.ctx, []byte("dave"), []byte("raw"))
+	require.ErrorIs(t, err, ErrInvalidTransaction)
+	require.InDelta(t, 1, f.metrics.count(security.KindInvalidTx), 0)
+	require.Zero(t, f.ctx.SessionCallCount())
+}

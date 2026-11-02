@@ -30,7 +30,6 @@ var (
 
 // receivedTx is a transaction as SetFromBytes leaves it, backed by driver mocks.
 type receivedTx struct {
-	ch   *fabric.Channel
 	tx   *fabric.Transaction
 	dtx  *mock.Transaction
 	cm   *mock.ChannelMembership
@@ -57,10 +56,12 @@ func newReceivedTx() *receivedTx {
 
 	cm := &mock.ChannelMembership{}
 	dch := &mock.Channel{}
+	dch.NameReturns("channel")
 	dch.ChannelMembershipReturns(cm)
+	fns.ChannelReturns(dch, nil)
+	dtx.ChannelReturns("channel")
 
 	return &receivedTx{
-		ch:   fabric.NewChannel(nil, fns, dch),
 		tx:   fabric.NewTransaction(fabric.NewNetworkService(nil, fns, "net"), dtx),
 		dtx:  dtx,
 		cm:   cm,
@@ -78,7 +79,7 @@ func (r *receivedTx) withProposal(t *testing.T, mutate func(*proposalMsgs)) *rec
 }
 
 func (r *receivedTx) validate() error {
-	return ValidateReceived(r.ch, r.tx)
+	return ValidateReceived(r.tx)
 }
 
 func TestValidateReceived_ForgedTxIDNoProposal(t *testing.T) {
@@ -134,6 +135,21 @@ func TestValidateReceived_ConfigHeaderRejected(t *testing.T) {
 	err := r.validate()
 	require.ErrorIs(t, err, ErrInvalidTransaction)
 	require.ErrorContains(t, err, "proposal is not an endorser transaction")
+}
+
+// ComputeTxID would draw a random nonce for an empty one; the empty nonce is
+// reported as such.
+func TestValidateReceived_EmptyNonceOrCreator(t *testing.T) {
+	t.Parallel()
+	r := newReceivedTx()
+	r.dtx.NonceReturns(nil)
+	err := r.validate()
+	require.ErrorIs(t, err, ErrInvalidTransaction)
+	require.ErrorContains(t, err, "nonce or creator is empty")
+
+	r = newReceivedTx()
+	r.dtx.CreatorReturns(nil)
+	require.ErrorContains(t, r.validate(), "nonce or creator is empty")
 }
 
 func TestValidateReceived_UnknownCreator(t *testing.T) {

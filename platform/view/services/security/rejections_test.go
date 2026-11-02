@@ -28,6 +28,9 @@ type fakeProvider struct {
 	counts map[string]float64
 }
 
+// kindOther stands for a second check, so the tests can show kinds are rate-limited apart.
+const kindOther Kind = "other"
+
 func (p *fakeProvider) NewCounter(o metrics.CounterOpts) metrics.Counter {
 	p.opts = o
 	p.counts = map[string]float64{}
@@ -81,11 +84,11 @@ func TestRejections_RateLimitsWarnLogs(t *testing.T) {
 
 	for range 100 {
 		r.Report(t.Context(), KindInvalidTx, []byte("peer"), "tx1", "bad")
-		r.Report(t.Context(), KindBindingRefused, []byte("peer"), "tx1\nforged", "bad")
+		r.Report(t.Context(), kindOther, []byte("peer"), "tx1\nforged", "bad")
 		now = now.Add(time.Millisecond)
 	}
-	require.Equal(t, map[Kind]int{KindInvalidTx: 1, KindBindingRefused: 1}, warns)
-	require.Equal(t, "security rejection [binding_refused] from peer ["+fscview.Identity("peer").String()+`] for tx "tx1\nforged": bad`, lastLine)
+	require.Equal(t, map[Kind]int{KindInvalidTx: 1, kindOther: 1}, warns)
+	require.Equal(t, "security rejection [other] from peer ["+fscview.Identity("peer").String()+`] for tx "tx1\nforged": bad`, lastLine)
 
 	now = now.Add(time.Second)
 	r.Report(t.Context(), KindInvalidTx, []byte("peer"), "tx1", "bad")
@@ -104,8 +107,8 @@ func TestGetRejections_NoneRegisteredIsSharedNoop(t *testing.T) {
 	warnf := r.warnf
 	t.Cleanup(func() { r.warnf = warnf })
 	r.warnf = func(context.Context, string, ...any) { warns++ }
-	GetRejections(view.NewServiceProvider()).Report(t.Context(), KindRecipientProof, []byte("peer"), "tx1", "bad")
-	GetRejections(view.NewServiceProvider()).Report(t.Context(), KindRecipientProof, []byte("peer"), "tx1", "bad")
+	GetRejections(view.NewServiceProvider()).Report(t.Context(), kindOther, []byte("peer"), "tx1", "bad")
+	GetRejections(view.NewServiceProvider()).Report(t.Context(), kindOther, []byte("peer"), "tx1", "bad")
 	require.Equal(t, 1, warns)
 }
 

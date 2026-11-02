@@ -209,7 +209,7 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	// The transaction may come from the remote peer; check it before signing or storing it.
-	if err := checkReceived(viewCtx, s.tx.Transaction); err != nil {
+	if err := checkReceived(viewCtx, sessionCaller(viewCtx), s.tx.Transaction); err != nil {
 		return nil, err
 	}
 
