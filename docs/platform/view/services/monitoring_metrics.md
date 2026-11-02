@@ -157,12 +157,13 @@ Primary implementation: `platform/view/services/comm/metrics.go`, with updates i
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `unknown_view` when no responder is registered for the caller view. |
+| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the node already runs `fsc.p2p.maxResponders` responders across all peers, `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the caller view. |
 
 Operational notes:
 
 - A rejection is counted when the node attempts it; it is not sent if no stream to the peer is left.
-- Rejections dropped because the peer already has `fsc.p2p.maxRespondersPerPeer` rejections pending, and first messages dropped for status `ERROR` or an empty caller, are not counted.
+- Rejections dropped because the peer already has `fsc.p2p.maxRespondersPerPeer` rejections pending, or the node already has `fsc.p2p.maxResponders` pending across all peers, and first messages dropped for status `ERROR` or an empty caller, are not counted.
+- A rising `busy` rate points at one peer, a rising `node_busy` rate at overall load.
 - A rising `unknown_view` rate usually means the nodes run different versions of the application.
 
 Primary implementation: `platform/view/services/view/p2p/service.go`.

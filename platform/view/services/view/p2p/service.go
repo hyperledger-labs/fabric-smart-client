@@ -8,6 +8,7 @@ package p2p
 
 import (
 	"context"
+	"math"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -28,6 +29,10 @@ const (
 	// DefaultMaxRespondersPerPeer applies when MaxRespondersPerPeerKey is unset, zero or
 	// negative. The bound cannot be disabled, so a mistyped value cannot turn it off.
 	DefaultMaxRespondersPerPeer = 1000
+	// MaxRespondersKey is the configuration key that bounds the responders running
+	// concurrently on this node across all peers, and separately the rejections pending
+	// across all peers. Unset, zero or negative means unbounded.
+	MaxRespondersKey = "fsc.p2p.maxResponders"
 
 	// maxRejectDetail bounds the detail of a rejection payload, in bytes.
 	maxRejectDetail = 256
@@ -40,6 +45,9 @@ type rejectReason string
 const (
 	// rejectBusy rejects a message whose peer already runs maxRespondersPerPeer responders.
 	rejectBusy rejectReason = "busy"
+	// rejectNodeBusy rejects a message whose peer is under maxRespondersPerPeer while the node
+	// already runs maxResponders responders.
+	rejectNodeBusy rejectReason = "node_busy"
 	// rejectUnknownView rejects a message whose caller view has no responder on this node.
 	rejectUnknownView rejectReason = "unknown_view"
 	// rejectDraining rejects a message that would start new work on a node that drains before
@@ -140,8 +148,12 @@ type Service struct {
 	// maxRespondersPerPeer bounds, per remote PKID, both the running responders and the
 	// pending rejections.
 	maxRespondersPerPeer int
-	// inflight holds the goroutines dispatch runs per remote PKID.
+	// maxResponders bounds, across all peers, both the running responders and the pending
+	// rejections; math.MaxInt when MaxRespondersKey is unset or not positive.
+	maxResponders int
+	// inflight holds the goroutines dispatch runs per remote PKID, total their sum.
 	inflight   map[string]peerLoad
+	total      peerLoad
 	inflightMu sync.Mutex
 
 	// wg tracks the goroutines spawned by dispatch, so that shutdown (ctx.Done() or a
@@ -177,7 +189,8 @@ func WithDrainState(d DrainState) Option {
 }
 
 // NewService returns a new instance of the P2P service. The per-peer responder limit is
-// read from MaxRespondersPerPeerKey; a nil configService selects the default.
+// read from MaxRespondersPerPeerKey and the node-wide one from MaxRespondersKey; a nil
+// configService selects the defaults.
 func NewService(
 	viewManager ViewManager,
 	identityProvider IdentityProvider,
@@ -193,6 +206,12 @@ func NewService(
 			maxRespondersPerPeer = v
 		}
 	}
+	maxResponders := math.MaxInt
+	if configService != nil && configService.IsSet(MaxRespondersKey) {
+		if v := configService.GetInt(MaxRespondersKey); v > 0 {
+			maxResponders = v
+		}
+	}
 	s := &Service{
 		viewManager:          viewManager,
 		identityProvider:     identityProvider,
@@ -200,6 +219,7 @@ func NewService(
 		endpointService:      endpointService,
 		runner:               runner,
 		maxRespondersPerPeer: maxRespondersPerPeer,
+		maxResponders:        maxResponders,
 		inflight:             map[string]peerLoad{},
 	}
 	WithMetrics(&disabled.Provider{})(s)
@@ -238,7 +258,7 @@ func (s *Service) Start(ctx context.Context) error {
 	return nil
 }
 
-// peerLoad counts the goroutines dispatch runs for one remote peer.
+// peerLoad counts the goroutines dispatch runs for one remote peer, or for all of them.
 type peerLoad struct{ responders, rejections int }
 
 // dispatch runs the responder for msg in a new goroutine, or rejects msg with an error
@@ -251,19 +271,23 @@ type peerLoad struct{ responders, rejections int }
 // A message whose caller view has no responder on this node is rejected as unknown_view. A late
 // message from a responder whose initiator session on this node is gone usually has an empty
 // caller and is dropped; it carries the initiator's view as caller, and is rejected, only if the
-// initiator sent more than one message on that session. A
-// message from a peer (msg.FromPKID, set by the comm layer from the authenticated stream)
-// that already has maxRespondersPerPeer responders running is rejected as busy. While the node
-// drains (see WithDrainState), a message for a known view is rejected as draining, unless its
-// sender already takes part in the responder context it names, so that protocols in progress
-// can finish; the per-peer limit still applies to such a message. While
-// maxRespondersPerPeer rejections for that peer are pending, further rejections are dropped.
-// The two counts are independent, so pending rejections never keep a peer from starting
-// responders. This caps what dispatch creates for one peer at maxRespondersPerPeer
-// responders, each with its view context and comm session, plus maxRespondersPerPeer
-// rejections. A slot is freed only when its goroutine returns; responders that never return
-// keep their slot until shutdown. A dropped message leaves no state behind. dispatch never
-// blocks, so a single peer cannot stall the master session for the others.
+// initiator sent more than one message on that session.
+//
+// A message from a peer (msg.FromPKID, set by the comm layer from the authenticated stream) that
+// already has maxRespondersPerPeer responders running is rejected as busy; one from a peer under
+// that limit, while the node runs maxResponders responders across all peers, is rejected as
+// node_busy. While the node drains (see WithDrainState), a message for a known view is rejected
+// as draining, unless its sender already takes part in the responder context it names, so that
+// protocols in progress can finish; both limits still apply to such a message.
+//
+// While maxRespondersPerPeer rejections for that peer, or maxResponders across all peers, are
+// pending, further rejections are dropped. Responders and rejections are counted separately, so
+// pending rejections never keep a peer from starting responders. This caps what dispatch creates
+// for one peer at maxRespondersPerPeer responders, each with its view context and comm session,
+// plus maxRespondersPerPeer rejections, and for all peers together at maxResponders of each. A
+// slot is freed only when its goroutine returns; responders that never return keep their slot
+// until shutdown. A dropped message leaves no state behind. dispatch never blocks, so a single
+// peer cannot stall the master session for the others.
 func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 	if msg.Status == view.ERROR || len(msg.Caller) == 0 {
 		// Debug only: the peer controls how often this fires.
@@ -290,13 +314,16 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 
 	s.inflightMu.Lock()
 	load := s.inflight[peer]
-	run := known && !draining && load.responders < s.maxRespondersPerPeer
-	reject := !run && load.rejections < s.maxRespondersPerPeer
+	peerBusy := load.responders >= s.maxRespondersPerPeer
+	run := known && !draining && !peerBusy && s.total.responders < s.maxResponders
+	reject := !run && load.rejections < s.maxRespondersPerPeer && s.total.rejections < s.maxResponders
 	switch {
 	case run:
 		load.responders++
+		s.total.responders++
 	case reject:
 		load.rejections++
+		s.total.rejections++
 	default:
 		s.inflightMu.Unlock()
 		if done != nil {
@@ -323,8 +350,10 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 			s.handleMessage(ctx, msg, responder, id)
 		case draining:
 			s.reject(ctx, msg, rejectDraining, "node is draining")
-		case known:
+		case known && peerBusy:
 			s.reject(ctx, msg, rejectBusy, "too many concurrent responders for this peer")
+		case known:
+			s.reject(ctx, msg, rejectNodeBusy, "too many concurrent responders on this node")
 		default:
 			s.reject(ctx, msg, rejectUnknownView, msg.Caller)
 		}
@@ -338,8 +367,10 @@ func (s *Service) release(peer string, responder bool) {
 	load := s.inflight[peer]
 	if responder {
 		load.responders--
+		s.total.responders--
 	} else {
 		load.rejections--
+		s.total.rejections--
 	}
 	if load == (peerLoad{}) {
 		delete(s.inflight, peer)

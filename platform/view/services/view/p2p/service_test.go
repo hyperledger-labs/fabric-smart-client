@@ -437,6 +437,13 @@ func (limitConfig) IsSet(key string) bool { return key == p2p.MaxRespondersPerPe
 
 func (c limitConfig) GetInt(string) int { return int(c) }
 
+// limitsConfig answers the keys it holds, such as both responder limits.
+type limitsConfig map[string]int
+
+func (c limitsConfig) IsSet(key string) bool { _, ok := c[key]; return ok }
+
+func (c limitsConfig) GetInt(key string) int { return c[key] }
+
 // releasableRunner blocks in RunView until the test releases that view context's ID or the
 // view context is done, signalling entered on every invocation.
 type releasableRunner struct {
@@ -471,7 +478,7 @@ func (*freshContextDeps) NewResponderContext(ctx context.Context, contextID stri
 	return c, func() {}, nil
 }
 
-// limitTest wires a Service with the given per-peer limit to a fake master session.
+// limitTest wires a Service with the given configuration and options to a fake master session.
 type limitTest struct {
 	t      *testing.T
 	runner *releasableRunner
@@ -479,7 +486,7 @@ type limitTest struct {
 	ch     chan *view.Message
 }
 
-func newLimitTest(t *testing.T, cfg p2p.ConfigService, buffer int) *limitTest {
+func newLimitTest(t *testing.T, cfg p2p.ConfigService, buffer int, opts ...p2p.Option) *limitTest {
 	t.Helper()
 	lt := &limitTest{
 		t:      t,
@@ -492,7 +499,7 @@ func newLimitTest(t *testing.T, cfg p2p.ConfigService, buffer int) *limitTest {
 	lt.cl.MasterSessionReturns(masterSess, nil)
 	lt.cl.NewResponderSessionReturns(&mock.Session{}, nil)
 	deps := &freshContextDeps{leakTestDeps{responder: &mock.View{}}}
-	require.NoError(t, p2p.NewService(deps, deps, lt.cl, deps, lt.runner, cfg).Start(t.Context()))
+	require.NoError(t, p2p.NewService(deps, deps, lt.cl, deps, lt.runner, cfg, opts...).Start(t.Context()))
 	return lt
 }
 
@@ -589,6 +596,107 @@ func TestNewService_MaxRespondersPerPeerConfig(t *testing.T) {
 			lt := newLimitTest(t, tc.cfg, tc.want+1)
 			for i := range tc.want + 1 {
 				lt.send(fmt.Sprint(i), fmt.Sprint(i), "peer")
+			}
+			require.Eventually(t, func() bool { return len(lt.runner.entered) == tc.want }, 5*time.Second, time.Millisecond)
+			require.Never(t, func() bool { return len(lt.runner.entered) > tc.want }, 50*time.Millisecond, 5*time.Millisecond)
+		})
+	}
+}
+
+// TestService_LimitsRespondersAcrossPeers verifies fsc.p2p.maxResponders: peers each under their
+// own limit cannot together run more responders than the node-wide limit; the next message from
+// any of them is rejected as node_busy, or as busy if its peer is at its own limit too; and a slot
+// freed by one peer's responder lets another peer's message run.
+func TestService_LimitsRespondersAcrossPeers(t *testing.T) {
+	t.Parallel()
+	counter := newCountingCounter()
+	lt := newLimitTest(t, limitsConfig{p2p.MaxRespondersPerPeerKey: 2, p2p.MaxRespondersKey: 3}, 10,
+		p2p.WithMetrics(&metricsProvider{t: t, counter: counter}))
+
+	lt.send("a1", "a1", "peerA")
+	lt.send("a2", "a2", "peerA")
+	lt.send("b1", "b1", "peerB")
+	for range 3 {
+		lt.wait(lt.runner.entered, "a1, a2 and b1 to run")
+	}
+	lt.send("b2", "b2", "peerB") // peerB under its limit, node full
+	lt.send("c1", "c1", "peerC")
+	lt.send("a3", "a3", "peerA") // peerA at its limit too
+	require.Eventually(t, func() bool { return lt.cl.ReplyErrorCallCount() == 3 }, 5*time.Second, time.Millisecond)
+	payloads := map[string]string{}
+	for i := range 3 {
+		_, msg, payload := lt.cl.ReplyErrorArgsForCall(i)
+		payloads[msg.SessionID] = string(payload)
+	}
+	require.Equal(t, map[string]string{
+		"b2": "node_busy: too many concurrent responders on this node",
+		"c1": "node_busy: too many concurrent responders on this node",
+		"a3": "busy: too many concurrent responders for this peer",
+	}, payloads)
+	require.Eventually(t, func() bool { return counter.count("reason=node_busy") == 2 && counter.count("reason=busy") == 1 }, 5*time.Second, time.Millisecond)
+	require.Empty(t, lt.runner.entered)
+
+	close(lt.runner.release("ctx-a1"))
+	i := 0
+	require.Eventually(t, func() bool { // a1's slot is released after RunView returns
+		i++
+		lt.send(fmt.Sprint("d", i), fmt.Sprint("d", i), "peerC")
+		select {
+		case <-lt.runner.entered:
+			return true
+		case <-time.After(20 * time.Millisecond):
+			return false
+		}
+	}, 5*time.Second, time.Millisecond)
+}
+
+// TestService_LimitsRejectionsAcrossPeers verifies that fsc.p2p.maxResponders also bounds the
+// rejections pending across all peers: once that many are pending, first messages from any peer
+// are dropped.
+func TestService_LimitsRejectionsAcrossPeers(t *testing.T) {
+	t.Parallel()
+	lt := newLimitTest(t, limitsConfig{p2p.MaxRespondersPerPeerKey: 5, p2p.MaxRespondersKey: 1}, 10)
+	sending := make(chan struct{}, 10)
+	unblock := make(chan struct{})
+	lt.cl.ReplyErrorStub = func(context.Context, *view.Message, []byte) error {
+		sending <- struct{}{}
+		<-unblock
+		return nil
+	}
+
+	lt.send("a1", "a1", "peerA")
+	lt.wait(lt.runner.entered, "a1 to run")
+	lt.send("b1", "b1", "peerB")
+	lt.wait(sending, "b1 to be rejected")
+	lt.send("c1", "c1", "peerC") // node-wide rejection bound full: dropped
+	require.Never(t, func() bool { return len(sending) > 0 }, 50*time.Millisecond, 5*time.Millisecond)
+	require.Equal(t, 1, lt.cl.ReplyErrorCallCount())
+	close(unblock)
+}
+
+// TestNewService_MaxRespondersConfig verifies that fsc.p2p.maxResponders bounds the node only when
+// positive: with one responder per peer allowed, n peers run n responders unless it is set lower.
+func TestNewService_MaxRespondersConfig(t *testing.T) {
+	t.Parallel()
+	const peers = 4
+	for name, tc := range map[string]struct {
+		limit *int
+		want  int
+	}{
+		"unset":    {nil, peers},
+		"zero":     {new(0), peers},
+		"negative": {new(-1), peers},
+		"set":      {new(2), 2},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			cfg := limitsConfig{p2p.MaxRespondersPerPeerKey: 1}
+			if tc.limit != nil {
+				cfg[p2p.MaxRespondersKey] = *tc.limit
+			}
+			lt := newLimitTest(t, cfg, peers)
+			for i := range peers {
+				lt.send(fmt.Sprint(i), fmt.Sprint(i), fmt.Sprint("peer", i))
 			}
 			require.Eventually(t, func() bool { return len(lt.runner.entered) == tc.want }, 5*time.Second, time.Millisecond)
 			require.Never(t, func() bool { return len(lt.runner.entered) > tc.want }, 50*time.Millisecond, 5*time.Millisecond)
