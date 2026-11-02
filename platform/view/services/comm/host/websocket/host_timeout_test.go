@@ -150,8 +150,10 @@ func (*mockConfig) ReadTimeout() time.Duration { return 30 * time.Second }
 
 func (*mockConfig) WriteTimeout() time.Duration { return 30 * time.Second }
 
-func (*mockConfig) IdleTimeout() time.Duration   { return 120 * time.Second }
-func (*mockConfig) CORSAllowedOrigins() []string { return nil }
+func (*mockConfig) IdleTimeout() time.Duration       { return 120 * time.Second }
+func (*mockConfig) CORSAllowedOrigins() []string     { return nil }
+func (*mockConfig) KeepaliveInterval() time.Duration { return 0 }
+func (*mockConfig) KeepaliveTimeout() time.Duration  { return 0 }
 
 // noopProvider returns a stream provider that does nothing
 func noopProvider() websocket.StreamProvider {

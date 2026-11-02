@@ -33,6 +33,15 @@ const (
 	KeepaliveTimeout = 10 * time.Second
 )
 
+// P2PKeepaliveInterval and P2PKeepaliveTimeout are the websocket keepalive SetFaultProxies
+// gives alice and bob (fsc.p2p.opts.websocket.keepalive). They are shorter than the
+// default, so a cut of the link between them closes its websocket well within EchoView's
+// one-minute receive timeout, and a spec can tell the two apart.
+const (
+	P2PKeepaliveInterval = 5 * time.Second
+	P2PKeepaliveTimeout  = 5 * time.Second
+)
+
 // FaultProxies are the proxies SetFaultProxies puts in the links of alice and bob. Partition
 // and Heal on one of them cut and restore that link without either side seeing it close.
 type FaultProxies struct {
@@ -79,8 +88,9 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	_, dbPort, err := net.SplitHostPort(p.Postgres.Addr())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	// Every persistence of bob shares one dataSource.
-	faultrecovery.RewriteCore(ii, "bob", nil, "host="+db.Host+" port="+db.Port+" ", "host=127.0.0.1 port="+dbPort+" ")
+	faultrecovery.RewriteCore(ii, "bob", setP2PKeepalive, "host="+db.Host+" port="+db.Port+" ", "host=127.0.0.1 port="+dbPort+" ")
 	faultrecovery.RewriteCore(ii, "alice", func(core map[string]any) {
+		setP2PKeepalive(core)
 		network, ok := core["fabric"].(map[string]any)["default"].(map[string]any)
 		gomega.Expect(ok).To(gomega.BeTrue(), "core.yaml of alice has no fabric.default")
 		network["keepalive"] = map[string]any{
@@ -90,6 +100,22 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 		}
 	}, peer, p.Peer.Addr(), bob, p.Bob.Addr())
 	return p
+}
+
+// setP2PKeepalive sets fsc.p2p.opts.websocket.keepalive in core to P2PKeepaliveInterval
+// and P2PKeepaliveTimeout.
+func setP2PKeepalive(core map[string]any) {
+	opts, ok := core["fsc"].(map[string]any)["p2p"].(map[string]any)["opts"].(map[string]any)
+	gomega.ExpectWithOffset(1, ok).To(gomega.BeTrue(), "core.yaml has no fsc.p2p.opts")
+	websocket, _ := opts["websocket"].(map[string]any)
+	if websocket == nil {
+		websocket = map[string]any{}
+		opts["websocket"] = websocket
+	}
+	websocket["keepalive"] = map[string]any{
+		"interval": P2PKeepaliveInterval.String(),
+		"timeout":  P2PKeepaliveTimeout.String(),
+	}
 }
 
 // proxyOrderers starts one proxy per orderer of n, replaces each orderer's listen address

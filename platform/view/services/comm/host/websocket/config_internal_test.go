@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -186,6 +187,61 @@ fsc:
 
 			_, err = NewConfig(p)
 			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestKeepalive(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name     string
+		yaml     string
+		interval time.Duration
+		timeout  time.Duration
+	}{
+		{name: "unset keeps the default on", interval: DefaultKeepaliveInterval, timeout: DefaultKeepaliveTimeout},
+		{name: "configured", yaml: "        keepalive:\n          interval: 1m\n          timeout: 5s\n", interval: time.Minute, timeout: 5 * time.Second},
+		{name: "zero interval turns it off", yaml: "        keepalive:\n          interval: 0s\n", interval: 0, timeout: DefaultKeepaliveTimeout},
+		{name: "minimum interval", yaml: "        keepalive:\n          interval: 1s\n", interval: time.Second, timeout: DefaultKeepaliveTimeout},
+		{name: "zero timeout falls back to the default", yaml: "        keepalive:\n          interval: 1m\n          timeout: 0s\n", interval: time.Minute, timeout: DefaultKeepaliveTimeout},
+		{name: "minimum timeout", yaml: "        keepalive:\n          timeout: 1s\n", interval: DefaultKeepaliveInterval, timeout: time.Second},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir, _, _ := writeNodeDir(t, p2pCore+tt.yaml)
+			p, err := viewconfig.NewProvider(dir)
+			require.NoError(t, err)
+			cfg, err := NewConfig(p)
+			require.NoError(t, err)
+			require.Equal(t, tt.interval, cfg.KeepaliveInterval())
+			require.Equal(t, tt.timeout, cfg.KeepaliveTimeout())
+		})
+	}
+
+	// A value without a unit parses as nanoseconds, so 30 meant as 30s would ping in a busy
+	// loop; an interval that is neither 0 nor at least a second fails the configuration.
+	for _, v := range []string{"30", "500ms", "-1s"} {
+		t.Run("rejects interval "+v, func(t *testing.T) {
+			t.Parallel()
+			dir, _, _ := writeNodeDir(t, p2pCore+"        keepalive:\n          interval: "+v+"\n")
+			p, err := viewconfig.NewProvider(dir)
+			require.NoError(t, err)
+			_, err = NewConfig(p)
+			require.ErrorContains(t, err, "fsc.p2p.opts.websocket.keepalive.interval")
+			require.ErrorContains(t, err, "must be 0 or at least 1s")
+		})
+	}
+
+	// The same applies to the timeout: 10 meant as 10s would close every websocket at once.
+	for _, v := range []string{"10", "500ms", "-1s"} {
+		t.Run("rejects timeout "+v, func(t *testing.T) {
+			t.Parallel()
+			dir, _, _ := writeNodeDir(t, p2pCore+"        keepalive:\n          timeout: "+v+"\n")
+			p, err := viewconfig.NewProvider(dir)
+			require.NoError(t, err)
+			_, err = NewConfig(p)
+			require.ErrorContains(t, err, "fsc.p2p.opts.websocket.keepalive.timeout")
+			require.ErrorContains(t, err, "must be 0 or at least 1s")
 		})
 	}
 }

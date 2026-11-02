@@ -200,6 +200,19 @@ fsc:
         # Example: "https://example.com,https://app.example.com"
         # If not set, CORS is disabled. Only applicable when using websocket transport.
         corsAllowedOrigins: ""
+        # Liveness check of the websocket between two nodes, which carries every session
+        # between them. Each side pings the other every interval and closes the websocket,
+        # with all its sessions, when nothing arrives within interval + timeout. A
+        # connection cut without a reset, such as by a network partition or a load balancer
+        # that drops an idle flow, is therefore closed within interval + timeout instead of
+        # staying open until the process restarts. Default: interval 30s, timeout 10s. An
+        # explicit interval of 0 turns the check off; any other interval must be at least
+        # 1s, and a node with a shorter one fails to start. Write the unit: 30 without one
+        # is 30 nanoseconds. A timeout of 0 uses the default; any other timeout must be at
+        # least 1s too.
+        keepalive:
+          interval: 30s
+          timeout: 10s
         # TLS configuration for websocket connections
         tls:
           # Whether clients are required to provide certificates.

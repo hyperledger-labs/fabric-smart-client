@@ -94,7 +94,24 @@ type MultiplexedProvider struct {
 	MaxRecvMsgSize int
 	// MaxSendMsgSize caps the size of a single sent payload; <= 0 means the default (10 MiB).
 	MaxSendMsgSize int
+	// Keepalive makes every websocket this provider dials or accepts detect a peer that is
+	// gone without closing the connection; see Keepalive. Set it before the first stream.
+	Keepalive Keepalive
 }
+
+// Keepalive is the liveness check of a multiplexed websocket. Each side pings the other
+// every Interval and closes the websocket, with all its sub-connections, when nothing,
+// neither a pong nor a frame, arrives within Interval plus Timeout. A connection cut
+// without a reset, such as by a network partition or a load balancer that drops an idle
+// flow, is therefore closed within Interval plus Timeout. A zero Interval sends no pings,
+// and the read deadline stays as it is without a keepalive.
+type Keepalive struct {
+	Interval time.Duration
+	Timeout  time.Duration
+}
+
+// enabled reports whether k sends pings.
+func (k Keepalive) enabled() bool { return k.Interval > 0 }
 
 // KillAll closes the provider and kills every websocket it dialed or accepted, together with
 // their sub-connections. Once it starts, NewClientStream fails and NewServerStream rejects new
@@ -263,7 +280,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	// newClientConn starts the read loop, which can close the socket before this
 	// function returns, but onClose takes c.mu and so cannot run until conn is assigned
 	// and the registration below is done.
-	conn = newClientConn(wsConn, c.tracer, c.m, c.MaxSubConns, c.MaxSendMsgSize, func() {
+	conn = newClientConn(wsConn, c.tracer, c.m, c.MaxSubConns, c.MaxSendMsgSize, c.Keepalive, func() {
 		logger.Debugf("Closing websocket client for [%s@%s]...", src, info.RemotePeerAddress)
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -346,7 +363,7 @@ func (c *MultiplexedProvider) NewServerStream(writer http.ResponseWriter, reques
 	}
 	// Registering under mu orders the deletion in onClose after the insertion below.
 	var sc *multiplexedServerConn
-	sc = newServerConn(conn, expectedPeerID, c.tracer, c.m, c.MaxSubConns, c.MaxSendMsgSize, newStreamCallback, func() {
+	sc = newServerConn(conn, expectedPeerID, c.tracer, c.m, c.MaxSubConns, c.MaxSendMsgSize, c.Keepalive, newStreamCallback, func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		delete(c.servers, sc)
@@ -363,8 +380,9 @@ type multiplexedClientConn struct {
 	*multiplexedBaseConn
 }
 
-func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, onClose func()) *multiplexedClientConn {
+func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, keepalive Keepalive, onClose func()) *multiplexedClientConn {
 	c := &multiplexedClientConn{multiplexedBaseConn: newBaseConn(conn, tracer, m, clientSide, maxSubConns, maxSendMsgSize)}
+	c.startKeepalive(keepalive)
 	go func() {
 		c.readIncoming()
 		onClose()
@@ -431,6 +449,7 @@ func (c *multiplexedClientConn) readIncoming() {
 		// below, and encoding/json reuses a non-nil []byte field's backing array,
 		// so reusing mm would let the next read overwrite a payload still in flight.
 		var mm MultiplexedMessage
+		c.extendReadDeadline()
 		err := readMultiplexedMessage(c.conn, &mm)
 		if err != nil {
 			logger.Debugf("Client connection errored: %v", err)
@@ -472,11 +491,12 @@ type multiplexedServerConn struct {
 
 // newServerConn starts serving conn and calls onClose once its read loop has ended and the
 // connection is killed.
-func newServerConn(conn *websocket.Conn, expectedPeerID host.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, newStreamCallback func(pStream host.P2PStream), onClose func()) *multiplexedServerConn {
+func newServerConn(conn *websocket.Conn, expectedPeerID host.PeerID, tracer trace.Tracer, m *Metrics, maxSubConns, maxSendMsgSize int, keepalive Keepalive, newStreamCallback func(pStream host.P2PStream), onClose func()) *multiplexedServerConn {
 	c := &multiplexedServerConn{
 		multiplexedBaseConn: newBaseConn(conn, tracer, m, serverSide, maxSubConns, maxSendMsgSize),
 		expectedPeerID:      expectedPeerID,
 	}
+	c.startKeepalive(keepalive)
 	go func() {
 		c.readIncoming(newStreamCallback)
 		onClose()
@@ -493,7 +513,10 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 	for {
 		// Declared per iteration on purpose: see the note in the client's readIncoming.
 		var mm MultiplexedMessage
-		_ = c.conn.SetReadDeadline(time.Now().Add(readTimeout))
+		if !c.keepalive.enabled() {
+			_ = c.conn.SetReadDeadline(time.Now().Add(readTimeout))
+		}
+		c.extendReadDeadline()
 		err := readMultiplexedMessage(c.conn, &mm)
 		if err != nil {
 			logger.Debugf("Connection errored: %v", err)
@@ -609,6 +632,9 @@ type multiplexedBaseConn struct {
 	maxSendMsgSize int
 	closed         atomic.Bool
 	writeTimeout   time.Duration
+	keepalive      Keepalive
+	// done is closed by Kill and stops the ping loop.
+	done chan struct{}
 }
 
 func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, side string, maxSubConns, maxSendMsgSize int) *multiplexedBaseConn {
@@ -622,8 +648,46 @@ func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, si
 		maxSubConns:    maxSubConns,
 		maxSendMsgSize: maxSendMsgSize,
 		writeTimeout:   writeTimeout,
+		done:           make(chan struct{}),
 	}
 	return c
+}
+
+// startKeepalive applies k to c: a pong pushes the read deadline forward, and a goroutine
+// pings every k.Interval until Kill. It does nothing for a zero k. It runs before the read
+// loop starts, since the pong handler belongs to the reader.
+func (c *multiplexedBaseConn) startKeepalive(k Keepalive) {
+	c.keepalive = k
+	if !k.enabled() {
+		return
+	}
+	c.conn.SetPongHandler(func(string) error {
+		c.extendReadDeadline()
+		return nil
+	})
+	go func() {
+		ticker := time.NewTicker(k.Interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				// WriteControl may run concurrently with write, see gorilla's Conn.
+				if err := c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(k.Timeout)); err != nil {
+					logger.Debugf("failed sending websocket ping on [%s]: %v", c.side, err)
+				}
+			case <-c.done:
+				return
+			}
+		}
+	}()
+}
+
+// extendReadDeadline gives the next read Interval plus Timeout when c has a keepalive.
+// It runs on the read loop, before each read and for each pong.
+func (c *multiplexedBaseConn) extendReadDeadline() {
+	if c.keepalive.enabled() {
+		_ = c.conn.SetReadDeadline(time.Now().Add(c.keepalive.Interval + c.keepalive.Timeout))
+	}
 }
 
 func (c *multiplexedBaseConn) Kill() error {
@@ -631,6 +695,7 @@ func (c *multiplexedBaseConn) Kill() error {
 	if c.closed.Swap(true) {
 		return nil
 	}
+	close(c.done)
 
 	c.mu.Lock()
 	subConns := make([]*subConn, 0, len(c.subConns))
