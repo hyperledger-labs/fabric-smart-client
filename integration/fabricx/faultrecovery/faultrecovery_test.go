@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	fabconfigupdate "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
@@ -85,14 +86,14 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 
 		// Bob's channel config monitor reads the new configuration from the committer's
 		// query service on its next poll and applies it, so the sequence moves on bob too.
-		expectConfigSequence(s.II, before+1, "bob", "alice")
+		fabconfigupdate.ExpectConfigSequence(s.II, before+1, "bob", "alice")
 		faultrecovery.WaitFinal(s.II, tx.TxID)
 		// A new tx needs bob to endorse it on the new configuration.
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 
 		// Leave the shared network's BatchTimeout as this spec found it.
 		fxconfigupdate.SetBatchTimeout(n, original)
-		expectConfigSequence(s.II, before+2, "alice", "bob")
+		fabconfigupdate.ExpectConfigSequence(s.II, before+2, "alice", "bob")
 	})
 
 	It("resumes commits after Postgres restart", func() {
@@ -106,28 +107,25 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 		}
 
 		s.II.StopPostgres(db)
-		down := true
-		// A failure during the outage would leave the database down for the next spec.
-		DeferCleanup(func() {
-			if down {
-				s.II.StartPostgres(db)
-			}
-		})
+		// Starting a running container does nothing, so this is safe once the spec has
+		// restarted the database, and brings it back if the spec fails during the outage.
+		DeferCleanup(s.II.StartPostgres, db)
 		s.II.EventuallyConnectionState("bob", database, connstate.Reconnecting, time.Minute)
 		txIDs := make([]string, len(txs))
 		for i, tx := range txs {
 			txIDs[i] = faultrecovery.Order(s.II, tx)
 		}
-		s.II.StartPostgres(db)
-		down = false
 
-		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
-		// On Fabric-x, Query reads the committer's query service, so it answers the same on
-		// every node; the finality view ExpectSettled then runs on bob is what needs bob's
-		// own database back.
+		// A Fabric-x node learns finality from the committer's notification and query
+		// services, not from its own database, so bob settles the txs while its database is
+		// still down.
 		for i, txID := range txIDs {
 			faultrecovery.ExpectSettled(s.II, "bob", txID, i)
 		}
+
+		s.II.StartPostgres(db)
+		s.II.EventuallyConnectionState("bob", database, connstate.Connected, time.Minute)
+		// Endorsing writes to bob's database, so a new tx commits only once it is back.
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
@@ -267,16 +265,6 @@ var _ = Describe("Fault Recovery with Fabric-x during a network partition", Orde
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 })
-
-// expectConfigSequence waits until every node holds channel configuration sequence want.
-// A node reads a new configuration on its config monitor's next poll, so this polls.
-func expectConfigSequence(ii *integration.Infrastructure, want int, nodes ...string) {
-	for _, node := range nodes {
-		EventuallyWithOffset(1, func(g Gomega) int {
-			return fxconfigupdate.ConfigSequenceOn(g, ii, node)
-		}, time.Minute, time.Second).Should(Equal(want), "config sequence on [%s]", node)
-	}
-}
 
 // expectStreamedFinality checks that the notification stream of every replica of bob
 // answers a subscription: each replica's finality view registers its listener before a new

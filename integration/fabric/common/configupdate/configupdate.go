@@ -158,3 +158,16 @@ func BatchTimeoutOf(config *common.Config) time.Duration {
 
 	return timeout
 }
+
+// ExpectConfigSequence waits until every node in nodes reports channel configuration
+// sequence want through ConfigSequenceOn. A configuration reaches a node asynchronously,
+// over delivery on Fabric and through the config monitor's next poll on Fabric-x, so it
+// polls for up to a minute rather than asserting once. The configseq view is the same on
+// both platforms, so this serves both.
+func ExpectConfigSequence(ii *integration.Infrastructure, want int, nodes ...string) {
+	for _, node := range nodes {
+		gomega.EventuallyWithOffset(1, func(g gomega.Gomega) int {
+			return ConfigSequenceOn(g, ii, node)
+		}, time.Minute, time.Second).Should(gomega.Equal(want), "node [%s] never reported channel configuration sequence [%d]", node, want)
+	}
+}
