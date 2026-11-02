@@ -64,8 +64,8 @@ func TestQueryService_FailsOverWhenConnectedEndpointStops(t *testing.T) {
 	}
 	cp := config.NewClientProvider(fakeConfigProvider)
 	m, rec := connstatetest.NewMetrics()
-	qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func() (committerpb.QueryServiceClient, string, error) {
-		cc, err := cp.QueryServiceClient("net")
+	qs := queryservice.NewRemoteQueryService(&config.Config{RequestTimeout: 5 * time.Second}, func(skip string) (committerpb.QueryServiceClient, string, error) {
+		cc, err := cp.QueryServiceClient("net", skip)
 		if err != nil {
 			return nil, "", err
 		}
@@ -79,7 +79,7 @@ func TestQueryService_FailsOverWhenConnectedEndpointStops(t *testing.T) {
 	require.Equal(t, int32(committerpb.Status_COMMITTED), st, "served by A while it is up")
 
 	srvA.Stop()
-	cc, err := cp.QueryServiceClient("net")
+	cc, err := cp.QueryServiceClient("net", "")
 	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		return cc.GetState() != connectivity.Ready

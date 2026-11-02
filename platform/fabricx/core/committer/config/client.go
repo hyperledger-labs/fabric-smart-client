@@ -28,9 +28,9 @@ type ServiceConfigProvider interface {
 
 // ClientProvider hands out gRPC connections to the committer's services. For each
 // (service, network) it holds one connection per configured endpoint and, on every call,
-// hands out the first one that is not failing (see pick). Callers that ask again after a
-// failure therefore move to another endpoint, and back once gRPC has reconnected the
-// earlier one.
+// hands out the first one that is not failing (see pick). A caller that retries after a
+// failure names the endpoint that failed, so the retry moves to another endpoint; later calls
+// return to the earlier one once gRPC has reconnected it.
 //
 // The connections are cached for the life of the node because a fresh one per call leaks a
 // connection's worth of goroutines every time: nothing closes what a Get returns.
@@ -57,18 +57,19 @@ func (c *ClientProvider) NotificationServiceClient(network string) (*grpc.Client
 	if err != nil {
 		return nil, err
 	}
-	return pick(conns), nil
+	return pick(conns, ""), nil
 }
 
 // QueryServiceClient returns a gRPC connection to the query service for the specified
 // network, dialling every endpoint on first use. The connection is chosen per call, so a
-// caller should ask again after a failure instead of keeping the one it got.
-func (c *ClientProvider) QueryServiceClient(network string) (*grpc.ClientConn, error) {
+// caller should ask again after a failure instead of keeping the one it got, passing the
+// target of the connection that failed as skip; an empty skip skips nothing. See pick.
+func (c *ClientProvider) QueryServiceClient(network, skip string) (*grpc.ClientConn, error) {
 	conns, err := c.query.Get(network)
 	if err != nil {
 		return nil, err
 	}
-	return pick(conns), nil
+	return pick(conns, skip), nil
 }
 
 // dial turns a per-network config lookup into the connection factory lazy.Provider caches.
@@ -119,13 +120,17 @@ func dial(loadCfg func(string) (*Config, error)) func(string) ([]*grpc.ClientCon
 	}
 }
 
-// pick returns the first conn, in configuration order, that is not in TRANSIENT_FAILURE,
-// or the first conn if all are. A conn whose server has gone away reports IDLE until a
-// call on it fails, so it can still be returned once; callers that need the next endpoint
-// then, such as the query service, pick again after an Unavailable error.
-func pick(connections []*grpc.ClientConn) *grpc.ClientConn {
+// pick returns the first conn, in configuration order, whose target is not skip and that is
+// not in TRANSIENT_FAILURE, or the first conn if there is none.
+//
+// The state alone does not exclude an endpoint that has just failed a call. A conn whose
+// server has gone away reports IDLE until a call on it fails, and gRPC fails a pending call
+// before GetState reports TRANSIENT_FAILURE, so a pick right after an Unavailable error can
+// still see the failed conn as healthy. A caller that retries after such an error therefore
+// passes the failed conn's target as skip.
+func pick(connections []*grpc.ClientConn, skip string) *grpc.ClientConn {
 	for _, conn := range connections {
-		if conn.GetState() != connectivity.TransientFailure {
+		if conn.Target() != skip && conn.GetState() != connectivity.TransientFailure {
 			return conn
 		}
 	}

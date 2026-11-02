@@ -525,7 +525,7 @@ func TestQueryService_MonitorReportsConnected(t *testing.T) {
 	client := &qsmock.FakeQueryServiceClient{}
 	client.GetConfigTransactionReturnsOnCall(0, nil, status.Error(codes.Unavailable, "committer down"))
 	client.GetConfigTransactionReturns(&applicationpb.ConfigTransaction{Version: 1}, nil)
-	qs := queryservice.NewRemoteQueryService(&committerconfig.Config{RequestTimeout: time.Second}, func() (committerpb.QueryServiceClient, string, error) { return client, "committer", nil }, func(endpoint string) *connstate.Tracker {
+	qs := queryservice.NewRemoteQueryService(&committerconfig.Config{RequestTimeout: time.Second}, func(string) (committerpb.QueryServiceClient, string, error) { return client, "committer", nil }, func(endpoint string) *connstate.Tracker {
 		return m.Tracker("testnet", "mychannel", connstate.ComponentFabricxQuery, endpoint)
 	})
 

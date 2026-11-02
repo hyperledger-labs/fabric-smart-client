@@ -25,8 +25,10 @@ import (
 //
 //go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
 type GRPCClientProvider interface {
-	// QueryServiceClient returns a gRPC client connection for the specified network.
-	QueryServiceClient(network string) (*grpc.ClientConn, error)
+	// QueryServiceClient returns a gRPC client connection for the specified network,
+	// avoiding the endpoint whose target is skip if another one is configured. An empty skip
+	// skips nothing.
+	QueryServiceClient(network, skip string) (*grpc.ClientConn, error)
 }
 
 type ConfigTransactionInfo struct {
@@ -79,8 +81,8 @@ func (r *RemoteQueryServiceProvider) Get(network, channel string) (QueryService,
 		return nil, errors.Wrapf(err, "get config for [network=%s, channel=%s]", network, channel)
 	}
 
-	newClient := func() (committerpb.QueryServiceClient, string, error) {
-		cc, err := r.GRPCClientProvider.QueryServiceClient(network)
+	newClient := func(skip string) (committerpb.QueryServiceClient, string, error) {
+		cc, err := r.GRPCClientProvider.QueryServiceClient(network, skip)
 		if err != nil {
 			return nil, "", errors.Wrapf(err, "get grpc client for query service [network=%s, channel=%s]", network, channel)
 		}
