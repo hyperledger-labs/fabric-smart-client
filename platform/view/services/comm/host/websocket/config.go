@@ -62,8 +62,16 @@ const (
 	// fsc.p2p.opts.websocket.keepalive.interval is unset.
 	DefaultKeepaliveInterval = 30 * time.Second
 	// DefaultKeepaliveTimeout is how long a pong may take when
-	// fsc.p2p.opts.websocket.keepalive.timeout is unset or not positive.
+	// fsc.p2p.opts.websocket.keepalive.timeout is unset or 0.
 	DefaultKeepaliveTimeout = 10 * time.Second
+	// minKeepaliveInterval is the shortest fsc.p2p.opts.websocket.keepalive.interval other
+	// than 0. A value written without a unit, such as 30 for 30s, parses as nanoseconds and
+	// would ping in a busy loop, so anything shorter is rejected.
+	minKeepaliveInterval = time.Second
+	// minKeepaliveTimeout is the shortest fsc.p2p.opts.websocket.keepalive.timeout other
+	// than 0, for the same reason: a timeout of 10 meant as 10s would close every websocket
+	// whose pong takes more than 10 nanoseconds.
+	minKeepaliveTimeout = time.Second
 )
 
 // ExtraCAPoolProvider supplies trust anchors discovered at runtime rather than configured.
@@ -136,13 +144,20 @@ func NewConfig(cs configService) (*config, error) {
 		}
 	}
 
-	// An explicit zero or negative interval turns the keepalive off; unset keeps it on.
+	// An explicit 0 interval turns the keepalive off; unset keeps it on.
 	keepaliveInterval := DefaultKeepaliveInterval
 	if cs.IsSet("fsc.p2p.opts.websocket.keepalive.interval") {
-		keepaliveInterval = max(cs.GetDuration("fsc.p2p.opts.websocket.keepalive.interval"), 0)
+		keepaliveInterval = cs.GetDuration("fsc.p2p.opts.websocket.keepalive.interval")
+		if keepaliveInterval != 0 && keepaliveInterval < minKeepaliveInterval {
+			return nil, errors.Errorf("fsc.p2p.opts.websocket.keepalive.interval [%s] must be 0 or at least %s", keepaliveInterval, minKeepaliveInterval)
+		}
 	}
+	// An unset or 0 timeout uses the default.
 	keepaliveTimeout := DefaultKeepaliveTimeout
-	if v := cs.GetDuration("fsc.p2p.opts.websocket.keepalive.timeout"); v > 0 {
+	if v := cs.GetDuration("fsc.p2p.opts.websocket.keepalive.timeout"); v != 0 {
+		if v < minKeepaliveTimeout {
+			return nil, errors.Errorf("fsc.p2p.opts.websocket.keepalive.timeout [%s] must be 0 or at least %s", v, minKeepaliveTimeout)
+		}
 		keepaliveTimeout = v
 	}
 

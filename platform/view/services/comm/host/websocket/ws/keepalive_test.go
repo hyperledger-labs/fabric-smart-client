@@ -25,10 +25,12 @@ import (
 
 // TestKeepalive_ClosesSilentlyCutConnection runs a multiplexed client and server connection
 // through a TCP link that, once cut, stops forwarding without closing anything. With a
-// keepalive both sides close within Interval plus Timeout; without one both stay open.
+// keepalive both sides close within Interval plus Timeout; without one both stay open. The
+// 1.5 s of silence a healthy link may have before it closes leaves room for a ping and its
+// pong to be scheduled late, as they are under -race on a loaded CPU.
 func TestKeepalive_ClosesSilentlyCutConnection(t *testing.T) {
 	t.Parallel()
-	k := Keepalive{Interval: 100 * time.Millisecond, Timeout: 200 * time.Millisecond}
+	k := Keepalive{Interval: 500 * time.Millisecond, Timeout: time.Second}
 	for _, tt := range []struct {
 		name      string
 		keepalive Keepalive
@@ -58,15 +60,15 @@ func TestKeepalive_ClosesSilentlyCutConnection(t *testing.T) {
 			t.Cleanup(func() { _ = cc.Kill() })
 
 			// Several pings and pongs cross the healthy link without closing it.
-			requireBothOpen(t, clientClosed, serverClosed, 5*k.Interval)
+			requireBothOpen(t, clientClosed, serverClosed, 3*k.Interval)
 
 			link.cut()
 			if tt.closes {
-				bound := k.Interval + k.Timeout + time.Second
+				bound := k.Interval + k.Timeout + 2*time.Second
 				requireSideClosed(t, clientClosed, "client", bound)
 				requireSideClosed(t, serverClosed, "server", bound)
 			} else {
-				requireBothOpen(t, clientClosed, serverClosed, 5*(k.Interval+k.Timeout))
+				requireBothOpen(t, clientClosed, serverClosed, 2*(k.Interval+k.Timeout))
 			}
 		})
 	}

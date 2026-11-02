@@ -206,7 +206,10 @@ fsc:
         # connection cut without a reset, such as by a network partition or a load balancer
         # that drops an idle flow, is therefore closed within interval + timeout instead of
         # staying open until the process restarts. Default: interval 30s, timeout 10s. An
-        # explicit interval of 0 turns the check off; a timeout of 0 or less uses the default.
+        # explicit interval of 0 turns the check off; any other interval must be at least
+        # 1s, and a node with a shorter one fails to start. Write the unit: 30 without one
+        # is 30 nanoseconds. A timeout of 0 uses the default; any other timeout must be at
+        # least 1s too.
         keepalive:
           interval: 30s
           timeout: 10s
