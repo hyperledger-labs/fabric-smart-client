@@ -292,7 +292,9 @@ authorizer's own error text never reaches the caller. A running check holds one 
 The authorizer decides who may start the responder. It does not check the payload: the responder
 must still validate every message it receives, as described above.
 
-Each initiator of a responder has its own authorizer. A later registration for the same initiator
+Each initiator of a responder has its own authorizer, so a responder registered for several
+initiators needs an authorizer on each of them: an initiator registered without one lets any node
+start the responder. A later registration for the same initiator
 without `WithAuthorizer`, for example a default registration by a library, keeps the authorizer;
 one with `WithAuthorizer` replaces it.
 

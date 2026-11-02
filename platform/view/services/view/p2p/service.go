@@ -208,8 +208,8 @@ func WithDrainState(d DrainState) Option {
 }
 
 // WithRejections makes the Service report a first message that a responder's authorizer
-// refuses to r, as a security rejection of kind security.KindUnauthorized. Without it, such
-// refusals are only counted in the Service's own rejections metric.
+// refuses to r, as a security rejection of kind security.KindUnauthorized. Without it, the
+// security rejection is logged but not counted.
 func WithRejections(r *security.Rejections) Option {
 	return func(s *Service) { s.securityRejections = r }
 }

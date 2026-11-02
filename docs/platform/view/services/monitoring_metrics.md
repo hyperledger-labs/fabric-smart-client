@@ -165,7 +165,7 @@ Operational notes:
 - Rejections dropped because the peer already has `fsc.p2p.maxRespondersPerPeer` rejections pending, or the node already has `fsc.p2p.maxResponders` pending across all peers, and first messages dropped for status `ERROR` or an empty caller, are not counted.
 - A rising `busy` rate points at one peer, a rising `node_busy` rate at overall load.
 - A rising `unknown_view` rate usually means the nodes run different versions of the application.
-- `authorizer_error` points at the application's authorizer, for example a backend it depends on; the cause is logged at debug level only.
+- `authorizer_error` points at the application's authorizer, for example a backend it depends on; the cause of an error or timeout is logged at debug level, a panic at error level with its stack.
 
 Primary implementation: `platform/view/services/view/p2p/service.go`.
 

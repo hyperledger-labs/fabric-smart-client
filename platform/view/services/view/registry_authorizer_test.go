@@ -111,3 +111,12 @@ func TestManager_RegisterResponderWithOptions(t *testing.T) {
 	_, _, _, err := m.ResponderForCaller("other")
 	require.ErrorIs(t, err, view.ErrResponderNotFound)
 }
+
+// A view registered with an empty initiator cannot have an authorizer.
+func TestRegistry_AuthorizerNeedsInitiator(t *testing.T) {
+	t.Parallel()
+	r := view.NewRegistry()
+	require.Error(t, r.RegisterResponderWithOptions(&mock.View{}, "", view.WithAuthorizer(named("a"))))
+	_, err := r.GetView(view.GetIdentifier(&mock.View{}))
+	require.ErrorIs(t, err, view.ErrViewNotFound)
+}

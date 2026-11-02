@@ -126,7 +126,8 @@ func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.I
 }
 
 // RegisterResponderWithOptions registers responder to answer initiatedBy, a view or a view ID.
-// An empty view ID registers responder as a view that GetView returns instead.
+// An empty view ID registers responder as a view that GetView returns instead; such a
+// registration cannot have an authorizer, since no remote node starts it.
 //
 // A registration for an initiator that already has a responder replaces its responder and
 // identity. It replaces the authorizer only if it sets one: a later registration without
@@ -152,6 +153,9 @@ func (cm *Registry) RegisterResponderWithOptions(responder view.View, initiatedB
 
 	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s]", GetIdentifier(responder), initiatedByID, entry.id)
 	if len(initiatedByID) == 0 {
+		if entry.authorizer != nil {
+			return errors.New("an authorizer needs an initiator")
+		}
 		cm.views[GetIdentifier(responder)] = responder
 		return nil
 	}
