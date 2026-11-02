@@ -6,11 +6,15 @@ on:
     paths:
       - '**/*.proto'
       - 'buf.yaml'
+      - 'Makefile'
+      - 'tools/go.mod'
       - '.github/workflows/buf.yml'
   pull_request:
     paths:
       - '**/*.proto'
       - 'buf.yaml'
+      - 'Makefile'
+      - 'tools/go.mod'
       - '.github/workflows/buf.yml'
 
 permissions:

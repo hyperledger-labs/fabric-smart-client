@@ -40,7 +40,21 @@ func TestPreambleFrame_LeavesFollowingBytes(t *testing.T) {
 func TestPreambleFrame_RefusesOversizedBeforeAllocating(t *testing.T) {
 	t.Parallel()
 	_, err := readPreambleFrame(bytes.NewReader(binary.AppendUvarint(nil, 1<<40)))
-	require.ErrorContains(t, err, "exceeds")
+	require.ErrorIs(t, err, errFrameTooLarge)
+}
+
+// A frame over preamble.MaxSize is a refusal: reported as version and counted.
+func TestPreambleRefusesOversizedFrame(t *testing.T) {
+	t.Parallel()
+	dialer, listener, _ := twoHosts(t)
+	listener.SetStreamHandler(viewProtocolV2, func(s network.Stream) {
+		_, _ = s.Write(binary.AppendUvarint(nil, preamble.MaxSize+1))
+		<-t.Context().Done()
+	})
+
+	_, err := dialer.NewStream(t.Context(), commhost.StreamInfo{RemotePeerID: listener.PeerID()})
+	require.ErrorIs(t, err, errFrameTooLarge)
+	require.ErrorContains(t, err, "version: ")
 }
 
 // twoHosts starts two libp2p hosts; streams accepted by the second are sent on the returned

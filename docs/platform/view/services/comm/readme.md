@@ -72,7 +72,7 @@ Every stream opens with a preamble (`platform/view/services/comm/preamble`), so 
 | WebSocket | `StreamMeta.preamble`, on every sub-connection | `Fsc-Preamble` header (base64) on the upgrade response | a server answers the sub-connection with an Err frame and keeps the websocket; a client closes the websocket it dialed |
 | libp2p | one length-prefixed frame in each direction when a `/fsc/view/2.0.0` stream opens, within 30 seconds or the dialer's context | same | the stream is reset |
 
-The size limits are part of the format and never shrink, so a node never refuses a preamble that an older release accepts.
+On WebSocket this is the multiplexed provider, which nodes use; the test-only `SimpleProvider` neither sends nor checks a preamble. The size limits are part of the format and never shrink, so a node never refuses a preamble that an older release accepts.
 
 A libp2p node registers `/fsc/view/2.0.0` and `/fsc/view/1.0.0` and dials `2.0.0` first. Multistream negotiation picks the first protocol the peer supports, so a peer that only knows `1.0.0` gets a stream without a preamble. A preamble that arrives and is refused, because it is malformed, too large or names another epoch, is counted in `fsc_view_services_comm_host_websocket_ws_rejected_streams{reason="version"}` (server side) and `fsc_view_services_comm_host_libp2p_rejected_streams{reason="version"}` (see [Metrics](../monitoring_metrics.md)). They are counted by the transport, not by the view P2P service: the preamble is checked before any `ViewPacket` is read, and a peer of another epoch may not read our `ViewPacket` framing.
 

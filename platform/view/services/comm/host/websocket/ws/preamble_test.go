@@ -124,6 +124,14 @@ func TestClientChecksServerPreamble(t *testing.T) {
 	require.ErrorContains(t, err, "version: ")
 	require.ErrorContains(t, err, "peer framing epoch 2, local 1")
 
+	for name, value := range map[string]string{
+		"oversized": strings.Repeat("A", base64.StdEncoding.EncodedLen(preamble.MaxSize)+4),
+		"malformed": "not base64!",
+	} {
+		_, err := dial(newServer(http.Header{preambleHeader: []string{value}}))
+		require.ErrorContains(t, err, "version: ", name)
+	}
+
 	old := newServer(nil)
 	s, err := dial(old)
 	require.NoError(t, err)

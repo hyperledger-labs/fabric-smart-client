@@ -38,18 +38,28 @@ func exchangePreamble(ctx context.Context, s network.Stream) (p *preamble.Preamb
 	}
 	defer func() { _ = s.SetDeadline(time.Time{}) }()
 	stop := context.AfterFunc(ctx, func() { _ = s.Reset() })
-	defer stop()
 
 	if err := writePreambleFrame(s, preamble.LocalBytes()); err != nil {
+		stop()
 		return nil, false, errors.Wrap(err, "failed writing preamble")
 	}
 	raw, err := readPreambleFrame(s)
+	if !stop() {
+		// ctx ended and s is being reset, even if the frame arrived.
+		return nil, false, errors.Wrap(ctx.Err(), "preamble exchange cancelled")
+	}
+	if errors.Is(err, errFrameTooLarge) {
+		return nil, true, errors.WithMessage(err, "version")
+	}
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed reading preamble")
 	}
 	p, err = preamble.Accept(raw)
 	return p, err != nil, err
 }
+
+// errFrameTooLarge is returned by readPreambleFrame for a length over preamble.MaxSize.
+var errFrameTooLarge = errors.New("preamble frame too large")
 
 // writePreambleFrame writes raw prefixed by its length as a uvarint.
 func writePreambleFrame(w io.Writer, raw []byte) error {
@@ -66,7 +76,7 @@ func readPreambleFrame(r io.Reader) ([]byte, error) {
 		return nil, err
 	}
 	if size > preamble.MaxSize {
-		return nil, errors.Errorf("preamble of %d bytes exceeds %d", size, preamble.MaxSize)
+		return nil, errors.Wrapf(errFrameTooLarge, "%d bytes exceeds %d", size, preamble.MaxSize)
 	}
 	raw := make([]byte, size)
 	_, err = io.ReadFull(r, raw)

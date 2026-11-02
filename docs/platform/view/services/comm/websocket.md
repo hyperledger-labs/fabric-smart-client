@@ -40,6 +40,8 @@ graph TD
 
 ### Protocol Handshake and Upgrading
 
+The steps below are those of the multiplexed provider, which nodes use. The test-only `SimpleProvider` skips the preamble steps 6 and 9 and sends no preamble.
+
 1.  **TCP/TLS Connect**: The client establishes a TLS connection to the server's WEBSOCKET endpoint (e.g., `https://node-a:11511/p2p`).
 2.  **mTLS Identity**: Both parties use the node's main identity (configured via `fsc.identity.key.file` and `fsc.identity.cert.file`) for mutual authentication.
 3.  **mTLS Verification**: Both parties exchange and verify certificates. The server extracts the `expectedPeerID` from the client's verified certificate.
@@ -48,7 +50,7 @@ graph TD
 6.  **Server Preamble**: The client then checks the server's preamble and closes the connection if it names another framing epoch. A server without the header runs a release without preambles and is accepted.
 7.  **Meta Handshake**: Once the WebSocket is established, the client sends an initial `StreamMeta` JSON packet containing its claimed `PeerID`, `ContextID`, `SessionID`, and its encoded preamble.
 8.  **Identity Binding Validation**: The server compares the `PeerID` in the `StreamMeta` against the `expectedPeerID` from the TLS certificate. If they mismatch, the connection is terminated.
-9.  **Client Preamble**: The server then checks the client's preamble. On the multiplexed provider, a preamble that names another framing epoch gets the sub-connection an Err frame starting with `version: `; the websocket stays open. A `StreamMeta` without a preamble comes from an older release and is accepted. See [Stream preamble](./readme.md#stream-preamble).
+9.  **Client Preamble**: The server then checks the client's preamble. A preamble that is malformed or names another framing epoch gets the sub-connection an Err frame starting with `version: `; the websocket stays open. A `StreamMeta` without a preamble comes from an older release and is accepted. See [Stream preamble](./readme.md#stream-preamble).
 
 ## Multiplexing and Logical Streams
 
