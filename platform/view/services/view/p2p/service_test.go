@@ -652,14 +652,17 @@ func TestService_LimitsRespondersAcrossPeers(t *testing.T) {
 
 // TestService_LimitsRejectionsAcrossPeers verifies that fsc.p2p.maxResponders also bounds the
 // rejections pending across all peers: once that many are pending, first messages from any peer
-// are dropped.
+// are dropped, and a rejection that completes frees its node-wide slot.
 func TestService_LimitsRejectionsAcrossPeers(t *testing.T) {
 	t.Parallel()
 	lt := newLimitTest(t, limitsConfig{p2p.MaxRespondersPerPeerKey: 5, p2p.MaxRespondersKey: 1}, 10)
 	sending := make(chan struct{}, 10)
 	unblock := make(chan struct{})
 	lt.cl.ReplyErrorStub = func(context.Context, *view.Message, []byte) error {
-		sending <- struct{}{}
+		select { // non-blocking: the retries below may be rejected too
+		case sending <- struct{}{}:
+		default:
+		}
 		<-unblock
 		return nil
 	}
@@ -671,7 +674,14 @@ func TestService_LimitsRejectionsAcrossPeers(t *testing.T) {
 	lt.send("c1", "c1", "peerC") // node-wide rejection bound full: dropped
 	require.Never(t, func() bool { return len(sending) > 0 }, 50*time.Millisecond, 5*time.Millisecond)
 	require.Equal(t, 1, lt.cl.ReplyErrorCallCount())
-	close(unblock)
+
+	close(unblock) // b1's slot is released after ReplyError returns
+	i := 0
+	require.Eventually(t, func() bool {
+		i++
+		lt.send(fmt.Sprint("d", i), fmt.Sprint("d", i), "peerD")
+		return lt.cl.ReplyErrorCallCount() > 1
+	}, 5*time.Second, 5*time.Millisecond, "a later peer must be rejected, not dropped")
 }
 
 // TestNewService_MaxRespondersConfig verifies that fsc.p2p.maxResponders bounds the node only when
