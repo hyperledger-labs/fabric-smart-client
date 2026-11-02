@@ -170,7 +170,7 @@ jobs:
         run: make -j4 pull-images-fabric
 
       - name: Set up Fabric-x
-        if: startsWith(matrix.tests, 'fabricx-')
+        if: startsWith(matrix.tests, 'fabricx-') || matrix.tests == 'fabric-mixednets'
         run: |
           make -j4 install-fabricx-tools pull-images-fabricx pull-images-database
 

@@ -2095,3 +2095,25 @@ func TestFabricxSetFromBytes_ResponseMustNameProposalTxID(t *testing.T) {
 		})
 	}
 }
+
+func TestTransactionBytesCarryChannelKey(t *testing.T) {
+	t.Parallel()
+	key := &driver.ChannelKey{Platform: "fabricx", Channel: "ch1", GenesisHash: []byte("genesis")}
+	ch := &mock.Channel{}
+	ch.ChannelKeyReturns(key, nil)
+	tx := &Transaction{TTxID: "tx1", channel: ch}
+
+	for _, encode := range []func() ([]byte, error){tx.Bytes, tx.BytesNoTransient} {
+		raw, err := encode()
+		require.NoError(t, err)
+		var decoded struct{ Key *driver.ChannelKey }
+		require.NoError(t, json.Unmarshal(raw, &decoded))
+		require.Equal(t, key, decoded.Key)
+	}
+
+	// A channel whose key cannot be read yet still serializes, without a key.
+	ch.ChannelKeyReturns(nil, errors.New("ledger unavailable"))
+	raw, err := tx.Bytes()
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), `"Key"`)
+}

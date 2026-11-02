@@ -433,7 +433,7 @@ func TestBuilder(t *testing.T) {
 
 	// Test NewTransactionFromBytes
 	fakeTM.NewTransactionFromBytesReturns(fakeTx, nil)
-	tx, err = builder.NewTransactionFromBytes([]byte("raw"))
+	tx, err = builder.NewTransactionFromBytes(legacyRaw)
 	require.NoError(t, err)
 	require.NotNil(t, tx)
 

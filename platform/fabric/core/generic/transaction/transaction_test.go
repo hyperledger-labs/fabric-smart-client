@@ -258,6 +258,14 @@ func TestTransaction_SetFromBytes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "txid", tx2.ID())
 
+	// The decoded transaction keeps the name of the network that decodes it, not
+	// the sender's.
+	local := transaction.NewEndorserTransactionFactory("local", mockChannelProvider, mockSigService)
+	tx3, err := local.NewTransaction(t.Context(), "channel", nil, nil, "", nil)
+	require.NoError(t, err)
+	require.NoError(t, tx3.SetFromBytes(b))
+	require.Equal(t, "local", tx3.Network())
+
 	// Test TSignedProposal unmarshal failure
 	txWithSigProp := &transaction.Transaction{}
 	txWithSigProp.TSignedProposal = &pb.SignedProposal{

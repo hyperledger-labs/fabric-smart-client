@@ -8,8 +8,10 @@ package generic
 
 import (
 	"context"
+	"sync"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	xprotoutil "github.com/hyperledger/fabric-x-common/protoutil"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -44,6 +46,9 @@ type Channel struct {
 	ChannelMembershipService driver.ChannelMembership
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         CommitterService
+	// Platform is the driver name of the network the channel belongs to; it is
+	// the platform of ChannelKey.
+	Platform string
 
 	// cancel tears down the context that bounds the lifetime of resources owned by
 	// the channel's dependencies (e.g. the ChaincodeManagerService's per-chaincode
@@ -54,6 +59,9 @@ type Channel struct {
 	// at context.Background() in the provider; if that ever changes, it should
 	// derive from the higher-level context instead.
 	cancel context.CancelFunc
+
+	keyMu sync.Mutex
+	key   *driver.ChannelKey
 }
 
 func (c *Channel) Init() error {
@@ -65,6 +73,33 @@ func (c *Channel) Init() error {
 
 func (c *Channel) Name() string {
 	return c.ChannelName
+}
+
+// ChannelKey returns a copy of the key of the channel, reading block 0 from
+// LedgerService on the first successful call. A failed read is not cached, so a
+// later call retries.
+func (c *Channel) ChannelKey() (*driver.ChannelKey, error) {
+	c.keyMu.Lock()
+	defer c.keyMu.Unlock()
+	if c.key != nil {
+		k := *c.key
+		return &k, nil
+	}
+	b, err := c.LedgerService.GetBlockByNumber(0)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed reading block 0 of channel [%s]", c.ChannelName)
+	}
+	cb, ok := b.(interface{ GetHeader() *common.BlockHeader })
+	if !ok || cb.GetHeader() == nil {
+		return nil, errors.Errorf("block 0 of channel [%s] has no header", c.ChannelName)
+	}
+	c.key = &driver.ChannelKey{
+		Platform:    c.Platform,
+		Channel:     c.ChannelName,
+		GenesisHash: xprotoutil.BlockHeaderHash(cb.GetHeader()),
+	}
+	k := *c.key
+	return &k, nil
 }
 
 func (c *Channel) Close() error {

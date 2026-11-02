@@ -123,6 +123,11 @@ func NewNetworkServiceProvider(fnsProvider driver.FabricNetworkServiceProvider, 
 	return &NetworkServiceProvider{fnsProvider: fnsProvider, subscriber: subscriber, networkServices: make(map[string]*NetworkService)}
 }
 
+// Names returns the names of the networks this node is configured for.
+func (nsp *NetworkServiceProvider) Names() []string {
+	return nsp.fnsProvider.Names()
+}
+
 func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
 	nsp.mutex.RLock()
 	ns, ok := nsp.networkServices[id]

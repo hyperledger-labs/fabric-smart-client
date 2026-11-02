@@ -102,20 +102,50 @@ func TestEndorserTransactionFactory(t *testing.T) {
 	require.Equal(t, "testnetwork", tx.Network())
 }
 
+// keyedTransaction is a driver.Transaction bound to a channel with a key.
+type keyedTransaction struct {
+	*mock.Transaction
+	key *driver.ChannelKey
+}
+
+func (k *keyedTransaction) ChannelKey() (*driver.ChannelKey, error) { return k.key, nil }
+
+// Both encodings carry the transaction type and the key of its channel.
 func TestWrappedTransaction_Bytes(t *testing.T) {
+	t.Parallel()
+	key := &driver.ChannelKey{Platform: "generic", Channel: "ch1", GenesisHash: []byte("genesis")}
+	mockTx := &mock.Transaction{}
+	mockTx.BytesReturns([]byte("raw transaction"), nil)
+	mockTx.BytesNoTransientReturns([]byte("raw no transient"), nil)
+	wt := transaction.WrappedTransaction{Transaction: &keyedTransaction{Transaction: mockTx, key: key}, TransactionType: driver.EndorserTransaction}
+
+	for _, c := range []struct {
+		encode func() ([]byte, error)
+		want   string
+	}{
+		{wt.Bytes, "raw transaction"},
+		{wt.BytesNoTransient, "raw no transient"},
+	} {
+		b, err := c.encode()
+		require.NoError(t, err)
+		var st transaction.SerializedTransaction
+		require.NoError(t, json.Unmarshal(b, &st))
+		require.Equal(t, driver.EndorserTransaction, st.Type)
+		require.Equal(t, []byte(c.want), st.Raw)
+		require.Equal(t, key, st.Key)
+	}
+}
+
+// A transaction that exposes no key serializes without one.
+func TestWrappedTransaction_BytesWithoutKey(t *testing.T) {
 	t.Parallel()
 	mockTx := &mock.Transaction{}
 	mockTx.BytesReturns([]byte("raw transaction"), nil)
-
 	wt := transaction.WrappedTransaction{Transaction: mockTx, TransactionType: driver.EndorserTransaction}
+
 	b, err := wt.Bytes()
 	require.NoError(t, err)
-
-	var st transaction.SerializedTransaction
-	err = json.Unmarshal(b, &st)
-	require.NoError(t, err)
-	require.Equal(t, driver.EndorserTransaction, st.Type)
-	require.Equal(t, []byte("raw transaction"), st.Raw)
+	require.NotContains(t, string(b), `"Key"`)
 }
 
 func TestManager_ComputeTxID(t *testing.T) {

@@ -52,8 +52,11 @@ func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.Tra
 	return &WrappedTransaction{Transaction: tx, TransactionType: transactionType}, nil
 }
 
+// NewTransactionFromBytes decodes a transaction serialized by WrappedTransaction.Bytes
+// on this network, bound to the channel the transaction names. It does not check
+// that the bytes were built on this network; a caller decoding bytes received from
+// another node picks the network by SerializedTransaction.Key first.
 func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
-	// logger.Debugf("new transaction from bytes [%s]", logging.Sha256Base64(raw))
 	txRaw := &SerializedTransaction{}
 	if err := json.Unmarshal(raw, txRaw); err != nil {
 		return nil, err
@@ -149,27 +152,58 @@ func (e *EndorserTransactionFactory) NewTransaction(ctx context.Context, channel
 	}, nil
 }
 
+// WrappedTransaction is a driver.Transaction that serializes together with its
+// transaction type and the ChannelKey of its channel, so that a receiving node can
+// pick both the local network and the transaction factory.
 type WrappedTransaction struct {
 	driver.Transaction
 	TransactionType driver.TransactionType
 }
 
 func (w *WrappedTransaction) Bytes() ([]byte, error) {
-	// return w.Transaction.Bytes()
 	raw, err := w.Transaction.Bytes()
 	if err != nil {
 		return nil, err
 	}
-	out, err := json.Marshal(&SerializedTransaction{
-		Type: w.TransactionType,
-		Raw:  raw,
-	})
-	// logger.Debugf("new transaction from bytes [%s]", logging.Sha256Base64(out))
-
-	return out, err
+	return w.wrap(raw)
 }
 
+func (w *WrappedTransaction) BytesNoTransient() ([]byte, error) {
+	raw, err := w.Transaction.BytesNoTransient()
+	if err != nil {
+		return nil, err
+	}
+	return w.wrap(raw)
+}
+
+func (w *WrappedTransaction) wrap(raw []byte) ([]byte, error) {
+	return json.Marshal(&SerializedTransaction{Type: w.TransactionType, Raw: raw, Key: ChannelKeyOf(w.Transaction)})
+}
+
+// ChannelKeyOf returns the ChannelKey of the channel tx is bound to, or nil if tx
+// exposes none or its key cannot be read. Serialization does not fail for a missing
+// key: the bytes are also stored and hashed locally, and a receiver treats bytes
+// without a key as coming from a node that does not send one.
+func ChannelKeyOf(tx driver.Transaction) *driver.ChannelKey {
+	keyed, ok := tx.(interface {
+		ChannelKey() (*driver.ChannelKey, error)
+	})
+	if !ok {
+		return nil
+	}
+	key, err := keyed.ChannelKey()
+	if err != nil {
+		logger.Warnf("tx [%s]: serializing without a channel key: %v", tx.ID(), err)
+		return nil
+	}
+	return key
+}
+
+// SerializedTransaction is the encoding of a Fabric transaction sent to another node.
 type SerializedTransaction struct {
 	Type driver.TransactionType
 	Raw  []byte
+	// Key identifies the channel of the transaction to the receiving node. It is
+	// nil in the bytes of a node that does not send it.
+	Key *driver.ChannelKey `json:",omitempty"`
 }

@@ -546,7 +546,11 @@ fabric:
     # it is the driver to use to provide the implementations of the Fabric API (client-side)
     # `generic` supports Fabric 2.x
     driver: generic
-    # defines whether this is the default fabric network
+    # defines whether this is the default fabric network: the network a view builds a
+    # transaction on when it names none. A transaction received from another node is
+    # built on the local network whose channel matches the platform (driver), channel
+    # name and genesis block hash it carries. Network names are local to each node.
+    # See docs/platform/fabric/configuration.md.
     default: true
     # Cache size to use when handling idemix pseudonyms. If the value is larger than 0, the cache is enabled and
     # pseudonyms are generated in batches of the given size to be ready to be used. 0 disables the cache.

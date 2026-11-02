@@ -65,6 +65,10 @@ type Transaction struct {
 	TProposal          *pb.Proposal
 	TSignedProposal    *pb.SignedProposal
 	TProposalResponses []*pb.ProposalResponse
+
+	// Key identifies the channel of the transaction to the node that receives its
+	// bytes. Bytes and BytesNoTransient set it; SetFromBytes does not restore it.
+	Key *driver.ChannelKey `json:",omitempty"`
 }
 
 func (t *Transaction) Creator() view.Identity {
@@ -85,6 +89,15 @@ func (t *Transaction) Network() string {
 
 func (t *Transaction) Channel() string {
 	return t.TChannel
+}
+
+// ChannelKey returns the key of the channel the transaction is bound to, or nil if
+// it is bound to none.
+func (t *Transaction) ChannelKey() (*driver.ChannelKey, error) {
+	if t.channel == nil {
+		return nil, nil
+	}
+	return t.channel.ChannelKey()
 }
 
 func (t *Transaction) Function() string {
@@ -157,9 +170,14 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 // hash, so the txID is its only binding to the signed proposal. SetFromBytes does not validate
 // data received from a peer; use endorser.ValidateReceived.
 func (t *Transaction) SetFromBytes(raw []byte) error {
+	// The transaction stays bound to the local network it was created on; the
+	// network name in raw is the sender's and means nothing on this node.
+	network := t.TNetwork
 	if err := json.Unmarshal(raw, t); err != nil {
 		return errors.Wrap(err, "json unmarshal from bytes")
 	}
+	t.TNetwork = network
+	t.Key = nil
 
 	if t.TSignedProposal == nil && len(t.TProposalResponses) > 0 {
 		return errors.New("proposal responses without a signed proposal")
@@ -395,6 +413,7 @@ func (t *Transaction) Bytes() ([]byte, error) {
 	if err := t.Done(); err != nil {
 		return nil, err
 	}
+	t.Key = transaction.ChannelKeyOf(t)
 	return json.Marshal(t)
 }
 
@@ -407,6 +426,7 @@ func (t *Transaction) BytesNoTransient() ([]byte, error) {
 		return nil, err
 	}
 	temp.ResetTransient()
+	temp.Key = transaction.ChannelKeyOf(t)
 	return json.Marshal(temp)
 }
 

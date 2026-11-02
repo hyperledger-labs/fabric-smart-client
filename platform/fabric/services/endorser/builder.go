@@ -49,14 +49,33 @@ func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.Transaction
 	)
 }
 
-// NewTransactionFromBytes decodes a transaction from its serialized form. It
-// does not validate data received from a peer; use ValidateReceived.
+// NewTransactionFromBytes decodes a transaction from its serialized form on the
+// local network whose channel matches the ChannelKey in bytes; see routeReceived.
+// Bytes without a key are decoded on the default network. It does not validate
+// data received from a peer; use ValidateReceived.
 func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
-	tx, err := t.buildTransaction(context.Background(), nil, "", "", nil, bytes, false)
+	return t.receivedTransactionFromBytes("", bytes)
+}
+
+// receivedTransactionFromBytes is NewTransactionFromBytes for bytes received from
+// sender, which names the sender in the warning for bytes without a key.
+func (t *Builder) receivedTransactionFromBytes(sender string, bytes []byte) (*Transaction, error) {
+	if t.sp == nil {
+		return nil, errors.New("service provider must be set")
+	}
+	network, key, err := routeReceived(t.sp, sender, bytes)
 	if err != nil {
 		return nil, err
 	}
-
+	tx, err := t.buildTransaction(context.Background(), nil, network, "", nil, bytes, false)
+	if err != nil {
+		return nil, err
+	}
+	// The key picks the network; the transaction must also be on the key's channel.
+	if key != nil && tx.Channel() != key.Channel {
+		tx.Close()
+		return nil, errors.Errorf("transaction channel [%s] does not match its channel key [%s]", tx.Channel(), key.Channel)
+	}
 	return tx, nil
 }
 
@@ -150,15 +169,16 @@ func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Tra
 	return NewTransactionFromPeer(viewCtx, sessionCaller(viewCtx), bytes)
 }
 
-// NewTransactionFromPeer decodes a transaction received from peer and validates
-// it with ValidateReceived before returning it. A failure that wraps
-// ErrInvalidTransaction is reported to security.Rejections under peer.
+// NewTransactionFromPeer decodes a transaction received from peer on the local
+// network its ChannelKey names (see Builder.NewTransactionFromBytes) and validates
+// it with ValidateReceived against that network before returning it. A failure
+// that wraps ErrInvalidTransaction is reported to security.Rejections under peer.
 func NewTransactionFromPeer(viewCtx view.Context, peer view.Identity, bytes []byte) (*Builder, *Transaction, error) {
 	txBuilder, err := NewBuilder(viewCtx)
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txBuilder.NewTransactionFromBytes(bytes)
+	tx, err := txBuilder.receivedTransactionFromBytes(peer.String(), bytes)
 	if err != nil {
 		return nil, nil, err
 	}
