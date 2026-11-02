@@ -128,6 +128,11 @@ func (nsp *NetworkServiceProvider) Names() []string {
 	return nsp.fnsProvider.Names()
 }
 
+// DefaultName returns the name of the default network.
+func (nsp *NetworkServiceProvider) DefaultName() string {
+	return nsp.fnsProvider.DefaultName()
+}
+
 func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
 	nsp.mutex.RLock()
 	ns, ok := nsp.networkServices[id]

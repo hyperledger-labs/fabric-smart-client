@@ -165,7 +165,8 @@ func (*ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, k
 		if err != nil {
 			return errors.Wrapf(err, "failed asking endorsers for to [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
-		_, certTx, err := endorser.NewTransactionFromEnvelopeBytes(context.Background(), n.tx.Provider, raw)
+		// The certification belongs to the network of the transaction it certifies.
+		_, certTx, err := endorser.NewTransactionFromEnvelopeBytesOn(context.Background(), n.tx.Provider, n.tx.Network(), raw)
 		if err != nil {
 			return errors.Wrapf(err, "failed parsing certification [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}

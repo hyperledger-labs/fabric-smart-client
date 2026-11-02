@@ -60,6 +60,9 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 			continue
 		}
 
+		if err := RequireChannelKey(c.tx.Transaction); err != nil {
+			return nil, err
+		}
 		var txRaw []byte
 		logger.DebugfContext(viewCtx.Context(), "Get transaction bytes")
 		if c.deleteTransient {

@@ -413,8 +413,10 @@ func (t *Transaction) Bytes() ([]byte, error) {
 	if err := t.Done(); err != nil {
 		return nil, err
 	}
-	t.Key = transaction.ChannelKeyOf(t)
-	return json.Marshal(t)
+	// Set the key on a copy: Raw and From marshal or copy t, and must not carry it.
+	out := *t
+	out.Key = transaction.ChannelKeyOf(t)
+	return json.Marshal(&out)
 }
 
 func (t *Transaction) BytesNoTransient() ([]byte, error) {

@@ -222,6 +222,20 @@ func (t *Transaction) Channel() string {
 	return t.tx.Channel()
 }
 
+// ChannelKey returns the key of the channel the transaction is bound to, the key
+// its bytes carry for another node. It returns nil, and no error, for a driver
+// transaction that has no channel key, and an error while the key of its channel
+// cannot be read.
+func (t *Transaction) ChannelKey() (*driver.ChannelKey, error) {
+	keyed, ok := t.tx.(interface {
+		ChannelKey() (*driver.ChannelKey, error)
+	})
+	if !ok {
+		return nil, nil
+	}
+	return keyed.ChannelKey()
+}
+
 func (t *Transaction) Function() string {
 	return t.tx.Function()
 }

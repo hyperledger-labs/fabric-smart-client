@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"bytes"
 	"context"
 	"sync"
+	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	xprotoutil "github.com/hyperledger/fabric-x-common/protoutil"
@@ -60,8 +62,13 @@ type Channel struct {
 	// derive from the higher-level context instead.
 	cancel context.CancelFunc
 
-	keyMu sync.Mutex
-	key   *driver.ChannelKey
+	keyMu      sync.Mutex
+	key        *driver.ChannelKey
+	keyErr     error
+	keyRetryAt time.Time
+	keyFetch   chan struct{}
+	// keyTimeout overrides channelKeyTimeout when set.
+	keyTimeout time.Duration
 }
 
 func (c *Channel) Init() error {
@@ -75,16 +82,79 @@ func (c *Channel) Name() string {
 	return c.ChannelName
 }
 
+const (
+	// channelKeyTimeout bounds how long ChannelKey waits for block 0. The ledger
+	// API takes no context, so a read that outlives it keeps running and its
+	// result is still cached when it arrives.
+	channelKeyTimeout = 10 * time.Second
+	// channelKeyRetry is how long ChannelKey reports a failed or timed-out read
+	// before reading block 0 again, so repeated requests for an unreadable channel
+	// do not each query the ledger.
+	channelKeyRetry = 5 * time.Second
+)
+
 // ChannelKey returns a copy of the key of the channel, reading block 0 from
-// LedgerService on the first successful call. A failed read is not cached, so a
-// later call retries.
+// LedgerService on first use. Concurrent callers share one read. A read that fails
+// or takes longer than channelKeyTimeout makes ChannelKey fail; the failure is
+// reported to callers for channelKeyRetry before block 0 is read again.
 func (c *Channel) ChannelKey() (*driver.ChannelKey, error) {
+	c.keyMu.Lock()
+	switch {
+	case c.key != nil:
+		key := c.key
+		c.keyMu.Unlock()
+		return cloneKey(key), nil
+	case c.keyErr != nil && time.Now().Before(c.keyRetryAt):
+		err := c.keyErr
+		c.keyMu.Unlock()
+		return nil, err
+	}
+	if c.keyFetch == nil {
+		done := make(chan struct{})
+		c.keyFetch = done
+		go c.fetchKey(done)
+	}
+	done := c.keyFetch
+	timeout := c.keyTimeout
+	c.keyMu.Unlock()
+	if timeout == 0 {
+		timeout = channelKeyTimeout
+	}
+
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		err := errors.Errorf("timed out reading block 0 of channel [%s]", c.ChannelName)
+		c.keyMu.Lock()
+		if c.key == nil {
+			c.keyErr, c.keyRetryAt = err, time.Now().Add(channelKeyRetry)
+		}
+		c.keyMu.Unlock()
+		return nil, err
+	}
 	c.keyMu.Lock()
 	defer c.keyMu.Unlock()
 	if c.key != nil {
-		k := *c.key
-		return &k, nil
+		return cloneKey(c.key), nil
 	}
+	return nil, c.keyErr
+}
+
+// fetchKey reads block 0, records the key or the failure, and closes done.
+func (c *Channel) fetchKey(done chan struct{}) {
+	key, err := c.readKey()
+	c.keyMu.Lock()
+	defer c.keyMu.Unlock()
+	if err != nil {
+		c.keyErr, c.keyRetryAt = err, time.Now().Add(channelKeyRetry)
+	} else {
+		c.key, c.keyErr = key, nil
+	}
+	c.keyFetch = nil
+	close(done)
+}
+
+func (c *Channel) readKey() (*driver.ChannelKey, error) {
 	b, err := c.LedgerService.GetBlockByNumber(0)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed reading block 0 of channel [%s]", c.ChannelName)
@@ -93,13 +163,17 @@ func (c *Channel) ChannelKey() (*driver.ChannelKey, error) {
 	if !ok || cb.GetHeader() == nil {
 		return nil, errors.Errorf("block 0 of channel [%s] has no header", c.ChannelName)
 	}
-	c.key = &driver.ChannelKey{
+	return &driver.ChannelKey{
 		Platform:    c.Platform,
 		Channel:     c.ChannelName,
 		GenesisHash: xprotoutil.BlockHeaderHash(cb.GetHeader()),
-	}
-	k := *c.key
-	return &k, nil
+	}, nil
+}
+
+func cloneKey(k *driver.ChannelKey) *driver.ChannelKey {
+	c := *k
+	c.GenesisHash = bytes.Clone(k.GenesisHash)
+	return &c
 }
 
 func (c *Channel) Close() error {

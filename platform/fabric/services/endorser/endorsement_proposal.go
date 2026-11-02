@@ -73,6 +73,11 @@ func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...vi
 
 func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (any, error) {
 	// send Transaction to each party and wait for their responses
+	if tx, ok := c.tx.(*Transaction); ok {
+		if err := RequireChannelKey(tx.Transaction); err != nil {
+			return nil, err
+		}
+	}
 	stateRaw, err := c.tx.Bytes()
 	if err != nil {
 		return nil, err

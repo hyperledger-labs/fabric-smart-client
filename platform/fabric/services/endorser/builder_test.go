@@ -145,6 +145,7 @@ func newReceiveFixture(t *testing.T, caller view.Identity) *receiveFixture {
 	fnsp := &mock.FabricNetworkServiceProvider{}
 	f.fnsp = fnsp
 	fnsp.NamesReturns([]string{"net1", "net2"})
+	fnsp.DefaultNameReturns("net1")
 	fnsp.FabricNetworkServiceCalls(func(id string) (driver.FabricNetworkService, error) {
 		switch id {
 		case "", "net1":
@@ -198,6 +199,7 @@ func newReceiveNetwork(name string, key *driver.ChannelKey) (*receiveNetwork, *m
 	n.dtx.NonceReturns(testNonce)
 	n.dtx.CreatorReturns(testCreator)
 	n.tm.NewTransactionFromBytesReturns(n.dtx, nil)
+	n.tm.NewTransactionFromEnvelopeBytesReturns(n.dtx, nil)
 	n.tm.ComputeTxIDStub = func(id *driver.TxIDComponents) string { return protoutil.ComputeTxID(id.Nonce, id.Creator) }
 	n.conf.DriverNameReturns("generic")
 	n.conf.ChannelIDsReturns([]string{"ch1"})
@@ -373,4 +375,39 @@ func TestNewTransactionFromBytes_SkipsFailingNetwork(t *testing.T) {
 	_, tx, err := NewTransactionFromBytes(f.ctx, keyedRaw(t, net2Key))
 	require.NoError(t, err)
 	require.Equal(t, "net2", tx.Network())
+}
+
+// Two local networks with the same channel key, as when one network is configured
+// under two names: the default network wins if it is one of them.
+func TestNewTransactionFromBytes_SameKeyPrefersDefault(t *testing.T) {
+	t.Parallel()
+	f := newReceiveFixture(t, []byte("bob"))
+	f.ch2.ChannelKeyReturns(net1Key, nil)
+
+	_, tx, err := NewTransactionFromBytes(f.ctx, keyedRaw(t, net1Key))
+	require.NoError(t, err)
+	require.Equal(t, "net1", tx.Network())
+}
+
+// Without the default network among them, several matches are an error.
+func TestNewTransactionFromBytes_SameKeyWithoutDefaultIsAmbiguous(t *testing.T) {
+	t.Parallel()
+	f := newReceiveFixture(t, []byte("bob"))
+	f.ch2.ChannelKeyReturns(net1Key, nil)
+	f.fnsp.DefaultNameReturns("other")
+
+	_, _, err := NewTransactionFromBytes(f.ctx, keyedRaw(t, net1Key))
+	require.ErrorContains(t, err, "networks [net1 net2] all match channel [ch1] and none is the default network")
+}
+
+// An envelope is decoded on the network the caller names.
+func TestNewTransactionFromEnvelopeBytesOn(t *testing.T) {
+	t.Parallel()
+	f := newReceiveFixture(t, []byte("bob"))
+
+	for network, want := range map[string]string{"": "net1", "net2": "net2"} {
+		_, tx, err := NewTransactionFromEnvelopeBytesOn(t.Context(), f.ctx, network, []byte("envelope"))
+		require.NoError(t, err)
+		require.Equal(t, want, tx.FabricNetworkService().Name())
+	}
 }

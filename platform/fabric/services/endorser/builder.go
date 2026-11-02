@@ -79,13 +79,11 @@ func (t *Builder) receivedTransactionFromBytes(sender string, bytes []byte) (*Tr
 	return tx, nil
 }
 
+// NewTransactionFromEnvelopeBytes decodes an endorser transaction envelope on the
+// default network. An envelope carries no channel key; use
+// NewTransactionFromEnvelopeBytesOn for an envelope of another network.
 func (t *Builder) NewTransactionFromEnvelopeBytes(ctx context.Context, bytes []byte) (*Transaction, error) {
-	tx, err := t.buildTransaction(ctx, nil, "", "", nil, bytes, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return tx, nil
+	return t.buildTransaction(ctx, nil, "", "", nil, bytes, true)
 }
 
 func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, error) {
@@ -215,12 +213,21 @@ func NewTransactionWith(ctx context.Context, sp services.Provider, network, chan
 	return txBuilder, tx, nil
 }
 
+// NewTransactionFromEnvelopeBytes decodes an endorser transaction envelope on the
+// default network; see NewTransactionFromEnvelopeBytesOn.
 func NewTransactionFromEnvelopeBytes(ctx context.Context, sp services.Provider, bytes []byte) (*Builder, *Transaction, error) {
+	return NewTransactionFromEnvelopeBytesOn(ctx, sp, "", bytes)
+}
+
+// NewTransactionFromEnvelopeBytesOn decodes an endorser transaction envelope on the
+// local network named network, the default network if it is empty. An envelope
+// carries no channel key, so the caller names the network it belongs to.
+func NewTransactionFromEnvelopeBytesOn(ctx context.Context, sp services.Provider, network string, bytes []byte) (*Builder, *Transaction, error) {
 	txBuilder, err := NewBuilder(sp)
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txBuilder.NewTransactionFromEnvelopeBytes(ctx, bytes)
+	tx, err := txBuilder.buildTransaction(ctx, nil, network, "", nil, bytes, true)
 	if err != nil {
 		return nil, nil, err
 	}

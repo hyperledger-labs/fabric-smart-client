@@ -102,13 +102,15 @@ func TestEndorserTransactionFactory(t *testing.T) {
 	require.Equal(t, "testnetwork", tx.Network())
 }
 
-// keyedTransaction is a driver.Transaction bound to a channel with a key.
+// keyedTransaction is a driver.Transaction bound to a channel with key, or whose
+// key cannot be read if err is set.
 type keyedTransaction struct {
 	*mock.Transaction
 	key *driver.ChannelKey
+	err error
 }
 
-func (k *keyedTransaction) ChannelKey() (*driver.ChannelKey, error) { return k.key, nil }
+func (k *keyedTransaction) ChannelKey() (*driver.ChannelKey, error) { return k.key, k.err }
 
 // Both encodings carry the transaction type and the key of its channel.
 func TestWrappedTransaction_Bytes(t *testing.T) {
@@ -134,6 +136,19 @@ func TestWrappedTransaction_Bytes(t *testing.T) {
 		require.Equal(t, []byte(c.want), st.Raw)
 		require.Equal(t, key, st.Key)
 	}
+}
+
+// A transaction whose key cannot be read yet serializes without one, so it can
+// still be stored and hashed locally.
+func TestWrappedTransaction_BytesWhileKeyUnreadable(t *testing.T) {
+	t.Parallel()
+	mockTx := &mock.Transaction{}
+	mockTx.BytesReturns([]byte("raw transaction"), nil)
+	wt := transaction.WrappedTransaction{Transaction: &keyedTransaction{Transaction: mockTx, err: errors.New("ledger unavailable")}, TransactionType: driver.EndorserTransaction}
+
+	b, err := wt.Bytes()
+	require.NoError(t, err)
+	require.NotContains(t, string(b), `"Key"`)
 }
 
 // A transaction that exposes no key serializes without one.

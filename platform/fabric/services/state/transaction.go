@@ -184,6 +184,9 @@ func (f *sendTransactionView) Call(viewCtx view.Context) (any, error) {
 			continue
 		}
 
+		if err := endorser.RequireChannelKey(f.tx.Transaction.Transaction); err != nil {
+			return nil, err
+		}
 		txRaw, err := f.tx.Bytes()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed marshalling transaction content")
@@ -212,6 +215,9 @@ func NewSendTransactionBackView(tx *Transaction) *sendTransactionBackView {
 }
 
 func (f *sendTransactionBackView) Call(viewCtx view.Context) (any, error) {
+	if err := endorser.RequireChannelKey(f.tx.Transaction.Transaction); err != nil {
+		return nil, err
+	}
 	txRaw, err := f.tx.Bytes()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling transaction content")
