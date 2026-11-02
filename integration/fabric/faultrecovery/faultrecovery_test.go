@@ -327,57 +327,56 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 	})
 
 	// Each bob replica stops gracefully and restarts in turn while alice submits. The stopping
-	// replica drains: /readyz takes it out of the load balancer, alice's sessions in progress
-	// finish, and a new one gets "draining", after which alice dials again and reaches the
-	// other replica. So at most one submission fails per restart.
+	// replica drains: alice's sessions in progress finish, and a new one gets "draining". The
+	// test load balancer does not probe /readyz, so alice's connection stays on the draining
+	// replica until that reply; alice then drops it, and her next dial goes round-robin to the
+	// other replica. So at most one submission fails per restart, and a failed submission must
+	// not commit: alice got an error, so a committed tx would be a success she never saw.
 	It("keeps committing through a rolling restart of one replica", func() {
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		type result struct {
-			txID  string
-			value int
-			err   error
-		}
-		stop := make(chan struct{})
-		results := make(chan result, 1000)
+		done := make(chan []faultrecovery.Submission, 1)
 		go func() {
 			defer GinkgoRecover()
-			defer close(results)
-			for i := 0; ; i++ {
-				select {
-				case <-stop:
-					return
-				default:
-				}
-				txID, err := faultrecovery.TrySubmit(s.II, i)
-				results <- result{txID, i, err}
-			}
+			done <- faultrecovery.SubmitUntil(ctx, s.II)
 		}()
 
 		for _, r := range bobReplicas {
 			time.Sleep(2 * time.Second) // submissions run
 			s.II.StopFSCNode(r)
 			s.II.StartFSCNode(r)
+			Eventually(s.II.WebClient(r).Ready, time.Minute, time.Second).Should(Succeed())
 			s.II.EventuallyConnectionState(r, delivery, connstate.Connected, time.Minute)
 		}
 		time.Sleep(2 * time.Second)
-		close(stop)
+		cancel()
+		subs := <-done
 
-		var committed []result
 		failed := 0
-		for res := range results {
-			if res.err != nil {
-				GinkgoWriter.Printf("submission failed: %v\n", res.err)
+		var committed []faultrecovery.Submission
+		for _, sub := range subs {
+			if sub.Err != nil {
+				GinkgoWriter.Printf("submission failed: %v\n", sub.Err)
 				failed++
+				if sub.TxID != "" {
+					Consistently(func(g Gomega) {
+						res, err := faultrecovery.Query(s.II, bobReplicas[0], sub.TxID)
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(res.Status).NotTo(Equal(fdriver.Valid))
+					}, 5*time.Second, time.Second).Should(Succeed(), "failed tx [%s] committed", sub.TxID)
+				}
 				continue
 			}
-			committed = append(committed, res)
+			committed = append(committed, sub)
 		}
 		Expect(failed).To(BeNumerically("<=", len(bobReplicas)), "at most one failed submission per restart")
 		Expect(committed).NotTo(BeEmpty())
-		for _, res := range committed {
+		for _, sub := range committed {
+			faultrecovery.WaitFinalOn(s.II, "alice", sub.TxID)
 			for _, r := range bobReplicas {
-				faultrecovery.ExpectSettled(s.II, r, res.txID, res.value)
+				faultrecovery.ExpectSettled(s.II, r, sub.TxID, sub.Value)
 			}
 		}
 	})
