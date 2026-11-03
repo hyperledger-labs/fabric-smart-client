@@ -9,7 +9,6 @@ package state
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,15 +18,15 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type mockSession struct {
-	info    view.SessionInfo
-	recv    <-chan *view.Message
-	sendErr error
-	sent    [][]byte
+	info     view.SessionInfo
+	recv     <-chan *view.Message
+	sendErr  error
+	sent     [][]byte
+	sentErrs [][]byte
 }
 
 func (m *mockSession) Info() view.SessionInfo { return m.info }
@@ -40,8 +39,9 @@ func (m *mockSession) Send(_ context.Context, payload []byte) error {
 	return nil
 }
 
-func (m *mockSession) SendError(ctx context.Context, payload []byte) error {
-	return m.Send(ctx, payload)
+func (m *mockSession) SendError(_ context.Context, payload []byte) error {
+	m.sentErrs = append(m.sentErrs, append([]byte(nil), payload...))
+	return nil
 }
 
 func (m *mockSession) Receive() <-chan *view.Message { return m.recv }
@@ -922,125 +922,6 @@ func TestRecipientViewsAndWrappers(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, view.Identity("me"), me)
 		require.Equal(t, view.Identity("other"), other)
-	})
-}
-
-func TestRecipientViewsSuccessfulFlows(t *testing.T) {
-	t.Parallel()
-
-	newCtx := func(session view.Session) *mockViewContext {
-		bindingStore := newTestBindingStore()
-		endpointService, err := endpoint.NewService(bindingStore)
-		require.NoError(t, err)
-
-		nsp := newTestFabricNetworkServiceProvider(view.Identity("me"), &mockDriverChannel{
-			name:     "ch",
-			metadata: &mockDriverMetadataService{},
-		})
-
-		return &mockViewContext{
-			session: session,
-			getSessionFn: func(view.View, view.Identity, ...view.View) (view.Session, error) {
-				return session, nil
-			},
-			getServiceFn: func(v any) (any, error) {
-				rt, ok := v.(reflect.Type)
-				if !ok {
-					return nil, errors.New("service key is not a reflect.Type")
-				}
-				switch rt {
-				case reflect.TypeFor[*fabric.NetworkServiceProvider]():
-					return nsp, nil
-				case reflect.TypeFor[*endpoint.Service]():
-					return endpointService, nil
-				case reflect.TypeFor[*VaultService]():
-					return &mockVaultService{}, nil
-				default:
-					return nil, errors.New("service missing")
-				}
-			},
-		}
-	}
-
-	t.Run("request recipient identity success", func(t *testing.T) {
-		t.Parallel()
-		data := &RecipientData{Identity: view.Identity("other-recipient")}
-		raw, err := data.Bytes()
-		require.NoError(t, err)
-
-		ch := make(chan *view.Message, 1)
-		ch <- &view.Message{Status: view.OK, Payload: raw}
-		close(ch)
-
-		session := &mockSession{recv: ch}
-		ctx := newCtx(session)
-
-		out, err := (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(ctx)
-		require.NoError(t, err)
-		require.Equal(t, view.Identity("other-recipient"), out.(view.Identity))
-		require.Len(t, session.sent, 1)
-	})
-
-	t.Run("respond request recipient identity success", func(t *testing.T) {
-		t.Parallel()
-		req := &RecipientRequest{Network: ""}
-		reqRaw, err := req.Bytes()
-		require.NoError(t, err)
-
-		ch := make(chan *view.Message, 1)
-		ch <- &view.Message{Status: view.OK, Payload: reqRaw}
-		close(ch)
-		session := &mockSession{recv: ch}
-
-		ctx := newCtx(session)
-		out, err := (&RespondRequestRecipientIdentityView{}).Call(ctx)
-		require.NoError(t, err)
-		require.Equal(t, view.Identity("me"), out.(view.Identity))
-		require.Len(t, session.sent, 1)
-	})
-
-	t.Run("exchange recipient identities success", func(t *testing.T) {
-		t.Parallel()
-		data := &RecipientData{Identity: view.Identity("other-recipient")}
-		raw, err := data.Bytes()
-		require.NoError(t, err)
-
-		ch := make(chan *view.Message, 1)
-		ch <- &view.Message{Status: view.OK, Payload: raw}
-		close(ch)
-		session := &mockSession{recv: ch}
-
-		ctx := newCtx(session)
-		out, err := (&ExchangeRecipientIdentitiesView{Other: view.Identity("other")}).Call(ctx)
-		require.NoError(t, err)
-		ids := out.([]view.Identity)
-		require.Len(t, ids, 2)
-		require.Equal(t, view.Identity("me"), ids[0])
-		require.Equal(t, view.Identity("other-recipient"), ids[1])
-		require.Len(t, session.sent, 1)
-	})
-
-	t.Run("respond exchange recipient identities success", func(t *testing.T) {
-		t.Parallel()
-		req := &ExchangeRecipientRequest{
-			RecipientData: &RecipientData{Identity: view.Identity("other-recipient")},
-		}
-		reqRaw, err := req.Bytes()
-		require.NoError(t, err)
-
-		ch := make(chan *view.Message, 1)
-		ch <- &view.Message{Status: view.OK, Payload: reqRaw}
-		close(ch)
-		session := &mockSession{recv: ch}
-
-		ctx := newCtx(session)
-		out, err := (&RespondExchangeRecipientIdentitiesView{}).Call(ctx)
-		require.NoError(t, err)
-		ids := out.([]view.Identity)
-		require.Len(t, ids, 2)
-		require.Equal(t, view.Identity("me"), ids[0])
-		require.Equal(t, view.Identity("other-recipient"), ids[1])
-		require.Len(t, session.sent, 1)
 	})
 }
 

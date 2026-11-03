@@ -22,6 +22,7 @@ type fakeSignerService struct {
 	GetSignerCount int
 	LastError      error
 	LastSigner     driver.Signer
+	LastVerifier   driver.Verifier
 	LastID         view.Identity
 }
 
@@ -43,8 +44,9 @@ func (*fakeSignerService) GetSigningIdentity(_ view.Identity) (cdriver.SigningId
 	return nil, nil
 }
 
-func (*fakeSignerService) GetVerifier(_ view.Identity) (cdriver.Verifier, error) {
-	return nil, nil
+func (m *fakeSignerService) GetVerifier(id view.Identity) (cdriver.Verifier, error) {
+	m.LastID = id
+	return m.LastVerifier, m.LastError
 }
 
 type dummySigner struct{}
@@ -69,4 +71,24 @@ func TestSignerService(t *testing.T) {
 	mss.LastError = errors.New("sig err")
 	_, err = ss.GetSigner([]byte("id2"))
 	require.ErrorContains(t, err, "sig err")
+}
+
+type dummyVerifier struct{}
+
+func (*dummyVerifier) Verify(_, _ []byte) error { return nil }
+
+func TestSignerServiceGetVerifier(t *testing.T) {
+	t.Parallel()
+
+	mss := &fakeSignerService{LastVerifier: &dummyVerifier{}}
+	ss := &SignerService{sigService: mss}
+
+	v, err := ss.GetVerifier([]byte("id1"))
+	require.NoError(t, err)
+	require.Same(t, mss.LastVerifier, v)
+	require.Equal(t, view.Identity("id1"), mss.LastID)
+
+	mss.LastError = errors.New("verifier err")
+	_, err = ss.GetVerifier([]byte("id2"))
+	require.ErrorContains(t, err, "verifier err")
 }

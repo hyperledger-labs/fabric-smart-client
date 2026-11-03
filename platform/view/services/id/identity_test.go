@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package id
 
 import (
+	"bytes"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"testing"
@@ -81,4 +83,32 @@ func TestLoadIdentityFailurePaths(t *testing.T) {
 		_, loadErr := LoadIdentity(path)
 		require.ErrorContains(t, loadErr, "no pem content")
 	})
+}
+
+func TestCanonicalIdentity(t *testing.T) {
+	t.Parallel()
+
+	canonical, err := LoadIdentity("./testdata/default/signcerts/default.pem")
+	require.NoError(t, err)
+	block, _ := pem.Decode(canonical)
+	require.NotNil(t, block)
+
+	withHeaders := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Headers: map[string]string{"Comment": "x"}, Bytes: block.Bytes})
+	for name, raw := range map[string][]byte{
+		"canonical":    canonical,
+		"crlf":         bytes.ReplaceAll(canonical, []byte("\n"), []byte("\r\n")),
+		"leading text": append([]byte("subject=CN=default\n"), canonical...),
+		"headers":      withHeaders,
+		"chain":        append(append([]byte{}, canonical...), canonical...),
+	} {
+		require.Equal(t, canonical, CanonicalIdentity(raw), name)
+	}
+
+	for name, raw := range map[string][]byte{
+		"nil":          nil,
+		"not pem":      []byte("node-id"),
+		"pem not cert": pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("junk")}),
+	} {
+		require.Equal(t, raw, CanonicalIdentity(raw), name)
+	}
 }

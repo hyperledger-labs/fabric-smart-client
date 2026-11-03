@@ -34,6 +34,8 @@ const (
 	KindBindingRefused Kind = "binding_refused"
 	// KindBindingConflict is a binding that conflicts with an existing one.
 	KindBindingConflict Kind = "binding_conflict"
+	// KindRecipientProof is a recipient identity without a valid proof of ownership.
+	KindRecipientProof Kind = "recipient_proof"
 )
 
 // logInterval is the minimum time between two warn lines for the same kind.

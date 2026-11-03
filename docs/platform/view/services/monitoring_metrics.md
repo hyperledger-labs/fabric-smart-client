@@ -368,6 +368,20 @@ Operational notes:
     [Security Model](../security-model.md#identity-bindings)).
   - `binding_conflict`: an unproven bind of an ephemeral already bound to a different long-term
     identity. The existing row is kept.
+  - `recipient_proof`: a recipient identity received in a recipient exchange without a valid
+    proof of ownership. Nothing is bound (see
+    [Security Model](../security-model.md#recipient-proof-of-ownership)). It names the counterparty's
+    node identity as the peer, and no txID. The warn line gives one of these reasons:
+    - `missing`: no proof. The peer has not been upgraded yet; expected in a burst while
+      organizations upgrade.
+    - `incomplete context`: this node could not name the counterparty node or the session, so no
+      proof is accepted.
+    - `no verifier`: this node cannot deserialize the identity, for example an idemix identity
+      from an issuer it holds no credential for, or bytes that are not an identity.
+    - `invalid signature`: the proof does not verify for this session, direction and pair of
+      nodes. The peer forged or replayed it, or the two nodes disagree on one of their FSC node
+      identities, for example a node whose `fsc.identity.cert.file` does not match the certificate
+      its peers' resolvers hold for it.
 - `binding_refused` and `binding_conflict` name the long-term identity of the bind as the peer, and
   no txID. An isolated `binding_conflict` after a remote node rotated its certificate is expected:
   its alias rows still point at the old certificate. A steady rate, or any `binding_refused`, means
@@ -381,7 +395,8 @@ Operational notes:
   kinds count one per refused or conflicting ephemeral. Peer and txID are never counter labels.
 
 Primary implementation: `platform/view/services/security/rejections.go`, updated from
-`platform/fabric/services/endorser/validate.go` and `platform/view/services/endpoint/service.go`.
+`platform/fabric/services/endorser/validate.go`, `platform/view/services/endpoint/service.go` and
+`platform/fabric/services/state/recipients.go`.
 
 ### Vault
 
