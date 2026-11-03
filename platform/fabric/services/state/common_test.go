@@ -505,6 +505,8 @@ type testFabricDriverFNS struct {
 	channelErr       error
 	// channelNames records the names Channel was asked for.
 	channelNames []string
+	// sigService is the network's signature service; testKeys if nil.
+	sigService fdriver.SignerService
 }
 
 func (t *testFabricDriverFNS) Name() string {
@@ -550,7 +552,10 @@ func (*testFabricDriverFNS) Committer(string) (fdriver.Committer, error) {
 	return nil, nil
 }
 
-func (*testFabricDriverFNS) SignerService() fdriver.SignerService {
+func (t *testFabricDriverFNS) SignerService() fdriver.SignerService {
+	if t.sigService != nil {
+		return t.sigService
+	}
 	return testKeys
 }
 

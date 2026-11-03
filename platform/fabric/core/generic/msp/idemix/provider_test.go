@@ -12,8 +12,10 @@ import (
 
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -420,4 +422,30 @@ func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest /
 	info, err := p.Info(id, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, info)
+}
+
+// A pseudonym deserializes only under the MSP ID of its provider: relabelled
+// with another MSP ID it is refused, although its credential is valid.
+func TestProvider_DeserializeRefusesOtherMSPID(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+	p, err := idemix.NewProviderWithAnyPolicy(config, kvss, sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t)))
+	require.NoError(t, err)
+
+	id, _, err := p.Identity(nil)
+	require.NoError(t, err)
+	_, err = p.DeserializeVerifier(id)
+	require.NoError(t, err)
+
+	si := &msp.SerializedIdentity{}
+	require.NoError(t, proto.Unmarshal(id, si))
+	si.Mspid = "Org1MSP"
+	relabelled, err := proto.Marshal(si)
+	require.NoError(t, err)
+	_, err = p.DeserializeVerifier(relabelled)
+	require.ErrorContains(t, err, "expected MSP ID [idemix], got [Org1MSP]")
+	_, err = p.DeserializeSigner(relabelled)
+	require.Error(t, err)
 }

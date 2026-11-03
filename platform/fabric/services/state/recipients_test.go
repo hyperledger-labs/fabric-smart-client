@@ -750,8 +750,6 @@ func TestCheckProof_Reasons(t *testing.T) {
 	t.Parallel()
 	fns, err := recipientsNSP().FabricNetworkService("")
 	require.NoError(t, err)
-	ch, err := fns.Channel("")
-	require.NoError(t, err)
 	x := view.Identity("x")
 	valid := remoteProof(TagExchangeRequest, callerID, x)
 	noSession := valid
@@ -769,12 +767,12 @@ func TestCheckProof_Reasons(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			reason, err := checkProof(fns, ch, tc.p, tc.proof)
+			reason, err := checkProof(fns, "", tc.p, tc.proof)
 			require.ErrorIs(t, err, ErrRecipientProof)
 			require.Equal(t, tc.reason, reason)
 		})
 	}
-	reason, err := checkProof(fns, ch, valid, sign(t, valid))
+	reason, err := checkProof(fns, "", valid, sign(t, valid))
 	require.NoError(t, err)
 	require.Empty(t, reason)
 }

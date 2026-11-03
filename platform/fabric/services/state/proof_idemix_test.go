@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"encoding/pem"
 	"errors"
 	"testing"
 
@@ -138,6 +139,62 @@ func TestRespondExchange_IdemixIssuerNotInChannel(t *testing.T) { //nolint:paral
 	requireRefused(t, env, err)
 }
 
+// The local signature service verifies an idemix pseudonym only under its own
+// MSP ID: relabelled with the MSP ID of an x509 org of the channel, which
+// routes it to the signature service, a pseudonym of the node's local issuer
+// is refused, although its credential and proof are valid.
+func TestRespondExchange_IdemixRelabelledMSPRefused(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	provider := idemixProvider(t, issuer1, "OrgA")
+	local := sig.NewMultiplexDeserializer()
+	local.AddDeserializer(provider)
+	d := mem.NewDriver()
+	auditInfo, err := d.NewAuditInfo("")
+	require.NoError(t, err)
+	signerInfo, err := d.NewSignerInfo("")
+	require.NoError(t, err)
+	sigService := sig.NewService(local, auditInfo, signerInfo)
+
+	nym, _, err := provider.Identity(nil)
+	require.NoError(t, err)
+	signer, err := provider.DeserializeSigner(nym)
+	require.NoError(t, err)
+	sID := &m.SerializedIdentity{}
+	require.NoError(t, proto.Unmarshal(nym, sID))
+
+	for name, tc := range map[string]struct { //nolint:paralleltest // idemix key import races inside fabric-amcl
+		mspID string
+		ok    bool
+	}{
+		"own MSP ID":  {mspID: "OrgA", ok: true},
+		"x509 MSP ID": {mspID: "Org1MSP"},
+		"unknown MSP": {mspID: "Nobody"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			x := serializedID(t, tc.mspID, sID.IdBytes)
+			proof, err := SignRecipientProof(signer, remoteProof(TagExchangeRequest, callerID, x))
+			require.NoError(t, err)
+			req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: x, Proof: proof}})
+			drv := &testFabricDriverFNS{
+				// The channel has no idemix MSP, so every identity goes to sigService.
+				channel:    &mockDriverChannel{membership: &testMembership{mgr: fabricmsp.NewMSPManager()}},
+				sigService: sigService,
+			}
+			env := recipientChannelEnv(t, drv, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)})
+			_, err = (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+			if tc.ok {
+				// The proof verifies; the view then fails only on signing its
+				// own reply, since sigService holds no signer for "me-id".
+				require.ErrorContains(t, err, "failed getting signer for recipient identity")
+				require.NotErrorIs(t, err, ErrRecipientProof)
+				require.Zero(t, env.rejections.count(security.KindRecipientProof))
+				return
+			}
+			require.ErrorContains(t, err, "recipient proof: no verifier")
+			requireRefused(t, env, err)
+		})
+	}
+}
+
 // A pseudonym with no credential behind it is refused, although the channel
 // MSP's verifier alone would accept its signature: recipientVerifier validates
 // the identity first.
@@ -211,14 +268,24 @@ func recipientChannelEnv(t *testing.T, drv *testFabricDriverFNS, session *mockSe
 	return newRecipientsEnv(t, session, fabric.NewNetworkServiceProvider(&testFabricDriverFNSProvider{fns: drv}, nil))
 }
 
+// serializedID returns a SerializedIdentity of mspID with idBytes, which the
+// recipient views route by its MSP on the channel.
+func serializedID(t *testing.T, mspID string, idBytes []byte) view.Identity {
+	t.Helper()
+	raw, err := proto.Marshal(&m.SerializedIdentity{Mspid: mspID, IdBytes: idBytes})
+	require.NoError(t, err)
+	return raw
+}
+
 // Each side verifies with the channel of its own options: the responder
 // ignores the Channel the initiator puts in its request.
 func TestRecipientExchange_ChannelFromOwnOptions(t *testing.T) {
 	t.Parallel()
 	ch := &mockDriverChannel{name: "ch", membership: &testMembership{mgr: fabricmsp.NewMSPManager()}}
+	x := serializedID(t, "OrgA", []byte("not pem"))
 
 	drv := &testFabricDriverFNS{channel: ch}
-	raw, err := (&ExchangeRecipientRequest{Channel: "chosen-by-initiator", RecipientData: &RecipientData{Identity: view.Identity("x"), Proof: sign(t, remoteProof(TagExchangeRequest, callerID, view.Identity("x")))}}).Bytes()
+	raw, err := (&ExchangeRecipientRequest{Channel: "chosen-by-initiator", RecipientData: &RecipientData{Identity: x, Proof: sign(t, remoteProof(TagExchangeRequest, callerID, x))}}).Bytes()
 	require.NoError(t, err)
 	env := recipientChannelEnv(t, drv, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(&view.Message{Status: view.OK, Payload: raw})})
 	_, err = (&RespondExchangeRecipientIdentitiesView{Channel: "mine"}).Call(env.ctx)
@@ -226,13 +293,13 @@ func TestRecipientExchange_ChannelFromOwnOptions(t *testing.T) {
 	require.Equal(t, []string{"mine"}, drv.channelNames)
 
 	drv = &testFabricDriverFNS{channel: ch}
-	env = recipientChannelEnv(t, drv, &mockSession{recv: newRecv(provenReply(t, TagExchangeReply, view.Identity("y")))})
+	env = recipientChannelEnv(t, drv, &mockSession{recv: newRecv(provenReply(t, TagExchangeReply, x))})
 	_, err = (&ExchangeRecipientIdentitiesView{Other: view.Identity("other"), Channel: "mine"}).Call(env.ctx)
 	require.NoError(t, err)
 	require.Equal(t, []string{"mine"}, drv.channelNames)
 
 	drv = &testFabricDriverFNS{channel: ch}
-	env = recipientChannelEnv(t, drv, &mockSession{recv: newRecv(provenReply(t, TagRequestReply, view.Identity("y")))})
+	env = recipientChannelEnv(t, drv, &mockSession{recv: newRecv(provenReply(t, TagRequestReply, x))})
 	_, err = (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
 	require.NoError(t, err)
 	require.Equal(t, []string{""}, drv.channelNames, "the default channel")
@@ -258,40 +325,67 @@ func TestRecipientExchange_WithChannel(t *testing.T) {
 	require.Equal(t, []string{"a", "b"}, got)
 }
 
-// An unknown channel, or one whose configuration is not in force yet, fails
-// the exchange before anything is sent or verified, for x509 recipients too,
-// and is not reported as a rejection of the counterparty.
+// unavailableChannels are networks whose channel is unknown, as on a network
+// with no default channel, or has no configuration in force yet.
+var unavailableChannels = map[string]func() *testFabricDriverFNS{
+	"unknown channel": func() *testFabricDriverFNS { return &testFabricDriverFNS{channelErr: errors.New("no such channel")} },
+	"config not in force": func() *testFabricDriverFNS {
+		return &testFabricDriverFNS{channel: &mockDriverChannel{membership: &testMembership{}}}
+	},
+}
+
+// A recipient that needs the channel to be verified is refused while the
+// channel is unavailable. The refusal is not reported as a rejection of the
+// counterparty, and the responder tells the initiator only that the channel
+// is not ready.
 func TestRecipientExchange_ChannelUnavailable(t *testing.T) {
 	t.Parallel()
-	for name, drv := range map[string]func() *testFabricDriverFNS{
-		"unknown channel": func() *testFabricDriverFNS { return &testFabricDriverFNS{channelErr: errors.New("no such channel")} },
-		"config not in force": func() *testFabricDriverFNS {
-			return &testFabricDriverFNS{channel: &mockDriverChannel{membership: &testMembership{}}}
-		},
-	} {
+	x := serializedID(t, "OrgA", []byte("not pem"))
+	for name, drv := range unavailableChannels {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			env := recipientChannelEnv(t, drv(), &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(provenRequest(t, view.Identity("x")))})
+			req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: x, Proof: sign(t, remoteProof(TagExchangeRequest, callerID, x))}})
+			env := recipientChannelEnv(t, drv(), &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)})
 			_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
-			require.Error(t, err)
+			require.ErrorIs(t, err, errChannelUnavailable)
 			require.NotErrorIs(t, err, ErrRecipientProof)
 			if name == "config not in force" {
 				require.ErrorIs(t, err, fdriver.ErrNotInitialized)
 			}
 			require.Empty(t, env.session.sent)
-			require.Len(t, env.session.sentErrs, 1, "the initiator learns why")
+			require.Equal(t, [][]byte{[]byte(errChannelUnavailable.Error())}, env.session.sentErrs, "no channel details")
 			require.Empty(t, env.store.bindings)
 			require.Zero(t, env.rejections.count(security.KindRecipientProof))
 
-			for _, v := range []view.View{
-				&ExchangeRecipientIdentitiesView{Other: view.Identity("other")},
-				&RequestRecipientIdentityView{Other: view.Identity("other")},
-			} {
-				env := recipientChannelEnv(t, drv(), &mockSession{recv: newRecv()})
-				_, err := v.Call(env.ctx)
-				require.Error(t, err)
-				require.Empty(t, env.session.sent, "nothing is sent")
-			}
+			env = recipientChannelEnv(t, drv(), &mockSession{recv: newRecv(provenReply(t, TagRequestReply, x))})
+			_, err = (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
+			require.ErrorIs(t, err, errChannelUnavailable)
+			require.Empty(t, env.store.bindings)
 		})
+	}
+}
+
+// An x509 recipient, and an identity that is not a SerializedIdentity, never
+// need the channel, so they verify on a network with no default channel and
+// on one that is still loading its channel configuration.
+func TestRecipientExchange_X509WithoutChannel(t *testing.T) {
+	t.Parallel()
+	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("der")})
+	for name, drv := range unavailableChannels {
+		for _, x := range []view.Identity{serializedID(t, "Org1MSP", cert), view.Identity("x")} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				d := drv()
+				env := recipientChannelEnv(t, d, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: x, Proof: sign(t, remoteProof(TagExchangeRequest, callerID, x))}}))})
+				_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+				require.NoError(t, err)
+				require.Equal(t, callerID, env.store.bindings[string(x)])
+				require.Empty(t, d.channelNames, "the channel is not looked up")
+
+				env = recipientChannelEnv(t, drv(), &mockSession{recv: newRecv(provenReply(t, TagRequestReply, x))})
+				_, err = (&RequestRecipientIdentityView{Other: view.Identity("other")}).Call(env.ctx)
+				require.NoError(t, err)
+			})
+		}
 	}
 }

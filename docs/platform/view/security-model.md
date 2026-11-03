@@ -117,31 +117,38 @@ Every field is length-prefixed. The fields and the reason for each:
   formatting from its peers' resolver configuration still produces matching proofs.
 
 The sender signs with the Fabric network's signature service
-(`fabric.NetworkService.SignerService()`). The receiver picks the verifier for X by X's MSP in a
-channel of its own configuration: the channel set with `state.WithChannel` on the exchange views,
-or the network's default channel otherwise, and always the default channel for
-`RequestRecipientIdentity`. The `Channel` field of an `ExchangeRecipientRequest` is ignored,
-because the party being verified would otherwise choose the MSPs that verify it.
+(`fabric.NetworkService.SignerService()`). The receiver picks the verifier for X from the form of
+X, and for a non-x509 `SerializedIdentity` from X's MSP in a channel of its own configuration: the
+channel set with `state.WithChannel` on the exchange views, or the network's default channel
+otherwise, and always the default channel for `RequestRecipientIdentity`. The `Channel` field of
+an `ExchangeRecipientRequest` is ignored, because the party being verified would otherwise choose
+the MSPs that verify it.
 
-- If X is a `SerializedIdentity` of an idemix MSP of that channel, X must be valid on the
-  channel, which checks its credential against the issuer the channel configures for that MSP,
-  and its verifier comes from the channel's MSPs. The receiver therefore verifies idemix
-  recipients from any issuer in the channel, whether or not it holds a credential of its own.
-  The validity check is required: the channel's verifier alone accepts a pseudonym with no
-  credential behind it.
-- Any other X, x509 included, is verified with the signature service, through the deserializers
-  of the node's locally configured MSPs. An x509 identity always deserializes, to a verifier for
-  its public key. It is not checked against any MSP, so a verified proof shows that the sender
-  holds the key for X, not that X belongs to an MSP. Anything that needs membership must check it
-  separately.
+- An x509 identity, a `SerializedIdentity` whose `IdBytes` hold a PEM certificate, is verified
+  with the signature service and never needs the channel. It always deserializes, to a verifier
+  for its public key. It is not checked against any MSP, so a verified proof shows that the
+  sender holds the key for X, not that X belongs to an MSP. Anything that needs membership must
+  check it separately. The same holds for bytes that are not a `SerializedIdentity`.
+- Any other `SerializedIdentity` needs the channel, to tell whether X's MSP is idemix. If it is
+  an idemix MSP of the channel, X must be valid on the channel, which checks its credential
+  against the issuer the channel configures for that MSP, and its verifier comes from the
+  channel's MSPs. The receiver therefore verifies idemix recipients from any issuer in the
+  channel, whether or not it holds a credential of its own. The validity check is required: the
+  channel's verifier alone accepts a pseudonym with no credential behind it.
+- If X's MSP is not an idemix MSP of the channel, X is verified with the signature service,
+  through the deserializers of the node's locally configured MSPs. A local idemix MSP accepts X
+  only under its own MSP ID and only with a valid credential from its issuer, so a pseudonym
+  cannot claim the MSP ID of another organization.
 - The signature service does not cache a verifier it deserializes for a proof check, so
   identities a peer sends cannot grow the node's memory. Verifiers already registered or cached,
   such as those of the node's own identities, are reused.
 
-The channel must be known and its configuration in force before the exchange starts. Otherwise
-the view fails before it sends or verifies anything, for x509 recipients as well. Such a failure
-is a condition of this node, so it is not counted as a rejection; while the node is catching up
-the error wraps `driver.ErrNotInitialized` and the exchange can be retried.
+If X needs the channel and the channel is unknown, for example because the network has no
+default channel and no `state.WithChannel` is set, or its configuration is not in force yet, X is
+refused with an error wrapping `driver.ErrNotInitialized` while the node is catching up. Such a
+refusal is a condition of this node, so it is not counted as a rejection, and the exchange
+responder tells the initiator only that the channel is not ready. x509 recipients are not
+affected.
 
 The exchange responder verifies the initiator's proof before it replies. On failure it replies
 with an error and binds nothing, so the initiator gets
