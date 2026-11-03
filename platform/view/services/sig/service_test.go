@@ -670,6 +670,14 @@ func TestService_GetVerifier(t *testing.T) {
 			}
 
 			require.Equal(t, tc.deserializeCount, deserializer.DeserializeVerifierCallCount())
+
+			// A successful lookup is cached: asking again does not deserialize.
+			if tc.expectedErr == "" {
+				_, err := service.GetVerifier(identity)
+				require.NoError(t, err)
+				require.Equal(t, tc.deserializeCount, deserializer.DeserializeVerifierCallCount())
+				require.Len(t, service.verifiers, 1)
+			}
 		})
 	}
 }

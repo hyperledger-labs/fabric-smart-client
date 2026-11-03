@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -817,4 +818,52 @@ func TestRequestRecipient_ResolverFallback(t *testing.T) {
 	require.ErrorContains(t, err, "failed resolving node identity of")
 	require.Empty(t, env.session.sent, "nothing is sent to an unresolvable party")
 	require.Empty(t, env.store.bindings)
+}
+
+// keyringDeserializer deserializes every identity to its testKeys verifier and
+// counts the calls, so a test sees whether a sig.Service cached a verifier.
+type keyringDeserializer struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (d *keyringDeserializer) DeserializeVerifier(raw []byte) (cdriver.Verifier, error) {
+	d.mu.Lock()
+	d.calls++
+	d.mu.Unlock()
+	return testKeys.GetVerifier(raw)
+}
+
+func (*keyringDeserializer) DeserializeSigner([]byte) (cdriver.Signer, error) {
+	return nil, errors.New("not supported")
+}
+
+func (*keyringDeserializer) Info([]byte, []byte) (string, error) { return "", nil }
+
+// The recipient views verify through the signature service without caching
+// what it deserializes: a peer sending identities with bogus proofs does not
+// grow the cache, and every exchange deserializes again.
+func TestRespondExchange_VerifierNotCached(t *testing.T) {
+	t.Parallel()
+	des := &keyringDeserializer{}
+	sigService := sig.NewService(des, nil, nil)
+	x := view.Identity("x")
+	for i := range 3 {
+		proof := sign(t, remoteProof(TagExchangeReply, callerID, x)) // wrong tag: invalid
+		req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: x, Proof: proof}})
+		drv := &testFabricDriverFNS{channel: &mockDriverChannel{membership: &testMembership{mgr: fabricmsp.NewMSPManager()}}, sigService: sigService}
+		drv.localMembership = &testLocalMembership{defaultIdentity: view.Identity("me-id")}
+		env := newRecipientsEnv(t, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)}, fabric.NewNetworkServiceProvider(&testFabricDriverFNSProvider{fns: drv}, nil))
+		_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+		require.ErrorIs(t, err, ErrRecipientProof)
+		require.Equal(t, i+1, des.calls, "deserialized on every exchange")
+	}
+
+	// A verifier the node cached itself is reused.
+	_, err := sigService.GetVerifier(x)
+	require.NoError(t, err)
+	calls := des.calls
+	_, err = fabric.NewNetworkService(nil, &testFabricDriverFNS{sigService: sigService}, "").SignerService().LookupVerifier(x)
+	require.NoError(t, err)
+	require.Equal(t, calls, des.calls)
 }

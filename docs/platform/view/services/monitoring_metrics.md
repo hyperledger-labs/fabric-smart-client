@@ -382,6 +382,8 @@ Operational notes:
     - `no verifier`: this node cannot get a verifier for the identity: an idemix identity whose
       credential is not valid for its MSP in the channel, an identity the signature service
       cannot deserialize, or bytes that are not an identity.
+      An identity refused because the channel that verifies it is unknown or has no
+      configuration in force yet is not counted: that is a condition of this node.
     - `invalid signature`: the proof does not verify for this session, direction and pair of
       nodes. The peer forged or replayed it, or the two nodes disagree on one of their FSC node
       identities, for example a node whose `fsc.identity.cert.file` does not match the certificate
