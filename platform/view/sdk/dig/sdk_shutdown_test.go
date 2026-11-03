@@ -8,6 +8,7 @@ package sdk
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -95,13 +96,30 @@ func (h *handlerServer) RegisterHandler(path string, handler http.Handler, _ boo
 
 func (h *handlerServer) get(t *testing.T, path string) int {
 	t.Helper()
+	return h.serve(t, path).Code
+}
+
+// readyReason returns the reason /readyz reports, or "" when it reports ready.
+func (h *handlerServer) readyReason(t *testing.T) string {
+	t.Helper()
+	rec := h.serve(t, "/readyz")
+	if rec.Code == http.StatusOK {
+		return ""
+	}
+	var body struct{ Reason string }
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	return body.Reason
+}
+
+func (h *handlerServer) serve(t *testing.T, path string) *httptest.ResponseRecorder {
+	t.Helper()
 	h.mu.Lock()
 	handler := h.handlers[path]
 	h.mu.Unlock()
 	require.NotNil(t, handler, path)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
-	return rec.Code
+	return rec
 }
 
 // startSDK starts a view SDK with deps and returns it.
@@ -135,10 +153,12 @@ func TestSDK_DrainSetsHealthNotServingAndGate(t *testing.T) {
 	s := startSDK(t, sdkDeps{drain: d, grpcServer: gs, webServer: ws})
 	t.Cleanup(func() { _ = s.Stop() })
 
-	require.Equal(t, http.StatusOK, ws.get(t, "/readyz"))
+	// Assert on the reason, not only the status: a parallel test opening a SQLite store can
+	// make the process-wide migrating gate report 503 at any time.
+	require.NotEqual(t, "draining", ws.readyReason(t))
 	d.drain()
 	require.True(t, gs.notServing)
-	require.Equal(t, http.StatusServiceUnavailable, ws.get(t, "/readyz"))
+	require.Equal(t, "draining", ws.readyReason(t))
 	require.Equal(t, http.StatusOK, ws.get(t, "/healthz"))
 }
 
