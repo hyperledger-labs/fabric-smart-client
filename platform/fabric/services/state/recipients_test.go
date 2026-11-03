@@ -20,6 +20,8 @@ import (
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
@@ -200,8 +202,64 @@ func newRecipientsEnv(t *testing.T, session *mockSession, nsp *fabric.NetworkSer
 	return &recipientsEnv{ctx: ctx, session: session, store: store, rejections: rc}
 }
 
+// testMembership is a channel membership whose configuration in force is the
+// MSPs of mgr, of which those in idemix are of type Idemix. With a nil mgr the
+// channel has no configuration in force.
+type testMembership struct {
+	fdriver.ChannelMembership
+	mgr    fabricmsp.MSPManager
+	idemix map[string]bool
+}
+
+func newTestMembership(t *testing.T, msps ...fabricmsp.MSP) *testMembership {
+	t.Helper()
+	mgr := fabricmsp.NewMSPManager()
+	require.NoError(t, mgr.Setup(msps))
+	m := &testMembership{mgr: mgr, idemix: map[string]bool{}}
+	for _, msp := range msps {
+		id, err := msp.GetIdentifier()
+		require.NoError(t, err)
+		m.idemix[id] = msp.GetType() == fabricmsp.IDEMIX
+	}
+	return m
+}
+
+func (m *testMembership) ConfigSequence() (uint64, error) {
+	if m.mgr == nil {
+		return 0, fdriver.ErrNotInitialized
+	}
+	return 1, nil
+}
+
+func (m *testMembership) IsIdemixMSP(mspID string) (bool, error) {
+	if m.mgr == nil {
+		return false, fdriver.ErrNotInitialized
+	}
+	return m.idemix[mspID], nil
+}
+
+func (m *testMembership) IsValid(identity view.Identity) error {
+	id, err := m.mgr.DeserializeIdentity(identity)
+	if err != nil {
+		return err
+	}
+	return id.Validate()
+}
+
+func (m *testMembership) GetVerifier(identity view.Identity) (fdriver.Verifier, error) {
+	return m.mgr.DeserializeIdentity(identity)
+}
+
+// nspWithMembership returns a network with default identity "me-id" whose
+// channels all have membership m.
+func nspWithMembership(m fdriver.ChannelMembership) *fabric.NetworkServiceProvider {
+	return newTestFabricNetworkServiceProvider(view.Identity("me-id"), &mockDriverChannel{name: "ch", membership: m})
+}
+
+// recipientsNSP returns a network whose channel has no idemix MSP, so every
+// recipient identity verifies with testKeys.
 func recipientsNSP() *fabric.NetworkServiceProvider {
-	return newTestFabricNetworkServiceProvider(view.Identity("me-id"), &mockDriverChannel{name: "ch"})
+	return nspWithMembership(&testMembership{mgr: fabricmsp.NewMSPManager()})
 }
 
 func failingNSP() *fabric.NetworkServiceProvider {
@@ -692,6 +750,8 @@ func TestCheckProof_Reasons(t *testing.T) {
 	t.Parallel()
 	fns, err := recipientsNSP().FabricNetworkService("")
 	require.NoError(t, err)
+	ch, err := fns.Channel("")
+	require.NoError(t, err)
 	x := view.Identity("x")
 	valid := remoteProof(TagExchangeRequest, callerID, x)
 	noSession := valid
@@ -709,12 +769,12 @@ func TestCheckProof_Reasons(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			reason, err := checkProof(fns, tc.p, tc.proof)
+			reason, err := checkProof(fns, ch, tc.p, tc.proof)
 			require.ErrorIs(t, err, ErrRecipientProof)
 			require.Equal(t, tc.reason, reason)
 		})
 	}
-	reason, err := checkProof(fns, valid, sign(t, valid))
+	reason, err := checkProof(fns, ch, valid, sign(t, valid))
 	require.NoError(t, err)
 	require.Empty(t, reason)
 }

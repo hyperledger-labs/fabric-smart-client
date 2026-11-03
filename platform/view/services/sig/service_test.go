@@ -674,6 +674,40 @@ func TestService_GetVerifier(t *testing.T) {
 	}
 }
 
+// LookupVerifier returns a cached verifier without deserializing, and
+// deserializes an unknown identity on every call without caching it.
+func TestService_LookupVerifier(t *testing.T) {
+	t.Parallel()
+
+	cached, uncached := view.Identity("cached"), view.Identity("uncached")
+	cachedVerifier := &mock.Verifier{}
+	deserializer := &mock.Deserializer{}
+	deserializer.DeserializeVerifierReturns(&mock.Verifier{}, nil)
+	service := NewService(deserializer, &mock.AuditInfoStore{}, &mock.SignerInfoStore{})
+	service.verifiers[cached.UniqueID()] = VerifierEntry{Verifier: cachedVerifier}
+
+	v, err := service.LookupVerifier(cached)
+	require.NoError(t, err)
+	require.Same(t, cachedVerifier, v)
+	require.Zero(t, deserializer.DeserializeVerifierCallCount())
+
+	for range 2 {
+		v, err = service.LookupVerifier(uncached)
+		require.NoError(t, err)
+		require.NotNil(t, v)
+	}
+	require.Equal(t, 2, deserializer.DeserializeVerifierCallCount())
+	require.Len(t, service.verifiers, 1, "LookupVerifier does not cache")
+
+	deserializer.DeserializeVerifierReturns(nil, errors.New("deserialization failed"))
+	_, err = service.LookupVerifier(uncached)
+	require.ErrorContains(t, err, "failed deserializing identity for verifier")
+	require.Len(t, service.verifiers, 1)
+
+	_, err = NewService(nil, nil, nil).LookupVerifier(uncached)
+	require.ErrorContains(t, err, "no deserializer set")
+}
+
 func TestService_GetSigningIdentity(t *testing.T) {
 	t.Parallel()
 

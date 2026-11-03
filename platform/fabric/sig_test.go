@@ -15,6 +15,7 @@ import (
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -91,4 +92,35 @@ func TestSignerServiceGetVerifier(t *testing.T) {
 	mss.LastError = errors.New("verifier err")
 	_, err = ss.GetVerifier([]byte("id2"))
 	require.ErrorContains(t, err, "verifier err")
+}
+
+// *sig.Service is the signature service of every network; LookupVerifier relies
+// on it implementing verifierLookup.
+var _ verifierLookup = (*sig.Service)(nil)
+
+type lookupSignerService struct {
+	fakeSignerService
+	looked view.Identity
+}
+
+func (m *lookupSignerService) LookupVerifier(id view.Identity) (cdriver.Verifier, error) {
+	m.looked = id
+	return m.LastVerifier, m.LastError
+}
+
+func TestSignerServiceLookupVerifier(t *testing.T) {
+	t.Parallel()
+
+	lss := &lookupSignerService{LastVerifier: &dummyVerifier{}}
+	v, err := (&SignerService{sigService: lss}).LookupVerifier([]byte("id1"))
+	require.NoError(t, err)
+	require.Same(t, lss.LastVerifier, v)
+	require.Equal(t, view.Identity("id1"), lss.looked)
+	require.Nil(t, lss.LastID, "GetVerifier is not called")
+
+	mss := &fakeSignerService{LastVerifier: &dummyVerifier{}}
+	v, err = (&SignerService{sigService: mss}).LookupVerifier([]byte("id2"))
+	require.NoError(t, err)
+	require.Same(t, mss.LastVerifier, v)
+	require.Equal(t, view.Identity("id2"), mss.LastID, "falls back to GetVerifier")
 }

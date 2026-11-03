@@ -503,6 +503,8 @@ type testFabricDriverFNS struct {
 	identityProvider fdriver.IdentityProvider
 	channel          fdriver.Channel
 	channelErr       error
+	// channelNames records the names Channel was asked for.
+	channelNames []string
 }
 
 func (t *testFabricDriverFNS) Name() string {
@@ -532,7 +534,8 @@ func (t *testFabricDriverFNS) IdentityProvider() fdriver.IdentityProvider {
 	return t.identityProvider
 }
 
-func (t *testFabricDriverFNS) Channel(string) (fdriver.Channel, error) {
+func (t *testFabricDriverFNS) Channel(name string) (fdriver.Channel, error) {
+	t.channelNames = append(t.channelNames, name)
 	if t.channelErr != nil {
 		return nil, t.channelErr
 	}

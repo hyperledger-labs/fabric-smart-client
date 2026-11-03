@@ -379,8 +379,9 @@ Operational notes:
       organizations upgrade.
     - `incomplete context`: this node could not name the counterparty node or the session, so no
       proof is accepted.
-    - `no verifier`: this node cannot deserialize the identity, for example an idemix identity
-      from an issuer it holds no credential for, or bytes that are not an identity.
+    - `no verifier`: this node cannot get a verifier for the identity: an idemix identity whose
+      credential is not valid for its MSP in the channel, an identity the signature service
+      cannot deserialize, or bytes that are not an identity.
     - `invalid signature`: the proof does not verify for this session, direction and pair of
       nodes. The peer forged or replayed it, or the two nodes disagree on one of their FSC node
       identities, for example a node whose `fsc.identity.cert.file` does not match the certificate
