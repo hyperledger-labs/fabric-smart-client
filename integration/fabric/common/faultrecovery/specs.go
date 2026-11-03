@@ -9,6 +9,7 @@ package faultrecovery
 import (
 	"context"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -191,6 +192,123 @@ func CrashSpecs(s *integration.TestSuite, responder string) {
 			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on [%s]", i, txID, responder)
 		}
 	})
+
+	ginkgo.It(name("settles a tx whose initiator died after broadcasting"), label, func() {
+		// Alice broadcasts the tx and dies before she sees it final, so she learns its
+		// status only after the restart, from the block she catches up on.
+		tx := endorse(7)
+		txID := Broadcast(s.II, tx)
+		s.II.KillFSCNode("alice")
+		s.II.StartFSCNode("alice")
+
+		for _, node := range []string{"alice", responder} {
+			gomega.Eventually(func(g gomega.Gomega) {
+				res, err := Query(s.II, node, txID)
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: 7}))
+			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not settled on [%s]", txID, node)
+		}
+	})
+
+	ginkgo.It(name("catches up after a crash during catch-up"), label, func() {
+		// The responder endorses every tx and misses the blocks that commit them, then dies
+		// again as soon as it has caught up on the first: the second restart must still
+		// catch up on all of them, with no gap.
+		txs := make([]*views.Endorsed, 20)
+		for i := range txs {
+			txs[i] = endorse(i)
+		}
+		s.II.StopFSCNode(responder)
+		txIDs := make([]string, len(txs))
+		for i, tx := range txs {
+			txIDs[i] = Order(s.II, tx)
+		}
+		s.II.StartFSCNode(responder)
+		gomega.Eventually(func(g gomega.Gomega) {
+			res, err := Query(s.II, responder, txIDs[0])
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(res.Status).To(gomega.Equal(fdriver.Valid))
+		}, RecoveryTimeout, 100*time.Millisecond).Should(gomega.Succeed(), "[%s] never caught up on the first tx", responder)
+		s.II.KillFSCNode(responder)
+		s.II.StartFSCNode(responder)
+
+		for i, txID := range txIDs {
+			gomega.Eventually(func(g gomega.Gomega) {
+				res, err := Query(s.II, responder, txID)
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: i}))
+			}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx %d [%s] not caught up on [%s]", i, txID, responder)
+		}
+	})
+
+	ginkgo.It(name("loses no tx when the responder dies under load"), label, func() {
+		const workers = 4
+		var txIDs []string
+
+		// The workers commit 10 txs, then the responder dies with up to one call of each
+		// in flight. Each may lose that call, and no other: the workers stop at the kill
+		// and start again only once the responder serves an endorsement, so no call
+		// reaches it while it is down or still starting.
+		before := runLoad(s.II, workers, 10, func() { s.II.KillFSCNode(responder) }, responder)
+		txIDs = append(txIDs, before.txIDs...)
+
+		s.II.StartFSCNode(responder)
+		gomega.Eventually(func() error {
+			_, err := TrySubmitTo(s.II, 0, responder)
+			return err
+		}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "[%s] never endorsed again after the restart", responder)
+
+		// The workers commit 10 more against the restarted responder.
+		after := runLoad(s.II, workers, 10, nil, responder)
+		txIDs = append(txIDs, after.txIDs...)
+		// Each worker may lose the one call in flight at the kill.
+		gomega.Expect(before.failed+after.failed).To(gomega.BeNumerically("<=", workers), "calls lost: %d at the kill, %d after the restart", before.failed, after.failed)
+
+		for _, txID := range txIDs {
+			for _, node := range []string{"alice", responder} {
+				gomega.Eventually(func(g gomega.Gomega) {
+					res, err := Query(s.II, node, txID)
+					g.Expect(err).NotTo(gomega.HaveOccurred())
+					g.Expect(res.Status).To(gomega.Equal(fdriver.Valid))
+				}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] a client was told succeeded is not final on [%s]", txID, node)
+			}
+		}
+	})
+}
+
+// load is the outcome of runLoad.
+type load struct {
+	txIDs  []string
+	failed int
+}
+
+// runLoad runs SubmitConcurrently with workers against responders until n submissions have
+// succeeded, then calls interrupt, if any, while the workers are still running, so it
+// lands with their calls in flight, and stops them. It returns once every worker has
+// finished.
+func runLoad(ii *integration.Infrastructure, workers, n int, interrupt func(), responders ...string) load {
+	stop := make(chan struct{})
+	var succeeded atomic.Int64
+	done := make(chan load, 1)
+	go func() {
+		defer ginkgo.GinkgoRecover()
+		txIDs, failed := SubmitConcurrently(ii, workers, stop, &succeeded, responders...)
+		done <- load{txIDs, failed}
+	}()
+	// Stops the workers even if the wait fails, so none outlives the spec.
+	defer func() {
+		select {
+		case <-stop:
+		default:
+			close(stop)
+		}
+	}()
+	gomega.EventuallyWithOffset(1, succeeded.Load, RecoveryTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">=", n))
+	if interrupt != nil {
+		interrupt()
+	}
+	close(stop)
+	return <-done
 }
 
 // ClientSpecs registers, once for alice's gRPC view client and once for her web client,

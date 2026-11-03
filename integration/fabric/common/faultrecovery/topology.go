@@ -68,6 +68,7 @@ func newFSCTopology(sdk node.SDK, dbPrefix string, replicas map[string]int, opts
 		RegisterViewFactory("honestExchange", &views.HonestExchangeViewFactory{}).
 		RegisterViewFactory("forgedRecipient", &views.ForgedRecipientViewFactory{}).
 		RegisterViewFactory("order", &views.OrderViewFactory{}).
+		RegisterViewFactory("broadcast", &views.BroadcastViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
 		RegisterViewFactory("ledger", &cviews.LedgerViewFactory{}).

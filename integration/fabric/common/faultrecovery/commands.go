@@ -9,6 +9,8 @@ package faultrecovery
 import (
 	"context"
 	"encoding/json"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -95,9 +97,14 @@ func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int)
 // failed. The ID is empty when endorsing failed, so no transaction exists that could
 // commit. It reports every failure as an error, so it is safe to call from a goroutine.
 func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
+	return TrySubmitTo(ii, value, "bob")
+}
+
+// TrySubmitTo is TrySubmit with responders, FSC node names, in place of bob.
+func TrySubmitTo(ii *integration.Infrastructure, value int, responders ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
-	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(submit(ii, value, "bob")))
+	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(submit(ii, value, responders...)))
 	if err != nil {
 		return "", err
 	}
@@ -133,6 +140,50 @@ func SubmitUntil(ctx context.Context, ii *integration.Infrastructure) []Submissi
 		subs = append(subs, Submission{Value: i, TxID: txID, Err: err})
 	}
 	return subs
+}
+
+// SubmitConcurrently runs workers goroutines, each looping TrySubmitTo with responders
+// until stop is closed, and returns once every worker has finished the submission it was
+// in. txIDs holds the ID of every submission whose order view returned, the transactions
+// a client was told succeeded; failed counts the submissions that returned an error. If
+// succeeded is not nil, it is incremented after each success, so a spec can wait for a
+// number of commits while the workers run. Values are distinct across workers, so a spec
+// can tell transactions apart.
+func SubmitConcurrently(ii *integration.Infrastructure, workers int, stop <-chan struct{}, succeeded *atomic.Int64, responders ...string) (txIDs []string, failed int) {
+	var (
+		mu sync.Mutex
+		wg sync.WaitGroup
+	)
+	for w := range workers {
+		wg.Go(func() {
+			for i := w; ; i += workers {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				txID, err := TrySubmitTo(ii, i, responders...)
+				mu.Lock()
+				if err != nil {
+					failed++
+				} else {
+					txIDs = append(txIDs, txID)
+				}
+				mu.Unlock()
+				if err == nil && succeeded != nil {
+					succeeded.Add(1)
+				}
+			}
+		})
+	}
+	wg.Wait()
+	return txIDs, failed
+}
+
+// Broadcast runs alice's broadcast view on a transaction Endorse returned and returns its
+// ID once the ordering service accepted it, without waiting for finality.
+func Broadcast(ii *integration.Infrastructure, tx *views.Endorsed) string {
+	return common.JSONUnmarshalString(callView(ii, "alice", "broadcast", &views.Order{Tx: tx.Tx}))
 }
 
 // Endorse runs alice's endorse view with bob as responder and returns the endorsed

@@ -249,6 +249,9 @@ INTEGRATION_TARGETS += fabric-faultrecovery-replication
 INTEGRATION_TARGETS += fabric-faultrecovery-partition
 # Its specs on SmartBFT orderers need a topology of their own.
 INTEGRATION_TARGETS += fabric-faultrecovery-bft
+# Its crash and catch-up specs, labelled crash, run on the main network in a target of
+# their own, so neither target outlasts CI's per-job limit.
+INTEGRATION_TARGETS += fabric-faultrecovery-crash
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
 # them as parallel matrix entries rather than serially in one job.
@@ -272,6 +275,8 @@ INTEGRATION_TARGETS += fabricx-faultrecovery
 # Its specs on replicated nodes run in a target of their own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-replication
 INTEGRATION_TARGETS += fabricx-faultrecovery-partition
+# Its crash and catch-up specs run in a target of their own, as on Fabric.
+INTEGRATION_TARGETS += fabricx-faultrecovery-crash
 
 # Targets are normally named <platform>-<suite> and map onto
 # ./integration/<platform>/<suite>. Targets that run one suite under a
@@ -281,8 +286,10 @@ INTEGRATION_DIR_fabric-faultrecovery-postgres-outage = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-replication = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-partition = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-bft = fabric/faultrecovery
+INTEGRATION_DIR_fabric-faultrecovery-crash = fabric/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-replication = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
+INTEGRATION_DIR_fabricx-faultrecovery-crash = fabricx/faultrecovery
 
 # Per-target ginkgo flags. A suite split into several targets selects each
 # target's specs by label. The suite's default target uses a negative filter
@@ -290,14 +297,16 @@ INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
 # rather than silently running in neither job.
 INTEGRATION_FLAGS_fabric-iou        = --label-filter='!libp2p'
 INTEGRATION_FLAGS_fabric-iou-libp2p = --label-filter=libp2p
-INTEGRATION_FLAGS_fabric-faultrecovery                 = --label-filter='!postgres-outage && !replication && !partition && !bft'
+INTEGRATION_FLAGS_fabric-faultrecovery                 = --label-filter='!postgres-outage && !replication && !partition && !bft && !crash'
 INTEGRATION_FLAGS_fabric-faultrecovery-postgres-outage = --label-filter=postgres-outage
 INTEGRATION_FLAGS_fabric-faultrecovery-replication     = --label-filter=replication
 INTEGRATION_FLAGS_fabric-faultrecovery-partition       = --label-filter=partition
 INTEGRATION_FLAGS_fabric-faultrecovery-bft             = --label-filter=bft
-INTEGRATION_FLAGS_fabricx-faultrecovery             = --label-filter='!replication && !partition'
+INTEGRATION_FLAGS_fabric-faultrecovery-crash           = --label-filter=crash
+INTEGRATION_FLAGS_fabricx-faultrecovery             = --label-filter='!replication && !partition && !crash'
 INTEGRATION_FLAGS_fabricx-faultrecovery-replication = --label-filter=replication
 INTEGRATION_FLAGS_fabricx-faultrecovery-partition   = --label-filter=partition
+INTEGRATION_FLAGS_fabricx-faultrecovery-crash       = --label-filter=crash
 
 integration_default_dir = $(firstword $(subst -, ,$(1)))/$(subst $(firstword $(subst -, ,$(1)))-,,$(1))
 integration_dir = $(or $(INTEGRATION_DIR_$(1)),$(call integration_default_dir,$(1)))
