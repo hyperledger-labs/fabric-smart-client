@@ -136,8 +136,12 @@ func (p *P2PNode) NewResponderSession(sessionID, contextID, endpoint string, pki
 	return p.getOrCreateSession(sessionID, endpoint, contextID, "", caller, pkid, msg, false)
 }
 
+// NewSessionWithID returns the session with sessionID to the peer, an ID both nodes agreed on,
+// creating it as one this node opened if it does not exist. Such a session negotiates like one
+// from NewSession: each node picks the highest version both support from the other's preamble,
+// so both pick the same.
 func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte) (view.Session, error) {
-	return p.getOrCreateSession(sessionID, endpoint, contextID, "", nil, pkid, nil, false)
+	return p.getOrCreateSession(sessionID, endpoint, contextID, "", nil, pkid, nil, true)
 }
 
 func (p *P2PNode) MasterSession() (view.Session, error) {

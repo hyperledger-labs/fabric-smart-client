@@ -45,6 +45,16 @@ func TestRegistryProtocol(t *testing.T) {
 	require.NoError(t, err)
 	require.Same(t, responder, got, "an unknown name falls back to the type path")
 
+	// When the name and the type path resolve to different responders, the name wins: it carries
+	// the responder and authorizer of the protocol, which a stale type-path registration must not
+	// shadow.
+	byName, byType := &mock.View{}, &mock.View{}
+	require.NoError(t, r.RegisterResponderWithOptions(byName, "app/X", view.WithProtocol("a", "b")))
+	require.NoError(t, r.RegisterResponder(byType, "app/Y"))
+	got, _, _, err = r.ResponderForCaller("a/b", "app/Y")
+	require.NoError(t, err)
+	require.Same(t, byName, got, "the protocol name wins over the type path")
+
 	_, _, _, err = r.ResponderForCaller("pingpong/pong", "app/Unknown")
 	require.ErrorIs(t, err, view.ErrResponderNotFound)
 

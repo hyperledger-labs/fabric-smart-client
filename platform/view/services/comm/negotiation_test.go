@@ -172,11 +172,26 @@ func TestInitiatorChoosesHighest(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, preamble.SetComponents(append(slices.Clone(preamble.FSCComponents), preamble.Component{Name: "iou", Range: preamble.Range{Min: 1, Max: 3}})))
 	t.Cleanup(func() { require.NoError(t, preamble.SetComponents(preamble.FSCComponents)) })
 
-	s, h := newInitiatorSession(t, peerWith(&preamble.ComponentRange{Component: "iou", Min: 2, Max: 5}))
+	peer := peerWith(&preamble.ComponentRange{Component: "iou", Min: 2, Max: 5})
+	s, h := newInitiatorSession(t, peer)
 	v, err := view.SessionVersion(t.Context(), s, "iou")
 	require.NoError(t, err)
 	require.Equal(t, uint32(3), v, "the highest version in both ranges")
 	require.NoError(t, s.Send(t.Context(), nil))
+	require.Equal(t, uint32(3), statedVersions(t, h.packets(t)[0])["iou"])
+
+	// Both nodes open a session by ID with NewSessionWithID; each negotiates on its own and
+	// picks the same version from the other's preamble.
+	h = &preambleHost{pre: peer}
+	p, err := NewNode(t.Context(), h, &disabled.Provider{})
+	require.NoError(t, err)
+	t.Cleanup(p.Stop)
+	byID, err := p.NewSessionWithID("agreed-id", "ctx", "addr", []byte("peer"))
+	require.NoError(t, err)
+	v, err = view.SessionVersion(t.Context(), byID, "iou")
+	require.NoError(t, err)
+	require.Equal(t, uint32(3), v, "a session opened by ID negotiates")
+	require.NoError(t, byID.Send(t.Context(), nil))
 	require.Equal(t, uint32(3), statedVersions(t, h.packets(t)[0])["iou"])
 }
 

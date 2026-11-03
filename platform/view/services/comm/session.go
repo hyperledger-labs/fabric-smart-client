@@ -64,8 +64,8 @@ type NetworkStreamSession struct {
 	closed    chan struct{}
 	isClosing atomic.Bool
 
-	// initiator is set on a session this node opened with NewSession: it chooses the versions
-	// and states them, with protocol, on its messages. It never changes.
+	// initiator is set on a session this node opened with NewSession or NewSessionWithID: it
+	// chooses the versions and states them, with protocol, on its messages. It never changes.
 	initiator bool
 
 	// versionMu guards the fields below. negotiate holds it while it opens the stream, so a
