@@ -156,7 +156,7 @@ func (f *receiveTransactionView) Call(viewCtx view.Context) (any, error) {
 		}
 	}
 
-	payload, err := commsession.ReadMessageWithTimeout(session, 10*time.Second)
+	payload, err := commsession.ReadMessageWithContext(viewCtx.Context(), session, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}

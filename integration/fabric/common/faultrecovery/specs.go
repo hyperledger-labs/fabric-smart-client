@@ -330,14 +330,18 @@ func ClientSpecs(s *integration.TestSuite) {
 		get  func() api.ViewClient
 		// failed matches the error of a call in flight when the node dies.
 		failed types.GomegaMatcher
+		// cancelled matches the error of a call whose context the caller cancelled.
+		cancelled types.GomegaMatcher
 	}{
 		{
 			"grpc", func() api.ViewClient { return s.II.Client("alice") },
 			gomega.WithTransform(status.Code, gomega.Equal(codes.Unavailable)),
+			gomega.WithTransform(status.Code, gomega.Equal(codes.Canceled)),
 		},
 		{
 			"web", func() api.ViewClient { return s.II.WebClient("alice") },
 			gomega.WithTransform(func(err error) bool { return errors.HasType(err, &url.Error{}) }, gomega.BeTrue()),
+			gomega.MatchError(context.Canceled),
 		},
 	}
 	for _, cl := range clients {
@@ -364,7 +368,62 @@ func ClientSpecs(s *integration.TestSuite) {
 			s.II.StartFSCNode("alice")
 			gomega.Eventually(func() error { return EchoWith(s.II, c, false) }, RecoveryTimeout, time.Second).Should(gomega.Succeed())
 		})
+
+		ginkgo.It("frees the responder when the "+cl.name+" caller cancels", func() {
+			c := cl.get()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			echo := BlockedEchoWithContext(ctx, s.II, c, "bob", "bob")
+			cancel()
+
+			var err error
+			gomega.Eventually(echo, SessionCloseTimeout).Should(gomega.Receive(&err))
+			gomega.Expect(err).To(cl.cancelled)
+			// The leak check after the spec proves bob freed the responder's view context;
+			// this states it where the spec is about it.
+			gomega.Eventually(func() float64 {
+				return MetricSum(s.II, "bob", ViewContexts)
+			}, SessionCloseTimeout, 100*time.Millisecond).Should(gomega.BeZero(), "bob's responder still holds its view context")
+		})
 	}
+}
+
+// ViewSpecs registers the specs that run a view with more than one responder, for the suite
+// s. They are about the view, not about which node crashes, so a suite calls ViewSpecs once,
+// unlike CrashSpecs. Each spec leaves the network healthy, so the specs can run under
+// ShareNetwork.
+func ViewSpecs(s *integration.TestSuite) {
+	ginkgo.It("fails a three-party view when one party is down", func() {
+		// Alice collects from bob, then from charlie, who is dead: the view must fail on
+		// charlie's session closing rather than hang, and bob must release his half.
+		s.II.KillFSCNode("charlie")
+		up := false
+		// A failure while charlie is down would leave him down for the next spec.
+		ginkgo.DeferCleanup(func() {
+			if !up {
+				s.II.StartFSCNode("charlie")
+			}
+		})
+		failed := make(chan error, 1)
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			_, err := TryEndorseFrom(s.II, 1, "bob", "charlie")
+			failed <- err
+		}()
+		var err error
+		gomega.Eventually(failed, SessionCloseTimeout).Should(gomega.Receive(&err))
+		gomega.Expect(err).To(gomega.HaveOccurred(), "the endorse view succeeded with charlie dead")
+		gomega.Eventually(func() float64 {
+			return MetricSum(s.II, "bob", ViewContexts)
+		}, SessionCloseTimeout, 100*time.Millisecond).Should(gomega.BeZero(), "bob's responder still holds its view context")
+
+		s.II.StartFSCNode("charlie")
+		up = true
+		txID := Order(s.II, EndorseFrom(s.II, 2, "bob", "charlie"))
+		for _, node := range []string{"alice", "bob", "charlie"} {
+			WaitFinalOn(s.II, node, txID)
+		}
+	})
 }
 
 // FailoverSpecs registers the specs that kill the replica of bob holding alice's connection
@@ -511,20 +570,32 @@ func replicaIDs(ii *integration.Infrastructure, node string) []string {
 // client, and returns once node's responder blocks in it on replica, node's name or one of
 // its replica IDs. The returned channel receives the echo's error.
 func BlockedEcho(ii *integration.Infrastructure, c api.ViewClient, node, replica string) <-chan error {
+	return startBlockedEcho(context.Background(), ii, c, node, replica)
+}
+
+// BlockedEchoWithContext is BlockedEcho whose call ends when ctx does, so a spec can cancel
+// a call the responder is blocked in, or let its deadline expire.
+func BlockedEchoWithContext(ctx context.Context, ii *integration.Infrastructure, c api.ViewClient, node, replica string) <-chan error {
+	return startBlockedEcho(ctx, ii, c, node, replica)
+}
+
+// startBlockedEcho implements BlockedEcho and BlockedEchoWithContext. Its assertions report
+// the line of their caller.
+func startBlockedEcho(ctx context.Context, ii *integration.Infrastructure, c api.ViewClient, node, replica string) <-chan error {
 	// On a shared network the previous spec's responder may still hold its context for
 	// a moment after its view ends, so the baseline waits for it.
-	gomega.EventuallyWithOffset(1, func() float64 {
+	gomega.EventuallyWithOffset(2, func() float64 {
 		return MetricSum(ii, replica, ViewContexts)
 	}, pollTimeout, 100*time.Millisecond).Should(gomega.BeZero())
 	echo := make(chan error, 1)
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		echo <- EchoTo(ii, c, node, true)
+		echo <- callEcho(ctx, c, &views.Echo{Responder: ii.Identity(node), Block: true})
 	}()
 	// The responder creates a context when alice's message arrives and holds it while it
 	// blocks, so a kill lands mid-view. An echo that ends before then stops the wait with
 	// its own error.
-	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) float64 {
+	gomega.EventuallyWithOffset(2, func(g gomega.Gomega) float64 {
 		select {
 		case err := <-echo:
 			gomega.StopTrying("echo returned before the responder of [" + replica + "] blocked").Wrap(err).Now()

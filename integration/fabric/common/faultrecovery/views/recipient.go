@@ -96,7 +96,7 @@ func (v *ForgedRecipientView) Call(viewCtx view.Context) (any, error) {
 	if err := s.Send(viewCtx.Context(), raw); err != nil {
 		return nil, errors.WithMessage(err, "failed sending the exchange request")
 	}
-	_, err = session.ReadMessageWithTimeout(s, recipientTimeout)
+	_, err = session.ReadMessageWithContext(viewCtx.Context(), s, recipientTimeout)
 	if err == nil {
 		return nil, errors.Errorf("responder accepted recipient identity [%s] claimed without proof", v.Claim)
 	}

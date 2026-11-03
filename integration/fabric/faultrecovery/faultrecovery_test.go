@@ -95,6 +95,7 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 	faultrecovery.CrashSpecs(s, "bob")
 	faultrecovery.CrashSpecs(s, "charlie")
 	faultrecovery.ClientSpecs(s)
+	faultrecovery.ViewSpecs(s)
 	faultrecovery.DependencySpecs(s, dbPrefix)
 	faultrecovery.HostileSpecs(s)
 

@@ -106,6 +106,9 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 				return nil, errors.Errorf("session to party %s closed", party)
 			}
 			msg = m
+		case <-viewCtx.Context().Done():
+			timeout.Stop()
+			return nil, errors.Wrapf(viewCtx.Context().Err(), "stopped waiting for party %s", party)
 		case <-timeout.C:
 			timeout.Stop()
 			return nil, errors.Errorf("Timeout from party %s", party)

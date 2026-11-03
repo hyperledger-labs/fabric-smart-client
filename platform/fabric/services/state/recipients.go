@@ -121,7 +121,7 @@ func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	// Wait to receive an identity
-	payload, err := commsession.ReadMessageWithTimeout(session, time.Minute)
+	payload, err := commsession.ReadMessageWithContext(viewCtx.Context(), session, time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error
 	}
 
 	// Wait to receive an identity
-	payload, err := commsession.ReadMessageWithTimeout(session, 30*time.Second)
+	payload, err := commsession.ReadMessageWithContext(viewCtx.Context(), session, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}

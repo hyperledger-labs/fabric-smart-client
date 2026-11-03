@@ -411,7 +411,11 @@ Distributed protocols fail in real systems, so views should handle:
 - invalid or unexpected replies
 - downstream Fabric errors
 
-Here's an example of timeout handling with message validation:
+A view waiting for a reply must also stop when its view context ends, which happens when the
+caller cancels the view or its deadline expires. A view that waits only on a timer keeps
+running until the timer fires, and so does the responder on the other node, which learns
+that the protocol is over only when the view closes its sessions. Here's an example of
+timeout handling with message validation:
 
 ```go
 ch := session.Receive()
@@ -423,10 +427,16 @@ case msg := <-ch:
 	if string(msg.Payload) != "expected_value" {
 		return nil, errors.Errorf("expected expected_value, got %s", string(msg.Payload))
 	}
+case <-viewCtx.Context().Done():
+	return nil, viewCtx.Context().Err()
 case <-time.After(1 * time.Minute):
 	return nil, errors.New("timeout waiting for response")
 }
 ```
+
+`session.ReadMessageWithContext(viewCtx.Context(), session, timeout)` in
+`platform/view/services/comm/session` does the same and returns the payload; `ReadFirstMessage`
+ends with the view context too.
 
 For complete examples, see:
 - [pingpong](../../../integration/fsc/pingpong) - Simple ping/pong protocol with timeout and validation

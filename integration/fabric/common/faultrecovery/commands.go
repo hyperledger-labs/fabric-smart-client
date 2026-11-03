@@ -161,6 +161,22 @@ func EndorseFrom(ii *integration.Infrastructure, value int, responders ...string
 	return tx
 }
 
+// TryEndorseFrom is EndorseFrom that returns the view's error instead of failing the
+// spec, so a spec can expect the endorsement to fail. It is safe to call from a goroutine.
+func TryEndorseFrom(ii *integration.Infrastructure, value int, responders ...string) (*views.Endorsed, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+	defer cancel()
+	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(submit(ii, value, responders...)))
+	if err != nil {
+		return nil, err
+	}
+	tx := &views.Endorsed{}
+	if err := json.Unmarshal(raw.([]byte), tx); err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
 // submit returns the Submit of value with responders, FSC node names, as its endorsers.
 func submit(ii *integration.Infrastructure, value int, responders ...string) *views.Submit {
 	ids := make([]view.Identity, len(responders))
@@ -312,17 +328,19 @@ func EchoWith(ii *integration.Infrastructure, c api.ViewClient, block bool) erro
 
 // EchoTo is EchoWith with responder, an FSC node name, in place of bob.
 func EchoTo(ii *integration.Infrastructure, c api.ViewClient, responder string, block bool) error {
-	return callEcho(c, &views.Echo{Responder: ii.Identity(responder), Block: block})
+	return callEcho(context.Background(), c, &views.Echo{Responder: ii.Identity(responder), Block: block})
 }
 
 // AwaitEcho runs alice's echo view through c, a view client of alice, with bob's responder
 // waiting for a second message that never comes. It returns the view's error.
 func AwaitEcho(ii *integration.Infrastructure, c api.ViewClient) error {
-	return callEcho(c, &views.Echo{Responder: ii.Identity("bob"), Await: true})
+	return callEcho(context.Background(), c, &views.Echo{Responder: ii.Identity("bob"), Await: true})
 }
 
-func callEcho(c api.ViewClient, in *views.Echo) error {
-	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+// callEcho runs alice's echo view through c with in; the call ends when ctx does, at the
+// latest after viewTimeout.
+func callEcho(ctx context.Context, c api.ViewClient, in *views.Echo) error {
+	ctx, cancel := context.WithTimeout(ctx, viewTimeout)
 	defer cancel()
 	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(in))
 	return err

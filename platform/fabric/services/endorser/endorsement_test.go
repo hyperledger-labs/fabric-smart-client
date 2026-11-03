@@ -30,6 +30,7 @@ import (
 func TestCollectEndorsementsView(t *testing.T) {
 	t.Parallel()
 	fakeCtx := &mock.Context{}
+	fakeCtx.ContextReturns(t.Context())
 	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
@@ -767,6 +768,7 @@ type collectFixture struct {
 func newCollectFixture(t *testing.T) *collectFixture {
 	t.Helper()
 	fakeCtx := &mock.Context{}
+	fakeCtx.ContextReturns(t.Context())
 	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
@@ -884,6 +886,22 @@ func TestCollectEndorsementsView_RejectsGarbledResponse(t *testing.T) {
 	_, err := f.view.Call(f.ctx)
 	require.ErrorContains(t, err, "failed unmarshalling received proposal response")
 	require.Zero(t, f.tx.AppendProposalResponseCallCount())
+}
+
+// A view waiting for a party's endorsement must end as soon as its caller cancels it, not
+// when its one-minute timer fires, so that it closes its sessions and the party's
+// responder ends too.
+func TestCollectEndorsementsView_ReturnsWhenContextEnds(t *testing.T) {
+	t.Parallel()
+	f := newCollectFixture(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	f.ctx.ContextReturns(ctx)
+
+	start := time.Now()
+	_, err := f.view.Call(f.ctx)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Less(t, time.Since(start), time.Second, "the view waited for its timer instead of the context")
 }
 
 // TestEndorsement_HijackerEndorsementRefused shows that a proven binding of a

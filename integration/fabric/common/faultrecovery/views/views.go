@@ -278,7 +278,7 @@ func (v *EchoView) Call(viewCtx view.Context) (any, error) {
 	if err := s.Send(viewCtx.Context(), msg); err != nil {
 		return nil, errors.WithMessage(err, "failed sending")
 	}
-	reply, err := session.ReadMessageWithTimeout(s, echoTimeout)
+	reply, err := session.ReadMessageWithContext(viewCtx.Context(), s, echoTimeout)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed waiting for the echo")
 	}
@@ -309,7 +309,7 @@ func (*EchoResponderView) Call(viewCtx view.Context) (any, error) {
 		return nil, viewCtx.Context().Err()
 	}
 	if string(msg) == awaitMessage {
-		if msg, err = session.ReadMessageWithTimeout(s, echoTimeout); err != nil {
+		if msg, err = session.ReadMessageWithContext(viewCtx.Context(), s, echoTimeout); err != nil {
 			return nil, err
 		}
 	}
