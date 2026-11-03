@@ -293,11 +293,11 @@ func TestMigrateCmdContract(t *testing.T) { //nolint:paralleltest // sets proces
 	require.NoError(t, run(), "without --contract the contract step waits")
 	require.NoError(t, run("--check"), "a held-back contract step is not pending")
 	var e *ExitError
-	require.ErrorAs(t, run("--check", "--contract"), &e)
-	require.Equal(t, ExitPending, e.Code)
-	require.ErrorAs(t, run("--contract"), &e)
-	require.Equal(t, ExitOlderOpener, e.Code)
-	require.ErrorContains(t, e, "node [old] knows step 1")
+	for _, args := range [][]string{{"--check", "--contract"}, {"--contract"}} {
+		require.ErrorAs(t, run(args...), &e, "%v", args)
+		require.Equal(t, ExitOlderOpener, e.Code, "%v", args)
+		require.ErrorContains(t, e, "node [old] knows step 1", "%v", args)
+	}
 	require.NoError(t, run("--contract", "--forget-opener", "old"))
 	require.NoError(t, run("--check", "--contract"))
 	var readableBy int
