@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -105,6 +106,45 @@ func TestPostgresMigrate(t *testing.T) {
 	t.Parallel()
 	b := postgresBackend(t)
 	testMigrate(t, func(*testing.T) backend { return b })
+
+	// An older binary that records its opener while a contract step runs waits
+	// for the step's lock on the openers table and then refuses the store.
+	t.Run("OlderOpenerDuringContractStep", func(t *testing.T) {
+		t.Parallel()
+		db := b.open(t)
+		ctx := t.Context()
+		previous := newStore("race_s", 1)
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "race", previous, migrate.WithNode("old")))
+		_, err := db.Exec("DELETE FROM race_schema_openers")
+		require.NoError(t, err)
+
+		running, release := make(chan struct{}), make(chan struct{})
+		next := newStore("race_s", 2)
+		next.steps[1].Contract = true
+		next.steps[1].Go = func(context.Context, migrate.Execer) error {
+			close(running)
+			<-release
+			return nil
+		}
+		done := make(chan error, 1)
+		go func() { done <- migrate.Migrate(ctx, db, b.dialect, "race", next, migrate.WithContract()) }()
+		<-running
+
+		opened := make(chan error, 1)
+		go func() { opened <- migrate.Migrate(ctx, db, b.dialect, "race", previous, migrate.WithNode("old")) }()
+		select {
+		case err := <-opened:
+			t.Fatalf("the older binary opened the store during the contract step: %v", err)
+		case <-time.After(500 * time.Millisecond):
+		}
+		close(release)
+		require.NoError(t, <-done)
+		require.ErrorIs(t, <-opened, migrate.ErrSchemaTooNew)
+		// The refused binary left no row that would block a later contract step.
+		var n int
+		require.NoError(t, db.QueryRow("SELECT count(*) FROM race_schema_openers WHERE node = 'old'").Scan(&n))
+		require.Zero(t, n)
+	})
 
 	t.Run("NothingPendingSkipsLock", func(t *testing.T) {
 		t.Parallel()
@@ -318,6 +358,222 @@ func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
 		require.ErrorContains(t, migrate.Migrate(t.Context(), db, b.dialect, "new", s), "invalid row")
 	})
 
+	t.Run("PreviousReleaseReadsAfterExpandStep", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		previous := newStore("prev_s", 2)
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "prev", previous))
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "prev", newStore("prev_s", 3)))
+
+		// A replica of the previous release restarts against the migrated store.
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "prev", previous))
+	})
+
+	t.Run("ContractStep", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		ctx := t.Context()
+		// The previous release writes v in the old column.
+		previous := &store{name: "con_s", steps: []migrate.Step{
+			{Version: 1, Name: "create", SQL: []string{"CREATE TABLE con_s (id INT, old_v INT)"}},
+		}}
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "con", previous, migrate.WithNode("n")))
+		_, err := db.Exec("INSERT INTO con_s (id, old_v) VALUES (1, 10)")
+		require.NoError(t, err)
+
+		// The next release adds new_v (expand), then drops old_v (contract), then adds an index.
+		next := &store{name: "con_s", steps: append(slices.Clone(previous.steps),
+			migrate.Step{Version: 2, Name: "add new_v", SQL: []string{"ALTER TABLE con_s ADD COLUMN new_v INT"}},
+			migrate.Step{Version: 3, Name: "drop old_v", Contract: true, SQL: []string{
+				"UPDATE con_s SET new_v = old_v WHERE new_v IS NULL",
+				"ALTER TABLE con_s DROP COLUMN old_v",
+			}},
+			migrate.Step{Version: 4, Name: "index new_v", SQL: []string{"CREATE INDEX con_s_new_v ON con_s (new_v)"}},
+		)}
+
+		// Startup runs the expand step and stops before the contract step.
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "con", next, migrate.WithNode("n")))
+		requireRow(t, db, "con_schema_versions", "con_s", 2, 0)
+		// Check-only does not count the held-back steps as pending.
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "con", next, migrate.WithNode("n"), migrate.WithCheckOnly()))
+
+		// A replica of the previous release still opens the store and writes the old form.
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "con", previous, migrate.WithNode("n")))
+		_, err = db.Exec("INSERT INTO con_s (id, old_v) VALUES (2, 20)")
+		require.NoError(t, err)
+
+		// --contract refuses while that binary's opener row exists, and names
+		// it; so does --check --contract, without changing anything.
+		for _, opts := range [][]migrate.Option{{migrate.WithContract()}, {migrate.WithContract(), migrate.WithCheckOnly()}} {
+			err = migrate.Migrate(ctx, db, b.dialect, "con", next, append(opts, migrate.WithNode("n"))...)
+			require.ErrorIs(t, err, migrate.ErrOlderOpener)
+			require.ErrorContains(t, err, "contract step 3 [drop old_v] is blocked: node [n] knows step 1, last opened ")
+			requireRow(t, db, "con_schema_versions", "con_s", 2, 0)
+		}
+		// Once nothing blocks it, --check --contract lists the contract step as pending.
+		_, err = db.Exec("DELETE FROM con_schema_openers WHERE highest_step < 3")
+		require.NoError(t, err)
+		err = migrate.Migrate(ctx, db, b.dialect, "con", next, migrate.WithNode("n"), migrate.WithCheckOnly(), migrate.WithContract())
+		require.ErrorIs(t, err, migrate.ErrPending)
+		require.ErrorContains(t, err, "pending: step 3 [drop old_v] (contract), step 4 [index new_v]")
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "con", previous, migrate.WithNode("n")))
+
+		// Forgetting the node lets it run; the backfill keeps both rows.
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "con", next, migrate.WithNode("n"), migrate.WithContract(), migrate.WithForgetOpeners("n")))
+		requireRow(t, db, "con_schema_versions", "con_s", 4, 3)
+		var sum int
+		require.NoError(t, db.QueryRow("SELECT sum(new_v) FROM con_s").Scan(&sum))
+		require.Equal(t, 30, sum)
+		requireOpener(t, db, "con_schema_openers", "con_s", "n", 4)
+
+		// The previous release now refuses the store before recording itself,
+		// and so does a binary with step 2 only.
+		require.ErrorIs(t, migrate.Migrate(ctx, db, b.dialect, "con", previous, migrate.WithNode("n")), migrate.ErrSchemaTooNew)
+		require.ErrorIs(t, migrate.Migrate(ctx, db, b.dialect, "con", &store{name: "con_s", steps: next.steps[:2]}, migrate.WithNode("n")), migrate.ErrSchemaTooNew)
+		var older int
+		require.NoError(t, db.QueryRow("SELECT count(*) FROM con_schema_openers WHERE highest_step < 3").Scan(&older))
+		require.Zero(t, older)
+		// A binary with the contract step but not the later index opens it.
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "con", &store{name: "con_s", steps: next.steps[:3]}))
+	})
+
+	t.Run("ContractStepUpgradedOpener", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		ctx := t.Context()
+		next := newStore("up_s", 3)
+		next.steps[2].Contract = true
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "up", newStore("up_s", 1), migrate.WithNode("a")))
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "up", next, migrate.WithNode("b")))
+		requireVersion(t, db, "up_schema_versions", "up_s", 2)
+
+		// Forgetting another node leaves a's row, which blocks.
+		err := migrate.Migrate(ctx, db, b.dialect, "up", next, migrate.WithNode("b"), migrate.WithContract(), migrate.WithForgetOpeners("c"))
+		require.ErrorIs(t, err, migrate.ErrOlderOpener)
+		require.ErrorContains(t, err, "node [a] knows step 1")
+		require.NotContains(t, err.Error(), "node [b]")
+
+		// A row of a binary that knows the step does not block.
+		_, err = db.Exec("DELETE FROM up_schema_openers WHERE node = 'a'")
+		require.NoError(t, err)
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "up", next, migrate.WithNode("a")))
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "up", next, migrate.WithNode("b"), migrate.WithContract()))
+		requireRow(t, db, "up_schema_versions", "up_s", 3, 3)
+	})
+
+	t.Run("ContractStepFailureRollsBack", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := newStore("cf_s", 1)
+		s.steps = append(s.steps, migrate.Step{Version: 2, Name: "broken", Contract: true, SQL: []string{
+			"DROP TABLE cf_s_t1",
+			"NOT SQL",
+		}})
+		require.ErrorContains(t, migrate.Migrate(t.Context(), db, b.dialect, "cf", s, migrate.WithContract()), "broken")
+		requireRow(t, db, "cf_schema_versions", "cf_s", 1, 0)
+		// The table the step dropped is back, and the binary without the step still opens the store.
+		_, err := db.Exec("SELECT id FROM cf_s_t1")
+		require.NoError(t, err)
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "cf", newStore("cf_s", 1)))
+	})
+
+	// An older binary that wins the lock on an empty store and runs step 1
+	// makes a newer binary that started at the same time hold its contract
+	// step back instead of failing.
+	t.Run("ContractStepOnStoreFilledMeanwhile", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		oldDB, newDB := b.open(t), b.open(t)
+		running, release := make(chan struct{}), make(chan struct{})
+		old := newStore("fill_s", 1)
+		old.steps[0].Go = func(context.Context, migrate.Execer) error {
+			close(running)
+			<-release
+			return nil
+		}
+		next := newStore("fill_s", 2)
+		next.steps[1].Contract = true
+
+		oldDone := make(chan error, 1)
+		go func() {
+			oldDone <- migrate.Migrate(t.Context(), oldDB, b.dialect, "fill", old, migrate.WithNode("old"))
+		}()
+		<-running
+		newDone := make(chan error, 1)
+		go func() {
+			newDone <- migrate.Migrate(t.Context(), newDB, b.dialect, "fill", next, migrate.WithNode("new"))
+		}()
+		time.Sleep(200 * time.Millisecond) // the newer binary has read no row and waits for the lock
+		close(release)
+		require.NoError(t, <-oldDone)
+		require.NoError(t, <-newDone)
+		requireVersion(t, oldDB, "fill_schema_versions", "fill_s", 1)
+	})
+
+	// An older binary that opened a fresh store after its earlier steps makes
+	// the contract step wait at startup instead of failing the open.
+	t.Run("ContractStepOnFreshStoreOpenedMeanwhile", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := newStore("gap_s", 2)
+		s.steps[1].Contract = true
+		// Step 1 runs in the transaction that creates the store's row; the
+		// opener row it writes stands for an older binary that opened the
+		// store right after it committed.
+		s.steps[0].Go = func(ctx context.Context, q migrate.Execer) error {
+			_, err := q.ExecContext(ctx, "INSERT INTO gap_schema_openers (store, node, highest_step, opened_at) VALUES ('gap_s', 'old', 1, CURRENT_TIMESTAMP)")
+			return err
+		}
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "gap", s, migrate.WithNode("new")))
+		requireVersion(t, db, "gap_schema_versions", "gap_s", 1)
+	})
+
+	t.Run("ContractStepOnFreshStore", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := newStore("fresh_s", 3)
+		s.steps[1].Contract = true
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "fresh", s))
+		requireRow(t, db, "fresh_schema_versions", "fresh_s", 3, 2)
+	})
+
+	// A store without a row whose table exists, as a binary without
+	// versioning created it, is not fresh: its contract step waits.
+	t.Run("ContractStepOnUnversionedStore", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := &store{name: "unv_s", steps: []migrate.Step{
+			{Version: 1, Name: "create", SQL: []string{"CREATE TABLE IF NOT EXISTS unv_s (id INT)"}},
+			{Version: 2, Name: "drop", Contract: true, SQL: []string{"DROP TABLE unv_s"}},
+		}}
+		_, err := db.Exec("CREATE TABLE unv_s (id INT)")
+		require.NoError(t, err)
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "unv", s))
+		requireVersion(t, db, "unv_schema_versions", "unv_s", 1)
+		_, err = db.Exec("SELECT id FROM unv_s")
+		require.NoError(t, err)
+	})
+
+	// --check without --contract lists only the steps node migrate would run.
+	t.Run("CheckOnlyListsRunnableSteps", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := newStore("lst_s", 4)
+		s.steps[2].Contract = true
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "lst", newStore("lst_s", 1)))
+		err := migrate.Migrate(t.Context(), db, b.dialect, "lst", s, migrate.WithCheckOnly())
+		require.ErrorIs(t, err, migrate.ErrPending)
+		require.ErrorContains(t, err, "pending: step 2 [create lst_s_t2]: ")
+	})
+
 	t.Run("CheckOnly", func(t *testing.T) {
 		t.Parallel()
 		b := newBackend(t)
@@ -480,12 +736,19 @@ func readIDs(ctx context.Context, q migrate.Execer) ([]int, error) {
 	return ids, rows.Err()
 }
 
+// requireVersion checks the store's version; readable_by stays 0 because the
+// steps of these tests are expand steps.
 func requireVersion(t *testing.T, db *sql.DB, table, store string, want int) {
 	t.Helper()
-	var version, readableBy int
-	require.NoError(t, db.QueryRow("SELECT version, readable_by FROM "+table+" WHERE store = $1", store).Scan(&version, &readableBy))
-	require.Equal(t, want, version)
-	require.Equal(t, want, readableBy)
+	requireRow(t, db, table, store, want, 0)
+}
+
+func requireRow(t *testing.T, db *sql.DB, table, store string, version, readableBy int) {
+	t.Helper()
+	var v, r int
+	require.NoError(t, db.QueryRow("SELECT version, readable_by FROM "+table+" WHERE store = $1", store).Scan(&v, &r))
+	require.Equal(t, version, v, "version")
+	require.Equal(t, readableBy, r, "readable_by")
 }
 
 // requireOpener returns opened_at of the opener row, failing if it is missing.
@@ -546,4 +809,32 @@ func TestInProgress(t *testing.T) { //nolint:paralleltest // reads package-level
 	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "", newStore("progress_done", 1)))
 	require.ErrorIs(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "", newStore("progress_check", 1), migrate.WithCheckOnly()), migrate.ErrPending)
 	require.False(t, migrate.InProgress())
+}
+
+// A store with a pending contract step logs it, and SetProcessOptions applies
+// to every Migrate until restored. Not parallel: both replace package-level
+// state.
+func TestContractStepPendingLogAndProcessOptions(t *testing.T) { //nolint:paralleltest // replaces package-level state
+	db := sqliteBackend(t).open(t)
+	s := newStore("plog_s", 3)
+	s.steps[1].Contract = true
+	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", newStore("plog_s", 1)))
+
+	logs := migrate.RecordLogs(t)
+	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", s))
+	require.Contains(t, logs.Messages(), "store [plog_s]: contract step 2 [create plog_s_t2] is pending and 1 step(s) wait for it; run node migrate --contract once every binary that opens the store knows it")
+	requireVersion(t, db, "plog_schema_versions", "plog_s", 1)
+
+	restore := migrate.SetProcessOptions(migrate.WithContract(), migrate.WithForgetOpeners(""))
+	t.Cleanup(restore)
+	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", s))
+	restore()
+	requireRow(t, db, "plog_schema_versions", "plog_s", 3, 2)
+
+	// After restore, a contract step waits again.
+	o := newStore("plog_o", 2)
+	o.steps[1].Contract = true
+	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", newStore("plog_o", 1)))
+	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", o))
+	requireVersion(t, db, "plog_schema_versions", "plog_o", 1)
 }

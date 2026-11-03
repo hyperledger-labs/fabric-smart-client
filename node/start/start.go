@@ -68,6 +68,9 @@ const (
 	ExitPending = 10
 	// ExitSchemaTooNew means a store was migrated by a newer binary.
 	ExitSchemaTooNew = 11
+	// ExitOlderOpener means --contract found a store opened by a binary that
+	// lacks a pending contract step.
+	ExitOlderOpener = 12
 )
 
 // ExitError is an error that sets the process exit code; node.Execute exits
@@ -86,11 +89,12 @@ func (e *ExitError) Error() string {
 func (e *ExitError) Unwrap() error { return e.Err }
 
 // exitCode returns the exit code of a Migrate error. A joined error, such as
-// one per failing store, gives ExitFailed if any part is neither pending nor too
-// new, since the check is then incomplete; otherwise ExitSchemaTooNew if any
-// part is too new; otherwise ExitPending.
+// one per failing store, gives ExitFailed if any part is neither pending, too
+// new nor blocked by an older opener, since the check is then incomplete;
+// otherwise ExitSchemaTooNew if any part is too new; otherwise ExitOlderOpener
+// if any part is blocked; otherwise ExitPending.
 func exitCode(err error) int {
-	tooNew, failed := false, false
+	tooNew, older, failed := false, false, false
 	var walk func(error)
 	walk = func(err error) {
 		for e := err; e != nil; e = stderrors.Unwrap(e) {
@@ -104,6 +108,8 @@ func exitCode(err error) int {
 		switch {
 		case errors.Is(err, migrate.ErrSchemaTooNew):
 			tooNew = true
+		case errors.Is(err, migrate.ErrOlderOpener):
+			older = true
 		case !errors.Is(err, migrate.ErrPending):
 			failed = true
 		}
@@ -114,6 +120,8 @@ func exitCode(err error) int {
 		return ExitFailed
 	case tooNew:
 		return ExitSchemaTooNew
+	case older:
+		return ExitOlderOpener
 	default:
 		return ExitPending
 	}
@@ -122,24 +130,41 @@ func exitCode(err error) int {
 func usageError(_ *cobra.Command, err error) error { return &ExitError{Code: ExitUsage, Err: err} }
 
 func migrateCmd(m Migrator) *cobra.Command {
-	var check bool
+	var (
+		check, contract bool
+		forget          []string
+	)
 	cmd := &cobra.Command{
 		Use:   "migrate",
 		Short: "Runs the pending schema steps of every store and exits.",
 		Long: `Opens every store the node uses, without starting servers, P2P or delivery, and runs
-their pending schema steps. With --check it runs no step and lists every pending step.
+their pending schema steps up to the first contract step. With --contract it also runs
+contract steps, which binaries without them cannot read, once no such binary opens the store.
+With --check it runs no step and lists every pending step.
 The command reads the node's full configuration, including its identities.
 
 Exit codes: 0 every store is current (or has been migrated), 10 steps are pending (--check),
-11 a store's schema is newer than this binary, 1 the command failed, 2 invalid arguments.`,
+11 a store's schema is newer than this binary, 12 a binary without a pending contract step
+opens a store (--contract), 1 the command failed, 2 invalid arguments.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return usageError(cmd, errors.Errorf("unexpected arguments %q", args))
+			}
+			if check && len(forget) > 0 {
+				return usageError(cmd, errors.New("--forget-opener changes the database; it cannot be combined with --check"))
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.SilenceUsage = true
+			var opts []migrate.Option
+			if contract {
+				opts = append(opts, migrate.WithContract())
+			}
+			if len(forget) > 0 {
+				opts = append(opts, migrate.WithForgetOpeners(forget...))
+			}
+			defer migrate.SetProcessOptions(opts...)()
 			// No signal handler: a migrator waiting for the lock must die on SIGTERM.
 			if err := m.Migrate(cmd.Context(), check); err != nil {
 				return &ExitError{Code: exitCode(err), Err: err}
@@ -154,6 +179,8 @@ Exit codes: 0 every store is current (or has been migrated), 10 steps are pendin
 	}
 	cmd.SetFlagErrorFunc(usageError)
 	cmd.Flags().BoolVar(&check, "check", false, "run no step; list pending steps and exit 10 if there are any")
+	cmd.Flags().BoolVar(&contract, "contract", false, "also run contract steps; with --check, count pending contract steps as pending")
+	cmd.Flags().StringArrayVar(&forget, "forget-opener", nil, "delete the opener rows of this FSC node id before migrating, for a node none of whose replicas runs a binary without the contract step anymore; repeatable")
 	return cmd
 }
 

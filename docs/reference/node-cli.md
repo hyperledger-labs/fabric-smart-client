@@ -93,21 +93,26 @@ Prepare the schema of every store the node uses and exit.
 
 **Usage:**
 ```bash
-./mynode node migrate          # run every pending schema step
-./mynode node migrate --check  # run nothing; exit 10 and list the pending steps if there are any
+./mynode node migrate             # run the pending schema steps up to the first contract step
+./mynode node migrate --check     # run nothing; exit 10 and list the pending steps if there are any
+./mynode node migrate --contract  # also run contract steps, once no older binary opens the store
+./mynode node migrate --contract --forget-opener node1  # first delete node1's rows in the openers table
 ```
 
 The command reads the same configuration as `node start` and installs every SDK, which loads the node's identities, but starts no server, P2P or delivery. It then opens each store the SDKs register (see [Reaching stores from `node migrate`](../platform/view/services/db-driver.md#reaching-stores-from-node-migrate)), with `skipCreateTable` set to `false` for this run, or to `true` with `--check`. It opens every store even if one fails, and reports each failing store. With `--check` it does so even when installing an SDK fails on a store, so a store may be listed twice. Before connecting to Postgres it logs the host, database and role of each persistence, never the password. A store that would fall back to memory, because it names no persistence and `fsc.persistences.default` is not defined, fails the command. Run it before starting nodes that use `skipCreateTable: true`; see [Schema migrations](../platform/view/services/schema-migrations.md).
+
+Without `--contract` the command, like a starting node, stops before a contract step and does not count it as pending. With `--contract` it runs contract steps. `--check --contract` counts them as pending, marks them `(contract)`, and exits 12 if a binary that lacks one opens the store. `--forget-opener <fsc.id>`, repeatable, deletes that node's rows from each store's openers table before any step runs; it cannot be combined with `--check`. See [Contract steps](../platform/view/services/schema-migrations.md#contract-steps).
 
 | Exit code | Meaning |
 |---|---|
 | `0` | every store is current (or, without `--check`, has been migrated) |
 | `10` | `--check`: steps are pending; each pending store and its steps are listed |
 | `11` | a store's schema is newer than this binary (`migrate.ErrSchemaTooNew`) |
+| `12` | `--contract`, also with `--check`: a store is opened by a binary that lacks a pending contract step (`migrate.ErrOlderOpener`); the nodes are listed |
 | `1` | the command could not run or could not check or migrate a store: configuration, connection, lock or step failure |
 | `2` | invalid arguments; no store was opened |
 
-When stores fail for different reasons, the code is the first of `1`, `11`, `10` that applies. Any argument other than `--check` and `--help` exits 2, and `--help` connects to nothing.
+When stores fail for different reasons, the code is the first of `1`, `11`, `12`, `10` that applies. An unknown flag or argument exits 2, and `--help` connects to nothing.
 
 ### `version`
 
@@ -207,4 +212,4 @@ Views that observe their context (`ctx.Done()`) return promptly once it is cance
 |------|---------|
 | `0` | Clean shutdown |
 | `1` | Error during startup or operation |
-| `2`, `10`, `11` | `node migrate` only; see [`node migrate`](#node-migrate) |
+| `2`, `10`, `11`, `12` | `node migrate` only; see [`node migrate`](#node-migrate) |

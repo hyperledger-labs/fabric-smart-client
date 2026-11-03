@@ -177,9 +177,25 @@ func (s *OrderStore) Steps() []migrate.Step {
 }
 ```
 
-Write step 1 with `IF NOT EXISTS` so that it accepts a database created by the store's earlier `CreateSchema`. Never edit, reorder or remove a released step: a database that applied it does not run it again. Every step must leave the store readable by the previous release.
+Write step 1 with `IF NOT EXISTS` so that it accepts a database created by the store's earlier `CreateSchema`. Never edit, reorder or remove a released step: a database that applied it does not run it again. A step must leave the store readable by binaries that lack it, unless it is a contract step.
 
-`Step.Hash` is a SHA-256 over a step's version, name and SQL. The `migrate/migratetest` package checks a store's steps against a golden file with one line per step, `<version> <hash> <name>`, and fails when a recorded line changes or disappears. New steps are appended by running the test with `FSC_UPDATE_STEPS=1`, which never rewrites a recorded line. Build the store with fixed table names, since steps embed them:
+#### Contract steps
+
+Dropping a column, changing a type or moving data into a new form breaks binaries that still read the old form. Split such a change in two:
+
+1. An expand step adds the new form, and the store code of the same release writes both forms and reads the new one, falling back to the old one. Binaries of the previous release keep working.
+2. A contract step, in a later release, copies rows that are still only in the old form and then drops it. Set `Contract: true`:
+
+```go
+{Version: 3, Name: "drop orders.amount_text", Contract: true, SQL: []string{
+	"UPDATE " + s.table + " SET amount = CAST(amount_text AS BIGINT) WHERE amount IS NULL",
+	"ALTER TABLE " + s.table + " DROP COLUMN amount_text",
+}},
+```
+
+Backfill before dropping: until the operator runs the step, replicas of the previous release may have kept writing the old form. On a store that existed before, a node does not run a contract step at startup, only `node migrate --contract` does (see [Contract steps](schema-migrations.md#contract-steps)), so the release that ships the step serves the store both before and after it and must not depend on the step having run. A new store runs every step at startup. `StoreName` must be the store's primary table: a store without a version row whose table exists counts as existing. The step runs in one transaction, which on a large table holds its locks for the whole rewrite. Do not mark a step as a contract step after its release: `Step.Hash` covers the flag.
+
+`Step.Hash` is a SHA-256 over a step's version, name, SQL and `Contract` flag. The `migrate/migratetest` package checks a store's steps against a golden file with one line per step, `<version> <hash> <name>`, and fails when a recorded line changes or disappears. New steps are appended by running the test with `FSC_UPDATE_STEPS=1`, which never rewrites a recorded line. Build the store with fixed table names, since steps embed them:
 
 ```go
 func TestOrderStoreSteps(t *testing.T) {
