@@ -203,9 +203,9 @@ from its creator, but records a txID for duplicate detection within a block only
 is valid, so the honest envelope later in the same block is still `VALID`. The committer skips an
 invalid envelope whose txID a valid envelope in the same block carries, so the transaction's vault
 status and finality event are those of the honest envelope. Any other invalid envelope marks its
-transaction Invalid without the committer storing or parsing it. A forgery ordered in an earlier
-block is in Fabric's ledger index, so Fabric flags the honest envelope `DUPLICATE_TXID` and the
-transaction is invalid on every peer.
+transaction Invalid without the committer storing it or reading its read-write set. A forgery
+ordered in an earlier block is in Fabric's ledger index, so Fabric flags the honest envelope
+`DUPLICATE_TXID` and the transaction is invalid on every peer.
 
 The transaction-metadata store keeps the first value written under a key and returns nil on later
 writes: transient data is stored again during multi-step endorsement.

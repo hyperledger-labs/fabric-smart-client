@@ -98,9 +98,10 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum cdriver.Bl
 // A transaction the vault holds as Invalid is committed from the block envelope.
 // Fabric marks a transaction ID as DUPLICATE_TXID once it is in the ledger or a
 // valid envelope earlier in the block carries it, so a valid flag for a
-// transaction this node holds as Invalid means the node discarded it locally or
-// an invalid envelope with the same txID came earlier in the block. Fabric's
-// verdict overrides that discard. The commit follows the Busy path: when this node holds
+// transaction this node holds as Invalid means the node discarded it locally.
+// Fabric's verdict overrides that discard. An invalid envelope with the same
+// txID earlier in the block does not cause it: [Committer.Commit] skips that
+// envelope. The commit follows the Busy path: when this node holds
 // the transaction only as a stored envelope, the ordered read-write set is
 // matched against it, so a transaction discarded because the sets differ fails
 // with [ErrDiscardTX] again and stays Invalid. Like a Busy transaction, it is
