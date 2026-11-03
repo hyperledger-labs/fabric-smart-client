@@ -815,7 +815,12 @@ func (n *Network) signConfigTransaction(channelTxPath string, submittingPeer *to
 // JoinChannel will join peers to the specified channel. The orderer is used to
 // obtain the current configuration block for the channel.
 //
-// The orderer and listed peers must be running before this is called.
+// The orderer and listed peers must be running before this is called. The
+// fetch of the block is retried until it succeeds, bounded by
+// n.EventuallyTimeout: a raft orderer refuses Deliver with SERVICE_UNAVAILABLE
+// until it has learned the channel's leader, which can be later than another
+// consenter reporting itself as leader. The peers join from the fetched block,
+// so the joins do not depend on the orderer.
 func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topology.Peer) {
 	if len(peers) == 0 {
 		return
@@ -826,16 +831,20 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 	_ = tempFile.Close()
 	defer func() { _ = os.Remove(tempFile.Name()) }()
 
-	sess, err := n.PeerAdminSession(peers[0], commands.ChannelFetch{
-		NetworkPrefix: n.Prefix,
-		Block:         "0",
-		ChannelID:     name,
-		Orderer:       n.OrdererAddress(o, ListenPort),
-		OutputFile:    tempFile.Name(),
-		ClientAuth:    n.ClientAuthRequired,
-	})
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	fetch := func() int {
+		sess, err := n.PeerAdminSession(peers[0], commands.ChannelFetch{
+			NetworkPrefix: n.Prefix,
+			Block:         "0",
+			ChannelID:     name,
+			Orderer:       n.OrdererAddress(o, ListenPort),
+			OutputFile:    tempFile.Name(),
+			ClientAuth:    n.ClientAuthRequired,
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		return sess.Wait(n.EventuallyTimeout).ExitCode()
+	}
+	gomega.Eventually(fetch, n.EventuallyTimeout, time.Second).Should(gomega.Equal(0),
+		"failed fetching block 0 of channel [%s] from orderer [%s]", name, o.Name)
 
 	for _, p := range peers {
 		if p.SkipInit {
