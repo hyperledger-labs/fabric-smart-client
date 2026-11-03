@@ -393,7 +393,7 @@ func ClientSpecs(s *integration.TestSuite) {
 // unlike CrashSpecs. Each spec leaves the network healthy, so the specs can run under
 // ShareNetwork.
 func ViewSpecs(s *integration.TestSuite) {
-	ginkgo.It("fails a three-party view when one party dies", func() {
+	ginkgo.It("fails a three-party view when one party is down", func() {
 		// Alice collects from bob, then from charlie, who is dead: the view must fail on
 		// charlie's session closing rather than hang, and bob must release his half.
 		s.II.KillFSCNode("charlie")
@@ -590,7 +590,7 @@ func startBlockedEcho(ctx context.Context, ii *integration.Infrastructure, c api
 	echo := make(chan error, 1)
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		echo <- EchoToWithContext(ctx, ii, c, node, true)
+		echo <- callEcho(ctx, c, &views.Echo{Responder: ii.Identity(node), Block: true})
 	}()
 	// The responder creates a context when alice's message arrives and holds it while it
 	// blocks, so a kill lands mid-view. An echo that ends before then stops the wait with

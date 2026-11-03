@@ -274,13 +274,14 @@ exclude, so neither target outlasts CI's per-job limit. `Broadcast` runs alice's
 `broadcast` view, which orders a transaction without waiting for finality, so a spec can
 kill alice in between. `TrySubmitTo` is `TrySubmit` with given responders; the load spec
 runs workers that loop it, stops them before the kill, so each loses at most the call in
-flight, and restarts them once the responder endorses again. `EchoTo` and `BlockedEcho` echo to a given responder;
-`EchoToWithContext` and `BlockedEchoWithContext` end their call with a context the spec
+flight, and restarts them once the responder endorses again. `EchoTo` and `BlockedEcho`
+echo to a given responder; `BlockedEchoWithContext` ends its call with a context the spec
 controls. `ClientSpecs` cancels a call bob's responder is blocked in, through each client,
 and checks the call fails with the cancellation and bob frees the responder's view context.
 `ViewSpecs`, called once per suite, runs a view with two responders, bob and charlie, while
-charlie is dead: it must fail within `SessionCloseTimeout`, and bob must release his half.
-`TryEndorseFrom` returns the endorse view's error, so a spec can expect it to fail. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
+charlie is down: it must fail within `SessionCloseTimeout`, and bob must release his half.
+`TryEndorseFrom` returns the endorse view's error, so a spec can expect it to fail.
+`EndorseLiar` runs alice's `endorseLiar` view against a bob that
 changes the transaction before endorsing it, and returns how alice rejected the
 endorsement. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election; `EndorseEventually` retries

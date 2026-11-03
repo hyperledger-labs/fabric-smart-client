@@ -328,26 +328,18 @@ func EchoWith(ii *integration.Infrastructure, c api.ViewClient, block bool) erro
 
 // EchoTo is EchoWith with responder, an FSC node name, in place of bob.
 func EchoTo(ii *integration.Infrastructure, c api.ViewClient, responder string, block bool) error {
-	return EchoToWithContext(context.Background(), ii, c, responder, block)
-}
-
-// EchoToWithContext is EchoTo whose call ends when ctx does, at the latest after
-// viewTimeout, so a spec can cancel the call or let its deadline expire.
-func EchoToWithContext(ctx context.Context, ii *integration.Infrastructure, c api.ViewClient, responder string, block bool) error {
-	return callEchoWithContext(ctx, c, &views.Echo{Responder: ii.Identity(responder), Block: block})
+	return callEcho(context.Background(), c, &views.Echo{Responder: ii.Identity(responder), Block: block})
 }
 
 // AwaitEcho runs alice's echo view through c, a view client of alice, with bob's responder
 // waiting for a second message that never comes. It returns the view's error.
 func AwaitEcho(ii *integration.Infrastructure, c api.ViewClient) error {
-	return callEcho(c, &views.Echo{Responder: ii.Identity("bob"), Await: true})
+	return callEcho(context.Background(), c, &views.Echo{Responder: ii.Identity("bob"), Await: true})
 }
 
-func callEcho(c api.ViewClient, in *views.Echo) error {
-	return callEchoWithContext(context.Background(), c, in)
-}
-
-func callEchoWithContext(ctx context.Context, c api.ViewClient, in *views.Echo) error {
+// callEcho runs alice's echo view through c with in; the call ends when ctx does, at the
+// latest after viewTimeout.
+func callEcho(ctx context.Context, c api.ViewClient, in *views.Echo) error {
 	ctx, cancel := context.WithTimeout(ctx, viewTimeout)
 	defer cancel()
 	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(in))

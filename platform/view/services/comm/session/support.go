@@ -116,6 +116,8 @@ func ReadFirstMessageOrPanic(viewCtx view.Context) []byte {
 			panic(RejectionError(msg))
 		}
 		payload = msg.Payload
+	case <-viewCtx.Context().Done():
+		panic(errors.Wrap(viewCtx.Context().Err(), "stopped waiting for the first message"))
 	case <-timeout.C:
 		panic("timeout reached")
 	}
