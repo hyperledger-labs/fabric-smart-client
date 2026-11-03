@@ -13,11 +13,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
-// config models the DB configuration
+// config models the DB configuration: the opts of each persistence, and the
+// node-wide keys that sqlcommon.MigrateOptions reads.
 type config interface {
 	UnmarshalDriverOpts(name driver.PersistenceName, v any) error
+	sqlcommon.NodeConfig
 }
 
 // Config is the Postgres persistence configuration read from the persistence opts.
@@ -57,6 +60,12 @@ func NewConfigProvider(config config) *ConfigProvider {
 
 type ConfigProvider struct {
 	config config
+}
+
+// MigrateOptions returns the migrate options of a persistence with the given
+// skipCreateTable; see sqlcommon.MigrateOptions.
+func (r *ConfigProvider) MigrateOptions(skipCreateTable bool) ([]migrate.Option, error) {
+	return sqlcommon.MigrateOptions(r.config, skipCreateTable)
 }
 
 func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) (*Config, error) {

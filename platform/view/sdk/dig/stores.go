@@ -12,8 +12,10 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
@@ -34,8 +36,8 @@ type StoreOpenerFunc func(ctx context.Context) error
 func (f StoreOpenerFunc) OpenStores(ctx context.Context) error { return f(ctx) }
 
 // storeOpeners is the node.StoreOpener registered in the node's registry. It
-// resolves the group when called, after every SDK has installed, and
-// calls each entry.
+// resolves the group when called, after every SDK has installed, calls every
+// entry, and joins their errors.
 type storeOpeners struct{ c commondig.Container }
 
 func (s storeOpeners) OpenStores(ctx context.Context) error {
@@ -44,12 +46,11 @@ func (s storeOpeners) OpenStores(ctx context.Context) error {
 		Openers []node.StoreOpener `group:"fsc-store-openers"`
 	},
 	) error {
+		var errs []error
 		for _, o := range in.Openers {
-			if err := o.OpenStores(ctx); err != nil {
-				return err
-			}
+			errs = append(errs, o.OpenStores(ctx))
 		}
-		return nil
+		return errors.Join(errs...)
 	})
 }
 
@@ -60,11 +61,27 @@ type migratingGate struct{}
 
 func (migratingGate) NotReady() (string, bool) { return "migrating", migrate.InProgress() }
 
+// ErrMemoryFallback is returned by a store opener when a store uses the memory
+// driver because it names no persistence and fsc.persistences.default is not
+// defined: `node migrate` would prepare nothing that persists.
+var ErrMemoryFallback = errors.New("a store names no persistence and fsc.persistences.default is not defined, so it uses memory; define a persistence")
+
 // newViewStoreOpener opens the view stores: the KVS, binding, signer info and
 // audit info stores. dig builds each store once, so resolving them is opening
-// them.
+// them. Each is resolved on its own, so every failing store is reported.
 func newViewStoreOpener(c commondig.Container) StoreOpenerEntry {
 	return StoreOpenerEntry{Opener: StoreOpenerFunc(func(context.Context) error {
-		return c.Invoke(func(*kvs.KVS, driver.BindingStore, driver.SignerInfoStore, driver.AuditInfoStore) {})
+		err := errors.Join(
+			c.Invoke(func(*kvs.KVS) {}),
+			c.Invoke(func(driver.BindingStore) {}),
+			c.Invoke(func(driver.SignerInfoStore) {}),
+			c.Invoke(func(driver.AuditInfoStore) {}),
+		)
+		return errors.Join(err, c.Invoke(func(d multiplexed.Driver) error {
+			if d.FellBackToMemory() {
+				return ErrMemoryFallback
+			}
+			return nil
+		}))
 	})}
 }

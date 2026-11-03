@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
@@ -57,6 +59,8 @@ func (p *plainStore) CreateSchema() error { p.calls++; return nil }
 
 type backend struct {
 	dialect migrate.Dialect
+	// dsn is the Postgres data source; empty on SQLite.
+	dsn string
 	// open returns a new pool on the same database each call.
 	open func(t *testing.T) *sql.DB
 }
@@ -83,7 +87,7 @@ func postgresBackend(t *testing.T) backend {
 	terminate, dsn, err := postgres.StartPostgres(t.Context(), postgres.ConfigFromEnv(), nil)
 	require.NoError(t, err)
 	t.Cleanup(terminate)
-	return backend{dialect: migrate.Postgres, open: func(t *testing.T) *sql.DB {
+	return backend{dialect: migrate.Postgres, dsn: dsn, open: func(t *testing.T) *sql.DB {
 		t.Helper()
 		db, err := sql.Open("pgx", dsn)
 		require.NoError(t, err)
@@ -132,16 +136,12 @@ func TestPostgresMigrateWaiter(t *testing.T) { //nolint:paralleltest // replaces
 	db := b.open(t)
 	ctx := t.Context()
 
-	holder, err := db.Conn(ctx)
-	require.NoError(t, err)
-	defer func() { _ = holder.Close() }()
-	_, err = holder.ExecContext(ctx, "SELECT pg_advisory_lock($1)", migrate.LockKey("waiter_schema_versions"))
-	require.NoError(t, err)
+	holder, pid := lockHolder(t, db, "waiter_schema_versions")
 
 	done := make(chan error, 1)
 	go func() { done <- migrate.Migrate(ctx, db, b.dialect, "waiter", newStore("waiter_s", 1)) }()
 	require.Eventually(t, func() bool {
-		return len(logs.EntriesContaining("waiting")) > 0
+		return len(logs.EntriesContaining(fmt.Sprintf("held by pid %d (application_name [holder-pod-0]", pid))) > 0
 	}, 5*time.Second, 10*time.Millisecond)
 	select {
 	case err := <-done:
@@ -149,10 +149,74 @@ func TestPostgresMigrateWaiter(t *testing.T) { //nolint:paralleltest // replaces
 	default:
 	}
 
-	_, err = holder.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", migrate.LockKey("waiter_schema_versions"))
+	_, err := holder.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", migrate.LockKey("waiter_schema_versions"))
 	require.NoError(t, err)
 	require.NoError(t, <-done)
 	requireVersion(t, db, "waiter_schema_versions", "waiter_s", 1)
+}
+
+// TestPostgresMigrateLockTimeout checks that a migrator stops waiting after
+// WithLockTimeout with an error naming the holder and the table.
+func TestPostgresMigrateLockTimeout(t *testing.T) { //nolint:paralleltest // replaces package-level state
+	b := postgresBackend(t)
+	migrate.SetLockIntervals(t, 10*time.Millisecond, time.Hour)
+	db := b.open(t)
+	_, pid := lockHolder(t, db, "timeout_schema_versions")
+
+	err := migrate.Migrate(t.Context(), db, b.dialect, "timeout", newStore("timeout_s", 1), migrate.WithLockTimeout(200*time.Millisecond))
+	require.ErrorContains(t, err, "migration lock on [timeout_schema_versions] not granted within 200ms")
+	require.ErrorContains(t, err, fmt.Sprintf("held by pid %d (application_name [holder-pod-0]", pid))
+	requireNoTable(t, db, b.dialect, "timeout_s_t1")
+}
+
+// TestPostgresOpenerPrivilege checks that a role that may not write the openers
+// table fails to open a store, with an error naming the table, and that the
+// grant the docs give the node role is enough.
+func TestPostgresOpenerPrivilege(t *testing.T) {
+	t.Parallel()
+	b := postgresBackend(t)
+	db := b.open(t)
+	s := newStore("priv_s", 1)
+	require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "priv", s))
+	exec := func(q string) {
+		t.Helper()
+		_, err := db.Exec(q)
+		require.NoError(t, err)
+	}
+	exec("CREATE ROLE priv_node LOGIN PASSWORD 'p'")
+	t.Cleanup(func() {
+		_, _ = db.Exec("DROP OWNED BY priv_node")
+		_, _ = db.Exec("DROP ROLE priv_node")
+	})
+	exec("GRANT SELECT ON priv_schema_versions TO priv_node")
+	exec("GRANT INSERT, UPDATE ON priv_schema_openers TO priv_node")
+	cfg, err := pgx.ParseConfig(b.dsn)
+	require.NoError(t, err)
+	cfg.User, cfg.Password = "priv_node", "p"
+	nodeDB := stdlib.OpenDB(*cfg)
+	t.Cleanup(func() { _ = nodeDB.Close() })
+	err = migrate.Migrate(t.Context(), nodeDB, b.dialect, "priv", s, migrate.WithCheckOnly())
+	require.ErrorContains(t, err, "failed to record opener in [priv_schema_openers]")
+	require.ErrorContains(t, err, "permission denied")
+
+	exec("GRANT SELECT ON priv_schema_openers TO priv_node")
+	require.NoError(t, migrate.Migrate(t.Context(), nodeDB, b.dialect, "priv", s, migrate.WithCheckOnly()))
+}
+
+// lockHolder takes the advisory lock of table on a connection named
+// holder-pod-0 and returns the connection and its backend pid.
+func lockHolder(t *testing.T, db *sql.DB, table string) (*sql.Conn, int) {
+	t.Helper()
+	holder, err := db.Conn(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = holder.Close() })
+	_, err = holder.ExecContext(t.Context(), "SET application_name = 'holder-pod-0'")
+	require.NoError(t, err)
+	var pid int
+	require.NoError(t, holder.QueryRowContext(t.Context(), "SELECT pg_backend_pid()").Scan(&pid))
+	_, err = holder.ExecContext(t.Context(), "SELECT pg_advisory_lock($1)", migrate.LockKey(table))
+	require.NoError(t, err)
+	return holder, pid
 }
 
 func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
@@ -258,9 +322,12 @@ func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
 		t.Parallel()
 		b := newBackend(t)
 		db := b.open(t)
-		s := newStore("check_s", 1)
-		require.ErrorIs(t, migrate.Migrate(t.Context(), db, b.dialect, "check", s, migrate.WithCheckOnly()), migrate.ErrPending)
+		s := newStore("check_s", 2)
+		err := migrate.Migrate(t.Context(), db, b.dialect, "check", s, migrate.WithCheckOnly())
+		require.ErrorIs(t, err, migrate.ErrPending)
+		require.ErrorContains(t, err, "pending: step 1 [create check_s_t1], step 2 [create check_s_t2]")
 		requireNoTable(t, db, b.dialect, "check_schema_versions")
+		requireNoTable(t, db, b.dialect, "check_schema_openers")
 		requireNoTable(t, db, b.dialect, "check_s_t1")
 
 		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "check", s))
@@ -347,6 +414,45 @@ func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
 		require.Equal(t, 1, p.calls)
 	})
 
+	t.Run("Openers", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := newStore("open_s", 1)
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "open", s, migrate.WithNode("alice")))
+		requireOpener(t, db, "open_schema_openers", "open_s", "alice", 1)
+
+		// Reopening updates the row; a check-only open records too.
+		_, err := db.Exec("UPDATE open_schema_openers SET opened_at = '2000-01-01 00:00:00'")
+		require.NoError(t, err)
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "open", s, migrate.WithNode("alice"), migrate.WithCheckOnly()))
+		require.Greater(t, requireOpener(t, db, "open_schema_openers", "open_s", "alice", 1).Year(), 2000)
+
+		// A replica on a newer binary gets its own row; the older row stays.
+		s.steps = append(s.steps, newStore("open_s", 2).steps[1])
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "open", s, migrate.WithNode("alice")))
+		requireOpener(t, db, "open_schema_openers", "open_s", "alice", 1)
+		requireOpener(t, db, "open_schema_openers", "open_s", "alice", 2)
+		var n int
+		require.NoError(t, db.QueryRow("SELECT count(*) FROM open_schema_openers").Scan(&n))
+		require.Equal(t, 2, n)
+	})
+
+	t.Run("OpenersTableAddedToMigratedDatabase", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		s := newStore("heal_s", 1)
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "heal", s))
+		_, err := db.Exec("DROP TABLE heal_schema_openers")
+		require.NoError(t, err)
+
+		err = migrate.Migrate(t.Context(), db, b.dialect, "heal", s, migrate.WithCheckOnly())
+		require.ErrorContains(t, err, "failed to record opener in [heal_schema_openers]", "check-only creates nothing")
+		require.NoError(t, migrate.Migrate(t.Context(), db, b.dialect, "heal", s, migrate.WithNode("n")))
+		requireOpener(t, db, "heal_schema_openers", "heal_s", "n", 1)
+	})
+
 	t.Run("StepsMustBeNumbered", func(t *testing.T) {
 		t.Parallel()
 		b := newBackend(t)
@@ -380,6 +486,14 @@ func requireVersion(t *testing.T, db *sql.DB, table, store string, want int) {
 	require.NoError(t, db.QueryRow("SELECT version, readable_by FROM "+table+" WHERE store = $1", store).Scan(&version, &readableBy))
 	require.Equal(t, want, version)
 	require.Equal(t, want, readableBy)
+}
+
+// requireOpener returns opened_at of the opener row, failing if it is missing.
+func requireOpener(t *testing.T, db *sql.DB, table, store, node string, highest int) time.Time {
+	t.Helper()
+	var at time.Time
+	require.NoError(t, db.QueryRow("SELECT opened_at FROM "+table+" WHERE store = $1 AND node = $2 AND highest_step = $3", store, node, highest).Scan(&at))
+	return at
 }
 
 func requireNoTable(t *testing.T, db *sql.DB, d migrate.Dialect, table string) {

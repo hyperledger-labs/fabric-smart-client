@@ -254,6 +254,14 @@ fsc:
       # disabled, and a size below 1 is rejected at startup.
       size:
 
+  # Schema migrations of every SQL persistence. See docs/platform/view/services/schema-migrations.md.
+  storage:
+    # How long a node waits for the Postgres migration lock while another session migrates the
+    # same table prefix; it then fails with an error that names the holder. Unset or 0 waits
+    # without limit, so a replica behind a long step keeps waiting. Must not be negative.
+    # Give a unit, such as 10m: a bare number is read as nanoseconds.
+    migrationLockTimeout: 0s
+
   # ------------------- Persistence Configuration -------------------------
   # All persistence configurations of the application are defined here
   # Then each store chooses a configuration by referencing it by the key (e.g. mysqlite)

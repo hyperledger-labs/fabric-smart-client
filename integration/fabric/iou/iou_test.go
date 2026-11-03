@@ -115,12 +115,12 @@ func (s *TestSuite) TestSucceededWithReplicas() {
 	iou.CheckState(s.II, "fsc.lender.1", iouState, 5)
 
 	// The borrower's vault and other stores are in its prefixed default database, its KVS in
-	// the second one. Each database also holds the versions table of the stores it serves.
+	// the second one. Each database also holds the versions and openers tables of the stores it serves.
 	borrowerTables := iou.Tables(s.II, "borrower.0", common.DefaultPersistence)
 	gomega.Expect(borrowerTables).To(gomega.ContainElement(gomega.HavePrefix("borrower_default__testchannel_vstate")))
 	gomega.Expect(borrowerTables).To(gomega.HaveEach(gomega.HavePrefix("borrower_")))
 	gomega.Expect(borrowerTables).NotTo(gomega.ContainElement(gomega.HaveSuffix("_kvs")))
-	gomega.Expect(iou.Tables(s.II, "borrower.0", borrowerKVS)).To(gomega.ConsistOf("fsc_kvs", "fsc_schema_versions"))
+	gomega.Expect(iou.Tables(s.II, "borrower.0", borrowerKVS)).To(gomega.ConsistOf("fsc_kvs", "fsc_schema_versions", "fsc_schema_openers"))
 	gomega.Expect(iou.Tables(s.II, "lender.0", common.DefaultPersistence)).To(gomega.ContainElement("fsc_kvs"))
 
 	// The lender's database also accepts plaintext, so check that the lender's replicas, the

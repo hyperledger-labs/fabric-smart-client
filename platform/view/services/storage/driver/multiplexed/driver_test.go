@@ -128,6 +128,7 @@ func TestDriver_NewKVS(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, kvs)
+		require.False(t, d.FellBackToMemory())
 	})
 
 	t.Run("defaults to memory without persistence name and default block", func(t *testing.T) {
@@ -139,10 +140,12 @@ func TestDriver_NewKVS(t *testing.T) {
 		config := &mock.Config{}
 
 		d := NewDriver(config, dbdriver.NamedDriver{Name: mem.Persistence, Driver: mockDriver})
+		require.False(t, d.FellBackToMemory())
 		kvs, err := d.NewKVS("")
 
 		require.NoError(t, err)
 		require.NotNil(t, kvs)
+		require.True(t, d.FellBackToMemory())
 	})
 
 	t.Run("error from config", func(t *testing.T) {

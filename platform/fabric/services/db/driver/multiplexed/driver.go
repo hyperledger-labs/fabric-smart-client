@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package multiplexed
 
 import (
+	"sync/atomic"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	vdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -20,15 +22,21 @@ func NewDriver(config vdbdriver.Config, ds ...fdbdriver.NamedDriver) Driver {
 		drivers[d.Name] = d.Driver
 	}
 	return Driver{
-		drivers: drivers,
-		config:  common.NewConfig(config),
+		drivers:  drivers,
+		config:   common.NewConfig(config),
+		fellBack: &atomic.Bool{},
 	}
 }
 
 type Driver struct {
-	drivers map[driver.PersistenceType]fdbdriver.Driver
-	config  vdbdriver.PersistenceConfig
+	drivers  map[driver.PersistenceType]fdbdriver.Driver
+	config   vdbdriver.PersistenceConfig
+	fellBack *atomic.Bool
 }
+
+// FellBackToMemory reports whether a store created by d uses the memory driver because it
+// names no persistence and no default persistence is defined. `node migrate` fails if so.
+func (d Driver) FellBackToMemory() bool { return d.fellBack != nil && d.fellBack.Load() }
 
 func (d Driver) NewEndorseTx(name vdbdriver.PersistenceName, params ...string) (fdbdriver.EndorseTxStore, error) {
 	dr, err := d.getDriver(name)
@@ -63,5 +71,5 @@ func (d Driver) NewVault(name vdbdriver.PersistenceName, params ...string) (driv
 }
 
 func (d Driver) getDriver(name vdbdriver.PersistenceName) (fdbdriver.Driver, error) {
-	return vmultiplexed.GetDriver(d.config, d.drivers, name)
+	return vmultiplexed.GetDriverTracked(d.config, d.drivers, name, d.fellBack)
 }

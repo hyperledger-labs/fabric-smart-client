@@ -27,14 +27,29 @@ const defaultPingInterval = 10 * time.Second
 // password, so it is safe as a metric label and in logs. It returns "unknown" if
 // the DSN cannot be parsed.
 func dataSourceLabel(dataSource string) string {
-	if dsn, ok := registeredDataSource(dataSource); ok {
-		dataSource = dsn
-	}
-	cfg, err := pgconn.ParseConfig(dataSource)
+	cfg, err := parseDataSource(dataSource)
 	if err != nil {
 		return "unknown"
 	}
 	return net.JoinHostPort(cfg.Host, strconv.Itoa(int(cfg.Port))) + "/" + cfg.Database
+}
+
+// parseDataSource parses a DSN, or the one behind a name RegisterTLSConnection returned.
+func parseDataSource(dataSource string) (*pgconn.Config, error) {
+	if dsn, ok := registeredDataSource(dataSource); ok {
+		dataSource = dsn
+	}
+	return pgconn.ParseConfig(dataSource)
+}
+
+// dataSourceUser returns the role a DSN connects as, read like dataSourceLabel
+// reads the host. It returns "unknown" if the DSN cannot be parsed.
+func dataSourceUser(dataSource string) string {
+	cfg, err := parseDataSource(dataSource)
+	if err != nil {
+		return "unknown"
+	}
+	return cfg.User
 }
 
 // poolGauges exports sql.DBStats of one pool.

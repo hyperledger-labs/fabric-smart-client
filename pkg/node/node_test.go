@@ -117,6 +117,31 @@ func TestNode_Migrate(t *testing.T) {
 	require.ErrorContains(t, n.Migrate(t.Context(), true), "pending")
 }
 
+// An SDK that fails Install after registering the StoreOpener does not hide the
+// other stores: Migrate still opens them and joins both errors.
+func TestNode_Migrate_InstallFails(t *testing.T) {
+	t.Parallel()
+	n, err := NewFromConfPathE(filepath.Join("..", "..", "platform", "view", "services", "config", "testdata"))
+	require.NoError(t, err)
+	installErr, openErr := errors.New("kvs pending"), errors.New("vault pending")
+	n.AddSDK(&failingInstallSDK{storeOpenerSDK{n: n, err: openErr}, installErr})
+	err = n.Migrate(t.Context(), true)
+	require.ErrorIs(t, err, installErr)
+	require.ErrorIs(t, err, openErr)
+}
+
+type failingInstallSDK struct {
+	storeOpenerSDK
+	err error
+}
+
+func (s *failingInstallSDK) Install() error {
+	if err := s.storeOpenerSDK.Install(); err != nil {
+		return err
+	}
+	return s.err
+}
+
 func TestNode_Migrate_NoStoreOpener(t *testing.T) {
 	t.Parallel()
 	n, err := NewFromConfPathE(filepath.Join("..", "..", "platform", "view", "services", "config", "testdata"))
