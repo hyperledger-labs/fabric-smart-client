@@ -194,8 +194,18 @@ A conflict is counted as the security rejection `store_conflict` (see
 [Security metrics](services/monitoring_metrics.md#security)). `endorseView` reports the session's
 remote peer and fails the endorsement. The Fabric committer reports an empty peer: a valid
 transaction whose envelope conflicts is discarded alone, with a validation message containing
-`store conflict`, and the channel keeps committing. An invalid transaction whose envelope conflicts
-is discarded as it would be otherwise and is not counted.
+`store conflict`, and the channel keeps committing.
+
+The Fabric committer stores only the envelopes of transactions Fabric found valid. Anyone who knows
+a txID can sign an envelope carrying it with their own identity and have it ordered ahead of the
+honest one. Fabric flags the forgery invalid, as `BAD_PROPOSAL_TXID` when the txID is not derived
+from its creator, but records a txID for duplicate detection within a block only when its envelope
+is valid, so the honest envelope later in the same block is still `VALID`. The committer skips an
+invalid envelope whose txID a valid envelope in the same block carries, so the transaction's vault
+status and finality event are those of the honest envelope. Any other invalid envelope marks its
+transaction Invalid without the committer storing or parsing it. A forgery ordered in an earlier
+block is in Fabric's ledger index, so Fabric flags the honest envelope `DUPLICATE_TXID` and the
+transaction is invalid on every peer.
 
 The transaction-metadata store keeps the first value written under a key and returns nil on later
 writes: transient data is stored again during multi-step endorsement.
