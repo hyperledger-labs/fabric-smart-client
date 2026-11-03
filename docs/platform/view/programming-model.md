@@ -329,13 +329,15 @@ and its authorizer; one with another name releases the old name.
 Nodes of different releases use, per session, the highest version of each component's formats
 that both support (see [Format negotiation](services/comm/readme.md#format-negotiation)). An
 application that changes the format of its own messages registers a component with the range it
-supports, by providing an entry from its SDK's `Install`:
+supports, when its SDK is built or in `main`, before the node starts:
 
 ```go
-if err := p.Container().Provide(viewsdk.NewComponentEntry("iou", 1, 2)); err != nil {
-	return err
-}
+preamble.RegisterComponent("iou", 1, 2) // platform/view/services/comm/preamble
 ```
+
+Registering before the node starts lets `node version` and `node peers --check`, which start no
+node, report the component too. A name registered twice, including one of FSC's (`view`, `fabric`,
+`fabricx`), panics.
 
 A view reads the version of its session before it encodes a message, and the receiving side reads
 it before it decodes:

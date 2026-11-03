@@ -35,7 +35,7 @@ const (
 // ErrEpoch is wrapped by Accept for a peer whose framing epoch differs from FramingEpoch.
 var ErrEpoch = errors.New("framing epoch mismatch")
 
-// Local returns the preamble of this binary, with the components SetComponents installed.
+// Local returns the preamble of this binary, with FSCComponents and the registered components.
 func Local() *Preamble { return build(Components()) }
 
 func build(cs []Component) *Preamble {
@@ -51,7 +51,7 @@ func build(cs []Component) *Preamble {
 	return p
 }
 
-// LocalBytes is Local encoded. It changes only when SetComponents installs new components.
+// LocalBytes is Local encoded. It changes only when a component is registered.
 func LocalBytes() []byte { return local.Load().raw }
 
 // Encode marshals p. It fails if the result would be refused by decode.

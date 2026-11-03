@@ -60,3 +60,17 @@ func TestSetComponents(t *testing.T) { //nolint:paralleltest
 	_, ok = LocalRange("iou")
 	require.True(t, ok, "a failed SetComponents keeps the components")
 }
+
+// TestRegisterComponent changes process-wide state, so it runs alone and restores the default.
+func TestRegisterComponent(t *testing.T) { //nolint:paralleltest
+	t.Cleanup(func() { require.NoError(t, SetComponents(FSCComponents)) })
+
+	RegisterComponent("iou", 1, 2)
+	r, ok := LocalRange("iou")
+	require.True(t, ok)
+	require.Equal(t, Range{1, 2}, r)
+	require.Len(t, Components(), len(FSCComponents)+1, "FSC's components stay")
+	require.PanicsWithError(t, "component [iou] registered twice: [1, 2] and [2, 3]", func() { RegisterComponent("iou", 2, 3) })
+	require.Panics(t, func() { RegisterComponent("view", 1, 2) }, "an FSC component cannot be registered again")
+	require.Panics(t, func() { RegisterComponent("Bad/Name", 1, 1) })
+}

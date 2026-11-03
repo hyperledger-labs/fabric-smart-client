@@ -77,7 +77,6 @@ func (p *SDK) Install() error {
 		// fns.NewProvider can depend on the narrower interface instead of the concrete type.
 		p.Container().Provide(digutils.Identity[*viewconfig.Provider](), dig.As(new(core.DynamicConfigService))),
 		p.Container().Provide(config.NewCore),
-		p.Container().Provide(viewsdk.NewComponentEntry("fabric", 1, 1)),
 		p.Container().Provide(config.NewProvider),
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
 		p.Container().Provide(generic.NewDriver, dig.Group("fabric-platform-drivers")),

@@ -68,9 +68,12 @@ func TestFormat(t *testing.T) {
 
 // TestJSON checks that --json prints a report with every component and every registered store,
 // with the steps of the golden files. The view and Fabric SDKs register these lists when built.
-func TestJSON(t *testing.T) { //nolint:paralleltest // registers process-wide schemas
+func TestJSON(t *testing.T) { //nolint:paralleltest // registers process-wide schemas and components
 	migrate.RegisterSchemas("view", viewsql.Schemas)
 	migrate.RegisterSchemas("fabric", fabricsql.Schemas)
+	// An application component is reported without any SDK installed.
+	preamble.RegisterComponent("iou", 1, 2)
+	t.Cleanup(func() { require.NoError(t, preamble.SetComponents(preamble.FSCComponents)) })
 	cmd := Cmd()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
@@ -81,11 +84,15 @@ func TestJSON(t *testing.T) { //nolint:paralleltest // registers process-wide sc
 	require.NoError(t, json.Unmarshal(out.Bytes(), &r))
 	require.Equal(t, buildinfo.Get().FSCVersion, r.FSCVersion)
 	require.Equal(t, preamble.FramingEpoch, r.FramingEpoch)
-	var components []string
+	components := map[string]component{}
 	for _, c := range r.Components {
-		components = append(components, c.Name)
+		components[c.Name] = c
 	}
-	require.ElementsMatch(t, []string{"view", "fabric", "fabricx"}, components)
+	require.Len(t, components, 4)
+	for _, name := range []string{"view", "fabric", "fabricx"} {
+		require.Contains(t, components, name)
+	}
+	require.Equal(t, component{Name: "iou", Min: 1, Max: 2}, components["iou"])
 
 	want := map[string]string{}
 	for _, dir := range []string{

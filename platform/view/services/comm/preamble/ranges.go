@@ -10,6 +10,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"sync"
 	"sync/atomic"
 
 	"google.golang.org/protobuf/proto"
@@ -47,7 +48,7 @@ var FSCComponents = []Component{
 // "<component>/<name>" splits unambiguously.
 var componentName = regexp.MustCompile(`^[a-z0-9-]+$`)
 
-// local is what SetComponents installed: this node's components and its encoded preamble.
+// local is what SetComponents installed: this binary's components and its encoded preamble.
 var local atomic.Pointer[localState]
 
 type localState struct {
@@ -61,14 +62,31 @@ func init() {
 	}
 }
 
-// SetComponents makes cs the components this node publishes in its preamble and negotiates
-// with. It fails, keeping the current components, if two share a name, a name does not match
-// [a-z0-9-]+, or a range is empty or starts at 0.
+// RegisterComponent adds the component name, at versions minVersion to maxVersion, to the ones
+// this binary publishes in its preamble and negotiates with. An application calls it for each
+// component it owns when its SDK is built or in main, before the node starts, so that the
+// commands that start no node, such as `node version` and `node peers --check`, report it too.
+// It panics if the name is taken, including by one of FSCComponents, or invalid (see
+// SetComponents): two parts of a binary claiming one component is a programming error.
 //
 // Components belong to the binary, not to one node: every node of the process publishes the
-// same, as with the FSC version. The view SDK calls SetComponents once, before comm starts;
-// until then the components are FSCComponents. A stream that opened earlier keeps the preamble
-// it sent.
+// same, as with the FSC version. A stream that opened before the call keeps the preamble it sent.
+func RegisterComponent(name string, minVersion, maxVersion uint32) {
+	registerMu.Lock()
+	defer registerMu.Unlock()
+	cs := append(slices.Clone(Components()), Component{Name: name, Range: Range{Min: minVersion, Max: maxVersion}})
+	if err := SetComponents(cs); err != nil {
+		panic(err)
+	}
+}
+
+// registerMu orders RegisterComponent calls, so that none is lost.
+var registerMu sync.Mutex
+
+// SetComponents makes cs the components this binary publishes in its preamble and negotiates
+// with, in place of the current ones. It fails, keeping the current components, if two share a
+// name, a name does not match [a-z0-9-]+, or a range is empty or starts at 0. Tests use it to
+// set and restore the components; a binary adds its own with RegisterComponent.
 func SetComponents(cs []Component) error {
 	seen := map[string]Range{}
 	for _, c := range cs {

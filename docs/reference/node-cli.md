@@ -180,7 +180,8 @@ With `--json` it prints one JSON object for release tooling:
   and `unknown` when the build recorded no VCS information (e.g. `go build -buildvcs=false`)
 - `--json` prints the same build info, empty instead of `unknown`, with `vcs_modified` for a
   dirty tree; `framing_epoch` and `components` are what the binary sends in its stream
-  preamble; `stores` lists, per SQL dialect, every store type the binary's SDKs register when
+  preamble: FSC's components and those the application registers with
+  `preamble.RegisterComponent`; `stores` lists, per SQL dialect, every store type the binary's SDKs register when
   they are built, with its schema steps and `migrate.Step.Hash` (the memory driver uses the
   `sqlite` steps). The view SDK registers the view stores and the Fabric SDK the Fabric stores,
   so a binary without the Fabric SDK lists only the view stores; see

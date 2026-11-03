@@ -8,29 +8,14 @@ package pingpong
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// TestComponent is the application component the version views negotiate.
+// TestComponent is the application component the version views negotiate. The initiator
+// binary registers it at {2, 3} and the responder at {1, 2}, so their sessions use version 2.
 const TestComponent = "pingtest"
-
-// ComponentSDK wraps an SDK and registers TestComponent at versions Min to Max.
-type ComponentSDK struct {
-	dig.SDK
-	Min, Max uint32
-}
-
-// Install provides the component entry, then installs the wrapped SDK.
-func (s *ComponentSDK) Install() error {
-	if err := s.Container().Provide(viewsdk.NewComponentEntry(TestComponent, s.Min, s.Max)); err != nil {
-		return err
-	}
-	return s.SDK.Install()
-}
 
 // VersionInitiator opens a session to the responder and returns the version of TestComponent the session
 // negotiated, after the responder confirmed it observes the same version.

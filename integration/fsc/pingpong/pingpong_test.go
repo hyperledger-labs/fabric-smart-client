@@ -457,6 +457,8 @@ func (s *TestSuite) TestPeersCheck() {
 	session := s.II.RunFSCNodeCommand("initiator", "node", "peers", "--check")
 	Expect(session.ExitCode()).To(BeZero(), string(session.Err.Contents()))
 	Expect(string(session.Out.Contents())).To(ContainSubstring("peer [responder]"))
+	// The command starts no node, yet sees the component the binary registers in main.
+	Expect(string(session.Out.Contents())).To(ContainSubstring("pingtest: local [2,3] peer [1,2]: uses 2"))
 }
 
 // TestUnhostedView checks that a view the responder hosts no responder for fails at once with
@@ -470,8 +472,8 @@ func (s *TestSuite) TestUnhostedView() {
 }
 
 // TestVersion checks that an initiator supporting pingtest {2, 3} and a responder supporting
-// {1, 2} both observe version 2, the highest both support, on their session. The Initiator's ping-pong in the other specs
-// reaches its responder by the protocol name pingpong/ping.
+// {1, 2} both observe version 2, the highest both support, on their session. The Initiator's
+// ping-pong in the other specs reaches its responder by the protocol name pingpong/ping.
 func (s *TestSuite) TestVersion() {
 	res, err := s.II.Client("initiator").CallView("version", nil)
 	Expect(err).NotTo(HaveOccurred())
