@@ -9,6 +9,7 @@ package node
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pkgnode "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 type mockFSCNode struct{}
@@ -131,4 +133,21 @@ func TestListen_CallbackErrorPanics(t *testing.T) {
 	err, ok := runListen(t, n, nil).(error)
 	require.True(t, ok, "listen should panic with the callback error")
 	require.EqualError(t, err, "callback boom")
+}
+
+// Without a core.yaml, `version --json` runs, as release tooling runs it on a build machine;
+// commands that need the configuration fail with the error that loading it gave.
+func TestNoConfigFile(t *testing.T) { //nolint:paralleltest // sets FSCNODE_CFG_PATH
+	t.Setenv("FSCNODE_CFG_PATH", t.TempDir())
+	n := New()
+
+	n.mainCmd.SetArgs([]string{"version", "--json"})
+	n.mainCmd.SetOut(io.Discard)
+	require.NoError(t, n.mainCmd.Execute())
+
+	for _, args := range [][]string{{"node", "migrate"}, {"node", "peers", "--check"}} {
+		n.mainCmd.SetArgs(args)
+		require.ErrorIs(t, n.mainCmd.Execute(), config.ErrNotFound, "%v", args)
+	}
+	require.ErrorIs(t, n.Start(), config.ErrNotFound)
 }

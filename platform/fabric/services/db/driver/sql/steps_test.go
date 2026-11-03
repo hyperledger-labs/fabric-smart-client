@@ -8,44 +8,33 @@ package sql_test
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	fpostgres "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
-	fsqlite "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
-	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate/migratetest"
 )
 
 // TestSteps checks every Fabric store's steps against testdata/steps/<dialect>-<store>.steps,
-// so a released step cannot change unnoticed. The memory driver uses the SQLite stores. Go
-// parts of a step, such as the vault's key conversion, are not covered.
+// so a released step cannot change unnoticed, and that every golden file has a store in
+// Schemas, so `node version --json` cannot miss one.
 func TestSteps(t *testing.T) {
 	t.Parallel()
-	tables, err := fsqlcommon.GetTableNames("")
+	files, err := filepath.Glob(filepath.Join("testdata", "steps", "*.steps"))
 	require.NoError(t, err)
-	dbs := &drivercommon.RWDB{}
-	stores := map[string]func() (any, error){
-		"sqlite-endorsetx":   func() (any, error) { return fsqlite.NewEndorseTxStore(dbs, tables) },
-		"sqlite-metadata":    func() (any, error) { return fsqlite.NewMetadataStore(dbs, tables) },
-		"sqlite-envelope":    func() (any, error) { return fsqlite.NewEnvelopeStore(dbs, tables) },
-		"sqlite-vault":       func() (any, error) { return fsqlite.NewVaultStore(dbs, tables) },
-		"postgres-endorsetx": func() (any, error) { return fpostgres.NewEndorseTxStore(dbs, tables) },
-		"postgres-metadata":  func() (any, error) { return fpostgres.NewMetadataStore(dbs, tables) },
-		"postgres-envelope":  func() (any, error) { return fpostgres.NewEnvelopeStore(dbs, tables) },
-		"postgres-vault":     func() (any, error) { return fpostgres.NewVaultStore(dbs, tables) },
+	var golden, listed []string
+	for _, f := range files {
+		golden = append(golden, strings.TrimSuffix(filepath.Base(f), ".steps"))
 	}
-	for name, newStore := range stores {
+	for _, s := range sql.Schemas() {
+		name := string(s.Dialect) + "-" + s.Store
+		listed = append(listed, name)
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			s, err := newStore()
-			require.NoError(t, err)
-			v, ok := s.(migrate.Versioned)
-			require.True(t, ok, "%T is not migrate.Versioned", s)
-			migratetest.CheckSteps(t, filepath.Join("testdata", "steps", name+".steps"), v.Steps())
+			migratetest.CheckSteps(t, filepath.Join("testdata", "steps", name+".steps"), s.Steps)
 		})
 	}
+	require.ElementsMatch(t, golden, listed)
 }

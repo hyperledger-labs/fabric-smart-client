@@ -114,6 +114,28 @@ Without `--contract` the command, like a starting node, stops before a contract 
 
 When stores fail for different reasons, the code is the first of `1`, `11`, `12`, `10` that applies. An unknown flag or argument exits 2, and `--help` connects to nothing.
 
+### `node peers --check`
+
+Check, before a rollout, that this binary can still talk to the node's peers.
+
+**Usage:**
+```bash
+./mynode node peers --check
+```
+
+The command reads the node's configuration, as `node start` does, but installs no SDK and opens no database. It refuses the resolver entries the node refuses, and like the node it uses only the first entry of each name; later entries of a name are bound to it and never dialed. For each such entry that has a `P2P` address, other than the node itself, it dials the peer over websocket P2P with the node's identity and TLS settings, checks that the peer's TLS certificate belongs to the resolver's identity, reads the [preamble](../platform/view/services/comm/readme.md) the peer sends on the upgrade response, and disconnects. It opens no session and starts no view, so the peer runs nothing. Each peer gets 10 seconds.
+
+For each peer it prints the peer's FSC version and framing epoch and, per component, both ranges and the version they use, the highest one in both ranges. A peer of a release without preambles, or a component only this binary announces, is reported but does not fail the check, since the node accepts such peers. Run the new binary with the node's configuration and key material. Only `fsc.p2p.type: websocket` is supported; with libp2p the command exits 1.
+
+| Exit code | Meaning |
+|---|---|
+| `0` | every peer is compatible |
+| `11` | a peer's framing epoch differs, or a component's ranges do not overlap |
+| `1` | a peer could not be reached, or the command could not run: configuration, identity or transport |
+| `2` | invalid arguments, including a missing `--check`; nothing was dialed |
+
+When peers fail for different reasons, `1` wins over `11`.
+
 ### `version`
 
 Display version information.
@@ -133,6 +155,21 @@ node:
  Revision: 7c647bd239b9e626ec4f02d4a2cca157c251e264 (modified)
 ```
 
+With `--json` it prints one JSON object for release tooling:
+
+```json
+{
+  "fsc_version": "v0.28.0",
+  "app_module": "github.com/acme/app",
+  "app_version": "v1.4.0",
+  "vcs_revision": "0123abcd",
+  "vcs_modified": false,
+  "framing_epoch": 1,
+  "components": [{"name": "view", "min": 1, "max": 1}, {"name": "fabric", "min": 1, "max": 1}, {"name": "fabricx", "min": 1, "max": 1}],
+  "stores": [{"type": "vault", "dialect": "postgres", "steps": [{"version": 1, "name": "create tables", "hash": "a9dffb69…"}]}]
+}
+```
+
 **Description:**
 - Shows program name, the Go version used to build, and the OS and architecture
 - `FSC version` is the Fabric Smart Client module the binary was built with; with a `replace`
@@ -141,6 +178,18 @@ node:
   pseudo-version or `(devel)`, and a binary without build info prints `unknown`
 - `Revision` is the main module's VCS revision, with `(modified)` for a dirty working tree,
   and `unknown` when the build recorded no VCS information (e.g. `go build -buildvcs=false`)
+- `--json` prints the same build info, empty instead of `unknown`, with `vcs_modified` for a
+  dirty tree; `framing_epoch` and `components` are what the binary sends in its stream
+  preamble; `stores` lists, per SQL dialect, every store type the binary's SDKs register when
+  they are built, with its schema steps and `migrate.Step.Hash` (the memory driver uses the
+  `sqlite` steps). The view SDK registers the view stores and the Fabric SDK the Fabric stores,
+  so a binary without the Fabric SDK lists only the view stores; see
+  [Reporting store schemas](../platform/view/services/db-driver.md#reporting-store-schemas).
+  Hashes are those of a node without a table prefix, since the step SQL names the tables
+- The field names are a contract for release tooling: fields are added, never renamed or removed
+- `version` reads no configuration and opens no database, so it runs on a build machine
+  without `core.yaml`. Without one, `node migrate` and `node peers --check` exit 1 with the
+  missing-file error, and `node start` fails with it like any other start error
 
 ## Environment Variables
 
@@ -212,4 +261,4 @@ Views that observe their context (`ctx.Done()`) return promptly once it is cance
 |------|---------|
 | `0` | Clean shutdown |
 | `1` | Error during startup or operation |
-| `2`, `10`, `11`, `12` | `node migrate` only; see [`node migrate`](#node-migrate) |
+| `2`, `10`, `11`, `12` | `node migrate` and `node peers --check`; see [`node migrate`](#node-migrate) and [`node peers --check`](#node-peers---check) |

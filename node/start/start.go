@@ -25,7 +25,7 @@ import (
 
 const (
 	nodeFuncName = "node"
-	nodeCmdDes   = "Operate a fabric smart client node: start, migrate."
+	nodeCmdDes   = "Operate a fabric smart client node: start, migrate, peers."
 )
 
 type Node interface {
@@ -48,6 +48,9 @@ func Cmd(n Node) *cobra.Command {
 	if m, ok := n.(Migrator); ok {
 		nodeCmd.AddCommand(migrateCmd(m))
 	}
+	if c, ok := n.(Configured); ok {
+		nodeCmd.AddCommand(peersCmd(c))
+	}
 	return nodeCmd
 }
 
@@ -57,7 +60,7 @@ type Migrator interface {
 	Migrate(ctx context.Context, checkOnly bool) error
 }
 
-// Exit codes of `node migrate`.
+// Exit codes of `node migrate` and `node peers --check`.
 const (
 	// ExitFailed means the command could not run or a store could not be
 	// checked or migrated: configuration, connection, lock or step failure.
@@ -71,6 +74,8 @@ const (
 	// ExitOlderOpener means --contract found a store opened by a binary that
 	// lacks a pending contract step.
 	ExitOlderOpener = 12
+	// ExitIncompatible means `node peers --check` found a peer this binary cannot talk to.
+	ExitIncompatible = 11
 )
 
 // ExitError is an error that sets the process exit code; node.Execute exits
