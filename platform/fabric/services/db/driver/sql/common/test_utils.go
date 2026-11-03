@@ -29,8 +29,8 @@ type KeyDataStore struct {
 // and an unknown key is absent. A second put under the same key with a
 // different value keeps the first value and, when strict, returns an error
 // wrapping driver.ErrConflict, or nil otherwise. When strict, putting the
-// stored value again returns nil, and of two concurrent puts of different
-// values under one key exactly one succeeds.
+// stored value again returns nil, empty data is refused, and of two concurrent
+// puts of different values under one key exactly one succeeds.
 func TestKeyDataStore(t *testing.T, s KeyDataStore, strict bool) {
 	t.Helper()
 	ctx := t.Context()
@@ -65,6 +65,11 @@ func TestKeyDataStore(t *testing.T, s KeyDataStore, strict bool) {
 	if !strict {
 		return
 	}
+	require.Error(t, s.Put(ctx, "empty", nil), "a write-once store refuses empty data, which Exists reports as absent")
+	exists, err = s.Exists(ctx, "empty")
+	require.NoError(t, err)
+	assert.False(t, exists)
+
 	errs := make([]error, 2)
 	var wg sync.WaitGroup
 	for i := range errs {

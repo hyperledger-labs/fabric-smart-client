@@ -614,7 +614,8 @@ func TestStoreEnvelopeConflictDiscardsTransaction(t *testing.T) {
 	}
 	err := c.storeEnvelope(t.Context(), "tx1", []byte("env"))
 	require.ErrorIs(t, err, ErrDiscardTX)
-	require.ErrorContains(t, err, "store conflict")
+	require.ErrorIs(t, err, dbdriver.ErrConflict)
+	require.Equal(t, "[tx1] store conflict: key taken: store conflict", err.Error(), "a one-line validation message")
 	require.NotEqual(t, classRetry, classify(err))
 
 	c.EnvelopeService = &fake.EnvelopeService{

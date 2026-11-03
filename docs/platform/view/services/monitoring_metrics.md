@@ -390,8 +390,9 @@ Operational notes:
     view. The same refusal is counted as `fsc_view_services_view_p2p_rejections{reason="unauthorized"}`.
   - `store_conflict`: a write to a write-once store that differs from the record already stored
     under the same key. The stored record is kept (see
-    [Security Model](../security-model.md#write-once-stores)). `endorseView` names the remote peer;
-    the committer names no peer.
+    [Security Model](../security-model.md#write-once-stores)). It names the txID. `endorseView`
+    names the remote peer of the write that conflicted, which is not necessarily the party that
+    wrote the stored record; the committer names no peer.
 - `binding_refused` and `binding_conflict` name the long-term identity of the bind as the peer, and
   no txID. An isolated `binding_conflict` after a remote node rotated its certificate is expected:
   its alias rows still point at the old certificate. A steady rate, or any `binding_refused`, means
@@ -402,7 +403,7 @@ Operational notes:
 - A `store_conflict` from the committer discards one transaction and is not a degrade either. Any
   `store_conflict` means two parties produced different records under one txID; an honest retry
   never does.
-- Each rejection also logs one warn line naming the peer and, for `invalid_tx`, the txID; the
+- Each rejection also logs one warn line naming the peer and, for `invalid_tx` and `store_conflict`, the txID; the
   binding kinds have no txID. The line is rate-limited to one per kind per second since the remote
   peer controls how often it fires; the counter itself counts every rejection, and the binding
   kinds count one per refused or conflicting ephemeral. Peer and txID are never counter labels.

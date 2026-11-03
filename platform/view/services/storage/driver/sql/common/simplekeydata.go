@@ -61,12 +61,17 @@ func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []by
 
 // PutDataStrict stores data under key. If key already has a value, it keeps
 // the stored value and returns nil when that value equals data, or an error
-// wrapping [driver.ErrConflict] when it differs.
+// wrapping [driver.ErrConflict] when it differs. data must not be empty:
+// [SimpleKeyDataStore.ExistData] reports an empty value as absent, so a writer
+// that checks existence first would conflict with it forever.
 //
 // The insert and the read-back are separate statements. This is safe because
 // the store never updates or deletes a row: once the insert finds the key
 // taken, the value read back is the one that won.
 func (db *SimpleKeyDataStore) PutDataStrict(ctx context.Context, key string, data []byte) error {
+	if len(data) == 0 {
+		return errors.Errorf("empty data for key [%s]", key)
+	}
 	inserted, err := db.insert(ctx, key, data)
 	if err != nil || inserted {
 		return err

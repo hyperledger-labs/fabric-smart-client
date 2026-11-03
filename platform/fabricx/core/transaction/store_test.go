@@ -83,12 +83,15 @@ func TestEndorseTransactionServiceStoresFabricxTransactions(t *testing.T) {
 	require.NoError(t, err)
 	ets := transaction.NewEndorseTransactionService(store, "network", "channel")
 	ctx := t.Context()
+	// The in-memory database is shared by every test in the process and by
+	// repeated runs (-count), so the key is unique to this run.
+	txID := "tx1-" + rand.Text()
 
-	require.NoError(t, ets.StoreTransaction(ctx, "tx1", first))
-	require.NoError(t, ets.StoreTransaction(ctx, "tx1", retry), "a re-signed endorsement of the same read-write set is not a conflict")
-	require.ErrorIs(t, ets.StoreTransaction(ctx, "tx1", endorse("v2")), dbdriver.ErrConflict)
+	require.NoError(t, ets.StoreTransaction(ctx, txID, first))
+	require.NoError(t, ets.StoreTransaction(ctx, txID, retry), "a re-signed endorsement of the same read-write set is not a conflict")
+	require.ErrorIs(t, ets.StoreTransaction(ctx, txID, endorse("v2")), dbdriver.ErrConflict)
 
-	stored, err := ets.LoadTransaction(ctx, "tx1")
+	stored, err := ets.LoadTransaction(ctx, txID)
 	require.NoError(t, err)
 	require.Equal(t, first, stored, "the first record is kept")
 }

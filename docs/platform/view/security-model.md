@@ -146,8 +146,9 @@ remote wallets or script and multisig owners, need their own exchange and handli
 ## Write-once stores
 
 The envelope store, the endorsed-transaction store and the audit-info store hold records that
-other components trust once written: the committer matches a stored envelope against the
-transaction Fabric commits, and the audit info of an identity decides what an auditor sees. A
+other components trust once written: the committer loads the read-write set of a transaction from
+its stored envelope or endorsed transaction, and the audit info of an identity decides what an
+auditor sees. A
 remote peer that learns a txID or an identity could otherwise race the honest writer and have its
 own record kept. These stores are therefore write-once:
 
@@ -157,7 +158,7 @@ own record kept. These stores are therefore write-once:
   (`platform/view/services/storage/driver`) and keeps the stored record.
 
 The SQL stores insert with `ON CONFLICT DO NOTHING` and, when no row was inserted, read the stored
-record back and compare bytes. Their rows are never updated or deleted, so the record read back is
+record back and compare bytes. They refuse an empty record. Their rows are never updated or deleted, so the record read back is
 the one that won, and of two concurrent writers of different records exactly one succeeds.
 
 An endorsed transaction holds this node's proposal responses, whose signatures differ on every

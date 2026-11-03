@@ -42,7 +42,7 @@ func (s *ecdsaSigner) Sign(message []byte) ([]byte, error) {
 	return ecdsa.SignASN1(rand.Reader, s.key, digest[:])
 }
 
-// NewRealEndorseTxStore returns an endorse-tx store backed by the real
+// newRealEndorseTxStore returns an endorse-tx store backed by the real
 // in-memory SQLite persistence.
 func newRealEndorseTxStore(t *testing.T) driver.EndorseTxStore {
 	t.Helper()
@@ -98,9 +98,12 @@ func TestEndorseTransactionServiceStoreTransaction(t *testing.T) {
 
 	ets := transaction.NewEndorseTransactionService(newRealEndorseTxStore(t), "network", "channel")
 	ctx := t.Context()
-	require.NoError(t, ets.StoreTransaction(ctx, "txid", first))
-	require.NoError(t, ets.StoreTransaction(ctx, "txid", retry), "a re-signed endorsement of the same results is not a conflict")
-	require.NoError(t, ets.StoreTransaction(ctx, "txid", endorse(p, "rws", alice, bob)), "a second endorser's response is not a conflict")
+	// The in-memory database is shared by every test in the process and by
+	// repeated runs (-count), so the key is unique to this run.
+	txID := "txid-" + rand.Text()
+	require.NoError(t, ets.StoreTransaction(ctx, txID, first))
+	require.NoError(t, ets.StoreTransaction(ctx, txID, retry), "a re-signed endorsement of the same results is not a conflict")
+	require.NoError(t, ets.StoreTransaction(ctx, txID, endorse(p, "rws", alice, bob)), "a second endorser's response is not a conflict")
 
 	// otherProposalBytes is first with the proposal bytes of another proposal and
 	// the same proposal signature.
@@ -127,10 +130,10 @@ func TestEndorseTransactionServiceStoreTransaction(t *testing.T) {
 		"different proposal bytes":  otherProposalBytes(),
 		"undecodable":               []byte("garbage"),
 	} {
-		require.ErrorIs(t, ets.StoreTransaction(ctx, "txid", raw), dbdriver.ErrConflict, name)
+		require.ErrorIs(t, ets.StoreTransaction(ctx, txID, raw), dbdriver.ErrConflict, name)
 	}
 
-	stored, err := ets.LoadTransaction(ctx, "txid")
+	stored, err := ets.LoadTransaction(ctx, txID)
 	require.NoError(t, err)
 	require.Equal(t, first, stored, "the first record is kept")
 }

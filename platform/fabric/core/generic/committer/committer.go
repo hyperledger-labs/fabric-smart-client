@@ -817,13 +817,28 @@ func (c *Committer) storeEnvelope(ctx context.Context, txID string, envelopeRaw 
 	err := c.EnvelopeService.StoreEnvelope(ctx, txID, envelopeRaw)
 	if errors.Is(err, dbdriver.ErrConflict) {
 		c.Rejections.Report(ctx, security.KindStoreConflict, nil, txID, "a different envelope is stored under this txID")
-		return errors.Wrapf(ErrDiscardTX, "[%s] store conflict: %s", txID, err)
+		return &storeConflict{txID: txID, err: err}
 	}
 	if err != nil {
 		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 	}
 	return nil
 }
+
+// storeConflict is the error of a valid transaction whose envelope conflicts
+// with the stored one. It wraps both [ErrDiscardTX] and the store's error,
+// which wraps [dbdriver.ErrConflict], and has a one-line message, which
+// HandleEndorserTransaction uses as the validation message.
+type storeConflict struct {
+	txID string
+	err  error
+}
+
+func (e *storeConflict) Error() string {
+	return fmt.Sprintf("[%s] store conflict: %s", e.txID, e.err)
+}
+
+func (e *storeConflict) Unwrap() []error { return []error{ErrDiscardTX, e.err} }
 
 func (c *Committer) commitUnknown(ctx context.Context, txID string, block, indexInBlock uint64, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
