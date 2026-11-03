@@ -36,6 +36,8 @@ const (
 	KindBindingConflict Kind = "binding_conflict"
 	// KindRecipientProof is a recipient identity without a valid proof of ownership.
 	KindRecipientProof Kind = "recipient_proof"
+	// KindUnauthorized is a first message whose sender a responder's authorizer refused.
+	KindUnauthorized Kind = "unauthorized"
 )
 
 // logInterval is the minimum time between two warn lines for the same kind.

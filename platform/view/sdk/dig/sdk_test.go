@@ -257,8 +257,8 @@ func TestSDK_Start_MissingDependencies(t *testing.T) {
 
 type fakeP2PViewManager struct{}
 
-func (*fakeP2PViewManager) ExistResponderForCaller(string) (viewapi.View, viewapi.Identity, error) {
-	return nil, nil, nil
+func (*fakeP2PViewManager) ResponderForCaller(string) (viewapi.View, viewapi.Identity, view.ResponderAuthorizer, error) {
+	return nil, nil, nil, nil
 }
 
 func (*fakeP2PViewManager) NewResponderContext(context.Context, string, viewapi.Session, viewapi.Identity, viewapi.Identity) (viewapi.Context, func(), error) {

@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -250,8 +251,8 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 }
 
 // DrainingPrefix starts the payload of the error a draining peer replies to a first message it
-// refuses. It equals p2p.DrainingPrefix of the view layer, which sends these replies.
-const DrainingPrefix = "draining: "
+// refuses. The view layer's p2p service sends these replies.
+const DrainingPrefix = session.ReasonDraining + ": "
 
 // retireIfDraining retires the host's connections to the sender of msg when msg is a draining
 // peer's refusal of a session this node opened, so that the next session to that peer dials

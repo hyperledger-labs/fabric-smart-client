@@ -105,8 +105,15 @@ The `Registry` manages view factories and responder mappings:
 **Responder Registration:**
 - `RegisterResponder(responder, initiatedBy)`: Maps an initiator to a responder view
 - `RegisterResponderWithIdentity(responder, id, initiatedBy)`: Maps with a specific identity
+- `RegisterResponderWithOptions(responder, initiatedBy, opts...)`: Maps with `WithIdentity` and
+  `WithAuthorizer` (see [Authorizing responders](../programming-model.md#authorizing-responders))
 - `GetResponder(initiatedBy)`: Retrieves the responder for an initiator
-- `ExistResponderForCaller(caller)`: Checks if a responder exists for a caller ID
+- `ResponderForCaller(caller)`: Returns the responder, identity and authorizer for a caller ID
+- `ExistResponderForCaller(caller)`: `ResponderForCaller` without the authorizer
+
+The identity and authorizer are kept per initiator, so one responder can answer several initiators
+with a different identity and authorizer for each. Registering again for an initiator replaces its
+responder and identity, and its authorizer only if the new registration sets one.
 
 **View Identification:**
 - Uses reflection to generate unique identifiers: `<package>/<type>`
@@ -198,8 +205,8 @@ sequenceDiagram
         Manager->>Context: Register
     end
     
-    P2P->>Registry: ExistResponderForCaller(caller)
-    Registry-->>P2P: Responder View
+    P2P->>Registry: ResponderForCaller(caller)
+    Registry-->>P2P: Responder View, identity, authorizer
     
     P2P->>Context: RunView(responder)
     Context->>Responder: Call(context)
@@ -221,8 +228,8 @@ sequenceDiagram
 **Steps:**
 
 1. **Message Arrival**: P2P service receives an incoming message
-2. **Context Resolution**: P2P calls `Manager.NewResponderContext` to create a context, or to join the context with that ID if one exists
-3. **Responder Lookup**: P2P queries `Registry.ExistResponderForCaller` to find the responder view
+2. **Responder Lookup**: P2P queries `Registry.ResponderForCaller` to find the responder view; if it has an authorizer, the authorizer must accept the sender before a context or session is created
+3. **Context Resolution**: P2P calls `Manager.NewResponderContext` to create a context, or to join the context with that ID if one exists
 4. **View Execution**: P2P runs the responder view in the context
 5. **Session Access**: Responder accesses the default session via `context.Session()`
 6. **Communication**: Responder sends/receives messages through the session
@@ -489,8 +496,8 @@ sequenceDiagram
 
     Remote->>Comm: ViewPacket
     Comm->>P2P: Message
-    P2P->>Manager: ExistResponderForCaller(caller)
-    Manager-->>P2P: Responder View
+    P2P->>Manager: ResponderForCaller(caller)
+    Manager-->>P2P: Responder View, identity, authorizer
     
     P2P->>Manager: NewResponderContext(...)
     Manager-->>P2P: Context (new or joined), release

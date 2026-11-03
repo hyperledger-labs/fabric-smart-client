@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	endpointmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	viewservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	p2pmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
@@ -36,11 +37,12 @@ type viewManagerMock struct {
 	DefaultIdentityFunc         func() view.Identity
 }
 
-func (m *viewManagerMock) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
+func (m *viewManagerMock) ResponderForCaller(caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
 	if m.ExistResponderForCallerFunc != nil {
-		return m.ExistResponderForCallerFunc(caller)
+		v, id, err := m.ExistResponderForCallerFunc(caller)
+		return v, id, nil, err
 	}
-	return &mock.View{}, nil, nil
+	return &mock.View{}, nil, nil, nil
 }
 
 func (m *viewManagerMock) GetIdentity(endpoint string, pkID []byte) (view.Identity, error) {
@@ -327,12 +329,13 @@ func (r *blockingRunner) RunView(viewCtx view.Context, _ view.View) (any, error)
 // production code actually passes in, so the test observes exactly what Service threads
 // through, rather than assuming it.
 type leakTestDeps struct {
-	responder view.View
-	respCtx   *mock.Context
+	responder  view.View
+	authorizer viewservice.ResponderAuthorizer
+	respCtx    *mock.Context
 }
 
-func (d *leakTestDeps) ExistResponderForCaller(_ string) (view.View, view.Identity, error) {
-	return d.responder, nil, nil
+func (d *leakTestDeps) ResponderForCaller(_ string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
+	return d.responder, nil, d.authorizer, nil
 }
 
 func (d *leakTestDeps) NewResponderContext(ctx context.Context, _ string, _ view.Session, _, _ view.Identity) (view.Context, func(), error) {
@@ -342,7 +345,11 @@ func (d *leakTestDeps) NewResponderContext(ctx context.Context, _ string, _ view
 
 func (*leakTestDeps) DefaultIdentity() view.Identity { return view.Identity("me") }
 
-func (*leakTestDeps) GetIdentity(_ string, _ []byte) (view.Identity, error) {
+// GetIdentity resolves every PKID but "stranger" to "caller".
+func (*leakTestDeps) GetIdentity(_ string, pkID []byte) (view.Identity, error) {
+	if string(pkID) == "stranger" {
+		return nil, errors.New("identity not found")
+	}
 	return view.Identity("caller"), nil
 }
 
@@ -761,11 +768,11 @@ func (p *metricsProvider) NewCounter(o metrics.CounterOpts) metrics.Counter {
 // unknownViewDeps hosts a responder only for the caller "hosted".
 type unknownViewDeps struct{ freshContextDeps }
 
-func (d *unknownViewDeps) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
+func (d *unknownViewDeps) ResponderForCaller(caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
 	if caller != "hosted" {
-		return nil, nil, errors.New("no view found initiatable by [" + caller + "]")
+		return nil, nil, nil, errors.New("no view found initiatable by [" + caller + "]")
 	}
-	return d.responder, nil, nil
+	return d.responder, nil, d.authorizer, nil
 }
 
 // rejectTest wires a Service whose only responder answers the caller "hosted", with the
@@ -777,6 +784,12 @@ type rejectTest struct {
 }
 
 func newRejectTest(t *testing.T, limit int, opts ...p2p.Option) *rejectTest {
+	t.Helper()
+	return newAuthorizedRejectTest(t, limit, nil, opts...)
+}
+
+// newAuthorizedRejectTest is newRejectTest with authorizer on the "hosted" responder.
+func newAuthorizedRejectTest(t *testing.T, limit int, authorizer viewservice.ResponderAuthorizer, opts ...p2p.Option) *rejectTest {
 	t.Helper()
 	rt := &rejectTest{
 		limitTest: &limitTest{
@@ -791,7 +804,7 @@ func newRejectTest(t *testing.T, limit int, opts ...p2p.Option) *rejectTest {
 	masterSess.ReceiveReturns(rt.ch)
 	rt.cl.MasterSessionReturns(masterSess, nil)
 	rt.cl.NewResponderSessionReturns(&mock.Session{}, nil)
-	deps := &unknownViewDeps{freshContextDeps{leakTestDeps{responder: &mock.View{}}}}
+	deps := &unknownViewDeps{freshContextDeps{leakTestDeps{responder: &mock.View{}, authorizer: authorizer}}}
 	opts = append([]p2p.Option{p2p.WithMetrics(&metricsProvider{t: t, counter: rt.counter})}, opts...)
 	rt.service = p2p.NewService(deps, deps, rt.cl, deps, rt.runner, limitConfig(limit), opts...)
 	require.NoError(t, rt.service.Start(t.Context()))

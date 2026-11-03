@@ -7,13 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package session
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// ReadMessageWithTimeout returns the payload of the next message on session, waiting at most d.
+// An error reply from the remote end is returned as RejectionError's error.
 func ReadMessageWithTimeout(session Session, d time.Duration) ([]byte, error) {
 	timeout := time.NewTimer(d)
 	defer timeout.Stop()
@@ -32,7 +33,7 @@ func ReadMessageWithTimeout(session Session, d time.Duration) ([]byte, error) {
 			return nil, errors.New("received message is nil")
 		}
 		if msg.Status == view.ERROR {
-			return nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
+			return nil, RejectionError(msg)
 		}
 		payload = msg.Payload
 	case <-timeout.C:
@@ -42,6 +43,8 @@ func ReadMessageWithTimeout(session Session, d time.Duration) ([]byte, error) {
 	return payload, nil
 }
 
+// ReadFirstMessage returns viewCtx's session and the payload of its next message, waiting at
+// most 30 seconds. An error reply from the remote end is returned as RejectionError's error.
 func ReadFirstMessage(viewCtx view.Context) (Session, []byte, error) {
 	session := viewCtx.Session()
 	ch := session.Receive()
@@ -62,7 +65,7 @@ func ReadFirstMessage(viewCtx view.Context) (Session, []byte, error) {
 			return nil, nil, errors.New("received message is nil")
 		}
 		if msg.Status == view.ERROR {
-			return nil, nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
+			return nil, nil, RejectionError(msg)
 		}
 		payload = msg.Payload
 	case <-timeout.C:
@@ -72,6 +75,8 @@ func ReadFirstMessage(viewCtx view.Context) (Session, []byte, error) {
 	return session, payload, nil
 }
 
+// ReadFirstMessageOrPanic is ReadFirstMessage that returns only the payload and panics instead
+// of returning an error; for an error reply it panics with RejectionError's error.
 func ReadFirstMessageOrPanic(viewCtx view.Context) []byte {
 	session := viewCtx.Session()
 	ch := session.Receive()
@@ -92,7 +97,7 @@ func ReadFirstMessageOrPanic(viewCtx view.Context) []byte {
 			panic("received message is nil")
 		}
 		if msg.Status == view.ERROR {
-			panic(fmt.Sprintf("received error from remote [%s]", string(msg.Payload)))
+			panic(RejectionError(msg))
 		}
 		payload = msg.Payload
 	case <-timeout.C:

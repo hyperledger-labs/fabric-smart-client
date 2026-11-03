@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
+	"context"
 	"reflect"
 	"runtime/debug"
 	"sync"
@@ -16,27 +17,64 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type viewEntry struct {
-	View      view.View
-	ID        view.Identity
-	Initiator bool
+// ResponderAuthorizer decides whether a remote node may start a responder.
+type ResponderAuthorizer interface {
+	// Authorize returns nil if caller may start the responder. caller is the FSC node identity
+	// the transport authenticated, resolved from the first message's sender. A refusal returns
+	// an error wrapping ErrDenied; any other error is an authorizer failure. Authorize must
+	// return once ctx is done, and may be called concurrently.
+	Authorize(ctx context.Context, caller view.Identity) error
+}
+
+// AuthorizerFunc adapts a function to ResponderAuthorizer.
+type AuthorizerFunc func(ctx context.Context, caller view.Identity) error
+
+// Authorize calls f(ctx, caller).
+func (f AuthorizerFunc) Authorize(ctx context.Context, caller view.Identity) error {
+	return f(ctx, caller)
+}
+
+// ResponderOption configures a responder registration.
+type ResponderOption func(*responderEntry)
+
+// WithAuthorizer sets the authorizer that must accept the remote node before the responder
+// starts.
+func WithAuthorizer(a ResponderAuthorizer) ResponderOption {
+	return func(e *responderEntry) { e.authorizer = a }
+}
+
+// WithIdentity sets the identity the responder runs as. Without it, the responder runs as the
+// node's default identity.
+func WithIdentity(id view.Identity) ResponderOption {
+	return func(e *responderEntry) { e.id = id }
+}
+
+// responderEntry is what an initiator ID resolves to: the responder and how it runs.
+type responderEntry struct {
+	view       view.View
+	id         view.Identity
+	authorizer ResponderAuthorizer
 }
 
 // Registry is responsible for registering and retrieving view factories, views, and responders.
+// It is safe for concurrent use.
 type Registry struct {
 	factoriesSync sync.RWMutex
 	viewsSync     sync.RWMutex
 
-	views      map[string][]*viewEntry
-	initiators map[string]string
-	factories  map[string]Factory
+	// responders maps an initiator view ID to the responder that answers it. One responder
+	// can answer several initiators, each with its own identity and authorizer.
+	responders map[string]*responderEntry
+	// views holds the views registered with an empty initiator, by view ID, for GetView.
+	views     map[string]view.View
+	factories map[string]Factory
 }
 
 // NewRegistry returns a new instance of the view registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		views:      map[string][]*viewEntry{},
-		initiators: map[string]string{},
+		responders: map[string]*responderEntry{},
+		views:      map[string]view.View{},
 		factories:  map[string]Factory{},
 	}
 }
@@ -79,19 +117,52 @@ func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy any) e
 
 // RegisterResponder registers a responder view for the given initiator view.
 func (cm *Registry) RegisterResponder(responder view.View, initiatedBy any) error {
-	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
+	return cm.RegisterResponderWithOptions(responder, initiatedBy)
 }
 
 // RegisterResponderWithIdentity registers a responder view for the given initiator view and responder identity.
 func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
+	return cm.RegisterResponderWithOptions(responder, initiatedBy, WithIdentity(id))
+}
+
+// RegisterResponderWithOptions registers responder to answer initiatedBy, a view or a view ID.
+// An empty view ID registers responder as a view that GetView returns instead; such a
+// registration cannot have an authorizer, since no remote node starts it.
+//
+// A registration for an initiator that already has a responder replaces its responder and
+// identity. It replaces the authorizer only if it sets one: a later registration without
+// WithAuthorizer, such as a default one made by another module, keeps the existing authorizer
+// instead of silently opening the responder to every peer.
+func (cm *Registry) RegisterResponderWithOptions(responder view.View, initiatedBy any, opts ...ResponderOption) error {
+	var initiatedByID string
 	switch t := initiatedBy.(type) {
 	case view.View:
-		cm.registerResponderForInitiatorID(responder, id, cm.GetIdentifier(t))
+		initiatedByID = cm.GetIdentifier(t)
 	case string:
-		cm.registerResponderForInitiatorID(responder, id, t)
+		initiatedByID = t
 	default:
 		return errors.New("initiatedBy must be a view or a string")
 	}
+	entry := &responderEntry{view: responder}
+	for _, opt := range opts {
+		opt(entry)
+	}
+
+	cm.viewsSync.Lock()
+	defer cm.viewsSync.Unlock()
+
+	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s]", GetIdentifier(responder), initiatedByID, entry.id)
+	if len(initiatedByID) == 0 {
+		if entry.authorizer != nil {
+			return errors.New("an authorizer needs an initiator")
+		}
+		cm.views[GetIdentifier(responder)] = responder
+		return nil
+	}
+	if old, ok := cm.responders[initiatedByID]; ok && entry.authorizer == nil {
+		entry.authorizer = old.authorizer
+	}
+	cm.responders[initiatedByID] = entry
 	return nil
 }
 
@@ -106,26 +177,8 @@ func (cm *Registry) GetResponder(initiatedBy any) (view.View, error) {
 	default:
 		return nil, errors.New("initiatedBy must be a view or a string")
 	}
-
-	cm.viewsSync.Lock()
-	defer cm.viewsSync.Unlock()
-
-	responderID, ok := cm.initiators[initiatedByID]
-	if !ok {
-		return nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s]", initiatedByID)
-	}
-
-	entries, ok := cm.views[responderID]
-	if !ok {
-		return nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s], initiator [%s]", responderID, initiatedByID)
-	}
-	if len(entries) == 0 {
-		return nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s], initiator [%s]", responderID, initiatedByID)
-	}
-	// Recall that a responder can be used to respond to multiple initiators.
-	// Therefore, all these entries are for the same responder.
-	// We return the first one.
-	return entries[0].View, nil
+	r, _, _, err := cm.ResponderForCaller(initiatedByID)
+	return r, err
 }
 
 // GetIdentifier returns the identifier for the given view.
@@ -133,60 +186,35 @@ func (*Registry) GetIdentifier(f view.View) string {
 	return GetIdentifier(f)
 }
 
-func (cm *Registry) registerResponderForInitiatorID(responder view.View, id view.Identity, initiatedByID string) {
-	cm.viewsSync.Lock()
-	defer cm.viewsSync.Unlock()
-
-	responderID := GetIdentifier(responder)
-	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s]", responderID, initiatedByID, id)
-
-	cm.views[responderID] = append(cm.views[responderID], &viewEntry{View: responder, ID: id, Initiator: len(initiatedByID) == 0})
-	if len(initiatedByID) != 0 {
-		cm.initiators[initiatedByID] = responderID
-	}
-}
-
-// GetView returns the initiator view for the given ID.
+// GetView returns the view registered with an empty initiator under the given ID.
 func (cm *Registry) GetView(id string) (view.View, error) {
-	// Lookup the initiator
 	cm.viewsSync.RLock()
-	responders := cm.views[id]
-	var res *viewEntry
-	for _, entry := range responders {
-		if entry.Initiator {
-			res = entry
-			break
-		}
-	}
+	v, ok := cm.views[id]
 	cm.viewsSync.RUnlock()
-	if res == nil {
+	if !ok {
 		return nil, errors.Wrapf(ErrViewNotFound, "initiator not found for [%s]", id)
 	}
-	return res.View, nil
+	return v, nil
 }
 
 // ExistResponderForCaller returns the responder view and identity for the given caller identifier.
 func (cm *Registry) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
+	r, id, _, err := cm.ResponderForCaller(caller)
+	return r, id, err
+}
+
+// ResponderForCaller returns the responder registered for the initiator view ID caller, the
+// identity it runs as (none for the default identity), and its authorizer (nil if any peer may
+// start it). It returns an error wrapping ErrResponderNotFound if caller has no responder.
+func (cm *Registry) ResponderForCaller(caller string) (view.View, view.Identity, ResponderAuthorizer, error) {
 	cm.viewsSync.RLock()
 	defer cm.viewsSync.RUnlock()
 
-	// Is there a responder
-	label, ok := cm.initiators[caller]
+	e, ok := cm.responders[caller]
 	if !ok {
-		return nil, nil, errors.Wrapf(ErrResponderNotFound, "no view found initiatable by [%s]", caller)
+		return nil, nil, nil, errors.Wrapf(ErrResponderNotFound, "no view found initiatable by [%s]", caller)
 	}
-	responders := cm.views[label]
-	var res *viewEntry
-	for _, entry := range responders {
-		if !entry.Initiator {
-			res = entry
-		}
-	}
-	if res == nil {
-		return nil, nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s]", label)
-	}
-
-	return res.View, res.ID, nil
+	return e.view, e.id, e.authorizer, nil
 }
 
 var (

@@ -154,8 +154,9 @@ func (p *SDK) Install() error {
 			configService p2p.ConfigService,
 			metricsProvider metrics.Provider,
 			drain p2p.DrainState,
+			rejections *security.Rejections,
 		) *p2p.Service {
-			return p2p.NewService(viewManager, identityProvider, commLayer, endpointService, runner, configService, p2p.WithMetrics(metricsProvider), p2p.WithDrainState(drain))
+			return p2p.NewService(viewManager, identityProvider, commLayer, endpointService, runner, configService, p2p.WithMetrics(metricsProvider), p2p.WithDrainState(drain), p2p.WithRejections(rejections))
 		}),
 
 		// Comm service
