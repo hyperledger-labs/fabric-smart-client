@@ -80,6 +80,13 @@ generate-protos: ## Delete all protoc-generated files and regenerate via compile
 	@./scripts/find-protos.sh --delete
 	./scripts/compile_proto.sh
 
+# The latest release tag. A proto file that is new since then has nothing to compare against.
+BUF_AGAINST ?= $(shell git describe --tags --abbrev=0 --match 'v*')
+
+.PHONY: buf-breaking
+buf-breaking: ## Check that the FSC protos (buf.yaml) only add to what $(BUF_AGAINST) has
+	buf breaking --against '.git#tag=$(or $(BUF_AGAINST),$(error no v* tag reachable; git fetch --tags or set BUF_AGAINST))' --against-config buf.yaml
+
 #########################
 # Generate mocks
 #########################

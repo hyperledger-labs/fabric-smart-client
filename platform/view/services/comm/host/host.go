@@ -9,6 +9,8 @@ package host
 import (
 	"context"
 	"io"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 )
 
 type (
@@ -73,6 +75,14 @@ type SharedStreamsHost interface {
 // a load balancer in front of the peer's replicas can route the new connection elsewhere.
 type RetiringHost interface {
 	Retire(peerID PeerID)
+}
+
+// PreambleStream is an optional interface for a P2PStream whose transport exchanges preambles
+// (see package preamble). Preamble returns the preamble the authenticated peer sent when the
+// stream or its connection opened, or nil when the peer runs a release that sends none. A
+// transport refuses a peer whose framing epoch differs before it hands out the stream.
+type PreambleStream interface {
+	Preamble() *preamble.Preamble
 }
 
 type P2PStream interface {

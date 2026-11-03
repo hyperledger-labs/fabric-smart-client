@@ -1,0 +1,37 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+syntax = "proto3";
+
+package preamble;
+
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble";
+
+// Preamble is what a node tells a peer about itself when a stream or connection opens, after
+// the transport has authenticated the peer. Fields are only ever added, never renumbered,
+// retyped or removed, so every release can read the preamble of every other.
+message Preamble {
+  // fsc_version is the FSC module version, as `node version` reports it.
+  string fsc_version = 1;
+  // vcs_revision is the VCS revision the binary was built from.
+  string vcs_revision = 2;
+  // framing_epoch is raised only when the framing of view packets on a stream changes. Two
+  // nodes of different epochs cannot exchange view packets and refuse each other.
+  uint32 framing_epoch = 3;
+  // ranges lists, per component, the versions of its wire formats this binary supports.
+  repeated ComponentRange ranges = 4;
+}
+
+// ComponentRange is the range of versions of one component's wire formats a binary supports.
+message ComponentRange {
+  // component names the part of the binary that owns the formats, such as "view", "fabric",
+  // "fabricx", or an application's component.
+  string component = 1;
+  // min is the lowest version this binary uses on the wire.
+  uint32 min = 2;
+  // max is the highest.
+  uint32 max = 3;
+}

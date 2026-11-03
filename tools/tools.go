@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package tools
 
 import (
+	_ "github.com/bufbuild/buf/cmd/buf"
 	_ "github.com/maxbrunsfeld/counterfeiter/v6"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
 	_ "golang.org/x/vuln/cmd/govulncheck"

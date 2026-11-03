@@ -21,6 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
@@ -38,9 +39,16 @@ import (
 var logger = logging.MustGetLogger()
 
 const (
-	viewProtocol     = "/fsc/view/1.0.0"
-	rendezVousString = "fsc"
+	// viewProtocolV2 streams start with a preamble frame in each direction; see
+	// exchangePreamble. A node dials it first.
+	viewProtocolV2 protocol.ID = "/fsc/view/2.0.0"
+	// viewProtocol streams carry view packets only. A node falls back to it for a peer of a
+	// release that registers no viewProtocolV2; libp2p negotiates the protocol before any
+	// byte of FSC data, so such a peer would otherwise refuse the stream unreadably.
+	viewProtocol protocol.ID = "/fsc/view/1.0.0"
 )
+
+const rendezVousString = "fsc"
 
 type host struct {
 	libp2phost.Host
@@ -56,6 +64,7 @@ type host struct {
 	peers         map[commhost.PeerID]peer.AddrInfo
 	bootstrap     bool
 	bootstrapNode commhost.PeerIPAddress
+	metrics       *metrics
 }
 
 func newLibP2PHost(
@@ -120,6 +129,7 @@ func newLibP2PHost(
 
 	libp2pHost := &host{
 		Host:          h,
+		metrics:       metrics,
 		peerID:        h.ID().String(),
 		finder:        routing.NewRoutingDiscovery(kademliaDHT),
 		peers:         make(map[string]peer.AddrInfo),
@@ -250,17 +260,40 @@ func (h *host) NewStream(ctx context.Context, info commhost.StreamInfo) (commhos
 		ps.AddAddr(ID, s, peerstore.RecentlyConnectedAddrTTL)
 	}
 
-	nwStream, err := h.Host.NewStream(ctx, ID, viewProtocol)
+	// Multistream negotiation picks the first protocol of the list that the peer supports.
+	nwStream, err := h.Host.NewStream(ctx, ID, viewProtocolV2, viewProtocol)
 	if err != nil {
 		logger.Debugf("libp2p: failed to create new stream to peer [%s]: %v", ID, err)
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
-	logger.Debugf("libp2p: successfully created new outgoing stream to peer [%s]", ID)
+	logger.Debugf("libp2p: successfully created new outgoing stream to peer [%s] on [%s]", ID, nwStream.Protocol())
 	info.RemotePeerID = nwStream.Conn().RemotePeer().String()
-	return &stream{
-		Stream: nwStream,
-		info:   info,
-	}, nil
+	s := &stream{Stream: nwStream, info: info}
+	if err := h.openPreamble(ctx, s); err != nil {
+		return nil, errors.Wrapf(err, "failed to open stream to [%s]", ID)
+	}
+	return s, nil
+}
+
+// openPreamble exchanges preambles on s if it uses viewProtocolV2, and records the peer's on
+// s. On failure s is reset; a preamble that arrived and was refused is also counted.
+func (h *host) openPreamble(ctx context.Context, s *stream) error {
+	if s.Protocol() != viewProtocolV2 {
+		logger.Debugf("libp2p: peer [%s] sent no preamble, it runs an FSC release without version ranges", s.RemotePeerID())
+		return nil
+	}
+	p, refused, err := exchangePreamble(ctx, s.Stream)
+	if err != nil {
+		if refused {
+			h.metrics.RejectedStreams.With(reasonLabel, versionReason).Add(1)
+		}
+		logger.Warnf("libp2p: refusing stream with peer [%s]: %v", s.RemotePeerID(), err)
+		_ = s.Reset()
+		return err
+	}
+	logger.Debugf("libp2p: peer [%s] runs FSC [%s] revision [%s]", s.RemotePeerID(), p.GetFscVersion(), p.GetVcsRevision())
+	s.preamble = p
+	return nil
 }
 
 func (h *host) startFinder() {
@@ -307,21 +340,25 @@ func (h *host) startHost(failAdv bool, newStreamCallback func(stream commhost.P2
 		logger.Warnf("error while announcing [%s]", err)
 	}
 
-	h.SetStreamHandler(viewProtocol, func(s network.Stream) {
-		logger.Debugf("libp2p: received new incoming stream from peer [%s]", s.Conn().RemotePeer().String())
+	handler := func(s network.Stream) {
+		logger.Debugf("libp2p: received new incoming stream from peer [%s] on [%s]", s.Conn().RemotePeer().String(), s.Protocol())
 		uuid := fscutils.GenerateUUID()
-		newStreamCallback(
-			&stream{
-				Stream: s,
-				info: commhost.StreamInfo{
-					RemotePeerID:      s.Conn().RemotePeer().String(),
-					RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
-					ContextID:         uuid,
-					SessionID:         uuid,
-				},
+		st := &stream{
+			Stream: s,
+			info: commhost.StreamInfo{
+				RemotePeerID:      s.Conn().RemotePeer().String(),
+				RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
+				ContextID:         uuid,
+				SessionID:         uuid,
 			},
-		)
-	})
+		}
+		if err := h.openPreamble(context.Background(), st); err != nil {
+			return
+		}
+		newStreamCallback(st)
+	}
+	h.SetStreamHandler(viewProtocolV2, handler)
+	h.SetStreamHandler(viewProtocol, handler)
 
 	h.finderWg.Add(1)
 	go h.startFinder()

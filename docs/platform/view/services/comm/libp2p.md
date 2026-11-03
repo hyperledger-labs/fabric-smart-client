@@ -36,10 +36,11 @@ graph TD
 
 When a new stream is opened to a node, libp2p triggers the registered stream handler:
 
-1.  **Protocol Negotiation**: The requester and receiver agree on the protocol version (`/fsc/view/1.0.0`).
-2.  **Stream Wrapping**: The raw libp2p stream is wrapped into an `fsc.stream` object, which provides a unified interface for the Comm layer.
-3.  **Peer Info Extraction**: The remote Peer ID and Multiaddress are extracted from the underlying connection.
-4.  **Handling**: The `P2PNode` receives the new stream and starts a `streamHandler` goroutine to read `ViewPacket` messages.
+1.  **Protocol Negotiation**: The requester offers `/fsc/view/2.0.0` and then `/fsc/view/1.0.0`; the receiver registers both, and libp2p picks the first one the receiver supports.
+2.  **Preamble**: On `/fsc/view/2.0.0` each side writes one length-prefixed preamble frame and then reads the other's, within 30 seconds. The frame is read without a buffered reader, so the `ViewPacket`s that follow stay on the stream. A peer on another framing epoch gets its stream reset. On `/fsc/view/1.0.0` the stream carries no preamble. See [Stream preamble](./readme.md#stream-preamble).
+3.  **Stream Wrapping**: The raw libp2p stream is wrapped into an `fsc.stream` object, which provides a unified interface for the Comm layer.
+4.  **Peer Info Extraction**: The remote Peer ID and Multiaddress are extracted from the underlying connection.
+5.  **Handling**: The `P2PNode` receives the new stream and starts a `streamHandler` goroutine to read `ViewPacket` messages.
 
 ## Security and Identity
 

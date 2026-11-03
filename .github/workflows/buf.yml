@@ -1,0 +1,39 @@
+name: buf breaking
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.proto'
+      - 'buf.yaml'
+      - 'Makefile'
+      - 'tools/go.mod'
+      - '.github/workflows/buf.yml'
+  pull_request:
+    paths:
+      - '**/*.proto'
+      - 'buf.yaml'
+      - 'Makefile'
+      - 'tools/go.mod'
+      - '.github/workflows/buf.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # A node must read the messages of the release before it, so a proto change may only add.
+  breaking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          # make buf-breaking compares against the latest release tag reachable from HEAD.
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - name: Install buf
+        run: cd tools && go install github.com/bufbuild/buf/cmd/buf
+      - name: buf breaking
+        run: make buf-breaking

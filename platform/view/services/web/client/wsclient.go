@@ -11,6 +11,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -38,6 +39,13 @@ func OpenWSClientConnContext(ctx context.Context, url string, config *tls.Config
 // OpenWSClientConnContextWithLimit is OpenWSClientConnContext with an explicit read limit, in
 // bytes, for a single websocket message. A non-positive limit means the default (10 MiB).
 func OpenWSClientConnContextWithLimit(ctx context.Context, url string, config *tls.Config, readLimit int64) (*websocket.Conn, error) { //nolint:contextcheck // nil ctx is treated as context.Background
+	ws, _, err := OpenWSClientConnWithHeader(ctx, url, config, readLimit)
+	return ws, err
+}
+
+// OpenWSClientConnWithHeader is OpenWSClientConnContextWithLimit that also returns the headers
+// of the server's upgrade response.
+func OpenWSClientConnWithHeader(ctx context.Context, url string, config *tls.Config, readLimit int64) (*websocket.Conn, http.Header, error) { //nolint:contextcheck // nil ctx is treated as context.Background
 	if readLimit <= 0 {
 		readLimit = maxMessageSize
 	}
@@ -51,11 +59,15 @@ func OpenWSClientConnContextWithLimit(ctx context.Context, url string, config *t
 	ws, resp, err := dialer.DialContext(ctx, url, nil)
 	if err != nil {
 		logger.Errorf("Failed to establish websocket connection to [%s]: %s", url, err.Error())
-		return nil, err
+		return nil, nil, err
 	}
-	if resp != nil && resp.Body != nil {
-		_ = resp.Body.Close()
+	var header http.Header
+	if resp != nil {
+		header = resp.Header
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 	}
 	ws.SetReadLimit(readLimit)
-	return ws, nil
+	return ws, header, nil
 }

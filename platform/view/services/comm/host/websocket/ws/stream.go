@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 )
 
 type connection interface {
@@ -46,7 +47,14 @@ type stream struct {
 	// there were any leftover bytes from the previous value of the reads.
 	// If not, then we consume the next value from the reads channel
 	readLeftover []byte
+
+	// preamble is the peer's preamble, set before the stream is handed out; nil if the peer
+	// sent none.
+	preamble *preamble.Preamble
 }
+
+// Preamble implements host.PreambleStream.
+func (s *stream) Preamble() *preamble.Preamble { return s.preamble }
 
 // NewWSStream wraps conn into a stream. ctx only seeds the tracing parent for messages read off
 // this stream; it does not govern the stream's lifetime. All call sites deliberately pass a

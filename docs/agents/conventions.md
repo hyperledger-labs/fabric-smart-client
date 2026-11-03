@@ -113,3 +113,7 @@ for the trust and identity model.
   honour it. Never add a field with security meaning (an audience, a target node, a signature
   algorithm) to an existing view-API message; add a new command type, which an older server
   rejects with `ErrCommandNotRecognized`.
+- FSC's wire and API protos (the files `buf.yaml` includes) only gain fields, so a node reads
+  the messages of the release before it. `make buf-breaking` (CI: `buf.yml`) compares them
+  against the latest release tag with buf's `FILE` rules. A new FSC proto belongs under a path
+  `buf.yaml` includes.
