@@ -104,6 +104,11 @@ func TestGetRejections_NoneRegisteredIsSharedNoop(t *testing.T) {
 	require.NotNil(t, r)
 	require.Same(t, r, GetRejections(newProvider()))
 
+	// The fallback outlives the test, so clear its rate limit: a previous run
+	// (-count=N) leaves kindOther logged, which would suppress the first line.
+	r.mu.Lock()
+	r.logged = map[Kind]time.Time{}
+	r.mu.Unlock()
 	warns := 0
 	warnf := r.warnf
 	t.Cleanup(func() { r.warnf = warnf })
