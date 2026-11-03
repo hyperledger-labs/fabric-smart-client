@@ -244,8 +244,9 @@ Fabric-x spec cannot restart the orderer.
 Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery` (targets `fabric-faultrecovery`,
 `fabric-faultrecovery-postgres-outage`, `fabric-faultrecovery-replication`,
-`fabric-faultrecovery-partition`, `fabric-faultrecovery-bft`, `fabricx-faultrecovery`,
-`fabricx-faultrecovery-replication` and `fabricx-faultrecovery-partition`). Both run the FSC
+`fabric-faultrecovery-partition`, `fabric-faultrecovery-bft`, `fabric-faultrecovery-crash`,
+`fabricx-faultrecovery`, `fabricx-faultrecovery-replication`,
+`fabricx-faultrecovery-partition` and `fabricx-faultrecovery-crash`). Both run the FSC
 nodes alice and bob on Postgres, and charlie, a second responder in Org2, on SQLite, the
 default persistence; the Fabric suite adds three raft orderers, named in its
 `Orderers`, and its `bft` `Describe` runs on the four SmartBFT orderers of `BFTTopology`.
@@ -265,7 +266,15 @@ transaction is ordered; `EndorseFrom` has alice collect from other responders, i
 `CrashSpecs(s, responder)` registers the crash and catch-up specs with `responder` as the
 node that crashes. Each name ends in `(<responder>)` and carries the `crash` label, and
 both suites call it for bob and for charlie, so a node on SQLite is crashed as well as one
-on Postgres. `EchoTo` and `BlockedEcho` echo to a given responder. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
+on Postgres. They kill the responder after it endorsed, again while it catches up, and
+under load, and kill alice after she broadcast a transaction and before she saw it final.
+The `crash` specs run on the main network in a target of their own,
+`fabric-faultrecovery-crash` and `fabricx-faultrecovery-crash`, which the default targets
+exclude, so neither target outlasts CI's per-job limit. `Broadcast` runs alice's
+`broadcast` view, which orders a transaction without waiting for finality, so a spec can
+kill alice in between. `TrySubmitTo` is `TrySubmit` with given responders; the load spec
+runs workers that loop it, stops them before the kill, so each loses at most the call in
+flight, and restarts them once the responder endorses again. `EchoTo` and `BlockedEcho` echo to a given responder. `EndorseLiar` runs alice's `endorseLiar` view against a bob that
 changes the transaction before endorsing it, and returns how alice rejected the
 endorsement. `OrderEventually` retries `Order` while the orderers reject
 broadcasts, for example during a raft leader election; `EndorseEventually` retries

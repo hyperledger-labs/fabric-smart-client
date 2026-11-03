@@ -95,9 +95,14 @@ func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int)
 // failed. The ID is empty when endorsing failed, so no transaction exists that could
 // commit. It reports every failure as an error, so it is safe to call from a goroutine.
 func TrySubmit(ii *integration.Infrastructure, value int) (string, error) {
+	return TrySubmitTo(ii, value, "bob")
+}
+
+// TrySubmitTo is TrySubmit with responders, FSC node names, in place of bob.
+func TrySubmitTo(ii *integration.Infrastructure, value int, responders ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
-	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(submit(ii, value, "bob")))
+	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorse", common.JSONMarshall(submit(ii, value, responders...)))
 	if err != nil {
 		return "", err
 	}
@@ -133,6 +138,12 @@ func SubmitUntil(ctx context.Context, ii *integration.Infrastructure) []Submissi
 		subs = append(subs, Submission{Value: i, TxID: txID, Err: err})
 	}
 	return subs
+}
+
+// Broadcast runs alice's broadcast view on a transaction Endorse returned and returns its
+// ID once the ordering service accepted it, without waiting for finality.
+func Broadcast(ii *integration.Infrastructure, tx *views.Endorsed) string {
+	return common.JSONUnmarshalString(callView(ii, "alice", "broadcast", &views.Order{Tx: tx.Tx}))
 }
 
 // Endorse runs alice's endorse view with bob as responder and returns the endorsed

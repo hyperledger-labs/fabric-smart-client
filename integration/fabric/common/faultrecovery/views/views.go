@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -121,6 +122,34 @@ type OrderViewFactory struct{}
 
 func (*OrderViewFactory) NewView(in []byte) (view.View, error) {
 	f := &OrderView{}
+	if err := json.Unmarshal(in, &f.Order); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// BroadcastView sends the transaction EndorseView returned to the ordering service and
+// returns its ID without waiting for finality, so a spec can kill the initiator between
+// the broadcast and the transaction becoming final. It takes the input of OrderView.
+type BroadcastView struct {
+	Order
+}
+
+func (v *BroadcastView) Call(viewCtx view.Context) (any, error) {
+	tx, err := state.NewTransactionFromBytes(viewCtx, v.Tx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := viewCtx.RunView(endorser.NewOrderingView(tx.Transaction)); err != nil {
+		return nil, err
+	}
+	return tx.ID(), nil
+}
+
+type BroadcastViewFactory struct{}
+
+func (*BroadcastViewFactory) NewView(in []byte) (view.View, error) {
+	f := &BroadcastView{}
 	if err := json.Unmarshal(in, &f.Order); err != nil {
 		return nil, err
 	}
