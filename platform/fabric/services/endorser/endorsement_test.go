@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -875,8 +876,12 @@ func TestCollectEndorsementsView_RejectsGarbledResponse(t *testing.T) {
 // row, M is not bound to X and the endorsement is refused.
 func TestEndorsement_HijackerEndorsementRefused(t *testing.T) {
 	t.Parallel()
-	ownerNode, malloryNode := view.Identity("owner-node"), view.Identity("mallory-node")
-	x, m := view.Identity("x"), view.Identity("m")
+	// The memory driver shares one database per process, and run 1 ends with X
+	// proven-bound to its owner; unique identities keep later runs (-count=N)
+	// from starting with that row.
+	u := strconv.FormatInt(time.Now().UnixNano(), 10)
+	ownerNode, malloryNode := view.Identity("owner-node"+u), view.Identity("mallory-node"+u)
+	x, m := view.Identity("x"+u), view.Identity("m"+u)
 
 	store, err := mem.NewDriver().NewBinding("", "hijack")
 	require.NoError(t, err)
