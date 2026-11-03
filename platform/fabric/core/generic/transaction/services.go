@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
@@ -17,6 +19,7 @@ import (
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 var logger = logging.MustGetLogger()
@@ -108,8 +111,78 @@ func (s *ets) Exists(ctx context.Context, txid string) bool {
 	return ok
 }
 
-func (s *ets) StoreTransaction(ctx context.Context, txid string, env []byte) error {
-	return s.endorseTxKVS.PutEndorseTx(ctx, s.key(txid), env)
+// StoreTransaction stores raw, a serialized endorsed transaction, under txid.
+// If txid already holds a record, it keeps the stored one and returns nil when
+// both are endorsements of the same proposal with the same results (see
+// [sameEndorsement]), and an error wrapping [dbdriver.ErrConflict] otherwise.
+func (s *ets) StoreTransaction(ctx context.Context, txid string, raw []byte) error {
+	err := s.endorseTxKVS.PutEndorseTx(ctx, s.key(txid), raw)
+	if !errors.Is(err, dbdriver.ErrConflict) {
+		return err
+	}
+	stored, getErr := s.endorseTxKVS.GetEndorseTx(ctx, s.key(txid))
+	if getErr != nil {
+		return errors.WithMessagef(getErr, "failed reading stored transaction [%s]", txid)
+	}
+	if sameEndorsement(stored, raw) {
+		return nil
+	}
+	return err
+}
+
+// endorsement holds the fields of a serialized transaction that identify what
+// was endorsed. Fabric and Fabric-x transactions both serialize them as JSON
+// under these names; Fabric wraps the transaction in a [SerializedTransaction],
+// whose Raw holds it.
+type endorsement struct {
+	Raw             []byte
+	TSignedProposal *struct {
+		ProposalBytes []byte `json:"proposal_bytes"`
+		Signature     []byte `json:"signature"`
+	}
+	TProposalResponses []struct{ Payload []byte }
+}
+
+// sameEndorsement reports whether a and b, two serialized transactions, carry
+// the same signed proposal and responses that all endorse the same payload.
+// The payload holds the proposal hash and the results, while the endorser
+// signatures, which differ on every signing, sit outside it. The records may
+// hold different numbers of responses, as when a node endorses the same
+// transaction with a second identity. A record that does not decode, has no
+// signed proposal or no response is never the same as another.
+func sameEndorsement(a, b []byte) bool {
+	ea, ok := decodeEndorsement(a)
+	if !ok {
+		return false
+	}
+	eb, ok := decodeEndorsement(b)
+	if !ok ||
+		!bytes.Equal(ea.TSignedProposal.ProposalBytes, eb.TSignedProposal.ProposalBytes) ||
+		!bytes.Equal(ea.TSignedProposal.Signature, eb.TSignedProposal.Signature) {
+		return false
+	}
+	payload := ea.TProposalResponses[0].Payload
+	for _, r := range append(ea.TProposalResponses, eb.TProposalResponses...) {
+		if !bytes.Equal(r.Payload, payload) {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeEndorsement(raw []byte) (endorsement, bool) {
+	var e endorsement
+	if err := json.Unmarshal(raw, &e); err != nil {
+		return e, false
+	}
+	if e.Raw != nil {
+		inner := e.Raw
+		e = endorsement{}
+		if err := json.Unmarshal(inner, &e); err != nil {
+			return e, false
+		}
+	}
+	return e, e.TSignedProposal != nil && len(e.TSignedProposal.ProposalBytes) > 0 && len(e.TProposalResponses) > 0
 }
 
 func (s *ets) LoadTransaction(ctx context.Context, txid string) ([]byte, error) {

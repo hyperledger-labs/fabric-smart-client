@@ -388,6 +388,10 @@ Operational notes:
   - `unauthorized`: a first P2P message whose sender a responder's authorizer refused. It names
     the sender's node identity as the peer, and no txID; the reason names the responder's caller
     view. The same refusal is counted as `fsc_view_services_view_p2p_rejections{reason="unauthorized"}`.
+  - `store_conflict`: a write to a write-once store that differs from the record already stored
+    under the same key. The stored record is kept (see
+    [Security Model](../security-model.md#write-once-stores)). `endorseView` names the remote peer;
+    the committer names no peer.
 - `binding_refused` and `binding_conflict` name the long-term identity of the bind as the peer, and
   no txID. An isolated `binding_conflict` after a remote node rotated its certificate is expected:
   its alias rows still point at the old certificate. A steady rate, or any `binding_refused`, means
@@ -395,13 +399,17 @@ Operational notes:
   separate resolver.
 - An `invalid_tx` rejection is not a degrade and is not counted in `commit_failures`: the endorser
   refuses the transaction before it reaches the committer, so no channel's block stream is affected.
+- A `store_conflict` from the committer discards one transaction and is not a degrade either. Any
+  `store_conflict` means two parties produced different records under one txID; an honest retry
+  never does.
 - Each rejection also logs one warn line naming the peer and, for `invalid_tx`, the txID; the
   binding kinds have no txID. The line is rate-limited to one per kind per second since the remote
   peer controls how often it fires; the counter itself counts every rejection, and the binding
   kinds count one per refused or conflicting ephemeral. Peer and txID are never counter labels.
 
 Primary implementation: `platform/view/services/security/rejections.go`, updated from
-`platform/fabric/services/endorser/validate.go`, `platform/view/services/endpoint/service.go`,
+`platform/fabric/services/endorser/validate.go`, `platform/fabric/services/endorser/endorsement.go`,
+`platform/fabric/core/generic/committer/committer.go`, `platform/view/services/endpoint/service.go`,
 `platform/fabric/services/state/recipients.go` and `platform/view/services/view/p2p/service.go`.
 
 ### Vault

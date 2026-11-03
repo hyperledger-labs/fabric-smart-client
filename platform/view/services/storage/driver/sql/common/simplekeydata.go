@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -51,23 +52,65 @@ func (db *SimpleKeyDataStore) ExistData(ctx context.Context, key string) (bool, 
 	return len(data) > 0, err
 }
 
+// PutData stores data under key unless key already has a value, in which case
+// it keeps the stored value and returns nil.
 func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []byte) error {
+	_, err := db.insert(ctx, key, data)
+	return err
+}
+
+// PutDataStrict stores data under key. If key already has a value, it keeps
+// the stored value and returns nil when that value equals data, or an error
+// wrapping [driver.ErrConflict] when it differs.
+//
+// The insert and the read-back are separate statements. This is safe because
+// the store never updates or deletes a row: once the insert finds the key
+// taken, the value read back is the one that won.
+func (db *SimpleKeyDataStore) PutDataStrict(ctx context.Context, key string, data []byte) error {
+	inserted, err := db.insert(ctx, key, data)
+	if err != nil || inserted {
+		return err
+	}
+	stored, err := db.GetData(ctx, key)
+	if err != nil {
+		return errors.WithMessagef(err, "failed reading stored data for key [%s]", key)
+	}
+	return checkStored(key, stored, data)
+}
+
+// insert stores data under key unless key already has a value, and reports
+// whether it did.
+func (db *SimpleKeyDataStore) insert(ctx context.Context, key string, data []byte) (bool, error) {
 	query, params := sqlbuild.New().
 		WriteString("INSERT INTO " + db.table + " (key,data) VALUES ").
 		WriteTuples([]sqlbuild.Tuple{{key, data}}).
 		WriteString(" ON CONFLICT DO NOTHING").
 		Build()
-	logger.Debug(query, string(data))
-	result, err := db.writeDB.ExecContext(ctx, query, params...)
-	if err != nil {
-		return errors.Wrapf(db.errorWrapper.WrapError(err), "failed executing query [%s]", query)
-	}
+	logger.Debug(query, key)
+	return execInsert(ctx, db.writeDB, db.errorWrapper, query, params...)
+}
 
-	if rowsAffected, err := result.RowsAffected(); err == nil && rowsAffected == 0 {
-		logger.DebugfContext(ctx, "Entry for key [%s] was already in the database. Skipped", key)
+// execInsert runs an INSERT ... ON CONFLICT DO NOTHING and reports whether it
+// inserted a row.
+func execInsert(ctx context.Context, writeDB WriteDB, errorWrapper driver.SQLErrorWrapper, query string, params ...any) (bool, error) {
+	result, err := writeDB.ExecContext(ctx, query, params...)
+	if err != nil {
+		return false, errors.Wrapf(errorWrapper.WrapError(err), "failed executing query [%s]", query)
 	}
-	logger.DebugfContext(ctx, "Data [%s] registered", key)
-	return nil
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, errors.Wrapf(errorWrapper.WrapError(err), "failed reading affected rows of query [%s]", query)
+	}
+	return rowsAffected > 0, nil
+}
+
+// checkStored returns nil when stored equals data, and an error wrapping
+// [driver.ErrConflict] otherwise.
+func checkStored(key string, stored, data []byte) error {
+	if bytes.Equal(stored, data) {
+		return nil
+	}
+	return errors.Wrapf(driver.ErrConflict, "key [%s] already holds a different value", key)
 }
 
 func (db *SimpleKeyDataStore) CreateSchema() error {

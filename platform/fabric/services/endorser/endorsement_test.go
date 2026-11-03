@@ -23,6 +23,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -243,6 +245,28 @@ func TestEndorseView(t *testing.T) {
 	f.tx.ProposalResponseReturns(nil, fmt.Errorf("err"))
 	_, err = ev.Call(f.ctx)
 	require.Error(t, err)
+}
+
+// A different transaction already stored under the txID fails the endorsement
+// and is counted as a store conflict.
+func TestEndorseView_ReportsStoreConflict(t *testing.T) {
+	t.Parallel()
+	f := newEndorseFixture(t)
+	counts := &countingMetrics{}
+	rejections := security.NewRejections(counts)
+	getService := f.ctx.GetServiceStub
+	f.ctx.GetServiceCalls(func(v any) (any, error) {
+		if v == reflect.TypeFor[*security.Rejections]() {
+			return rejections, nil
+		}
+		return getService(v)
+	})
+	f.ts.StoreTransactionReturns(fmt.Errorf("key taken: %w", dbdriver.ErrConflict))
+
+	_, err := NewEndorseView(f.et).Call(f.ctx)
+	require.ErrorIs(t, err, dbdriver.ErrConflict)
+	require.InDelta(t, 1, counts.count(security.KindStoreConflict), 0)
+	require.Zero(t, counts.count(security.KindInvalidTx))
 }
 
 func TestEndorseView_RejectsForgedTxIDBeforeSigning(t *testing.T) {

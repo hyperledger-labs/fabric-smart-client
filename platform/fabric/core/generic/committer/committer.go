@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
@@ -96,6 +97,9 @@ type Committer struct {
 	tracer             trace.Tracer
 	TransactionManager driver.TransactionManager
 	DependencyResolver DependencyResolver
+	// Rejections counts envelope writes that conflict with a stored envelope.
+	// When nil, the counts are discarded.
+	Rejections *security.Rejections
 
 	// configCaughtUp is set once catchUpConfig has succeeded. Only the
 	// channel's block delivery calls Commit, one block at a time, so it needs
@@ -775,8 +779,8 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 				if err != nil {
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
-				if err := c.EnvelopeService.StoreEnvelope(ctx, txID, envelopeRaw); err != nil {
-					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+				if err := c.storeEnvelope(ctx, txID, envelopeRaw); err != nil {
+					return err
 				}
 				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 				if err != nil {
@@ -802,6 +806,22 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 		return err
 	}
 
+	return nil
+}
+
+// storeEnvelope stores the envelope of a transaction Fabric found valid. When a
+// different envelope is already stored under txID, it reports a store conflict
+// and returns an error wrapping [ErrDiscardTX], so only this transaction is
+// discarded and the channel keeps committing.
+func (c *Committer) storeEnvelope(ctx context.Context, txID string, envelopeRaw []byte) error {
+	err := c.EnvelopeService.StoreEnvelope(ctx, txID, envelopeRaw)
+	if errors.Is(err, dbdriver.ErrConflict) {
+		c.Rejections.Report(ctx, security.KindStoreConflict, nil, txID, "a different envelope is stored under this txID")
+		return errors.Wrapf(ErrDiscardTX, "[%s] store conflict: %s", txID, err)
+	}
+	if err != nil {
+		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+	}
 	return nil
 }
 
@@ -841,8 +861,8 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block, index
 		return nil
 	}
 
-	if err := c.EnvelopeService.StoreEnvelope(ctx, txID, envelopeRaw); err != nil {
-		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+	if err := c.storeEnvelope(ctx, txID, envelopeRaw); err != nil {
+		return err
 	}
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 	if err != nil {

@@ -30,6 +30,7 @@ func NewAuditInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapp
 	}
 }
 
+// AuditInfoStore is a write-once store of the audit info of identities.
 type AuditInfoStore struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
@@ -37,6 +38,7 @@ type AuditInfoStore struct {
 	writeDB      WriteDB
 }
 
+// GetAuditInfo returns the audit info of id, or nil when there is none.
 func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error) {
 	query, params := sqlbuild.New().
 		WriteString("SELECT audit_info FROM " + db.table).
@@ -45,26 +47,32 @@ func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([
 
 	logger.Debug(query, params)
 
-	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
+	info, err := QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
+	return info, db.errorWrapper.WrapError(err)
 }
 
+// PutAuditInfo stores info as the audit info of id. If id already has audit
+// info, it keeps the stored value and returns nil when that value equals info,
+// or an error wrapping [driver.ErrConflict] when it differs. It reads the
+// stored value back after the insert, which is safe because the store never
+// updates or deletes a row.
 func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error {
 	query, params := sqlbuild.New().
 		WriteString("INSERT INTO " + db.table + " (id,audit_info) VALUES ").
 		WriteTuples([]sqlbuild.Tuple{{id.UniqueID(), info}}).
+		WriteString(" ON CONFLICT DO NOTHING").
 		Build()
 
 	logger.Debug(query, params)
-	_, execErr := db.writeDB.ExecContext(ctx, query, params...)
-	if execErr == nil {
-		logger.DebugfContext(ctx, "signer [%s] registered", id)
-		return nil
+	inserted, err := execInsert(ctx, db.writeDB, db.errorWrapper, query, params...)
+	if err != nil || inserted {
+		return err
 	}
-	if err := db.errorWrapper.WrapError(execErr); !errors.Is(err, driver.UniqueKeyViolation) {
-		return errors.Wrapf(err, "failed executing query [%s]", query)
+	stored, err := db.GetAuditInfo(ctx, id)
+	if err != nil {
+		return errors.WithMessagef(err, "failed reading stored audit info of [%s]", id)
 	}
-	logger.Infof("Audit info [%s] already in db. Skipping...", id)
-	return nil
+	return checkStored(id.UniqueID(), stored, info)
 }
 
 func (db *AuditInfoStore) CreateSchema() error {

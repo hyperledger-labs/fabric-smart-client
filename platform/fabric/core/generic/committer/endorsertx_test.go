@@ -16,10 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commoncommitter "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 func mustMarshalProto(t *testing.T, m proto.Message) []byte {
@@ -315,6 +317,45 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		require.GreaterOrEqual(t, done.DoneCount, 1)
 	})
 
+	// A different envelope under the txID is reported and the transaction is
+	// still discarded, without loading the read-write set of either envelope.
+	t.Run("unknown status with a conflicting stored envelope marks discarded", func(t *testing.T) {
+		t.Parallel()
+		setDiscarded := false
+		c := &Committer{
+			logger:            logger,
+			ProcessNamespaces: []string{"tracked-ns"},
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Unknown, "", nil
+				},
+				SetDiscardedFn: func(context.Context, cdriver.TxID, string) error {
+					setDiscarded = true
+					return nil
+				},
+			},
+			EnvelopeService: &fake.EnvelopeService{
+				StoreEnvelopeFn: func(context.Context, string, any) error {
+					return errors.Wrapf(dbdriver.ErrConflict, "key taken")
+				},
+			},
+			RWSetLoaderService: &fake.RWSetLoader{
+				InspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+					return &fake.RWSet{NamespacesList: []cdriver.Namespace{"tracked-ns"}}, nil, nil
+				},
+				GetFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+					t.Error("the read-write set of a conflicting envelope must not be loaded")
+					return &fake.RWSet{}, nil, nil
+				},
+			},
+			TransactionFilters: commoncommitter.NewAggregatedTransactionFilter(),
+		}
+		event := &FinalityEvent{Ctx: t.Context(), TxID: "tx-forged", ValidationCode: fdriver.Invalid, ValidationMessage: "bad"}
+		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx-forged", 13, []byte("raw"), event))
+		require.True(t, setDiscarded)
+		require.Error(t, event.Err)
+	})
+
 	t.Run("status lookup error propagates", func(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
@@ -553,4 +594,33 @@ func TestHandleEndorserTransactionAdditionalBranches(t *testing.T) {
 		require.Equal(t, fdriver.Valid, event.ValidationCode)
 		require.NotEmpty(t, pub.Events)
 	})
+}
+
+// TestStoreEnvelopeConflictDiscardsTransaction checks that a valid transaction
+// whose envelope conflicts with the stored one fails with ErrDiscardTX and a
+// message naming the store conflict, which HandleEndorserTransaction turns into
+// an invalid status for that transaction alone, and that the failure does not
+// stop the channel.
+func TestStoreEnvelopeConflictDiscardsTransaction(t *testing.T) {
+	t.Parallel()
+
+	c := &Committer{
+		logger: logger,
+		EnvelopeService: &fake.EnvelopeService{
+			StoreEnvelopeFn: func(context.Context, string, any) error {
+				return errors.Wrapf(dbdriver.ErrConflict, "key taken")
+			},
+		},
+	}
+	err := c.storeEnvelope(t.Context(), "tx1", []byte("env"))
+	require.ErrorIs(t, err, ErrDiscardTX)
+	require.ErrorContains(t, err, "store conflict")
+	require.NotEqual(t, classRetry, classify(err))
+
+	c.EnvelopeService = &fake.EnvelopeService{
+		StoreEnvelopeFn: func(context.Context, string, any) error { return dbdriver.ErrConnectionLost },
+	}
+	err = c.storeEnvelope(t.Context(), "tx1", []byte("env"))
+	require.ErrorIs(t, err, dbdriver.ErrConnectionLost, "another store failure is returned as is")
+	require.NotErrorIs(t, err, ErrDiscardTX)
 }

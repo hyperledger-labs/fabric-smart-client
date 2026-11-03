@@ -36,6 +36,10 @@ var (
 	// because it is a known long-term identity, so binding it would redirect it to another
 	// party.
 	ErrBindingRefused = errors.New("binding refused")
+	// ErrConflict means a write-once store already holds a different value under
+	// the key being written. The stored value is kept. Writing the value already
+	// stored is not a conflict.
+	ErrConflict = errors.New("store conflict")
 )
 
 type UnversionedRead = driver.UnversionedRead

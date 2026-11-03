@@ -7,27 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
-// keyDataStore is the get/exists/put surface the envelope, endorsement-transaction
-// and metadata stores share under their own method names.
-type keyDataStore struct {
-	get    func(context.Context, string) ([]byte, error)
-	exists func(context.Context, string) (bool, error)
-	put    func(context.Context, string, []byte) error
-}
-
-// TestKeyDataStoresPostgres round-trips each key-data store through a schema created
-// on a real Postgres: a put value is read back, an unknown key is absent, and a
-// second put for the same key is not an error and keeps the first value.
+// TestKeyDataStoresPostgres runs common.TestKeyDataStore for each key-data store
+// on a schema created on a real Postgres. The envelope and
+// endorsement-transaction stores are write-once; the metadata store keeps the
+// first value.
 func TestKeyDataStoresPostgres(t *testing.T) {
 	t.Parallel()
 
@@ -38,52 +30,32 @@ func TestKeyDataStoresPostgres(t *testing.T) {
 	cp := postgres.NewConfigProvider(drivertesting.MockConfig(postgres.Config{DataSource: pgConnStr}))
 	dbProvider := postgres.NewDbProvider()
 
-	for name, open := range map[string]func(*testing.T) keyDataStore{
-		"Envelope": func(t *testing.T) keyDataStore {
+	for name, tc := range map[string]struct {
+		open   func(*testing.T) common.KeyDataStore
+		strict bool
+	}{
+		"Envelope": {strict: true, open: func(t *testing.T) common.KeyDataStore {
 			t.Helper()
 			s, err := NewPersistenceWithOpts(cp, dbProvider, "", NewEnvelopeStore)
 			require.NoError(t, err)
-			return keyDataStore{s.GetEnvelope, s.ExistsEnvelope, s.PutEnvelope}
-		},
-		"EndorseTx": func(t *testing.T) keyDataStore {
+			return common.KeyDataStore{Get: s.GetEnvelope, Exists: s.ExistsEnvelope, Put: s.PutEnvelope}
+		}},
+		"EndorseTx": {strict: true, open: func(t *testing.T) common.KeyDataStore {
 			t.Helper()
 			s, err := NewPersistenceWithOpts(cp, dbProvider, "", NewEndorseTxStore)
 			require.NoError(t, err)
-			return keyDataStore{s.GetEndorseTx, s.ExistsEndorseTx, s.PutEndorseTx}
-		},
-		"Metadata": func(t *testing.T) keyDataStore {
+			return common.KeyDataStore{Get: s.GetEndorseTx, Exists: s.ExistsEndorseTx, Put: s.PutEndorseTx}
+		}},
+		"Metadata": {open: func(t *testing.T) common.KeyDataStore {
 			t.Helper()
 			s, err := NewPersistenceWithOpts(cp, dbProvider, "", NewMetadataStore)
 			require.NoError(t, err)
-			return keyDataStore{s.GetMetadata, s.ExistMetadata, s.PutMetadata}
-		},
+			return common.KeyDataStore{Get: s.GetMetadata, Exists: s.ExistMetadata, Put: s.PutMetadata}
+		}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			s := open(t)
-			ctx := t.Context()
-			// Not valid UTF-8 and containing a NUL, so a column that is not BYTEA rejects it.
-			first := []byte{0x00, 0xff, 'f'}
-
-			require.NoError(t, s.put(ctx, "tx1", first))
-			require.NoError(t, s.put(ctx, "tx1", []byte("second")), "putting an existing key is not an error")
-
-			got, err := s.get(ctx, "tx1")
-			require.NoError(t, err)
-			assert.Equal(t, first, got, "the first put wins")
-
-			exists, err := s.exists(ctx, "tx1")
-			require.NoError(t, err)
-			assert.True(t, exists)
-
-			got, err = s.get(ctx, "unknown")
-			require.NoError(t, err)
-			assert.Empty(t, got, "an unknown key returns nothing")
-
-			exists, err = s.exists(ctx, "unknown")
-			require.NoError(t, err)
-			assert.False(t, exists)
+			common.TestKeyDataStore(t, tc.open(t), tc.strict)
 		})
 	}
 }
