@@ -14,6 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -242,6 +244,9 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s]", s.tx.Channel())
 	}
 	err = ch.Vault().StoreTransaction(viewCtx.Context(), s.tx.ID(), txRaw)
+	if errors.Is(err, dbdriver.ErrConflict) {
+		security.GetRejections(viewCtx).Report(viewCtx.Context(), security.KindStoreConflict, sessionCaller(viewCtx), s.tx.ID(), "a different transaction is stored under this txID")
+	}
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed storing tx env [%s]", s.tx.ID())
 	}

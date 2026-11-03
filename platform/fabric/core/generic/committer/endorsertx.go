@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 type ValidationFlags []uint8
@@ -160,14 +161,22 @@ func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string,
 		}
 		if ok {
 			// so, we must remember that this transaction was discarded
-			if err := c.EnvelopeService.StoreEnvelope(ctx, txID, envRaw); err != nil {
+			err := c.EnvelopeService.StoreEnvelope(ctx, txID, envRaw)
+			switch {
+			case errors.Is(err, dbdriver.ErrConflict):
+				// A different envelope is stored under txID. This one is invalid,
+				// so it is discarded below without loading its read-write set. It
+				// is not reported: a valid transaction discarded by storeEnvelope
+				// reaches this write again, and storeEnvelope reported it.
+			case err != nil:
 				return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
+			default:
+				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
+				if err != nil {
+					return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
+				}
+				rws.Done()
 			}
-			rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
-			if err != nil {
-				return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
-			}
-			rws.Done()
 		}
 	}
 

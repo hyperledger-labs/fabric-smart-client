@@ -51,7 +51,7 @@ func TestEnvelope_PutData_Success(t *testing.T) {
 
 func TestEnvelope_PutData_Conflict(t *testing.T) {
 	t.Parallel()
-	PutDataConflict(t, func(db *sql.DB, key string, data []byte) error {
+	PutDataStrictConflict(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEnvelopeStore(db).PutEnvelope(context.Background(), key, data)
 	})
 }

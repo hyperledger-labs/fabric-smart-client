@@ -36,6 +36,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
@@ -98,6 +99,7 @@ func NewChannelProvider(in struct {
 	Drivers         multiplexed.Driver
 	MetricsProvider metrics.Provider
 	ConnState       *connstate.Metrics
+	Rejections      *security.Rejections `optional:"true"`
 },
 ) generic.ChannelProvider {
 	flmProvider := ccommitter.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider)
@@ -161,7 +163,7 @@ func NewChannelProvider(in struct {
 			if err != nil {
 				return nil, err
 			}
-			return committer.New(
+			c := committer.New(
 				nw.ConfigService(),
 				channelConfig,
 				vault,
@@ -179,7 +181,9 @@ func NewChannelProvider(in struct {
 				flmProvider.NewManager(),
 				in.TracerProvider,
 				in.MetricsProvider,
-			), nil
+			)
+			c.Rejections = in.Rejections
+			return c, nil
 		},
 		func(
 			nw driver.FabricNetworkService,

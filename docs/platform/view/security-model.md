@@ -143,6 +143,41 @@ Applications with their own recipient exchange can produce and check the same pr
 `state.SignRecipientProof` and `state.VerifyRecipientProof`. Identities that cannot sign, such as
 remote wallets or script and multisig owners, need their own exchange and handling.
 
+## Write-once stores
+
+The envelope store, the endorsed-transaction store and the audit-info store hold records that
+other components trust once written: the committer loads the read-write set of a transaction from
+its stored envelope or endorsed transaction, and the audit info of an identity decides what an
+auditor sees. A
+remote peer that learns a txID or an identity could otherwise race the honest writer and have its
+own record kept. These stores are therefore write-once:
+
+- Writing the record already stored under a key is a no-op and returns nil, so retries and
+  replicas keep working.
+- Writing a different record returns an error wrapping `driver.ErrConflict`
+  (`platform/view/services/storage/driver`) and keeps the stored record.
+
+The SQL stores insert with `ON CONFLICT DO NOTHING` and, when no row was inserted, read the stored
+record back and compare bytes. They refuse an empty record. Their rows are never updated or deleted, so the record read back is
+the one that won, and of two concurrent writers of different records exactly one succeeds.
+
+An endorsed transaction holds this node's proposal responses, whose signatures differ on every
+signing. `ets.StoreTransaction` (`platform/fabric/core/generic/transaction/services.go`) therefore
+treats two records as the same when they carry the same signed proposal and all their proposal
+responses carry the same payload, which holds the proposal hash and the results. A record can have
+more responses than the stored one, as when the node endorses the same transaction with a second
+identity.
+
+A conflict is counted as the security rejection `store_conflict` (see
+[Security metrics](services/monitoring_metrics.md#security)). `endorseView` reports the session's
+remote peer and fails the endorsement. The Fabric committer reports an empty peer: a valid
+transaction whose envelope conflicts is discarded alone, with a validation message containing
+`store conflict`, and the channel keeps committing. An invalid transaction whose envelope conflicts
+is discarded as it would be otherwise and is not counted.
+
+The transaction-metadata store keeps the first value written under a key and returns nil on later
+writes: transient data is stored again during multi-step endorsement.
+
 ## Identity bindings
 
 The endpoint service resolves an identity a node does not know directly, such as a recipient

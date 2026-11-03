@@ -56,7 +56,7 @@ func TestEndorseTX_PutData_Success(t *testing.T) {
 
 func TestEndorseTX_PutData_Conflict(t *testing.T) {
 	t.Parallel()
-	PutDataConflict(t, func(db *sql.DB, key string, data []byte) error {
+	PutDataStrictConflict(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEndorseTXStore(db).PutEndorseTx(context.Background(), key, data)
 	})
 }

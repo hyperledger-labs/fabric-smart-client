@@ -38,6 +38,9 @@ const (
 	KindRecipientProof Kind = "recipient_proof"
 	// KindUnauthorized is a first message whose sender a responder's authorizer refused.
 	KindUnauthorized Kind = "unauthorized"
+	// KindStoreConflict is a write that conflicts with the value a write-once
+	// store already holds under the same key.
+	KindStoreConflict Kind = "store_conflict"
 )
 
 // logInterval is the minimum time between two warn lines for the same kind.
@@ -78,8 +81,12 @@ func NewRejections(p metrics.Provider) *Rejections {
 
 // Report records that input from peer, for transaction txID, failed the
 // security check kind for reason. txID may be empty; the warn line quotes it.
-// reason must not contain attacker-controlled bytes beyond the txID.
+// reason must not contain attacker-controlled bytes beyond the txID. On a nil
+// Rejections it reports to the shared instance that discards its counts.
 func (r *Rejections) Report(ctx context.Context, kind Kind, peer view.Identity, txID, reason string) {
+	if r == nil {
+		r = fallback
+	}
 	r.counter.With("kind", string(kind)).Add(1)
 
 	r.mu.Lock()

@@ -22,6 +22,7 @@ func NewEndorseTxStore(writeDB common.WriteDB, readDB *sql.DB, table string, err
 	return &EndorseTxStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
 }
 
+// EndorseTxStore is a write-once store of endorsed transactions by key.
 type EndorseTxStore struct {
 	p *common.SimpleKeyDataStore
 }
@@ -34,8 +35,11 @@ func (db *EndorseTxStore) ExistsEndorseTx(ctx context.Context, key string) (bool
 	return db.p.ExistData(ctx, key)
 }
 
+// PutEndorseTx stores data under key. Writing the value already stored under
+// key returns nil; writing different bytes returns an error wrapping
+// [driver.ErrConflict] and keeps the stored value.
 func (db *EndorseTxStore) PutEndorseTx(ctx context.Context, key string, data []byte) error {
-	return db.p.PutData(ctx, key, data)
+	return db.p.PutDataStrict(ctx, key, data)
 }
 
 func (db *EndorseTxStore) CreateSchema() error {
