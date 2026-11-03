@@ -33,6 +33,8 @@ func (*mockSession) Close() {}
 
 type mockContext struct {
 	s view.Session
+	// ctx is the view's context; nil means context.Background.
+	ctx context.Context
 }
 
 func (*mockContext) ID() string              { return "" }
@@ -46,8 +48,14 @@ func (*mockContext) GetSession(view.View, view.Identity, ...view.View) (view.Ses
 func (*mockContext) GetSessionByID(string, view.Identity) (view.Session, error) {
 	return nil, nil
 }
-func (*mockContext) Context() context.Context { return context.Background() }
-func (m *mockContext) Session() view.Session  { return m.s }
+
+func (m *mockContext) Context() context.Context {
+	if m.ctx == nil {
+		return context.Background()
+	}
+	return m.ctx
+}
+func (m *mockContext) Session() view.Session { return m.s }
 func (*mockContext) RunView(view.View, ...view.RunViewOption) (any, error) {
 	return nil, nil
 }
@@ -205,4 +213,53 @@ func TestReadFirstMessageOrPanicNilChannel(t *testing.T) {
 	require.PanicsWithValue(t, "session receive channel is nil", func() {
 		ReadFirstMessageOrPanic(ctx)
 	})
+}
+
+// A view waiting for a reply must end as soon as its caller cancels it, not when its own
+// timer fires, so that it closes its sessions and the responder on the other node ends too.
+func TestReadMessageWithContextReturnsWhenContextEnds(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	_, err := ReadMessageWithContext(ctx, &mockSession{ch: make(chan *view.Message)}, time.Minute)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Less(t, time.Since(start), time.Second, "the read waited for its timer instead of the context")
+}
+
+func TestReadMessageWithContextReturnsDeadline(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	_, err := ReadMessageWithContext(ctx, &mockSession{ch: make(chan *view.Message)}, time.Minute)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestReadMessageWithContextReadsMessage(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: []byte("hello"), Status: view.OK}
+
+	payload, err := ReadMessageWithContext(context.Background(), &mockSession{ch: ch}, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, []byte("hello"), payload)
+}
+
+func TestReadMessageWithContextTimesOut(t *testing.T) {
+	t.Parallel()
+	_, err := ReadMessageWithContext(context.Background(), &mockSession{ch: make(chan *view.Message)}, 10*time.Millisecond)
+	require.EqualError(t, err, "time out reached")
+}
+
+func TestReadFirstMessageReturnsWhenContextEnds(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	_, _, err := ReadFirstMessage(&mockContext{s: &mockSession{ch: make(chan *view.Message)}, ctx: ctx})
+	require.ErrorIs(t, err, context.Canceled)
+	require.Less(t, time.Since(start), time.Second, "the read waited for its 30 s timer instead of the context")
 }
