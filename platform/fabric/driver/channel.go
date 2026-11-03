@@ -33,5 +33,9 @@ type Channel interface {
 
 	MetadataService() MetadataService
 
+	// ChannelKey returns the key that identifies this channel to other nodes. It
+	// fails while block 0 of the channel cannot be read.
+	ChannelKey() (*ChannelKey, error)
+
 	Close() error
 }

@@ -133,10 +133,11 @@ func TestCollectEndorsementsView(t *testing.T) {
 // endorseFixture is a view context for endorseView whose transaction is a
 // valid received transaction for channel ch1 of network net1.
 type endorseFixture struct {
-	ctx *mock.Context
-	tx  *mock.Transaction
-	ts  *mock.EndorserTransactionService
-	et  *Transaction
+	ctx       *mock.Context
+	tx        *mock.Transaction
+	ts        *mock.EndorserTransactionService
+	et        *Transaction
+	defaultTS *mock.EndorserTransactionService
 }
 
 func newEndorseFixture(t *testing.T) *endorseFixture {
@@ -182,8 +183,23 @@ func newEndorseFixture(t *testing.T) *endorseFixture {
 	fakeIP.IdentityReturns([]byte("alice"), nil)
 	fakeFNS.IdentityProviderReturns(fakeIP)
 
+	// The default network, net0, has a channel ch1 of its own; the transaction
+	// belongs to net1.
+	defaultTS := &mock.EndorserTransactionService{}
+	defaultCH := &mock.Channel{}
+	defaultCH.NameReturns("ch1")
+	defaultCH.TransactionServiceReturns(defaultTS)
+	defaultFNS := &mock.FabricNetworkService{}
+	defaultFNS.NameReturns("net0")
+	defaultFNS.ChannelReturns(defaultCH, nil)
+
 	fakeFNSP := &mock.FabricNetworkServiceProvider{}
-	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
+	fakeFNSP.FabricNetworkServiceCalls(func(id string) (driver.FabricNetworkService, error) {
+		if id == "" || id == "net0" {
+			return defaultFNS, nil
+		}
+		return fakeFNS, nil
+	})
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
 	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
@@ -198,10 +214,11 @@ func newEndorseFixture(t *testing.T) *endorseFixture {
 
 	fns := fabric.NewNetworkService(nil, fakeFNS, "net1")
 	return &endorseFixture{
-		ctx: fakeCtx,
-		tx:  fakeTx,
-		ts:  fakeTS,
-		et:  &Transaction{Transaction: fabric.NewTransaction(fns, fakeTx)},
+		ctx:       fakeCtx,
+		tx:        fakeTx,
+		ts:        fakeTS,
+		defaultTS: defaultTS,
+		et:        &Transaction{Transaction: fabric.NewTransaction(fns, fakeTx)},
 	}
 }
 
@@ -213,6 +230,7 @@ func TestEndorseView(t *testing.T) {
 	_, err := ev.Call(f.ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, f.ts.StoreTransactionCallCount())
+	require.Zero(t, f.defaultTS.StoreTransactionCallCount(), "stored on the transaction's network, not the default one")
 
 	// Error path: tx.EndorseWithIdentity failure
 	f.tx.EndorseWithIdentityReturns(fmt.Errorf("err"))
@@ -957,3 +975,41 @@ func TestVerifierProviderWrapper(t *testing.T) {
 type fakeView struct{}
 
 func (*fakeView) Call(_ view.Context) (any, error) { return nil, nil }
+
+// keyedTx is a driver transaction whose channel key cannot be read.
+type keyedTx struct {
+	*mock.Transaction
+	err error
+}
+
+func (k *keyedTx) ChannelKey() (*driver.ChannelKey, error) { return nil, k.err }
+
+// A transaction is not sent to another node while the key of its channel cannot
+// be read: its bytes would lack the key, and the receiver would build it on its
+// default network.
+func TestSendViewsRequireChannelKey(t *testing.T) {
+	t.Parallel()
+	dtx := &keyedTx{Transaction: &mock.Transaction{}, err: errors.New("ledger unavailable")}
+	dtx.IDReturns("tx1")
+	dtx.ChannelReturns("ch1")
+	ch := &mock.Channel{}
+	ch.ChannelMembershipReturns(&mock.ChannelMembership{})
+	fns := &mock.FabricNetworkService{}
+	fns.ChannelReturns(ch, nil)
+	tx := &Transaction{Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fns, "net1"), dtx)}
+	rws := &mock.RWSet{}
+	rws.BytesReturns([]byte("results"), nil)
+	dtx.GetRWSetReturns(rws, nil)
+	ctx := &mock.Context{}
+	ctx.ContextReturns(t.Context())
+
+	for name, v := range map[string]view.View{
+		"collect":  NewCollectEndorsementsView(tx, []byte("bob")),
+		"parallel": NewParallelCollectEndorsementsOnProposalView(tx, []byte("bob")),
+	} {
+		_, err := v.Call(ctx)
+		require.ErrorContains(t, err, "cannot send tx [tx1] of channel [ch1] to another node: ledger unavailable", name)
+	}
+	require.Zero(t, ctx.GetSessionCallCount(), "nothing is sent")
+	require.Zero(t, dtx.BytesCallCount())
+}

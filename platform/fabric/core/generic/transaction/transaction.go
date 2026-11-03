@@ -126,6 +126,15 @@ func (t *Transaction) Channel() string {
 	return t.TChannel
 }
 
+// ChannelKey returns the key of the channel the transaction is bound to, or nil if
+// it is bound to none.
+func (t *Transaction) ChannelKey() (*driver.ChannelKey, error) {
+	if t.channel == nil {
+		return nil, nil
+	}
+	return t.channel.ChannelKey()
+}
+
 func (t *Transaction) Function() string {
 	return t.TFunction
 }
@@ -198,10 +207,14 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 // proposal responses without a signed proposal, so the endorsements cover what the transaction
 // declares. It does not validate data received from a peer; use endorser.ValidateReceived.
 func (t *Transaction) SetFromBytes(raw []byte) error {
+	// The transaction stays bound to the local network it was created on; the
+	// network name in raw is the sender's and means nothing on this node.
+	network := t.TNetwork
 	err := json.Unmarshal(raw, t)
 	if err != nil {
 		return errors.Wrapf(err, "SetFromBytes: failed unmarshalling payload [%s]", string(raw))
 	}
+	t.TNetwork = network
 	logger.Debugf("set transient [%s]", logging.Keys(t.TTransient))
 
 	if t.TSignedProposal == nil && len(t.TProposalResponses) > 0 {

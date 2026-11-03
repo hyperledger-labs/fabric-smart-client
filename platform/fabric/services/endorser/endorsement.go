@@ -60,6 +60,9 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 			continue
 		}
 
+		if err := RequireChannelKey(c.tx.Transaction); err != nil {
+			return nil, err
+		}
 		var txRaw []byte
 		logger.DebugfContext(viewCtx.Context(), "Get transaction bytes")
 		if c.deleteTransient {
@@ -231,11 +234,7 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling tx")
 	}
-	fns, err := fabric.GetDefaultFNS(viewCtx)
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed getting default network")
-	}
-	ch, err := fns.Channel(s.tx.Channel())
+	ch, err := s.tx.FabricNetworkService().Channel(s.tx.Channel())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s]", s.tx.Channel())
 	}

@@ -176,10 +176,11 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
 			newTransaction: func(context.Context, string, []byte, []byte, cdriver.TxID, []byte) (driver.Transaction, error) {
-				return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
+				return &Transaction{TNetwork: "local", fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
 			},
 		})
 
+		// The sender's network name, net1, does not replace the local one.
 		raw := []byte(`{"TTxID":"tx1","TChannel":"ch1","TNetwork":"net1","TTransient":{"k":"dg=="}}`)
 		tx, err := m.NewTransactionFromBytes(ctx, "ignored-channel", raw)
 		require.NoError(t, err)
@@ -188,7 +189,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, "tx1", concrete.ID())
 		require.Equal(t, "ch1", concrete.Channel())
-		require.Equal(t, "net1", concrete.Network())
+		require.Equal(t, "local", concrete.Network())
 		require.Equal(t, driver.TransientMap{"k": []byte("v")}, concrete.Transient())
 	})
 }

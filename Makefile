@@ -255,6 +255,8 @@ INTEGRATION_TARGETS += fabric-iou
 INTEGRATION_TARGETS += fabric-iou-libp2p
 INTEGRATION_TARGETS += fabric-runtimeconfig
 INTEGRATION_TARGETS += fabric-twonets
+# A Fabric and a Fabric-x network on the same nodes; needs the Fabric-x binaries too.
+INTEGRATION_TARGETS += fabric-mixednets
 
 ## hsm section (require -tags pkcs11 for test binary compilation)
 HSM_INTEGRATION_TARGETS = fabric-iouhsm

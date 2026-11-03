@@ -23,3 +23,8 @@ func (s *ConfigService) GetString(key string) string {
 func (s *ConfigService) DefaultChannel() string {
 	return s.confService.DefaultChannel()
 }
+
+// ChannelIDs returns the names of the channels configured for this network.
+func (s *ConfigService) ChannelIDs() []string {
+	return s.confService.ChannelIDs()
+}

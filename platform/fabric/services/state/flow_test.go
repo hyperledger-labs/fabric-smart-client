@@ -1026,7 +1026,9 @@ func (*mockDriverChannel) RWSetLoader() fdriver.RWSetLoader                     
 func (*mockDriverChannel) EnvelopeService() fdriver.EnvelopeService               { return nil }
 func (*mockDriverChannel) TransactionService() fdriver.EndorserTransactionService { return nil }
 func (m *mockDriverChannel) MetadataService() fdriver.MetadataService             { return m.metadata }
-func (*mockDriverChannel) Close() error                                           { return nil }
+
+func (*mockDriverChannel) ChannelKey() (*fdriver.ChannelKey, error) { return nil, nil }
+func (*mockDriverChannel) Close() error                             { return nil }
 
 func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
 	t.Parallel()

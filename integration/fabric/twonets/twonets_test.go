@@ -26,6 +26,7 @@ var _ = Describe("EndToEnd", func() {
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("pings a node on two Fabric networks, queries both and commits on each", s.TestSucceeded)
+		It("endorses a transaction received for the responder's non-default network", s.TestEndorseOnNonDefaultNetwork)
 	})
 })
 
@@ -52,4 +53,15 @@ func (s *TestSuite) TestSucceeded() {
 	Expect(err).NotTo(HaveOccurred())
 	betaOrderers := fsc.Connection{Network: "beta", Component: connstate.ComponentOrderer}
 	Expect(fsc.ParseConnectionState(families, betaOrderers)).To(HaveLen(4), "alice must have broadcast to every orderer of beta")
+}
+
+// TestEndorseOnNonDefaultNetwork has each node build a transaction on its default
+// network and collect the other node's endorsement, for which that network is not
+// the default. The transaction must commit on the network it was built on, as seen
+// from the vault of that network on both nodes.
+func (s *TestSuite) TestEndorseOnNonDefaultNetwork() {
+	twonets.EndorseAcross(s.II, []twonets.Endorsement{
+		{Initiator: "alice", Endorser: "bob", Network: "alpha", Namespace: "ns1"},
+		{Initiator: "bob", Endorser: "alice", Network: "beta", Namespace: "ns2"},
+	})
 }

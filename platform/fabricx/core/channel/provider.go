@@ -126,6 +126,7 @@ func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName strin
 		LedgerService:            ledgerService,
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  nil,
+		Platform:                 nw.ConfigService().DriverName(),
 		CommitterService:         &committerService{finalityService: finalityService},
 	}
 

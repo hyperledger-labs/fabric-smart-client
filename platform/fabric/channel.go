@@ -52,6 +52,13 @@ func (c *Channel) ConfigSequence() (uint64, error) {
 	return c.ch.ChannelMembership().ConfigSequence()
 }
 
+// ChannelKey returns the key that identifies this channel to other nodes: the
+// platform, the channel name and the header hash of block 0. It reads block 0 from
+// the ledger on the first call.
+func (c *Channel) ChannelKey() (*driver.ChannelKey, error) {
+	return c.ch.ChannelKey()
+}
+
 // ACLProvider returns the ACLProvider of the channel
 func (c *Channel) ACLProvider() *ACLProvider {
 	return NewACLProvider(c.ch.ChannelMembership())

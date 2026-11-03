@@ -55,7 +55,10 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 			fabric.WithNetworkOrganization("beta", "Org3"),
 			fabric.WithDefaultNetwork("alpha")).
 		AddOptions(replicationOpts.For("alice")...).
-		RegisterViewFactory("ping", &views.PingFactory{})
+		RegisterViewFactory("ping", &views.PingFactory{}).
+		RegisterViewFactory("endorse", &views.EndorseFactory{}).
+		RegisterViewFactory("status", &views.StatusFactory{}).
+		RegisterResponder(&views.Approve{}, &views.Endorse{})
 
 	// Add bob's FSC node
 	fscTopology.AddNodeByName("bob").
@@ -64,7 +67,10 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 			fabric.WithNetworkOrganization("beta", "Org3"),
 			fabric.WithDefaultNetwork("beta")).
 		AddOptions(replicationOpts.For("bob")...).
-		RegisterResponder(&views.Pong{}, &views.Ping{})
+		RegisterResponder(&views.Pong{}, &views.Ping{}).
+		RegisterViewFactory("endorse", &views.EndorseFactory{}).
+		RegisterViewFactory("status", &views.StatusFactory{}).
+		RegisterResponder(&views.Approve{}, &views.Endorse{})
 
 	// Add app-specific SDK to FSC Nodes
 	fscTopology.AddSDKForCommType(&SDK{}, commType)

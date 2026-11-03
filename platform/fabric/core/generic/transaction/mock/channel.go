@@ -10,19 +10,28 @@ import (
 type Channel struct {
 	ChaincodeManagerStub        func() driver.ChaincodeManager
 	chaincodeManagerMutex       sync.RWMutex
-	chaincodeManagerArgsForCall []struct {
-	}
-	chaincodeManagerReturns struct {
+	chaincodeManagerArgsForCall []struct{}
+	chaincodeManagerReturns     struct {
 		result1 driver.ChaincodeManager
 	}
 	chaincodeManagerReturnsOnCall map[int]struct {
 		result1 driver.ChaincodeManager
 	}
+	ChannelKeyStub        func() (*driver.ChannelKey, error)
+	channelKeyMutex       sync.RWMutex
+	channelKeyArgsForCall []struct{}
+	channelKeyReturns     struct {
+		result1 *driver.ChannelKey
+		result2 error
+	}
+	channelKeyReturnsOnCall map[int]struct {
+		result1 *driver.ChannelKey
+		result2 error
+	}
 	ChannelMembershipStub        func() driver.ChannelMembership
 	channelMembershipMutex       sync.RWMutex
-	channelMembershipArgsForCall []struct {
-	}
-	channelMembershipReturns struct {
+	channelMembershipArgsForCall []struct{}
+	channelMembershipReturns     struct {
 		result1 driver.ChannelMembership
 	}
 	channelMembershipReturnsOnCall map[int]struct {
@@ -30,9 +39,8 @@ type Channel struct {
 	}
 	CloseStub        func() error
 	closeMutex       sync.RWMutex
-	closeArgsForCall []struct {
-	}
-	closeReturns struct {
+	closeArgsForCall []struct{}
+	closeReturns     struct {
 		result1 error
 	}
 	closeReturnsOnCall map[int]struct {
@@ -40,9 +48,8 @@ type Channel struct {
 	}
 	CommitterStub        func() driver.Committer
 	committerMutex       sync.RWMutex
-	committerArgsForCall []struct {
-	}
-	committerReturns struct {
+	committerArgsForCall []struct{}
+	committerReturns     struct {
 		result1 driver.Committer
 	}
 	committerReturnsOnCall map[int]struct {
@@ -50,9 +57,8 @@ type Channel struct {
 	}
 	DeliveryStub        func() driver.Delivery
 	deliveryMutex       sync.RWMutex
-	deliveryArgsForCall []struct {
-	}
-	deliveryReturns struct {
+	deliveryArgsForCall []struct{}
+	deliveryReturns     struct {
 		result1 driver.Delivery
 	}
 	deliveryReturnsOnCall map[int]struct {
@@ -60,9 +66,8 @@ type Channel struct {
 	}
 	EnvelopeServiceStub        func() driver.EnvelopeService
 	envelopeServiceMutex       sync.RWMutex
-	envelopeServiceArgsForCall []struct {
-	}
-	envelopeServiceReturns struct {
+	envelopeServiceArgsForCall []struct{}
+	envelopeServiceReturns     struct {
 		result1 driver.EnvelopeService
 	}
 	envelopeServiceReturnsOnCall map[int]struct {
@@ -70,9 +75,8 @@ type Channel struct {
 	}
 	FinalityStub        func() driver.Finality
 	finalityMutex       sync.RWMutex
-	finalityArgsForCall []struct {
-	}
-	finalityReturns struct {
+	finalityArgsForCall []struct{}
+	finalityReturns     struct {
 		result1 driver.Finality
 	}
 	finalityReturnsOnCall map[int]struct {
@@ -80,9 +84,8 @@ type Channel struct {
 	}
 	LedgerStub        func() driver.Ledger
 	ledgerMutex       sync.RWMutex
-	ledgerArgsForCall []struct {
-	}
-	ledgerReturns struct {
+	ledgerArgsForCall []struct{}
+	ledgerReturns     struct {
 		result1 driver.Ledger
 	}
 	ledgerReturnsOnCall map[int]struct {
@@ -90,9 +93,8 @@ type Channel struct {
 	}
 	MetadataServiceStub        func() driver.MetadataService
 	metadataServiceMutex       sync.RWMutex
-	metadataServiceArgsForCall []struct {
-	}
-	metadataServiceReturns struct {
+	metadataServiceArgsForCall []struct{}
+	metadataServiceReturns     struct {
 		result1 driver.MetadataService
 	}
 	metadataServiceReturnsOnCall map[int]struct {
@@ -100,9 +102,8 @@ type Channel struct {
 	}
 	NameStub        func() string
 	nameMutex       sync.RWMutex
-	nameArgsForCall []struct {
-	}
-	nameReturns struct {
+	nameArgsForCall []struct{}
+	nameReturns     struct {
 		result1 string
 	}
 	nameReturnsOnCall map[int]struct {
@@ -110,9 +111,8 @@ type Channel struct {
 	}
 	RWSetLoaderStub        func() driver.RWSetLoader
 	rWSetLoaderMutex       sync.RWMutex
-	rWSetLoaderArgsForCall []struct {
-	}
-	rWSetLoaderReturns struct {
+	rWSetLoaderArgsForCall []struct{}
+	rWSetLoaderReturns     struct {
 		result1 driver.RWSetLoader
 	}
 	rWSetLoaderReturnsOnCall map[int]struct {
@@ -120,9 +120,8 @@ type Channel struct {
 	}
 	TransactionServiceStub        func() driver.EndorserTransactionService
 	transactionServiceMutex       sync.RWMutex
-	transactionServiceArgsForCall []struct {
-	}
-	transactionServiceReturns struct {
+	transactionServiceArgsForCall []struct{}
+	transactionServiceReturns     struct {
 		result1 driver.EndorserTransactionService
 	}
 	transactionServiceReturnsOnCall map[int]struct {
@@ -130,23 +129,22 @@ type Channel struct {
 	}
 	VaultStub        func() driver.Vault
 	vaultMutex       sync.RWMutex
-	vaultArgsForCall []struct {
-	}
-	vaultReturns struct {
+	vaultArgsForCall []struct{}
+	vaultReturns     struct {
 		result1 driver.Vault
 	}
 	vaultReturnsOnCall map[int]struct {
 		result1 driver.Vault
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
 func (fake *Channel) ChaincodeManager() driver.ChaincodeManager {
 	fake.chaincodeManagerMutex.Lock()
 	ret, specificReturn := fake.chaincodeManagerReturnsOnCall[len(fake.chaincodeManagerArgsForCall)]
-	fake.chaincodeManagerArgsForCall = append(fake.chaincodeManagerArgsForCall, struct {
-	}{})
+	fake.chaincodeManagerArgsForCall = append(fake.chaincodeManagerArgsForCall, struct{}{})
 	stub := fake.ChaincodeManagerStub
 	fakeReturns := fake.chaincodeManagerReturns
 	fake.recordInvocation("ChaincodeManager", []interface{}{})
@@ -195,11 +193,65 @@ func (fake *Channel) ChaincodeManagerReturnsOnCall(i int, result1 driver.Chainco
 	}{result1}
 }
 
+func (fake *Channel) ChannelKey() (*driver.ChannelKey, error) {
+	fake.channelKeyMutex.Lock()
+	ret, specificReturn := fake.channelKeyReturnsOnCall[len(fake.channelKeyArgsForCall)]
+	fake.channelKeyArgsForCall = append(fake.channelKeyArgsForCall, struct{}{})
+	stub := fake.ChannelKeyStub
+	fakeReturns := fake.channelKeyReturns
+	fake.recordInvocation("ChannelKey", []interface{}{})
+	fake.channelKeyMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Channel) ChannelKeyCallCount() int {
+	fake.channelKeyMutex.RLock()
+	defer fake.channelKeyMutex.RUnlock()
+	return len(fake.channelKeyArgsForCall)
+}
+
+func (fake *Channel) ChannelKeyCalls(stub func() (*driver.ChannelKey, error)) {
+	fake.channelKeyMutex.Lock()
+	defer fake.channelKeyMutex.Unlock()
+	fake.ChannelKeyStub = stub
+}
+
+func (fake *Channel) ChannelKeyReturns(result1 *driver.ChannelKey, result2 error) {
+	fake.channelKeyMutex.Lock()
+	defer fake.channelKeyMutex.Unlock()
+	fake.ChannelKeyStub = nil
+	fake.channelKeyReturns = struct {
+		result1 *driver.ChannelKey
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Channel) ChannelKeyReturnsOnCall(i int, result1 *driver.ChannelKey, result2 error) {
+	fake.channelKeyMutex.Lock()
+	defer fake.channelKeyMutex.Unlock()
+	fake.ChannelKeyStub = nil
+	if fake.channelKeyReturnsOnCall == nil {
+		fake.channelKeyReturnsOnCall = make(map[int]struct {
+			result1 *driver.ChannelKey
+			result2 error
+		})
+	}
+	fake.channelKeyReturnsOnCall[i] = struct {
+		result1 *driver.ChannelKey
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *Channel) ChannelMembership() driver.ChannelMembership {
 	fake.channelMembershipMutex.Lock()
 	ret, specificReturn := fake.channelMembershipReturnsOnCall[len(fake.channelMembershipArgsForCall)]
-	fake.channelMembershipArgsForCall = append(fake.channelMembershipArgsForCall, struct {
-	}{})
+	fake.channelMembershipArgsForCall = append(fake.channelMembershipArgsForCall, struct{}{})
 	stub := fake.ChannelMembershipStub
 	fakeReturns := fake.channelMembershipReturns
 	fake.recordInvocation("ChannelMembership", []interface{}{})
@@ -251,8 +303,7 @@ func (fake *Channel) ChannelMembershipReturnsOnCall(i int, result1 driver.Channe
 func (fake *Channel) Close() error {
 	fake.closeMutex.Lock()
 	ret, specificReturn := fake.closeReturnsOnCall[len(fake.closeArgsForCall)]
-	fake.closeArgsForCall = append(fake.closeArgsForCall, struct {
-	}{})
+	fake.closeArgsForCall = append(fake.closeArgsForCall, struct{}{})
 	stub := fake.CloseStub
 	fakeReturns := fake.closeReturns
 	fake.recordInvocation("Close", []interface{}{})
@@ -304,8 +355,7 @@ func (fake *Channel) CloseReturnsOnCall(i int, result1 error) {
 func (fake *Channel) Committer() driver.Committer {
 	fake.committerMutex.Lock()
 	ret, specificReturn := fake.committerReturnsOnCall[len(fake.committerArgsForCall)]
-	fake.committerArgsForCall = append(fake.committerArgsForCall, struct {
-	}{})
+	fake.committerArgsForCall = append(fake.committerArgsForCall, struct{}{})
 	stub := fake.CommitterStub
 	fakeReturns := fake.committerReturns
 	fake.recordInvocation("Committer", []interface{}{})
@@ -357,8 +407,7 @@ func (fake *Channel) CommitterReturnsOnCall(i int, result1 driver.Committer) {
 func (fake *Channel) Delivery() driver.Delivery {
 	fake.deliveryMutex.Lock()
 	ret, specificReturn := fake.deliveryReturnsOnCall[len(fake.deliveryArgsForCall)]
-	fake.deliveryArgsForCall = append(fake.deliveryArgsForCall, struct {
-	}{})
+	fake.deliveryArgsForCall = append(fake.deliveryArgsForCall, struct{}{})
 	stub := fake.DeliveryStub
 	fakeReturns := fake.deliveryReturns
 	fake.recordInvocation("Delivery", []interface{}{})
@@ -410,8 +459,7 @@ func (fake *Channel) DeliveryReturnsOnCall(i int, result1 driver.Delivery) {
 func (fake *Channel) EnvelopeService() driver.EnvelopeService {
 	fake.envelopeServiceMutex.Lock()
 	ret, specificReturn := fake.envelopeServiceReturnsOnCall[len(fake.envelopeServiceArgsForCall)]
-	fake.envelopeServiceArgsForCall = append(fake.envelopeServiceArgsForCall, struct {
-	}{})
+	fake.envelopeServiceArgsForCall = append(fake.envelopeServiceArgsForCall, struct{}{})
 	stub := fake.EnvelopeServiceStub
 	fakeReturns := fake.envelopeServiceReturns
 	fake.recordInvocation("EnvelopeService", []interface{}{})
@@ -463,8 +511,7 @@ func (fake *Channel) EnvelopeServiceReturnsOnCall(i int, result1 driver.Envelope
 func (fake *Channel) Finality() driver.Finality {
 	fake.finalityMutex.Lock()
 	ret, specificReturn := fake.finalityReturnsOnCall[len(fake.finalityArgsForCall)]
-	fake.finalityArgsForCall = append(fake.finalityArgsForCall, struct {
-	}{})
+	fake.finalityArgsForCall = append(fake.finalityArgsForCall, struct{}{})
 	stub := fake.FinalityStub
 	fakeReturns := fake.finalityReturns
 	fake.recordInvocation("Finality", []interface{}{})
@@ -516,8 +563,7 @@ func (fake *Channel) FinalityReturnsOnCall(i int, result1 driver.Finality) {
 func (fake *Channel) Ledger() driver.Ledger {
 	fake.ledgerMutex.Lock()
 	ret, specificReturn := fake.ledgerReturnsOnCall[len(fake.ledgerArgsForCall)]
-	fake.ledgerArgsForCall = append(fake.ledgerArgsForCall, struct {
-	}{})
+	fake.ledgerArgsForCall = append(fake.ledgerArgsForCall, struct{}{})
 	stub := fake.LedgerStub
 	fakeReturns := fake.ledgerReturns
 	fake.recordInvocation("Ledger", []interface{}{})
@@ -569,8 +615,7 @@ func (fake *Channel) LedgerReturnsOnCall(i int, result1 driver.Ledger) {
 func (fake *Channel) MetadataService() driver.MetadataService {
 	fake.metadataServiceMutex.Lock()
 	ret, specificReturn := fake.metadataServiceReturnsOnCall[len(fake.metadataServiceArgsForCall)]
-	fake.metadataServiceArgsForCall = append(fake.metadataServiceArgsForCall, struct {
-	}{})
+	fake.metadataServiceArgsForCall = append(fake.metadataServiceArgsForCall, struct{}{})
 	stub := fake.MetadataServiceStub
 	fakeReturns := fake.metadataServiceReturns
 	fake.recordInvocation("MetadataService", []interface{}{})
@@ -622,8 +667,7 @@ func (fake *Channel) MetadataServiceReturnsOnCall(i int, result1 driver.Metadata
 func (fake *Channel) Name() string {
 	fake.nameMutex.Lock()
 	ret, specificReturn := fake.nameReturnsOnCall[len(fake.nameArgsForCall)]
-	fake.nameArgsForCall = append(fake.nameArgsForCall, struct {
-	}{})
+	fake.nameArgsForCall = append(fake.nameArgsForCall, struct{}{})
 	stub := fake.NameStub
 	fakeReturns := fake.nameReturns
 	fake.recordInvocation("Name", []interface{}{})
@@ -675,8 +719,7 @@ func (fake *Channel) NameReturnsOnCall(i int, result1 string) {
 func (fake *Channel) RWSetLoader() driver.RWSetLoader {
 	fake.rWSetLoaderMutex.Lock()
 	ret, specificReturn := fake.rWSetLoaderReturnsOnCall[len(fake.rWSetLoaderArgsForCall)]
-	fake.rWSetLoaderArgsForCall = append(fake.rWSetLoaderArgsForCall, struct {
-	}{})
+	fake.rWSetLoaderArgsForCall = append(fake.rWSetLoaderArgsForCall, struct{}{})
 	stub := fake.RWSetLoaderStub
 	fakeReturns := fake.rWSetLoaderReturns
 	fake.recordInvocation("RWSetLoader", []interface{}{})
@@ -728,8 +771,7 @@ func (fake *Channel) RWSetLoaderReturnsOnCall(i int, result1 driver.RWSetLoader)
 func (fake *Channel) TransactionService() driver.EndorserTransactionService {
 	fake.transactionServiceMutex.Lock()
 	ret, specificReturn := fake.transactionServiceReturnsOnCall[len(fake.transactionServiceArgsForCall)]
-	fake.transactionServiceArgsForCall = append(fake.transactionServiceArgsForCall, struct {
-	}{})
+	fake.transactionServiceArgsForCall = append(fake.transactionServiceArgsForCall, struct{}{})
 	stub := fake.TransactionServiceStub
 	fakeReturns := fake.transactionServiceReturns
 	fake.recordInvocation("TransactionService", []interface{}{})
@@ -781,8 +823,7 @@ func (fake *Channel) TransactionServiceReturnsOnCall(i int, result1 driver.Endor
 func (fake *Channel) Vault() driver.Vault {
 	fake.vaultMutex.Lock()
 	ret, specificReturn := fake.vaultReturnsOnCall[len(fake.vaultArgsForCall)]
-	fake.vaultArgsForCall = append(fake.vaultArgsForCall, struct {
-	}{})
+	fake.vaultArgsForCall = append(fake.vaultArgsForCall, struct{}{})
 	stub := fake.VaultStub
 	fakeReturns := fake.vaultReturns
 	fake.recordInvocation("Vault", []interface{}{})
@@ -841,9 +882,18 @@ func (fake *Channel) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *Channel) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *Channel) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}
