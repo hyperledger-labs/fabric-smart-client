@@ -114,6 +114,7 @@ type receiveFixture struct {
 	dtx2    *mock.Transaction
 	cm2     *mock.ChannelMembership
 	ch2     *mock.Channel
+	nets    [2]*receiveNetwork
 	fnsp    *mock.FabricNetworkServiceProvider
 	metrics *countingMetrics
 }
@@ -141,6 +142,7 @@ func newReceiveFixture(t *testing.T, caller view.Identity) *receiveFixture {
 	fns2, ch2 := newReceiveNetwork("net2", net2Key)
 	f.dtx, f.tm, f.cm, f.conf = fns1.dtx, fns1.tm, fns1.cm, fns1.conf
 	f.dtx2, f.cm2, f.ch2 = fns2.dtx, fns2.cm, ch2
+	f.nets = [2]*receiveNetwork{fns1, fns2}
 
 	fnsp := &mock.FabricNetworkServiceProvider{}
 	f.fnsp = fnsp
@@ -409,5 +411,30 @@ func TestNewTransactionFromEnvelopeBytesOn(t *testing.T) {
 		_, tx, err := NewTransactionFromEnvelopeBytesOn(t.Context(), f.ctx, network, []byte("envelope"))
 		require.NoError(t, err)
 		require.Equal(t, want, tx.FabricNetworkService().Name())
+	}
+}
+
+// Routing consults only a channel that a network of the key's platform has
+// configured: a key naming another channel, or another platform, never makes the
+// node open a channel, which would allocate its resources (the Fabric-x driver
+// opens a channel of any name). The key matches what an unconfigured ch9 of net2
+// would report, so only the configuration check keeps it from matching.
+func TestNewTransactionFromBytes_ConsultsOnlyConfiguredChannels(t *testing.T) {
+	t.Parallel()
+	for name, key := range map[string]*driver.ChannelKey{
+		"unconfigured channel": {Platform: "generic", Channel: "ch9", GenesisHash: []byte("genesis2")},
+		"other platform":       {Platform: "fabricx", Channel: "ch1", GenesisHash: []byte("genesis2")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			f := newReceiveFixture(t, []byte("bob"))
+			f.ch2.ChannelKeyReturns(key, nil)
+
+			_, _, err := NewTransactionFromBytes(f.ctx, keyedRaw(t, key))
+			require.ErrorContains(t, err, "no local network matches channel ["+key.Channel+"]")
+			for _, n := range f.nets {
+				require.Zero(t, n.ChannelCallCount(), "network [%s] opened a channel", n.Name())
+			}
+		})
 	}
 }

@@ -77,8 +77,10 @@ func routeReceived(sp services.Provider, sender string, raw []byte) (string, *dr
 			unknown = errors.Join(unknown, errors.WithMessagef(err, "network [%s]", name))
 			continue
 		}
-		// Only consult channels this node is configured for, so a sender cannot
-		// make the node open a channel it does not use.
+		// Only consult channels this node is configured for: Channel allocates the
+		// resources of any channel it is asked for (the Fabric-x driver does not
+		// check the configuration), so this check is what keeps a sender from making
+		// the node open a channel it does not use.
 		conf := fns.ConfigService()
 		if conf.DriverName() != kb.Key.Platform || !slices.Contains(conf.ChannelIDs(), kb.Key.Channel) {
 			continue
