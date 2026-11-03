@@ -36,6 +36,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
+	viewsql "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
@@ -71,6 +73,7 @@ func NewSDK(registry services.Registry) *SDK {
 }
 
 func NewSDKFrom(baseSDK commondig.SDK, registry services.Registry) *SDK {
+	migrate.RegisterSchemas("view", viewsql.Schemas)
 	sdk := &SDK{SDK: baseSDK}
 	err := errors.Join(
 		sdk.Container().Provide(func() services.Registry { return registry }),

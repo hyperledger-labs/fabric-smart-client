@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	utils "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
@@ -92,10 +93,28 @@ type Node struct {
 	stopped   chan struct{}
 	drainCtx  context.Context
 	skipDrain context.CancelFunc
+
+	// configErr is the error that loading the configuration failed with; see NewFromConfPath.
+	configErr error
 }
 
+// NewFromConfPath returns a new node for the given configuration path. If no configuration
+// file is found, the node is built on an empty configuration and Start, Migrate and Config
+// return that error, so commands that need no configuration, such as `version`, still run.
+// It panics on any other configuration error.
 func NewFromConfPath(confPath string) *Node {
 	n, err := NewFromConfPathE(confPath)
+	if errors.Is(err, config.ErrNotFound) {
+		cfg, rawErr := (&config.Provider{}).ProvideFromRaw(nil)
+		if rawErr == nil {
+			n, rawErr = newNode(cfg)
+		}
+		if rawErr != nil {
+			panic(rawErr)
+		}
+		n.configErr = err
+		return n
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -108,6 +127,10 @@ func NewFromConfPathE(confPath string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	return newNode(cfg)
+}
+
+func newNode(cfg *config.Provider) (*Node, error) {
 	registry := view.NewServiceProvider()
 	if err := registry.RegisterService(cfg); err != nil {
 		return nil, err
@@ -130,6 +153,9 @@ func (n *Node) ID() string {
 }
 
 func (n *Node) Start() (err error) {
+	if n.configErr != nil {
+		return n.configErr
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("start triggered panic: %s\n%s", r, debug.Stack())
@@ -200,6 +226,9 @@ type StoreOpener interface {
 // Without checkOnly a failed Install ends Migrate, so no step runs on a node
 // that cannot install.
 func (n *Node) Migrate(ctx context.Context, checkOnly bool) error {
+	if n.configErr != nil {
+		return n.configErr
+	}
 	if n.running {
 		return errors.New("cannot migrate a running node")
 	}
@@ -331,6 +360,14 @@ func (n *Node) InstallSDK(p SDK) error {
 
 	n.sdks = append(n.sdks, p)
 	return nil
+}
+
+// Config returns the node's configuration, or the error that loading it failed with.
+func (n *Node) Config() (driver.ConfigService, error) {
+	if n.configErr != nil {
+		return nil, n.configErr
+	}
+	return config.GetProvider(n.registry), nil
 }
 
 func (n *Node) RegisterService(service any) error {

@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
@@ -36,7 +37,8 @@ type FSCNode interface {
 // Node is a cobra based application that offers the following commands:
 // - `node start` to instantiate and start the Fabric Smart Client stack.
 // - `node migrate` to prepare the schema of every store and exit; `--check` only checks it.
-// - `version` to get the version of the executed code.
+// - `node peers --check` to check that the binary can talk to the configured peers.
+// - `version` to get the version of the executed code; `--json` adds ranges and store steps.
 type Node struct {
 	FSCNode
 
@@ -76,6 +78,15 @@ func (n *Node) Migrate(ctx context.Context, checkOnly bool) error {
 		return errors.Errorf("node [%T] does not support migrate", n.FSCNode)
 	}
 	return m.Migrate(ctx, checkOnly)
+}
+
+// Config returns the configuration of the wrapped FSCNode; see node.Node.Config.
+func (n *Node) Config() (driver.ConfigService, error) {
+	c, ok := n.FSCNode.(start.Configured)
+	if !ok {
+		return nil, errors.Errorf("node [%T] does not expose its configuration", n.FSCNode)
+	}
+	return c.Config()
 }
 
 func (n *Node) Callback() chan<- error {

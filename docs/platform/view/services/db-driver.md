@@ -261,6 +261,25 @@ p.Container().Provide(func() viewsdk.StoreOpenerEntry {
 
 The command calls every entry even if one fails and joins their errors, so an entry should report every store it fails to open rather than stop at the first. An entry whose stores use a `multiplexed.Driver` returns `viewsdk.ErrMemoryFallback` when `FellBackToMemory` reports that one of them uses memory by fallback. SDKs nested in each other share one container, so an entry provided by an inner or outer SDK is reached. Stores that are opened only after `Start`, such as the vault of a channel added at runtime, or that an application opens outside its entry, are not migrated by the command; they migrate when the node opens them, or refuse to open under `skipCreateTable: true`.
 
+### Reporting store schemas
+
+`node version --json` lists the schema steps of the stores in `migrate.Schemas()`. An SDK registers its stores when it is built, before any SDK installs, so the command needs no configuration: the view SDK registers `sql.Schemas` of `platform/view/services/storage/driver/sql`, the Fabric SDK that of `platform/fabric/services/db/driver/sql`. Each list builds its stores on an empty `RWDB` with the default table names, and `TestSteps` checks it against the golden files under `testdata/steps`, so a store with a golden file cannot be missing from the list. An application SDK whose stores should be reported registers them in its constructor:
+
+```go
+func NewSDK(registry services.Registry) *SDK {
+	migrate.RegisterSchemas("orders", func() []migrate.Schema {
+		return []migrate.Schema{
+			migrate.NewSchema("orders", migrate.Postgres, func() (migrate.Versioned, error) {
+				return NewOrderStore(&drivercommon.RWDB{}, defaultTables)
+			}),
+		}
+	})
+	...
+}
+```
+
+Registering a name again replaces its list, so an SDK built twice is reported once.
+
 ## Extending the Driver on the same Project
 
 If you want to add a new store (e.g. `TransactionStore`), you will need to:

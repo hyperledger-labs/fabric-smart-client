@@ -237,6 +237,9 @@ var _ = Describe("EndToEnd", func() {
 			It("pings the responder", func() { s.TestPingPong("initiator") })
 			It("gets a mock pong only from a mocked responder", s.TestMockPingPong)
 			It("fails at once on a view the responder does not host", s.TestUnhostedView)
+			if c == fsc.WebSocket {
+				It("checks its peers with node peers --check", s.TestPeersCheck)
+			}
 		})
 	}
 
@@ -445,6 +448,14 @@ func (s *TestSuite) TestMockPingPong() {
 	res, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&fake.Params{Mock: true}))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+}
+
+// TestPeersCheck runs `node peers --check` from the initiator's binary and configuration
+// against the running responder: their ranges overlap, so it exits 0.
+func (s *TestSuite) TestPeersCheck() {
+	session := s.II.RunFSCNodeCommand("initiator", "node", "peers", "--check")
+	Expect(session.ExitCode()).To(BeZero(), string(session.Err.Contents()))
+	Expect(string(session.Out.Contents())).To(ContainSubstring("peer [responder]"))
 }
 
 // TestUnhostedView checks that a view the responder hosts no responder for fails at once with

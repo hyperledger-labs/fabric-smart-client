@@ -242,16 +242,21 @@ func (n *NWO) StartFSCNode(id string) {
 }
 
 // MigrateFSCNode runs `node migrate` for the named FSC node, which must be
-// stopped, with `--check` if check is set, and returns the finished session. It
-// uses the node's binary, configuration and environment.
+// stopped, with `--check` if check is set, and returns the finished session.
 func (n *NWO) MigrateFSCNode(id string, check bool) *gexec.Session {
-	i := n.fscIndex(id)
-	gomega.Expect(i).NotTo(gomega.Equal(-1), "FSC node [%s] not found", id)
-	start := n.ViewMembers[i].Runner.(*runner.Runner).Command
 	args := []string{"node", "migrate"}
 	if check {
 		args = append(args, "--check")
 	}
+	return n.RunFSCNodeCommand(id, args...)
+}
+
+// RunFSCNodeCommand runs the named FSC node's binary with args, with the node's configuration
+// and environment, and returns the finished session.
+func (n *NWO) RunFSCNodeCommand(id string, args ...string) *gexec.Session {
+	i := n.fscIndex(id)
+	gomega.Expect(i).NotTo(gomega.Equal(-1), "FSC node [%s] not found", id)
+	start := n.ViewMembers[i].Runner.(*runner.Runner).Command
 	cmd := exec.Command(start.Path, args...)
 	cmd.Env, cmd.Dir = start.Env, start.Dir
 	session, err := gexec.Start(cmd, ginkgo.GinkgoWriter, ginkgo.GinkgoWriter)

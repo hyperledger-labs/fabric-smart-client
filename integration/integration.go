@@ -350,6 +350,15 @@ func (i *Infrastructure) MigrateFSCNode(id string, check bool) *gexec.Session {
 	return i.NWO.MigrateFSCNode(id, check)
 }
 
+// RunFSCNodeCommand runs the binary of the FSC node with the given id with args, with the
+// node's configuration and environment, and returns the finished session.
+func (i *Infrastructure) RunFSCNodeCommand(id string, args ...string) *gexec.Session {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+	return i.NWO.RunFSCNodeCommand(id, args...)
+}
+
 // KillFSCNode sends SIGKILL to the FSC node with the given id and returns once
 // it is gone. Restart it with StartFSCNode.
 func (i *Infrastructure) KillFSCNode(id string) {

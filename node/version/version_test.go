@@ -7,6 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package version
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -14,6 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/buildinfo"
+	fabricsql "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
+	viewsql "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 func TestGetInfo(t *testing.T) {
@@ -55,4 +64,50 @@ func TestFormat(t *testing.T) {
 	require.Contains(t, got, " FSC version: (devel)\n")
 	require.Contains(t, got, " Application: unknown\n")
 	require.Contains(t, got, " Revision: unknown\n")
+}
+
+// TestJSON checks that --json prints a report with every component and every registered store,
+// with the steps of the golden files. The view and Fabric SDKs register these lists when built.
+func TestJSON(t *testing.T) { //nolint:paralleltest // registers process-wide schemas
+	migrate.RegisterSchemas("view", viewsql.Schemas)
+	migrate.RegisterSchemas("fabric", fabricsql.Schemas)
+	cmd := Cmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"--json"})
+	require.NoError(t, cmd.Execute())
+
+	var r report
+	require.NoError(t, json.Unmarshal(out.Bytes(), &r))
+	require.Equal(t, buildinfo.Get().FSCVersion, r.FSCVersion)
+	require.Equal(t, preamble.FramingEpoch, r.FramingEpoch)
+	var components []string
+	for _, c := range r.Components {
+		components = append(components, c.Name)
+	}
+	require.ElementsMatch(t, []string{"view", "fabric", "fabricx"}, components)
+
+	want := map[string]string{}
+	for _, dir := range []string{
+		"../../platform/view/services/storage/driver/sql/testdata/steps",
+		"../../platform/fabric/services/db/driver/sql/testdata/steps",
+	} {
+		files, err := filepath.Glob(filepath.Join(dir, "*.steps"))
+		require.NoError(t, err)
+		require.NotEmpty(t, files, dir)
+		for _, f := range files {
+			raw, err := os.ReadFile(f)
+			require.NoError(t, err)
+			want[strings.TrimSuffix(filepath.Base(f), ".steps")] = string(raw)
+		}
+	}
+	got := map[string]string{}
+	for _, s := range r.Stores {
+		var lines strings.Builder
+		for _, step := range s.Steps {
+			fmt.Fprintf(&lines, "%d %s %s\n", step.Version, step.Hash, step.Name)
+		}
+		got[s.Dialect+"-"+s.Type] = lines.String()
+	}
+	require.Equal(t, want, got)
 }

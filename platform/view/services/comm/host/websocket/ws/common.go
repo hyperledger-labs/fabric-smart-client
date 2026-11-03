@@ -71,6 +71,16 @@ func localPreambleHeader() http.Header {
 
 // serverPreamble returns the preamble that the server peerID sent in header; see peerPreamble.
 func serverPreamble(peerID host.PeerID, header http.Header) (*preamble.Preamble, error) {
+	raw, err := preambleFromHeader(header)
+	if err != nil {
+		return nil, err
+	}
+	return peerPreamble(peerID, raw)
+}
+
+// preambleFromHeader returns the encoded preamble in header, empty if there is none. It refuses
+// a header that decodes to more than preamble.MaxSize before decoding it.
+func preambleFromHeader(header http.Header) ([]byte, error) {
 	encoded := header.Get(preambleHeader)
 	// A base64 encoding of MaxSize bytes, so the decoder never allocates more for it.
 	if len(encoded) > base64.StdEncoding.EncodedLen(preamble.MaxSize) {
@@ -80,7 +90,7 @@ func serverPreamble(peerID host.PeerID, header http.Header) (*preamble.Preamble,
 	if err != nil {
 		return nil, errors.New("version: malformed preamble header")
 	}
-	return peerPreamble(peerID, raw)
+	return raw, nil
 }
 
 // remoteSpanContext decodes meta.SpanContext. Tracing is best effort: a span context that does

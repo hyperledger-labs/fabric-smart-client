@@ -353,7 +353,7 @@ func (r *Service) UpdateResolver(
 ) (view.Identity, error) {
 	logger.Debugf("updating resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
-	ports, err := convert(addresses)
+	ports, err := ConvertAddresses(addresses)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed updating resolver [%s]", name)
 	}
@@ -408,7 +408,7 @@ func (r *Service) AddResolver(
 ) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
-	ports, err := convert(addresses)
+	ports, err := ConvertAddresses(addresses)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed adding resolver [%s]", name)
 	}
@@ -679,10 +679,10 @@ var portNameMap = map[string]PortName{
 	strings.ToLower(string(P2PPort)):    P2PPort,
 }
 
-// convert maps each key of o to its PortName, compared case-insensitively. It returns an
-// error for a key that names no PortName or the same PortName as another key, so that a
+// ConvertAddresses maps each key of o to its PortName, compared case-insensitively. It returns
+// an error for a key that names no PortName or the same PortName as another key, so that a
 // misspelled or repeated key fails instead of dropping an address.
-func convert(o map[string]string) (map[PortName]string, error) {
+func ConvertAddresses(o map[string]string) (map[PortName]string, error) {
 	r := map[PortName]string{}
 	for k, v := range o {
 		port, ok := portNameMap[strings.ToLower(k)]

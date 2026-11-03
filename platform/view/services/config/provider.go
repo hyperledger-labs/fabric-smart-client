@@ -45,6 +45,9 @@ const (
 	MergeConfigEventTopic = "fsc.mergeConfig.event.topic"
 )
 
+// ErrNotFound is wrapped by NewProvider when no configuration file exists in any searched path.
+var ErrNotFound = errors.New("could not find config file")
+
 var (
 	logOutput = os.Stderr
 	logger    = logging.MustGetLogger()
@@ -65,7 +68,8 @@ type Provider struct {
 	fullPath         string
 }
 
-// NewProvider creates a new configuration provider from the given path.
+// NewProvider creates a new configuration provider from the given path. It returns an error
+// wrapping ErrNotFound if no core.yaml exists in any searched path.
 func NewProvider(confPath string) (*Provider, error) {
 	p := &Provider{
 		eventSystem: simple.NewEventBus(),
@@ -302,8 +306,7 @@ func (p *Provider) loadFromPath(path string) error {
 		break
 	}
 	if loadErr != nil {
-		return errors.Errorf("Could not find config file. "+
-			"Please make sure that FSCNODE_CFG_PATH is set to a path "+
+		return errors.Wrapf(ErrNotFound, "make sure that FSCNODE_CFG_PATH is set to a path "+
 			"which contains %s.yaml", CmdRoot)
 	}
 	if err := p.setupEnv(); err != nil {

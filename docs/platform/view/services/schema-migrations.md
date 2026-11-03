@@ -30,6 +30,17 @@ Set `skipCreateTable: true` on the persistence and run `node migrate` from a Job
 
 With `skipCreateTable: true` the node runs no step. An FSC store with pending steps fails to open with `schema migration pending`, naming the store; this also applies to stores opened after startup, such as a channel added at runtime. `node migrate` reaches the stores the SDKs register at install time, which are every view store, the Fabric endorse tx, metadata and envelope stores, and the vault of every configured channel.
 
+## Before rolling out a new binary
+
+Run both checks with the new binary, the node's `core.yaml` and its key material, before any node switches to it:
+
+```bash
+./mynode node migrate --check   # 10: steps pending, 11: the database is newer than this binary
+./mynode node peers --check     # 11: a peer could not talk to this binary, 1: a peer is unreachable
+```
+
+`node version --json` lists the steps of every store the binary's SDKs register, with their hashes, without a configuration. See [Node CLI](../../../reference/node-cli.md).
+
 ## Database roles on Postgres
 
 Use two roles. The migration role owns the FSC tables, because step 1 runs `CREATE INDEX` and may run `ALTER TABLE` on them, and it creates `<prefix>_schema_versions` and `<prefix>_schema_openers`. The node role needs DML on the FSC tables, read access to the versions table, and `SELECT`, `INSERT` and `UPDATE` on the openers table, where every open records the node with an upsert; it runs with `skipCreateTable: true`:

@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/fns"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
+	fabricsql "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
@@ -34,6 +35,7 @@ import (
 	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 var logger = logging.MustGetLogger()
@@ -54,6 +56,7 @@ func NewSDK(registry services.Registry) *SDK {
 
 // NewFrom builds a Fabric SDK on top of an already-constructed base commondig.SDK.
 func NewFrom(sdk commondig.SDK) *SDK {
+	migrate.RegisterSchemas("fabric", fabricsql.Schemas)
 	return &SDK{SDK: sdk}
 }
 
