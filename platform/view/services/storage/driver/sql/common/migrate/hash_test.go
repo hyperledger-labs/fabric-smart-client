@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package migrate_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,8 @@ func TestStepHash(t *testing.T) {
 		"name+sql":   {Version: 1, Name: "createCREATE TABLE a (id INT)", SQL: base.SQL[1:]},
 		"no sql":     {Version: 1, Name: base.Name},
 		"empty stmt": {Version: 1, Name: base.Name, SQL: []string{""}},
+		"contract":   {Version: 1, Name: base.Name, SQL: base.SQL, Contract: true},
+		"stmt flag":  {Version: 1, Name: base.Name, SQL: append(slices.Clone(base.SQL), "contract")},
 	} {
 		h := s.Hash()
 		require.Len(t, h, 64)

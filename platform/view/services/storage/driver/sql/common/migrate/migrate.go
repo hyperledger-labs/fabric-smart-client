@@ -15,13 +15,13 @@ SPDX-License-Identifier: Apache-2.0
 //	CREATE TABLE IF NOT EXISTS <prefix>_schema_versions (
 //	    store       TEXT PRIMARY KEY, -- the store's primary table name
 //	    version     INT NOT NULL,     -- highest step applied
-//	    readable_by INT NOT NULL      -- lowest step a binary must know to read the store
+//	    readable_by INT NOT NULL      -- highest contract step applied, 0 if none
 //	);
 //
 // The prefix is the configured tablePrefix, lowercased, or "fsc" when empty. A
-// missing row means no step has run. readable_by always equals version; the
-// column exists so that steps which drop or rewrite data can later record that
-// older binaries no longer understand the store, without migrating this table.
+// missing row means no step has run. A binary opens a store whose readable_by is
+// at most the latest step it knows, also when version is above it: such a binary
+// lacks only steps that keep the store readable for it.
 //
 // # Openers table
 //
@@ -38,10 +38,11 @@ SPDX-License-Identifier: Apache-2.0
 //	);
 //
 // Every successful Migrate, including one WithCheckOnly, upserts the row of its
-// store, node and latest step. Replicas of one node share an FSC id, so the key
-// includes highest_step: replicas on different binaries keep separate rows, and
-// a row stays until it is deleted. A step that the previous release cannot read
-// must check this table for binaries that still open the store.
+// store, node and latest step, and then reads readable_by again, so a binary
+// that opens the store while a contract step runs refuses it once the step has
+// committed. Replicas of one node share an FSC id, so the key includes
+// highest_step: replicas on different binaries keep separate rows, and a row
+// stays until WithForgetOpeners deletes it.
 //
 // # Locking
 //
@@ -69,6 +70,26 @@ SPDX-License-Identifier: Apache-2.0
 // row. A failed step rolls back, leaves the row at the previous version, and
 // stops the migration.
 //
+// # Contract steps
+//
+// An expand step, the default, leaves the store readable by binaries that lack
+// it: it adds tables, columns or indexes. A contract step (Step.Contract) drops
+// or rewrites what such binaries read. Its transaction raises readable_by to its
+// version, so binaries that lack it refuse the store with ErrSchemaTooNew
+// instead of misreading it.
+//
+// Migrate runs a contract step only WithContract, or on a store that has no
+// row yet, which no binary reads. Otherwise it stops before the step, logs that
+// the step is pending, and returns with the store at its current version; later
+// steps wait too. The binary that ships a contract step therefore works on the
+// store both before and after it.
+//
+// Before a contract step runs, its transaction reads the openers table and
+// fails with ErrOlderOpener if a row of the store names a highest_step below the
+// step's version. On Postgres it first locks the openers table against writes,
+// so an open that records itself meanwhile waits until the step commits; on
+// SQLite the step's BEGIN IMMEDIATE does the same.
+//
 // # Rules for steps
 //
 //   - Steps are numbered 1, 2, 3, ... in the order they run.
@@ -76,8 +97,11 @@ SPDX-License-Identifier: Apache-2.0
 //     databases that already applied it will not run it again. Step.Hash and
 //     the migratetest package check this for the SQL part of a step; a Go
 //     function of a released step must not change either.
-//   - Every step keeps the store readable by the previous release, so a node
-//     that has not been upgraded yet keeps working against a migrated database.
+//   - A step that is not a contract step keeps the store readable by binaries
+//     that lack it, so a node that has not been upgraded yet keeps working
+//     against a migrated database.
+//   - A contract step first rewrites rows still in the old form, which binaries
+//     that lack it may have written until it ran, and then drops what they need.
 //
 // # Trust boundary
 //
@@ -96,6 +120,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -117,7 +142,13 @@ var (
 	// ErrPending is returned by WithCheckOnly when the store has steps to run.
 	// Its text names `node migrate`, the FSC command that runs them.
 	ErrPending = errors.New("schema migration pending; run node migrate")
+	// ErrOlderOpener is returned when a contract step cannot run because the
+	// openers table records a binary that lacks the step.
+	ErrOlderOpener = errors.New("store is opened by a binary that lacks the contract step")
 )
+
+// errHeldBack stops a migration before a contract step it may not run.
+var errHeldBack = errors.New("contract step held back")
 
 // Dialect selects the SQL dialect and the locking strategy.
 type Dialect string
@@ -143,11 +174,15 @@ type Step struct {
 	// transaction; Go must not run BEGIN, COMMIT or ROLLBACK. An error rolls
 	// the step back.
 	Go func(ctx context.Context, q Execer) error
+	// Contract marks a step that drops or rewrites what binaries without it
+	// read; see the package documentation.
+	Contract bool
 }
 
-// Hash returns the hex SHA-256 of the step's version, name and SQL statements.
-// Each field is length-prefixed, so steps that differ in any field, or whose
-// statements are split differently, hash differently. Go is not covered.
+// Hash returns the hex SHA-256 of the step's version, name, SQL statements and,
+// for a contract step, the Contract flag. Each field is length-prefixed, so steps
+// that differ in any field, or whose statements are split differently, hash
+// differently. Go is not covered.
 func (s Step) Hash() string {
 	h := sha256.New()
 	write := func(v string) {
@@ -159,6 +194,9 @@ func (s Step) Hash() string {
 	_ = binary.Write(h, binary.BigEndian, uint64(len(s.SQL)))
 	for _, stmt := range s.SQL {
 		write(stmt)
+	}
+	if s.Contract {
+		write("contract") // after the counted statements, so it cannot pass for one
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -180,15 +218,42 @@ type Versioned interface {
 }
 
 type options struct {
-	checkOnly   bool
-	node        string
-	lockTimeout time.Duration
+	checkOnly     bool
+	contract      bool
+	node          string
+	forgetOpeners []string
+	lockTimeout   time.Duration
 }
 
 // Option configures Migrate.
 type Option func(*options)
 
+// processOptions apply before the options of every Migrate call; see
+// SetProcessOptions.
+var (
+	processOptionsMu sync.Mutex
+	processOptions   []Option
+)
+
+// SetProcessOptions makes every Migrate call of this process apply opts before
+// its own options, until restore is called. node migrate uses it to pass its
+// flags to the stores that the SDKs open while it runs.
+func SetProcessOptions(opts ...Option) (restore func()) {
+	processOptionsMu.Lock()
+	defer processOptionsMu.Unlock()
+	old := processOptions
+	processOptions = opts
+	return func() {
+		processOptionsMu.Lock()
+		defer processOptionsMu.Unlock()
+		processOptions = old
+	}
+}
+
 func newOptions(opts []Option) options {
+	processOptionsMu.Lock()
+	opts = append(slices.Clone(processOptions), opts...)
+	processOptionsMu.Unlock()
 	o := options{}
 	for _, opt := range opts {
 		opt(&o)
@@ -202,6 +267,21 @@ func newOptions(opts []Option) options {
 // store needs under skipCreateTable: true.
 func WithCheckOnly() Option {
 	return func(o *options) { o.checkOnly = true }
+}
+
+// WithContract makes Migrate run pending contract steps; see the package
+// documentation. With WithCheckOnly, pending contract steps count as pending.
+func WithContract() Option {
+	return func(o *options) { o.contract = true }
+}
+
+// WithForgetOpeners makes Migrate delete the rows of nodes from the store's
+// openers table before it runs any step, so that a contract step no longer
+// waits for them. It has no effect WithCheckOnly. Replicas of one node share
+// its FSC id: forget a node only once none of its replicas runs a binary that
+// lacks the contract step.
+func WithForgetOpeners(nodes ...string) Option {
+	return func(o *options) { o.forgetOpeners = append(o.forgetOpeners, nodes...) }
 }
 
 // WithNode sets the node recorded in the openers table, the node's FSC id.
@@ -248,12 +328,14 @@ func CreateSchema(ctx context.Context, db *sql.DB, d Dialect, prefix string, obj
 }
 
 // Migrate brings v's schema up to date: it runs every step of v whose version
-// is above the one recorded in <prefix>_schema_versions, records each applied
-// step, records the opener in <prefix>_schema_openers, and returns once v is at
-// its latest version. It returns ErrSchemaTooNew if the database records a
-// readable_by above v's latest step, ErrPending with WithCheckOnly when steps
-// are pending, naming each pending step, and an error naming the store and the
-// step when a step fails. The package documentation describes the locking.
+// is above the one recorded in <prefix>_schema_versions, up to the first
+// contract step it may not run, records each applied step, and records the
+// opener in <prefix>_schema_openers. It returns ErrSchemaTooNew if the database
+// records a readable_by above v's latest step, ErrPending with WithCheckOnly
+// when steps it would run are pending, naming each pending step, ErrOlderOpener
+// when a binary that lacks a contract step opens the store, and an error naming
+// the store and the step when a step fails. The package documentation describes
+// contract steps and the locking.
 func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versioned, opts ...Option) error {
 	o := newOptions(opts)
 	store, steps := v.StoreName(), v.Steps()
@@ -278,11 +360,26 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 	if err != nil {
 		return err
 	}
-	if version < len(steps) {
-		if o.checkOnly {
-			return errors.Wrapf(ErrPending, "store [%s] is at version %d, binary expects %d; pending: %s", store, version, len(steps), describe(steps[version:]))
+	// A binary behind the store's version, which readable_by allowed, has nothing pending.
+	pending := steps[min(version, len(steps)):]
+	// A store without a row has no reader that a contract step could break.
+	runnable := pending
+	if !o.contract && version > 0 {
+		if i := slices.IndexFunc(pending, func(s Step) bool { return s.Contract }); i >= 0 {
+			runnable = pending[:i]
+			logger.Warnf("store [%s]: contract step %d [%s] is pending and %d step(s) wait for it; run node migrate --contract once every binary that opens the store knows it", store, pending[i].Version, pending[i].Name, len(pending)-i-1)
 		}
-		if err := run(ctx, db, d, table, openers, store, steps[version:], len(steps), o.lockTimeout); err != nil {
+	}
+	if o.checkOnly && len(runnable) > 0 {
+		return errors.Wrapf(ErrPending, "store [%s] is at version %d, binary expects %d; pending: %s", store, version, len(steps), describe(pending))
+	}
+	if !o.checkOnly && len(o.forgetOpeners) > 0 {
+		if err := forgetOpeners(ctx, db, d, openers, store, o.forgetOpeners); err != nil {
+			return err
+		}
+	}
+	if len(runnable) > 0 && !o.checkOnly {
+		if err := run(ctx, db, d, table, openers, store, runnable, len(steps), o, version == 0); err != nil {
 			return err
 		}
 	} else if !o.checkOnly {
@@ -292,12 +389,39 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 			return errors.Wrapf(err, "store [%s]: failed to look up [%s]", store, openers)
 		}
 		if !ok {
-			if err := run(ctx, db, d, table, openers, store, nil, len(steps), o.lockTimeout); err != nil {
+			if err := run(ctx, db, d, table, openers, store, nil, len(steps), o, false); err != nil {
 				return err
 			}
 		}
 	}
-	return recordOpener(ctx, db, d, openers, store, o, len(steps))
+	if err := recordOpener(ctx, db, d, openers, store, o, len(steps)); err != nil {
+		return err
+	}
+	// A contract step that committed after the first read is visible now. The
+	// versions table exists: it is created with the openers table.
+	_, _, err = readRow(ctx, db, table, store, len(steps))
+	return err
+}
+
+// forgetOpeners deletes the rows of nodes for store from the openers table, if
+// the table exists.
+func forgetOpeners(ctx context.Context, db *sql.DB, d Dialect, openers, store string, nodes []string) error {
+	ok, err := tableExists(ctx, db, d, openers)
+	if err != nil {
+		return errors.Wrapf(err, "store [%s]: failed to look up [%s]", store, openers)
+	}
+	if !ok {
+		return nil
+	}
+	for _, node := range nodes {
+		res, err := db.ExecContext(ctx, "DELETE FROM "+openers+" WHERE store = $1 AND node = $2", store, node) //nolint:gosec // table name comes from configuration, not user input
+		if err != nil {
+			return errors.Wrapf(err, "store [%s]: failed to forget opener [%s]", store, node)
+		}
+		n, _ := res.RowsAffected()
+		logger.Infof("store [%s]: forgot %d opener row(s) of node [%s]", store, n, node)
+	}
+	return nil
 }
 
 // openersColumns is the column list of the openers table.
@@ -317,19 +441,26 @@ func recordOpener(ctx context.Context, db *sql.DB, d Dialect, openers, store str
 	return nil
 }
 
-// describe lists steps as "step <n> [<name>]", comma-separated.
+// describe lists steps as "step <n> [<name>]", comma-separated, with
+// " (contract)" after a contract step.
 func describe(steps []Step) string {
 	names := make([]string, len(steps))
 	for i, s := range steps {
 		names[i] = fmt.Sprintf("step %d [%s]", s.Version, s.Name)
+		if s.Contract {
+			names[i] += " (contract)"
+		}
 	}
 	return strings.Join(names, ", ")
 }
 
 // run takes the migration lock, creates the versions and openers tables, and
 // runs pending in order. Postgres CREATE TABLE IF NOT EXISTS is not safe
-// against concurrent callers, so both tables are created under the lock.
-func run(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, pending []Step, latest int, lockTimeout time.Duration) error {
+// against concurrent callers, so both tables are created under the lock. fresh
+// reports that Migrate found the store without a row. A contract step runs only
+// with o.contract, or on a fresh store whose earlier steps this call applied;
+// otherwise run stops before it.
+func run(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, pending []Step, latest int, o options, fresh bool) error {
 	inProgress.Add(1)
 	defer inProgress.Add(-1)
 
@@ -339,7 +470,7 @@ func run(ctx context.Context, db *sql.DB, d Dialect, table, openers, store strin
 	}
 	defer func() { _ = conn.Close() }()
 	if d == Postgres {
-		unlock, err := lock(ctx, conn, table, store, lockTimeout)
+		unlock, err := lock(ctx, conn, table, store, o.lockTimeout)
 		if err != nil {
 			return err
 		}
@@ -353,10 +484,19 @@ func run(ctx context.Context, db *sql.DB, d Dialect, table, openers, store strin
 			return errors.Wrapf(err, "store [%s]: failed to create [%s]", store, t[0])
 		}
 	}
+	// A store Migrate found without a row stays fresh while this migrator
+	// applies each step itself; a step another migrator applied means the
+	// store has a reader, so a later contract step waits for WithContract.
 	for _, s := range pending {
-		if err := apply(ctx, conn, d, table, store, s, latest); err != nil {
+		applied, err := apply(ctx, conn, d, table, openers, store, s, latest, o.contract || fresh)
+		if errors.Is(err, errHeldBack) {
+			logger.Warnf("store [%s]: another node migrated it meanwhile; contract step %d [%s] waits for node migrate --contract", store, s.Version, s.Name)
+			return nil
+		}
+		if err != nil {
 			return err
 		}
+		fresh = fresh && applied
 	}
 	return nil
 }
@@ -397,7 +537,8 @@ func readVersion(ctx context.Context, q Execer, d Dialect, table, store string, 
 	if !ok {
 		return 0, nil
 	}
-	return readRow(ctx, q, table, store, latest)
+	version, _, err := readRow(ctx, q, table, store, latest)
+	return version, err
 }
 
 // tableExists reports whether table exists.
@@ -412,64 +553,112 @@ func tableExists(ctx context.Context, q Execer, d Dialect, table string) (bool, 
 }
 
 // readRow is readVersion for a versions table that exists.
-func readRow(ctx context.Context, q Execer, table, store string, latest int) (int, error) {
-	var version, readableBy int
-	err := q.QueryRowContext(ctx, "SELECT version, readable_by FROM "+table+" WHERE store = $1", store).Scan(&version, &readableBy) //nolint:gosec // table name comes from configuration, not user input
+func readRow(ctx context.Context, q Execer, table, store string, latest int) (version, readableBy int, err error) {
+	err = q.QueryRowContext(ctx, "SELECT version, readable_by FROM "+table+" WHERE store = $1", store).Scan(&version, &readableBy) //nolint:gosec // table name comes from configuration, not user input
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
+		return 0, 0, nil
 	}
 	if err != nil {
-		return 0, errors.Wrapf(err, "store [%s]: failed to read [%s]", store, table)
+		return 0, 0, errors.Wrapf(err, "store [%s]: failed to read [%s]", store, table)
 	}
 	if version < 0 || readableBy < 0 || readableBy > version {
-		return 0, errors.Errorf("store [%s]: invalid row in [%s]: version %d, readable_by %d", store, table, version, readableBy)
+		return 0, 0, errors.Errorf("store [%s]: invalid row in [%s]: version %d, readable_by %d", store, table, version, readableBy)
 	}
 	if readableBy > latest {
-		return 0, errors.Wrapf(ErrSchemaTooNew, "store [%s] needs version %d, binary knows %d", store, readableBy, latest)
+		return 0, 0, errors.Wrapf(ErrSchemaTooNew, "store [%s] needs version %d, binary knows %d", store, readableBy, latest)
 	}
-	return version, nil
+	return version, readableBy, nil
 }
 
 // apply runs s in one transaction on conn and records it, unless the row shows
 // that another migrator applied s meanwhile. SQLite uses BEGIN IMMEDIATE so the
 // transaction holds the write lock from the start and cannot fail on upgrading
-// a read lock.
-func apply(ctx context.Context, conn *sql.Conn, d Dialect, table, store string, s Step, latest int) (err error) {
+// a read lock. A contract step first checks the openers table and raises
+// readable_by with the version. Without mayContract a pending contract step
+// returns errHeldBack. applied reports whether this call ran s.
+func apply(ctx context.Context, conn *sql.Conn, d Dialect, table, openers, store string, s Step, latest int, mayContract bool) (applied bool, err error) {
 	begin := "BEGIN"
 	if d == SQLite {
 		begin = "BEGIN IMMEDIATE"
 	}
 	if _, err := conn.ExecContext(ctx, begin); err != nil {
-		return errors.Wrapf(err, "store [%s]: failed to begin step %d [%s]", store, s.Version, s.Name)
+		return false, errors.Wrapf(err, "store [%s]: failed to begin step %d [%s]", store, s.Version, s.Name)
 	}
 	defer func() {
 		if err == nil {
 			_, err = conn.ExecContext(ctx, "COMMIT")
 		}
 		if err != nil {
+			applied = false
 			if _, rbErr := conn.ExecContext(context.WithoutCancel(ctx), "ROLLBACK"); rbErr != nil {
 				discard(conn)
 			}
 		}
 	}()
 
-	version, err := readRow(ctx, conn, table, store, latest)
+	version, readableBy, err := readRow(ctx, conn, table, store, latest)
 	if err != nil || version >= s.Version {
-		return err
+		return false, err
+	}
+	if s.Contract {
+		if !mayContract {
+			return false, errHeldBack
+		}
+		if err := checkOpeners(ctx, conn, d, openers, store, s); err != nil {
+			return false, err
+		}
+		readableBy = s.Version
 	}
 	logger.Infof("store [%s]: running schema step %d [%s]", store, s.Version, s.Name)
 	for _, stmt := range s.SQL {
 		if _, err := conn.ExecContext(ctx, stmt); err != nil {
-			return errors.Wrapf(err, "store [%s]: step %d [%s] failed", store, s.Version, s.Name)
+			return false, errors.Wrapf(err, "store [%s]: step %d [%s] failed", store, s.Version, s.Name)
 		}
 	}
 	if s.Go != nil {
 		if err := s.Go(ctx, conn); err != nil {
-			return errors.Wrapf(err, "store [%s]: step %d [%s] failed", store, s.Version, s.Name)
+			return false, errors.Wrapf(err, "store [%s]: step %d [%s] failed", store, s.Version, s.Name)
 		}
 	}
-	if _, err := conn.ExecContext(ctx, "INSERT INTO "+table+" (store, version, readable_by) VALUES ($1, $2, $2) ON CONFLICT (store) DO UPDATE SET version = excluded.version, readable_by = excluded.readable_by", store, s.Version); err != nil { //nolint:gosec // table name comes from configuration, not user input
-		return errors.Wrapf(err, "store [%s]: failed to record step %d [%s]", store, s.Version, s.Name)
+	if _, err := conn.ExecContext(ctx, "INSERT INTO "+table+" (store, version, readable_by) VALUES ($1, $2, $3) ON CONFLICT (store) DO UPDATE SET version = excluded.version, readable_by = excluded.readable_by", store, s.Version, readableBy); err != nil { //nolint:gosec // table name comes from configuration, not user input
+		return false, errors.Wrapf(err, "store [%s]: failed to record step %d [%s]", store, s.Version, s.Name)
+	}
+	return true, nil
+}
+
+// checkOpeners fails with ErrOlderOpener, naming each row, if the openers table
+// records a binary that opens store and lacks the contract step s. It runs in
+// the step's transaction on q. On Postgres it locks the openers table against
+// writes until the transaction ends, so no open records itself between this
+// check and the step's commit.
+func checkOpeners(ctx context.Context, q Execer, d Dialect, openers, store string, s Step) error {
+	if d == Postgres {
+		if _, err := q.ExecContext(ctx, "LOCK TABLE "+openers+" IN SHARE ROW EXCLUSIVE MODE"); err != nil {
+			return errors.Wrapf(err, "store [%s]: failed to lock [%s] for contract step %d [%s]", store, openers, s.Version, s.Name)
+		}
+	}
+	rows, err := q.QueryContext(ctx, "SELECT node, highest_step, opened_at FROM "+openers+" WHERE store = $1 AND highest_step < $2 ORDER BY node, highest_step", store, s.Version) //nolint:gosec // table name comes from configuration, not user input
+	if err != nil {
+		return errors.Wrapf(err, "store [%s]: failed to read [%s]", store, openers)
+	}
+	defer func() { _ = rows.Close() }()
+	var older []string
+	for rows.Next() {
+		var (
+			node    string
+			highest int
+			at      time.Time
+		)
+		if err := rows.Scan(&node, &highest, &at); err != nil {
+			return errors.Wrapf(err, "store [%s]: failed to read [%s]", store, openers)
+		}
+		older = append(older, fmt.Sprintf("node [%s] knows step %d, last opened %s UTC", node, highest, at.Format(time.DateTime)))
+	}
+	if err := rows.Err(); err != nil {
+		return errors.Wrapf(err, "store [%s]: failed to read [%s]", store, openers)
+	}
+	if len(older) > 0 {
+		return errors.Wrapf(ErrOlderOpener, "store [%s]: contract step %d [%s] not run: %s; upgrade them, or run node migrate --forget-opener <node> for a node none of whose replicas runs that binary anymore", store, s.Version, s.Name, strings.Join(older, "; "))
 	}
 	return nil
 }

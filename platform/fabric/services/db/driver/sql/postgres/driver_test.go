@@ -58,15 +58,20 @@ func mockDB(t *testing.T, checkOnly bool) (*drivercommon.RWDB, sqlmock.Sqlmock) 
 }
 
 // expectMigrated expects the read of a store's row in the versions table,
-// answers that the store is at version 1, and expects the opener to be recorded;
-// without checkOnly it first answers that the openers table exists.
+// answers that the store is at version 1, and expects the opener to be recorded
+// and the row to be read again; without checkOnly it first answers that the
+// openers table exists.
 func expectMigrated(m sqlmock.Sqlmock, checkOnly bool) {
+	row := func() *sqlmock.Rows {
+		return sqlmock.NewRows([]string{"version", "readable_by"}).AddRow(1, 0)
+	}
 	m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-	m.ExpectQuery("SELECT version, readable_by FROM").WillReturnRows(sqlmock.NewRows([]string{"version", "readable_by"}).AddRow(1, 1))
+	m.ExpectQuery("SELECT version, readable_by FROM").WillReturnRows(row())
 	if !checkOnly {
 		m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	}
 	m.ExpectExec("INSERT INTO fsc_schema_openers").WillReturnResult(sqlmock.NewResult(0, 1))
+	m.ExpectQuery("SELECT version, readable_by FROM").WillReturnRows(row())
 }
 
 // validConfig builds a Config the driver accepts: GetOpts only requires a

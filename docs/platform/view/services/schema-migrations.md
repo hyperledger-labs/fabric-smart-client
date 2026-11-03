@@ -16,7 +16,7 @@ Step 1 of every store creates its tables if they are missing. On the vault and t
 
 A vault migrates when its channel opens, after the web listener has started. While it does, `/healthz` answers 200 and `/readyz` answers 503 with reason `migrating`, so a load balancer sends the node no traffic and a liveness probe on `/healthz` does not restart it. The view stores migrate before the listener starts; their step 1 is short unless a large KVS needs its key reordered. For that case, give the first start a startup probe with enough time, or run `node migrate` first.
 
-Back up the database before the first start. A converted `TEXT` vault must never be used by an FSC version that stores `pkey` as `TEXT` (see the warning in [Configuration](../../../configuration.md)), and a binary refuses a store whose `readable_by` is above the highest step it knows, so rolling back across a step means restoring the backup.
+Back up the database before the first start. A converted `TEXT` vault must never be used by an FSC version that stores `pkey` as `TEXT` (see the warning in [Configuration](../../../configuration.md)), and rolling back across step 1 means restoring the backup. After that, rolling a binary back to an earlier release is free until a contract step has run (see [Contract steps](#contract-steps)): a binary refuses only a store whose `readable_by` is above the highest step it knows.
 
 ## Running migrations separately
 
@@ -26,7 +26,7 @@ Set `skipCreateTable: true` on the persistence and run `node migrate` from a Job
 ./mynode node migrate --check || ./mynode node migrate
 ```
 
-`node migrate` exits 0 when every store is current (or, without `--check`, has been migrated), 10 when `--check` finds pending steps, 11 when a store was migrated by a newer binary, 1 when it could not check or migrate a store, and 2 on invalid arguments. `--check` opens every store and lists each pending one with its steps, for example `store [fsc_kvs] is at version 0, binary expects 1; pending: step 1 [create table]`. A store that names no persistence while `fsc.persistences.default` is not defined fails the command: it would use memory, and nothing would be migrated.
+`node migrate` exits 0 when every store is current (or, without `--check`, has been migrated), 10 when `--check` finds pending steps, 11 when a store was migrated by a newer binary, 12 when `--contract` finds a store opened by a binary without a pending contract step, 1 when it could not check or migrate a store, and 2 on invalid arguments. `--check` opens every store and lists each pending one with its steps, for example `store [fsc_kvs] is at version 0, binary expects 1; pending: step 1 [create table]`. A store that names no persistence while `fsc.persistences.default` is not defined fails the command: it would use memory, and nothing would be migrated.
 
 With `skipCreateTable: true` the node runs no step. An FSC store with pending steps fails to open with `schema migration pending`, naming the store; this also applies to stores opened after startup, such as a channel added at runtime. `node migrate` reaches the stores the SDKs register at install time, which are every view store, the Fabric endorse tx, metadata and envelope stores, and the vault of every configured channel.
 
@@ -63,7 +63,7 @@ Whoever can write the versions table decides which steps a node skips, so keep w
 | `store [...] is at version N, binary expects M; pending: step N [...]: schema migration pending; run node migrate` | `skipCreateTable: true` and the store has steps pending | Run `node migrate`, then start the node. |
 | `store [...]: migration lock on [...] not granted within ...; held by pid N (...)` | `fsc.storage.migrationLockTimeout` elapsed while another session held the lock | See [A node waits for the migration lock](#a-node-waits-for-the-migration-lock). |
 | `store [...]: failed to record opener in [<prefix>_schema_openers]: ... permission denied` | The node role cannot write the openers table | Grant `SELECT, INSERT, UPDATE` on it; see [Database roles on Postgres](#database-roles-on-postgres). |
-| `store [...] needs version N, binary knows M: schema is newer than this binary supports` | A newer binary migrated the database | Run the newer binary, or restore a backup taken before its first start. |
+| `store [...] needs version N, binary knows M: schema is newer than this binary supports` | A newer binary ran contract step N, which this binary lacks | Run a binary that knows step N, or restore a backup taken before the contract step. |
 | `store [...]: step N [...] failed` | A step failed and rolled back; earlier steps stay applied | Fix the cause in the wrapped error (often a missing privilege) and start again. |
 | `table [...] primary key is (...), expected (ns, pkey)` | The table has a layout step 1 does not convert | Fix the table by hand; step 1 left it unchanged. |
 | `state table [...] stores pkey as [...], expected [bytea]` | The vault `pkey` column has a type other than `TEXT` or `BYTEA` | Fix the column by hand. |
@@ -80,4 +80,28 @@ SELECT pg_terminate_backend(4711);
 
 ## Which binaries use a store
 
-Every open of a store, including one with `skipCreateTable: true`, records the node's `fsc.id` and the highest step its binary knows in `<prefix>_schema_openers` (see [Database layout](database-layout.md#schema-openers-table)). Replicas of one node share an `fsc.id`; replicas on different binaries keep a row each. Nothing reads the table yet; it is there so that a later step that the previous release cannot read can check that no such binary still opens the store.
+Every open of a store, including one with `skipCreateTable: true`, records the node's `fsc.id` and the highest step its binary knows in `<prefix>_schema_openers` (see [Database layout](database-layout.md#schema-openers-table)). Replicas of one node share an `fsc.id`; replicas on different binaries keep a row each. A row stays after its replicas have been upgraded, because a row cannot tell a stopped binary from one that still runs. `node migrate --contract` reads the table before each contract step.
+
+## Contract steps
+
+Most steps only add tables, columns or indexes, and binaries without them keep working on the store. A contract step drops or rewrites what such binaries read, so it raises `readable_by` to its version and they refuse the store afterwards.
+
+A node never runs a contract step when it starts, except on a store that has no version row yet, such as a new database. A database written by v0.27 or earlier also has no version row; see the note on such binaries below. It runs the steps before it, logs once per open that the contract step is pending, and opens the store at its current version; steps after the contract step wait too. `node migrate --check` does not report a waiting contract step as pending; `node migrate --check --contract` does, marked `(contract)`.
+
+To run it, once every replica of every node that opens the store runs a binary that knows the step:
+
+```bash
+./mynode node migrate --contract
+```
+
+Under the migration lock, and in the contract step's transaction, the command reads `<prefix>_schema_openers`. While a row of the store names a `highest_step` below the step's version, it refuses with exit code 12 and lists each such node, the step it knows and when it last opened the store. The rows of upgraded binaries stay, so after the last replica of a node is upgraded, forget the node's rows in the same run:
+
+```bash
+./mynode node migrate --contract --forget-opener node1 --forget-opener node2
+```
+
+`--forget-opener` deletes every row of that `fsc.id`, including those of binaries that know the step; they are recorded again at their next open. Forget a node only when none of its replicas runs an older binary: a replica that keeps running on the store is not refused until it opens the store again, and then reads a store it no longer understands until it does. A binary that opens the store while the step runs waits for it and then refuses the store. On Postgres the step locks the openers table of the whole table prefix, so every open of a store with that prefix, by any binary, waits until the step commits, and a node role's `lock_timeout` or `statement_timeout` can fail it; on SQLite an open waits at most for the connection's `busy_timeout`. Keep contract steps short, or run them while no replica restarts.
+
+A binary of v0.27 or earlier records no opener row, so the command cannot see it. Before the first contract step of a store, make sure no node runs such a binary.
+
+A contract step that fails rolls back with its version and `readable_by`, so older binaries keep working. Once it has run, rolling a binary back below it means restoring a backup.

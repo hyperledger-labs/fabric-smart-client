@@ -9,6 +9,7 @@ package start
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
@@ -192,6 +194,9 @@ func TestMigrateCmdExitCodes(t *testing.T) {
 	}{
 		"pending":              {pending, ExitPending},
 		"too new":              {fmt.Errorf("store [a]: %w", migrate.ErrSchemaTooNew), ExitSchemaTooNew},
+		"older opener":         {fmt.Errorf("store [a]: %w", migrate.ErrOlderOpener), ExitOlderOpener},
+		"older and too new":    {errors.Join(migrate.ErrOlderOpener, migrate.ErrSchemaTooNew), ExitSchemaTooNew},
+		"older and pending":    {errors.Join(pending, migrate.ErrOlderOpener), ExitOlderOpener},
 		"unreachable":          {errors.New("database [h:5432/db] not reachable"), ExitFailed},
 		"pending and too new":  {errors.Join(pending, migrate.ErrSchemaTooNew), ExitSchemaTooNew},
 		"pending and failed":   {errors.Join(migrate.ErrPending, errors.New("lock")), ExitFailed},
@@ -214,7 +219,7 @@ func TestMigrateCmdExitCodes(t *testing.T) {
 func TestMigrateCmdUsage(t *testing.T) {
 	t.Parallel()
 
-	for _, args := range [][]string{{"migrate", "extra"}, {"migrate", "--force"}, {"migrate", "--check=maybe"}} {
+	for _, args := range [][]string{{"migrate", "extra"}, {"migrate", "--force"}, {"migrate", "--check=maybe"}, {"migrate", "--check", "--forget-opener", "n"}} {
 		n := &mockMigrateNode{mockStartNode: newMockStartNode(nil)}
 		cmd := Cmd(n)
 		cmd.SetArgs(args)
@@ -232,3 +237,78 @@ func TestMigrateCmdUsage(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	require.Empty(t, n.checkOnly)
 }
+
+// contractStore is a store whose step 2 is a contract step.
+type contractStore struct{}
+
+func (contractStore) StoreName() string { return "cli_s" }
+func (contractStore) CreateSchema() error {
+	return errors.New("CreateSchema must not be called on a Versioned store")
+}
+
+func (contractStore) Steps() []migrate.Step {
+	return []migrate.Step{
+		{Version: 1, Name: "create", SQL: []string{"CREATE TABLE cli_s (id INT)"}},
+		{Version: 2, Name: "contract", Contract: true, SQL: []string{"CREATE TABLE cli_s2 (id INT)"}},
+	}
+}
+
+// storeMigrateNode opens one store, as the SDKs do inside node migrate: with
+// no options of its own, so only the command's flags reach migrate.
+type storeMigrateNode struct {
+	*mockStartNode
+	db *sql.DB
+}
+
+func (m *storeMigrateNode) Migrate(ctx context.Context, checkOnly bool) error {
+	var opts []migrate.Option
+	if checkOnly {
+		opts = append(opts, migrate.WithCheckOnly())
+	}
+	return migrate.Migrate(ctx, m.db, migrate.SQLite, "cli", contractStore{}, opts...)
+}
+
+// --contract and --forget-opener reach the stores the node opens, and only
+// for the duration of the command. Not parallel: the flags are set
+// process-wide while the command runs.
+func TestMigrateCmdContract(t *testing.T) { //nolint:paralleltest // sets process-wide migrate options
+	dsn := "file:" + filepath.Join(t.TempDir(), "m.db")
+	open := func() *sql.DB {
+		db, err := sql.Open("sqlite", dsn)
+		require.NoError(t, err)
+		db.SetMaxOpenConns(1)
+		t.Cleanup(func() { _ = db.Close() })
+		return db
+	}
+	// A binary with step 1 only has opened the store as node "old". It is
+	// another process, so it uses another pool.
+	require.NoError(t, migrate.Migrate(t.Context(), open(), migrate.SQLite, "cli", &stepsStore{contractStore{}, 1}, migrate.WithNode("old")))
+	db := open()
+
+	run := func(args ...string) error {
+		cmd := Cmd(&storeMigrateNode{mockStartNode: newMockStartNode(nil), db: db})
+		cmd.SetArgs(append([]string{"migrate"}, args...))
+		return cmd.Execute()
+	}
+	require.NoError(t, run(), "without --contract the contract step waits")
+	require.NoError(t, run("--check"), "a held-back contract step is not pending")
+	var e *ExitError
+	require.ErrorAs(t, run("--check", "--contract"), &e)
+	require.Equal(t, ExitPending, e.Code)
+	require.ErrorAs(t, run("--contract"), &e)
+	require.Equal(t, ExitOlderOpener, e.Code)
+	require.ErrorContains(t, e, "node [old] knows step 1")
+	require.NoError(t, run("--contract", "--forget-opener", "old"))
+	require.NoError(t, run("--check", "--contract"))
+	var readableBy int
+	require.NoError(t, db.QueryRow("SELECT readable_by FROM cli_schema_versions").Scan(&readableBy))
+	require.Equal(t, 2, readableBy)
+}
+
+// stepsStore is a store with only the first n steps of another.
+type stepsStore struct {
+	contractStore
+	n int
+}
+
+func (s *stepsStore) Steps() []migrate.Step { return s.contractStore.Steps()[:s.n] }

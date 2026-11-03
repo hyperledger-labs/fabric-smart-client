@@ -239,9 +239,9 @@ Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions
 | --- | --- | --- |
 | `store` | `TEXT PRIMARY KEY` | the store's primary table name, e.g. `fsc_kvs` |
 | `version` | `INT NOT NULL` | the highest step applied |
-| `readable_by` | `INT NOT NULL` | the lowest step version a binary must know to read the store; equal to `version` |
+| `readable_by` | `INT NOT NULL` | the lowest step version a binary must know to read the store: the highest contract step applied, `0` if none |
 
-A store without a row has applied no step. A binary refuses to open a store whose `readable_by` is above the highest step it knows. The table decides which SQL a node runs, so only the roles that run migrations should be able to write it. See [Schema versions](db-driver.md#schema-versions).
+A store without a row has applied no step. A binary refuses to open a store whose `readable_by` is above the highest step it knows, and opens one whose `version` alone is above it: the steps it lacks keep the store readable for it. The table decides which SQL a node runs, so only the roles that run migrations should be able to write it. See [Schema versions](db-driver.md#schema-versions).
 
 ## Schema Openers Table
 
@@ -254,7 +254,7 @@ Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers` 
 | `highest_step` | `INT NOT NULL` | the highest step the opening binary knows |
 | `opened_at` | `TIMESTAMP NOT NULL` | the database's time, in UTC, of the last such open |
 
-The primary key is `(store, node, highest_step)`. Replicas of a node share its `fsc.id`, so a replica on another binary adds a row instead of overwriting one. Rows are never deleted by FSC. See [Which binaries use a store](schema-migrations.md#which-binaries-use-a-store).
+The primary key is `(store, node, highest_step)`. Replicas of a node share its `fsc.id`, so a replica on another binary adds a row instead of overwriting one. FSC deletes rows only on `node migrate --forget-opener`. A contract step does not run while a row of its store names a `highest_step` below the step's version. See [Which binaries use a store](schema-migrations.md#which-binaries-use-a-store).
 
 ## Backend Differences
 
