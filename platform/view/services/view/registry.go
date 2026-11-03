@@ -9,6 +9,7 @@ package view
 import (
 	"context"
 	"reflect"
+	"regexp"
 	"runtime/debug"
 	"sync"
 
@@ -49,11 +50,51 @@ func WithIdentity(id view.Identity) ResponderOption {
 	return func(e *responderEntry) { e.id = id }
 }
 
+// WithProtocol also registers the responder under the protocol name "<component>/<name>", so
+// that a peer finds it by that name whatever the Go type path of its initiator view. The
+// initiator view states the name by implementing ProtocolView. component and name must match
+// [a-z0-9-]+. A responder registered for one name answers sessions under it from initiators
+// of any type; it is still found by the type path of initiatedBy, for peers whose initiator
+// declares no name.
+func WithProtocol(component, name string) ResponderOption {
+	return func(e *responderEntry) { e.protocol = component + "/" + name }
+}
+
+// ProtocolView is implemented by an initiator view that runs a protocol with a stable name.
+// The sessions it opens with Context.GetSession carry the name "<component>/<name>", and the
+// responder registered for it with WithProtocol answers them, even after the view's Go type
+// moved to another package. A view it runs in a child context opens sessions under the name
+// when it passes Initiator() as the caller to GetSession, as FSC's bundled views do.
+type ProtocolView interface {
+	view.View
+	Protocol() (component, name string)
+}
+
+// protocolName is the form of a protocol name.
+var protocolName = regexp.MustCompile(`^[a-z0-9-]+/[a-z0-9-]+$`)
+
+// protocolOf returns the protocol name "<component>/<name>" v declares, or "" if it declares
+// none or an invalid one.
+func protocolOf(v view.View) string {
+	pv, ok := v.(ProtocolView)
+	if !ok {
+		return ""
+	}
+	component, name := pv.Protocol()
+	if p := component + "/" + name; protocolName.MatchString(p) {
+		return p
+	}
+	logger.Warnf("view [%s] declares an invalid protocol name [%s/%s], ignoring it", GetIdentifier(v), component, name)
+	return ""
+}
+
 // responderEntry is what an initiator ID resolves to: the responder and how it runs.
 type responderEntry struct {
 	view       view.View
 	id         view.Identity
 	authorizer ResponderAuthorizer
+	// protocol is the name set with WithProtocol, empty if none.
+	protocol string
 }
 
 // Registry is responsible for registering and retrieving view factories, views, and responders.
@@ -65,6 +106,9 @@ type Registry struct {
 	// responders maps an initiator view ID to the responder that answers it. One responder
 	// can answer several initiators, each with its own identity and authorizer.
 	responders map[string]*responderEntry
+	// protocols maps a protocol name to its responder. It is a map of its own, so that a
+	// protocol name never resolves to a type path that happens to look like one.
+	protocols map[string]*responderEntry
 	// views holds the views registered with an empty initiator, by view ID, for GetView.
 	views     map[string]view.View
 	factories map[string]Factory
@@ -74,6 +118,7 @@ type Registry struct {
 func NewRegistry() *Registry {
 	return &Registry{
 		responders: map[string]*responderEntry{},
+		protocols:  map[string]*responderEntry{},
 		views:      map[string]view.View{},
 		factories:  map[string]Factory{},
 	}
@@ -132,7 +177,11 @@ func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.I
 // A registration for an initiator that already has a responder replaces its responder and
 // identity. It replaces the authorizer only if it sets one: a later registration without
 // WithAuthorizer, such as a default one made by another module, keeps the existing authorizer
-// instead of silently opening the responder to every peer.
+// instead of silently opening the responder to every peer. The same holds for a protocol name:
+// a registration with WithProtocol for a name that already has a responder replaces it, and a
+// later registration for the same initiator without WithProtocol keeps the name, and one with
+// another name releases the old name. A name registered for one initiator cannot be registered
+// for another: that registration fails.
 func (cm *Registry) RegisterResponderWithOptions(responder view.View, initiatedBy any, opts ...ResponderOption) error {
 	var initiatedByID string
 	switch t := initiatedBy.(type) {
@@ -151,18 +200,38 @@ func (cm *Registry) RegisterResponderWithOptions(responder view.View, initiatedB
 	cm.viewsSync.Lock()
 	defer cm.viewsSync.Unlock()
 
-	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s]", GetIdentifier(responder), initiatedByID, entry.id)
+	logger.Debugf("registering responder [%s] for initiator [%s] with identity [%s] and protocol [%s]", GetIdentifier(responder), initiatedByID, entry.id, entry.protocol)
+	if entry.protocol != "" && !protocolName.MatchString(entry.protocol) {
+		return errors.Errorf("invalid protocol name [%s]: want [a-z0-9-]+/[a-z0-9-]+", entry.protocol)
+	}
 	if len(initiatedByID) == 0 {
-		if entry.authorizer != nil {
-			return errors.New("an authorizer needs an initiator")
+		if entry.authorizer != nil || entry.protocol != "" {
+			return errors.New("an authorizer or protocol needs an initiator")
 		}
 		cm.views[GetIdentifier(responder)] = responder
 		return nil
 	}
-	if old, ok := cm.responders[initiatedByID]; ok && entry.authorizer == nil {
-		entry.authorizer = old.authorizer
+	old := cm.responders[initiatedByID]
+	if old != nil {
+		if entry.protocol == "" {
+			entry.protocol = old.protocol
+		}
+		if entry.authorizer == nil {
+			entry.authorizer = old.authorizer
+		}
+	}
+	// A name belongs to one initiator, so that its responder and authorizer are those of that
+	// initiator's registration and no other registration can take them over.
+	if prev, ok := cm.protocols[entry.protocol]; ok && prev != old {
+		return errors.Errorf("protocol [%s] is registered for another initiator", entry.protocol)
+	}
+	if old != nil && old.protocol != entry.protocol {
+		delete(cm.protocols, old.protocol)
 	}
 	cm.responders[initiatedByID] = entry
+	if entry.protocol != "" {
+		cm.protocols[entry.protocol] = entry
+	}
 	return nil
 }
 
@@ -177,7 +246,7 @@ func (cm *Registry) GetResponder(initiatedBy any) (view.View, error) {
 	default:
 		return nil, errors.New("initiatedBy must be a view or a string")
 	}
-	r, _, _, err := cm.ResponderForCaller(initiatedByID)
+	r, _, _, err := cm.ResponderForCaller("", initiatedByID)
 	return r, err
 }
 
@@ -199,18 +268,22 @@ func (cm *Registry) GetView(id string) (view.View, error) {
 
 // ExistResponderForCaller returns the responder view and identity for the given caller identifier.
 func (cm *Registry) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
-	r, id, _, err := cm.ResponderForCaller(caller)
+	r, id, _, err := cm.ResponderForCaller("", caller)
 	return r, id, err
 }
 
-// ResponderForCaller returns the responder registered for the initiator view ID caller, the
-// identity it runs as (none for the default identity), and its authorizer (nil if any peer may
-// start it). It returns an error wrapping ErrResponderNotFound if caller has no responder.
-func (cm *Registry) ResponderForCaller(caller string) (view.View, view.Identity, ResponderAuthorizer, error) {
+// ResponderForCaller returns the responder registered for protocol, a protocol name, or, if
+// protocol is empty or has no responder, for the initiator view ID caller. It also returns the
+// identity the responder runs as (none for the default identity) and its authorizer (nil if any
+// peer may start it). It returns an error wrapping ErrResponderNotFound if neither has one.
+func (cm *Registry) ResponderForCaller(protocol, caller string) (view.View, view.Identity, ResponderAuthorizer, error) {
 	cm.viewsSync.RLock()
 	defer cm.viewsSync.RUnlock()
 
-	e, ok := cm.responders[caller]
+	e, ok := cm.protocols[protocol]
+	if !ok {
+		e, ok = cm.responders[caller]
+	}
 	if !ok {
 		return nil, nil, nil, errors.Wrapf(ErrResponderNotFound, "no view found initiatable by [%s]", caller)
 	}

@@ -79,8 +79,6 @@ type P2PNode struct {
 	streamReaderBufferSize     int
 	maxRecvMsgSize             int
 	maxSendMsgSize             int
-	// streamSeq numbers stream handlers in creation order.
-	streamSeq atomic.Uint64
 	// sharedStreams is set when the host multiplexes many sessions on one stream, see host.SharedStreamsHost.
 	sharedStreams bool
 }
@@ -209,7 +207,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 
 			if !in {
 				logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
-				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil, false)
 			} else {
 				p.retireIfDraining(msg.message)
 			}
@@ -217,15 +215,8 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 
 			// here we know that msg.stream is used for session:
 			// 1) increment the used counter for msg.stream
-			session.mutex.Lock()
-			// A closing session releases its streams once, so a lease taken now would never be released.
-			if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready && !session.isClosing.Load() {
-				if msg.stream.tryLease() {
-					// 2) add msg.stream to the list of streams used by session
-					session.streams[msg.stream] = struct{}{}
-				}
-			}
-			session.mutex.Unlock()
+			// 2) add msg.stream to the list of streams used by session
+			session.lease(msg.stream)
 
 			logger.Debugf("Attempting to enqueue message for session [%s] (internal session exists: %v)", internalSessionID, in)
 			delivered := session.enqueue(msg.message)
@@ -292,13 +283,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 		if err == nil {
 			logger.Debugf("sent msg with stream [%s]", stream.stream.Hash())
 			if session != nil {
-				session.mutex.Lock()
-				if _, streamRegisteredAlready := session.streams[stream]; !streamRegisteredAlready && !session.isClosing.Load() {
-					if stream.tryLease() {
-						session.streams[stream] = struct{}{}
-					}
-				}
-				session.mutex.Unlock()
+				session.lease(stream)
 			}
 			return nil
 		}
@@ -332,13 +317,7 @@ func (p *P2PNode) sendTo(ctx context.Context, info host.StreamInfo, msg proto.Me
 
 	if session != nil {
 		logger.Debugf("register handle [%s]", info.SessionID)
-		session.mutex.Lock()
-		if _, streamRegisteredAlready := session.streams[sh]; !streamRegisteredAlready && !session.isClosing.Load() {
-			if sh.tryLease() {
-				session.streams[sh] = struct{}{}
-			}
-		}
-		session.mutex.Unlock()
+		session.lease(sh)
 	}
 
 	logger.Debugf("send message on stream [%s]", info.SessionID)
@@ -347,6 +326,35 @@ func (p *P2PNode) sendTo(ctx context.Context, info host.StreamInfo, msg proto.Me
 		return errors.Wrap(err, "error while sending message to freshly created stream")
 	}
 	return nil
+}
+
+// streamPreamble returns the preamble the peer sent on the first live stream for info, the one
+// sendTo uses next, opening a stream if there is none, and leases the stream to session. On
+// WebSocket that stream belongs to the session; on libp2p it is shared by every session to the
+// peer, whose replicas share its peer ID.
+// ponytail: libp2p may send on another live stream to a replica of another release; pin the
+// session to its negotiated stream if replicas of different releases must run behind one ID.
+func (p *P2PNode) streamPreamble(ctx context.Context, info host.StreamInfo, session *NetworkStreamSession) (*preamble.Preamble, error) {
+	hash := p.host.StreamHash(info)
+	var sh *streamHandler
+	p.streamsMutex.RLock()
+	for _, s := range p.streams[hash] {
+		if !s.isDead() && !s.isClosed() {
+			sh = s
+			break
+		}
+	}
+	p.streamsMutex.RUnlock()
+	if sh == nil {
+		nwStream, err := p.host.NewStream(ctx, info)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
+		}
+		p.m.OpenedStreams.Add(1)
+		sh = p.handleOutgoingStream(nwStream)
+	}
+	session.lease(sh)
+	return sh.preamble, nil
 }
 
 func (p *P2PNode) handleOutgoingStream(stream host.P2PStream) *streamHandler {
@@ -363,7 +371,6 @@ func (p *P2PNode) handleStream(stream host.P2PStream) *streamHandler {
 		reader: io.NewVarintProtoReader(stream, p.streamReaderBufferSize, p.maxRecvMsgSize),
 		writer: io.NewVarintProtoWriter(stream, p.maxSendMsgSize),
 		node:   p,
-		seq:    p.streamSeq.Add(1),
 	}
 	if ps, ok := stream.(host.PreambleStream); ok {
 		sh.preamble = ps.Preamble()
@@ -388,27 +395,6 @@ func (p *P2PNode) handleStream(stream host.P2PStream) *streamHandler {
 	return sh
 }
 
-// PeerPreamble returns the preamble that peerID, a remote peer ID as the transport
-// authenticated it, sent on the most recently opened of its live streams. ok is false when no
-// live stream to peerID carries a preamble: there is no such stream, or the peer runs a release
-// that sends none. Replicas of one node share its peer ID and may run different releases while
-// it upgrades, so the result describes the replica of the newest stream.
-// ponytail: per peer and a scan of every live stream; expose the session stream's preamble
-// when negotiation needs it, and index by peer ID if this is called per message.
-func (p *P2PNode) PeerPreamble(peerID host.PeerID) (pre *preamble.Preamble, ok bool) {
-	p.streamsMutex.RLock()
-	defer p.streamsMutex.RUnlock()
-	var newest uint64
-	for _, handlers := range p.streams {
-		for _, sh := range handlers {
-			if sh.preamble != nil && sh.stream.RemotePeerID() == peerID && sh.seq >= newest {
-				pre, newest, ok = sh.preamble, sh.seq, true
-			}
-		}
-	}
-	return pre, ok
-}
-
 func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 	return p.host.Lookup(peerID)
 }
@@ -425,8 +411,6 @@ type streamHandler struct {
 	dead   atomic.Bool
 	// preamble is what the peer sent when the stream opened, nil if it sent none.
 	preamble *preamble.Preamble
-	// seq orders stream handlers by creation, so PeerPreamble returns the newest.
-	seq uint64
 }
 
 func (s *streamHandler) isClosed() bool {
@@ -538,6 +522,8 @@ func (s *streamHandler) handleIncoming() {
 				Status:       msg.Status,
 				Payload:      msg.Payload,
 				Caller:       msg.Caller,
+				Protocol:     msg.Protocol,
+				Versions:     msg.Versions,
 				FromEndpoint: s.stream.RemotePeerAddress(),
 				FromPKID:     []byte(s.stream.RemotePeerID()),
 				Ctx:          s.stream.Context(),

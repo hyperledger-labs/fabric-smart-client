@@ -9,6 +9,8 @@ package view
 import (
 	"context"
 	"fmt"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const (
@@ -25,6 +27,13 @@ type Message struct {
 	Status       int32  // Message Status (OK, ERROR)
 	Payload      []byte // Payload
 	Ctx          context.Context
+	// Protocol is the stable protocol name "<component>/<name>" the session's initiator states,
+	// empty if its view declares none or the message comes from a responder.
+	Protocol string
+	// Versions is the encoded version of each component's formats the session's initiator chose
+	// for it, stated on every message the initiator sends; nil on a responder's messages. The
+	// comm layer decodes it when the message creates a responder session.
+	Versions []byte
 }
 
 func (m *Message) String() string {
@@ -83,4 +92,37 @@ type Session interface {
 
 	// Close releases all the resources allocated by this session
 	Close()
+}
+
+// VersionedSession is implemented by a session that knows which version of each component's
+// formats it uses; FSC's sessions over the network do. The initiator chose the versions from
+// both nodes' ranges, the highest both support, and states them on each message it sends.
+// A caller finds the interface by type assertion, or calls SessionVersion.
+type VersionedSession interface {
+	// Version returns the version of the named component's formats the session uses. ok is
+	// false if the node does not have the component. On a session this node opened, the first
+	// call negotiates the versions, which may open the stream to the peer, bounded by ctx; the
+	// result holds for the session's lifetime and every message states it. It fails with an
+	// error wrapping ErrNoCommonVersion if the peer supports no version this node does.
+	Version(ctx context.Context, component string) (version uint32, ok bool, err error)
+}
+
+// ErrNoCommonVersion is wrapped by VersionedSession.Version when the two nodes support no common
+// version of a component.
+var ErrNoCommonVersion = errors.New("no common version")
+
+// SessionVersion returns the version of the named component's formats that s uses; see
+// VersionedSession. A session that does not implement VersionedSession, such as an in-process
+// session or an application's wrapper, uses version 1, as does one whose node does not have the
+// component.
+func SessionVersion(ctx context.Context, s Session, component string) (uint32, error) {
+	vs, ok := s.(VersionedSession)
+	if !ok {
+		return 1, nil
+	}
+	v, ok, err := vs.Version(ctx, component)
+	if err != nil || !ok {
+		return 1, err
+	}
+	return v, nil
 }

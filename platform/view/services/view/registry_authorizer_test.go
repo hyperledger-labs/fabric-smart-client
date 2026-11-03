@@ -25,13 +25,13 @@ func named(name string) view.AuthorizerFunc {
 
 // responderLookup is implemented by view.Registry and view.Manager.
 type responderLookup interface {
-	ResponderForCaller(string) (viewapi.View, viewapi.Identity, view.ResponderAuthorizer, error)
+	ResponderForCaller(string, string) (viewapi.View, viewapi.Identity, view.ResponderAuthorizer, error)
 }
 
 // lookup returns the responder, identity and authorizer name ("" for none) registered for caller.
 func lookup(t *testing.T, r responderLookup, caller string) (viewapi.View, viewapi.Identity, string) {
 	t.Helper()
-	v, id, a, err := r.ResponderForCaller(caller)
+	v, id, a, err := r.ResponderForCaller("", caller)
 	require.NoError(t, err)
 	if a == nil {
 		return v, id, ""
@@ -108,7 +108,7 @@ func TestManager_RegisterResponderWithOptions(t *testing.T) {
 	require.Same(t, resp, v)
 	require.Equal(t, viewapi.Identity("id"), id)
 	require.Equal(t, "a", a)
-	_, _, _, err := m.ResponderForCaller("other")
+	_, _, _, err := m.ResponderForCaller("", "other")
 	require.ErrorIs(t, err, view.ErrResponderNotFound)
 }
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -135,6 +136,10 @@ type pingPongMockNode struct {
 }
 
 func (*pingPongMockNode) unregister(*NetworkStreamSession, bool) {}
+
+func (*pingPongMockNode) streamPreamble(context.Context, host.StreamInfo, *NetworkStreamSession) (*preamble.Preamble, error) {
+	return nil, nil
+}
 
 func (m *pingPongMockNode) sendTo(_ context.Context, _ host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
 	// In a real implementation, this would send the message over the network

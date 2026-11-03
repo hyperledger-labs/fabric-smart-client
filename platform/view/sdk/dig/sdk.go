@@ -216,6 +216,9 @@ func (p *SDK) Install() error {
 		// Transports of the remote view API, mounted by Start as fsc.view.remote.backends lists.
 		p.Container().Provide(newGRPCBackend, dig.Group(BackendsGroup)),
 		p.Container().Provide(newWebBackend, dig.Group(BackendsGroup)),
+
+		// The view component: session framing and the view API.
+		p.Container().Provide(NewComponentEntry("view", 1, 1)),
 	)
 	if err != nil {
 		return err
@@ -257,6 +260,10 @@ func (p *SDK) Install() error {
 
 func (p *SDK) Start(ctx context.Context) error {
 	if err := p.SDK.Start(ctx); err != nil {
+		return err
+	}
+	// Every SDK has installed, so the group is complete; comm starts below.
+	if err := installComponents(p.Container()); err != nil {
 		return err
 	}
 	return p.Container().Invoke(func(in struct {

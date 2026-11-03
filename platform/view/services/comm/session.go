@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -31,6 +32,9 @@ const sessionStreamGrace = 5 * time.Second
 
 type sender interface {
 	sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error
+	// streamPreamble returns the preamble the peer sent on a live stream for info, opening one
+	// if there is none, and leases that stream to session. It is nil for a peer that sends none.
+	streamPreamble(ctx context.Context, info host.StreamInfo, session *NetworkStreamSession) (*preamble.Preamble, error)
 	// unregister removes session from the node's registry, if it is registered. selfClosed
 	// tells that the session closed on its own rather than by a Close call.
 	unregister(session *NetworkStreamSession, selfClosed bool)
@@ -59,6 +63,121 @@ type NetworkStreamSession struct {
 	closing   chan struct{}
 	closed    chan struct{}
 	isClosing atomic.Bool
+
+	// initiator is set on a session this node opened with NewSession: it chooses the versions
+	// and states them, with protocol, on its messages. It never changes.
+	initiator bool
+
+	// versionMu guards the fields below. negotiate holds it while it opens the stream, so a
+	// concurrent Send or Version on the session waits for that, bounded by the first caller's
+	// context.
+	versionMu sync.Mutex
+	// protocol is the protocol name the messages state, see SetProtocol.
+	protocol string
+	// versions holds the version per component the session uses, 0 for a component without a
+	// common version. On an initiator session it is nil until negotiate ran; on a responder
+	// session it is what the message that created the session stated.
+	versions map[string]uint32
+	// peer is the preamble negotiate chose from, nil if the peer sent none; it names the peer's
+	// range when a component has no common version.
+	peer *preamble.Preamble
+}
+
+// SetProtocol sets the protocol name "<component>/<name>" the session's messages state, so that
+// the peer finds the responder registered for it. It has an effect only on a session this node
+// opened. The responder is chosen by the message that reaches it first, so a name set after the
+// first Send may not take effect.
+func (n *NetworkStreamSession) SetProtocol(name string) {
+	n.versionMu.Lock()
+	defer n.versionMu.Unlock()
+	n.protocol = name
+}
+
+// Version implements view.VersionedSession.
+func (n *NetworkStreamSession) Version(ctx context.Context, component string) (uint32, bool, error) {
+	local, ok := preamble.LocalRange(component)
+	if !ok {
+		return 0, false, nil
+	}
+	if n.isClosed() {
+		return 0, false, errors.Wrapf(ErrSessionClosed, "session [%s] is closed", n.sessionID)
+	}
+	versions, peer, err := n.negotiate(ctx)
+	if err != nil {
+		return 0, false, err
+	}
+	v, stated := versions[component]
+	switch {
+	case !stated:
+		// The initiator runs a release without this component, or without negotiation.
+		v = preamble.DefaultRange.Max
+	case v == 0 && n.initiator:
+		r := preamble.PeerRange(peer, component)
+		return 0, false, errors.Wrapf(view.ErrNoCommonVersion, "component [%s]: local [%d, %d], peer [%d, %d]", component, local.Min, local.Max, r.Min, r.Max)
+	case v == 0:
+		return 0, false, errors.Wrapf(view.ErrNoCommonVersion, "component [%s]: the initiator supports no version in local [%d, %d]", component, local.Min, local.Max)
+	}
+	if !local.Contains(v) {
+		return 0, false, errors.Wrapf(view.ErrNoCommonVersion, "component [%s]: peer uses %d, local [%d, %d]", component, v, local.Min, local.Max)
+	}
+	return v, true, nil
+}
+
+// negotiate returns the session's versions and the preamble they were chosen from. On an
+// initiator session the first call chooses, per local component, the highest version of both
+// nodes' ranges, from the preamble of the session's stream, which it opens if needed; a failure
+// to open it is returned, and the next call tries again.
+func (n *NetworkStreamSession) negotiate(ctx context.Context) (map[string]uint32, *preamble.Preamble, error) {
+	n.versionMu.Lock()
+	defer n.versionMu.Unlock()
+	if !n.initiator || n.versions != nil {
+		return n.versions, n.peer, nil
+	}
+	peer, err := n.node.streamPreamble(ctx, n.streamInfo(), n)
+	if err != nil {
+		return nil, nil, errors.WithMessagef(err, "failed negotiating versions for session [%s]", n.sessionID)
+	}
+	versions := map[string]uint32{}
+	for _, c := range preamble.Components() {
+		v, ok := preamble.Highest(c.Range, preamble.PeerRange(peer, c.Name))
+		if !ok {
+			v = 0 // states that the nodes support no common version
+		}
+		versions[c.Name] = v
+	}
+	n.versions, n.peer = versions, peer
+	return versions, peer, nil
+}
+
+// stated returns the versions and protocol a message states: on an initiator session, every
+// message states them, so that the responder learns them from whichever message reaches it
+// first, even one that arrives before the responder registered the session; on a responder
+// session, none.
+func (n *NetworkStreamSession) stated(ctx context.Context) ([]byte, string, error) {
+	if !n.initiator {
+		return nil, "", nil
+	}
+	versions, _, err := n.negotiate(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	raw, err := preamble.EncodeVersions(versions)
+	if err != nil {
+		return nil, "", err
+	}
+	n.versionMu.Lock()
+	defer n.versionMu.Unlock()
+	return raw, n.protocol, nil
+}
+
+// lease registers sh as a stream of the session, unless it already is or the session closes:
+// a closing session releases its streams once, so a lease taken later would never be released.
+func (n *NetworkStreamSession) lease(sh *streamHandler) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if _, ok := n.streams[sh]; !ok && !n.isClosing.Load() && sh.tryLease() {
+		n.streams[sh] = struct{}{}
+	}
 }
 
 func (n *NetworkStreamSession) tryStart() {
@@ -288,23 +407,24 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 		return errors.Wrapf(ErrSessionClosed, "session [%s] is closed", n.sessionID)
 	}
 
-	n.mutex.RLock()
-	info := host.StreamInfo{
-		RemotePeerID:      string(n.endpointID),
-		RemotePeerAddress: n.endpointAddress,
-		ContextID:         n.contextID,
-		SessionID:         n.sessionID,
+	versions, protocol, err := n.stated(ctx)
+	if err != nil {
+		return err
 	}
+	info := n.streamInfo()
+	n.mutex.RLock()
 	packet := &ViewPacket{
 		ContextID: n.contextID,
 		SessionID: n.sessionID,
 		Caller:    n.callerViewID,
 		Status:    status,
 		Payload:   payload,
+		Versions:  versions,
+		Protocol:  protocol,
 	}
 	n.mutex.RUnlock()
 
-	err := n.node.sendTo(ctx, info, packet, n)
+	err = n.node.sendTo(ctx, info, packet, n)
 	logger.Debugf("[%s] sent message [len:%d] to [%s:%s] from [%s] [status:%v] with err [%v]",
 		n.sessionID,
 		len(payload),
@@ -318,4 +438,16 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 		return errors.Wrapf(err, "failed to send message on session [%s]", n.sessionID)
 	}
 	return nil
+}
+
+// streamInfo returns where the session's messages go.
+func (n *NetworkStreamSession) streamInfo() host.StreamInfo {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return host.StreamInfo{
+		RemotePeerID:      string(n.endpointID),
+		RemotePeerAddress: n.endpointAddress,
+		ContextID:         n.contextID,
+		SessionID:         n.sessionID,
+	}
 }

@@ -28,6 +28,9 @@ const (
 	ReasonUnauthorized = "unauthorized"
 	// ReasonAuthorizerError: the responder's authorizer failed or timed out.
 	ReasonAuthorizerError = "authorizer_error"
+	// ReasonNoCommonVersion: the first message states a component version outside the
+	// responder's range.
+	ReasonNoCommonVersion = "no_common_version"
 )
 
 var (
@@ -54,6 +57,7 @@ var reasonErrs = []struct {
 	{[]byte(ReasonNodeBusy + ": "), ErrBusy},
 	{[]byte(ReasonDraining + ": "), ErrDraining},
 	{[]byte(ReasonUnauthorized + ": "), ErrUnauthorized},
+	{[]byte(ReasonNoCommonVersion + ": "), view.ErrNoCommonVersion},
 	{[]byte(ReasonAuthorizerError + ": "), ErrRejected},
 }
 

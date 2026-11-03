@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -202,6 +203,10 @@ func TestSessionRecoverAfterClose(t *testing.T) { //nolint:paralleltest
 type mockSenderDeadlock struct{}
 
 func (*mockSenderDeadlock) unregister(*NetworkStreamSession, bool) {}
+
+func (*mockSenderDeadlock) streamPreamble(context.Context, host.StreamInfo, *NetworkStreamSession) (*preamble.Preamble, error) {
+	return nil, nil
+}
 
 func (*mockSenderDeadlock) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	// For the purpose of this test, we just need to avoid errors.

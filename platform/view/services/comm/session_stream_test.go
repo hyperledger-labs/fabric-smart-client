@@ -60,7 +60,7 @@ func newStreamTestSession(t *testing.T, grace time.Duration) (*P2PNode, *Network
 	t.Helper()
 	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
-	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
+	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil, false)
 	require.NoError(t, err)
 	session.mutex.Lock()
 	session.streamGrace = grace
@@ -107,7 +107,7 @@ func TestSession_PeerChosenMasterIDClosesWhenOnlyStreamDies(t *testing.T) {
 	p, err := NewNode(t.Context(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
 	stopNode(t, p)
-	impostor, err := p.getOrCreateSession(masterSession, "addr", "ctx", "view", nil, []byte("peer1"), nil)
+	impostor, err := p.getOrCreateSession(masterSession, "addr", "ctx", "view", nil, []byte("peer1"), nil, false)
 	require.NoError(t, err)
 	m, err := p.MasterSession()
 	require.NoError(t, err)

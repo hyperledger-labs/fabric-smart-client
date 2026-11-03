@@ -12,7 +12,6 @@ package preamble
 
 import (
 	"slices"
-	"sync"
 
 	"google.golang.org/protobuf/proto"
 
@@ -36,29 +35,24 @@ const (
 // ErrEpoch is wrapped by Accept for a peer whose framing epoch differs from FramingEpoch.
 var ErrEpoch = errors.New("framing epoch mismatch")
 
-// Local returns the preamble of this binary.
-func Local() *Preamble {
+// Local returns the preamble of this binary, with the components SetComponents installed.
+func Local() *Preamble { return build(Components()) }
+
+func build(cs []Component) *Preamble {
 	info := buildinfo.Get()
-	return &Preamble{
+	p := &Preamble{
 		FscVersion:   truncate(info.FSCVersion),
 		VcsRevision:  truncate(info.Revision),
 		FramingEpoch: FramingEpoch,
-		Ranges: []*ComponentRange{
-			{Component: "view", Min: 1, Max: 1},
-			{Component: "fabric", Min: 1, Max: 1},
-			{Component: "fabricx", Min: 1, Max: 1},
-		},
 	}
+	for _, c := range cs {
+		p.Ranges = append(p.Ranges, &ComponentRange{Component: c.Name, Min: c.Range.Min, Max: c.Range.Max})
+	}
+	return p
 }
 
-// LocalBytes is Local encoded. The preamble never changes while the binary runs.
-var LocalBytes = sync.OnceValue(func() []byte {
-	raw, err := Encode(Local())
-	if err != nil {
-		panic(err) // Local is built from bounded fields; failing here is a programming error.
-	}
-	return raw
-})
+// LocalBytes is Local encoded. It changes only when SetComponents installs new components.
+func LocalBytes() []byte { return local.Load().raw }
 
 // Encode marshals p. It fails if the result would be refused by decode.
 func Encode(p *Preamble) ([]byte, error) {

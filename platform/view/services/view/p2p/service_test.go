@@ -37,7 +37,7 @@ type viewManagerMock struct {
 	DefaultIdentityFunc         func() view.Identity
 }
 
-func (m *viewManagerMock) ResponderForCaller(caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
+func (m *viewManagerMock) ResponderForCaller(_, caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
 	if m.ExistResponderForCallerFunc != nil {
 		v, id, err := m.ExistResponderForCallerFunc(caller)
 		return v, id, nil, err
@@ -334,7 +334,7 @@ type leakTestDeps struct {
 	respCtx    *mock.Context
 }
 
-func (d *leakTestDeps) ResponderForCaller(_ string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
+func (d *leakTestDeps) ResponderForCaller(_, _ string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
 	return d.responder, nil, d.authorizer, nil
 }
 
@@ -768,7 +768,7 @@ func (p *metricsProvider) NewCounter(o metrics.CounterOpts) metrics.Counter {
 // unknownViewDeps hosts a responder only for the caller "hosted".
 type unknownViewDeps struct{ freshContextDeps }
 
-func (d *unknownViewDeps) ResponderForCaller(caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
+func (d *unknownViewDeps) ResponderForCaller(_, caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error) {
 	if caller != "hosted" {
 		return nil, nil, nil, errors.New("no view found initiatable by [" + caller + "]")
 	}

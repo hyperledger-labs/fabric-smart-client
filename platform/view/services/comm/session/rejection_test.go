@@ -18,7 +18,7 @@ import (
 
 func TestRejectionError(t *testing.T) {
 	t.Parallel()
-	sentinels := []error{ErrRejected, ErrUnknownView, ErrBusy, ErrDraining, ErrUnauthorized}
+	sentinels := []error{ErrRejected, ErrUnknownView, ErrBusy, ErrDraining, ErrUnauthorized, view.ErrNoCommonVersion}
 	for payload, want := range map[string]error{
 		"unknown_view: app/View":       ErrUnknownView,
 		"busy: too many":               ErrBusy,
@@ -26,6 +26,7 @@ func TestRejectionError(t *testing.T) {
 		"draining: node is draining":   ErrDraining,
 		"unauthorized: refused":        ErrUnauthorized,
 		"authorizer_error: timed out":  ErrRejected,
+		"no_common_version: view 2":    view.ErrNoCommonVersion,
 		"busy":                         nil, // no ": " after the reason
 		"boom: unknown_view: app/View": nil, // a reason not at the start
 		"responder failed":             nil,

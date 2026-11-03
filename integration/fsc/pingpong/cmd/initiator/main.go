@@ -19,7 +19,8 @@ import (
 
 func main() {
 	node := fscnode.New()
-	if err := node.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(node))); err != nil {
+	sdk := &pingpong.ComponentSDK{SDK: libp2psupport.NewFrom(viewsdk.NewSDK(node)), Min: 2, Max: 3}
+	if err := node.InstallSDK(sdk); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
 	node.Execute(func() error {
@@ -34,6 +35,9 @@ func main() {
 			return err
 		}
 		if err := registry.RegisterFactory("unhosted", &pingpong.UnhostedViewFactory{}); err != nil {
+			return err
+		}
+		if err := registry.RegisterFactory("version", &pingpong.VersionInitiatorViewFactory{}); err != nil {
 			return err
 		}
 		return nil

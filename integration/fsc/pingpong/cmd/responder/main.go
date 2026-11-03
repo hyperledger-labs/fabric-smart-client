@@ -19,13 +19,17 @@ import (
 
 func main() {
 	node := fscnode.New()
-	if err := node.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(node))); err != nil {
+	sdk := &pingpong.ComponentSDK{SDK: libp2psupport.NewFrom(viewsdk.NewSDK(node)), Min: 1, Max: 2}
+	if err := node.InstallSDK(sdk); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
 	node.Execute(func() error {
 		registry := view.GetRegistry(node)
 		initiatorID := registry.GetIdentifier(&pingpong.Initiator{})
-		if err := registry.RegisterResponder(&pingpong.Responder{}, initiatorID); err != nil {
+		if err := registry.RegisterResponderWithOptions(&pingpong.Responder{}, initiatorID, view.WithProtocol("pingpong", "ping")); err != nil {
+			return err
+		}
+		if err := registry.RegisterResponder(&pingpong.VersionResponder{}, &pingpong.VersionInitiator{}); err != nil {
 			return err
 		}
 		if err := registry.RegisterResponder(&pingpong.Responder{}, &fake.Initiator{}); err != nil {

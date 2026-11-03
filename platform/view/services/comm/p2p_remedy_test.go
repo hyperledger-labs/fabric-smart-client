@@ -239,7 +239,7 @@ func TestStreamLeak(t *testing.T) { //nolint:paralleltest
 	p, err := NewNode(context.Background(), h, &disabled.Provider{})
 	require.NoError(t, err)
 
-	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
+	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil, false)
 	require.NoError(t, err)
 
 	err = session.Send(t.Context(), []byte("hello"))
@@ -281,7 +281,7 @@ func TestReleaseClosesOnlyUnsharedStreams(t *testing.T) {
 			p, err := NewNode(t.Context(), tc.host, &disabled.Provider{})
 			require.NoError(t, err)
 
-			session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
+			session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil, false)
 			require.NoError(t, err)
 			require.NoError(t, session.Send(t.Context(), []byte("hello")))
 
@@ -339,7 +339,7 @@ func TestSendSkipsLeaseOnClosingSession(t *testing.T) {
 
 	p, err := NewNode(context.Background(), &mockHost{}, &disabled.Provider{})
 	require.NoError(t, err)
-	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
+	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil, false)
 	require.NoError(t, err)
 
 	// A closing session has already released its streams, so a lease taken now would leak.

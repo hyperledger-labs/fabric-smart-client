@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -33,6 +34,10 @@ const (
 type mockSender struct{}
 
 func (*mockSender) unregister(*NetworkStreamSession, bool) {}
+
+func (*mockSender) streamPreamble(context.Context, host.StreamInfo, *NetworkStreamSession) (*preamble.Preamble, error) {
+	return nil, nil
+}
 
 func (*mockSender) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	return nil
