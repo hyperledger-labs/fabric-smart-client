@@ -347,15 +347,15 @@ func TestMultiplexedProviderClose(t *testing.T) {
 			_, _ = p.NewClientStream(info, t.Context(), clientID, clientTLS)
 		})
 	}
-	_, err := p.NewClientStream(info, t.Context(), clientID, clientTLS)
+	st, err := p.NewClientStream(info, t.Context(), clientID, clientTLS)
 	require.NoError(t, err)
 	conn := firstClientConn(p)
 	require.NotNil(t, conn)
-	conn.mu.RLock()
-	sc := conn.subConns["1"]
-	conn.mu.RUnlock()
-	require.NotNil(t, sc)
-	require.Equal(t, "1", sc.ID())
+	// Concurrent streams on the shared websocket draw sub-connection IDs from one counter
+	// before registering them, so this stream's ID is not known in advance.
+	sc, ok := st.(*stream).conn.(*subConn)
+	require.True(t, ok)
+	require.Same(t, conn.multiplexedBaseConn, sc.parentConn)
 
 	require.NoError(t, p.Close())
 	require.NoError(t, p.Close())
