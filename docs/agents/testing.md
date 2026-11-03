@@ -123,7 +123,7 @@ mocked interface. See [`docs/dev/mocks.md`](../dev/mocks.md).
 
 ## Storage fixtures
 
-`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. Add a release with `testdata/generate.sh <release>` and list it in `fixtureVersions`; see `testdata/README.md`. Never edit a fixture by hand.
+`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. Add a release with `testdata/generate.sh <release>` and list it in `fixtureVersions`; see `testdata/README.md`. Never edit a fixture by hand. The `Storage fixtures` workflow also generates the latest release's fixture into a temporary directory and opens it through `FSC_FIXTURE_DIR`, so a change to `generate.go` must keep building against that release.
 
 ## Shared test helpers
 

@@ -4,19 +4,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# generate.sh VERSION writes the storage fixtures of FSC release VERSION into
-# VERSION/: it builds generate.go in a temporary module that requires that
-# release, runs it (Postgres runs in a Docker container), and writes
-# SHA256SUMS. See README.md.
+# generate.sh VERSION [DIR] writes the storage fixtures of FSC release VERSION
+# into DIR, by default VERSION/ next to this script: it builds generate.go in a
+# temporary module that requires that release, runs it (Postgres runs in a
+# Docker container), and writes SHA256SUMS. See README.md.
 set -euo pipefail
 
-version=${1:?usage: generate.sh VERSION, e.g. v0.26.0}
+version=${1:?usage: generate.sh VERSION [DIR], e.g. v0.26.0}
 here=$(cd "$(dirname "$0")" && pwd)
-out="$here/$version"
+out=${2:-$here/$version}
+mkdir -p "$out"
+out=$(cd "$out" && pwd) # absolute: go run below runs in another directory
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-mkdir -p "$out"
 cp "$here/generate.go" "$work/main.go"
 sed -i.bak '1,2d' "$work/main.go" && rm "$work/main.go.bak" # drop the go:build ignore line
 (

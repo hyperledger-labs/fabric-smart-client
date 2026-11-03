@@ -703,7 +703,7 @@ func checkOpeners(ctx context.Context, q Execer, d Dialect, openers, store strin
 		return errors.Wrapf(err, "store [%s]: failed to read [%s]", store, openers)
 	}
 	if len(older) > 0 {
-		return errors.Wrapf(ErrOlderOpener, "store [%s]: contract step %d [%s] is blocked: %s; upgrade them, or run node migrate --forget-opener <node> for a node none of whose replicas runs that binary anymore", store, s.Version, s.Name, strings.Join(older, "; "))
+		return errors.Wrapf(ErrOlderOpener, "store [%s]: contract step %d [%s] is blocked: %s; the rows stay after an upgrade, so once no replica of a node runs such a binary, run node migrate --contract --forget-opener <node>", store, s.Version, s.Name, strings.Join(older, "; "))
 	}
 	return nil
 }

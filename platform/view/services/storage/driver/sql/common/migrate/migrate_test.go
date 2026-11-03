@@ -464,6 +464,28 @@ func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
 		requireRow(t, db, "up_schema_versions", "up_s", 3, 3)
 	})
 
+	t.Run("ContractStepReplicasShareNode", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		ctx := t.Context()
+		next := newStore("rep_s", 2)
+		next.steps[1].Contract = true
+		// Replicas share their node's FSC id: one opens on the previous release, then
+		// every replica runs the next one.
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "rep", newStore("rep_s", 1), migrate.WithNode("bob")))
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "rep", next, migrate.WithNode("bob")))
+
+		// The previous release's row stays, so the upgrade alone does not unblock the step.
+		err := migrate.Migrate(ctx, db, b.dialect, "rep", next, migrate.WithNode("bob"), migrate.WithContract())
+		require.ErrorIs(t, err, migrate.ErrOlderOpener)
+		require.ErrorContains(t, err, "node [bob] knows step 1")
+		require.ErrorContains(t, err, "run node migrate --contract --forget-opener <node>")
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "rep", next, migrate.WithNode("bob"), migrate.WithContract(), migrate.WithForgetOpeners("bob")))
+		requireRow(t, db, "rep_schema_versions", "rep_s", 2, 2)
+		requireOpener(t, db, "rep_schema_openers", "rep_s", "bob", 2)
+	})
+
 	t.Run("ContractStepFailureRollsBack", func(t *testing.T) {
 		t.Parallel()
 		b := newBackend(t)

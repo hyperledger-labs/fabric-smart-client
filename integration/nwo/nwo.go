@@ -241,14 +241,11 @@ func (n *NWO) StartFSCNode(id string) {
 	}
 }
 
-// MigrateFSCNode runs `node migrate` for the named FSC node, which must be
-// stopped, with `--check` if check is set, and returns the finished session.
-func (n *NWO) MigrateFSCNode(id string, check bool) *gexec.Session {
-	args := []string{"node", "migrate"}
-	if check {
-		args = append(args, "--check")
-	}
-	return n.RunFSCNodeCommand(id, args...)
+// MigrateFSCNode runs `node migrate` with the given flags, such as `--check`,
+// for the named FSC node or replica, which must be stopped, and returns the
+// finished session.
+func (n *NWO) MigrateFSCNode(id string, flags ...string) *gexec.Session {
+	return n.RunFSCNodeCommand(id, append([]string{"node", "migrate"}, flags...)...)
 }
 
 // RunFSCNodeCommand runs the named FSC node's binary with args, with the node's configuration

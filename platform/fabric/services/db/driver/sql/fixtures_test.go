@@ -38,14 +38,33 @@ import (
 // open and migrate. testdata/README.md describes how they are generated.
 var fixtureVersions = []string{"v0.26.0", "v0.27.0"}
 
+// fixtureDirEnv names an extra fixture directory, written by testdata/generate.sh
+// outside the repository, that the fixture tests open as well. The fixtures
+// workflow sets it to a fresh fixture of the latest release, so that a
+// generate.go that no longer builds against a release fails CI.
+const fixtureDirEnv = "FSC_FIXTURE_DIR"
+
+// fixtureDirs returns the fixture directories the fixture tests open, keyed by
+// subtest name: testdata/<version> for each of fixtureVersions, and the
+// directory in fixtureDirEnv if set.
+func fixtureDirs() map[string]string {
+	dirs := map[string]string{}
+	for _, v := range fixtureVersions {
+		dirs[v] = filepath.Join("testdata", v)
+	}
+	if dir := os.Getenv(fixtureDirEnv); dir != "" {
+		dirs[fixtureDirEnv] = dir
+	}
+	return dirs
+}
+
 // vaultKeys are the keys testdata/generate.go writes to the vault.
 var vaultKeys = []driver.PKey{"plain", "\x00Token\x00alice\x00", "end" + string(utf8.MaxRune)}
 
-// readFixture returns the content of file in the fixture directory of version,
-// after checking it against the directory's SHA256SUMS.
-func readFixture(t *testing.T, version, file string) []byte {
+// readFixture returns the content of file in the fixture directory dir, after
+// checking it against the directory's SHA256SUMS.
+func readFixture(t *testing.T, dir, file string) []byte {
 	t.Helper()
-	dir := filepath.Join("testdata", version)
 	sums, err := os.Open(filepath.Join(dir, "SHA256SUMS"))
 	require.NoError(t, err)
 	defer func() { _ = sums.Close() }()
@@ -58,7 +77,7 @@ func readFixture(t *testing.T, version, file string) []byte {
 	raw, err := os.ReadFile(filepath.Join(dir, file))
 	require.NoError(t, err)
 	got := sha256.Sum256(raw)
-	require.Equal(t, want[file], hex.EncodeToString(got[:]), "%s/%s does not match SHA256SUMS; regenerate it with testdata/generate.sh", version, file)
+	require.Equal(t, want[file], hex.EncodeToString(got[:]), "%s/%s does not match SHA256SUMS; regenerate it with testdata/generate.sh", dir, file)
 	return raw
 }
 
@@ -134,15 +153,15 @@ func requireLatest(t *testing.T, db *sql.DB, s fixtureStores) {
 	}
 }
 
-// TestFixturesSQLite opens the SQLite database every release under testdata
-// wrote, migrates every store, and reads back every row.
+// TestFixturesSQLite opens the SQLite database of every fixture directory (see
+// fixtureDirs), migrates every store, and reads back every row.
 func TestFixturesSQLite(t *testing.T) {
 	t.Parallel()
-	for _, version := range fixtureVersions {
-		t.Run(version, func(t *testing.T) {
+	for name, dir := range fixtureDirs() {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "fsc.sqlite")
-			require.NoError(t, os.WriteFile(path, readFixture(t, version, "fsc.sqlite"), 0o600))
+			require.NoError(t, os.WriteFile(path, readFixture(t, dir, "fsc.sqlite"), 0o600))
 
 			db, err := sql.Open("sqlite", "file:"+path)
 			require.NoError(t, err)
@@ -270,15 +289,15 @@ func sequenceOf(def *string) (string, bool) {
 	return seq, ok
 }
 
-// TestPostgresFixtures restores the Postgres database every release under
-// testdata wrote, migrates every store, and reads back every row.
+// TestPostgresFixtures restores the Postgres database of every fixture
+// directory (see fixtureDirs), migrates every store, and reads back every row.
 func TestPostgresFixtures(t *testing.T) {
 	t.Parallel()
-	for _, version := range fixtureVersions {
-		t.Run(version, func(t *testing.T) {
+	for name, dir := range fixtureDirs() {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			fixture := map[string]*pgTable{}
-			require.NoError(t, json.Unmarshal(readFixture(t, version, "fsc.postgres.json"), &fixture))
+			require.NoError(t, json.Unmarshal(readFixture(t, dir, "fsc.postgres.json"), &fixture))
 
 			terminate, ds, err := postgres.StartPostgres(t.Context(), postgres.ConfigFromEnv(), nil)
 			require.NoError(t, err)
