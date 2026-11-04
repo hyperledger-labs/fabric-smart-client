@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
@@ -169,7 +170,9 @@ func (c *Service) ScanBlockFrom(ctx context.Context, block driver.BlockNum, call
 
 // Scan delivers the transactions committed after txID to callback, one at a
 // time and in block order, skipping any whose header type this Service was not
-// configured to accept. Passing an empty txID starts from the genesis block.
+// configured to accept, and any invalid envelope shadowed by a valid one with
+// the same txID in its block (see committer.ShadowedEnvelopes). Passing an
+// empty txID starts from the genesis block.
 func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	return c.scanTransactions(ctx, &fakeVault{txID: txID}, callback)
 }
@@ -182,15 +185,20 @@ func (c *Service) ScanFromBlock(ctx context.Context, block driver.BlockNum, call
 
 // scanTransactions runs a block scan seeded by vault, unmarshalling each
 // transaction in every delivered block and invoking callback for it, skipping
-// any whose header type this Service was not configured to accept.
+// any whose header type this Service was not configured to accept and any
+// shadowed envelope.
 func (c *Service) scanTransactions(ctx context.Context, vault *fakeVault, callback driver.DeliveryCallback) error {
 	return c.runBlockScan(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
+			shadowed := committer.ShadowedEnvelopes(block)
 			for i, tx := range block.Data.Data {
 				validationCode, err := validationCodeAt(block, i)
 				if err != nil {
 					logger.Errorf("[%s] %s", c.channel, err)
 					return false, err
+				}
+				if shadowed != nil && shadowed[i] {
+					continue
 				}
 
 				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)

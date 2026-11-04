@@ -9,7 +9,6 @@ package committer
 import (
 	"bytes"
 	"context"
-	"slices"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -136,38 +135,54 @@ func TestForgedEnvelopeDoesNotDiscardValidOne(t *testing.T) {
 	require.Equal(t, mustMarshalProto(t, honest), stored[txID])
 }
 
-// TestSkipShadowedEnvelopes checks that an invalid envelope is dropped from a
-// block exactly when a valid envelope in the same block carries its txID, so
-// the transaction's finality listeners see only the valid envelope's outcome.
-func TestSkipShadowedEnvelopes(t *testing.T) {
+// TestShadowedEnvelopes checks that an invalid envelope is shadowed exactly when
+// a valid endorser transaction in the same block carries its txID.
+func TestShadowedEnvelopes(t *testing.T) {
 	t.Parallel()
-	endorser := common.HeaderType_ENDORSER_TRANSACTION
-	txs := []CommitTx{
-		{TxNum: 0, TxID: "a", Type: endorser},                 // forged, shadowed by 1
-		{TxNum: 1, TxID: "a", Type: endorser},                 // honest
-		{TxNum: 2, TxID: "b", Type: endorser},                 // invalid, no valid twin
-		{TxNum: 3, TxID: "a", Type: endorser},                 // duplicate after the honest one
-		{TxNum: 4, TxID: "a", Type: common.HeaderType_CONFIG}, // not an endorser transaction
-		{TxNum: 5, TxID: "c", Type: endorser},                 // valid
+	const (
+		valid   = peer.TxValidationCode_VALID
+		forged  = peer.TxValidationCode_BAD_PROPOSAL_TXID
+		mvcc    = peer.TxValidationCode_MVCC_READ_CONFLICT
+		dupTxID = peer.TxValidationCode_DUPLICATE_TXID
+	)
+	endorser, config := common.HeaderType_ENDORSER_TRANSACTION, common.HeaderType_CONFIG
+	type tx struct {
+		id  string
+		typ common.HeaderType
 	}
-	flags := []byte{
-		uint8(peer.TxValidationCode_BAD_PROPOSAL_TXID),
-		uint8(peer.TxValidationCode_VALID),
-		uint8(peer.TxValidationCode_MVCC_READ_CONFLICT),
-		uint8(peer.TxValidationCode_DUPLICATE_TXID),
-		uint8(peer.TxValidationCode_VALID),
-		uint8(peer.TxValidationCode_VALID),
+	block := func(txs []tx, flags ...peer.TxValidationCode) *common.Block {
+		data := make([][]byte, len(txs))
+		for i, tx := range txs {
+			chdr := protoutil.MarshalOrPanic(&common.ChannelHeader{TxId: tx.id, Type: int32(tx.typ)})
+			data[i] = protoutil.MarshalOrPanic(&common.Envelope{Payload: protoutil.MarshalOrPanic(&common.Payload{Header: &common.Header{ChannelHeader: chdr}})})
+			if tx.id == "garbage" {
+				data[i] = []byte("not an envelope")
+			}
+		}
+		metadata := make([][]byte, int(common.BlockMetadataIndex_TRANSACTIONS_FILTER)+1)
+		for _, f := range flags {
+			metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER] = append(metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER], uint8(f))
+		}
+		return &common.Block{Data: &common.BlockData{Data: data}, Metadata: &common.BlockMetadata{Metadata: metadata}}
 	}
-	metadata := make([][]byte, int(common.BlockMetadataIndex_TRANSACTIONS_FILTER)+1)
-	metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER] = flags
 
-	var kept []cdriver.TxNum
-	for _, tx := range skipShadowedEnvelopes(slices.Clone(txs), &common.BlockMetadata{Metadata: metadata}) {
-		kept = append(kept, tx.TxNum)
-	}
-	require.Equal(t, []cdriver.TxNum{1, 2, 4, 5}, kept)
+	mixed := block([]tx{
+		{"a", endorser}, // forged, shadowed by 1
+		{"a", endorser}, // honest
+		{"b", endorser}, // invalid, no valid twin
+		{"a", endorser}, // duplicate after the honest one
+		{"a", config},   // not an endorser transaction
+		{"c", endorser}, // valid
+		{"garbage", endorser},
+	}, forged, valid, mvcc, dupTxID, forged, valid, valid)
+	require.Equal(t, []bool{true, false, false, true, false, false, false}, ShadowedEnvelopes(mixed))
 
-	require.Len(t, skipShadowedEnvelopes(slices.Clone(txs), &common.BlockMetadata{}), len(txs), "no flags, nothing dropped")
+	require.Nil(t, ShadowedEnvelopes(block([]tx{{"a", endorser}, {"a", endorser}}, valid, valid)), "all valid")
+	require.Nil(t, ShadowedEnvelopes(block([]tx{{"a", endorser}, {"a", endorser}}, forged, mvcc)), "no valid envelope")
+	require.Equal(t, []bool{false, true}, ShadowedEnvelopes(block([]tx{{"a", endorser}, {"a", endorser}}, valid)),
+		"an index beyond the flags counts as invalid")
+	require.Nil(t, ShadowedEnvelopes(&common.Block{Data: mixed.Data}), "no metadata")
+	require.Nil(t, ShadowedEnvelopes(&common.Block{Data: mixed.Data, Metadata: &common.BlockMetadata{}}), "no flags")
 }
 
 // TestCommitBlockSkipsShadowedEnvelope commits a block holding a forged and an

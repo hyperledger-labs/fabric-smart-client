@@ -464,38 +464,78 @@ func (c *Committer) commitBlockOnce(ctx context.Context, block *common.Block) er
 		c.configCaughtUp = true
 	}
 
-	resolvedTxs := c.DependencyResolver.Resolve(skipShadowedEnvelopes(txs, block.Metadata))
+	if shadowed := ShadowedEnvelopes(block); shadowed != nil {
+		txs = slices.DeleteFunc(txs, func(tx CommitTx) bool { return shadowed[tx.TxNum] })
+	}
+	resolvedTxs := c.DependencyResolver.Resolve(txs)
 
 	return c.commitTxs(ctx, resolvedTxs, block.Metadata)
 }
 
-// skipShadowedEnvelopes drops every envelope Fabric found invalid whose txID a
-// valid envelope in the same block carries. Fabric counts only a valid envelope
-// as the first occurrence of a txID in a block, so anyone who knows a txID can
-// have an invalid envelope carrying it ordered next to the honest one. The
-// transaction's outcome is that of the valid envelope. Committing the invalid
-// one would discard the transaction and post an Invalid finality event for it.
-// The transaction's listeners receive only the first event, so they would see
-// it fail although it commits Valid.
-// A block whose metadata lacks the validation flags is returned as is, and
-// fails in the handlers.
-func skipShadowedEnvelopes(txs []CommitTx, metadata *common.BlockMetadata) []CommitTx {
-	if len(metadata.GetMetadata()) <= int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
-		return txs
+// ShadowedEnvelopes reports, for each envelope of block, whether it is shadowed:
+// an endorser transaction Fabric found invalid whose txID a valid endorser
+// transaction in the same block carries. The verdict of a txID in a block is
+// that of its valid envelope if the block has one, and otherwise that of its
+// first envelope, so a shadowed envelope must be ignored.
+//
+// Fabric records a txID for duplicate detection within a block only when its
+// envelope is valid. Anyone who knows a txID can therefore have an invalid
+// envelope carrying it ordered ahead of the honest one, and the honest envelope
+// still validates. Every path that resolves a txID from a block applies this
+// rule, so the forgery cannot make a committed transaction look invalid.
+//
+// An index beyond the validation flags counts as invalid. An envelope that does
+// not parse, or is not an endorser transaction, is never shadowed and shadows
+// nothing; callers handle it as they would without this rule. ShadowedEnvelopes
+// returns nil when no envelope is shadowed, including when the block has no
+// validation flags.
+func ShadowedEnvelopes(block *common.Block) []bool {
+	metadata := block.GetMetadata().GetMetadata()
+	if len(metadata) <= int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+		return nil
 	}
-	flags := metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER]
-	valid := func(tx CommitTx) bool {
-		return tx.TxNum < uint64(len(flags)) && peer.TxValidationCode(flags[tx.TxNum]) == peer.TxValidationCode_VALID
+	flags := metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER]
+	data := block.GetData().GetData()
+	valid := func(i int) bool {
+		return i < len(flags) && peer.TxValidationCode(flags[i]) == peer.TxValidationCode_VALID
 	}
-	validIDs := map[cdriver.TxID]bool{}
-	for _, tx := range txs {
-		if tx.Type == common.HeaderType_ENDORSER_TRANSACTION && valid(tx) {
-			validIDs[tx.TxID] = true
+	// Only a block mixing valid and invalid envelopes can shadow one; skip
+	// parsing all others.
+	hasValid, hasInvalid := false, len(flags) < len(data)
+	for i := range flags {
+		if valid(i) {
+			hasValid = true
+		} else {
+			hasInvalid = true
 		}
 	}
-	return slices.DeleteFunc(txs, func(tx CommitTx) bool {
-		return tx.Type == common.HeaderType_ENDORSER_TRANSACTION && validIDs[tx.TxID] && !valid(tx)
-	})
+	if !hasValid || !hasInvalid {
+		return nil
+	}
+
+	// txIDs holds the txID of each endorser transaction; nil marks the others.
+	txIDs := make([]*string, len(data))
+	validIDs := map[string]bool{}
+	for i, tx := range data {
+		_, _, chdr, err := fabricutils.UnmarshalTx(tx)
+		if err != nil || common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
+			continue
+		}
+		txIDs[i] = &chdr.TxId
+		if valid(i) {
+			validIDs[chdr.TxId] = true
+		}
+	}
+	var shadowed []bool
+	for i, txID := range txIDs {
+		if txID != nil && !valid(i) && validIDs[*txID] {
+			if shadowed == nil {
+				shadowed = make([]bool, len(data))
+			}
+			shadowed[i] = true
+		}
+	}
+	return shadowed
 }
 
 func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups ParallelExecutable[SerialExecutable[CommitTx]], blockMetadata *common.BlockMetadata) error {

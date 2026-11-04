@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"math"
+	"slices"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
@@ -21,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
@@ -180,6 +182,11 @@ func DeliverSend(df DeliverStream, envelope *common.Envelope) error {
 // transaction txid, then reports the outcome on eventCh exactly once and
 // returns. A stream error, or a status response other than a block, also
 // produces an event with Err set.
+//
+// A block can carry several envelopes with txid. The outcome is that of the
+// valid one if the block has one, and otherwise that of the first, as
+// committer.ShadowedEnvelopes describes, so an invalid envelope forged with
+// txid cannot hide the honest one.
 func DeliverReceive(df DeliverFiltered, address, txid string, eventCh chan<- TxEvent) error {
 	event := TxEvent{
 		TxID:       txid,
@@ -200,6 +207,15 @@ read:
 			for i, tx := range filteredTransactions {
 				logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
 				if tx.Txid == txid {
+					if tx.TxValidationCode != pb.TxValidationCode_VALID && tx.Type == common.HeaderType_ENDORSER_TRANSACTION {
+						// A valid envelope with the same txID later in the block shadows this one.
+						if j := slices.IndexFunc(filteredTransactions[i+1:], func(o *pb.FilteredTransaction) bool {
+							return o.Txid == txid && o.Type == common.HeaderType_ENDORSER_TRANSACTION && o.TxValidationCode == pb.TxValidationCode_VALID
+						}); j >= 0 {
+							i += 1 + j
+							tx = filteredTransactions[i]
+						}
+					}
 					if tx.TxValidationCode == pb.TxValidationCode_VALID {
 						logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
 						event.Committed = true
@@ -217,6 +233,8 @@ read:
 				event.Err = errors.Errorf("received malformed block from peer %s", address)
 				break read
 			}
+			// Computed only when txid matches an invalid envelope.
+			var shadowed []bool
 			for i, tx := range r.Block.Data.Data {
 				_, _, chdr, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {
@@ -234,6 +252,13 @@ read:
 						break read
 					}
 					if pb.TxValidationCode(code) != pb.TxValidationCode_VALID {
+						if shadowed == nil {
+							shadowed = committer.ShadowedEnvelopes(r.Block)
+						}
+						if shadowed != nil && shadowed[i] {
+							// A valid envelope with the same txID later in the block shadows this one.
+							continue
+						}
 						logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", txid, r.Block.Header.Number, pb.TxValidationCode(code))
 						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", txid, pb.TxValidationCode(code))
 						break read
