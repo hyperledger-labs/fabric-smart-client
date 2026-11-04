@@ -313,7 +313,11 @@ replayed transaction it has no record of only if the transaction touches a names
 registered with the committer's `ProcessNamespace` or another committer rule selects
 it. The Fabric suite's `SDK` registers the faultrecovery namespace at startup; since that
 also commits a transaction whose Busy record a node lost, only the `Describe` of the
-wipe spec runs on it.
+wipe spec runs on it. Its `ContractProbeSDK`, which the `replication` `Describe` runs on,
+adds a store with an expand and a contract step to replicas configured with
+`SetContractProbeSteps(ii, replica, steps)`, so one binary stands for two releases on a
+shared database. `MigrateFSCNode(id, flags...)` runs `node migrate` with flags such as
+`--check`, `--contract` or `--forget-opener` for a stopped node or replica.
 
 The specs in the main `Describe` of each faultrecovery suite share one network
 (`faultrecovery.ShareNetwork`, in an `Ordered, ContinueOnFailure` container), so the

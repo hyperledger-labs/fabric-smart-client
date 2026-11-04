@@ -1,0 +1,51 @@
+name: Storage fixtures
+
+# Generates the storage fixtures of the latest release with testdata/generate.sh
+# and opens them with the fixture tests (FSC_FIXTURE_DIR, see fixtures_test.go).
+# This fails when generate.go no longer builds against a release, which nothing
+# else compiles (it is //go:build ignore), and before a release's fixture
+# directory is committed, it tests that release's data anyway.
+on:
+  schedule:
+    # Nightly, off the round minute and away from the fuzz run.
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/fixtures.yml'
+      - 'platform/fabric/services/db/driver/sql/**'
+      - 'platform/view/services/storage/driver/sql/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  latest-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # the tags
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+
+      - name: Set up the database
+        run: make pull-images-database
+
+      # Root-module release tags are vX.Y.Z; submodule tags have a path prefix.
+      - name: Generate the fixtures of the latest release
+        run: |
+          version=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          echo "latest release: ${version}"
+          platform/fabric/services/db/driver/sql/testdata/generate.sh "$version" "$RUNNER_TEMP/fixtures"
+
+      - name: Run the fixture tests
+        run: FSC_FIXTURE_DIR="$RUNNER_TEMP/fixtures" go test -count=1 -run 'Fixtures' ./platform/fabric/services/db/driver/sql/

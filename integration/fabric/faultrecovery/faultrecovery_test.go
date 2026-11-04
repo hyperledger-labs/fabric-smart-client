@@ -229,13 +229,14 @@ var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault",
 
 // Bob's two replicas sit behind a load balancer; alice has two replicas without one. The
 // specs share one network and must leave every replica running, see
-// faultrecovery.ShareNetwork.
+// faultrecovery.ShareNetwork. The nodes run fabricfaultrecovery.ContractProbeSDK, which
+// adds a store only to replicas configured for it.
 var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnFailure, Label(fsc.WebSocket, replication), func() {
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		return integration.Generate(
 			integration.FabricFaultRecoveryPort.StartPortForNode(),
 			integration.WithRaceDetection,
-			fabricfaultrecovery.ReplicatedTopology(dbPrefix, &fabricsdk.SDK{})...,
+			fabricfaultrecovery.ReplicatedTopology(dbPrefix, &fabricfaultrecovery.ContractProbeSDK{})...,
 		)
 	})
 	faultrecovery.ShareNetwork(s)
@@ -295,6 +296,68 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		for _, t := range tables {
 			Expect(faultrecovery.Psql(db, "SELECT count(*) FROM fsc_schema_versions WHERE store = '"+t+"'")).To(Equal("1"), t)
 			Expect(faultrecovery.Psql(db, "SELECT string_agg(a.attname, ',' ORDER BY k.ord) FROM pg_constraint c CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum WHERE c.conrelid = '"+t+"'::regclass AND c.contype = 'p'")).To(Equal("ns,pkey"), t)
+		}
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
+	// Bob's replicas share the FSC id "bob", so the opener row of the previous release
+	// stays after both are upgraded and only --forget-opener lets the contract step run.
+	It("runs a contract step once no replica runs the previous release", func() {
+		db := faultrecovery.DBName(dbPrefix, "bob")
+		probe := fabricfaultrecovery.ContractProbeTable
+		stopBob := func() {
+			for _, r := range []string{"bob.0", "bob.1"} {
+				s.II.StopFSCNode(r)
+			}
+		}
+		expectExit := func(code int, replica string, flags ...string) string {
+			session := s.II.MigrateFSCNode(replica, flags...)
+			out := string(session.Out.Contents()) + string(session.Err.Contents())
+			ExpectWithOffset(1, session.ExitCode()).To(Equal(code), out)
+			return out
+		}
+
+		// bob.0 runs the previous release (step 1), bob.1 the next (steps 2 and 3); bob.1
+		// runs the expand step and holds back the contract step, and bob.0 still opens the
+		// store.
+		stopBob()
+		fabricfaultrecovery.SetContractProbeSteps(s.II, "bob.0", 1)
+		fabricfaultrecovery.SetContractProbeSteps(s.II, "bob.1", 3)
+		s.II.StartFSCNode("bob.0")
+		s.II.StartFSCNode("bob.1")
+		Expect(faultrecovery.Psql(db, "SELECT version || ',' || readable_by FROM fsc_schema_versions WHERE store = '"+probe+"'")).To(Equal("2,0"))
+		// The previous release still opens the store after the expand step.
+		s.II.StopFSCNode("bob.0")
+		s.II.StartFSCNode("bob.0")
+		// The previous release writes the old form.
+		faultrecovery.Psql(db, "INSERT INTO "+probe+" (id, old_v) VALUES (1, 10)")
+
+		// --contract refuses while bob.0 runs the previous release, and names the node.
+		s.II.StopFSCNode("bob.1")
+		out := expectExit(start.ExitOlderOpener, "bob.1", "--contract")
+		Expect(out).To(ContainSubstring("node [bob] knows step 1"))
+
+		// bob.0 is upgraded; its old row stays, so the step is still refused.
+		s.II.StopFSCNode("bob.0")
+		fabricfaultrecovery.SetContractProbeSteps(s.II, "bob.0", 3)
+		s.II.StartFSCNode("bob.0")
+		expectExit(start.ExitOlderOpener, "bob.1", "--contract")
+
+		// With no replica on the previous release, forgetting bob runs it; the backfill
+		// keeps the row written in the old form.
+		s.II.StopFSCNode("bob.0")
+		expectExit(0, "bob.1", "--contract", "--forget-opener", "bob")
+		Expect(faultrecovery.Psql(db, "SELECT version || ',' || readable_by FROM fsc_schema_versions WHERE store = '"+probe+"'")).To(Equal("3,3"))
+		Expect(faultrecovery.Psql(db, "SELECT new_v FROM "+probe+" WHERE id = 1")).To(Equal("10"))
+
+		// A rollback to the previous release now refuses the store instead of misreading it.
+		fabricfaultrecovery.SetContractProbeSteps(s.II, "bob.0", 1)
+		expectExit(start.ExitSchemaTooNew, "bob.0", "--check")
+
+		// Later specs, such as one that drops the versions table, run without the probe.
+		for _, r := range []string{"bob.0", "bob.1"} {
+			fabricfaultrecovery.SetContractProbeSteps(s.II, r, 0)
+			s.II.StartFSCNode(r)
 		}
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
@@ -559,16 +622,16 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		DeferCleanup(faultrecovery.SetSkipCreateTable, s.II, "bob", false)
 
 		// --check lists every store with pending steps, not only the first, and exits 10.
-		check := s.II.MigrateFSCNode("bob", true)
+		check := s.II.MigrateFSCNode("bob", "--check")
 		Expect(check.ExitCode()).To(Equal(start.ExitPending))
 		out := string(check.Err.Contents()) + string(check.Out.Contents())
 		for _, store := range []string{"fsc_kvs", "fsc_default_bind", "fsc_default_sign", "fsc_default_aud", "fsc_default_etx", "fsc_default_meta", "fsc_default_env", "fsc_default__testchannel_vstate"} {
 			Expect(strings.Contains(out, "store ["+store+"] is at version 0, binary expects 1; pending: step 1 [")).To(BeTrue(), "store [%s] not listed as pending", store)
 		}
 
-		Expect(s.II.MigrateFSCNode("bob", false).ExitCode()).To(BeZero())
+		Expect(s.II.MigrateFSCNode("bob").ExitCode()).To(BeZero())
 		// --check passes only when every store is at its latest step.
-		Expect(s.II.MigrateFSCNode("bob", true).ExitCode()).To(BeZero())
+		Expect(s.II.MigrateFSCNode("bob", "--check").ExitCode()).To(BeZero())
 		// Every open records bob in the openers table.
 		Expect(faultrecovery.Psql(db, "SELECT DISTINCT node FROM fsc_schema_openers")).To(ContainSubstring("bob"))
 

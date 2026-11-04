@@ -340,14 +340,15 @@ func (i *Infrastructure) StartFSCNode(id string) {
 	i.NWO.StartFSCNode(id)
 }
 
-// MigrateFSCNode runs `node migrate` (`--check` if check is set) for the
-// stopped FSC node with the given id and returns the finished session.
-func (i *Infrastructure) MigrateFSCNode(id string, check bool) *gexec.Session {
+// MigrateFSCNode runs `node migrate` with the given flags, such as `--check`,
+// for the stopped FSC node or replica with the given id and returns the
+// finished session.
+func (i *Infrastructure) MigrateFSCNode(id string, flags ...string) *gexec.Session {
 	if i.NWO == nil {
 		panic("call generate or load first")
 	}
 
-	return i.NWO.MigrateFSCNode(id, check)
+	return i.NWO.MigrateFSCNode(id, flags...)
 }
 
 // RunFSCNodeCommand runs the binary of the FSC node with the given id with args, with the
