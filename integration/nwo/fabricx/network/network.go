@@ -9,7 +9,6 @@ package network
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -21,7 +20,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -59,12 +57,17 @@ func New(reg api.Context, topology *topology.Topology, builderClient fabric_netw
 	return n
 }
 
+// OrdererHost is the name the Fabric-x orderer is reached at, in its TLS certificate and in
+// the channel configuration. Committer containers resolve it through the orderer container's
+// alias on the suite's Docker network; FSC nodes on the host resolve it to loopback, where
+// the orderer port is published, since *.localhost names resolve there. On macOS Go resolves
+// *.localhost only through the system resolver, so FSC nodes must be built with cgo, the
+// default there.
+const OrdererHost = "orderer.localhost"
+
 func (n *Network) GenerateConfigTree() {
 	n.CheckTopology()
-	// The orderer runs in a container that every committer container and every FSC node on
-	// the host reach at one address, which goes into the orderer TLS certificate and the
-	// channel configuration, so it is set before either is generated.
-	n.OrdererHostOverride = ordererHost(n.NetworkID)
+	n.OrdererHostOverride = OrdererHost
 	n.Network.CheckTopology()
 	n.GenerateCryptoConfig()
 	n.GenerateConfigTxConfig()
@@ -365,24 +368,3 @@ func parseNamespaceList(output string) []Namespace {
 
 	return namespaces
 }
-
-// ordererHost returns the host every committer container and every FSC node on the host reach
-// the Fabric-x orderer container at. On Linux that is the gateway of the Docker network named
-// networkID, which it creates if needed: the host and every container on the network reach the
-// gateway. Elsewhere it is host.docker.internal, which Docker Desktop resolves on the host and
-// in containers; with Rancher Desktop or Colima the host resolves it only with an /etc/hosts
-// entry mapping it to 127.0.0.1 (see docs/dev/development.md).
-func ordererHost(networkID string) string {
-	if runtime.GOOS != "linux" {
-		return dockerHost
-	}
-	d, err := docker.GetInstance()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect(d.EnsureNetwork(networkID)).To(gomega.Succeed())
-	gateway, err := d.NetworkGateway(networkID)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	return gateway
-}
-
-// dockerHost is the name containers, and a Docker Desktop host, resolve to the host.
-const dockerHost = "host.docker.internal"

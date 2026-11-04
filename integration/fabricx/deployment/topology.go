@@ -24,12 +24,12 @@ const (
 )
 
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
-	fabricTopology := nwofabricx.NewDefaultTopology()
+	fabricTopology := nwofabricx.NewDefaultTopology().EnableCommitterPerOrg()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespace(Namespace, topology.Unanimity("Org1"))
 
-	// Note that we currently spawn a single committer used by all the nodes in the network.
+	// Org2's committer is the first one; Org1 and Org3 get one each too.
 	fabricTopology.
 		WithCommitterName("committer").
 		WithCommitterOrg("Org2").

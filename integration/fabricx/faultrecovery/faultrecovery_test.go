@@ -33,9 +33,6 @@ const (
 	// partition labels the specs that cut bob's links to the committer silently through
 	// fault proxies, which run in a target of their own.
 	partition = "partition"
-	// committerPerOrg labels the specs on a network with a committer for each organization,
-	// which run in a target of their own.
-	committerPerOrg = "committer-per-org"
 )
 
 var (
@@ -133,48 +130,6 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
-	It("survives committer restart", func() {
-		committer := nwofabricx.FxPlatform(s.II)
-		tx := faultrecovery.Endorse(s.II, 1)
-
-		// Bob's listener is registered while the committer is down, so it waits on no
-		// stream and is requested on the one opened after the restart. The transaction
-		// is ordered after the restart, so the restarted sidecar has to deliver it.
-		committer.StopCommitter()
-		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
-		final := make(chan error, 1)
-		go func() {
-			// Covers the wait below, StartCommitter, and ordering. The listener itself is
-			// settled Unknown once the notification service's listenerTTL (2 min) passes.
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-			_, err := s.II.Client("bob").CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
-			final <- err
-		}()
-		// Nothing reports that the listener is registered. Registering first asks the
-		// unreachable query service, which answers within its 10 s request timeout.
-		time.Sleep(15 * time.Second)
-		committer.StartCommitter()
-
-		faultrecovery.Order(s.II, tx)
-		// The finality view fails unless the listener is told Valid.
-		Eventually(final, 5*time.Minute).Should(Receive(BeNil()))
-		s.II.EventuallyConnectionState("bob", notification, connstate.Connected, time.Minute)
-	})
-})
-
-// Alice uses Org1's committer, bob and charlie use Org2's. The specs share one network, see
-// faultrecovery.ShareNetwork.
-var _ = Describe("Fault Recovery with Fabric-x and a committer per org", Ordered, ContinueOnFailure, Label(fsc.WebSocket, committerPerOrg), func() {
-	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return newInfrastructure(fxfaultrecovery.CommitterPerOrgTopology(dbPrefix)...)
-	})
-	faultrecovery.ShareNetwork(s)
-
-	It("commits a transaction on a healthy network", func() {
-		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
-	})
-
 	It("keeps committing while another org's committer is down", func() {
 		committers := nwofabricx.FxPlatform(s.II)
 		committers.StopCommitter(fxfaultrecovery.Org2Committer)
@@ -204,6 +159,35 @@ var _ = Describe("Fault Recovery with Fabric-x and a committer per org", Ordered
 			faultrecovery.ExpectSettled(s.II, "bob", txID, i)
 		}
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
+	It("survives committer restart", func() {
+		committer := nwofabricx.FxPlatform(s.II)
+		tx := faultrecovery.Endorse(s.II, 1)
+
+		// Bob's listener is registered while the committer is down, so it waits on no
+		// stream and is requested on the one opened after the restart. The transaction
+		// is ordered after the restart, so the restarted sidecar has to deliver it.
+		committer.StopCommitter()
+		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
+		final := make(chan error, 1)
+		go func() {
+			// Covers the wait below, StartCommitter, and ordering. The listener itself is
+			// settled Unknown once the notification service's listenerTTL (2 min) passes.
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			_, err := s.II.Client("bob").CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
+			final <- err
+		}()
+		// Nothing reports that the listener is registered. Registering first asks the
+		// unreachable query service, which answers within its 10 s request timeout.
+		time.Sleep(15 * time.Second)
+		committer.StartCommitter()
+
+		faultrecovery.Order(s.II, tx)
+		// The finality view fails unless the listener is told Valid.
+		Eventually(final, 5*time.Minute).Should(Receive(BeNil()))
+		s.II.EventuallyConnectionState("bob", notification, connstate.Connected, time.Minute)
 	})
 })
 

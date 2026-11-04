@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabricx
 
 import (
+	"slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	fabric_topology "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -15,7 +17,15 @@ import (
 const (
 	TopologyName        = PlatformName
 	DefaultTopologyName = "default"
+	// DefaultCommitterName is the name of the first committer unless WithCommitterName sets one.
+	DefaultCommitterName = "SC"
 )
+
+// CommitterName is the name EnableCommitterPerOrg gives org's committer, after the
+// <org>_peer_0 naming of Fabric peers.
+func CommitterName(org string) string {
+	return org + "_committer_0"
+}
 
 // CommitterConfig holds all configuration for the committer test container and
 // its corresponding sidecar peer entry in the Fabric network.
@@ -40,14 +50,23 @@ type CommitterConfig struct {
 // Topology extends the fabric topology with fabricx-specific committer options.
 //
 // Committer is the network's first committer, the one every topology has; the WithCommitter*
-// builders set it. Committers lists any further committers, added with AddCommitter, so an
-// organization can run a committer of its own. Every committer reads the same blocks from the
-// one mock orderer, and each FSC node uses the committers of its own organization, or the
-// first committer when its organization has none.
+// builders set it. With EnableCommitterPerOrg every other organization with a peer gets a
+// committer of its own too, the way each Fabric organization gets a peer. Committers lists
+// further committers, added with AddCommitter, such as a second one in an organization. Every
+// committer reads the same blocks from the one mock orderer, and each FSC node uses the
+// committers of its own organization, or the first committer when its organization has none.
 type Topology struct {
 	*fabric_topology.Topology
-	Committer  CommitterConfig
-	Committers []CommitterConfig
+	Committer       CommitterConfig
+	Committers      []CommitterConfig
+	CommitterPerOrg bool
+}
+
+// EnableCommitterPerOrg gives every organization with a peer a committer, named
+// CommitterName(org), and the first committer, unless WithCommitterName named it, too.
+func (t *Topology) EnableCommitterPerOrg() *Topology {
+	t.CommitterPerOrg = true
+	return t
 }
 
 // AddCommitter adds a committer named name for the organization org, with its own
@@ -57,20 +76,44 @@ func (t *Topology) AddCommitter(org, name string) *Topology {
 	return t
 }
 
-// AllCommitters returns the first committer followed by those AddCommitter added. An
-// added committer without an image or env vars of its own takes the first committer's.
+// AllCommitters returns the first committer, then, with EnableCommitterPerOrg, one for each
+// other organization with a peer, then those AddCommitter added. A committer other than the
+// first takes the first committer's image and env vars unless it has its own.
 func (t *Topology) AllCommitters() []CommitterConfig {
-	all := []CommitterConfig{t.Committer}
-	for _, c := range t.Committers {
+	first := t.Committer
+	var rest []CommitterConfig
+	if t.CommitterPerOrg {
+		if first.Name == DefaultCommitterName {
+			first.Name = CommitterName(first.Org)
+		}
+		for _, org := range t.peerOrgs() {
+			if org != first.Org {
+				rest = append(rest, CommitterConfig{Name: CommitterName(org), Org: org})
+			}
+		}
+	}
+	all := []CommitterConfig{first}
+	for _, c := range append(rest, t.Committers...) {
 		if c.Image == "" {
-			c.Image = t.Committer.Image
+			c.Image = first.Image
 		}
 		if c.EnvVars == nil {
-			c.EnvVars = t.Committer.EnvVars
+			c.EnvVars = first.EnvVars
 		}
 		all = append(all, c)
 	}
 	return all
+}
+
+// peerOrgs returns the organizations with at least one peer, in the order they were added.
+func (t *Topology) peerOrgs() []string {
+	var orgs []string
+	for _, o := range t.Organizations {
+		if slices.ContainsFunc(t.Peers, func(p *fabric_topology.Peer) bool { return p.Organization == o.Name }) {
+			orgs = append(orgs, o.Name)
+		}
+	}
+	return orgs
 }
 
 // WithCommitterName sets the peer name used for the committer sidecar identity.
@@ -157,7 +200,7 @@ func NewTopologyWithName(name string) *Topology {
 	return &Topology{
 		Topology: topo,
 		Committer: CommitterConfig{
-			Name: "SC",
+			Name: DefaultCommitterName,
 			Org:  "Org1",
 		},
 	}

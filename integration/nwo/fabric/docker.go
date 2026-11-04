@@ -40,9 +40,8 @@ func (d *Docker) Setup() error {
 		return errors.Wrapf(err, "check failed; Require the following container images: %s", d.RequiredImages)
 	}
 
-	// create a container network associated with our platform networkID, unless a platform
-	// that needed it earlier, such as Fabric-x for its orderer address, already created it
-	err = client.EnsureNetwork(d.NetworkID)
+	// create a container network associated with our platform networkID
+	err = client.CreateNetwork(d.NetworkID)
 	if err != nil {
 		return errors.Wrapf(err, "creating network '%s' failed", d.NetworkID)
 	}

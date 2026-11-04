@@ -103,8 +103,8 @@ func (*PlatformFactory) New(registry api.Context, t api.Topology, builder api.Bu
 		builder,
 		[]fabric_network.ChaincodeProcessor{},
 		common.UniqueName(),
-		fxTopo.Committer.Org,
-		fxTopo.Committer.Name,
+		fxTopo.AllCommitters()[0].Org,
+		fxTopo.AllCommitters()[0].Name,
 	)
 
 	// create the platform

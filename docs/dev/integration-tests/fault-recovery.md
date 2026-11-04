@@ -40,8 +40,13 @@ discovers all the others through gossip.
 ### Fabric-x committer
 
 A Fabric-x network runs the mock orderer in a container of its own and each committer in
-another, with its own database. The topology's `Committer` is the first committer;
-`AddCommitter(org, name)` adds one for an organization, and each FSC node uses its own
+another, with its own database. Committers reach the orderer at `orderer.localhost`, the
+orderer container's alias on the suite's Docker network; FSC nodes on the host resolve the
+same name to loopback, where the orderer port is published. The topology's `Committer` is
+the first committer. `EnableCommitterPerOrg()` gives every organization with a peer a
+committer of its own, named `CommitterName(org)` (`Org2_committer_0`), the way each Fabric
+organization gets `<org>_peer_0`; FSC's Fabric-x suites enable it. `AddCommitter(org, name)`
+adds a further one, such as a second in an organization. Each FSC node uses its own
 organization's committers, or the first one when its organization has none.
 `fabricx.FxPlatform(ii).StopCommitter(names...)` and `StartCommitter(names...)` stop and
 restart the services (sidecar, coordinator, verifier, validator-committer, query) of the
@@ -69,7 +74,6 @@ targets, which CI runs as parallel jobs:
 | `fabricx-faultrecovery-crash` | `crash` | the main network |
 | `fabricx-faultrecovery-replication` | `replication` | replicated nodes |
 | `fabricx-faultrecovery-partition` | `partition` | the main network behind a fault proxy |
-| `fabricx-faultrecovery-committer-per-org` | `committer-per-org` | a committer for each organization (`CommitterPerOrgTopology`) |
 
 Both suites run the FSC nodes alice and bob on Postgres, and charlie, a second responder in
 Org2, on SQLite, the default persistence. The Fabric suite adds three raft orderers, named

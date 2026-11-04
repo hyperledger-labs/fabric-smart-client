@@ -24,7 +24,7 @@ const (
 )
 
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
-	fabricTopology := nwofabricx.NewDefaultTopology()
+	fabricTopology := nwofabricx.NewDefaultTopology().EnableCommitterPerOrg()
 
 	// 3 orgs are needed so that the multiendorsement test can update the namespace
 	// policy to require endorsements from Org1 and Org2 or Org3.

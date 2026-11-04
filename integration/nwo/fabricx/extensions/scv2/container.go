@@ -166,9 +166,10 @@ func (e *Extension) launchContainers() {
 	// The mock orderer runs in a container of its own, so that a committer can be stopped
 	// while the orderer keeps the blocks every other committer reads, and so that each
 	// organization can run a committer of its own against the one orderer. Committers reach
-	// it at the address in the config block, see network.ordererHost.
+	// it through its network alias, the orderer host in the config block, see
+	// fabricx_network.OrdererHost.
 	logger.Infof("Run fabric-x mock orderer container on port %v", orderingServicePort)
-	e.runContainer(e.ordererContainerName(), e.committers[0].containerConfig(), []string{"orderer"},
+	e.runContainer(e.ordererContainerName(), []string{fabricx_network.OrdererHost}, e.committers[0].containerConfig(), []string{"orderer"},
 		[]int{orderingServicePort},
 		[]mount.Mount{crypto, block, {Type: mount.TypeBind, Source: mockOrdererConfigPath, Target: "/root/config/mock-orderer.yaml", ReadOnly: true}},
 		[]int{orderingServicePort},
@@ -178,7 +179,7 @@ func (e *Extension) launchContainers() {
 	for _, c := range e.committers {
 		sidecarPort, queryServicePort := c.ports()
 		logger.Infof("Run fabric-x committer container [%s] on ports: sidecar=%v query=%v", c.containerName(), sidecarPort, queryServicePort)
-		e.runContainer(c.containerName(), c.containerConfig(), []string{"db", "committer"},
+		e.runContainer(c.containerName(), nil, c.containerConfig(), []string{"db", "committer"},
 			[]int{sidecarPort, queryServicePort},
 			[]mount.Mount{crypto, block},
 			[]int{sidecarPort, queryServicePort, orderingServicePort},
@@ -210,9 +211,10 @@ func (c *committer) containerConfig() containerConfig {
 
 // runContainer creates and starts a container of the committer test image named name, running
 // the image's run script for ops, publishing ports on the host, with mounts, and waits until
-// every port in ready accepts connections on the host. It joins the network's Docker network,
-// and on Linux maps host.docker.internal to the host gateway, as Docker Desktop does itself.
-func (e *Extension) runContainer(name string, cfg containerConfig, ops []string, ports []int, mounts []mount.Mount, ready []int) {
+// every port in ready accepts connections on the host. It joins the network's Docker network
+// under aliases, and on Linux maps host.docker.internal to the host gateway, as Docker Desktop
+// does itself.
+func (e *Extension) runContainer(name string, aliases []string, cfg containerConfig, ops []string, ports []int, mounts []mount.Mount, ready []int) {
 	var extraHosts []string
 	if runtime.GOOS == "linux" {
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
@@ -241,7 +243,7 @@ func (e *Extension) runContainer(name string, cfg containerConfig, ops []string,
 			},
 			NetworkingConfig: &network.NetworkingConfig{
 				EndpointsConfig: map[string]*network.EndpointSettings{
-					e.network.NetworkID: {},
+					e.network.NetworkID: {Aliases: aliases},
 				},
 			},
 		},

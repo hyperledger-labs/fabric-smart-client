@@ -86,16 +86,6 @@ installed into a `fabric-x` subdirectory of `FAB_BINS` rather than next to
 fabric's binaries of the same name. Both toolchains can be installed at the same
 time, and neither install target disturbs the other.
 
-Fabric-x suites run the mock orderer and each committer in containers of their own, and
-FSC nodes run on the host, so all of them reach the orderer at one address: the gateway of
-the suite's Docker network on Linux, and `host.docker.internal` elsewhere. Docker Desktop
-resolves `host.docker.internal` on the host by itself. With Rancher Desktop or Colima only
-containers resolve it, so add it to the host's `/etc/hosts` once:
-
-```bash
-sudo sh -c 'echo "127.0.0.1 host.docker.internal" >> /etc/hosts'
-```
-
 ### Set `FAB_BINS`
 
 Most integration tests require Fabric(x) binaries to launch a local test network.

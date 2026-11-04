@@ -81,18 +81,6 @@ func (d *Docker) CreateNetwork(networkID string) error {
 	return nil
 }
 
-// EnsureNetwork is CreateNetwork that succeeds when a network named networkID already exists,
-// so a caller that needs the network early, before the step that usually creates it, can create
-// it without that step then failing.
-func (d *Docker) EnsureNetwork(networkID string) error {
-	if _, err := d.NetworkInfo(networkID); err == nil {
-		return nil
-	} else if !errdefs.IsNotFound(err) {
-		return errors.Wrapf(err, "failed inspecting docker network with ID='%s'", networkID)
-	}
-	return d.CreateNetwork(networkID)
-}
-
 func (d *Docker) NetworkInfo(networkID string) (network.Inspect, error) {
 	result, err := d.Client.NetworkInspect(context.TODO(), networkID, dcli.NetworkInspectOptions{})
 	if err != nil {
@@ -225,23 +213,6 @@ func (d *Docker) StartContainer(name string) error {
 		case <-time.After(500 * time.Millisecond):
 		}
 	}
-}
-
-// NetworkGateway returns the gateway address of the Docker network named networkID: the
-// address at which its containers reach the host, and on Linux the host reaches it too.
-func (d *Docker) NetworkGateway(networkID string) (string, error) {
-	ni, err := d.NetworkInfo(networkID)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed inspecting docker network with ID='%s'", networkID)
-	}
-	if len(ni.IPAM.Config) != 1 {
-		return "", errors.Errorf("docker network [%s] has %d IPAM configs, expected 1", networkID, len(ni.IPAM.Config))
-	}
-	gw := ni.IPAM.Config[0].Gateway
-	if !gw.IsValid() {
-		return "", errors.Errorf("docker network [%s] has no gateway", networkID)
-	}
-	return gw.String(), nil
 }
 
 func (d *Docker) LocalIP(networkID string) (string, error) {
