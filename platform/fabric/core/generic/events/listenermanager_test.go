@@ -284,7 +284,8 @@ func TestParallelBlockMapperMapReturnsError(t *testing.T) {
 
 // testEvent is a minimal EventInfo implementation used in tests.
 type testEvent struct {
-	id string
+	id     string
+	status string
 }
 
 // ID implements EventInfo and returns the unique identifier for the event.

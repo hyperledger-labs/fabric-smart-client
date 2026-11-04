@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 )
 
 type EventID = string
@@ -29,7 +30,13 @@ type EventInfo interface {
 	ID() EventID
 }
 
+// EventInfoMapper maps the transactions of a block to the events a
+// ListenerManager delivers to listeners.
 type EventInfoMapper[T EventInfo] interface {
+	// MapTxData maps the envelope tx at position txNum of block blockNum. It is
+	// not called for an invalid envelope shadowed by a valid one with the same
+	// txID in the block (see committer.ShadowedEnvelopes), so a forged envelope
+	// cannot reach listeners ahead of the honest one.
 	MapTxData(ctx context.Context, tx []byte, block *common.BlockMetadata, blockNum driver.BlockNum, txNum driver.TxNum) (map[driver.Namespace]T, error)
 	MapProcessedTx(tx *fabric.ProcessedTransaction) ([]T, error)
 }
@@ -350,7 +357,11 @@ func (m *parallelBlockMapper[T]) Map(ctx context.Context, block *common.Block) (
 	eg := errgroup.Group{}
 	eg.SetLimit(m.cap)
 	results := make([]map[driver.Namespace]T, len(block.Data.Data))
+	shadowed := committer.ShadowedEnvelopes(block)
 	for i, tx := range block.Data.Data {
+		if shadowed != nil && shadowed[i] {
+			continue
+		}
 		eg.Go(func() error {
 			event, err := m.mapper.MapTxData(ctx, tx, block.Metadata, block.Header.Number, driver.TxNum(i))
 			if err != nil {
