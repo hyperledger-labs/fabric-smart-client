@@ -1,8 +1,53 @@
 # Testing Guide
 
-This document outlines how to write and run tests in FSC.
+This document outlines how to write and run tests in FSC. New functionality comes with
+tests in the same PR; the policy, and the few changes it exempts, is in
+[Contribution Workflow → Tests](workflow.md#tests). Integration tests have a section of
+their own: [Integration Tests](integration-tests/README.md).
+
+## Frameworks
+
+- **Unit tests**: testify, `require` by default and `assert` where [Choosing `assert` over `require`](#choosing-assert-over-require) says so.
+- **Integration tests**: Ginkgo v2 + Gomega.
+- **`nwo` unit tests** in the integration module: Gomega, because `nwo` asserts through it.
+
+A `depguard` rule in [`.golangci.yml`](../../.golangci.yml) rejects Gomega and Ginkgo
+imports in test files outside `integration/`.
+
+## Running tests
+
+Scope every run to what you changed:
+
+```bash
+make unit-tests                                             # all unit tests except root-module Postgres tests
+make unit-tests-root                                        # only the root module
+go test -run TestMyTest ./platform/view/...                  # one test
+TEST_PKGS=./platform/common/utils/... make unit-tests-root   # one package tree
+```
+
+Never run the whole integration suite to check a change — it is slow and needs Fabric
+binaries plus Docker. Pick one target, and let CI run the rest:
+
+```bash
+make integration-tests-fabric-iou
+GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
+```
+
+The [Development Guide](development.md#running-tests) is the source of truth
+for test commands: the remaining targets, the Postgres and coverage variants, and their
+prerequisites.
 
 ## Unit tests
+
+### Parallel unit tests
+
+A unit test and each of its subtests call `t.Parallel()`, so `go test -race` exercises
+them concurrently and `-shuffle=on` and `-count` vary their order. A test that reads or
+changes process-wide state (`t.Setenv`, `logging.Init`, the global Gomega, a package
+variable such as `prom.DefaultRegisterer`) runs serially instead and says which state
+with `//nolint:paralleltest // <state>`. Placed on the line above the `func`, the
+directive also covers that test's subtests.
+
 
 ### Choosing `assert` over `require`
 
@@ -40,6 +85,42 @@ whether it's an independent check.
 
 Default to `require`, and drop to `assert` only for one of the three reasons above.
 This is a per-call-site judgment, not a mechanical swap.
+
+### Mocks and fakes
+
+Mocks are generated with [counterfeiter](https://github.com/maxbrunsfeld/counterfeiter)
+(pinned in `tools/tools.go`). Regenerate with `make generate-mocks` after changing a
+mocked interface. See [Mocks](mocks.md).
+
+### Shared test helpers
+
+Helpers that other packages import cannot live in a `_test.go` file, so conformance
+suites, benchmark bodies, and node harnesses sit in plain `.go` files — where they
+would otherwise be counted as production code.
+
+**Name them `*_test_utils.go`.** That single convention is the whole mechanism:
+`scripts/filter-coverage.sh` matches the pattern and keeps them out of the coverage
+denominator, exactly as it already excludes mocks and fakes. Nothing enforces the
+name, and a misnamed helper is silently counted as production code — so apply the
+convention when you add one.
+
+A file is test-only when nothing outside `_test.go` uses it. Importing `testing` or taking
+a `*testing.T/B/TB` is the clearest signal, but not the only one: a helper can build
+fixtures (certs, store handles) without touching `testing` at all. Check the callers, not
+just the signature.
+
+Do not rely on generic names either way — `platform/fabric/services/state/helpers.go` is
+production code despite the name.
+
+When a file mixes production code with a single test helper —
+`platform/common/utils/assert/retry.go` (`EventuallyWithRetry`) — it stays in the
+report, because excluding it would drop shipped code too. Prefer splitting such a helper
+out into a `*_test_utils.go` file, as `platform/common/services/logging` does with
+`logging_test_utils.go`.
+
+### Storage fixtures
+
+`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. Add a release with `testdata/generate.sh <release>` and list it in `fixtureVersions`; see `testdata/README.md`. Never edit a fixture by hand. The `Storage fixtures` workflow also generates the latest release's fixture into a temporary directory and opens it through `FSC_FIXTURE_DIR`, so a change to `generate.go` must keep building against that release.
 
 ## Fuzzing
 

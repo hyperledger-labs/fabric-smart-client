@@ -110,8 +110,9 @@ Integration tests are powered by the NWO (Network Orchestrator), which programma
 
 ### Code Checks
 
-`make checks` runs everything CI gates on — the linter and `go fix` — across every
-module in the repository:
+`make checks` runs the linter and `go fix` across every module in the repository, and checks
+that no page for people links into `docs/agents/` (see
+[Writing Documentation](documentation.md#two-audiences)):
 
 ```bash
 make checks
@@ -125,6 +126,7 @@ make checks
 | `make fmt`           | `gofmt -s -w` over the whole tree                                     |
 | `make go-fix`        | reports the modernizations `go fix` suggests, without applying them    |
 | `make go-fix-apply`  | applies those modernizations, in every module                          |
+| `make docs-links`    | fails if a Markdown page other than `AGENTS.md` and `docs/agents/` links into `docs/agents/` |
 
 Run `make list-go-modules` to see which modules these targets cover.
 
@@ -185,6 +187,9 @@ make coverage-local
 ```
 
 ### Integration Tests
+
+[Integration Tests](integration-tests/README.md) lists the suites and what each covers. This
+section covers running them.
 
 List all available integration tests:
 ```bash
@@ -256,6 +261,7 @@ targets, so the right-hand column is the local equivalent, not the literal CI co
 | integration suites           | `make integration-tests-<target>` |
 | `govulncheck`, per module    | `make govulncheck`                |
 | `buf breaking`, on proto changes | `make buf-breaking`           |
+| no page for people links into `docs/agents/` | `make docs-links` |
 
 `make buf-breaking` needs the tool from `make install-tools` and the release tags
 (`git fetch --tags`); set `BUF_AGAINST=<tag>` to compare against another release.
@@ -404,23 +410,5 @@ same as a routine bump and patch it by hand.
 
 ## Write Your Own Integration Test
 
-Creating a new integration test is straightforward.
-Each test includes a **test harness** and a **network topology** file.
-
-Example:
-
-```bash
-mkdir integration/fabricx/helloworld
-touch integration/fabricx/helloworld/topology.go
-touch integration/fabricx/helloworld/helloworld_test.go
-```
-
-- `topology.go` — defines the network topology (organizations, peers, orderers, etc.)
-- `helloworld_test.go` — defines the test harness and scenarios
-
-For reference, review existing tests in the [`integration/`](../../integration/) directory.
-
-Run your new integration test:
-```bash
-make integration-tests-fabricx-helloworld
-```
+[Authoring Integration Tests](integration-tests/authoring.md) walks through a new suite: its
+directory and files, the topology, and registering its `make` target.

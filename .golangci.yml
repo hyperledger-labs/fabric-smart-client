@@ -54,9 +54,9 @@ linters:
             - $test
           deny:
             - pkg: github.com/onsi/gomega
-              desc: unit tests use testify (docs/agents/testing.md)
+              desc: unit tests use testify (docs/dev/testing.md)
             - pkg: github.com/onsi/ginkgo/v2
-              desc: unit tests use testify (docs/agents/testing.md)
+              desc: unit tests use testify (docs/dev/testing.md)
     goheader:
       # Two header forms are accepted: the SPDX form used by code written for
       # this project, and the long-form Apache notice carried by files derived

@@ -153,7 +153,7 @@ cannot be tested is fine too — say so in the PR description under *How it was 
 
 Reviewers ask for the missing test rather than merging on a promise, and CI reports
 coverage on every PR, so untested new code shows up as a coverage drop.
-[`docs/agents/testing.md`](../agents/testing.md) covers the frameworks and conventions, and
+The [Testing Guide](testing.md) covers the frameworks and conventions, and
 the [Development Guide](development.md#running-tests) covers the commands.
 
 ### Commit Hygiene
@@ -249,16 +249,10 @@ you keep control of the message, and the branch is mergeable without an override
 
 ### Keeping the Guides Current
 
-A change that leaves the documentation wrong is not finished. Update the affected guide
-in the same PR:
-
-- `make` targets, CI checks, or test prerequisites → [Development Guide](development.md)
-- the contribution, review, or release process → this document
-- conventions, framework snippets, or paths that coding agents are told to follow →
-  [`AGENTS.md`](../../AGENTS.md) and [`docs/agents/`](../agents/)
-
-Reviewers should ask for the doc update rather than filing a follow-up: the author has
-the context now, and a stale guide costs every later reader.
+A change that leaves the documentation wrong is not finished: update it in the same PR.
+[Writing Documentation](documentation.md) says which page covers what, how pages are
+written, and what a reviewer asks for. Changes to the contribution, review or release
+process go in this document.
 
 ### PR Labels
 

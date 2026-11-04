@@ -14,7 +14,7 @@ import (
 
 // Test helpers for packages that need to assert on log output. They live in a
 // *_test_utils.go file rather than a _test.go one because other packages import
-// them; see docs/agents/testing.md.
+// them; see docs/dev/testing.md.
 
 type (
 	Recorder = floggingtest.Recorder

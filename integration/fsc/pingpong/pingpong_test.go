@@ -215,7 +215,7 @@ var _ = Describe("EndToEnd", func() {
 	// Loading runs libp2p whatever transport it is handed -- the committed
 	// ./testdata fixture is type: libp2p and fsc.Platform.Load never rewrites it.
 	// Hence one loading group, labelled for what it runs; see
-	// docs/agents/integration-tests.md#choosing-a-p2p-comm-type.
+	// docs/dev/integration-tests/authoring.md#choosing-a-p2p-comm-type.
 	Describe("Network-based Ping pong, loaded artifacts", Label(fsc.LibP2P), Ordered, func() {
 		s := NewTestSuite(fsc.LibP2P, doLoad, integration.NoReplication)
 		BeforeAll(s.Setup)

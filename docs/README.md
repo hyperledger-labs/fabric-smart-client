@@ -15,20 +15,27 @@ Welcome to the Fabric Smart Client (FSC) documentation.
 
 Each platform section includes a local `README.md` plus a `configuration.md` page as a starting point.
 
-## For Coding Agents
-
-- [Agent guides](agents/README.md) — architecture, conventions, and testing
-  distilled for automated coding agents (entry point: [`AGENTS.md`](../AGENTS.md)).
-
 ## Development
 
-- [Development guide](dev/development.md)
-- [Testing - Mocks and fakes](dev/mocks.md)
+- [Development guide](dev/development.md): setup, building, running tests, CI
+- [Architecture and dependency injection](dev/architecture.md)
+- [Code conventions](dev/conventions.md)
+- [Contribution workflow](dev/workflow.md)
+- [Contributor guide](../CONTRIBUTING.md)
 - [Commit signing (DCO + GPG)](dev/signing.md)
 - [Rebasing onto upstream main](dev/rebasing.md)
 - [Resolving merge conflicts](dev/merge-conflicts.md)
-- [Contribution workflow](dev/workflow.md)
-- [Contributor guide](../CONTRIBUTING.md)
+- [Writing documentation](dev/documentation.md): where each page lives and how it is written
+
+## Testing
+
+- [Testing guide](dev/testing.md): unit tests, mocks, fixtures, fuzzing
+- [Mocks and fakes](dev/mocks.md)
+- [Integration tests](dev/integration-tests/README.md): the suites, their targets, and running them
+- [Authoring integration tests](dev/integration-tests/authoring.md)
+- [Fault-recovery tests](dev/integration-tests/fault-recovery.md)
+
+Coding agents start from [`AGENTS.md`](../AGENTS.md).
 
 ## Guides and Tutorials
 

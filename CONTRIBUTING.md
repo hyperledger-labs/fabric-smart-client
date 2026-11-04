@@ -36,7 +36,7 @@ Once assigned, follow the [Development Guide](docs/dev/development.md) to:
 2. Make your changes, signing every commit (`-s -S`). See the
    [Commit Signing Guide](docs/dev/signing.md)
 3. Add or extend the tests that cover your change. See [Tests](docs/dev/workflow.md#tests)
-   and [Testing conventions](docs/agents/testing.md)
+   and [Testing Guide](docs/dev/testing.md)
 4. Push the branch whenever you like — opening a **draft** pull request early gets CI
    running and makes the work visible
 5. Before requesting review, squash the branch into a single commit whose message
