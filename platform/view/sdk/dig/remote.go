@@ -8,6 +8,7 @@ package sdk
 
 import (
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -23,6 +24,8 @@ const (
 	RemoteMaxMessageSizeKey = "fsc.view.remote.maxMessageSize"
 	RemoteBackendsKey       = "fsc.view.remote.backends"
 
+	RemoteMaxConcurrentRequestsKey = "fsc.view.remote.maxConcurrentRequests"
+
 	// DefaultCommandTimeWindow is the default fsc.view.remote.timeWindow.
 	DefaultCommandTimeWindow = 15 * time.Minute
 )
@@ -35,6 +38,9 @@ type RemoteConfig struct {
 	TimeWindow time.Duration
 	// MaxMessageSize is the largest command or stream frame accepted, in bytes; 0 is unset.
 	MaxMessageSize int
+	// MaxConcurrentRequests is the most commands the remote view API runs at once, across
+	// every backend; 0 is no limit.
+	MaxConcurrentRequests int
 	// Backends names the transports the remote view API is served on, in mount order.
 	Backends []string
 }
@@ -46,9 +52,9 @@ type RemoteConfig struct {
 // fsc.view.remote (nothing else uses the gRPC listener). With enabled: true, every key must be
 // known, so a misspelt key fails instead of leaving its default in place, backends must be
 // non-empty and free of duplicates, a listed built-in backend needs its listener enabled,
-// timeWindow must be a positive duration and maxMessageSize a positive integer. Every error
-// names the key. Whether a listed name is an installed backend is checked when the backends
-// are mounted.
+// timeWindow must be a positive duration, maxMessageSize a positive integer and
+// maxConcurrentRequests a non-negative integer. Every error names the key. Whether a listed
+// name is an installed backend is checked when the backends are mounted.
 func LoadRemoteConfig(c driver.ConfigService) (RemoteConfig, error) {
 	cfg := RemoteConfig{TimeWindow: DefaultCommandTimeWindow}
 	if !c.GetBool(RemoteEnabledKey) {
@@ -62,7 +68,7 @@ func LoadRemoteConfig(c driver.ConfigService) (RemoteConfig, error) {
 	}
 	cfg.Enabled = true
 	if unknown := unknownRemoteKeys(c); len(unknown) > 0 {
-		return cfg, errors.Errorf("[%s] has unknown keys %v; known keys are enabled, backends, timeout, timeWindow, clients and maxMessageSize", RemoteKey, unknown)
+		return cfg, errors.Errorf("[%s] has unknown keys %v; known keys are enabled, backends, timeout, timeWindow, clients, maxMessageSize and maxConcurrentRequests", RemoteKey, unknown)
 	}
 
 	if c.IsSet(RemoteTimeWindowKey) {
@@ -77,6 +83,15 @@ func LoadRemoteConfig(c driver.ConfigService) (RemoteConfig, error) {
 		if cfg.MaxMessageSize = c.GetInt(RemoteMaxMessageSizeKey); cfg.MaxMessageSize <= 0 {
 			return cfg, errors.Errorf("[%s] must be a positive number of bytes, got [%s]", RemoteMaxMessageSizeKey, c.GetString(RemoteMaxMessageSizeKey))
 		}
+	}
+	if c.IsSet(RemoteMaxConcurrentRequestsKey) {
+		// Parsed from the string: GetInt reads "ten" as 0, which here would mean no limit.
+		raw := c.GetString(RemoteMaxConcurrentRequestsKey)
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 0 {
+			return cfg, errors.Errorf("[%s] must be a non-negative integer, got [%s]", RemoteMaxConcurrentRequestsKey, raw)
+		}
+		cfg.MaxConcurrentRequests = n
 	}
 
 	cfg.Backends = c.GetStringSlice(RemoteBackendsKey)
@@ -99,7 +114,7 @@ func LoadRemoteConfig(c driver.ConfigService) (RemoteConfig, error) {
 }
 
 // remoteKeys are the keys of fsc.view.remote, lowercased as the config provider stores them.
-var remoteKeys = []string{"enabled", "backends", "timeout", "timewindow", "clients", "maxmessagesize"}
+var remoteKeys = []string{"enabled", "backends", "timeout", "timewindow", "clients", "maxmessagesize", "maxconcurrentrequests"}
 
 // unknownRemoteKeys returns the keys of fsc.view.remote that are not in remoteKeys, sorted.
 func unknownRemoteKeys(c driver.ConfigService) []string {

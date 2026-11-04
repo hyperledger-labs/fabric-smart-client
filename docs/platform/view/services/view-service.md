@@ -474,6 +474,15 @@ receives the SDK's checker and returns the one the view service uses instead, so
 control checker runs only if the decorator calls it, and dig allows one decorator of the binding
 per container.
 
+### Concurrent commands
+
+`fsc.view.remote.maxConcurrentRequests` bounds the commands the remote view API runs at once,
+across gRPC and HTTP. The server takes a slot after the policy check, so only authenticated
+callers hold one, and before the replay check, so a command refused as busy can be sent again
+unchanged. A refused command ends with gRPC `Unavailable` (HTTP `503`, WebSocket close `1013`)
+and is counted as `requests_rejected` with reason `busy`. The bound is per node: one client can
+hold every slot. See [configuration](../../../configuration.md).
+
 ## Integration with P2P Service
 
 The View Service integrates with the P2P Service for handling incoming messages:

@@ -100,6 +100,7 @@ func TestReferenceConfiguration(t *testing.T) {
 		"fsc.view.remote.timeWindow",
 		"fsc.view.remote.clients",
 		"fsc.view.remote.maxMessageSize",
+		"fsc.view.remote.maxConcurrentRequests",
 	)
 	r.Decode("fsc.web.tls", &tlsconfig.ServerTLS{})
 

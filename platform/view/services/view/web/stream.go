@@ -33,7 +33,7 @@ const (
 // NewStreamCommandHandler serves StreamCommand over a WebSocket. svc sees the connection as a
 // protos.ViewService_StreamCommandServer whose messages are wsproto frames. When svc returns,
 // the connection closes normally, or when svc returned an error with code 1013 (try again
-// later) for a node that drains before it stops, and with code 1011 otherwise, the reason
+// later) for a node that drains before it stops or is busy, and with code 1011 otherwise, the reason
 // naming a view the node's shutdown cancelled; svc reports command failures in its final
 // response before that, as on gRPC. When the request context
 // ends, the connection is closed, so a view waiting for the client returns.

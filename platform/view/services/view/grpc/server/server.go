@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -58,11 +60,17 @@ type Server struct {
 	// maxMessageSize bounds a SignedCommand and every later stream frame, in bytes; 0 is
 	// no bound beyond the transport's own.
 	maxMessageSize int
+	// slots holds a token for each command that runs; nil is no limit.
+	slots chan struct{}
 }
 
 // ErrMessageTooLarge is the error a command or stream frame larger than the configured
 // maximum ends with.
 var ErrMessageTooLarge = errors.New("command exceeds fsc.view.remote.maxMessageSize")
+
+// errBusy is the gRPC Unavailable status a command gets while the server runs as many commands
+// as WithMaxConcurrentRequests allows. The command did not run, so the client may send it again.
+var errBusy = status.Error(codes.Unavailable, "node is busy: too many concurrent view requests")
 
 // ServerOption configures a Server.
 type ServerOption func(*Server)
@@ -72,6 +80,19 @@ type ServerOption func(*Server)
 // delivered the message, so it holds on every backend; a transport may stop reading earlier.
 func WithMaxMessageSize(n int) ServerOption {
 	return func(s *Server) { s.maxMessageSize = n }
+}
+
+// WithMaxConcurrentRequests bounds the commands the server runs at once to n, on every
+// transport together; a non-positive n imposes no bound. A command over the bound ends with a
+// gRPC Unavailable status, is counted as rejected with reason "busy", and is not remembered as
+// accepted. A command holds its slot from after the policy check until ProcessCommand or
+// StreamCommand returns, so a stream holds one for as long as it is open.
+func WithMaxConcurrentRequests(n int) ServerOption {
+	return func(s *Server) {
+		if n > 0 {
+			s.slots = make(chan struct{}, n)
+		}
+	}
 }
 
 // NewViewServiceServer returns a new instance of the view service server.
@@ -176,6 +197,13 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 		return s.MarshalErrorResponse(sc.Command, err)
 	}
 
+	// After the policy check, so that only authenticated callers hold slots; before the replay
+	// check, so that a busy command is not remembered and may be sent again.
+	if !s.takeSlot() {
+		return nil, errBusy
+	}
+	defer s.freeSlot()
+
 	err = s.checkReplay(sc)
 	if err != nil {
 		return s.MarshalErrorResponse(sc.Command, err)
@@ -234,8 +262,8 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 	ctx := commandServer.Context()
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("processCommand triggered panic: %s\n%s\n", r, debug.Stack())
-			err = errors.Errorf("processCommand triggered panic: %s\n%s", r, debug.Stack())
+			logger.Errorf("streamCommand triggered panic: %s\n%s\n", r, debug.Stack())
+			err = errors.Errorf("streamCommand triggered panic: %s\n%s", r, debug.Stack())
 		}
 	}()
 
@@ -260,6 +288,12 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 	if err != nil {
 		return s.streamError(err, sc, commandServer)
 	}
+
+	// As in ProcessCommand; the stream holds its slot until it ends.
+	if !s.takeSlot() {
+		return errBusy
+	}
+	defer s.freeSlot()
 
 	err = s.checkReplay(sc)
 	if err != nil {
@@ -318,6 +352,28 @@ func (s *Server) checkPolicy(sc *protos.SignedCommand, c *protos.Command) error 
 		s.metrics.RequestsRejected.With("reason", "denied").Add(1)
 	}
 	return err
+}
+
+// takeSlot takes a slot for a command and reports whether one was free, counting a refusal as
+// reason "busy". A caller that took one calls freeSlot when the command ends.
+func (s *Server) takeSlot() bool {
+	if s.slots == nil {
+		return true
+	}
+	select {
+	case s.slots <- struct{}{}:
+		return true
+	default:
+		s.metrics.RequestsRejected.With("reason", "busy").Add(1)
+		return false
+	}
+}
+
+// freeSlot frees the slot taken by takeSlot.
+func (s *Server) freeSlot() {
+	if s.slots != nil {
+		<-s.slots
+	}
 }
 
 // checkReplay rejects a command the server has already accepted. It keys on the signed bytes,

@@ -328,6 +328,15 @@ fsc:
       # own limit applies first: fsc.grpc.maxRecvMsgSize on fsc.grpc, fsc.web.maxRecvMsgSize
       # on fsc.web.
       maxMessageSize: 10485760
+      # Most commands the remote view API runs at once, on every backend together. Default:
+      # 0 (unlimited); a negative or non-integer value fails startup. A command that would
+      # exceed it does not run: gRPC clients get Unavailable "node is busy: too many
+      # concurrent view requests", HTTP clients 503 and WebSocket clients close code 1013,
+      # and the client may send the same command again. A command holds its slot until its
+      # view returns, a stream until it closes; a streamed view waiting for the client's next
+      # frame is not bounded by timeout, so an idle stream keeps its slot. The limit is per
+      # node, not per client, and does not apply to views called locally.
+      maxConcurrentRequests: 0
   # ------------------- Web Server Configuration -------------------------
   # The web listener serves the view service's HTTP binding when fsc.view.remote.backends
   # lists web (POST /v1/ViewService/ProcessCommand and the WebSocket GET

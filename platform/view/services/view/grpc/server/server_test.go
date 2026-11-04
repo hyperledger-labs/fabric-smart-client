@@ -396,3 +396,148 @@ func TestMaxMessageSize(t *testing.T) {
 		require.ErrorContains(t, srv.StreamCommand(stream), tooLarge)
 	})
 }
+
+// limitedServer returns a server that runs at most limit commands at once. Its CallView
+// processor and streamer signal on started and then block until release yields; rejected
+// counts every rejection.
+func limitedServer(t *testing.T, limit int) (srv *Server, started, release chan struct{}, rejected *mock.Counter) {
+	t.Helper()
+	srv, err := NewViewServiceServer(&stubMarshaller{}, YesPolicyChecker{}, NewMetrics(&disabled.Provider{}),
+		noop.NewTracerProvider(), BindToVerifiedClientCert, time.Minute, WithMaxConcurrentRequests(limit))
+	require.NoError(t, err)
+	rejected = &mock.Counter{}
+	rejected.WithReturns(rejected)
+	srv.metrics.RequestsRejected = rejected
+	started, release = make(chan struct{}), make(chan struct{})
+	block := func() {
+		started <- struct{}{}
+		<-release
+	}
+	typ := reflect.TypeFor[*protos.Command_CallView]()
+	srv.RegisterProcessor(typ, func(context.Context, *protos.Command) (any, error) {
+		block()
+		return nil, nil
+	})
+	srv.RegisterStreamer(typ, func(*protos.SignedCommand, *protos.Command, protos.ViewService_StreamCommandServer, Marshaller) error {
+		block()
+		return nil
+	})
+	return srv, started, release, rejected
+}
+
+// commandN returns the i-th of a series of distinct commands. Two commands built from the
+// same fields are identical, and the second is refused as a replay.
+func commandN(t *testing.T, i int) *protos.SignedCommand {
+	t.Helper()
+	return buildSignedCommandAt(t, nil, timestamppb.New(time.Now().Add(time.Duration(i)*time.Millisecond)))
+}
+
+// process runs ProcessCommand in a goroutine and returns a channel that yields its error.
+func process(srv *Server, sc *protos.SignedCommand) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		_, err := srv.ProcessCommand(context.Background(), sc)
+		done <- err
+	}()
+	return done
+}
+
+// awaitStart waits for a blocked command to start, failing fast instead of at the package timeout.
+func awaitStart(t *testing.T, started <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("command did not start")
+	}
+}
+
+func TestMaxConcurrentRequests(t *testing.T) {
+	t.Parallel()
+
+	t.Run("over the limit is busy, and runs unchanged once a slot frees", func(t *testing.T) {
+		t.Parallel()
+		srv, started, release, rejected := limitedServer(t, 2)
+		first, second := process(srv, commandN(t, 0)), process(srv, commandN(t, 1))
+		<-started
+		<-started
+
+		third := commandN(t, 2)
+		_, err := srv.ProcessCommand(context.Background(), third)
+		require.ErrorIs(t, err, errBusy)
+		require.Equal(t, 1, rejected.WithCallCount())
+		require.Equal(t, []string{"reason", "busy"}, rejected.WithArgsForCall(0))
+
+		// Release one of the two, whichever takes it, and wait until it has returned.
+		release <- struct{}{}
+		select {
+		case err = <-first:
+			first = second
+		case err = <-second:
+		}
+		require.NoError(t, err)
+		// A command refused as busy is not recorded as seen, so resending it is no replay.
+		retried := process(srv, third)
+		awaitStart(t, started)
+		close(release)
+		require.NoError(t, <-first)
+		require.NoError(t, <-retried)
+		require.Equal(t, 1, rejected.WithCallCount())
+	})
+
+	t.Run("a stream holds its slot until it returns", func(t *testing.T) {
+		t.Parallel()
+		srv, started, release, _ := limitedServer(t, 1)
+		streamDone := make(chan error, 1)
+		open := &fakeStreamServer{ctx: context.Background(), sc: commandN(t, 0)}
+		go func() { streamDone <- srv.StreamCommand(open) }()
+		<-started
+
+		_, err := srv.ProcessCommand(context.Background(), commandN(t, 1))
+		require.ErrorIs(t, err, errBusy)
+		refused := &fakeStreamServer{ctx: context.Background(), sc: commandN(t, 2)}
+		require.ErrorIs(t, srv.StreamCommand(refused), errBusy)
+		require.Empty(t, refused.sent, "busy ends the stream with a status, not an error frame")
+
+		release <- struct{}{}
+		require.NoError(t, <-streamDone)
+		next := process(srv, commandN(t, 3))
+		<-started
+		close(release)
+		require.NoError(t, <-next)
+	})
+
+	t.Run("a command the policy refuses takes no slot", func(t *testing.T) {
+		t.Parallel()
+		srv, started, release, rejected := limitedServer(t, 1)
+		running := process(srv, commandN(t, 0))
+		<-started
+
+		srv.PolicyChecker = &stubChecker{err: denied()}
+		resp, err := srv.ProcessCommand(context.Background(), commandN(t, 1))
+		require.NoError(t, err)
+		require.Contains(t, string(resp.Response), "not allowed")
+		require.Equal(t, 1, rejected.WithCallCount())
+		require.Equal(t, []string{"reason", "denied"}, rejected.WithArgsForCall(0))
+		close(release)
+		require.NoError(t, <-running)
+	})
+
+	t.Run("zero is no limit", func(t *testing.T) {
+		t.Parallel()
+		srv, started, release, rejected := limitedServer(t, 0)
+		const n = 8
+		done := make([]<-chan error, n)
+		for i := range n {
+			done[i] = process(srv, commandN(t, i))
+		}
+		for range n {
+			<-started
+		}
+		close(release)
+		for _, d := range done {
+			require.NoError(t, <-d)
+		}
+		require.Zero(t, rejected.WithCallCount())
+	})
+}
