@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -135,54 +136,61 @@ func TestForgedEnvelopeDoesNotDiscardValidOne(t *testing.T) {
 	require.Equal(t, mustMarshalProto(t, honest), stored[txID])
 }
 
-// TestShadowedEnvelopes checks that an invalid envelope is shadowed exactly when
-// a valid endorser transaction in the same block carries its txID.
+// TestShadowedEnvelopes checks that an invalid envelope of any header type is
+// shadowed exactly when a valid endorser transaction in the same block carries
+// its txID.
 func TestShadowedEnvelopes(t *testing.T) {
 	t.Parallel()
 	const (
-		valid   = peer.TxValidationCode_VALID
-		forged  = peer.TxValidationCode_BAD_PROPOSAL_TXID
-		mvcc    = peer.TxValidationCode_MVCC_READ_CONFLICT
-		dupTxID = peer.TxValidationCode_DUPLICATE_TXID
+		valid       = peer.TxValidationCode_VALID
+		forged      = peer.TxValidationCode_BAD_PROPOSAL_TXID
+		mvcc        = peer.TxValidationCode_MVCC_READ_CONFLICT
+		dupTxID     = peer.TxValidationCode_DUPLICATE_TXID
+		unsupported = peer.TxValidationCode_UNSUPPORTED_TX_PAYLOAD
 	)
-	endorser, config := common.HeaderType_ENDORSER_TRANSACTION, common.HeaderType_CONFIG
+	endorser, config, message := common.HeaderType_ENDORSER_TRANSACTION, common.HeaderType_CONFIG, common.HeaderType_MESSAGE
+	// tx is an envelope with txID id and header type typ, or raw when set.
 	type tx struct {
 		id  string
 		typ common.HeaderType
+		raw []byte
 	}
 	block := func(txs []tx, flags ...peer.TxValidationCode) *common.Block {
 		data := make([][]byte, len(txs))
 		for i, tx := range txs {
-			chdr := protoutil.MarshalOrPanic(&common.ChannelHeader{TxId: tx.id, Type: int32(tx.typ)})
-			data[i] = protoutil.MarshalOrPanic(&common.Envelope{Payload: protoutil.MarshalOrPanic(&common.Payload{Header: &common.Header{ChannelHeader: chdr}})})
-			if tx.id == "garbage" {
-				data[i] = []byte("not an envelope")
+			data[i] = tx.raw
+			if data[i] == nil {
+				chdr := protoutil.MarshalOrPanic(&common.ChannelHeader{TxId: tx.id, Type: int32(tx.typ)})
+				data[i] = protoutil.MarshalOrPanic(&common.Envelope{Payload: protoutil.MarshalOrPanic(&common.Payload{Header: &common.Header{ChannelHeader: chdr}})})
 			}
 		}
-		metadata := make([][]byte, int(common.BlockMetadataIndex_TRANSACTIONS_FILTER)+1)
-		for _, f := range flags {
-			metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER] = append(metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER], uint8(f))
+		filter := make([]byte, len(flags))
+		for i, f := range flags {
+			filter[i] = uint8(f)
 		}
-		return &common.Block{Data: &common.BlockData{Data: data}, Metadata: &common.BlockMetadata{Metadata: metadata}}
+		return &common.Block{Data: &common.BlockData{Data: data}, Metadata: &common.BlockMetadata{Metadata: [][]byte{nil, nil, filter}}}
 	}
 
 	mixed := block([]tx{
-		{"a", endorser}, // forged, shadowed by 1
-		{"a", endorser}, // honest
-		{"b", endorser}, // invalid, no valid twin
-		{"a", endorser}, // duplicate after the honest one
-		{"a", config},   // not an endorser transaction
-		{"c", endorser}, // valid
-		{"garbage", endorser},
-	}, forged, valid, mvcc, dupTxID, forged, valid, valid)
-	require.Equal(t, []bool{true, false, false, true, false, false, false}, ShadowedEnvelopes(mixed))
+		{id: "a", typ: endorser},         // forged, shadowed by 1
+		{id: "a", typ: endorser},         // honest
+		{id: "b", typ: endorser},         // invalid, no valid twin
+		{id: "a", typ: endorser},         // duplicate after the honest one
+		{id: "a", typ: config},           // invalid config with the honest txID
+		{id: "a", typ: message},          // invalid message with the honest txID
+		{id: "c", typ: endorser},         // valid
+		{id: "d", typ: config},           // valid config: shadows nothing
+		{id: "d", typ: endorser},         // invalid endorser, its txID only on a valid config
+		{raw: []byte("not an envelope")}, // unparsable
+	}, forged, valid, mvcc, dupTxID, forged, unsupported, valid, valid, mvcc, forged)
+	assert.Equal(t, []bool{true, false, false, true, true, true, false, false, false, false}, ShadowedEnvelopes(mixed))
 
-	require.Nil(t, ShadowedEnvelopes(block([]tx{{"a", endorser}, {"a", endorser}}, valid, valid)), "all valid")
-	require.Nil(t, ShadowedEnvelopes(block([]tx{{"a", endorser}, {"a", endorser}}, forged, mvcc)), "no valid envelope")
-	require.Equal(t, []bool{false, true}, ShadowedEnvelopes(block([]tx{{"a", endorser}, {"a", endorser}}, valid)),
-		"an index beyond the flags counts as invalid")
-	require.Nil(t, ShadowedEnvelopes(&common.Block{Data: mixed.Data}), "no metadata")
-	require.Nil(t, ShadowedEnvelopes(&common.Block{Data: mixed.Data, Metadata: &common.BlockMetadata{}}), "no flags")
+	two := []tx{{id: "a", typ: endorser}, {id: "a", typ: endorser}}
+	assert.Nil(t, ShadowedEnvelopes(block(two, valid, valid)), "all valid")
+	assert.Nil(t, ShadowedEnvelopes(block(two, forged, mvcc)), "no valid envelope")
+	assert.Equal(t, []bool{false, true}, ShadowedEnvelopes(block(two, valid)), "an index beyond the flags counts as invalid")
+	assert.Nil(t, ShadowedEnvelopes(&common.Block{Data: mixed.Data}), "no metadata")
+	assert.Nil(t, ShadowedEnvelopes(&common.Block{Data: mixed.Data, Metadata: &common.BlockMetadata{}}), "no flags")
 }
 
 // TestCommitBlockSkipsShadowedEnvelope commits a block holding a forged and an

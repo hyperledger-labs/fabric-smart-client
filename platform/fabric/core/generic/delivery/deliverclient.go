@@ -184,7 +184,8 @@ func DeliverSend(df DeliverStream, envelope *common.Envelope) error {
 // produces an event with Err set.
 //
 // A block can carry several envelopes with txid. The outcome is that of the
-// valid one if the block has one, and otherwise that of the first, as
+// valid endorser transaction if the block has one, and otherwise that of the
+// first envelope, as
 // committer.ShadowedEnvelopes describes, so an invalid envelope forged with
 // txid cannot hide the honest one.
 func DeliverReceive(df DeliverFiltered, address, txid string, eventCh chan<- TxEvent) error {
@@ -207,7 +208,7 @@ read:
 			for i, tx := range filteredTransactions {
 				logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
 				if tx.Txid == txid {
-					if tx.TxValidationCode != pb.TxValidationCode_VALID && tx.Type == common.HeaderType_ENDORSER_TRANSACTION {
+					if tx.TxValidationCode != pb.TxValidationCode_VALID {
 						// A valid envelope with the same txID later in the block shadows this one.
 						if j := slices.IndexFunc(filteredTransactions[i+1:], func(o *pb.FilteredTransaction) bool {
 							return o.Txid == txid && o.Type == common.HeaderType_ENDORSER_TRANSACTION && o.TxValidationCode == pb.TxValidationCode_VALID

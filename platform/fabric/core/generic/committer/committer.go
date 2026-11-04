@@ -473,22 +473,24 @@ func (c *Committer) commitBlockOnce(ctx context.Context, block *common.Block) er
 }
 
 // ShadowedEnvelopes reports, for each envelope of block, whether it is shadowed:
-// an endorser transaction Fabric found invalid whose txID a valid endorser
-// transaction in the same block carries. The verdict of a txID in a block is
-// that of its valid envelope if the block has one, and otherwise that of its
-// first envelope, so a shadowed envelope must be ignored.
+// an envelope of any header type that Fabric found invalid, whose txID a valid
+// endorser transaction in the same block carries. The verdict of a txID in a
+// block is that of its valid envelope if the block has one, and otherwise that
+// of its first envelope, so a shadowed envelope must be ignored.
 //
-// Fabric records a txID for duplicate detection within a block only when its
-// envelope is valid. Anyone who knows a txID can therefore have an invalid
-// envelope carrying it ordered ahead of the honest one, and the honest envelope
-// still validates. Every path that resolves a txID from a block applies this
-// rule, so the forgery cannot make a committed transaction look invalid.
+// Fabric records a txID for duplicate detection within a block only for a valid
+// endorser transaction. Anyone who knows a txID can therefore have an invalid
+// envelope carrying it, of the endorser or any other type, ordered ahead of the
+// honest one, and the honest envelope still validates. The committer,
+// delivery.DeliverReceive, delivery scans and the delivery-based listener
+// manager apply this rule, so the forgery cannot make a committed transaction
+// look invalid on them.
 //
-// An index beyond the validation flags counts as invalid. An envelope that does
-// not parse, or is not an endorser transaction, is never shadowed and shadows
-// nothing; callers handle it as they would without this rule. ShadowedEnvelopes
-// returns nil when no envelope is shadowed, including when the block has no
-// validation flags.
+// An index beyond the validation flags counts as invalid. Only a valid endorser
+// transaction shadows another envelope, and an envelope that does not parse is
+// never shadowed; callers handle it as they would without this rule.
+// ShadowedEnvelopes returns nil when no envelope is shadowed, including when the
+// block has no validation flags.
 func ShadowedEnvelopes(block *common.Block) []bool {
 	metadata := block.GetMetadata().GetMetadata()
 	if len(metadata) <= int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
@@ -513,16 +515,16 @@ func ShadowedEnvelopes(block *common.Block) []bool {
 		return nil
 	}
 
-	// txIDs holds the txID of each endorser transaction; nil marks the others.
+	// txIDs holds the txID of each envelope that parses; nil marks the others.
 	txIDs := make([]*string, len(data))
 	validIDs := map[string]bool{}
 	for i, tx := range data {
 		_, _, chdr, err := fabricutils.UnmarshalTx(tx)
-		if err != nil || common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
+		if err != nil {
 			continue
 		}
 		txIDs[i] = &chdr.TxId
-		if valid(i) {
+		if valid(i) && common.HeaderType(chdr.Type) == common.HeaderType_ENDORSER_TRANSACTION {
 			validIDs[chdr.TxId] = true
 		}
 	}
