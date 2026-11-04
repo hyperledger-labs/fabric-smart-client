@@ -31,6 +31,10 @@ func NewBuilder(sp services.Provider) (*Builder, error) {
 	return &Builder{sp: sp}, nil
 }
 
+// NewTransaction creates a transaction from opts. If opts carry fabric.WithTxID, the
+// transaction has that txID; otherwise its txID is derived from its nonce and creator.
+// Fabric endorsers refuse a txID that is not ComputeTxID(nonce, creator) (see ValidateReceived),
+// whereas Fabric-x accepts any txID.
 func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.TransactionOption) (*Transaction, error) {
 	fabricOptions, err := fabric.CompileTransactionOptions(opts...)
 	if err != nil {
@@ -46,6 +50,7 @@ func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.Transaction
 		false,
 		fabricOptions.RawRequest,
 		&fabricOptions.TransactionType,
+		fabricOptions.TxID,
 	)
 }
 
@@ -98,10 +103,10 @@ func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, er
 }
 
 func (t *Builder) buildTransaction(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
-	return t.newTransactionWithType(ctx, creator, network, channel, nonce, raw, envelope, nil, nil)
+	return t.newTransactionWithType(ctx, creator, network, channel, nonce, raw, envelope, nil, nil, "")
 }
 
-func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool, rawRequest []byte, tType *fabric.TransactionType) (*Transaction, error) {
+func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool, rawRequest []byte, tType *fabric.TransactionType, txID string) (*Transaction, error) {
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, logging.SHA256Base64(raw))
 	defer logger.Debugf("NewTransaction...done.")
 
@@ -127,6 +132,9 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 	}
 	if rawRequest != nil {
 		options = append(options, fabric.WithRawRequest(rawRequest))
+	}
+	if txID != "" {
+		options = append(options, fabric.WithTxID(txID))
 	}
 
 	var fabricTransaction *fabric.Transaction

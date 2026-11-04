@@ -218,6 +218,44 @@ func newReceiveNetwork(name string, key *driver.ChannelKey) (*receiveNetwork, *m
 	return n, ch
 }
 
+func TestNewTransaction_HonoursWithTxID(t *testing.T) {
+	t.Parallel()
+	f := newReceiveFixture(t, testCreator)
+	var txIDs []string
+	f.tm.NewTransactionStub = func(_ context.Context, _ driver.TransactionType, _ view.Identity, _ []byte, txID string, _ string, _ []byte) (driver.Transaction, error) {
+		txIDs = append(txIDs, txID)
+		tx := &mock.Transaction{}
+		tx.IDReturns(txID)
+		return tx, nil
+	}
+	builder, err := NewBuilder(f.ctx)
+	require.NoError(t, err)
+
+	tx, err := builder.NewTransaction(t.Context(), fabric.WithCreator(testCreator), fabric.WithNonce(testNonce), fabric.WithTxID("tx1"))
+	require.NoError(t, err)
+	defer tx.Close()
+	require.Equal(t, "tx1", tx.ID())
+	require.Equal(t, []string{"tx1"}, txIDs)
+}
+
+func TestNewTransaction_DerivesTxIDWithoutWithTxID(t *testing.T) {
+	t.Parallel()
+	f := newReceiveFixture(t, testCreator)
+	var txIDs []string
+	f.tm.NewTransactionStub = func(_ context.Context, _ driver.TransactionType, _ view.Identity, _ []byte, txID string, _ string, _ []byte) (driver.Transaction, error) {
+		txIDs = append(txIDs, txID)
+		return &mock.Transaction{}, nil
+	}
+	builder, err := NewBuilder(f.ctx)
+	require.NoError(t, err)
+
+	tx, err := builder.NewTransaction(t.Context(), fabric.WithCreator(testCreator), fabric.WithNonce(testNonce))
+	require.NoError(t, err)
+	defer tx.Close()
+	// No txID is passed down, so the transaction manager derives it from nonce and creator.
+	require.Equal(t, []string{""}, txIDs)
+}
+
 func TestNewTransactionFromBytes_RejectsForgedTxID(t *testing.T) {
 	t.Parallel()
 	f := newReceiveFixture(t, []byte("bob"))

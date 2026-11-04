@@ -34,18 +34,15 @@ func (v *ForgedTxIDView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 	me := fns.IdentityProvider().DefaultIdentity()
-	tm := fns.TransactionManager()
-	// endorser.NewTransaction does not pass a txID on, so the transaction is built
-	// through the transaction manager. A nil nonce makes ComputeTxID draw a fresh one.
-	ftx, err := tm.NewTransaction(
-		fabric.WithContext(viewCtx.Context()),
+	// A nil nonce makes ComputeTxID draw a fresh one.
+	_, etx, err := endorser.NewTransaction(
+		viewCtx,
 		fabric.WithCreator(me),
-		fabric.WithTxID(tm.ComputeTxID(&fabric.TxID{Creator: me})),
+		fabric.WithTxID(fns.TransactionManager().ComputeTxID(&fabric.TxID{Creator: me})),
 	)
 	if err != nil {
 		return nil, err
 	}
-	etx := &endorser.Transaction{Provider: viewCtx, Transaction: ftx}
 	defer etx.Close()
 	tx, err := state.Wrap(etx)
 	if err != nil {
