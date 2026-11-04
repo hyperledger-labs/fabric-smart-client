@@ -33,8 +33,13 @@ func (n *Network) CheckTopology() {
 	n.CheckTopologyExtensions()
 }
 
-// CheckTopologyOrderers checks that the orderers' ports are allocated
+// CheckTopologyOrderers checks that the orderers' ports are allocated, and sets each
+// orderer's host to OrdererHostOverride, or 127.0.0.1 when it is empty.
 func (n *Network) CheckTopologyOrderers() {
+	host := n.OrdererHostOverride
+	if host == "" {
+		host = "127.0.0.1"
+	}
 	for i, o := range n.Orderers {
 		// Set default Id if not already set (1-based indexing for BFT)
 		if o.Id == 0 {
@@ -45,8 +50,7 @@ func (n *Network) CheckTopologyOrderers() {
 			ports[portName] = n.Context.ReservePort()
 		}
 		n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
-		// TODO: allow to set the orderer endpoint via topo
-		n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "127.0.0.1")
+		n.Context.SetHostByOrdererID(n.Prefix, o.ID(), host)
 	}
 }
 

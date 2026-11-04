@@ -45,13 +45,17 @@ type Packager interface {
 type PackagerFactory = func() Packager
 
 type Network struct {
-	Context                  api.Context
-	topology                 *topology.Topology
-	RootDir                  string
-	Prefix                   string
-	Builder                  *Builder
-	ExternalBuilders         []fabricconfig.ExternalBuilder
-	NetworkID                string
+	Context          api.Context
+	topology         *topology.Topology
+	RootDir          string
+	Prefix           string
+	Builder          *Builder
+	ExternalBuilders []fabricconfig.ExternalBuilder
+	NetworkID        string
+	// OrdererHostOverride is the host every orderer is reached at, in its TLS certificate
+	// and in the channel configuration. Empty means 127.0.0.1, which suits orderers that
+	// run as host processes; a platform whose orderer runs in a container sets it.
+	OrdererHostOverride      string
 	EventuallyTimeout        time.Duration
 	MetricsProvider          string
 	TLSEnabled               bool

@@ -38,9 +38,39 @@ type CommitterConfig struct {
 }
 
 // Topology extends the fabric topology with fabricx-specific committer options.
+//
+// Committer is the network's first committer, the one every topology has; the WithCommitter*
+// builders set it. Committers lists any further committers, added with AddCommitter, so an
+// organization can run a committer of its own. Every committer reads the same blocks from the
+// one mock orderer, and each FSC node uses the committers of its own organization, or the
+// first committer when its organization has none.
 type Topology struct {
 	*fabric_topology.Topology
-	Committer CommitterConfig
+	Committer  CommitterConfig
+	Committers []CommitterConfig
+}
+
+// AddCommitter adds a committer named name for the organization org, with its own
+// container, database and ports, reading the same blocks as the first committer.
+func (t *Topology) AddCommitter(org, name string) *Topology {
+	t.Committers = append(t.Committers, CommitterConfig{Name: name, Org: org})
+	return t
+}
+
+// AllCommitters returns the first committer followed by those AddCommitter added. An
+// added committer without an image or env vars of its own takes the first committer's.
+func (t *Topology) AllCommitters() []CommitterConfig {
+	all := []CommitterConfig{t.Committer}
+	for _, c := range t.Committers {
+		if c.Image == "" {
+			c.Image = t.Committer.Image
+		}
+		if c.EnvVars == nil {
+			c.EnvVars = t.Committer.EnvVars
+		}
+		all = append(all, c)
+	}
+	return all
 }
 
 // WithCommitterName sets the peer name used for the committer sidecar identity.

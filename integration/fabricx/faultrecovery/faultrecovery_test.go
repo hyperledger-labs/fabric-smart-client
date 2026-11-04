@@ -33,6 +33,9 @@ const (
 	// partition labels the specs that cut bob's links to the committer silently through
 	// fault proxies, which run in a target of their own.
 	partition = "partition"
+	// committerPerOrg labels the specs on a network with a committer for each organization,
+	// which run in a target of their own.
+	committerPerOrg = "committer-per-org"
 )
 
 var (
@@ -157,6 +160,50 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 		// The finality view fails unless the listener is told Valid.
 		Eventually(final, 5*time.Minute).Should(Receive(BeNil()))
 		s.II.EventuallyConnectionState("bob", notification, connstate.Connected, time.Minute)
+	})
+})
+
+// Alice uses Org1's committer, bob and charlie use Org2's. The specs share one network, see
+// faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric-x and a committer per org", Ordered, ContinueOnFailure, Label(fsc.WebSocket, committerPerOrg), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return newInfrastructure(fxfaultrecovery.CommitterPerOrgTopology(dbPrefix)...)
+	})
+	faultrecovery.ShareNetwork(s)
+
+	It("commits a transaction on a healthy network", func() {
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
+	It("keeps committing while another org's committer is down", func() {
+		committers := nwofabricx.FxPlatform(s.II)
+		committers.StopCommitter(fxfaultrecovery.Org2Committer)
+		// Starting running services fails, so the cleanup restarts them only if the spec
+		// fails while they are down.
+		down := true
+		DeferCleanup(func() {
+			if down {
+				committers.StartCommitter(fxfaultrecovery.Org2Committer)
+			}
+		})
+		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
+
+		// Bob endorses without its committer; alice's committer reports the txs final.
+		txIDs := make([]string, 3)
+		for i := range txIDs {
+			txIDs[i] = faultrecovery.Order(s.II, faultrecovery.Endorse(s.II, i))
+		}
+		faultrecovery.WaitFinalOn(s.II, "alice", txIDs...)
+		s.II.EventuallyConnectionState("alice", notification, connstate.Connected, time.Minute)
+
+		// Org2's committer catches up from the orderer, so bob settles the txs too.
+		committers.StartCommitter(fxfaultrecovery.Org2Committer)
+		down = false
+		s.II.EventuallyConnectionState("bob", notification, connstate.Connected, time.Minute)
+		for i, txID := range txIDs {
+			faultrecovery.ExpectSettled(s.II, "bob", txID, i)
+		}
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 })
 

@@ -27,6 +27,18 @@ func ReplicatedTopology(dbPrefix string) []api.Topology {
 	return []api.Topology{fabricxTopology(), faultrecovery.ReplicatedFSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
 }
 
+// CommitterPerOrgTopology returns the network of Topology with a committer for each
+// organization: Org2Committer for Org2, so bob and charlie use it, and the default committer
+// for Org1, which alice uses.
+func CommitterPerOrgTopology(dbPrefix string) []api.Topology {
+	fabricTopology := fabricxTopology()
+	fabricTopology.AddCommitter("Org2", Org2Committer)
+	return []api.Topology{fabricTopology, faultrecovery.FSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
+}
+
+// Org2Committer is the name of Org2's committer in CommitterPerOrgTopology.
+const Org2Committer = "SC2"
+
 func fabricxTopology() *nwofabricx.Topology {
 	fabricTopology := nwofabricx.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
