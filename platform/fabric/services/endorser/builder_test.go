@@ -222,7 +222,7 @@ func TestNewTransaction_HonoursWithTxID(t *testing.T) {
 	t.Parallel()
 	f := newReceiveFixture(t, testCreator)
 	var txIDs []string
-	f.tm.NewTransactionStub = func(_ context.Context, _ driver.TransactionType, _ view.Identity, _ []byte, txID string, _ string, _ []byte) (driver.Transaction, error) {
+	f.tm.NewTransactionStub = func(_ context.Context, _ driver.TransactionType, _ view.Identity, _ []byte, txID, _ string, _ []byte) (driver.Transaction, error) {
 		txIDs = append(txIDs, txID)
 		tx := &mock.Transaction{}
 		tx.IDReturns(txID)
@@ -242,7 +242,7 @@ func TestNewTransaction_DerivesTxIDWithoutWithTxID(t *testing.T) {
 	t.Parallel()
 	f := newReceiveFixture(t, testCreator)
 	var txIDs []string
-	f.tm.NewTransactionStub = func(_ context.Context, _ driver.TransactionType, _ view.Identity, _ []byte, txID string, _ string, _ []byte) (driver.Transaction, error) {
+	f.tm.NewTransactionStub = func(_ context.Context, _ driver.TransactionType, _ view.Identity, _ []byte, txID, _ string, _ []byte) (driver.Transaction, error) {
 		txIDs = append(txIDs, txID)
 		return &mock.Transaction{}, nil
 	}
