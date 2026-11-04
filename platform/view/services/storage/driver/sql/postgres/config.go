@@ -37,6 +37,9 @@ type Config struct {
 	// StartupConnectTimeout bounds how long opening the database waits for it to become
 	// reachable; zero or negative means DefaultStartupConnectTimeout.
 	StartupConnectTimeout time.Duration
+	// QueryTimeout bounds each statement, and each write transaction as a whole;
+	// zero adds no deadline.
+	QueryTimeout time.Duration
 }
 
 // Opts returns the connection options for Open. c must come from ConfigProvider.GetOpts,
@@ -75,6 +78,9 @@ func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) 
 	}
 	if len(o.DataSource) == 0 {
 		return nil, errors.New("missing data source")
+	}
+	if err := sqlcommon.QueryTimeout(o.QueryTimeout).Validate(); err != nil {
+		return nil, errors.WithMessagef(err, "persistence [%s]", name)
 	}
 	if o.MaxIdleConns == nil {
 		o.MaxIdleConns = drivercommon.CopyPtr(drivercommon.DefaultMaxIdleConns)

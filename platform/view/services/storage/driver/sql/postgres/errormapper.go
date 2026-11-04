@@ -23,6 +23,11 @@ import (
 var errorMap = map[string]error{
 	"23505": driver.UniqueKeyViolation,
 	"40001": driver.SqlBusy, // serialization_failure
+	// lock_not_available: lock_timeout expired. query_canceled: statement_timeout
+	// expired, or pg_cancel_backend. pgx cancels an expired context by closing the
+	// connection, not with a cancel request, so query_canceled comes from the server.
+	"55P03": driver.SqlBusy,
+	"57014": driver.SqlBusy,
 	"40P01": driver.DeadlockDetected,
 	"08000": driver.ErrConnectionLost, // connection_exception
 	"08001": driver.ErrConnectionLost, // sqlclient_unable_to_establish_sqlconnection

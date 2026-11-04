@@ -20,9 +20,9 @@ type MetadataStore struct {
 }
 
 func NewMetadataStore(dbs *drivercommon.RWDB, tables common.TableNames) (*MetadataStore, error) {
-	return buildMetadataStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), tables.Metadata), nil
+	return buildMetadataStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), tables.Metadata, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildMetadataStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string) *MetadataStore {
-	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &sqlite.ErrorMapper{})}
+func buildMetadataStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string, timeout sqlcommon.QueryTimeout) *MetadataStore {
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &sqlite.ErrorMapper{}, timeout)}
 }

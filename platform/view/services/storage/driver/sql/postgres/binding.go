@@ -22,13 +22,13 @@ type BindingStore struct {
 }
 
 func NewBindingStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*BindingStore, error) {
-	return buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding), nil
+	return buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
+func buildBindingStore(readDB, writeDB *sql.DB, table string, timeout sqlcommon.QueryTimeout) *BindingStore {
 	errorWrapper := &ErrorMapper{}
 	return &BindingStore{
-		BindingStore: sqlcommon.NewBindingStore(readDB, writeDB, table, errorWrapper),
+		BindingStore: sqlcommon.NewBindingStore(readDB, writeDB, table, errorWrapper, timeout),
 		table:        table,
 		writeDB:      writeDB,
 		errorWrapper: errorWrapper,

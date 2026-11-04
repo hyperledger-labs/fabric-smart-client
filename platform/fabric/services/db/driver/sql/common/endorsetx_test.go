@@ -57,5 +57,5 @@ func TestEnvelope_PutData_Conflict(t *testing.T) {
 }
 
 func mockEnvelopeStore(db *sql.DB) *common.EnvelopeStore {
-	return common.NewEnvelopeStore(db, db, "test_table", &mock.SQLErrorWrapper{})
+	return common.NewEnvelopeStore(db, db, "test_table", &mock.SQLErrorWrapper{}, 0)
 }

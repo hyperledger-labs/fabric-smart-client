@@ -18,8 +18,8 @@ import (
 // NewMetadataStore returns a transaction-metadata store over table, reading
 // through readDB and writing through writeDB. Its queries use $N placeholders,
 // which both SQLite and Postgres accept.
-func NewMetadataStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *MetadataStore {
-	return &MetadataStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
+func NewMetadataStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, timeout common.QueryTimeout) *MetadataStore {
+	return &MetadataStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, timeout)}
 }
 
 // MetadataStore stores transaction metadata by key. The first value written

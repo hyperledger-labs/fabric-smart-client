@@ -80,14 +80,28 @@ func NewWrappedIterator[V any](rows *sql.Rows, scan func(*V) error, errorWrapper
 	return &rowIterator[V]{rows: rows, scan: scan, errorWrapper: errorWrapper}
 }
 
+// NewWrappedIteratorWithCancel is NewWrappedIterator for rows queried under a
+// context that cancel releases, such as one from QueryTimeout.Context. Close
+// closes the rows, then calls cancel. The deadline covers reading the rows too:
+// once it expires, Next returns an error wrapping context.DeadlineExceeded.
+func NewWrappedIteratorWithCancel[V any](rows *sql.Rows, scan func(*V) error, errorWrapper driver.SQLErrorWrapper, cancel context.CancelFunc) iterators.Iterator[*V] {
+	return &rowIterator[V]{rows: rows, scan: scan, errorWrapper: errorWrapper, cancel: cancel}
+}
+
 type rowIterator[V any] struct {
 	rows         *sql.Rows
 	scan         func(*V) error
 	errorWrapper driver.SQLErrorWrapper
+	cancel       context.CancelFunc
 }
 
 func (it *rowIterator[V]) Close() {
 	_ = it.rows.Close()
+	// After the rows are closed: cancelling first would end the query while
+	// database/sql drains the unread rows, and pgx would drop the connection.
+	if it.cancel != nil {
+		it.cancel()
+	}
 }
 
 func (it *rowIterator[V]) Next() (*V, error) {

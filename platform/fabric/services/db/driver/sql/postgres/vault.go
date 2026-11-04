@@ -33,13 +33,13 @@ func NewVaultStore(dbs *drivercommon.RWDB, tables fsqlcommon.TableNames) (*Vault
 	return buildVaultStore(dbs.ReadDB, dbs.WriteDB, fsqlcommon.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
-	}), nil
+	}, common.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
 // buildVaultStore is the internal constructor.
-func buildVaultStore(readDB, writeDB *sql.DB, tables fsqlcommon.VaultTables) *VaultStore {
+func buildVaultStore(readDB, writeDB *sql.DB, tables fsqlcommon.VaultTables, timeout common.QueryTimeout) *VaultStore {
 	return &VaultStore{
-		VaultStore: fsqlcommon.NewVaultStore(writeDB, readDB, tables, &postgres.ErrorMapper{}, encodeKey, postgres.IsolationLevels),
+		VaultStore: fsqlcommon.NewVaultStore(writeDB, readDB, tables, &postgres.ErrorMapper{}, encodeKey, postgres.IsolationLevels, timeout),
 		tables:     tables,
 		writeDB:    writeDB,
 	}
@@ -53,8 +53,9 @@ func encodeKey(k driver.PKey) any { return []byte(k) }
 // Store marks txIDs busy, upserts writes and metaWrites, and marks txIDs valid,
 // all in one database transaction. Every statement is an upsert, so storing the
 // same transactions again leaves the same rows; this makes a retry safe after a
-// connection lost during COMMIT, when the outcome is unknown. Database errors are
-// mapped by postgres.ErrorMapper.
+// connection lost during COMMIT, when the outcome is unknown. The query timeout
+// bounds the transaction as a whole, COMMIT included. Database errors are mapped
+// by postgres.ErrorMapper.
 func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	return (&postgres.ErrorMapper{}).WrapError(db.storeTx(ctx, txIDs, writes, metaWrites))
 }
@@ -63,6 +64,8 @@ func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes d
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
+	ctx, cancel := db.Timeout.Context(ctx)
+	defer cancel()
 	tx, err := db.writeDB.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate db transaction")

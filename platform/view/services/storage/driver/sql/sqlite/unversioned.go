@@ -49,17 +49,17 @@ func (db *KeyValueStore) Steps() []migrate.Step {
 }
 
 func NewKeyValueStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*KeyValueStore, error) {
-	return buildKeyValueStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.KVS), nil
+	return buildKeyValueStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.KVS, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
 func NewKeyValueStoreNotifier(dbs *drivercommon.RWDB, table string) (*notifier.UnversionedPersistenceNotifier, error) {
-	return notifier.NewUnversioned(buildKeyValueStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), table)), nil
+	return notifier.NewUnversioned(buildKeyValueStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), table, sqlcommon.QueryTimeout(dbs.QueryTimeout))), nil
 }
 
-func buildKeyValueStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string) *KeyValueStore {
+func buildKeyValueStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string, timeout sqlcommon.QueryTimeout) *KeyValueStore {
 	var wrapper driver.SQLErrorWrapper = &ErrorMapper{}
 	return &KeyValueStore{
-		KeyValueStore: sqlcommon.NewKeyValueStore(writeDB, readDB, table, wrapper),
+		KeyValueStore: sqlcommon.NewKeyValueStore(writeDB, readDB, table, wrapper, timeout),
 		readDB:        readDB,
 		writeDB:       writeDB,
 		table:         table,

@@ -20,13 +20,14 @@ import (
 
 // NewAuditInfoStore returns an audit-info store over table, reading through
 // readDB and writing through writeDB. Its queries use $N placeholders, which
-// both SQLite and Postgres accept.
-func NewAuditInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *AuditInfoStore {
+// both SQLite and Postgres accept. timeout bounds each statement.
+func NewAuditInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, timeout QueryTimeout) *AuditInfoStore {
 	return &AuditInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
+		timeout:      timeout,
 	}
 }
 
@@ -36,6 +37,7 @@ type AuditInfoStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
+	timeout      QueryTimeout
 }
 
 // GetAuditInfo returns the audit info of id, or nil when there is none.
@@ -46,7 +48,8 @@ func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([
 		Build()
 
 	logger.Debug(query, params)
-
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	info, err := QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 	return info, db.errorWrapper.WrapError(err)
 }
@@ -64,7 +67,7 @@ func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, in
 		Build()
 
 	logger.Debug(query, params)
-	inserted, err := execInsert(ctx, db.writeDB, db.errorWrapper, query, params...)
+	inserted, err := execInsert(ctx, db.writeDB, db.timeout, db.errorWrapper, query, params...)
 	if err != nil || inserted {
 		return err
 	}

@@ -33,6 +33,8 @@ func TestClassify(t *testing.T) {
 		{"wrapped connection lost is retryable", errors.Wrapf(dbdriver.ErrConnectionLost, "failed writing txids"), classRetry},
 		{"exhausted outranks connection lost", errors.Join(ErrRetriesExhausted, dbdriver.ErrConnectionLost), classDegrade},
 		{"deadline exceeded is retryable", context.DeadlineExceeded, classRetry},
+		// What a statement cut off by a persistence's queryTimeout reaches the committer as.
+		{"wrapped deadline exceeded is retryable", errors.Wrap(errors.Wrap(context.DeadlineExceeded, "failed writing state"), "failed writing txids"), classRetry},
 		{"canceled is retryable", context.Canceled, classRetry},
 		{"config rejected degrades", driver.ErrConfigRejected, classDegrade},
 		{"fatal is fatal", ErrFatalCommit, classFatal},

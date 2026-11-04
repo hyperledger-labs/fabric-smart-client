@@ -52,6 +52,8 @@ func TestErrorMapper_ConnectionLossCodes(t *testing.T) {
 		{"unique violation unchanged", pg("23505"), driver.UniqueKeyViolation},
 		{"deadlock", pg("40P01"), driver.DeadlockDetected},
 		{"serialization failure is busy", pg("40001"), driver.SqlBusy},
+		{"lock timeout is busy", pg("55P03"), driver.SqlBusy},
+		{"statement timeout is busy", pg("57014"), driver.SqlBusy},
 		{"connection exception", pg("08000"), driver.ErrConnectionLost},
 		{"connection failure", pg("08006"), driver.ErrConnectionLost},
 		{"connection does not exist", pg("08003"), driver.ErrConnectionLost},

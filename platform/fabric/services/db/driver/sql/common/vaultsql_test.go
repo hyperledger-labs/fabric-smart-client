@@ -46,7 +46,7 @@ func newVaultMock(t *testing.T) (*common.VaultStore, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	require.NoError(t, err)
-	store := common.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, isoMapper{})
+	store := common.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, isoMapper{}, 0)
 	return store, mockDB
 }
 
@@ -88,7 +88,7 @@ func TestVaultSQL_SetStatuses_WrapsError(t *testing.T) {
 	mockDB.ExpectExec("INSERT INTO status").WillReturnError(errors.New("connection reset by peer"))
 	wrapper := &mock.SQLErrorWrapper{}
 	wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(dbdriver.ErrConnectionLost, err.Error()) }
-	store := common.NewVaultStore(db, db, vaultTables, wrapper, idKey, isoMapper{})
+	store := common.NewVaultStore(db, db, vaultTables, wrapper, idKey, isoMapper{}, 0)
 
 	err = store.SetStatuses(context.Background(), driver.Invalid, "msg", "tx1")
 	require.ErrorIs(t, err, dbdriver.ErrConnectionLost)

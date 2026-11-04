@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -40,20 +41,23 @@ type KeyEncoder func(driver.PKey) any
 // NewVaultStore creates a VaultStore. All read and write queries use $N
 // placeholders, which both SQLite and Postgres accept. encodeKey converts each
 // state key before it is bound to a query; stored keys are scanned back into
-// strings unchanged.
-func NewVaultStore(writeDB common.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper dbdriver.SQLErrorWrapper, encodeKey KeyEncoder, il common.IsolationLevelMapper) *VaultStore {
+// strings unchanged. timeout bounds each statement; a backend's Store applies it
+// to its whole write transaction.
+func NewVaultStore(writeDB common.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper dbdriver.SQLErrorWrapper, encodeKey KeyEncoder, il common.IsolationLevelMapper, timeout common.QueryTimeout) *VaultStore {
 	return &VaultStore{
 		vaultReader: &vaultReader{
 			readDB:       readDB,
 			encodeKey:    encodeKey,
 			tables:       tables,
 			errorWrapper: errorWrapper,
+			timeout:      timeout,
 		},
 		tables:       tables,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
 		il:           il,
+		Timeout:      timeout,
 	}
 }
 
@@ -65,6 +69,9 @@ type VaultStore struct {
 	writeDB      common.WriteDB
 	GlobalLock   sync.RWMutex
 	il           common.IsolationLevelMapper
+	// Timeout bounds each statement of the store, and the write transaction of a
+	// backend's Store as a whole.
+	Timeout common.QueryTimeout
 }
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
@@ -78,7 +85,7 @@ func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID
 		Build()
 	logger.Debug(query, params)
 
-	if _, err := db.writeDB.ExecContext(ctx, query, params...); err != nil {
+	if err := db.exec(ctx, query, params...); err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
 
@@ -99,11 +106,14 @@ func (db *VaultStore) buildTxLockVaultReader(ctx context.Context, isolationLevel
 	if err != nil {
 		return nil, nil, db.errorWrapper.WrapError(err)
 	}
+	// The transaction lasts the whole endorsement, so it has no deadline; each
+	// statement in it has the query timeout.
 	return &vaultReader{
 		readDB:       tx,
 		encodeKey:    db.encodeKey,
 		tables:       db.tables,
 		errorWrapper: db.errorWrapper,
+		timeout:      db.Timeout,
 	}, tx.Commit, nil
 }
 
@@ -124,6 +134,7 @@ func (db *VaultStore) buildGlobalLockVaultReader() (*vaultReader, releaseFunc, e
 		encodeKey:    db.encodeKey,
 		tables:       db.tables,
 		errorWrapper: db.errorWrapper,
+		timeout:      db.Timeout,
 	}, release, nil
 }
 
@@ -152,10 +163,18 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 
 	logger.Debug(query, params)
 
-	if _, err := db.writeDB.ExecContext(ctx, query, params...); err != nil {
+	if err := db.exec(ctx, query, params...); err != nil {
 		return errors.Wrapf(db.errorWrapper.WrapError(err), "failed updating statuses for %d txids", len(txIDs))
 	}
 	return nil
+}
+
+// exec runs one statement on the write pool under the store's query timeout.
+func (db *VaultStore) exec(ctx context.Context, query string, params ...any) error {
+	ctx, cancel := db.Timeout.Context(ctx)
+	defer cancel()
+	_, err := db.writeDB.ExecContext(ctx, query, params...)
+	return err
 }
 
 // SetStatusesBusy builds an INSERT ... ON CONFLICT DO UPDATE statement that marks all
@@ -378,6 +397,23 @@ type vaultReader struct {
 	encodeKey    KeyEncoder
 	tables       VaultTables
 	errorWrapper dbdriver.SQLErrorWrapper
+	timeout      common.QueryTimeout
+}
+
+// queryRows runs query on readDB and returns an iterator over its rows decoded by
+// scan, which keeps the statement's deadline until it is closed.
+func queryRows[V any](ctx context.Context, db *vaultReader, query string, params []any, scan func(*sql.Rows, *V) error) (iterators.Iterator[*V], error) {
+	ctx, cancel := db.timeout.Context(ctx)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
+	if err != nil {
+		cancel()
+		return nil, db.errorWrapper.WrapError(err)
+	}
+	return common.NewWrappedIteratorWithCancel(rows, func(v *V) error { return scan(rows, v) }, db.errorWrapper, cancel), nil
+}
+
+func scanVaultRead(rows *sql.Rows, r *driver.VaultRead) error {
+	return rows.Scan(&r.Key, &r.Version, &r.Raw)
 }
 
 func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error) {
@@ -404,11 +440,7 @@ func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Names
 		Build()
 
 	logger.Debug(query, params)
-	rows, err := db.readDB.QueryContext(ctx, query, params...)
-	if err != nil {
-		return nil, db.errorWrapper.WrapError(err)
-	}
-	return common.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
+	return queryRows(ctx, db, query, params, scanVaultRead)
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
@@ -439,11 +471,7 @@ func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition)
 		Build()
 
 	logger.Debug(query, params)
-	rows, err := db.readDB.QueryContext(ctx, query, params...)
-	if err != nil {
-		return nil, db.errorWrapper.WrapError(err)
-	}
-	return common.NewWrappedIterator(rows, func(r *driver.VaultRead) error { return rows.Scan(&r.Key, &r.Version, &r.Raw) }, db.errorWrapper), nil
+	return queryRows(ctx, db, query, params, scanVaultRead)
 }
 
 func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
@@ -453,6 +481,8 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 		Build()
 	logger.Debug(query, params)
 
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	row := db.readDB.QueryRowContext(ctx, query, params...)
 	var m []byte
 	var kversion driver.RawVersion
@@ -522,11 +552,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where sqlbuild.Condition
 		Build()
 	logger.Debug(query, params)
 
-	rows, err := db.readDB.QueryContext(ctx, query, params...)
-	if err != nil {
-		return nil, db.errorWrapper.WrapError(err)
-	}
-	return common.NewWrappedIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }, db.errorWrapper), nil
+	return queryRows(ctx, db, query, params, func(rows *sql.Rows, s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) })
 }
 
 func (db *VaultStore) Close() error {

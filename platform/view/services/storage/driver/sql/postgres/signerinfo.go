@@ -18,9 +18,9 @@ type SignerInfoStore struct {
 }
 
 func NewSignerInfoStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*SignerInfoStore, error) {
-	return buildSignerInfoStore(dbs.ReadDB, dbs.WriteDB, tables.SignerInfo), nil
+	return buildSignerInfoStore(dbs.ReadDB, dbs.WriteDB, tables.SignerInfo, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildSignerInfoStore(readDB, writeDB *sql.DB, table string) *SignerInfoStore {
-	return &SignerInfoStore{SignerInfoStore: sqlcommon.NewSignerInfoStore(writeDB, readDB, table, &ErrorMapper{})}
+func buildSignerInfoStore(readDB, writeDB *sql.DB, table string, timeout sqlcommon.QueryTimeout) *SignerInfoStore {
+	return &SignerInfoStore{SignerInfoStore: sqlcommon.NewSignerInfoStore(writeDB, readDB, table, &ErrorMapper{}, timeout)}
 }

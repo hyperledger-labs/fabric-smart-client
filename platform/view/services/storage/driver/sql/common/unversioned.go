@@ -36,18 +36,21 @@ type KeyValueStore struct {
 	table   string
 
 	errorWrapper driver.SQLErrorWrapper
+	timeout      QueryTimeout
 }
 
 // NewKeyValueStore returns a key-value store over table, reading through readDB
 // and writing through writeDB. Its queries use $N placeholders, which both
-// SQLite and Postgres accept.
-func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *KeyValueStore {
+// SQLite and Postgres accept. timeout bounds each statement; the transaction of
+// BeginUpdate has no deadline of its own.
+func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, timeout QueryTimeout) *KeyValueStore {
 	return &KeyValueStore{
 		BaseDB:       common.NewBaseDB(func() (*sql.Tx, error) { return writeDB.Begin() }),
 		readDB:       readDB,
 		writeDB:      writeDB,
 		table:        table,
 		errorWrapper: errorWrapper,
+		timeout:      timeout,
 	}
 }
 
@@ -77,12 +80,19 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns cdriv
 		Build()
 	logger.Debug(query, params)
 
+	return db.queryReads(ctx, query, params...)
+}
+
+// queryReads runs query on the read pool and returns an iterator over its
+// (pkey, val) rows, which keeps the statement's deadline until it is closed.
+func (db *KeyValueStore) queryReads(ctx context.Context, query string, params ...any) (iterators.Iterator[*driver.UnversionedRead], error) {
+	ctx, cancel := db.timeout.Context(ctx)
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
+		cancel()
 		return nil, errors.Wrapf(db.errorWrapper.WrapError(err), "query error: %s", query)
 	}
-
-	return NewWrappedIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }, db.errorWrapper), nil
+	return NewWrappedIteratorWithCancel(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }, db.errorWrapper, cancel), nil
 }
 
 func (db *KeyValueStore) GetState(ctx context.Context, namespace cdriver.Namespace, key cdriver.PKey) (driver.UnversionedValue, error) {
@@ -90,6 +100,8 @@ func (db *KeyValueStore) GetState(ctx context.Context, namespace cdriver.Namespa
 		WriteString("SELECT val FROM " + db.table).
 		WriteWhere(hasKeysCondition(namespace, key)).
 		Build()
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	return QueryUniqueContext[driver.UnversionedValue](ctx, db.readDB, query, params...)
 }
 
@@ -103,12 +115,7 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns cdriver.Nam
 		Build()
 	logger.Debug(query[:min(30, len(query))] + "...")
 
-	rows, err := db.readDB.QueryContext(ctx, query, params...)
-	if err != nil {
-		return nil, errors.Wrapf(db.errorWrapper.WrapError(err), "query error: %s", query)
-	}
-
-	return NewWrappedIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }, db.errorWrapper), nil
+	return db.queryReads(ctx, query, params...)
 }
 
 func (db *KeyValueStore) Close() error {
@@ -150,6 +157,8 @@ func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransactio
 		Build()
 
 	logger.Debug(query, params)
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	_, execErr := tx.ExecContext(ctx, query, params...)
 	if execErr != nil {
 		errs := make(map[cdriver.PKey]error)
@@ -216,6 +225,8 @@ func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransactio
 		Build()
 
 	logger.Debug(query, params)
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	if _, execErr := tx.ExecContext(ctx, query, params...); execErr != nil {
 		return collections.RepeatValue(collections.Keys(vals), errors.Wrap(db.errorWrapper.WrapError(execErr), "could not upsert"))
 	}

@@ -16,7 +16,7 @@ import (
 )
 
 func NewKeyValueStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*KeyValueStore, error) {
-	return buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
+	return buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
 // KeyValueStore is the Postgres key-value store. Its schema reorders a primary
@@ -45,11 +45,11 @@ func (db *KeyValueStore) Steps() []migrate.Step {
 	return steps
 }
 
-func buildKeyValueStore(readDB, writeDB *sql.DB, table string) *KeyValueStore {
+func buildKeyValueStore(readDB, writeDB *sql.DB, table string, timeout sqlcommon.QueryTimeout) *KeyValueStore {
 	errorWrapper := &ErrorMapper{}
 
 	return &KeyValueStore{
-		KeyValueStore: sqlcommon.NewKeyValueStore(writeDB, readDB, table, errorWrapper),
+		KeyValueStore: sqlcommon.NewKeyValueStore(writeDB, readDB, table, errorWrapper, timeout),
 		writeDB:       writeDB,
 		table:         table,
 	}

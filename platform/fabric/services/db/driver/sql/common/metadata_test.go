@@ -57,5 +57,5 @@ func TestMetadata_PutData_Conflict(t *testing.T) {
 }
 
 func mockMetadataStore(db *sql.DB) *common.MetadataStore {
-	return common.NewMetadataStore(db, db, "test_table", &mock.SQLErrorWrapper{})
+	return common.NewMetadataStore(db, db, "test_table", &mock.SQLErrorWrapper{}, 0)
 }

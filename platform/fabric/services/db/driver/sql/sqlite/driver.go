@@ -91,7 +91,8 @@ func NewPersistenceWithOpts[V drivercommon.DBObject](cfg *sqlite.ConfigProvider,
 	if err != nil {
 		return zero, err
 	}
-	p, err := constructor(dbs, tables)
+	// A copy: dbs is shared by every persistence on the data source.
+	p, err := constructor(&drivercommon.RWDB{ReadDB: dbs.ReadDB, WriteDB: dbs.WriteDB, QueryTimeout: o.QueryTimeout}, tables)
 	if err != nil {
 		return zero, err
 	}

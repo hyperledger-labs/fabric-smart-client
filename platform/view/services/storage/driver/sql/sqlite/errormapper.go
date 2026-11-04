@@ -34,7 +34,7 @@ var errorMap = map[int]error{
 type ErrorMapper struct{}
 
 // WrapError returns err wrapped around the sentinel its result code maps to, or err
-// unchanged when it is not a SQLite error or its code is not mapped.
+// unchanged, with its context, when it is not a SQLite error or its code is not mapped.
 func (*ErrorMapper) WrapError(err error) error {
 	var sqliteErr *sqlite.Error
 	if !stderrors.As(err, &sqliteErr) {
@@ -43,7 +43,7 @@ func (*ErrorMapper) WrapError(err error) error {
 	mappedErr := sentinelFor(sqliteErr.Code())
 	if mappedErr == nil {
 		logger.Warnf("unmapped sqlite error with code [%d]", sqliteErr.Code())
-		return sqliteErr
+		return err
 	}
 	return errors.Wrapf(mappedErr, "%s", err)
 }

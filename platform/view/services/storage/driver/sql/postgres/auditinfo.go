@@ -18,9 +18,9 @@ type AuditInfoStore struct {
 }
 
 func NewAuditInfoStore(dbs *drivercommon.RWDB, tables sqlcommon.TableNames) (*AuditInfoStore, error) {
-	return buildAuditInfoStore(dbs.ReadDB, dbs.WriteDB, tables.AuditInfo), nil
+	return buildAuditInfoStore(dbs.ReadDB, dbs.WriteDB, tables.AuditInfo, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildAuditInfoStore(readDB, writeDB *sql.DB, table string) *AuditInfoStore {
-	return &AuditInfoStore{AuditInfoStore: sqlcommon.NewAuditInfoStore(writeDB, readDB, table, &ErrorMapper{})}
+func buildAuditInfoStore(readDB, writeDB *sql.DB, table string, timeout sqlcommon.QueryTimeout) *AuditInfoStore {
+	return &AuditInfoStore{AuditInfoStore: sqlcommon.NewAuditInfoStore(writeDB, readDB, table, &ErrorMapper{}, timeout)}
 }

@@ -1116,6 +1116,7 @@ fsc:
         maxOpenConns: 20  # optional: max open read connections to the database. Defaults to unlimited. See https://go.dev/doc/database/manage-connections.
         maxIdleConns: 20  # optional: max idle read connections to the database. Defaults to 2.
         maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
+        queryTimeout: 30s # optional: how long one statement, or one batch commit, may run. Defaults to 0 (no limit). See [Query timeout](#query-timeout).
 ```
 
 Unless `skipPragmas` is `true`, FSC adds these pragmas to the dataSource as `_pragma` parameters:
@@ -1160,6 +1161,7 @@ fsc:
         maxIdleConns: 25  # optional: max idle connections to the database. Defaults to 2.
         maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
         startupConnectTimeout: 60s  # optional: how long the node waits at startup for the database to accept connections. Defaults to 60s (also when 0); waiting cannot be disabled.
+        queryTimeout: 30s  # optional: how long one statement, or one batch commit, may run. Defaults to 0 (no limit). See [Query timeout](#query-timeout).
         tls:
           enabled: true              # when false (or omitted) the tls block is ignored and the dataSource is used as-is
           ssl_mode: verify-full      # optional: defaults to verify-full when empty. See the table below.
@@ -1295,6 +1297,44 @@ apply to all of them. On Postgres, the sum of `maxOpenConns` over the distinct d
 exceed the server's `max_connections` (100 by default). SQLite opens two pools per data source: one for reads, limited by
 `maxOpenConns`, and one with a single connection for writes.
 
+### Query timeout
+
+`queryTimeout` bounds how long a store of the persistence waits for the database. Without it, a database that stops
+answering without closing its connections, such as a Postgres host stuck on I/O or a lock another client holds, stalls
+the node with no error. It is off by default. A value must be written with a unit, such as `30s`; a value below `100ms`
+or negative fails startup with an error naming the key and the persistence.
+
+- Each statement gets the deadline. A caller's own deadline that expires earlier still applies.
+- A query that returns rows keeps the deadline until its iterator is closed, so reading the rows counts too. A caller
+  that keeps an iterator open longer gets an error wrapping `context.DeadlineExceeded` from it.
+- A write transaction gets one deadline for its whole life: the vault's batch commit, which stores every transaction
+  of a batch at once, and the binding store's replace. Choose the value with the largest batch in mind. On SQLite the
+  final `COMMIT` is not bounded.
+- These transactions have no deadline, only their statements have: the read transaction an endorsement holds from
+  building its read-write set until it is done, and a KVS update between `BeginUpdate` and `Commit`. Their begin and
+  commit are not bounded.
+- Schema migration is not bounded; see `fsc.storage.migrationLockTimeout`.
+- On Postgres the deadline ends the statement by closing its connection. The server keeps running the statement until
+  it notices, and may hold its locks meanwhile. Set `statement_timeout` or `client_connection_check_interval` to end it
+  on the server too.
+
+When a statement of the Fabric committer expires, the committer retries the block within `committer.retries`, then
+degrades the channel (`commit_retries` and `commit_failures{class="degrade"}` in
+[monitoring](platform/view/services/monitoring_metrics.md#fabric-committer)). If it expires while a new connection is
+being opened, as when the host is gone, the error is `ErrConnectionLost`, and the committer retries the block until the
+database is back. On Fabric-x, and for any other caller, the call that ran the statement fails.
+
+How it relates to the database's own limits:
+
+- SQLite's `busy_timeout` bounds the wait for a lock; a wait never runs longer than it. With `queryTimeout` below
+  `busy_timeout`, the wait ends at `queryTimeout`.
+- Postgres' `connect_timeout` and `startupConnectTimeout` bound connecting, not a statement on an open connection.
+- Postgres' `statement_timeout` and `lock_timeout`, set on the role or in the `dataSource` (`... statement_timeout=30000`),
+  bound a statement on the server, but not a host that stops answering. A statement they end is reported as `SqlBusy`
+  (see [Postgres errors](#postgres-errors)), which the committer retries.
+
+Stores of other modules, such as Panurus' token stores, decode the same `opts` and may not apply `queryTimeout`.
+
 ### Postgres errors
 
 The Postgres driver maps server and connection errors onto the sentinels in
@@ -1305,7 +1345,10 @@ The Postgres driver maps server and connection errors onto the sentinels in
   `57P01`, `57P02`, `57P03` and `53300` (too_many_connections). The Fabric committer retries a block that fails with it
   until the database is back (see [Failover to a new primary](#failover-to-a-new-primary) and `commit_retries` in
   [monitoring](platform/view/services/monitoring_metrics.md#fabric-committer)).
-- `UniqueKeyViolation` (`23505`), `SqlBusy` (`40001`), `DeadlockDetected` (`40P01`).
+- `UniqueKeyViolation` (`23505`), `DeadlockDetected` (`40P01`).
+- `SqlBusy`: `40001` (serialization_failure), `55P03` (lock_not_available, an expired `lock_timeout`) and `57014`
+  (query_canceled, an expired `statement_timeout` or a `pg_cancel_backend`). The committer retries it within
+  `committer.retries`.
 
 Any other SQLSTATE, including one the server returns while connecting such as `28P01` (wrong password) or `3D000` (missing
 database), is returned unchanged, unless another host of a multi-host `dataSource` reported a code that maps to

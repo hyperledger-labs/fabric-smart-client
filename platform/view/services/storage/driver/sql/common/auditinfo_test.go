@@ -76,5 +76,5 @@ func TestPutAuditInfo(t *testing.T) {
 }
 
 func mockAuditInfoStore(db *sql.DB) *common.AuditInfoStore {
-	return common.NewAuditInfoStore(db, db, "audit_info", passthroughErrorWrapper())
+	return common.NewAuditInfoStore(db, db, "audit_info", passthroughErrorWrapper(), 0)
 }
