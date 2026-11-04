@@ -84,11 +84,6 @@ fsc:
     {{- if gt Topology.P2P.MaxSendMsgSize 0 }}
     maxSendMsgSize: {{ Topology.P2P.MaxSendMsgSize }}
     {{- end }}
-    opts:
-      # Only needed when type == libp2p
-      # If empty, this is a P2P bootstrap node. Otherwise, it contains the name of the FSC node that is a bootstrap node
-      libp2p:
-        bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
   persistences: {{ range $key, $value := Persistences }}
     {{ $key }}:
       type: {{ $value.Type }}

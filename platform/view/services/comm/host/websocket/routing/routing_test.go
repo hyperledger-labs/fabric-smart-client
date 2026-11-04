@@ -100,18 +100,6 @@ func (s stubIDRouter) Lookup(host.PeerID) ([]host.PeerIPAddress, bool) {
 	return s.addrs, s.ok
 }
 
-func TestServiceDiscovery_LookupAll(t *testing.T) {
-	t.Parallel()
-	d := NewServiceDiscovery(stubIDRouter{addrs: []host.PeerIPAddress{"a", "b"}, ok: true}, AlwaysFirst[host.PeerIPAddress]())
-	addrs, ok := d.LookupAll("peer")
-	require.True(t, ok)
-	require.Equal(t, []host.PeerIPAddress{"a", "b"}, addrs)
-
-	d = NewServiceDiscovery(stubIDRouter{ok: false}, AlwaysFirst[host.PeerIPAddress]())
-	_, ok = d.LookupAll("peer")
-	require.False(t, ok)
-}
-
 // The strategy picks a non-first address so the test fails if Lookup ignores
 // the strategy and returns the first endpoint.
 func TestServiceDiscovery_Lookup(t *testing.T) {

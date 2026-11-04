@@ -13,9 +13,9 @@ import (
 
 var logger = logging.MustGetLogger()
 
-// ServiceDiscovery is the interface that resolves the IP addresses given the ID of a peer
+// ServiceDiscovery resolves the ID of a peer to one of its addresses, or the empty address if
+// it knows none.
 type ServiceDiscovery interface {
-	LookupAll(id host.PeerID) ([]host.PeerIPAddress, bool)
 	Lookup(id host.PeerID) host.PeerIPAddress
 }
 

@@ -5,8 +5,8 @@ runs once per transport, `websocket` and `libp2p`, between nodes on loopback, so
 transports can be compared under identical workloads.
 
 The nodes are real `comm.P2PNode`s over real hosts: websocket uses mutual TLS with
-certificates issued by a throwaway CA and a static ID router, and libp2p uses a bootstrap node
-and nodes that join through it. Keys are generated per benchmark; no fixtures or Fabric
+certificates issued by a throwaway CA and a static ID router, and libp2p nodes dial each other
+by address. Keys are generated per benchmark; no fixtures or Fabric
 binaries are needed.
 
 ## Benchmarks

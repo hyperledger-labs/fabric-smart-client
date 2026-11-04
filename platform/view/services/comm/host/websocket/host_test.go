@@ -30,20 +30,13 @@ func (*failingStreamProvider) NewClientStream(host.StreamInfo, context.Context, 
 	return nil, errors.New("dial refused")
 }
 
-func TestHostLookupAndNewStream(t *testing.T) {
+func TestHostNewStream(t *testing.T) {
 	t.Parallel()
 	router := routing.StaticIDRouter{"peer": {"127.0.0.1:1", "127.0.0.1:2"}}
 	h, err := websocket.NewHost("self",
 		routing.NewServiceDiscovery(router, routing.AlwaysFirst[host.PeerIPAddress]()),
 		&failingStreamProvider{}, &mockConfig{}, nil)
 	require.NoError(t, err)
-	h.Wait()
-
-	addrs, ok := h.Lookup("peer")
-	require.True(t, ok)
-	require.Equal(t, []host.PeerIPAddress{"127.0.0.1:1", "127.0.0.1:2"}, addrs)
-	_, ok = h.Lookup("unknown")
-	require.False(t, ok)
 
 	_, err = h.NewStream(t.Context(), host.StreamInfo{RemotePeerID: "unknown"})
 	require.ErrorContains(t, err, "no address found for peer [unknown]")

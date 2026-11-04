@@ -156,10 +156,6 @@ func (h *host) NewStream(ctx context.Context, info commhost.StreamInfo) (commhos
 	return stream, nil
 }
 
-func (h *host) Lookup(peerID commhost.PeerID) ([]commhost.PeerIPAddress, bool) {
-	return h.routing.LookupAll(peerID)
-}
-
 // Retire implements commhost.RetiringHost when the stream provider caches websockets.
 func (h *host) Retire(peerID commhost.PeerID) {
 	if h.client == nil {
@@ -181,8 +177,6 @@ func (h *host) Close() error {
 	}
 	return err
 }
-
-func (*host) Wait() {}
 
 func StreamHash(info commhost.StreamInfo) commhost.StreamHash {
 	var sb strings.Builder

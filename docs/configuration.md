@@ -193,11 +193,6 @@ fsc:
       # ------------------- libp2p specific options -------------------------
       # Only needed when type == libp2p
       libp2p:
-        # bootstrap node
-        # if it's empty then this node is the bootstrap node, otherwise it's the name
-        # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
-        # and that entry must have an address with an entry P2P.
-        bootstrapNode: theBootstrapNode
         # Connection manager settings for libp2p
         connManager:
           # Low water mark - when the number of connections drops below this, the connection manager
@@ -521,7 +516,7 @@ fsc:
   # drains before it stops turns unready at once (see fsc.shutdown).
   endpoint:
     resolvers:
-    # name is a name that describes the FSC node (must also match name used in the view) it isn't a P2P bootstrap node
+    # name is a name that describes the FSC node (must also match name used in the view)
     - name: fscNodeA
       # domain can be used to distinguish nodes if name isn't unique
       domain:
@@ -535,14 +530,14 @@ fsc:
       # alias names which can be used as alternative for lookups
       aliases:
       - anotherName
-    # here is the definition of the bootstrap node. If this core.yaml is for this node, it doesn't need to be declared in the resolver list
-    - name: theBootstrapNode
+    # a node this node opens sessions to needs a P2P address
+    - name: fscNodeB
       domain:
       identity:
-        path: /path/to/theBootstrapNode-cert.pem
+        path: /path/to/fscNodeB-cert.pem
       addresses:
         # P2P endpoint address for this node
-        P2P: thebootstrapFQDN:20001
+        P2P: fscNodeB.example.com:20001
       aliases:
     # This demonstrates the other keys available for addresses:
     - name: otheraddressestypes

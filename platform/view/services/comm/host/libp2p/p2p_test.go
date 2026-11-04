@@ -45,34 +45,108 @@ func TestMain(m *testing.M) {
 
 func TestP2PLayerTestRound(t *testing.T) {
 	t.Parallel()
-	bootstrapNode, node := setupTwoNodes(t)
-	comm.P2PLayerTestRound(t, bootstrapNode, node)
+	node1, node2 := setupTwoNodes(t)
+	comm.P2PLayerTestRound(t, node1, node2)
 }
 
 func TestSessionsTestRound(t *testing.T) {
 	t.Parallel()
-	bootstrapNode, node := setupTwoNodes(t)
-	comm.SessionsTestRound(t, bootstrapNode, node)
+	node1, node2 := setupTwoNodes(t)
+	comm.SessionsTestRound(t, node1, node2)
 }
 
 func TestSessionsForMPCTestRound(t *testing.T) {
 	t.Parallel()
-	bootstrapNode, node := setupTwoNodes(t)
-	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
+	node1, node2 := setupTwoNodes(t)
+	comm.SessionsForMPCTestRound(t, node1, node2)
 }
 
+// The 100 sessions start at once on nodes that are not connected yet.
 func TestSessionsMultipleMessagesTestRound(t *testing.T) {
 	t.Parallel()
-	bootstrapNode, node := setupTwoNodes(t)
-	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
+	node1, node2 := setupTwoNodes(t)
+	comm.SessionsMultipleMessagesTestRound(t, node1, node2)
 }
 
 func TestSessionsTwoNodesTestRound(t *testing.T) {
 	t.Parallel()
-	bootstrapNode, node1, node2 := setupThreeNodes(t)
-	<-time.After(100 * time.Millisecond)
+	nodes := setupNodes(t, 3)
+	comm.SessionsNodesTestRound(t, nodes[0], nodes[1:], 2)
+}
 
-	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 2)
+// A node starts while its peer is not listening yet, and reaches the peer once it is.
+func TestStartWhilePeerDown(t *testing.T) {
+	t.Parallel()
+	addrs := freeLibP2PAddresses(t, 2)
+	aSK, aID := generateKey(t)
+	bSK, bID := generateKey(t)
+	a := newTestNode(t, aSK, aID, addrs[0])
+	b := newTestNode(t, bSK, bID, addrs[1])
+	comm.SessionsTestRound(t, a, b)
+}
+
+// Two nodes that are not connected send to each other at the same moment.
+func TestSimultaneousDial(t *testing.T) {
+	t.Parallel()
+	a, b := setupTwoNodes(t)
+	ctx := t.Context()
+	a.Start(ctx)
+	b.Start(ctx)
+	defer a.Stop()
+	defer b.Stop()
+
+	sa, err := a.NewResponderSession("s", "c", b.Address, []byte(b.ID), nil, nil)
+	require.NoError(t, err)
+	sb, err := b.NewResponderSession("s", "c", a.Address, []byte(a.ID), nil, nil)
+	require.NoError(t, err)
+	errs := make(chan error, 2)
+	go func() { errs <- sa.Send(ctx, []byte("a")) }()
+	go func() { errs <- sb.Send(ctx, []byte("b")) }()
+	require.NoError(t, <-errs)
+	require.NoError(t, <-errs)
+}
+
+// A responder replies to the source address of the incoming stream, an ephemeral port. Once the
+// connection is gone, the reply dials the listen address the identify protocol recorded.
+func TestReplyAfterConnectionClosed(t *testing.T) {
+	t.Parallel()
+	addrs := freeLibP2PAddresses(t, 2)
+	aSK, aID := generateKey(t)
+	zSK, zID := generateKey(t)
+	a := newTestNode(t, aSK, aID, addrs[0])
+	zCfg := &mock.LibP2PConfig{}
+	zCfg.ListenAddressReturns(addrs[1])
+	zHost, err := newLibP2PHost(zCfg, zSK, newMetrics(&disabled.Provider{}))
+	require.NoError(t, err)
+	zNode, err := comm.NewNode(t.Context(), zHost, &disabled.Provider{})
+	require.NoError(t, err)
+	z := &comm.HostNode{P2PNode: zNode, ID: zID, Address: addrs[1]}
+	ctx := t.Context()
+	a.Start(ctx)
+	z.Start(ctx)
+	defer a.Stop()
+	defer z.Stop()
+
+	master, err := z.MasterSession()
+	require.NoError(t, err)
+	s, err := a.NewSession("", "", z.Address, []byte(z.ID))
+	require.NoError(t, err)
+	require.NoError(t, s.Send(ctx, []byte("ping")))
+	msg := <-master.Receive()
+
+	aPeer, err := peer.Decode(aID)
+	require.NoError(t, err)
+	require.NoError(t, zHost.Network().ClosePeer(aPeer))
+
+	r, err := z.NewResponderSession(msg.SessionID, msg.ContextID, msg.FromEndpoint, msg.FromPKID, nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, r.Send(ctx, []byte("pong")))
+	select {
+	case m := <-s.Receive():
+		require.Equal(t, []byte("pong"), m.Payload)
+	case <-time.After(10 * time.Second):
+		t.Fatal("no reply")
+	}
 }
 
 func TestSessionChurn_NoLostReplies(t *testing.T) {
@@ -145,70 +219,32 @@ func freeLibP2PAddresses(t *testing.T, n int) []string {
 	return addresses
 }
 
-func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
+// newTestNode starts a comm node on a libp2p host with key sk listening at addr.
+func newTestNode(t *testing.T, sk crypto.PrivKey, id, addr string) *comm.HostNode {
 	t.Helper()
-	bootstrapSK, bootstrapID := generateKey(t)
-	nodeSK, nodeID := generateKey(t)
-
-	addrs := freeLibP2PAddresses(t, 2)
-	bootstrapNodeEndpoint := addrs[0]
-	nodeEndpoint := addrs[1]
-
-	bootstrapConfig := &mock.LibP2PConfig{}
-	bootstrapConfig.ListenAddressReturns(bootstrapNodeEndpoint)
-	bootstrapHost, err := newLibP2PHost(bootstrapConfig, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
+	cfg := &mock.LibP2PConfig{}
+	cfg.ListenAddressReturns(addr)
+	h, err := newLibP2PHost(cfg, sk, newMetrics(&disabled.Provider{}))
 	require.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
+	n, err := comm.NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
-
-	nodeConfig := &mock.LibP2PConfig{}
-	nodeConfig.ListenAddressReturns(nodeEndpoint)
-	anotherHost, err := newLibP2PHost(nodeConfig, nodeSK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	require.NoError(t, err)
-	anotherNode, err := comm.NewNode(t.Context(), anotherHost, &disabled.Provider{})
-	require.NoError(t, err)
-
-	time.Sleep(1 * time.Second)
-
-	return &comm.HostNode{P2PNode: bootstrapNode, ID: bootstrapID, Address: bootstrapNodeEndpoint},
-		&comm.HostNode{P2PNode: anotherNode, ID: nodeID, Address: nodeEndpoint}
+	return &comm.HostNode{P2PNode: n, ID: id, Address: addr}
 }
 
-func setupThreeNodes(t *testing.T) (bootstrap, n1, n2 *comm.HostNode) {
+func setupNodes(t *testing.T, n int) []*comm.HostNode {
 	t.Helper()
-	bootstrapSK, bootstrapID := generateKey(t)
-	node1SK, node1ID := generateKey(t)
-	node2SK, node2ID := generateKey(t)
+	addrs := freeLibP2PAddresses(t, n)
+	nodes := make([]*comm.HostNode, n)
+	for i, addr := range addrs {
+		sk, id := generateKey(t)
+		nodes[i] = newTestNode(t, sk, id, addr)
+	}
+	return nodes
+}
 
-	addrs := freeLibP2PAddresses(t, 3)
-	bootstrapNodeEndpoint := addrs[0]
-	node1Endpoint := addrs[1]
-	node2Endpoint := addrs[2]
-
-	bootstrapConfig := &mock.LibP2PConfig{}
-	bootstrapConfig.ListenAddressReturns(bootstrapNodeEndpoint)
-	bootstrapHost, err := newLibP2PHost(bootstrapConfig, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
-	require.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
-	require.NoError(t, err)
-
-	node1Config := &mock.LibP2PConfig{}
-	node1Config.ListenAddressReturns(node1Endpoint)
-	node1Host, err := newLibP2PHost(node1Config, node1SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	require.NoError(t, err)
-	node1, err := comm.NewNode(t.Context(), node1Host, &disabled.Provider{})
-	require.NoError(t, err)
-
-	node2Config := &mock.LibP2PConfig{}
-	node2Config.ListenAddressReturns(node2Endpoint)
-	node2Host, err := newLibP2PHost(node2Config, node2SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	require.NoError(t, err)
-	node2, err := comm.NewNode(t.Context(), node2Host, &disabled.Provider{})
-	require.NoError(t, err)
-
-	time.Sleep(1 * time.Second)
-
-	return &comm.HostNode{P2PNode: bootstrapNode, ID: bootstrapID, Address: bootstrapNodeEndpoint},
-		&comm.HostNode{P2PNode: node1, ID: node1ID, Address: node1Endpoint},
-		&comm.HostNode{P2PNode: node2, ID: node2ID, Address: node2Endpoint}
+// setupTwoNodes returns two nodes that are not connected yet.
+func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
+	t.Helper()
+	nodes := setupNodes(t, 2)
+	return nodes[0], nodes[1]
 }

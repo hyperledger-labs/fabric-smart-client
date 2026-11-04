@@ -7,80 +7,31 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
-	"context"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	viewmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // P2PCommunicationType is a string identifier for the libp2p implementation of the p2p comm stack.
 const P2PCommunicationType = "libp2p"
 
-type endpointService interface {
-	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[endpoint.PortName]string, []byte, error)
-	GetIdentity(label string, pkID []byte) (view.Identity, error)
-}
-
 type hostGeneratorProvider struct {
-	metrics         *metrics
-	config          libp2pConfig
-	endpointService endpointService
+	metrics *metrics
+	config  libp2pConfig
 }
 
-func NewHostGeneratorProvider(config libp2pConfig, provider viewmetrics.Provider, endpointService endpointService) *hostGeneratorProvider {
+func NewHostGeneratorProvider(config libp2pConfig, provider viewmetrics.Provider) *hostGeneratorProvider {
 	return &hostGeneratorProvider{
-		metrics:         newMetrics(provider),
-		config:          config,
-		endpointService: endpointService,
+		metrics: newMetrics(provider),
+		config:  config,
 	}
 }
 
+// GetNewHost creates a host with the key at config.PrivateKeyPath.
 func (p *hostGeneratorProvider) GetNewHost() (commhost.P2PHost, error) {
-	logger.Debugf("libp2p: Generating new host, privateKeyPath [%s], bootstrap [%v]...", p.config.PrivateKeyPath(), p.config.Bootstrap())
+	logger.Debugf("libp2p: Generating new host, privateKeyPath [%s]...", p.config.PrivateKeyPath())
 	k, err := newCryptoPrivKeyFromMSP(p.config.PrivateKeyPath())
 	if err != nil {
 		return nil, err
 	}
-	if p.config.Bootstrap() {
-		host, err := newLibP2PHost(p.config, k, p.metrics, true, "")
-		if err != nil {
-			return nil, err
-		}
-		logger.Debugf("libp2p: successfully generated new bootstrap host")
-		return host, nil
-	}
-
-	bootstrap, err := p.getPeerAddress(p.config.BootstrapListenAddress())
-	if err != nil {
-		return nil, err
-	}
-	host, err := newLibP2PHost(p.config, k, p.metrics, false, bootstrap)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("libp2p: successfully generated new host")
-	return host, nil
-}
-
-func (p *hostGeneratorProvider) getPeerAddress(address commhost.PeerIPAddress) (commhost.PeerIPAddress, error) {
-	logger.Debugf("libp2p: Resolving bootstrap node address [%s]...", address)
-	bootstrapNodeID, err := p.endpointService.GetIdentity(address, nil)
-	if err != nil {
-		return "", errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", address)
-	}
-	_, endpoints, pkID, err := p.endpointService.Resolve(context.Background(), bootstrapNodeID)
-	if err != nil {
-		return "", errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", address, bootstrapNodeID)
-	}
-
-	bootstrap, err := utils.AddressToEndpoint(endpoints[endpoint.P2PPort])
-	if err != nil {
-		return "", errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", address, bootstrapNodeID, endpoints[endpoint.P2PPort])
-	}
-	logger.Debugf("libp2p: Resolved bootstrap node address [%s] to [%s]", address, bootstrap)
-	return bootstrap + "/p2p/" + string(pkID), nil
+	return newLibP2PHost(p.config, k, p.metrics)
 }

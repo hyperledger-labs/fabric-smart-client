@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -295,6 +297,37 @@ func TestReleaseClosesOnlyUnsharedStreams(t *testing.T) {
 			assert.Equal(t, tc.wantClosed, sh.isClosed())
 		})
 	}
+}
+
+// slowSharedHost is a sharedStreamsHost whose dial takes long enough for concurrent senders to
+// miss the stream cache together. It counts the streams it opens.
+type slowSharedHost struct {
+	sharedStreamsHost
+	dials atomic.Int32
+}
+
+func (h *slowSharedHost) NewStream(context.Context, host.StreamInfo) (host.P2PStream, error) {
+	h.dials.Add(1)
+	time.Sleep(50 * time.Millisecond)
+	return newHeldStream(), nil
+}
+
+// Concurrent first sends to a peer of a shared-streams host open one stream, not one each.
+func TestConcurrentFirstSendsShareOneStream(t *testing.T) {
+	t.Parallel()
+	h := &slowSharedHost{}
+	p, err := NewNode(t.Context(), h, &disabled.Provider{})
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	for range 50 {
+		wg.Go(func() {
+			assert.NoError(t, p.sendTo(t.Context(), host.StreamInfo{RemotePeerID: "peer"}, &ViewPacket{}, nil))
+		})
+	}
+	wg.Wait()
+	assert.Equal(t, int32(1), h.dials.Load())
+	p.Stop()
 }
 
 func TestDispatcherSkipsLeaseOnClosingSession(t *testing.T) {

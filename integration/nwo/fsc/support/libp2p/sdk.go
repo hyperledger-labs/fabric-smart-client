@@ -57,7 +57,7 @@ func CustomHostProvider(config driver.ConfigService, endpointService *endpoint.S
 			return nil, err
 		}
 		endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
-		return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, endpointService), nil
+		return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider), nil
 	default:
 		return provider.NewHostProvider(config, endpointService, metricsProvider, tracerProvider)
 	}

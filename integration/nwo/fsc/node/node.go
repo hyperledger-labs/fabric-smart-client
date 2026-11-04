@@ -267,7 +267,6 @@ type SDKElement struct {
 type Node struct {
 	Synthesizer    `yaml:"Synthesizer,omitempty"`
 	Name           string   `yaml:"name,omitempty"`
-	Bootstrap      bool     `yaml:"bootstrap,omitempty"`
 	ExecutablePath string   `yaml:"executablePath,omitempty"`
 	Path           string   `yaml:"path,omitempty"`
 	Options        *Options `yaml:"options,omitempty"`
@@ -309,12 +308,6 @@ func (n *Node) ReplicaUniqueNames() []string {
 
 func (n *Node) ID() string {
 	return n.Name
-}
-
-func (n *Node) SetBootstrap() *Node {
-	n.Bootstrap = true
-
-	return n
 }
 
 // SetExecutable sets the executable path of this node

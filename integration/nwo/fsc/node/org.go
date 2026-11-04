@@ -41,7 +41,6 @@ type Peer struct {
 	*Node
 	Name            string          `yaml:"name,omitempty"`
 	Organization    string          `yaml:"organization,omitempty"`
-	Bootstrap       bool            `yaml:"bootstrap,omitempty"`
 	ExecutablePath  string          `yaml:"executablepath,omitempty"`
 	ExtraIdentities []*PeerIdentity `yaml:"extraidentities,omitempty"`
 	Admins          []string        `yaml:"admins,omitempty"`

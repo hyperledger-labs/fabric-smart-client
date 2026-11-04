@@ -58,7 +58,7 @@ func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode
 
 // runInitiator opens numSessionsPerNode sessions to targetNode one after the
 // other and returns how many of them completed the exchange.
-func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *HostNode, numSessionsPerNode int) int {
+func runInitiator(t *testing.T, ctx context.Context, initiator, targetNode *HostNode, numSessionsPerNode int) int {
 	t.Helper()
 	for i := range numSessionsPerNode {
 		select {
@@ -70,7 +70,7 @@ func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *
 		caller := fmt.Sprintf("caller-%s-%d", targetNode.ID, i)
 		contextID := fmt.Sprintf("ctx-%s-%d", targetNode.ID, i)
 
-		s, err := bootstrapNode.NewSession(caller, contextID, targetNode.Address, []byte(targetNode.ID))
+		s, err := initiator.NewSession(caller, contextID, targetNode.Address, []byte(targetNode.ID))
 		if err != nil {
 			t.Errorf("Sender: failed to create session to %s: %v", targetNode.ID, err)
 			return i

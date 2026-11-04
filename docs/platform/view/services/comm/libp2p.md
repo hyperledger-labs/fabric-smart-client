@@ -1,14 +1,14 @@
 # Libp2p Transport
 
-The Libp2p transport is an optional communication stack for the Fabric Smart Client, distributed as its own Go module; the websocket transport is the primary implementation and lives in the root module. It leverages the industry-standard `libp2p` library to provide a decentralized, robust, and highly configurable P2P networking layer.
+The Libp2p transport is an optional communication stack for the Fabric Smart Client, distributed as its own Go module; the websocket transport is the primary implementation and lives in the root module. It uses the `libp2p` library for the connection, the security handshake and stream multiplexing.
 
 ## Overview
 
-Libp2p is used when nodes need to operate in a truly decentralized environment where peer discovery, NAT traversal, and DHT-based routing are required.
+A libp2p node finds no peers on its own. To open a session it dials the P2P address that the endpoint resolver gives for the party, as a websocket node does, and a responder replies on the connection the initiator opened. A node therefore needs no other node to be up to start, and every resolver entry for a party the node opens sessions to needs a `P2P` address.
 
 ### Key Characteristics
-- **DHT Routing**: Uses Kademlia DHT for peer discovery and content routing.
-- **Multi-protocol Support**: Can run over TCP, QUIC, and other transports.
+- **Addressing**: Peers are dialed at the address from the endpoint resolver; with no address the host uses one it already knows for the peer, such as from a live connection, and otherwise fails.
+- **Transport**: TCP. The host does not reuse its listen port for outgoing connections, so two nodes that dial each other at the same moment get two connections instead of one that neither can secure.
 - **Security**: Supports Noise and TLS security handshakes.
 - **Identity**: Peer IDs are derived from the node's cryptographic public key.
 
@@ -22,8 +22,6 @@ The Libp2p transport implementation is centered around the `libp2p.host` struct.
 graph TD
     Node[P2PNode] --> Host[libp2p.host]
     Host --> Libp2p[go-libp2p.Host]
-    Host --> DHT[Kademlia DHT]
-    Host --> Finder[RoutingDiscovery]
     
     subgraph "Stream Management"
         Host --> Handler[StreamHandler]
@@ -54,7 +52,7 @@ In Libp2p mode, the `PeerID` is the primary identifier.
 
 -   **Connection Manager**: Configured with a "low water mark" of 100 and a "high water mark" of 400 connections to prevent resource exhaustion.
 -   **Read Limits (OOM Protection)**: Incoming messages are limited to 10MB to prevent remote memory exhaustion attacks. The system reads the varint-encoded length prefix and validates it before allocating the target buffer.
--   **Stream Sharing**: The `StreamHash` for libp2p is the `RemotePeerID`, so all sessions to a peer share its streams. Closing a session does not close a shared stream, because the remote may still reply on it for another session. A shared stream is removed when reading from it fails (for example, the peer goes away or the connection is trimmed) and closed when the node stops.
+-   **Stream Sharing**: The `StreamHash` for libp2p is the `RemotePeerID`, so all sessions to a peer share its streams. Sessions that need a stream to a peer while there is none wait for one new stream instead of opening one each, which keeps a burst of new sessions under libp2p's limit of inbound streams per protocol and peer (by default 64, raised with the memory available). Closing a session does not close a shared stream, because the remote may still reply on it for another session. A shared stream is removed when reading from it fails (for example, the peer goes away or the connection is trimmed) and closed when the node stops.
 
 ## Trust and Access Control
 
@@ -77,11 +75,6 @@ fsc:
     opts:
       # ------------------- libp2p specific options -------------------------
       libp2p:
-        # bootstrap node
-        # if it's empty then this node is the bootstrap node, otherwise it's the name
-        # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
-        # and that entry must have an address with an entry P2P.
-        bootstrapNode: theBootstrapNode
         # Connection manager settings for libp2p
         connManager:
           # Low water mark - when the number of connections drops below this, the connection manager

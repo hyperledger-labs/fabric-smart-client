@@ -244,7 +244,6 @@ type closeHost struct {
 
 func (*closeHost) PeerID() host.PeerID                        { return "me" }
 func (*closeHost) Start(func(host.P2PStream)) error           { return nil }
-func (*closeHost) Wait()                                      {}
 func (h *closeHost) Close() error                             { h.once.Do(func() { close(h.closed) }); return nil }
 func (h *closeHost) GetNewHost() (host.P2PHost, error)        { return h, nil }
 func (*closeHost) StreamHash(host.StreamInfo) host.StreamHash { return "" }

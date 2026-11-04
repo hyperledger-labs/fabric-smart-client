@@ -13,7 +13,6 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"testing"
-	"time"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -21,10 +20,8 @@ import (
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	idecdsa "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -94,25 +91,8 @@ func TestSignedSessionExchange(t *testing.T) {
 	aliceAddr := addrs[0]
 	bobAddr := addrs[1]
 
-	// Alice is the bootstrap node; Bob connects to Alice.
-	aliceCfg := &mock.LibP2PConfig{}
-	aliceCfg.ListenAddressReturns(aliceAddr)
-	aliceHost, err := newLibP2PHost(aliceCfg, aliceKey.cryptoK, newMetrics(&disabled.Provider{}), true, "")
-	require.NoError(t, err)
-	aliceP2P, err := comm.NewNode(t.Context(), aliceHost, &disabled.Provider{})
-	require.NoError(t, err)
-
-	bobCfg := &mock.LibP2PConfig{}
-	bobCfg.ListenAddressReturns(bobAddr)
-	bobHost, err := newLibP2PHost(bobCfg, bobKey.cryptoK, newMetrics(&disabled.Provider{}), false, aliceAddr+"/p2p/"+aliceKey.peerID)
-	require.NoError(t, err)
-	bobP2P, err := comm.NewNode(t.Context(), bobHost, &disabled.Provider{})
-	require.NoError(t, err)
-
-	time.Sleep(1 * time.Second)
-
-	aliceNode := &comm.HostNode{P2PNode: aliceP2P, ID: aliceKey.peerID, Address: aliceAddr}
-	bobNode := &comm.HostNode{P2PNode: bobP2P, ID: bobKey.peerID, Address: bobAddr}
+	aliceNode := newTestNode(t, aliceKey.cryptoK, aliceKey.peerID, aliceAddr)
+	bobNode := newTestNode(t, bobKey.cryptoK, bobKey.peerID, bobAddr)
 
 	alice := newLibp2pSignedParty(t, "alice", aliceNode, aliceKey, bobNode, bobKey)
 	bob := newLibp2pSignedParty(t, "bob", bobNode, bobKey, aliceNode, aliceKey)
