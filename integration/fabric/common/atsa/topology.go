@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Create an empty fabric topology
 	fabricTopology := fabric.NewDefaultTopology()
 	// Enabled Idemix for Anonymous Identities
@@ -31,7 +31,6 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = commType
 	// fscTopology.SetLogging("debug", "")
 
 	// Approver
@@ -74,7 +73,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add app-specific SDK to FSC Nodes
-	fscTopology.AddSDKForCommType(&SDK{}, commType)
+	fscTopology.AddSDK(&SDK{})
 
 	return []api.Topology{fabricTopology, fscTopology}
 }

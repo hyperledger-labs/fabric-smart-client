@@ -19,7 +19,7 @@ import (
 // and bob on both. Both networks use the same channel name, alice's default network
 // is fab and bob's is fx, so each node receives transactions for its non-default
 // network of the other platform.
-func Topology(commType fsc.P2PCommunicationType) []api.Topology {
+func Topology() []api.Topology {
 	fab := fabric.NewTopologyWithName("fab").SetDefault()
 	fab.AddOrganizationsByName("Org1", "Org2")
 	fab.SetNamespaceApproverOrgs("Org1")
@@ -31,7 +31,6 @@ func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 	fx.AddNamespace("ns2", topology.Unanimity("Org1"))
 
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = commType
 	for node, defaultNetwork := range map[string]string{"alice": "fab", "bob": "fx"} {
 		fscTopology.AddNodeByName(node).
 			AddOptions(
@@ -42,7 +41,7 @@ func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 			RegisterViewFactory("status", &views.StatusFactory{}).
 			RegisterResponder(&views.Approve{}, &views.Endorse{})
 	}
-	fscTopology.AddSDKForCommType(&SDK{}, commType)
+	fscTopology.AddSDK(&SDK{})
 
 	return []api.Topology{fab, fx, fscTopology}
 }

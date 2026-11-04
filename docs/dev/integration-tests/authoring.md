@@ -55,18 +55,16 @@ part the framework provides (`integration/utils.go`):
 ```go
 // integration/<platform>/<test-name>/topology.go
 type Opts struct {
-    CommType        fsc.P2PCommunicationType
     ReplicationOpts *integration.ReplicationOptions
     TLSEnabled      bool
 }
 ```
 
-The suite's `_test.go` then fills it in. `fsc.WebSocket` is the default comm type; use
-`fsc.LibP2P` only with a reason:
+The suite's `_test.go` then fills it in. A suite that also runs on libp2p adds a
+`CommType` field (see [Choosing a p2p comm type](#choosing-a-p2p-comm-type)):
 
 ```go
 opts := &Opts{
-    CommType:   fsc.WebSocket,
     TLSEnabled: true,
     ReplicationOpts: &integration.ReplicationOptions{
         ReplicationFactors: map[string]int{"node": 3},
@@ -138,6 +136,21 @@ a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
     for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
         Describe("My Life Cycle", Label(c), func() { /* ... */ })
     }
+
+A websocket-only suite leaves `fscTopology.P2PCommunicationType` at its default,
+`fsc.WebSocket`, and installs its SDK with `fscTopology.AddSDK(&SDK{})`.
+
+`nwo` does not link the libp2p host. A suite that also runs on libp2p takes the comm type
+as a parameter, sets it on the topology, and installs `libp2psupport.SDK`
+(`integration/nwo/fsc/support/libp2p`) on its nodes:
+
+    fscTopology.P2PCommunicationType = commType
+    fscTopology.AddSDKWithExtensions(&SDK{}, &libp2psupport.SDK{})
+
+The field decides the transport: nwo writes it to each node's `fsc.p2p.type` and
+generates the endpoints for it. `libp2psupport.SDK` only makes the libp2p host
+available; it picks the host from `fsc.p2p.type` and uses the default websocket host
+otherwise, so the same topology serves both comm types.
 
 A suite that runs one comm type writes the `Describe` once, as
 `Describe("My Life Cycle", Label(fsc.WebSocket), func() { /* ... */ })`. Label websocket-only variants

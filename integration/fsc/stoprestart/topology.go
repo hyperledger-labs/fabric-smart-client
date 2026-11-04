@@ -9,6 +9,7 @@ package stoprestart
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -32,7 +33,7 @@ func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 		RegisterResponder(&Responder{}, &Initiator{}).
 		AddOptions(fsc.WithAlias("bob_alias"))
 
-	topology.AddSDKForCommType(&viewsdk.SDK{}, commType)
+	topology.AddSDKWithExtensions(&viewsdk.SDK{}, &libp2psupport.SDK{})
 
 	monitoringTopology := monitoring.NewTopology()
 	monitoringTopology.EnableOTLP()

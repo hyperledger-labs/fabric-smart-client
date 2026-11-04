@@ -15,12 +15,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/iou"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
 var _ = Describe("EndToEnd", func() {
 	Describe("Channel Config Update With Websockets", Label("T1"), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
+		s := NewTestSuite(integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("keeps transacting across channel config updates and a node restart", s.TestSucceeded)
@@ -31,10 +30,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, tlsEnabled bool) *TestSuite {
+func NewTestSuite(nodeOpts *integration.ReplicationOptions, tlsEnabled bool) *TestSuite {
 	return &TestSuite{TestSuite: integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		return integration.Generate(StartPort(), integration.WithRaceDetection, configupdate.Topology(&configupdate.Opts{
-			CommType:        commType,
 			ReplicationOpts: nodeOpts,
 			TLSEnabled:      tlsEnabled,
 		})...)

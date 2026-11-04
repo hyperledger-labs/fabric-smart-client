@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
@@ -88,7 +89,7 @@ func Topology(opts *Opts) []api.Topology {
 	monitoringTopology.EnableOTLP()
 
 	// Add app-specific SDK to FSC Nodes
-	fscTopology.AddSDKForCommType(&SDK{}, opts.CommType)
+	fscTopology.AddSDKWithExtensions(&SDK{}, &libp2psupport.SDK{})
 
 	return []api.Topology{
 		fabricTopology,

@@ -22,7 +22,7 @@ var _ = Describe("EndToEnd", func() {
 	// fsc/pingpong covers without a Fabric network. This suite's subject is two
 	// Fabric networks, and it pays two bootstraps per spec.
 	Describe("Two Fabric Networks Life Cycle", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		s := NewTestSuite(integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("pings a node on two Fabric networks, queries both and commits on each", s.TestSucceeded)
@@ -34,9 +34,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, twonets.Topology(commType, nodeOpts)...)
+		return integration.Generate(StartPort(), true, twonets.Topology(nodeOpts)...)
 	})}
 }
 

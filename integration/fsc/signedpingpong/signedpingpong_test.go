@@ -23,7 +23,7 @@ var _ = Describe("EndToEnd", func() {
 	// and comm/host/libp2p/sig_exchange_test.go covers the signed exchange,
 	// including LocalPKID, on libp2p hosts.
 	Describe("Network-based Signed Ping Pong", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		s := NewTestSuite(integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("signs and verifies messages with the identities of the session's PKIDs", func() { s.TestSignedExchange("alice") })
@@ -34,9 +34,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, signedpingpong.Topology(commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, signedpingpong.Topology(nodeOpts)...)
 	})}
 }
 

@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology(commType fsc.P2PCommunicationType) []api.Topology {
+func Topology() []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -30,7 +30,6 @@ func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 	// Define an FSC topology with 3 FSC nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = commType
 
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver").
@@ -58,7 +57,7 @@ func Topology(commType fsc.P2PCommunicationType) []api.Topology {
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add app-specific SDK to FSC Nodes
-	fscTopology.AddSDKForCommType(&iou.SDK{}, commType)
+	fscTopology.AddSDK(&iou.SDK{})
 
 	return []api.Topology{fabricTopology, fscTopology}
 }

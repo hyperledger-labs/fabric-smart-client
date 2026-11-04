@@ -19,7 +19,6 @@ import (
 )
 
 type Opts struct {
-	CommType        fsc.P2PCommunicationType
 	ReplicationOpts *integration.ReplicationOptions
 	TLSEnabled      bool
 }
@@ -45,7 +44,6 @@ func Topology(opts *Opts) []api.Topology {
 	fabricTopology.TLSEnabled = opts.TLSEnabled
 
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = opts.CommType
 
 	// Two approvers, both in Org1, so that the flow before and after a config update can
 	// be driven through different endorsers.
@@ -78,7 +76,7 @@ func Topology(opts *Opts) []api.Topology {
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
 		RegisterViewFactory("configseq", &views.ConfigSequenceViewFactory{})
 
-	fscTopology.AddSDKForCommType(&iou.SDK{}, opts.CommType)
+	fscTopology.AddSDK(&iou.SDK{})
 
 	return []api.Topology{
 		fabricTopology,
