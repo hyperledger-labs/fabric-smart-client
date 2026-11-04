@@ -24,7 +24,7 @@ var _ = Describe("EndToEnd", func() {
 	// session -- its views only invoke chaincode -- so no FSC-to-FSC traffic
 	// crosses the p2p layer and the transport is irrelevant to what it asserts.
 	Describe("Asset Transfer Secured Agreement (With Chaincode)", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
+		s := NewTestSuite(integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("transfers an asset only once the sell and buy prices match", s.TestSucceeded)
@@ -35,9 +35,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.GenerateAt(StartPort(), "out/testdata", integration.WithRaceDetection, atsa.Topology(commType, nodeOpts)...)
+		return integration.GenerateAt(StartPort(), "out/testdata", integration.WithRaceDetection, atsa.Topology(nodeOpts)...)
 	})}
 }
 

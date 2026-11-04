@@ -16,7 +16,7 @@ import (
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 )
 
-func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Define a new Fabric topology starting from a Default configuration with a single channel `testchannel`
 	// and solo ordering.
 	fabricTopology := fabric.NewDefaultTopology()
@@ -36,7 +36,6 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 
 	// Define a new FSC topology
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = commType
 	// fscTopology.SetLogging("debug", "")
 
 	// Define Alice's FSC node
@@ -68,7 +67,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		RegisterViewFactory("Transfer", &views.TransferViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDKForCommType(&fabricsdk.SDK{}, commType)
+	fscTopology.AddSDK(&fabricsdk.SDK{})
 
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}

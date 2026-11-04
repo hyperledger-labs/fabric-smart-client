@@ -136,3 +136,20 @@ func TestFscIndex(t *testing.T) {
 		require.Equal(t, want, n.fscIndex(id), "fscIndex(%q)", id)
 	}
 }
+
+// TestHarnessDoesNotLinkLibP2P keeps the libp2p host out of the harness, so that a
+// websocket-only consumer of nwo neither builds libp2p nor needs a replace for the libp2p
+// host module. A topology that runs on libp2p installs it with nwo/fsc/support/libp2p.
+func TestHarnessDoesNotLinkLibP2P(t *testing.T) {
+	t.Parallel()
+	out, err := exec.Command("go", "list", "-deps", ".", "./fsc", "./fabric", "./fabricx").CombinedOutput()
+	require.NoError(t, err, string(out))
+
+	var linked []string
+	for pkg := range strings.Lines(string(out)) {
+		if strings.Contains(pkg, "/comm/host/libp2p") || strings.HasPrefix(pkg, "github.com/libp2p/") {
+			linked = append(linked, strings.TrimSpace(pkg))
+		}
+	}
+	require.Empty(t, linked, "nwo links libp2p packages")
+}

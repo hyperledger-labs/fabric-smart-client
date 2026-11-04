@@ -20,7 +20,6 @@ import (
 )
 
 type Opts struct {
-	CommType        fsc.P2PCommunicationType
 	ReplicationOpts *integration.ReplicationOptions
 	TLSEnabled      bool
 }
@@ -45,7 +44,6 @@ func Topology(opts *Opts) []api.Topology {
 	// Define an FSC topology with 3 FSC nodes.
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = opts.CommType
 	fscTopology.EnablePrometheusMetrics()
 	// fscTopology.SetLogging("debug", "")
 	fscTopology.EnableTracing(tracing.Otlp)
@@ -100,7 +98,7 @@ func Topology(opts *Opts) []api.Topology {
 	monitoringTopology.EnableOTLP()
 
 	// Add app-specific SDK to FSC Nodes
-	fscTopology.AddSDKForCommType(&SDK{}, opts.CommType)
+	fscTopology.AddSDK(&SDK{})
 
 	return []api.Topology{
 		fabricTopology,

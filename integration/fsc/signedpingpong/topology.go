@@ -13,9 +13,8 @@ import (
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 )
 
-func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 	topology := fsc.NewTopology()
-	topology.P2PCommunicationType = commType
 
 	topology.AddNodeByName("alice").
 		RegisterViewFactory("signedInit", &AliceInitiatorViewFactory{}).
@@ -27,7 +26,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		AddOptions(fsc.WithAlias("bob")).
 		AddOptions(replicationOpts.For("bob")...)
 
-	topology.AddSDKForCommType(&viewsdk.SDK{}, commType)
+	topology.AddSDK(&viewsdk.SDK{})
 
 	return []api.Topology{topology}
 }

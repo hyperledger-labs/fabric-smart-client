@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Define two Fabric topologies that differ in what an FSC node must handle per
 	// network: alpha runs raft without TLS, beta runs SmartBFT with TLS. Ping commits on
 	// both, so the suite covers a node that serves a plaintext and a TLS network at once,
@@ -45,7 +45,6 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 
 	// Define an FSC topology with 2 FSC nodes.
 	fscTopology := fsc.NewTopology()
-	fscTopology.P2PCommunicationType = commType
 	// The spec reads alice's orderer connections from /metrics.
 	fscTopology.EnablePrometheusMetrics()
 
@@ -73,7 +72,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		RegisterResponder(&views.Approve{}, &views.Endorse{})
 
 	// Add app-specific SDK to FSC Nodes
-	fscTopology.AddSDKForCommType(&SDK{}, commType)
+	fscTopology.AddSDK(&SDK{})
 
 	return []api.Topology{f1Topology, f2Topology, fscTopology}
 }

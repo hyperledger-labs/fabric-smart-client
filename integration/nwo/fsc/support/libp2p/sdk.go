@@ -4,6 +4,8 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package libp2p installs the libp2p host on FSC nodes built by nwo. The rest of nwo does not
+// link it, so only a topology that imports this package builds libp2p.
 package libp2p
 
 import (
@@ -22,30 +24,28 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
+// SDK wraps another SDK and makes its nodes use the libp2p host when fsc.p2p.type is libp2p, and
+// the default host provider otherwise.
 type SDK struct {
 	common.SDK
 }
 
+// NewSDK returns an SDK that wraps the view SDK.
 func NewSDK(registry services.Registry) *SDK {
 	return NewFrom(viewsdk.NewSDK(registry))
 }
 
+// NewFrom returns an SDK that wraps sdk.
 func NewFrom(sdk common.SDK) *SDK {
 	return &SDK{SDK: sdk}
 }
 
+// Install decorates the host provider with CustomHostProvider and installs the wrapped SDK.
 func (p *SDK) Install() error {
-	// first decorate
 	if err := p.Container().Decorate(CustomHostProvider); err != nil {
 		return err
 	}
-
-	// Call the parent
-	if err := p.SDK.Install(); err != nil {
-		return err
-	}
-
-	return nil
+	return p.SDK.Install()
 }
 
 // CustomHostProvider extends the default host provider with libp2p support.

@@ -11,9 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
@@ -49,8 +47,10 @@ type Shutdown struct {
 
 type P2PCommunicationType = string
 
+// The P2P communication types a topology can run on. nwo does not link the libp2p host: a
+// topology that runs on LibP2P installs it on its nodes with nwo/fsc/support/libp2p.
 const (
-	LibP2P    P2PCommunicationType = libp2p.P2PCommunicationType
+	LibP2P    P2PCommunicationType = "libp2p"
 	WebSocket P2PCommunicationType = websocket.P2PCommunicationType
 )
 
@@ -210,12 +210,4 @@ func (t *Topology) addNode(node *node.Node) *node.Node {
 	}
 	t.Nodes = append(t.Nodes, node)
 	return node
-}
-
-func (t *Topology) AddSDKForCommType(base fscnode.SDK, commType P2PCommunicationType) {
-	if commType == LibP2P {
-		t.AddSDKWithExtensions(base, &libp2psupport.SDK{})
-	} else {
-		t.AddSDK(base)
-	}
 }

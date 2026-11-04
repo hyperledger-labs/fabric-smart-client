@@ -25,27 +25,25 @@ var _ = Describe("EndToEnd", func() {
 	// platform/fabric/services/state code path that fabric/iou exercises under
 	// libp2p, so a second transport here buys a Fabric bootstrap and no coverage.
 	Describe("Asset Transfer Secured Agreement (With Approvers)", Label(nwofsc.WebSocket), func() {
-		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
+		s := NewTestSuite(integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("issues an asset and transfers it after a sell and buy agreement", s.TestSucceeded)
 	})
 
 	Describe("Asset Transfer Secured Agreement (With Approvers) with replicas", Label(nwofsc.WebSocket), func() {
-		s := NewTestSuite(
-			nwofsc.WebSocket,
-			&integration.ReplicationOptions{
-				ReplicationFactors: map[string]int{
-					"issuer":    2,
-					"alice":     3,
-					"bob":       2,
-					"approvers": 2,
-				},
-				SQLConfigs: map[string]*postgres.ContainerConfig{
-					"alice": postgres.DefaultConfig(postgres.WithDBName("alice-db")),
-					"bob":   postgres.DefaultConfig(postgres.WithDBName("bob-db")),
-				},
-			})
+		s := NewTestSuite(&integration.ReplicationOptions{
+			ReplicationFactors: map[string]int{
+				"issuer":    2,
+				"alice":     3,
+				"bob":       2,
+				"approvers": 2,
+			},
+			SQLConfigs: map[string]*postgres.ContainerConfig{
+				"alice": postgres.DefaultConfig(postgres.WithDBName("alice-db")),
+				"bob":   postgres.DefaultConfig(postgres.WithDBName("bob-db")),
+			},
+		})
 
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
@@ -61,9 +59,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, atsa.Topology(commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, atsa.Topology(nodeOpts)...)
 	})}
 }
 

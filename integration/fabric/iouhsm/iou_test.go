@@ -21,7 +21,7 @@ var _ = Describe("EndToEnd", func() {
 	// websocket only: identical p2p path to fabric/iou, which keeps libp2p. The
 	// variable under test here is HSM signing, not the transport.
 	Describe("IOU (With HSM) Life Cycle", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket)
+		s := NewTestSuite()
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("creates and updates IOUs signed with HSM keys", s.TestSucceeded)
@@ -32,9 +32,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType) *TestSuite {
+func NewTestSuite() *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, iouhsm.Topology(commType)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, iouhsm.Topology()...)
 	})}
 }
 

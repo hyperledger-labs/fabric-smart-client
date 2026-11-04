@@ -19,7 +19,7 @@ import (
 var _ = Describe("EndToEnd", func() {
 	Describe("A Fabric and a Fabric-x network", Label(fsc.WebSocket), func() {
 		s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-			ii, err := integration.New(integration.FabricAndFabricXPort.StartPortForNode(), "", mixednets.Topology(fsc.WebSocket)...)
+			ii, err := integration.New(integration.FabricAndFabricXPort.StartPortForNode(), "", mixednets.Topology()...)
 			if err != nil {
 				return nil, err
 			}
