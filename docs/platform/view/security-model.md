@@ -116,17 +116,39 @@ Every field is length-prefixed. The fields and the reason for each:
   the canonical PEM form of `id.CanonicalIdentity`, so a node whose certificate file differs in
   formatting from its peers' resolver configuration still produces matching proofs.
 
-X is signed and verified with the Fabric network's signature service
-(`fabric.NetworkService.SignerService()`). It resolves X through the deserializers of the node's
-locally configured MSPs, not the channel MSPs that endorsement verification uses:
+The sender signs with the Fabric network's signature service
+(`fabric.NetworkService.SignerService()`). The receiver picks the verifier for X from the form of
+X, and for a non-x509 `SerializedIdentity` from X's MSP in a channel of its own configuration: the
+channel set with `state.WithChannel` on the exchange views, or the network's default channel
+otherwise, and always the default channel for `RequestRecipientIdentity`. The `Channel` field of
+an `ExchangeRecipientRequest` is ignored, because the party being verified would otherwise choose
+the MSPs that verify it.
 
-- An x509 identity always deserializes, to a verifier for its public key. It is not checked
-  against any MSP, so a verified proof shows that the sender holds the key for X, not that X
-  belongs to an MSP. Anything that needs membership must check it separately.
-- An idemix identity deserializes only if the receiver has a local idemix MSP from the same
-  issuer. A local idemix MSP loads only with a credential, so the receiver must hold its own
-  idemix credential from that issuer. These views do not support idemix recipients from any
-  other issuer: the receiver refuses them.
+- An x509 identity, a `SerializedIdentity` whose `IdBytes` hold a PEM certificate, is verified
+  with the signature service and never needs the channel. It always deserializes, to a verifier
+  for its public key. It is not checked against any MSP, so a verified proof shows that the
+  sender holds the key for X, not that X belongs to an MSP. Anything that needs membership must
+  check it separately. The same holds for bytes that are not a `SerializedIdentity`.
+- Any other `SerializedIdentity` needs the channel, to tell whether X's MSP is idemix. If it is
+  an idemix MSP of the channel, X must be valid on the channel, which checks its credential
+  against the issuer the channel configures for that MSP, and its verifier comes from the
+  channel's MSPs. The receiver therefore verifies idemix recipients from any issuer in the
+  channel, whether or not it holds a credential of its own. The validity check is required: the
+  channel's verifier alone accepts a pseudonym with no credential behind it.
+- If X's MSP is not an idemix MSP of the channel, X is verified with the signature service,
+  through the deserializers of the node's locally configured MSPs. A local idemix MSP accepts X
+  only under its own MSP ID and only with a valid credential from its issuer, so a pseudonym
+  cannot claim the MSP ID of another organization.
+- The signature service does not cache a verifier it deserializes for a proof check, so
+  identities a peer sends cannot grow the node's memory. Verifiers already registered or cached,
+  such as those of the node's own identities, are reused.
+
+If X needs the channel and the channel is unknown, for example because the network has no
+default channel and no `state.WithChannel` is set, or its configuration is not in force yet, X is
+refused with an error wrapping `driver.ErrNotInitialized` while the node is catching up. Such a
+refusal is a condition of this node, so it is not counted as a rejection, and the exchange
+responder tells the initiator only that the channel is not ready. x509 recipients are not
+affected.
 
 The exchange responder verifies the initiator's proof before it replies. On failure it replies
 with an error and binds nothing, so the initiator gets

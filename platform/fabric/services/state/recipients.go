@@ -8,9 +8,13 @@ package state
 
 import (
 	"encoding/json"
+	"encoding/pem"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	commsession "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
@@ -42,6 +46,9 @@ func (r *RecipientData) FromBytes(raw []byte) error {
 
 // ExchangeRecipientRequest models a request of exchange of recipient identities
 type ExchangeRecipientRequest struct {
+	// Channel is ignored by the responder: it verifies the initiator's
+	// identity with the channel of its own configuration, never with one the
+	// party being verified chose.
 	Channel       string
 	WalletID      []byte
 	RecipientData *RecipientData
@@ -75,7 +82,8 @@ func (r *RecipientRequest) FromBytes(raw []byte) error {
 
 // RequestRecipientIdentityView asks Other for a recipient identity, verifies
 // the proof of ownership that comes with it, and binds the identity to Other's
-// FSC node identity.
+// FSC node identity. It verifies with the default channel of Network; see
+// verifyProof.
 type RequestRecipientIdentityView struct {
 	Network string
 	Other   view.Identity
@@ -132,7 +140,7 @@ func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	p := proofContext(TagRequestReply, viewCtx, session, other, own, recipientData.Identity)
-	if err := verifyProof(viewCtx, fns, p, recipientData.Proof); err != nil {
+	if err := verifyProof(viewCtx, fns, "", p, recipientData.Proof); err != nil {
 		return nil, err
 	}
 
@@ -229,13 +237,17 @@ func RespondRequestRecipientIdentity(viewCtx view.Context) (view.Identity, error
 
 // ExchangeRecipientIdentitiesView models the view of the initiator of an exchange of recipient identities.
 type ExchangeRecipientIdentitiesView struct {
-	Network       string
+	Network string
+	// Channel is the channel whose MSPs verify an idemix recipient identity;
+	// empty means the network's default channel. See verifyProof.
+	Channel       string
 	IdentityLabel string
 	Other         view.Identity
 }
 
-// ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
-// The function returns, the recipient identity of the sender, the recipient identity of the receiver.
+// ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver,
+// with the network, channel and identity label taken from opts.
+// The function returns the recipient identity of the sender and the recipient identity of the receiver.
 func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, opts ...ServiceOption) (sender, receiver view.Identity, err error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
@@ -243,6 +255,7 @@ func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, 
 	}
 	ids, err := viewCtx.RunView(&ExchangeRecipientIdentitiesView{
 		Network:       opt.Network,
+		Channel:       opt.Channel,
 		Other:         recipient,
 		IdentityLabel: opt.Identity,
 	})
@@ -319,7 +332,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error
 	}
 
 	p := proofContext(TagExchangeReply, viewCtx, session, other, own, recipientData.Identity)
-	if err := verifyProof(viewCtx, fns, p, recipientData.Proof); err != nil {
+	if err := verifyProof(viewCtx, fns, f.Channel, p, recipientData.Proof); err != nil {
 		return nil, err
 	}
 
@@ -342,11 +355,15 @@ func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error
 
 // RespondExchangeRecipientIdentitiesView models the view of the responder of an exchange of recipient identities.
 type RespondExchangeRecipientIdentitiesView struct {
-	Network       string
+	Network string
+	// Channel is the channel whose MSPs verify an idemix recipient identity;
+	// empty means the network's default channel. See verifyProof.
+	Channel       string
 	IdentityLabel string
 }
 
-// RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView
+// RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView, with the
+// network, channel and identity label taken from opts
 func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOption) (sender, receiver view.Identity, err error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
@@ -354,6 +371,7 @@ func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOpt
 	}
 	ids, err := viewCtx.RunView(&RespondExchangeRecipientIdentitiesView{
 		Network:       opt.Network,
+		Channel:       opt.Channel,
 		IdentityLabel: opt.Identity,
 	})
 	if err != nil {
@@ -421,8 +439,14 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any
 
 	// Verify before replying, so a refused initiator learns why and gets no identity.
 	p := proofContext(TagExchangeRequest, viewCtx, session, caller, own, other)
-	if err := verifyProof(viewCtx, fns, p, request.RecipientData.Proof); err != nil {
-		if sendErr := session.SendError(viewCtx.Context(), []byte(err.Error())); sendErr != nil {
+	if err := verifyProof(viewCtx, fns, s.Channel, p, request.RecipientData.Proof); err != nil {
+		reply := err.Error()
+		if errors.Is(err, errChannelUnavailable) {
+			// Tell the initiator it can retry, without the details of this
+			// node's channel configuration.
+			reply = errChannelUnavailable.Error()
+		}
+		if sendErr := session.SendError(viewCtx.Context(), []byte(reply)); sendErr != nil {
 			logger.Debugf("failed sending recipient proof error to [%s]: %v", caller, sendErr)
 		}
 		return nil, err
@@ -523,25 +547,37 @@ const (
 	reasonInvalidSignature  = "invalid signature"
 )
 
-// verifyProof verifies proof against p with the network's verifier for
-// p.Identity, and reports a failure as security.KindRecipientProof with one
-// of the reason* constants.
-func verifyProof(viewCtx view.Context, fns *fabric.NetworkService, p ProofContext, proof []byte) error {
-	reason, err := checkProof(fns, p, proof)
-	if err != nil {
+// errChannelUnavailable marks a verification that failed because this node
+// cannot use the channel that verifies the identity: the channel is unknown,
+// or its configuration is not in force yet. It is a condition of this node,
+// not of the counterparty, so it is not reported as a rejection, and a
+// retry can succeed once the channel configuration has arrived.
+var errChannelUnavailable = errors.New("recipient verification unavailable: channel not ready")
+
+// verifyProof verifies proof against p with the verifier recipientVerifier
+// returns for p.Identity on channel, and reports a refused proof as
+// security.KindRecipientProof with one of the reason* constants.
+func verifyProof(viewCtx view.Context, fns *fabric.NetworkService, channel string, p ProofContext, proof []byte) error {
+	reason, err := checkProof(fns, channel, p, proof)
+	if err != nil && reason != "" {
 		security.GetRejections(viewCtx).Report(viewCtx.Context(), security.KindRecipientProof, p.SignerNode, "", reason)
 	}
 	return err
 }
 
-func checkProof(fns *fabric.NetworkService, p ProofContext, proof []byte) (string, error) {
+// checkProof returns the reason a proof is refused with. The reason is empty
+// for a valid proof and for errChannelUnavailable.
+func checkProof(fns *fabric.NetworkService, channel string, p ProofContext, proof []byte) (string, error) {
 	if len(proof) == 0 {
 		return reasonMissing, VerifyRecipientProof(nil, p, proof)
 	}
 	if !p.complete() {
 		return reasonIncompleteContext, VerifyRecipientProof(nil, p, proof)
 	}
-	verifier, err := fns.SignerService().GetVerifier(p.Identity)
+	verifier, err := recipientVerifier(fns, channel, p.Identity)
+	if errors.Is(err, errChannelUnavailable) {
+		return "", err
+	}
 	if err != nil {
 		return reasonNoVerifier, errors.Errorf("%w: no verifier for recipient identity: %s", ErrRecipientProof, err.Error())
 	}
@@ -549,4 +585,50 @@ func checkProof(fns *fabric.NetworkService, p ProofContext, proof []byte) (strin
 		return reasonInvalidSignature, err
 	}
 	return "", nil
+}
+
+// recipientVerifier returns the verifier for a recipient identity x sent by a
+// remote party. The receiver picks channel from its own configuration, never
+// from the remote party, since x's sender would otherwise choose the MSPs that
+// verify it; empty means the network's default channel.
+//
+// An x509 identity, a SerializedIdentity whose IdBytes are PEM, and anything
+// that is not a SerializedIdentity, get their verifier from the network's
+// signature service without touching the channel. That lookup does not cache
+// the verifier, so identities a peer sends cannot grow the cache before their
+// proof is checked.
+//
+// Any other SerializedIdentity needs the channel to tell whether its MSP is
+// idemix; if the channel is unknown or has no configuration in force, the
+// lookup fails with errChannelUnavailable. If the MSP is an idemix MSP of the
+// channel, x must be valid on the channel, which checks its credential against
+// that MSP's issuer, and its verifier comes from the channel's MSPs. Checking
+// validity matters: the channel's verifier alone accepts a pseudonym that has no
+// credential. This verifies idemix recipients from any issuer in the channel,
+// not only from issuers this node holds a credential for. If the MSP is not an
+// idemix MSP of the channel, x goes to the signature service.
+func recipientVerifier(fns *fabric.NetworkService, channel string, x view.Identity) (fabric.Verifier, error) {
+	sID := &msp.SerializedIdentity{}
+	if err := proto.Unmarshal(x, sID); err != nil || sID.Mspid == "" {
+		return fns.SignerService().LookupVerifier(x)
+	}
+	if block, _ := pem.Decode(sID.IdBytes); block != nil {
+		return fns.SignerService().LookupVerifier(x)
+	}
+	ch, err := fns.Channel(channel)
+	if err != nil {
+		return nil, errors.Join(errChannelUnavailable, errors.WithMessagef(err, "failed getting channel [%s]", channel))
+	}
+	mm := ch.MSPManager()
+	isIdemix, err := mm.IsIdemixMSP(sID.Mspid)
+	if err != nil {
+		return nil, errors.Join(errChannelUnavailable, errors.WithMessagef(err, "failed getting the type of MSP [%s] on channel [%s]", sID.Mspid, ch.Name()))
+	}
+	if !isIdemix {
+		return fns.SignerService().LookupVerifier(x)
+	}
+	if err := mm.IsValid(x); err != nil {
+		return nil, errors.WithMessagef(err, "invalid idemix identity on channel [%s]", ch.Name())
+	}
+	return mm.GetVerifier(x)
 }

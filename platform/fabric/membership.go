@@ -164,6 +164,16 @@ func (c *MSPManager) GetMSPIdentifier(sid []byte) (string, error) {
 	return id.GetMSPIdentifier(), nil
 }
 
+// IsIdemixMSP reports whether the channel's MSP mspID is of type Idemix. It is
+// false for an MSP the channel does not have, and fails while the channel has
+// no configuration in force, see GetMSPIDs.
+func (c *MSPManager) IsIdemixMSP(mspID string) (bool, error) {
+	return c.ch.IsIdemixMSP(mspID)
+}
+
+// GetVerifier returns a verifier for identity from the channel's MSPs. It only
+// deserializes identity: it is not a validity check, and for an idemix identity
+// it does not check the credential. Call IsValid for that.
 func (c *MSPManager) GetVerifier(identity view.Identity) (Verifier, error) {
 	return c.ch.GetVerifier(identity)
 }

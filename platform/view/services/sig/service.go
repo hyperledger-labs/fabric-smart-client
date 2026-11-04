@@ -251,44 +251,59 @@ func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 	return entry.Signer, nil
 }
 
+// GetVerifier returns the verifier for identity, deserializing it if none is
+// registered or cached, and caches the result. Cached verifiers are never
+// evicted, so for identities chosen by a remote party prefer LookupVerifier.
 func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	idHash := identity.UniqueID()
-
-	o.mutex.RLock()
-	entry, ok := o.verifiers[idHash]
-	o.mutex.RUnlock()
-	if !ok {
-		// ask the deserializer
-		if o.deserializer == nil {
-			return nil, errors.Errorf("cannot find verifier for [%s], no deserializer set", identity)
-		}
-		var err error
-		verifier, err := o.deserializer.DeserializeVerifier(identity)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed deserializing identity for verifier %v", identity)
-		}
-
-		newEntry := VerifierEntry{Verifier: verifier}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			newEntry.DebugStack = debug.Stack()
-		}
-		logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, logging.Identifier(verifier))
-		// write lock
-		o.mutex.Lock()
-
-		// check again
-		entry, ok = o.verifiers[idHash]
-		if ok {
-			// found
-			o.mutex.Unlock()
-		} else {
-			// not found
-			o.verifiers[idHash] = newEntry
-			entry = newEntry
-			o.mutex.Unlock()
-		}
+	if v, ok := o.cachedVerifier(idHash); ok {
+		return v, nil
 	}
-	return entry.Verifier, nil
+	verifier, err := o.deserializeVerifier(identity)
+	if err != nil {
+		return nil, err
+	}
+
+	newEntry := VerifierEntry{Verifier: verifier}
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		newEntry.DebugStack = debug.Stack()
+	}
+	logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, logging.Identifier(verifier))
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	if entry, ok := o.verifiers[idHash]; ok {
+		return entry.Verifier, nil
+	}
+	o.verifiers[idHash] = newEntry
+	return verifier, nil
+}
+
+// LookupVerifier returns the verifier registered or cached for identity, or
+// else deserializes one without caching it. It is meant for identities chosen
+// by a remote party, which must not grow the cache before they are verified.
+func (o *Service) LookupVerifier(identity view.Identity) (driver.Verifier, error) {
+	if v, ok := o.cachedVerifier(identity.UniqueID()); ok {
+		return v, nil
+	}
+	return o.deserializeVerifier(identity)
+}
+
+func (o *Service) cachedVerifier(idHash string) (driver.Verifier, bool) {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	entry, ok := o.verifiers[idHash]
+	return entry.Verifier, ok
+}
+
+func (o *Service) deserializeVerifier(identity view.Identity) (driver.Verifier, error) {
+	if o.deserializer == nil {
+		return nil, errors.Errorf("cannot find verifier for [%s], no deserializer set", identity)
+	}
+	verifier, err := o.deserializer.DeserializeVerifier(identity)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed deserializing identity for verifier %v", identity)
+	}
+	return verifier, nil
 }
 
 func (o *Service) GetSigningIdentity(identity view.Identity) (driver.SigningIdentity, error) {

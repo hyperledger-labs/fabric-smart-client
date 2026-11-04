@@ -1004,8 +1004,9 @@ func (*mockDriverMetadataService) GetFieldMapping(context.Context, string, strin
 }
 
 type mockDriverChannel struct {
-	name     string
-	metadata fdriver.MetadataService
+	name       string
+	metadata   fdriver.MetadataService
+	membership fdriver.ChannelMembership
 }
 
 func (m *mockDriverChannel) Name() string {
@@ -1020,7 +1021,7 @@ func (*mockDriverChannel) Vault() fdriver.Vault                                 
 func (*mockDriverChannel) Delivery() fdriver.Delivery                             { return nil }
 func (*mockDriverChannel) Ledger() fdriver.Ledger                                 { return nil }
 func (*mockDriverChannel) Finality() fdriver.Finality                             { return nil }
-func (*mockDriverChannel) ChannelMembership() fdriver.ChannelMembership           { return nil }
+func (m *mockDriverChannel) ChannelMembership() fdriver.ChannelMembership         { return m.membership }
 func (*mockDriverChannel) ChaincodeManager() fdriver.ChaincodeManager             { return nil }
 func (*mockDriverChannel) RWSetLoader() fdriver.RWSetLoader                       { return nil }
 func (*mockDriverChannel) EnvelopeService() fdriver.EnvelopeService               { return nil }

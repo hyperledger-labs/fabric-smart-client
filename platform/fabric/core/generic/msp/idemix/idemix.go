@@ -34,15 +34,24 @@ type Idemix struct {
 	RhNym           []byte
 }
 
+// Deserialize deserializes raw, a SerializedIdentity, into an identity of this
+// issuer; see DeserializeAgainstNymEID.
 func (c *Idemix) Deserialize(raw []byte, checkValidity bool) (*Identity, error) {
 	return c.DeserializeAgainstNymEID(raw, checkValidity, nil)
 }
 
+// DeserializeAgainstNymEID deserializes raw, a SerializedIdentity, into an
+// identity of this issuer. If c has a Name, the identity's MSP ID must equal
+// it, so a pseudonym of this issuer cannot claim another MSP. With
+// checkValidity, the identity's credential is verified against the issuer.
 func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID []byte) (*Identity, error) {
 	si := &m.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal to msp.SerializedIdentity{}")
+	}
+	if c.Name != "" && si.Mspid != c.Name {
+		return nil, errors.Errorf("expected MSP ID [%s], got [%s]", c.Name, si.Mspid)
 	}
 
 	serialized := new(m.SerializedIdemixIdentity)

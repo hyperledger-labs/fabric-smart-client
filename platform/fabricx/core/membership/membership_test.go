@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	bccsp "github.com/IBM/idemix/bccsp/types"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	msp_proto "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -692,8 +693,11 @@ func TestService_MSPManager(t *testing.T) {
 // MSP org (using the pre-generated testdata from the idemix provider package),
 // loads it into a Service, then creates an authentic signed proposal using the
 // Idemix signing identity and asserts that CheckACL passes.
-func TestService_CheckACL_IdemixSignedProposal(t *testing.T) {
-	t.Parallel()
+// newIdemixChannel returns a channel service whose configuration in force has
+// one application org, the Idemix MSP "idemix" of the issuer in the idemix
+// testdata, together with an Idemix provider holding a credential of that issuer.
+func newIdemixChannel(t *testing.T, channelID string) (*Service, *idemix.Provider) {
+	t.Helper()
 
 	// ── 1. Locate the Idemix MSP testdata (absolute path) ──────────────────
 	idemixMSPDir, err := filepath.Abs("../../../fabric/core/generic/msp/idemix/testdata/idemix")
@@ -704,10 +708,7 @@ func TestService_CheckACL_IdemixSignedProposal(t *testing.T) {
 	// Load the standard EtcdRaft application-channel profile, then swap the
 	// application org for our Idemix one.  Because we provide an absolute
 	// MSPDir we do not need to call CompleteInitialization.
-	const (
-		channelID  = "idemix-test"
-		idemixMSPI = "idemix"
-	)
+	const idemixMSPI = "idemix"
 	prof := configtxgen.Load(configtxgen.SampleAppChannelEtcdRaftProfile, configtest.GetDevConfigDir())
 
 	// Set capabilities to V1_1 on all three levels (channel, orderer,
@@ -741,7 +742,7 @@ func TestService_CheckACL_IdemixSignedProposal(t *testing.T) {
 	s := NewService(channelID)
 	require.NoError(t, s.Update(env))
 
-	// ── 3. Build a real Idemix identity and a matching signer ─────────────
+	// ── 3. Build a real Idemix provider ────────────────────────────────────
 	mspConf, err := fabricmsp.GetLocalMspConfigWithType(idemixMSPDir, nil, idemixMSPI, "idemix")
 	require.NoError(t, err)
 
@@ -752,6 +753,64 @@ func TestService_CheckACL_IdemixSignedProposal(t *testing.T) {
 
 	provider, err := idemix.NewProviderWithAnyPolicy(mspConf, kvss, sigService)
 	require.NoError(t, err)
+	return s, provider
+}
+
+// An Idemix identity is valid on the channel only with a credential from the
+// channel's issuer behind it, while GetVerifier alone accepts a pseudonym
+// without one. Callers that verify signatures of identities a remote party
+// chose, such as the recipient exchange, must therefore check IsValid first.
+func TestService_IdemixIsValidRequiresCredential(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	s, provider := newIdemixChannel(t, "idemix-test")
+
+	isIdemix, err := s.IsIdemixMSP("idemix")
+	require.NoError(t, err)
+	require.True(t, isIdemix)
+
+	// A pseudonym of the provider's credential is valid and verifies.
+	x, _, err := provider.Identity(nil)
+	require.NoError(t, err)
+	signer, err := provider.DeserializeSigner(x)
+	require.NoError(t, err)
+	msg := []byte("message")
+	sigma, err := signer.Sign(msg)
+	require.NoError(t, err)
+	require.NoError(t, s.IsValid(x))
+	v, err := s.GetVerifier(x)
+	require.NoError(t, err)
+	require.NoError(t, v.Verify(msg, sigma))
+
+	// A pseudonym of a fresh secret key, with no credential, is refused by
+	// IsValid, but GetVerifier accepts its signature.
+	usk, err := provider.Csp.KeyGen(&bccsp.IdemixUserSecretKeyGenOpts{Temporary: true})
+	require.NoError(t, err)
+	nym, err := provider.Csp.KeyDeriv(usk, &bccsp.IdemixNymKeyDerivationOpts{Temporary: true, IssuerPK: provider.IssuerPublicKey})
+	require.NoError(t, err)
+	nymPub, err := nym.PublicKey()
+	require.NoError(t, err)
+	raw, err := nymPub.Bytes()
+	require.NoError(t, err)
+	ou, err := proto.Marshal(&msp_proto.OrganizationUnit{MspIdentifier: "idemix"})
+	require.NoError(t, err)
+	role, err := proto.Marshal(&msp_proto.MSPRole{MspIdentifier: "idemix"})
+	require.NoError(t, err)
+	idBytes, err := proto.Marshal(&msp_proto.SerializedIdemixIdentity{NymX: raw[:len(raw)/2], NymY: raw[len(raw)/2:], Ou: ou, Role: role})
+	require.NoError(t, err)
+	forged, err := proto.Marshal(&msp_proto.SerializedIdentity{Mspid: "idemix", IdBytes: idBytes})
+	require.NoError(t, err)
+	forgedSigma, err := provider.Csp.Sign(usk, msg, &bccsp.IdemixNymSignerOpts{Nym: nym, IssuerPK: provider.IssuerPublicKey})
+	require.NoError(t, err)
+
+	require.Error(t, s.IsValid(forged))
+	v, err = s.GetVerifier(forged)
+	require.NoError(t, err)
+	require.NoError(t, v.Verify(msg, forgedSigma))
+}
+
+func TestService_CheckACL_IdemixSignedProposal(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+
+	const channelID = "idemix-test"
+	s, provider := newIdemixChannel(t, channelID)
 
 	identityBytes, _, err := provider.Identity(nil)
 	require.NoError(t, err)

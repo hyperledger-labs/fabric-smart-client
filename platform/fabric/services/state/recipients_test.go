@@ -20,6 +20,8 @@ import (
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
@@ -27,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -200,8 +203,64 @@ func newRecipientsEnv(t *testing.T, session *mockSession, nsp *fabric.NetworkSer
 	return &recipientsEnv{ctx: ctx, session: session, store: store, rejections: rc}
 }
 
+// testMembership is a channel membership whose configuration in force is the
+// MSPs of mgr, of which those in idemix are of type Idemix. With a nil mgr the
+// channel has no configuration in force.
+type testMembership struct {
+	fdriver.ChannelMembership
+	mgr    fabricmsp.MSPManager
+	idemix map[string]bool
+}
+
+func newTestMembership(t *testing.T, msps ...fabricmsp.MSP) *testMembership {
+	t.Helper()
+	mgr := fabricmsp.NewMSPManager()
+	require.NoError(t, mgr.Setup(msps))
+	m := &testMembership{mgr: mgr, idemix: map[string]bool{}}
+	for _, msp := range msps {
+		id, err := msp.GetIdentifier()
+		require.NoError(t, err)
+		m.idemix[id] = msp.GetType() == fabricmsp.IDEMIX
+	}
+	return m
+}
+
+func (m *testMembership) ConfigSequence() (uint64, error) {
+	if m.mgr == nil {
+		return 0, fdriver.ErrNotInitialized
+	}
+	return 1, nil
+}
+
+func (m *testMembership) IsIdemixMSP(mspID string) (bool, error) {
+	if m.mgr == nil {
+		return false, fdriver.ErrNotInitialized
+	}
+	return m.idemix[mspID], nil
+}
+
+func (m *testMembership) IsValid(identity view.Identity) error {
+	id, err := m.mgr.DeserializeIdentity(identity)
+	if err != nil {
+		return err
+	}
+	return id.Validate()
+}
+
+func (m *testMembership) GetVerifier(identity view.Identity) (fdriver.Verifier, error) {
+	return m.mgr.DeserializeIdentity(identity)
+}
+
+// nspWithMembership returns a network with default identity "me-id" whose
+// channels all have membership m.
+func nspWithMembership(m fdriver.ChannelMembership) *fabric.NetworkServiceProvider {
+	return newTestFabricNetworkServiceProvider(view.Identity("me-id"), &mockDriverChannel{name: "ch", membership: m})
+}
+
+// recipientsNSP returns a network whose channel has no idemix MSP, so every
+// recipient identity verifies with testKeys.
 func recipientsNSP() *fabric.NetworkServiceProvider {
-	return newTestFabricNetworkServiceProvider(view.Identity("me-id"), &mockDriverChannel{name: "ch"})
+	return nspWithMembership(&testMembership{mgr: fabricmsp.NewMSPManager()})
 }
 
 func failingNSP() *fabric.NetworkServiceProvider {
@@ -709,12 +768,12 @@ func TestCheckProof_Reasons(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			reason, err := checkProof(fns, tc.p, tc.proof)
+			reason, err := checkProof(fns, "", tc.p, tc.proof)
 			require.ErrorIs(t, err, ErrRecipientProof)
 			require.Equal(t, tc.reason, reason)
 		})
 	}
-	reason, err := checkProof(fns, valid, sign(t, valid))
+	reason, err := checkProof(fns, "", valid, sign(t, valid))
 	require.NoError(t, err)
 	require.Empty(t, reason)
 }
@@ -759,4 +818,52 @@ func TestRequestRecipient_ResolverFallback(t *testing.T) {
 	require.ErrorContains(t, err, "failed resolving node identity of")
 	require.Empty(t, env.session.sent, "nothing is sent to an unresolvable party")
 	require.Empty(t, env.store.bindings)
+}
+
+// keyringDeserializer deserializes every identity to its testKeys verifier and
+// counts the calls, so a test sees whether a sig.Service cached a verifier.
+type keyringDeserializer struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (d *keyringDeserializer) DeserializeVerifier(raw []byte) (cdriver.Verifier, error) {
+	d.mu.Lock()
+	d.calls++
+	d.mu.Unlock()
+	return testKeys.GetVerifier(raw)
+}
+
+func (*keyringDeserializer) DeserializeSigner([]byte) (cdriver.Signer, error) {
+	return nil, errors.New("not supported")
+}
+
+func (*keyringDeserializer) Info([]byte, []byte) (string, error) { return "", nil }
+
+// The recipient views verify through the signature service without caching
+// what it deserializes: a peer sending identities with bogus proofs does not
+// grow the cache, and every exchange deserializes again.
+func TestRespondExchange_VerifierNotCached(t *testing.T) {
+	t.Parallel()
+	des := &keyringDeserializer{}
+	sigService := sig.NewService(des, nil, nil)
+	x := view.Identity("x")
+	for i := range 3 {
+		proof := sign(t, remoteProof(TagExchangeReply, callerID, x)) // wrong tag: invalid
+		req := okMsg(t, &ExchangeRecipientRequest{RecipientData: &RecipientData{Identity: x, Proof: proof}})
+		drv := &testFabricDriverFNS{channel: &mockDriverChannel{membership: &testMembership{mgr: fabricmsp.NewMSPManager()}}, sigService: sigService}
+		drv.localMembership = &testLocalMembership{defaultIdentity: view.Identity("me-id")}
+		env := newRecipientsEnv(t, &mockSession{info: view.SessionInfo{Caller: callerID}, recv: newRecv(req)}, fabric.NewNetworkServiceProvider(&testFabricDriverFNSProvider{fns: drv}, nil))
+		_, err := (&RespondExchangeRecipientIdentitiesView{}).Call(env.ctx)
+		require.ErrorIs(t, err, ErrRecipientProof)
+		require.Equal(t, i+1, des.calls, "deserialized on every exchange")
+	}
+
+	// A verifier the node cached itself is reused.
+	_, err := sigService.GetVerifier(x)
+	require.NoError(t, err)
+	calls := des.calls
+	_, err = fabric.NewNetworkService(nil, &testFabricDriverFNS{sigService: sigService}, "").SignerService().LookupVerifier(x)
+	require.NoError(t, err)
+	require.Equal(t, calls, des.calls)
 }
