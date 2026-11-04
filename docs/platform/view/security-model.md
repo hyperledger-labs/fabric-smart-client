@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. This document describes the current security model, its implications, and best practices for secure deployment.
+The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. Remote parties are a separate boundary: the organization is the unit of trust, and FSC nodes and peers of other organizations may be malicious. [Data Received from Peers](#data-received-from-peers) and the sections after it describe what a node checks in their input. This document describes both, their implications, and best practices for secure deployment.
 
 ## Security Model
 
@@ -17,7 +17,7 @@ The Fabric Smart Client (FSC) view runtime operates under a **shared process sec
 
 ### Lack of View Isolation
 
-Unlike containerized or sandboxed execution environments, FSC views currently execute without isolation boundaries:
+Unlike containerized or sandboxed execution environments, FSC views execute without isolation boundaries:
 
 - **Shared Context**: Multiple views share the same `view.Context` object
 - **Service Override Risk**: Malicious views can override critical services (signer, network services, etc.)
@@ -44,6 +44,7 @@ or present a creator that disagrees with its proposal.
 
 `ValidateReceived` checks that:
 
+- the nonce and the creator are not empty;
 - the txID equals `ComputeTxID(nonce, creator)` (Fabric networks only; see below for Fabric-x);
 - a signed proposal, if the transaction carries one, is an `ENDORSER_TRANSACTION` with epoch `0`,
   a non-empty nonce and creator, and a header whose txID, nonce, and creator all equal those of the
@@ -63,16 +64,17 @@ its transaction is stored under. The proposal header consistency checks and the 
 apply on Fabric-x.
 
 Validation runs on the two paths that take a transaction from a remote peer: decoding it
-(`endorser.NewTransactionFromBytes`, used by `state.ReceiveTransaction`) and, again, right before an
-`endorseView` signs it. It does not run when the committer reloads a node's own previously stored
-transactions, so a creator certificate that expired or was revoked after endorsement does not block
-that transaction from committing. The lower-level decoding constructors
+(`endorser.NewTransactionFromBytes`, used by `state.ReceiveTransaction`, and
+`endorser.NewTransactionFromPeer`, used by `state.ReceiveTransactionFrom` for bytes from a known
+peer) and, again, right before an `endorseView` signs it. It does not run when the committer
+reloads a node's own previously stored transactions, so a creator certificate that expired or
+was revoked after endorsement does not block that transaction from committing. The lower-level decoding constructors
 (`fabric.TransactionManager.NewTransactionFromBytes`, `endorser.Builder.NewTransactionFromBytes`,
 `Transaction.SetFromBytes`) do not validate either; call `ValidateReceived` explicitly if building
 a transaction from bytes outside those two paths.
 
 A certification envelope (`platform/fabric/services/state/certification.go`, decoded with
-`endorser.NewTransactionFromEnvelopeBytes`) also comes from a peer, but it does not pass through
+`endorser.NewTransactionFromEnvelopeBytesOn`) also comes from a peer, but it does not pass through
 `ValidateReceived`: the node only decodes it to check its endorsements against the peers discovery
 returns and to read the certified value, and never endorses or stores it.
 
@@ -125,8 +127,8 @@ an `ExchangeRecipientRequest` is ignored, because the party being verified would
 the MSPs that verify it.
 
 - An x509 identity, a `SerializedIdentity` whose `IdBytes` hold a PEM certificate, is verified
-  with the signature service and never needs the channel. It always deserializes, to a verifier
-  for its public key. It is not checked against any MSP, so a verified proof shows that the
+  with the signature service and never needs the channel. It deserializes to a verifier for its
+  public key if that key is an ECDSA key; any other key gives `no verifier`. It is not checked against any MSP, so a verified proof shows that the
   sender holds the key for X, not that X belongs to an MSP. Anything that needs membership must
   check it separately. The same holds for bytes that are not a `SerializedIdentity`.
 - Any other `SerializedIdentity` needs the channel, to tell whether X's MSP is idemix. If it is
@@ -143,11 +145,13 @@ the MSPs that verify it.
   identities a peer sends cannot grow the node's memory. Verifiers already registered or cached,
   such as those of the node's own identities, are reused.
 
-If X needs the channel and the channel is unknown, for example because the network has no
-default channel and no `state.WithChannel` is set, or its configuration is not in force yet, X is
-refused with an error wrapping `driver.ErrNotInitialized` while the node is catching up. Such a
-refusal is a condition of this node, so it is not counted as a rejection, and the exchange
-responder tells the initiator only that the channel is not ready. x509 recipients are not
+If X needs the channel and this node cannot use it, X is refused with an error that carries the
+cause: the channel is unknown, for example because the network has no default channel and no
+`state.WithChannel` is set; its configuration is not in force yet (wrapping
+`driver.ErrNotInitialized`, which a retry clears once the configuration arrives); or the node
+refused the configuration it received (wrapping `driver.ErrConfigRejected`). Such a refusal is a
+condition of this node, so it is not counted as a rejection, and the exchange responder tells the
+initiator only `recipient verification unavailable: channel not ready`. x509 recipients are not
 affected.
 
 The exchange responder verifies the initiator's proof before it replies. On failure it replies
@@ -180,7 +184,8 @@ own record kept. These stores are therefore write-once:
   (`platform/view/services/storage/driver`) and keeps the stored record.
 
 The SQL stores insert with `ON CONFLICT DO NOTHING` and, when no row was inserted, read the stored
-record back and compare bytes. They refuse an empty record. Their rows are never updated or deleted, so the record read back is
+record back and compare bytes. The envelope and endorsed-transaction stores refuse an empty
+record, which their existence check would report as absent. Their rows are never updated or deleted, so the record read back is
 the one that won, and of two concurrent writers of different records exactly one succeeds.
 
 An endorsed transaction holds this node's proposal responses, whose signatures differ on every
@@ -230,9 +235,11 @@ and whose signature counts for it, so the store and `endpoint.Service`
   identity. A known long-term identity is one that has a self-row, or that is the identity of a
   registered resolver; a resolver's name, aliases and addresses do not count. Binding one would
   redirect every later lookup of that identity, and every later bind to it, to another party. The
-  store's `PutBindings` and `ReplaceBinding` refuse such an ephemeral with an error wrapping
-  `driver.ErrBindingRefused` and write no row for it; the other ephemerals of a `PutBindings` call
-  are still bound.
+  store's `PutBindings` and `ReplaceBinding` refuse an ephemeral with a self-row with an error
+  wrapping `driver.ErrBindingRefused` and write no row for it; the other ephemerals of a
+  `PutBindings` call are still bound. The endpoint service refuses a resolver's identity before it
+  reaches the store: `Bind` skips it, and `BindProven` returns an error wrapping
+  `driver.ErrBindingRefused`.
 - **Unproven binds do not take over.** `Service.Bind` keeps the existing row for an ephemeral that
   is already bound to a different long-term identity. Both a conflict and a refusal are counted
   once per ephemeral, as `binding_conflict` and `binding_refused` (see
@@ -260,6 +267,27 @@ stores the correct owner.
 trust decision: call `Bind` only for identities from local configuration or for which the caller
 holds a proof of ownership.
 
+## P2P sessions
+
+The transport authenticates the FSC node that sends a message, but any authenticated node can send
+a first message for any responder registered on this node, and a responder reads input that node
+chose. A node limits what such a peer can start:
+
+- **Who may start a responder**: a responder registered with `view.WithAuthorizer` runs only for
+  the nodes its authorizer accepts; a refusal is counted as the security rejection `unauthorized`.
+  See [Authorizing responders](programming-model.md#authorizing-responders).
+- **How many responders run**: `fsc.p2p.maxRespondersPerPeer` bounds the responders one peer runs
+  at once, and `fsc.p2p.maxResponders` those of all peers together, so that many peers within their
+  own limit cannot exhaust the node. See [Error replies a node sends unasked](services/comm/readme.md#error-replies-a-node-sends-unasked).
+- **What the initiator learns**: a first message the node refuses gets at most an error reply
+  with a fixed reason, never the authorizer's error text; some are dropped without a reply. The
+  initiator can test the reason with `errors.Is` against the `session` sentinels, but the reason
+  is what the remote node claims, not proof that a check ran.
+
+What a responder does with an accepted message is the responder's responsibility: it must validate
+every payload, as [Responder Responsibilities](programming-model.md#responder-responsibilities)
+describes.
+
 ## Best Practices
 
 ### 1. Strict View Code Review
@@ -285,10 +313,7 @@ holds a proof of ownership.
 
 ## Conclusion
 
-The current FSC view runtime security model requires **complete trust in all deployed view code and dependencies**. Developers must implement strict governance and access controls to ensure only trusted code executes on FSC nodes. 
+The FSC view runtime security model requires **complete trust in all deployed view code and dependencies**. Developers must implement strict governance and access controls to ensure only trusted code executes on FSC nodes. 
 
 **Key Takeaway**: Treat view deployment with the same security rigor as deploying system-level code or kernel modules. Once malicious code enters the process space, the entire node is compromised.
 
----
-
-*This security model documentation reflects the current state of FSC. Always check the latest releases and security advisories for updates.*

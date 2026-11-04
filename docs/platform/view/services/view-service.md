@@ -105,15 +105,18 @@ The `Registry` manages view factories and responder mappings:
 **Responder Registration:**
 - `RegisterResponder(responder, initiatedBy)`: Maps an initiator to a responder view
 - `RegisterResponderWithIdentity(responder, id, initiatedBy)`: Maps with a specific identity
-- `RegisterResponderWithOptions(responder, initiatedBy, opts...)`: Maps with `WithIdentity` and
+- `RegisterResponderWithOptions(responder, initiatedBy, opts...)`: Maps with `WithIdentity`,
   `WithAuthorizer` (see [Authorizing responders](../programming-model.md#authorizing-responders))
+  and `WithProtocol` (see [Protocol names](../programming-model.md#protocol-names))
 - `GetResponder(initiatedBy)`: Retrieves the responder for an initiator
-- `ResponderForCaller(caller)`: Returns the responder, identity and authorizer for a caller ID
+- `ResponderForCaller(protocol, caller)`: Returns the responder, identity and authorizer for a
+  protocol name or, if none is registered under it, for a caller ID
 - `ExistResponderForCaller(caller)`: `ResponderForCaller` without the authorizer
 
 The identity and authorizer are kept per initiator, so one responder can answer several initiators
 with a different identity and authorizer for each. Registering again for an initiator replaces its
-responder and identity, and its authorizer only if the new registration sets one.
+responder and identity, and its authorizer and protocol name only if the new registration sets
+them.
 
 **View Identification:**
 - Uses reflection to generate unique identifiers: `<package>/<type>`
@@ -195,8 +198,14 @@ sequenceDiagram
     participant Responder
 
     Remote->>P2P: Incoming Message
+    P2P->>Registry: ResponderForCaller(protocol, caller)
+    Registry-->>P2P: Responder View, identity, authorizer
+    opt Authorizer set
+        P2P->>P2P: authorize sender
+    end
+
     P2P->>Manager: NewResponderContext(ctx, contextID, session, me, remote)
-    
+
     alt Context Exists
         Manager->>Context: Join (attach session if new)
     else New Context
@@ -204,9 +213,6 @@ sequenceDiagram
         ContextFactory->>Context: Create Context
         Manager->>Context: Register
     end
-    
-    P2P->>Registry: ResponderForCaller(caller)
-    Registry-->>P2P: Responder View, identity, authorizer
     
     P2P->>Context: RunView(responder)
     Context->>Responder: Call(context)
@@ -496,7 +502,7 @@ sequenceDiagram
 
     Remote->>Comm: ViewPacket
     Comm->>P2P: Message
-    P2P->>Manager: ResponderForCaller(caller)
+    P2P->>Manager: ResponderForCaller(protocol, caller)
     Manager-->>P2P: Responder View, identity, authorizer
     
     P2P->>Manager: NewResponderContext(...)
@@ -560,9 +566,14 @@ See the [Configuration Guide](../../../configuration.md) for detailed configurat
 
 ### Metrics
 
-The View Service exports Prometheus metrics:
+The View Service exports Prometheus metrics, among them:
 
-- `contexts`: Current number of active contexts (gauge)
+- `fsc_view_services_view_contexts`: Current number of active contexts (gauge)
+- `fsc_shutdown_draining`: 1 while the node drains running views before it stops (gauge)
+- `fsc_view_services_view_p2p_rejections{reason}`: First P2P messages the node refused (counter)
+- `fsc_view_services_view_grpc_server_requests_rejected{reason}`: View API commands the server refused (counter)
+
+The full list, with labels and operational notes, is in the [Metrics Catalog](monitoring_metrics.md).
 
 ### Tracing
 

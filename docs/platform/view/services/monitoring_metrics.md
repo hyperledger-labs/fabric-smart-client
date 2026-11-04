@@ -64,6 +64,7 @@ Explicit overrides are used in the following places within the current catalog:
 - `platform/view/services/metrics/connstate/connstate.go` registers the `fsc_connection_*` families
 - `platform/view/services/view/metrics.go` registers `fsc_shutdown_draining`
 - `platform/view/sdk/dig/servers.go` registers `fsc_tls_cert_not_after`
+- `platform/view/services/storage/driver/sql/postgres/dbmetrics.go` registers the `fsc_database_*` families
 
 ### Labels
 
@@ -157,7 +158,7 @@ Primary implementation: `platform/view/services/comm/metrics.go`, with updates i
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the node already runs `fsc.p2p.maxResponders` responders across all peers, `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the protocol name or the caller view, `unauthorized` when the responder's authorizer refused the sender, `authorizer_error` when the authorizer failed, timed out, or the sender's identity could not be resolved, `no_common_version` when the message states a component version outside the node's range. |
+| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the sending peer is under its own limit but the node already runs `fsc.p2p.maxResponders` responders across all peers (a peer at its own limit gets `busy`), `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the protocol name or the caller view, `unauthorized` when the responder's authorizer refused the sender, `authorizer_error` when the authorizer failed or timed out, or the responder has an authorizer and the sender's identity could not be resolved, `no_common_version` when the message states a component version outside the node's range. |
 
 Operational notes:
 
@@ -520,11 +521,11 @@ The following labels are part of the current FSC metric surface.
 | `fid` | View factory identifier used by the local view client tracer | application-defined factory ID |
 | `listener` | FSC listener serving a TLS certificate | `grpc`, `web`; `metrics` when `fsc.metrics.address` gives the operations endpoints a listener of their own |
 | `initiator_view` | Initiator view identifier associated with a child view execution | fully qualified view identifier or empty |
-| `kind` | Security check that rejected input from a remote peer | `invalid_tx` |
+| `kind` | Security check that rejected input from a remote peer | `invalid_tx`, `binding_refused`, `binding_conflict`, `recipient_proof`, `unauthorized`, `store_conflict` |
 | `network` | Fabric network name | deployment-specific network name |
 | `peer` | Remote libp2p peer identifier | peer ID string |
 | `protocol` | Libp2p protocol identifier | protocol ID string |
-| `reason` | Why the view service rejected a request, or a transport refused a stream | `stale`, `replay`, `denied`; `version` on `*_rejected_streams` |
+| `reason` | Why the view service rejected a request, the P2P service refused a first message, or a transport refused a stream | `stale`, `replay`, `denied` on `*_requests_rejected`; `busy`, `node_busy`, `draining`, `unknown_view`, `unauthorized`, `authorizer_error`, `no_common_version` on `fsc_view_services_view_p2p_rejections`; `version` on `*_rejected_streams` |
 | `side` | WebSocket connection side | `client`, `server` |
 | `status` | Committer handler outcome classification | `not_found`, `failure`, `successful` |
 | `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, and `fsc_view_services_view_grpc_server_view_service_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |

@@ -286,8 +286,8 @@ out after 5 seconds. The authorizer must return once that context is done: the P
 abandon a call that ignores it. An error wrapping `view.ErrDenied` refuses the caller with the reply
 `unauthorized: caller may not start this view`; any other error, a timeout, a panic, or a sender
 whose identity the node cannot resolve gives `authorizer_error: authorizer failed`. The
-authorizer's own error text never reaches the caller. A running check holds one of the caller's
-`fsc.p2p.maxRespondersPerPeer` responder slots, so keep it fast.
+authorizer's own error text never reaches the caller. A running check holds a responder slot of the caller,
+counted against both `fsc.p2p.maxRespondersPerPeer` and `fsc.p2p.maxResponders`, so keep it fast.
 
 The authorizer decides who may start the responder. It does not check the payload: the responder
 must still validate every message it receives, as described above.
