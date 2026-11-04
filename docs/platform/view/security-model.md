@@ -200,13 +200,16 @@ The Fabric committer stores only the envelopes of transactions Fabric found vali
 a txID can sign an envelope carrying it with their own identity and have it ordered ahead of the
 honest one. Fabric flags the forgery invalid, as `BAD_PROPOSAL_TXID` when the txID is not derived
 from its creator, but records a txID for duplicate detection within a block only when its envelope
-is valid, so the honest envelope later in the same block is still `VALID`. Every Fabric path that
-resolves a txID from a block applies one rule, `committer.ShadowedEnvelopes`: the verdict is that of
-the txID's valid envelope if the block has one, and otherwise that of its first envelope. The
+is a valid endorser transaction, so the honest envelope later in the same block is still `VALID`,
+also when the forgery has another header type. The paths that resolve a txID from a block apply one
+rule, `committer.ShadowedEnvelopes`: the verdict is that of the txID's valid envelope if the block
+has one, and otherwise that of its first envelope. The
 committer skips the shadowed invalid envelope, so the transaction's vault status and finality event
-are those of the honest envelope. Remote finality checks (`delivery.DeliverReceive`), delivery scans,
-and the delivery-based listener manager, which does not pass a shadowed envelope to its
-`EventInfoMapper`, apply the same rule. Any other invalid envelope marks its transaction Invalid
+are those of the honest envelope. Remote finality checks (`delivery.DeliverReceive`), transaction
+scans (`Delivery.Scan` and `ScanFromBlock`), and the delivery-based listener manager, which does not
+pass a shadowed envelope to its `EventInfoMapper`, apply the same rule. Block scans (`ScanBlock` and
+`ScanBlockFrom`) hand over whole blocks unchanged; a callback that resolves txIDs from them calls
+`committer.ShadowedEnvelopes` itself, as the listener manager does. Any other invalid envelope marks its transaction Invalid
 without the committer storing it or reading its read-write set. A forgery
 ordered in an earlier block is in Fabric's ledger index, so Fabric flags the honest envelope
 `DUPLICATE_TXID` and the transaction is invalid on every peer.
