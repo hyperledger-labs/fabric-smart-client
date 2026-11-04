@@ -175,31 +175,30 @@ Each committer is named `CommitterName(org)` (`Org1_committer_0`, after Fabric's
 
 The committers are configured through the `nwofabricx.Topology` returned by `NewTopology()`,
 `NewDefaultTopology()`, or `NewTopologyWithName()`. All options have sensible defaults so no additional
-configuration is required for standard test scenarios. The `WithCommitter*` options configure the
-first committer, which belongs to the first organization; the other committers take its image and
-environment.
+configuration is required for standard test scenarios: every organization with a peer gets a
+committer, and the first organization's is the network's default committer.
 
-#### Sidecar peer identity
-
-Each committer runs as a sidecar peer inside the Fabric network. You can customise the first
-committer's name, its organisation, and — when running in a non-standard network layout — its host
-and ports, and add committers:
+#### Settings for every committer
 
 | Method | Default | Description |
 |---|---|---|
-| `WithCommitterName(name string)` | `CommitterName(org)` | Peer name for the first committer's sidecar identity in the Fabric network. |
-| `WithCommitterOrg(org string)` | *(first organization)* | Organisation of the first committer. |
-| `WithCommitterHost(host string)` | *(auto)* | Fixed host for the sidecar peer entry; leave empty to use the Docker bridge IP. |
-| `WithCommitterPorts(ports api.Ports)` | *(auto)* | Pre-allocated ports; leave nil to let the test framework allocate them. |
-| `AddCommitter(org, name string)` | — | Add a further committer, such as a second one in an organization. |
+| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.7` | Docker image for every committer container and the orderer container. |
+| `WithCommitterEnv(key, value string)` | *(see below)* | Override or add an environment variable of every committer container. Pass an empty value to remove a default. |
+| `WithOrdererEnv(key, value string)` | *(see below)* | Override or add an environment variable of the mock orderer container, such as `SC_ORDERER_BLOCK_SIZE`. Pass an empty value to remove a default. |
 
-#### Container image and environment
+#### Adding committers
 
-| Method | Default | Description |
+`AddCommitter(org string, opts ...CommitterOption)` adds a committer to `org`, such as a second one
+in an organization. Each committer runs as a sidecar peer inside the Fabric network, with its own
+container, database and ports. Options configure it:
+
+| Option | Default | Description |
 |---|---|---|
-| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.7` | Docker image for the committer and orderer containers. |
-| `WithCommitterEnv(key, value string)` | *(see below)* | Override or add a committer container environment variable. Pass an empty value to remove a default. |
-| `WithOrdererEnv(key, value string)` | *(see below)* | Override or add a mock orderer container environment variable, such as `SC_ORDERER_BLOCK_SIZE`. Pass an empty value to remove a default. |
+| `WithName(name string)` | next free `<org>_committer_<n>` | Peer name for the committer's sidecar identity in the Fabric network. |
+| `WithHost(host string)` | *(auto)* | Fixed host for the sidecar peer entry; leave empty to use the Docker bridge IP. |
+| `WithPorts(ports api.Ports)` | *(auto)* | Pre-allocated ports; leave nil to let the test framework allocate them. |
+| `WithImage(image string)` | the topology's | Docker image for this committer's container. |
+| `WithEnv(key, value string)` | the topology's | Override or add an environment variable of this committer's container. |
 
 Default environment variables set by the test framework:
 
@@ -231,14 +230,12 @@ fxTopo.
     WithOrdererEnv("SC_ORDERER_BLOCK_SIZE", "10").
     WithOrdererEnv("SC_ORDERER_LOGGING_LOGSPEC", "debug")
 
-// remove a default committer env var entirely
+// remove a default committer env var entirely, on every committer
 fxTopo.WithCommitterEnv("SC_VC_LOGGING_LOGSPEC", "")
 
-// make Org2's committer the first one instead of Org1's
-fxTopo.WithCommitterOrg("Org2")
-
-// add a second committer to Org2
-fxTopo.AddCommitter("Org2", "Org2_committer_1")
+// add a second committer to Org1, Org1_committer_1, and a third one named and logging at debug
+fxTopo.AddCommitter("Org1")
+fxTopo.AddCommitter("Org1", nwofabricx.WithName("audit"), nwofabricx.WithEnv("SC_SIDECAR_LOGGING_LOGSPEC", "debug"))
 ```
 
 ### Example: Simple Fabric-x Network Topology

@@ -45,10 +45,10 @@ orderer container's alias on the suite's Docker network; FSC nodes on the host r
 same name to loopback, where the orderer port is published. Every organization with a peer
 runs a committer, named `CommitterName(org)` (`Org2_committer_0`), the way each Fabric
 organization runs `<org>_peer_0`, and each FSC node uses its own organization's committers.
-The topology's `Committer` configures the first committer, the first organization's unless
-`WithCommitterOrg` picks another; the others take its image and env vars.
-`AddCommitter(org, name)` adds a further one, such as a second in an organization, and
-`WithOrdererEnv` sets an env var of the mock orderer, such as `SC_ORDERER_BLOCK_SIZE`.
+The first organization's committer is the network's default. `AddCommitter(org, opts...)`
+adds a further one, such as a second in an organization, named `<org>_committer_<n>` unless
+`WithName` names it; `WithCommitterImage` and `WithCommitterEnv` configure every committer,
+and `WithOrdererEnv` sets an env var of the mock orderer, such as `SC_ORDERER_BLOCK_SIZE`.
 `fabricx.FxPlatform(ii).StopCommitter(names...)` and `StartCommitter(names...)` stop and
 restart the services (sidecar, coordinator, verifier, validator-committer, query) of the
 named committers, every committer when no name is given. Their databases and the mock

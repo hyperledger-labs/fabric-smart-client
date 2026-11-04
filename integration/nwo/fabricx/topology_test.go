@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 )
 
 func committerNames(cs []CommitterConfig) []string {
@@ -39,21 +41,36 @@ func TestAllCommitters(t *testing.T) {
 		require.Equal(t, []string{"Alpha/Alpha_committer_0", "Beta/Beta_committer_0"}, committerNames(topo.AllCommitters()))
 	})
 
-	t.Run("added committers follow the per-org ones", func(t *testing.T) {
+	t.Run("added committers are numbered on after the per-org ones", func(t *testing.T) {
 		t.Parallel()
-		topo := NewDefaultTopology().AddCommitter("Org2", "Org2_committer_1")
+		topo := NewDefaultTopology().AddCommitter("Org1").AddCommitter("Org1").AddCommitter("Org2", WithName("Marcus"))
 		topo.AddOrganizationsByName("Org1", "Org2")
 		require.Equal(t, []string{
-			"Org1/Org1_committer_0", "Org2/Org2_committer_0", "Org2/Org2_committer_1",
+			"Org1/Org1_committer_0", "Org2/Org2_committer_0",
+			"Org1/Org1_committer_1", "Org1/Org1_committer_2", "Org2/Marcus",
 		}, committerNames(topo.AllCommitters()))
 	})
 
-	t.Run("the first committer's settings apply to the others", func(t *testing.T) {
+	t.Run("topology settings apply to every committer, options override them", func(t *testing.T) {
 		t.Parallel()
-		topo := NewDefaultTopology().WithCommitterOrg("Org2").WithCommitterEnv("SC_SIDECAR_LOGGING_LEVEL", "debug")
-		topo.AddOrganizationsByName("Org1", "Org2")
+		ports := api.Ports{"Listen": 7101}
+		topo := NewDefaultTopology().
+			WithCommitterImage("img:topo").
+			WithCommitterEnv("SC_VC_LOGGING_LOGSPEC", "debug").
+			AddCommitter("Org1", WithImage("img:own"), WithEnv("SC_QUERY_LOGGING_LOGSPEC", "debug"), WithHost("h"), WithPorts(ports))
+		topo.AddOrganizationsByName("Org1")
 		all := topo.AllCommitters()
-		require.Equal(t, []string{"Org2/Org2_committer_0", "Org1/Org1_committer_0"}, committerNames(all))
-		require.Equal(t, "debug", all[1].EnvVars["SC_SIDECAR_LOGGING_LEVEL"])
+		require.Len(t, all, 2)
+
+		require.Equal(t, "img:topo", all[0].Image)
+		require.Equal(t, map[string]string{"SC_VC_LOGGING_LOGSPEC": "debug"}, all[0].EnvVars)
+
+		require.Equal(t, "img:own", all[1].Image)
+		require.Equal(t, map[string]string{"SC_VC_LOGGING_LOGSPEC": "debug", "SC_QUERY_LOGGING_LOGSPEC": "debug"}, all[1].EnvVars)
+		require.Equal(t, "h", all[1].Host)
+		require.Equal(t, ports, all[1].Ports)
+
+		// Merging into one committer's env leaves the topology's untouched.
+		require.Equal(t, map[string]string{"SC_VC_LOGGING_LOGSPEC": "debug"}, topo.CommitterEnvVars)
 	})
 }
