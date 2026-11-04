@@ -165,34 +165,41 @@ For mTLS, add `clientCert` and `clientKey` under the `tls` block — see the [No
 ## Integration Tests
 
 The integration tests for the Fabric-x platform use the [fabric-x-committer-test-node](https://github.com/hyperledger/fabric-x-committer/pkgs/container/fabric-x-committer-test-node) container image.
-This container sets up a test networking including:
-- An ordering service
-- A [committer](https://github.com/hyperledger/fabric-x-committer) instance
+nwo starts it as:
+- a mock ordering service, in a container of its own, reached as `orderer.localhost` (its alias on the suite's Docker network, and loopback on the host);
+- a [committer](https://github.com/hyperledger/fabric-x-committer) for every organization with a peer, each in a container of its own with its own Postgres, reading the same blocks from the orderer.
+
+Each committer is named `CommitterName(org)` (`Org1_committer_0`, after Fabric's `Org1_peer_0`), and each FSC node uses its own organization's committers.
 
 ### Committer Container Configuration
 
-The committer container is configured through the `nwofabricx.Topology` returned by `NewTopology()`,
+The committers are configured through the `nwofabricx.Topology` returned by `NewTopology()`,
 `NewDefaultTopology()`, or `NewTopologyWithName()`. All options have sensible defaults so no additional
-configuration is required for standard test scenarios.
+configuration is required for standard test scenarios. The `WithCommitter*` options configure the
+first committer, which belongs to the first organization; the other committers take its image and
+environment.
 
 #### Sidecar peer identity
 
-The committer runs as a sidecar peer inside the Fabric network. You can customise the peer name, its
-organisation, and — when running in a non-standard network layout — its host and ports:
+Each committer runs as a sidecar peer inside the Fabric network. You can customise the first
+committer's name, its organisation, and — when running in a non-standard network layout — its host
+and ports, and add committers:
 
 | Method | Default | Description |
 |---|---|---|
-| `WithCommitterName(name string)` | `"SC"` | Peer name for the committer sidecar identity in the Fabric network. |
-| `WithCommitterOrg(org string)` | `"Org1"` | Organisation the committer peer belongs to. |
+| `WithCommitterName(name string)` | `CommitterName(org)` | Peer name for the first committer's sidecar identity in the Fabric network. |
+| `WithCommitterOrg(org string)` | *(first organization)* | Organisation of the first committer. |
 | `WithCommitterHost(host string)` | *(auto)* | Fixed host for the sidecar peer entry; leave empty to use the Docker bridge IP. |
 | `WithCommitterPorts(ports api.Ports)` | *(auto)* | Pre-allocated ports; leave nil to let the test framework allocate them. |
+| `AddCommitter(org, name string)` | — | Add a further committer, such as a second one in an organization. |
 
 #### Container image and environment
 
 | Method | Default | Description |
 |---|---|---|
-| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.7` | Docker image for the committer container. |
-| `WithCommitterEnv(key, value string)` | *(see below)* | Override or add a container environment variable. Pass an empty value to remove a default. |
+| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.7` | Docker image for the committer and orderer containers. |
+| `WithCommitterEnv(key, value string)` | *(see below)* | Override or add a committer container environment variable. Pass an empty value to remove a default. |
+| `WithOrdererEnv(key, value string)` | *(see below)* | Override or add a mock orderer container environment variable, such as `SC_ORDERER_BLOCK_SIZE`. Pass an empty value to remove a default. |
 
 Default environment variables set by the test framework:
 
@@ -214,24 +221,24 @@ Default environment variables set by the test framework:
 
 ```go
 fxTopo := nwofabricx.NewDefaultTopology()
-fxTopo.AddOrganizationsByName("Org1", "Org2")
+fxTopo.AddOrganizationsByName("Org1", "Org2") // runs Org1_committer_0 and Org2_committer_0
 
 // run a committer image built locally from a fabric-x-committer checkout
 fxTopo.WithCommitterImage("hyperledger/fabric-x-committer-test-node:local")
 
-// increase block size and turn on debug logging for the orderer component
+// increase the orderer's block size and turn on its debug logging
 fxTopo.
-    WithCommitterEnv("SC_ORDERER_BLOCK_SIZE", "10").
-    WithCommitterEnv("SC_ORDERER_LOGGING_LOGSPEC", "debug")
+    WithOrdererEnv("SC_ORDERER_BLOCK_SIZE", "10").
+    WithOrdererEnv("SC_ORDERER_LOGGING_LOGSPEC", "debug")
 
-// remove a default env var entirely
+// remove a default committer env var entirely
 fxTopo.WithCommitterEnv("SC_VC_LOGGING_LOGSPEC", "")
 
-// place the committer in Org2 instead of the default Org1
+// make Org2's committer the first one instead of Org1's
 fxTopo.WithCommitterOrg("Org2")
 
-// rename the sidecar peer (default is "SC")
-fxTopo.WithCommitterName("committer")
+// add a second committer to Org2
+fxTopo.AddCommitter("Org2", "Org2_committer_1")
 ```
 
 ### Example: Simple Fabric-x Network Topology

@@ -169,7 +169,11 @@ func (e *Extension) launchContainers() {
 	// it through its network alias, the orderer host in the config block, see
 	// fabricx_network.OrdererHost.
 	logger.Infof("Run fabric-x mock orderer container on port %v", orderingServicePort)
-	e.runContainer(e.ordererContainerName(), []string{fabricx_network.OrdererHost}, e.committers[0].containerConfig(), []string{"orderer"},
+	// The orderer reads only its own settings from the first committer's configuration, and
+	// its env from the topology's orderer env rather than from the committer's.
+	ordererCfg := e.committers[0].containerConfig()
+	ordererCfg.EnvVarOverrides = e.ordererEnvVars
+	e.runContainer(e.ordererContainerName(), []string{fabricx_network.OrdererHost}, ordererCfg, []string{"orderer"},
 		[]int{orderingServicePort},
 		[]mount.Mount{crypto, block, {Type: mount.TypeBind, Source: mockOrdererConfigPath, Target: "/root/config/mock-orderer.yaml", ReadOnly: true}},
 		[]int{orderingServicePort},
@@ -187,9 +191,7 @@ func (e *Extension) launchContainers() {
 	}
 }
 
-// containerConfig returns the configuration of the committer's container. The mock
-// orderer's container takes the first committer's: the orderer reads only its own
-// settings from it.
+// containerConfig returns the configuration of the committer's container.
 func (c *committer) containerConfig() containerConfig {
 	e := c.ext
 	sidecarPort, queryServicePort := c.ports()

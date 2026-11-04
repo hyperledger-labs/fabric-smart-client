@@ -45,6 +45,8 @@ type Extension struct {
 	network *network.Network
 	// committers holds every committer, the network's default first.
 	committers []*committer
+	// ordererEnvVars overrides the env of the mock orderer's container.
+	ordererEnvVars map[string]string
 }
 
 // committer is one committer of the network, see Extension.
@@ -54,9 +56,10 @@ type committer struct {
 }
 
 // NewExtension returns the committer extension for the given network, with cfgs as its
-// committers. The first committer is the network's default: FSC nodes of an organization
-// without a committer of its own use it, and nwo reads the channel configuration from it.
-func NewExtension(topology *fabric_topo.Topology, network *network.Network, cfgs ...CommitterConfig) *Extension {
+// committers and ordererEnvVars overriding the mock orderer's env. The first committer is the
+// network's default: FSC nodes of an organization without a committer of its own use it, and
+// nwo reads the channel configuration from it.
+func NewExtension(topology *fabric_topo.Topology, network *network.Network, ordererEnvVars map[string]string, cfgs ...CommitterConfig) *Extension {
 	if len(topology.Channels) != 1 {
 		panic(fmt.Sprintf("expected exactly one channel, got %d", len(topology.Channels)))
 	}
@@ -64,8 +67,9 @@ func NewExtension(topology *fabric_topo.Topology, network *network.Network, cfgs
 		panic("expected at least one committer")
 	}
 	e := &Extension{
-		channel: topology.Channels[0],
-		network: network,
+		channel:        topology.Channels[0],
+		network:        network,
+		ordererEnvVars: ordererEnvVars,
 	}
 	names := map[string]bool{}
 	for _, cfg := range cfgs {

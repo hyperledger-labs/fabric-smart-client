@@ -69,7 +69,7 @@ func NewPlatformFactory() *ExtendedPlatformFactory {
 					EnvVars:      c.EnvVars,
 				})
 			}
-			return scv2.NewExtension(fxTopo.Topology, platform.Network, cfgs...)
+			return scv2.NewExtension(fxTopo.Topology, platform.Network, fxTopo.OrdererEnvVars, cfgs...)
 		})
 }
 

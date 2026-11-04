@@ -37,6 +37,7 @@ const (
 
 var (
 	notification = fsc.Connection{Component: connstate.ComponentFabricxNotification}
+	query        = fsc.Connection{Component: connstate.ComponentFabricxQuery}
 	database     = fsc.Connection{Component: connstate.ComponentDatabase}
 
 	// bobReplicas are the replica IDs of bob in faultrecovery.ReplicatedFSCTopology.
@@ -168,6 +169,9 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 		// Bob's listener is registered while the committer is down, so it waits on no
 		// stream and is requested on the one opened after the restart. The transaction
 		// is ordered after the restart, so the restarted sidecar has to deliver it.
+		// Bob's query connection reports Connected from the earlier specs' queries, so its
+		// move to Reconnecting below is caused by this spec.
+		s.II.EventuallyConnectionState("bob", query, connstate.Connected, time.Minute)
 		committer.StopCommitter()
 		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
 		final := make(chan error, 1)
@@ -179,9 +183,11 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 			_, err := s.II.Client("bob").CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
 			final <- err
 		}()
-		// Nothing reports that the listener is registered. Registering first asks the
-		// unreachable query service, which answers within its 10 s request timeout.
-		time.Sleep(15 * time.Second)
+		// Registering the listener first asks the query service whether the tx is already
+		// final. While the committer is down that call fails and reports bob's query connection
+		// Reconnecting, and the listener is registered right after it returns; StartCommitter
+		// takes seconds, so the restart cannot overtake the registration.
+		s.II.EventuallyConnectionState("bob", query, connstate.Reconnecting, time.Minute)
 		committer.StartCommitter()
 
 		faultrecovery.Order(s.II, tx)

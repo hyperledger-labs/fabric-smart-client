@@ -15,7 +15,7 @@ import (
 	fabricxsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 )
 
-// Topology returns Fabric-x with two organizations, each with a committer of its own (see
+// Topology returns Fabric-x with two organizations, each running a committer (see
 // Org2Committer), and the FSC nodes of faultrecovery.FSCTopology with the given Postgres
 // database prefix.
 func Topology(dbPrefix string) []api.Topology {
@@ -32,7 +32,7 @@ func ReplicatedTopology(dbPrefix string) []api.Topology {
 var Org2Committer = nwofabricx.CommitterName("Org2")
 
 func fabricxTopology() *nwofabricx.Topology {
-	fabricTopology := nwofabricx.NewDefaultTopology().EnableCommitterPerOrg()
+	fabricTopology := nwofabricx.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespace(views.Namespace, topology.Unanimity("Org1"))

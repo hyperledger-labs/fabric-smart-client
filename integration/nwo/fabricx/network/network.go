@@ -109,7 +109,7 @@ func (n *Network) GenerateArtifacts() {
 
 func (*Network) Members() []grouper.Member {
 	// note that we do not start any peers or orderers here
-	// the committer all-in-one image takes care of this
+	// the committer extension runs the orderer and committers in containers
 	return grouper.Members{}
 }
 

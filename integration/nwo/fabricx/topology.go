@@ -17,12 +17,9 @@ import (
 const (
 	TopologyName        = PlatformName
 	DefaultTopologyName = "default"
-	// DefaultCommitterName is the name of the first committer unless WithCommitterName sets one.
-	DefaultCommitterName = "SC"
 )
 
-// CommitterName is the name EnableCommitterPerOrg gives org's committer, after the
-// <org>_peer_0 naming of Fabric peers.
+// CommitterName is the name of org's committer, after the <org>_peer_0 naming of Fabric peers.
 func CommitterName(org string) string {
 	return org + "_committer_0"
 }
@@ -49,50 +46,47 @@ type CommitterConfig struct {
 
 // Topology extends the fabric topology with fabricx-specific committer options.
 //
-// Committer is the network's first committer, the one every topology has; the WithCommitter*
-// builders set it. With EnableCommitterPerOrg every other organization with a peer gets a
-// committer of its own too, the way each Fabric organization gets a peer. Committers lists
-// further committers, added with AddCommitter, such as a second one in an organization. Every
-// committer reads the same blocks from the one mock orderer, and each FSC node uses the
-// committers of its own organization, or the first committer when its organization has none.
+// Every organization with a peer runs a committer, named CommitterName(org), the way each
+// Fabric organization runs <org>_peer_0. Committer configures the network's first committer,
+// that of the first organization unless WithCommitterOrg picks another; the WithCommitter*
+// builders set it, and the other committers take its image and env vars unless they set their
+// own. Committers lists further committers, added with AddCommitter, such as a second one in an
+// organization. Every committer reads the same blocks from the one mock orderer, and each FSC
+// node uses the committers of its own organization. OrdererEnvVars configures the mock orderer.
 type Topology struct {
 	*fabric_topology.Topology
-	Committer       CommitterConfig
-	Committers      []CommitterConfig
-	CommitterPerOrg bool
-}
-
-// EnableCommitterPerOrg gives every organization with a peer a committer, named
-// CommitterName(org), and the first committer, unless WithCommitterName named it, too.
-func (t *Topology) EnableCommitterPerOrg() *Topology {
-	t.CommitterPerOrg = true
-	return t
+	Committer      CommitterConfig
+	Committers     []CommitterConfig
+	OrdererEnvVars map[string]string
 }
 
 // AddCommitter adds a committer named name for the organization org, with its own
-// container, database and ports, reading the same blocks as the first committer.
+// container, database and ports, reading the same blocks as the other committers.
 func (t *Topology) AddCommitter(org, name string) *Topology {
 	t.Committers = append(t.Committers, CommitterConfig{Name: name, Org: org})
 	return t
 }
 
-// AllCommitters returns the first committer, then, with EnableCommitterPerOrg, one for each
-// other organization with a peer, then those AddCommitter added. A committer other than the
-// first takes the first committer's image and env vars unless it has its own.
+// AllCommitters returns the first committer, then the committer of each other organization
+// with a peer, then those AddCommitter added. The first committer belongs to Committer.Org, or
+// to the first organization with a peer when Committer.Org is empty, and is named
+// Committer.Name, or CommitterName(org) when that is empty.
 func (t *Topology) AllCommitters() []CommitterConfig {
+	orgs := t.peerOrgs()
 	first := t.Committer
-	var rest []CommitterConfig
-	if t.CommitterPerOrg {
-		if first.Name == DefaultCommitterName {
-			first.Name = CommitterName(first.Org)
-		}
-		for _, org := range t.peerOrgs() {
-			if org != first.Org {
-				rest = append(rest, CommitterConfig{Name: CommitterName(org), Org: org})
-			}
-		}
+	if first.Org == "" && len(orgs) > 0 {
+		first.Org = orgs[0]
+	}
+	if first.Name == "" {
+		first.Name = CommitterName(first.Org)
 	}
 	all := []CommitterConfig{first}
+	var rest []CommitterConfig
+	for _, org := range orgs {
+		if org != first.Org {
+			rest = append(rest, CommitterConfig{Name: CommitterName(org), Org: org})
+		}
+	}
 	for _, c := range append(rest, t.Committers...) {
 		if c.Image == "" {
 			c.Image = first.Image
@@ -116,13 +110,13 @@ func (t *Topology) peerOrgs() []string {
 	return orgs
 }
 
-// WithCommitterName sets the peer name used for the committer sidecar identity.
+// WithCommitterName sets the name of the first committer, used for its sidecar identity.
 func (t *Topology) WithCommitterName(name string) *Topology {
 	t.Committer.Name = name
 	return t
 }
 
-// WithCommitterOrg sets the organization the committer belongs to.
+// WithCommitterOrg sets the organization of the first committer.
 func (t *Topology) WithCommitterOrg(org string) *Topology {
 	t.Committer.Org = org
 	return t
@@ -146,13 +140,24 @@ func (t *Topology) WithCommitterImage(image string) *Topology {
 	return t
 }
 
-// WithCommitterEnv sets or overrides a single committer container env var.
+// WithCommitterEnv sets or overrides a single committer container env var, for the first
+// committer and every committer that sets no env vars of its own.
 // Pass an empty value to remove a default var.
 func (t *Topology) WithCommitterEnv(key, value string) *Topology {
 	if t.Committer.EnvVars == nil {
 		t.Committer.EnvVars = map[string]string{}
 	}
 	t.Committer.EnvVars[key] = value
+	return t
+}
+
+// WithOrdererEnv sets or overrides a single env var of the mock orderer container, such as
+// SC_ORDERER_BLOCK_SIZE. Pass an empty value to remove a default var.
+func (t *Topology) WithOrdererEnv(key, value string) *Topology {
+	if t.OrdererEnvVars == nil {
+		t.OrdererEnvVars = map[string]string{}
+	}
+	t.OrdererEnvVars[key] = value
 	return t
 }
 
@@ -179,7 +184,7 @@ func NewTopologyWithName(name string) *Topology {
 
 	topo.SetLogging("grpc=error:info", "")
 
-	// the ordering service provided by the committer all-in-one supports TLS
+	// the mock ordering service of the committer test image supports TLS
 	topo.TLSEnabled = true
 	topo.ClientAuthRequired = true
 
@@ -199,9 +204,5 @@ func NewTopologyWithName(name string) *Topology {
 
 	return &Topology{
 		Topology: topo,
-		Committer: CommitterConfig{
-			Name: DefaultCommitterName,
-			Org:  "Org1",
-		},
 	}
 }

@@ -23,31 +23,37 @@ func committerNames(cs []CommitterConfig) []string {
 func TestAllCommitters(t *testing.T) {
 	t.Parallel()
 
-	t.Run("one committer by default", func(t *testing.T) {
-		t.Parallel()
-		topo := NewDefaultTopology()
-		topo.AddOrganizationsByName("Org1", "Org2")
-		require.Equal(t, []string{"Org1/SC"}, committerNames(topo.AllCommitters()))
-	})
-
 	t.Run("a committer per org", func(t *testing.T) {
 		t.Parallel()
-		topo := NewDefaultTopology().EnableCommitterPerOrg()
+		topo := NewDefaultTopology()
 		topo.AddOrganizationsByName("Org1", "Org2", "Org3")
-		topo.AddCommitter("Org2", "Org2_committer_1")
 		require.Equal(t, []string{
-			"Org1/Org1_committer_0", "Org2/Org2_committer_0", "Org3/Org3_committer_0", "Org2/Org2_committer_1",
+			"Org1/Org1_committer_0", "Org2/Org2_committer_0", "Org3/Org3_committer_0",
 		}, committerNames(topo.AllCommitters()))
 	})
 
-	t.Run("a named first committer keeps its name and org", func(t *testing.T) {
+	t.Run("the first org's committer is the first", func(t *testing.T) {
 		t.Parallel()
-		topo := NewDefaultTopology().EnableCommitterPerOrg().
-			WithCommitterName("committer").WithCommitterOrg("Org2").
-			WithCommitterEnv("SC_ORDERER_BLOCK_SIZE", "10")
+		topo := NewDefaultTopology()
+		topo.AddOrganizationsByName("Alpha", "Beta")
+		require.Equal(t, []string{"Alpha/Alpha_committer_0", "Beta/Beta_committer_0"}, committerNames(topo.AllCommitters()))
+	})
+
+	t.Run("added committers follow the per-org ones", func(t *testing.T) {
+		t.Parallel()
+		topo := NewDefaultTopology().AddCommitter("Org2", "Org2_committer_1")
+		topo.AddOrganizationsByName("Org1", "Org2")
+		require.Equal(t, []string{
+			"Org1/Org1_committer_0", "Org2/Org2_committer_0", "Org2/Org2_committer_1",
+		}, committerNames(topo.AllCommitters()))
+	})
+
+	t.Run("the first committer's settings apply to the others", func(t *testing.T) {
+		t.Parallel()
+		topo := NewDefaultTopology().WithCommitterOrg("Org2").WithCommitterEnv("SC_SIDECAR_LOGGING_LEVEL", "debug")
 		topo.AddOrganizationsByName("Org1", "Org2")
 		all := topo.AllCommitters()
-		require.Equal(t, []string{"Org2/committer", "Org1/Org1_committer_0"}, committerNames(all))
-		require.Equal(t, "10", all[1].EnvVars["SC_ORDERER_BLOCK_SIZE"], "extra committers take the first one's env")
+		require.Equal(t, []string{"Org2/Org2_committer_0", "Org1/Org1_committer_0"}, committerNames(all))
+		require.Equal(t, "debug", all[1].EnvVars["SC_SIDECAR_LOGGING_LEVEL"])
 	})
 }
