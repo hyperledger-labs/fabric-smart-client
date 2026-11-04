@@ -14,13 +14,18 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // masterSessionKey is the registry key of the master session.
 var masterSessionKey = computeInternalSessionID(masterSession, nil)
 
-func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, callerViewID string, caller view.Identity, endpointID []byte, msg *view.Message) (*NetworkStreamSession, error) {
+// getOrCreateSession returns the registered session with sessionID, or registers a new one.
+// initiator marks a new session as one this node opened (see NetworkStreamSession.initiator);
+// msg, if set, is the first message of a new responder session, and the versions it states are
+// the session's.
+func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, callerViewID string, caller view.Identity, endpointID []byte, msg *view.Message, initiator bool) (*NetworkStreamSession, error) {
 	p.sessionsMutex.Lock()
 	defer p.sessionsMutex.Unlock()
 
@@ -50,6 +55,14 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	}
 
 	s := p.newNetworkStreamSession(sessionID, endpointAddress, contextID, callerViewID, caller, endpointID)
+	s.initiator = initiator
+	if msg != nil {
+		versions, err := preamble.DecodeVersions(msg.Versions)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "invalid first message for session [%s]", internalSessionID)
+		}
+		s.versions = versions
+	}
 
 	if msg != nil {
 		logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
@@ -116,19 +129,23 @@ func (p *P2PNode) NewSession(callerViewID, contextID, endpoint string, pkid []by
 		return nil, err
 	}
 
-	return p.getOrCreateSession(base64.StdEncoding.EncodeToString(ID), endpoint, contextID, callerViewID, nil, pkid, nil)
+	return p.getOrCreateSession(base64.StdEncoding.EncodeToString(ID), endpoint, contextID, callerViewID, nil, pkid, nil, true)
 }
 
 func (p *P2PNode) NewResponderSession(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
-	return p.getOrCreateSession(sessionID, endpoint, contextID, "", caller, pkid, msg)
+	return p.getOrCreateSession(sessionID, endpoint, contextID, "", caller, pkid, msg, false)
 }
 
+// NewSessionWithID returns the session with sessionID to the peer, an ID both nodes agreed on,
+// creating it as one this node opened if it does not exist. Such a session negotiates like one
+// from NewSession: each node picks the highest version both support from the other's preamble,
+// so both pick the same.
 func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte) (view.Session, error) {
-	return p.getOrCreateSession(sessionID, endpoint, contextID, "", nil, pkid, nil)
+	return p.getOrCreateSession(sessionID, endpoint, contextID, "", nil, pkid, nil, true)
 }
 
 func (p *P2PNode) MasterSession() (view.Session, error) {
-	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil, false)
 }
 
 // unregister removes session from the registry if it is the registered instance, so a newer

@@ -8,6 +8,7 @@ package p2p
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"runtime/debug"
 	"strings"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
@@ -63,6 +65,9 @@ const (
 	// rejectAuthorizerError rejects a message whose responder's authorizer failed, timed out,
 	// or could not be given a caller because the sender's identity is unknown.
 	rejectAuthorizerError rejectReason = session.ReasonAuthorizerError
+	// rejectNoCommonVersion rejects a message that states a component version outside this
+	// node's range.
+	rejectNoCommonVersion rejectReason = session.ReasonNoCommonVersion
 )
 
 // authorizeTimeout bounds a responder authorizer's call.
@@ -89,9 +94,10 @@ type IdentityProvider interface {
 
 // ViewManager models the view manager for P2P operations.
 type ViewManager interface {
-	// ResponderForCaller returns the responder view for the given caller view ID, the identity
-	// it runs as (none for the default one), and its authorizer (nil to accept every peer).
-	ResponderForCaller(caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error)
+	// ResponderForCaller returns the responder view for the given protocol name or, if it has
+	// none, for the caller view ID, the identity it runs as (none for the default one), and its
+	// authorizer (nil to accept every peer).
+	ResponderForCaller(protocol, caller string) (view.View, view.Identity, viewservice.ResponderAuthorizer, error)
 	// NewResponderContext returns a context used to respond to an invocation, and the func that
 	// releases it once the responder returns.
 	NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, func(), error)
@@ -296,7 +302,11 @@ type peerLoad struct{ responders, rejections int }
 // The error replies reject sends are such messages, so a rejection is never answered and two
 // nodes cannot reject each other in a loop.
 //
-// A message whose caller view has no responder on this node is rejected as unknown_view. A late
+// A responder is found by the message's protocol name, then by its caller view. A message for
+// which neither has a responder on this node is rejected as unknown_view. One that states a
+// component version outside this node's range is rejected as no_common_version, before any
+// limit or authorizer applies; the initiator chose the versions from this node's preamble, so
+// this happens only if the node's ranges changed or the initiator misbehaves. A late
 // message from a responder whose initiator session on this node is gone usually has an empty
 // caller and is dropped; it carries the initiator's view as caller, and is rejected, only if the
 // initiator sent more than one message on that session.
@@ -326,8 +336,12 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 		logger.Debugf("dropping first message for context [%s] from [%s]: status [%d], caller [%s]", msg.ContextID, msg.FromEndpoint, msg.Status, msg.Caller)
 		return
 	}
-	responder, id, authorizer, err := s.viewManager.ResponderForCaller(msg.Caller)
+	responder, id, authorizer, err := s.viewManager.ResponderForCaller(msg.Protocol, msg.Caller)
 	known := err == nil
+	unsupported := ""
+	if known {
+		unsupported = unsupportedVersion(msg.Versions)
+	}
 	peer := string(msg.FromPKID)
 	// Counting the responder before admitting it means a drain that starts concurrently either
 	// refuses it or waits for it.
@@ -347,7 +361,7 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 	s.inflightMu.Lock()
 	load := s.inflight[peer]
 	peerBusy := load.responders >= s.maxRespondersPerPeer
-	run := known && !draining && !peerBusy && s.total.responders < s.maxResponders
+	run := known && unsupported == "" && !draining && !peerBusy && s.total.responders < s.maxResponders
 	reject := !run && load.rejections < s.maxRespondersPerPeer && s.total.rejections < s.maxResponders
 	switch {
 	case run:
@@ -380,6 +394,8 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 		switch {
 		case run:
 			s.handleMessage(ctx, msg, responder, id, authorizer)
+		case unsupported != "":
+			s.reject(ctx, msg, rejectNoCommonVersion, unsupported)
 		case draining:
 			s.reject(ctx, msg, rejectDraining, "node is draining")
 		case known && peerBusy:
@@ -390,6 +406,24 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 			s.reject(ctx, msg, rejectUnknownView, msg.Caller)
 		}
 	})
+}
+
+// unsupportedVersion returns the rejection detail for raw, the versions a first message states:
+// for the first local component whose stated version is outside this node's range, naming the
+// component, the version (0 when the initiator found no common one) and the range, or for raw
+// that does not decode. It returns "" if this node supports every one. A component this node
+// does not have is not checked: the responder cannot use it, so its version does not matter.
+func unsupportedVersion(raw []byte) string {
+	versions, err := preamble.DecodeVersions(raw)
+	if err != nil {
+		return "invalid versions"
+	}
+	for _, c := range preamble.Components() {
+		if v, ok := versions[c.Name]; ok && !c.Range.Contains(v) {
+			return fmt.Sprintf("%s %d not in [%d, %d]", c.Name, v, c.Range.Min, c.Range.Max)
+		}
+	}
+	return ""
 }
 
 // release frees the responder or rejection slot dispatch took for peer.

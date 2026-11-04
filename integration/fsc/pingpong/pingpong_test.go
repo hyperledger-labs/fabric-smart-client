@@ -240,6 +240,7 @@ var _ = Describe("EndToEnd", func() {
 			if c == fsc.WebSocket {
 				It("checks its peers with node peers --check", s.TestPeersCheck)
 			}
+			It("negotiates the highest version both nodes support", s.TestVersion)
 		})
 	}
 
@@ -456,6 +457,8 @@ func (s *TestSuite) TestPeersCheck() {
 	session := s.II.RunFSCNodeCommand("initiator", "node", "peers", "--check")
 	Expect(session.ExitCode()).To(BeZero(), string(session.Err.Contents()))
 	Expect(string(session.Out.Contents())).To(ContainSubstring("peer [responder]"))
+	// The command starts no node, yet sees the component the binary registers in main.
+	Expect(string(session.Out.Contents())).To(ContainSubstring("pingtest: local [2,3] peer [1,2]: uses 2"))
 }
 
 // TestUnhostedView checks that a view the responder hosts no responder for fails at once with
@@ -466,6 +469,15 @@ func (s *TestSuite) TestUnhostedView() {
 	Expect(err).To(MatchError(ContainSubstring("unknown_view: github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/Unhosted")))
 	// Well under roundTimeout (one minute), which the call takes without the rejection.
 	Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
+}
+
+// TestVersion checks that an initiator supporting pingtest {2, 3} and a responder supporting
+// {1, 2} both observe version 2, the highest both support, on their session. The Initiator's
+// ping-pong in the other specs reaches its responder by the protocol name pingpong/ping.
+func (s *TestSuite) TestVersion() {
+	res, err := s.II.Client("initiator").CallView("version", nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(2))
 }
 
 // newWebClient returns a view client that reaches the node in confDir over HTTP, signed as

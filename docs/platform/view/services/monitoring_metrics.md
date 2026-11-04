@@ -157,7 +157,7 @@ Primary implementation: `platform/view/services/comm/metrics.go`, with updates i
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the node already runs `fsc.p2p.maxResponders` responders across all peers, `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the caller view, `unauthorized` when the responder's authorizer refused the sender, `authorizer_error` when the authorizer failed, timed out, or the sender's identity could not be resolved. |
+| `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the node already runs `fsc.p2p.maxResponders` responders across all peers, `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the protocol name or the caller view, `unauthorized` when the responder's authorizer refused the sender, `authorizer_error` when the authorizer failed, timed out, or the sender's identity could not be resolved, `no_common_version` when the message states a component version outside the node's range. |
 
 Operational notes:
 

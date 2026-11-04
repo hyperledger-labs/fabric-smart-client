@@ -298,6 +298,60 @@ start the responder. A later registration for the same initiator
 without `WithAuthorizer`, for example a default registration by a library, keeps the authorizer;
 one with `WithAuthorizer` replaces it.
 
+### Protocol names
+
+A peer finds a responder by the Go type path of the initiator view (`view.GetIdentifier`), so
+moving or renaming an initiator type breaks peers that run the previous release. A protocol with
+a stable name does not depend on the type path. The initiator view declares the name by
+implementing `view.ProtocolView`, and the responder registers for it with `WithProtocol`:
+
+```go
+// Protocol implements view.ProtocolView.
+func (*Initiator) Protocol() (component, name string) { return "iou", "create" }
+
+err := view.GetRegistry(sp).RegisterResponderWithOptions(
+	&Responder{}, &Initiator{}, view.WithProtocol("iou", "create"),
+)
+```
+
+A session opened with `GetSession(caller, party)` states the name `caller` declares on its
+messages. FSC's bundled views (endorsement, finality, recipient exchange) pass
+`viewCtx.Initiator()` as caller, so they open sessions under the application's protocol. The
+responder node looks the name up first, then the type path, so an initiator that declares no
+name, or one of an older release, still reaches a responder registered for its type. Both parts
+of the name match `[a-z0-9-]+`. Names and type paths are kept apart: a type path that happens to
+look like a name is never found as one. A name belongs to one initiator: registering it for another
+initiator fails. A later registration for the same initiator without `WithProtocol` keeps the name
+and its authorizer; one with another name releases the old name.
+
+### Versions of a protocol's formats
+
+Nodes of different releases use, per session, the highest version of each component's formats
+that both support (see [Format negotiation](services/comm/readme.md#format-negotiation)). An
+application that changes the format of its own messages registers a component with the range it
+supports, when its SDK is built or in `main`, before the node starts:
+
+```go
+preamble.RegisterComponent("iou", 1, 2) // platform/view/services/comm/preamble
+```
+
+Registering before the node starts lets `node version` and `node peers --check`, which start no
+node, report the component too. A name registered twice, including one of FSC's (`view`, `fabric`,
+`fabricx`), panics.
+
+A view reads the version of its session before it encodes a message, and the receiving side reads
+it before it decodes:
+
+```go
+v, err := viewapi.SessionVersion(viewCtx.Context(), session, "iou")
+if err != nil {
+	return nil, err // no version both nodes support
+}
+```
+
+The version holds for the whole session. A session that is not an FSC network session, such as an
+in-process one or an application's wrapper that hides the FSC session, uses version 1.
+
 ## View Factories and Registration
 
 Views are often created through factories so that FSC can instantiate them from external input.

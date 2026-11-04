@@ -25,6 +25,19 @@ message Preamble {
   repeated ComponentRange ranges = 4;
 }
 
+// ComponentVersions is the version of each component's formats a session uses, as the
+// initiator states it on each message (comm.ViewPacket.versions).
+message ComponentVersions {
+  repeated ComponentVersion versions = 1;
+}
+
+// ComponentVersion is the version of one component's formats that a session uses. Version 0
+// states that the two nodes support no common version of the component.
+message ComponentVersion {
+  string component = 1;
+  uint32 version = 2;
+}
+
 // ComponentRange is the range of versions of one component's wire formats a binary supports.
 message ComponentRange {
   // component names the part of the binary that owns the formats, such as "view", "fabric",

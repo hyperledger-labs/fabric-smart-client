@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -125,19 +124,6 @@ func (s *Service) ReplyError(ctx context.Context, msg *view.Message, payload []b
 		return ErrNotInitialized
 	}
 	return s.Node.ReplyError(ctx, msg.SessionID, msg.ContextID, msg.FromEndpoint, msg.FromPKID, payload)
-}
-
-// PeerRanges returns the component version ranges that the peer with the given PKID sent in
-// its preamble; see P2PNode.PeerPreamble. The ranges are shared and must not be modified. ok is
-// false when the communication service is not initialized, when no stream to the peer is open
-// yet, or when the peer runs a release without preambles: a caller that needs the ranges opens
-// a stream to the peer first.
-func (s *Service) PeerRanges(pkid []byte) ([]*preamble.ComponentRange, bool) {
-	if err := s.init(); err != nil {
-		return nil, false
-	}
-	p, ok := s.Node.PeerPreamble(string(pkid))
-	return p.GetRanges(), ok
 }
 
 func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte) (view.Session, error) {

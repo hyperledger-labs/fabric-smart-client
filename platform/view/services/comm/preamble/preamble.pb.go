@@ -102,6 +102,106 @@ func (x *Preamble) GetRanges() []*ComponentRange {
 	return nil
 }
 
+// ComponentVersions is the version of each component's formats a session uses, as the
+// initiator states it on each message (comm.ViewPacket.versions).
+type ComponentVersions struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Versions      []*ComponentVersion    `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ComponentVersions) Reset() {
+	*x = ComponentVersions{}
+	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ComponentVersions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ComponentVersions) ProtoMessage() {}
+
+func (x *ComponentVersions) ProtoReflect() protoreflect.Message {
+	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ComponentVersions.ProtoReflect.Descriptor instead.
+func (*ComponentVersions) Descriptor() ([]byte, []int) {
+	return file_platform_view_services_comm_preamble_preamble_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ComponentVersions) GetVersions() []*ComponentVersion {
+	if x != nil {
+		return x.Versions
+	}
+	return nil
+}
+
+// ComponentVersion is the version of one component's formats that a session uses. Version 0
+// states that the two nodes support no common version of the component.
+type ComponentVersion struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Component     string                 `protobuf:"bytes,1,opt,name=component,proto3" json:"component,omitempty"`
+	Version       uint32                 `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ComponentVersion) Reset() {
+	*x = ComponentVersion{}
+	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ComponentVersion) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ComponentVersion) ProtoMessage() {}
+
+func (x *ComponentVersion) ProtoReflect() protoreflect.Message {
+	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ComponentVersion.ProtoReflect.Descriptor instead.
+func (*ComponentVersion) Descriptor() ([]byte, []int) {
+	return file_platform_view_services_comm_preamble_preamble_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ComponentVersion) GetComponent() string {
+	if x != nil {
+		return x.Component
+	}
+	return ""
+}
+
+func (x *ComponentVersion) GetVersion() uint32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
 // ComponentRange is the range of versions of one component's wire formats a binary supports.
 type ComponentRange struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -118,7 +218,7 @@ type ComponentRange struct {
 
 func (x *ComponentRange) Reset() {
 	*x = ComponentRange{}
-	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[1]
+	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -130,7 +230,7 @@ func (x *ComponentRange) String() string {
 func (*ComponentRange) ProtoMessage() {}
 
 func (x *ComponentRange) ProtoReflect() protoreflect.Message {
-	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[1]
+	mi := &file_platform_view_services_comm_preamble_preamble_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -143,7 +243,7 @@ func (x *ComponentRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComponentRange.ProtoReflect.Descriptor instead.
 func (*ComponentRange) Descriptor() ([]byte, []int) {
-	return file_platform_view_services_comm_preamble_preamble_proto_rawDescGZIP(), []int{1}
+	return file_platform_view_services_comm_preamble_preamble_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ComponentRange) GetComponent() string {
@@ -177,7 +277,12 @@ const file_platform_view_services_comm_preamble_preamble_proto_rawDesc = "" +
 	"fscVersion\x12!\n" +
 	"\fvcs_revision\x18\x02 \x01(\tR\vvcsRevision\x12#\n" +
 	"\rframing_epoch\x18\x03 \x01(\rR\fframingEpoch\x120\n" +
-	"\x06ranges\x18\x04 \x03(\v2\x18.preamble.ComponentRangeR\x06ranges\"R\n" +
+	"\x06ranges\x18\x04 \x03(\v2\x18.preamble.ComponentRangeR\x06ranges\"K\n" +
+	"\x11ComponentVersions\x126\n" +
+	"\bversions\x18\x01 \x03(\v2\x1a.preamble.ComponentVersionR\bversions\"J\n" +
+	"\x10ComponentVersion\x12\x1c\n" +
+	"\tcomponent\x18\x01 \x01(\tR\tcomponent\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\rR\aversion\"R\n" +
 	"\x0eComponentRange\x12\x1c\n" +
 	"\tcomponent\x18\x01 \x01(\tR\tcomponent\x12\x10\n" +
 	"\x03min\x18\x02 \x01(\rR\x03min\x12\x10\n" +
@@ -195,18 +300,21 @@ func file_platform_view_services_comm_preamble_preamble_proto_rawDescGZIP() []by
 	return file_platform_view_services_comm_preamble_preamble_proto_rawDescData
 }
 
-var file_platform_view_services_comm_preamble_preamble_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_platform_view_services_comm_preamble_preamble_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_platform_view_services_comm_preamble_preamble_proto_goTypes = []any{
-	(*Preamble)(nil),       // 0: preamble.Preamble
-	(*ComponentRange)(nil), // 1: preamble.ComponentRange
+	(*Preamble)(nil),          // 0: preamble.Preamble
+	(*ComponentVersions)(nil), // 1: preamble.ComponentVersions
+	(*ComponentVersion)(nil),  // 2: preamble.ComponentVersion
+	(*ComponentRange)(nil),    // 3: preamble.ComponentRange
 }
 var file_platform_view_services_comm_preamble_preamble_proto_depIdxs = []int32{
-	1, // 0: preamble.Preamble.ranges:type_name -> preamble.ComponentRange
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: preamble.Preamble.ranges:type_name -> preamble.ComponentRange
+	2, // 1: preamble.ComponentVersions.versions:type_name -> preamble.ComponentVersion
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_platform_view_services_comm_preamble_preamble_proto_init() }
@@ -220,7 +328,7 @@ func file_platform_view_services_comm_preamble_preamble_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_platform_view_services_comm_preamble_preamble_proto_rawDesc), len(file_platform_view_services_comm_preamble_preamble_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

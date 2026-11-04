@@ -294,6 +294,9 @@ func (c *Context) Caller() view.Identity {
 // GetSession returns a session to the passed remote party for the given view caller.
 // Sessions are scoped by the caller view and cached.
 // The session can be bound to other caller views by passing them as additional parameters.
+// A new session states the protocol name caller declares (see ProtocolView), so views that pass
+// Initiator() as caller, such as FSC's bundled views, open sessions under the protocol of the
+// view that started the context.
 func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
 	viewID := getViewIdentifier(caller)
 	logger.DebugfContext(c.Context(), "[%s] GetSession [%s:%s]", c.me, viewID, party)
@@ -424,8 +427,21 @@ func (c *Context) newSession(view view.View, contextID string, party view.Identi
 		return nil, errors.Errorf("no endpoint resolver found for party [%s]", party)
 	}
 	logger.DebugfContext(c.Context(), "Open new session to %s", resolver.GetName())
-	return c.sessionFactory.NewSession(GetIdentifier(view), contextID, resolver.GetAddress(endpoint.P2PPort), pkid)
+	s, err := c.sessionFactory.NewSession(GetIdentifier(view), contextID, resolver.GetAddress(endpoint.P2PPort), pkid)
+	if err != nil {
+		return nil, err
+	}
+	if p, ok := s.(protocolSetter); ok {
+		if name := protocolOf(view); name != "" {
+			p.SetProtocol(name)
+		}
+	}
+	return s, nil
 }
+
+// protocolSetter is implemented by a session that can state a protocol name on its first
+// message, as FSC's network sessions do.
+type protocolSetter interface{ SetProtocol(name string) }
 
 func (c *Context) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
 	resolver, pkid, err := c.resolver.Resolver(c.Context(), party)

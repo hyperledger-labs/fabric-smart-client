@@ -441,10 +441,10 @@ func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Ident
 	return cm.registry.ExistResponderForCaller(caller)
 }
 
-// ResponderForCaller returns the responder view, identity and authorizer for the given caller
-// identifier; see Registry.ResponderForCaller.
-func (cm *Manager) ResponderForCaller(caller string) (view.View, view.Identity, ResponderAuthorizer, error) {
-	return cm.registry.ResponderForCaller(caller)
+// ResponderForCaller returns the responder view, identity and authorizer for the given protocol
+// name or caller identifier; see Registry.ResponderForCaller.
+func (cm *Manager) ResponderForCaller(protocol, caller string) (view.View, view.Identity, ResponderAuthorizer, error) {
+	return cm.registry.ResponderForCaller(protocol, caller)
 }
 
 // DeleteContext removes a context from the manager and calls Dispose on the context. A responder

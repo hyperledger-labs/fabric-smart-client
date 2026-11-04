@@ -41,10 +41,10 @@ func TestSession_CloseKeepsReplacement(t *testing.T) {
 	require.NoError(t, err)
 	stopNode(t, p)
 
-	old, err := p.getOrCreateSession("s1", "addr", "ctx", "view", nil, []byte("pk"), nil)
+	old, err := p.getOrCreateSession("s1", "addr", "ctx", "view", nil, []byte("pk"), nil, false)
 	require.NoError(t, err)
 	old.closeAsync()
-	replacement, err := p.getOrCreateSession("s1", "addr", "ctx", "view", nil, []byte("pk"), nil)
+	replacement, err := p.getOrCreateSession("s1", "addr", "ctx", "view", nil, []byte("pk"), nil, false)
 	require.NoError(t, err)
 	require.NotSame(t, old, replacement, "a closing session is replaced, not returned")
 

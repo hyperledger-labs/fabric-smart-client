@@ -51,7 +51,7 @@ func runLargeMessageTest(t *testing.T, p *P2PNode, size int) {
 		payload[i] = byte(i % 256)
 	}
 
-	session, err := p.getOrCreateSession("large-sess", "addr", "ctx", "view", nil, []byte("large-peer"), nil)
+	session, err := p.getOrCreateSession("large-sess", "addr", "ctx", "view", nil, []byte("large-peer"), nil, false)
 	require.NoError(t, err)
 
 	err = session.Send(t.Context(), payload)
@@ -149,7 +149,7 @@ func TestConcurrentSendAndClose(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	defer p.Stop()
 
-	session, err := p.getOrCreateSession("stress-sess", "addr", "ctx", "view", nil, []byte("stress-peer"), nil)
+	session, err := p.getOrCreateSession("stress-sess", "addr", "ctx", "view", nil, []byte("stress-peer"), nil, false)
 	require.NoError(t, err)
 
 	numSenders := 20

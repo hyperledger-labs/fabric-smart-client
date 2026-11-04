@@ -14,11 +14,13 @@ import (
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
 	node := fscnode.New()
+	preamble.RegisterComponent(pingpong.TestComponent, 2, 3)
 	if err := node.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(node))); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
@@ -34,6 +36,9 @@ func main() {
 			return err
 		}
 		if err := registry.RegisterFactory("unhosted", &pingpong.UnhostedViewFactory{}); err != nil {
+			return err
+		}
+		if err := registry.RegisterFactory("version", &pingpong.VersionInitiatorViewFactory{}); err != nil {
 			return err
 		}
 		return nil

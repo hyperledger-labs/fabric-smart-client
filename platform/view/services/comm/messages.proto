@@ -1,15 +1,31 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 syntax = "proto3";
 
 package comm;
 
-
 option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm";
 
-
+// ViewPacket is one message of a session. Fields are only ever added, never renumbered,
+// retyped or removed, and a release ignores the fields a later one adds.
 message ViewPacket {
     string sessionID = 1;
     string contextID = 2;
     int32 status = 3;
     bytes payload = 4;
+    // caller is the Go type path of the view that opened the session. The responder is found
+    // by protocol when it is set and known, and by caller otherwise.
     string caller = 5;
+    // versions is an encoded preamble.ComponentVersions, set on each message of a session the initiator
+    // opened: the version of each component's formats the session uses, the same on every
+    // message. The responder's messages carry none. It is bytes, so that a receiver checks its
+    // size, at most 4 KiB like the preamble, before it decodes the list.
+    bytes versions = 6;
+    // protocol is the stable name "<component>/<name>" of the protocol the session runs, set on
+    // each initiator message when the initiator view declares one.
+    string protocol = 7;
 }

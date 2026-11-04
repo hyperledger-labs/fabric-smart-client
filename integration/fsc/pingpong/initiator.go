@@ -115,10 +115,14 @@ func finish(viewCtx view.Context, responder view.Identity) (any, error) {
 }
 
 // Initiator runs Rounds (or DefaultRounds, if Rounds is unset) ping/pong rounds against the
-// responder identity, then tells the responder the protocol is over.
+// responder identity, then tells the responder the protocol is over. It runs the protocol
+// pingpong/ping, so a responder registered for that name answers it wherever the type lives.
 type Initiator struct {
 	Params
 }
+
+// Protocol implements view.ProtocolView.
+func (*Initiator) Protocol() (component, name string) { return "pingpong", "ping" }
 
 func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 	identityProvider, err := id.GetProvider(viewCtx)
