@@ -1,5 +1,18 @@
 .PHONY: checks
-checks: lint go-fix ## Run all code checks (lint + go fix)
+checks: lint go-fix docs-links ## Run all code checks (lint + go fix + docs links)
+
+#########################
+# Docs links
+#########################
+
+# Documentation for people is self-contained: only AGENTS.md and docs/agents/ may link
+# into docs/agents/ (see docs/dev/documentation.md).
+.PHONY: docs-links
+docs-links: ## Check that no page for people links into docs/agents/
+	@echo "Checking docs links..."
+	@if cd $(TOP) && git grep -nE '\]\([^)]*agents/' -- '*.md' ':!AGENTS.md' ':!CLAUDE.md' ':!docs/agents/'; then \
+		echo "these pages link into docs/agents/; link the page for people instead (docs/dev/documentation.md)"; exit 1; \
+	fi
 
 #########################
 # Lint

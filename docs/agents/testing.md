@@ -1,152 +1,20 @@
-# Testing
+# Testing: Agent Checklist
 
-New functionality comes with tests in the same PR — the policy, and the few changes it
-exempts, is in [Contribution Workflow → Tests](../dev/workflow.md#tests).
+Read the [Testing Guide](../dev/testing.md) first, and the
+[Integration Tests](../dev/integration-tests/README.md) pages for integration work.
 
-## Frameworks
-
-- **Unit tests**: `github.com/stretchr/testify/require`.
-- **Integration tests**: Ginkgo v2 + Gomega.
-- **`nwo` unit tests** in the integration module: Gomega, because `nwo` asserts through it.
-
-A `depguard` rule in [`.golangci.yml`](../../.golangci.yml) rejects Gomega and Ginkgo
-imports in test files outside `integration/`.
-
-See [`docs/dev/testing.md`](../dev/testing.md) for testing best practices, including
-when to reach for `assert` instead of `require`.
-
-## Parallel unit tests
-
-A unit test and each of its subtests call `t.Parallel()`, so `go test -race` exercises
-them concurrently and `-shuffle=on` and `-count` vary their order. A test that reads or
-changes process-wide state (`t.Setenv`, `logging.Init`, the global Gomega, a package
-variable such as `prom.DefaultRegisterer`) runs serially instead and says which state
-with `//nolint:paralleltest // <state>`. Placed on the line above the `func`, the
-directive also covers that test's subtests.
-
-## Running tests
-
-Scope every run to what you changed:
-
-```bash
-make unit-tests                                             # all unit tests except root-module Postgres tests
-make unit-tests-root                                        # only the root module
-go test -run TestMyTest ./platform/view/...                  # one test
-TEST_PKGS=./platform/common/utils/... make unit-tests-root   # one package tree
-```
-
-Never run the whole integration suite to check a change — it is slow and needs Fabric
-binaries plus Docker. Pick one target, and let CI run the rest:
-
-```bash
-make integration-tests-fabric-iou
-GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
-```
-
-[`docs/dev/development.md`](../dev/development.md#running-tests) is the source of truth
-for test commands: the remaining targets, the Postgres and coverage variants, and their
-prerequisites. See also [integration-tests.md](integration-tests.md).
-
-## Fuzzing
-
-See [`docs/dev/testing.md`](../dev/testing.md).
-
-## Integration test structure
-
-```go
-var _ = Describe("Feature", Ordered, func() {
-    s := NewTestSuite(opts...)
-    BeforeAll(s.Setup)
-    AfterAll(s.TearDown)
-    It("creates and updates an IOU", s.TestCreateAndUpdate)
-    It("rejects an update without the approver", s.TestUpdateWithoutApprover)
-})
-```
-
-- Name each `It` after the behaviour it checks: CI reports a failure as
-  `<Describe> <It>`, so `It("succeeded")` says nothing about what broke.
-- Define the network topology in `<test>/topology.go` via `integration.Generate()`.
-- Put reusable test logic in `<test>/<test>.go`.
-- For multi-node scenarios, use `integration.ReplicationOptions`.
-
-### One network per `Describe`
-
-`Setup` generates or loads artifacts and starts every node; `TearDown` stops them. Under
-`BeforeEach`/`AfterEach` that cycle runs **per `It`** — roughly 90-110s for a Fabric
-topology, against 10-20s for the assertions inside it. A five-spec `Describe` then spends
-most of its runtime booting the same network five times.
-
-So default to `Ordered` with `BeforeAll`/`AfterAll` and share one network across the
-group. Reach for `BeforeEach` only when a spec genuinely needs a pristine one: it stops a
-node and does not restart it, changes node configuration, or writes state a later spec
-would read. The faultrecovery suites show the shared form for specs that stop and restart
-nodes (`faultrecovery.ShareNetwork`, see
-[`integration-tests.md`](integration-tests.md#fault-primitives)). A spec that needs a *different*
-topology belongs in its own `Describe` regardless — the topology is fixed when
-`NewTestSuite` is called.
-
-Specs that could share a network but would collide on fixed data (the same asset ID, say)
-either parameterise that data or stay in separate `Describe`s.
-
-## Focused runs (never commit)
-
-Use `FIt`/`FDescribe` to focus a spec or `XIt` to skip one while iterating —
-never commit them (CI treats a stray focus as a failure). Prefer the
-`GINKGO_TEST_OPTS="--focus=..."` flag for anything you might commit.
-
-Check that a focused run actually ran something. `go test` prints nothing for a passing
-package, so a filter matching **zero specs** reports `ok ... 9.5s`, which reads exactly
-like success. Pass `-v` and read `Ran N of M Specs` before believing it.
-
-## Gomega assertions in spawned goroutines
-
-`gomega.Expect(...).To(...)` calls `ginkgo.Fail`, which panics to unwind to a `recover()`
-that only exists on the goroutine Ginkgo is currently running the spec on. A `go func(){
-gomega.Expect(err).NotTo(gomega.HaveOccurred()) }()` has no such `recover()`: a failed
-assertion there panics the whole test binary instead of failing one spec.
-
-- If the goroutine's result is joined before the spec ends (`sync.WaitGroup.Wait()`,
-  `errgroup.Wait()`), `defer ginkgo.GinkgoRecover()` as its first statement turns that
-  panic back into a normal spec failure.
-- If the goroutine can outlive the spec (a fire-and-forget log streamer), don't put a
-  `gomega.Expect` in it at all, even behind `GinkgoRecover` — Ginkgo would attribute a
-  late panic to whichever spec happens to be running by then. Do the fallible call before
-  spawning the goroutine and assert its error synchronously on the calling goroutine; let
-  the goroutine itself only log-and-continue on errors that occur purely within its own
-  work. See `docker.StartLogs` (`integration/nwo/common/docker/utils.go`).
-
-## Mocks and fakes
-
-Mocks are generated with [counterfeiter](https://github.com/maxbrunsfeld/counterfeiter)
-(pinned in `tools/tools.go`). Regenerate with `make generate-mocks` after changing a
-mocked interface. See [`docs/dev/mocks.md`](../dev/mocks.md).
-
-## Storage fixtures
-
-`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. Add a release with `testdata/generate.sh <release>` and list it in `fixtureVersions`; see `testdata/README.md`. Never edit a fixture by hand. The `Storage fixtures` workflow also generates the latest release's fixture into a temporary directory and opens it through `FSC_FIXTURE_DIR`, so a change to `generate.go` must keep building against that release.
-
-## Shared test helpers
-
-Helpers that other packages import cannot live in a `_test.go` file, so conformance
-suites, benchmark bodies, and node harnesses sit in plain `.go` files — where they
-would otherwise be counted as production code.
-
-**Name them `*_test_utils.go`.** That single convention is the whole mechanism:
-`scripts/filter-coverage.sh` matches the pattern and keeps them out of the coverage
-denominator, exactly as it already excludes mocks and fakes. Nothing enforces the
-name, and a misnamed helper is silently counted as production code — so apply the
-convention when you add one.
-
-A file is test-only when nothing outside `_test.go` uses it. Importing `testing` or taking
-a `*testing.T/B/TB` is the clearest signal, but not the only one: a helper can build
-fixtures (certs, store handles) without touching `testing` at all. Check the callers, not
-just the signature.
-
-Do not rely on generic names either way — `platform/fabric/services/state/helpers.go` is
-production code despite the name.
-
-When a file mixes production code with a single test helper —
-`platform/common/utils/assert/retry.go` (`EventuallyWithRetry`) — it stays in the
-report, because excluding it would drop shipped code too. Prefer splitting such a helper
-out into a `*_test_utils.go` file, as `platform/common/services/logging` does with
-`logging_test_utils.go`.
+- Scope every run to what changed: one package or one test with `go test -run`, one
+  integration target. Never run `make integration-tests` to check a change.
+- Run one integration target at a time per machine. Other worktrees and other agent
+  sessions on the same machine count: targets share Docker container names, ports and
+  `out/` directories.
+- Before reporting a focused run as passing, run it with `-v` and read `Ran N of M
+  Specs`; a filter that matches nothing still prints `ok`.
+- A new unit test calls `t.Parallel()`, or carries `//nolint:paralleltest // <state>`
+  naming the process-wide state it touches. A package whose tests you made parallel
+  passes `go test -race -count=3 -shuffle=on`.
+- `require` only on the test's own goroutine; elsewhere `assert`, or send the error back.
+- Never commit `FIt`, `FDescribe` or `XIt`.
+- Regenerate mocks with `make generate-mocks`; never edit generated mocks or storage
+  fixtures by hand.
+- A test that exposes a bug is not weakened to pass. Report the failure with its output.

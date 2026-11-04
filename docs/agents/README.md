@@ -1,16 +1,10 @@
 # Agent Guides
 
-Detailed, task-specific guidance for coding agents working in this repository.
-Start from the root [`AGENTS.md`](../../AGENTS.md), which links here on demand.
+These pages add what a coding agent needs on top of the documentation for people; they
+don't repeat it. Each starts by naming the page for people to read first. Where a fact is
+documented, and how, is in [Writing Documentation](../dev/documentation.md).
 
-- [Architecture & dependency injection](architecture.md) — platform layout, SDK
-  composition, the `dig` Install/Start pattern, multi-network access.
-- [Conventions](conventions.md) — code organization, error handling, logging,
-  storage drivers, identity, security.
-- [Testing](testing.md) — unit-test conventions, parallel tests, and Ginkgo/Gomega patterns.
-- [Integration tests](integration-tests.md) — authoring a new integration test
-  and the network-topology API.
-
-For the view/session programming model (how views, sessions, and initiator/
-responder protocols work), see
-[`docs/platform/view/programming-model.md`](../platform/view/programming-model.md).
+- [Architecture](architecture.md): before adding, wiring or replacing a service.
+- [Conventions](conventions.md): what to check on every change before it is finished.
+- [Testing](testing.md): choosing, scoping and reporting test runs.
+- [Integration tests](integration-tests.md): adding a suite or a spec, and fault specs.
