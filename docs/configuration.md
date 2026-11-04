@@ -33,8 +33,8 @@ fsc:
       file: /path/to/key.pwm
 
   # ------------------- Shared server-side TLS defaults -------------------
-  # Every listener this node owns (fsc.grpc and fsc.web) inherits from this
-  # block FIELD BY FIELD: a service's own tls: block overrides only the fields it sets,
+  # Every listener this node owns (fsc.grpc, fsc.web, and fsc.metrics when it has its own
+  # address) inherits from this block FIELD BY FIELD: a service's own tls: block overrides only the fields it sets,
   # and every other field falls through to here. A service that overrides nothing needs
   # no tls: block at all.
   #
@@ -63,7 +63,9 @@ fsc:
     # 772.
     minVersion: 771
     maxVersion: 771
-    # How often each listener re-reads its cert and key files, as a duration such as 30s.
+    # How often each of those listeners re-reads its cert and key files, as a duration such
+    # as 30s. The websocket P2P listener (fsc.p2p.opts.websocket.tls) does not reload and does
+    # not accept this key.
     # A renewed certificate is then served from the next handshake on, without a restart;
     # established connections keep theirs until they reconnect. A pair that does not parse,
     # or whose halves do not match, is refused with a warning and the previous one stays.
