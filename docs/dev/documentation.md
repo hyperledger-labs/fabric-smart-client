@@ -34,7 +34,8 @@ people, and the agent page links to it.
 | How the code is organised and the conventions it follows | [`docs/dev/architecture.md`](architecture.md), [`docs/dev/conventions.md`](conventions.md) |
 | Writing unit tests and fuzz targets | [`docs/dev/testing.md`](testing.md) |
 | Writing and running integration tests | [`docs/dev/integration-tests/`](integration-tests/README.md) |
-| Contribution process: issues, commits, pull requests, review, releases | [`docs/dev/workflow.md`](workflow.md), [`CONTRIBUTING.md`](../../CONTRIBUTING.md) |
+| Contribution process: issues, commits, pull requests, review | [`docs/dev/workflow.md`](workflow.md), [`CONTRIBUTING.md`](../../CONTRIBUTING.md) |
+| Cutting a release | [`docs/dev/releasing.md`](releasing.md) |
 | The contract of an exported package, type or function | its Godoc comment |
 | An example or a test suite | a `README.md` next to its code, linking to the guide it belongs to |
 

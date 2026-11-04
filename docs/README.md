@@ -21,6 +21,7 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 - [Architecture and dependency injection](dev/architecture.md)
 - [Code conventions](dev/conventions.md)
 - [Contribution workflow](dev/workflow.md)
+- [Releasing](dev/releasing.md)
 - [Contributor guide](../CONTRIBUTING.md)
 - [Commit signing (DCO + GPG)](dev/signing.md)
 - [Rebasing onto upstream main](dev/rebasing.md)
