@@ -57,10 +57,12 @@ On gRPC and on the HTTP binding ([view-service-http.md](view-service-http.md)):
 | Situation | gRPC | HTTP `ProcessCommand` | WebSocket `StreamCommand` | What to do |
 |-----------|------|-----------------------|---------------------------|------------|
 | The node drains | `Unavailable` "node is draining" | 503 | close code 1013 (try again later) | Retry on another replica. The command did not run. |
+| The node is busy (`fsc.view.remote.maxConcurrentRequests`) | `Unavailable` "node is busy: too many concurrent view requests" | 503 | close code 1013 (try again later) | Retry later or on another replica. The command did not run. |
 | A shutdown cancelled the view | `Aborted` "view cancelled by node shutdown" | 409 | close code 1011, the reason naming the shutdown | Check the outcome. The view may have had effects, such as a submitted transaction that still commits; do not retry it blindly. |
 
-The Go client (`platform/view/services/view/client`) reports both as gRPC status errors on
-either transport, so `status.Code(err)` tells them apart.
+The Go client (`platform/view/services/view/client`) reports these as gRPC status errors on
+either transport. `status.Code(err)` tells `Unavailable` from `Aborted`; only the message tells a
+draining node from a busy one.
 
 ## P2P peers
 

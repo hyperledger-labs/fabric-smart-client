@@ -23,7 +23,7 @@ var (
 	}
 	requestsRejected = metrics.CounterOpts{
 		Name:       "requests_rejected",
-		Help:       "The number of view requests rejected as stale, replayed or denied by a policy checker.",
+		Help:       "The number of view requests rejected as stale, replayed, denied by a policy checker or refused while the node is busy.",
 		LabelNames: []string{"reason"},
 	}
 )
@@ -34,8 +34,9 @@ type Metrics struct {
 	RequestsReceived metrics.Counter
 	// RequestsCompleted returns the number of view requests that have been completed.
 	RequestsCompleted metrics.Counter
-	// RequestsRejected returns the number of view requests rejected as stale, replayed or
-	// denied by a policy checker, by reason: stale, replay or denied.
+	// RequestsRejected returns the number of view requests rejected as stale, replayed,
+	// denied by a policy checker, or refused while the node runs as many commands as it
+	// allows, by reason: stale, replay, denied or busy.
 	RequestsRejected metrics.Counter
 }
 

@@ -41,7 +41,10 @@ func TestLoadRemoteConfig(t *testing.T) {
 		{name: "zero timeWindow", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      timeWindow: 0s\n"), wantErr: []string{"fsc.view.remote.timeWindow"}},
 		{name: "unparsable timeWindow", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      timeWindow: soon\n"), wantErr: []string{"fsc.view.remote.timeWindow"}},
 		{name: "unknown key with enabled", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      timeWindows: 1s\n      maxMsgSize: 1\n"), wantErr: []string{"fsc.view.remote", "[maxmsgsize timewindows]"}},
-		{name: "every known key with enabled", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      timeout: 1m\n      timeWindow: 1m\n      clients: []\n      maxMessageSize: 1\n"), want: RemoteConfig{Enabled: true, TimeWindow: time.Minute, MaxMessageSize: 1, Backends: []string{"grpc"}}},
+		{name: "every known key with enabled", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      timeout: 1m\n      timeWindow: 1m\n      clients: []\n      maxMessageSize: 1\n      maxConcurrentRequests: 2\n"), want: RemoteConfig{Enabled: true, TimeWindow: time.Minute, MaxMessageSize: 1, MaxConcurrentRequests: 2, Backends: []string{"grpc"}}},
+		{name: "zero maxConcurrentRequests", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      maxConcurrentRequests: 0\n"), want: RemoteConfig{Enabled: true, TimeWindow: DefaultCommandTimeWindow, Backends: []string{"grpc"}}},
+		{name: "negative maxConcurrentRequests", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      maxConcurrentRequests: -1\n"), wantErr: []string{"fsc.view.remote.maxConcurrentRequests", "[-1]"}},
+		{name: "non-integer maxConcurrentRequests", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      maxConcurrentRequests: ten\n"), wantErr: []string{"fsc.view.remote.maxConcurrentRequests", "[ten]"}},
 		{name: "negative maxMessageSize", yaml: grpcOn + remote("      enabled: true\n      backends: [grpc]\n      maxMessageSize: -1\n"), wantErr: []string{"fsc.view.remote.maxMessageSize"}},
 		{
 			name: "full",

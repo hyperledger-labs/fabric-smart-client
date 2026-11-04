@@ -121,7 +121,7 @@ func (t *httpTransport) Open() (protos.ViewServiceClient, io.Closer, error) {
 
 func (t *httpTransport) Certificate() *tls.Certificate { return t.cert }
 
-// ProcessCommand posts sc to the view service. A 503 answer (a draining node) becomes a gRPC
+// ProcessCommand posts sc to the view service. A 503 answer (a draining or busy node) becomes a gRPC
 // Unavailable status and a 409 answer (a view the node's shutdown cancelled) an Aborted one,
 // as the gRPC transport would report them.
 func (t *httpTransport) ProcessCommand(ctx context.Context, sc *protos.SignedCommand, _ ...grpc.CallOption) (*protos.SignedCommandResponse, error) {
@@ -189,7 +189,7 @@ func (c *wsCommandClient) Recv() (*protos.SignedCommandResponse, error) {
 	return m, nil
 }
 
-// read reads m from the stream. A close by a node that drains (code 1013) becomes a gRPC
+// read reads m from the stream. A close by a node that drains or is busy (code 1013) becomes a gRPC
 // Unavailable status, and a close naming a view the node's shutdown cancelled an Aborted one,
 // as the gRPC transport reports them.
 func (c *wsCommandClient) read(m proto.Message) error {

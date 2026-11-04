@@ -38,10 +38,11 @@ const writeSlack = 30 * time.Second
 // SignedCommand gets 200 and the SignedCommandResponse svc returns, failures included, as on
 // gRPC. Other statuses report what keeps a command from existing: 400 for an undecodable
 // body, 405 for a method other than POST, 413 for a body over maxRecvMsgSize, and 500 when
-// svc itself returns an error, except 503 for a node that drains before it stops (gRPC
-// Unavailable: retry on another replica) and 409 for a view the node's shutdown cancelled (gRPC
-// Aborted: check the view's outcome rather than retrying). The write deadline is extended to viewTimeout plus slack, so
-// a view that runs up to its timeout still delivers its response.
+// svc itself returns an error, except 503 for a node that drains before it stops or runs as
+// many commands as it allows (gRPC Unavailable: retry later or on another replica) and 409
+// for a view the node's shutdown cancelled (gRPC Aborted: check the view's outcome rather
+// than retrying). The write deadline is extended to viewTimeout plus slack, so a view that
+// runs up to its timeout still delivers its response.
 func NewProcessCommandHandler(svc protos.ViewServiceServer, maxRecvMsgSize int, viewTimeout time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -104,7 +105,7 @@ func (a remoteAddr) String() string { return string(a) }
 var _ net.Addr = remoteAddr("")
 
 // httpStatus maps an error the view service returns to the HTTP status and body that report
-// it. Only the fixed messages of the drain statuses reach the client; other errors stay on the
+// it. Only the fixed messages of the Unavailable and Aborted statuses reach the client; other errors stay on the
 // server.
 func httpStatus(err error) (int, string) {
 	switch st := status.Convert(err); st.Code() {

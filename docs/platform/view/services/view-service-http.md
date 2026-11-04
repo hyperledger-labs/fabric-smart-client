@@ -54,7 +54,7 @@ Other statuses mean no command reached the view service:
 | `409` | the node's shutdown cancelled the view (gRPC `Aborted`); it may have had effects, so check its outcome rather than retrying ([shutdown.md](shutdown.md)) |
 | `413` | the body is larger than `fsc.web.maxRecvMsgSize` (100 MiB when unset) |
 | `500` | the view service returned an error instead of a response; the body does not carry it |
-| `503` | the node drains before it stops (gRPC `Unavailable`); the command did not run, so retry on another replica ([shutdown.md](shutdown.md)) |
+| `503` | the node drains before it stops, or already runs `fsc.view.remote.maxConcurrentRequests` commands (gRPC `Unavailable`); the command did not run, so retry later or on another replica ([shutdown.md](shutdown.md)). The body tells them apart: `node is draining` or `node is busy: too many concurrent view requests` |
 
 ## Streams
 
@@ -67,7 +67,8 @@ order:
 3. the server sends one final `SignedCommandResponse` and closes the connection with code 1000.
 
 When the view service ends the stream with an error instead of a final response, the server closes
-with code 1011, or with code 1013 (try again later) when the node drains before it stops; a view the
+with code 1011, or with code 1013 (try again later) when the node drains before it stops or is busy
+(`fsc.view.remote.maxConcurrentRequests`); a view the
 node's shutdown cancelled closes with 1011 and a reason that says so ([shutdown.md](shutdown.md)). A frame larger than `fsc.web.maxRecvMsgSize` (100 MiB when unset) ends the stream. Browsers may open a stream only from
 the listener's own origin.
 

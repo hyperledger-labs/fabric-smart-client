@@ -587,8 +587,9 @@ func newPolicyChecker(in struct {
 // NewViewServiceServer constructs the view service for the DI container. Commands are bound
 // to the verified client TLS certificate of the connection they arrive on
 // (server.BindToVerifiedClientCert). The command time window is fsc.view.remote.timeWindow,
-// and fsc.view.remote.maxMessageSize, when set, bounds commands and stream frames on every
-// backend (see LoadRemoteConfig).
+// fsc.view.remote.maxMessageSize, when set, bounds commands and stream frames on every backend,
+// and fsc.view.remote.maxConcurrentRequests, when positive, the commands running at once
+// across every backend (see LoadRemoteConfig).
 func NewViewServiceServer(
 	remote RemoteConfig,
 	marshaller server.Marshaller,
@@ -597,5 +598,5 @@ func NewViewServiceServer(
 	tracerProvider tracing.Provider,
 ) (server.Service, error) {
 	return server.NewViewServiceServer(marshaller, policyChecker, metrics, tracerProvider, server.BindToVerifiedClientCert, remote.TimeWindow,
-		server.WithMaxMessageSize(remote.MaxMessageSize))
+		server.WithMaxMessageSize(remote.MaxMessageSize), server.WithMaxConcurrentRequests(remote.MaxConcurrentRequests))
 }
