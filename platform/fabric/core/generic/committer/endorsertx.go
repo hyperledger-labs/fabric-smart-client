@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 type ValidationFlags []uint8
@@ -97,10 +96,12 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum cdriver.Bl
 // track.
 //
 // A transaction the vault holds as Invalid is committed from the block envelope.
-// Fabric marks every repeated transaction ID as DUPLICATE_TXID, whatever the
-// status of the first occurrence, so a valid flag for a transaction this node
-// holds as Invalid means the node discarded it locally. Fabric's verdict
-// overrides that discard. The commit follows the Busy path: when this node holds
+// Fabric marks a transaction ID as DUPLICATE_TXID once it is in the ledger or a
+// valid envelope earlier in the block carries it, so a valid flag for a
+// transaction this node holds as Invalid means the node discarded it locally.
+// Fabric's verdict overrides that discard. An invalid envelope with the same
+// txID earlier in the block does not cause it: [Committer.Commit] skips that
+// envelope. The commit follows the Busy path: when this node holds
 // the transaction only as a stored envelope, the ordered read-write set is
 // matched against it, so a transaction discarded because the sets differ fails
 // with [ErrDiscardTX] again and stays Invalid. Like a Busy transaction, it is
@@ -142,42 +143,26 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 // the vault already holds the transaction as Valid. A transient vault failure is
 // returned so the block is retried; any other discard failure is logged, because
 // it would recur on every retry and stop the channel.
-func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, envRaw []byte, event *FinalityEvent) error {
+//
+// The envelope is neither stored nor read. Anyone who knows a txID can have an
+// envelope carrying it ordered: Fabric flags it invalid, for instance
+// BAD_PROPOSAL_TXID when the txID is not derived from its creator, but does not
+// count it as the first occurrence of the txID, so the honest envelope later in
+// the same block is still VALID. A stored invalid envelope would be the one the
+// honest envelope is matched against, and the honest transaction would be
+// discarded. The envelope argument is unused.
+func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string, blockNum cdriver.BlockNum, _ []byte, event *FinalityEvent) error {
 	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 
 	vc, _, err := c.Status(ctx, txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
 	}
-	switch vc {
-	case driver.Valid:
-		// TODO: this might be due the fact that there are transactions with the same tx-id, the first is valid, the others are all invalid
+	if vc == driver.Valid {
+		// Fabric flags a later envelope with the txID of a valid transaction
+		// DUPLICATE_TXID. The transaction stays Valid.
 		logger.Warnf("transaction [%s] in block [%d] is marked as valid but for fabric is invalid", txID, blockNum)
 		return nil
-	case driver.Unknown:
-		ok, err := c.filterUnknownEnvelope(ctx, txID, envRaw)
-		if err != nil {
-			return err
-		}
-		if ok {
-			// so, we must remember that this transaction was discarded
-			err := c.EnvelopeService.StoreEnvelope(ctx, txID, envRaw)
-			switch {
-			case errors.Is(err, dbdriver.ErrConflict):
-				// A different envelope is stored under txID. This one is invalid,
-				// so it is discarded below without loading its read-write set. It
-				// is not reported: a valid transaction discarded by storeEnvelope
-				// reaches this write again, and storeEnvelope reported it.
-			case err != nil:
-				return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
-			default:
-				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
-				if err != nil {
-					return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
-				}
-				rws.Done()
-			}
-		}
 	}
 
 	event.Err = errors.Errorf("transaction [%s] status is not valid [%d], message [%s]", txID, event.ValidationCode, event.ValidationMessage)

@@ -464,9 +464,38 @@ func (c *Committer) commitBlockOnce(ctx context.Context, block *common.Block) er
 		c.configCaughtUp = true
 	}
 
-	resolvedTxs := c.DependencyResolver.Resolve(txs)
+	resolvedTxs := c.DependencyResolver.Resolve(skipShadowedEnvelopes(txs, block.Metadata))
 
 	return c.commitTxs(ctx, resolvedTxs, block.Metadata)
+}
+
+// skipShadowedEnvelopes drops every envelope Fabric found invalid whose txID a
+// valid envelope in the same block carries. Fabric counts only a valid envelope
+// as the first occurrence of a txID in a block, so anyone who knows a txID can
+// have an invalid envelope carrying it ordered next to the honest one. The
+// transaction's outcome is that of the valid envelope. Committing the invalid
+// one would discard the transaction and post an Invalid finality event for it.
+// The transaction's listeners receive only the first event, so they would see
+// it fail although it commits Valid.
+// A block whose metadata lacks the validation flags is returned as is, and
+// fails in the handlers.
+func skipShadowedEnvelopes(txs []CommitTx, metadata *common.BlockMetadata) []CommitTx {
+	if len(metadata.GetMetadata()) <= int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+		return txs
+	}
+	flags := metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER]
+	valid := func(tx CommitTx) bool {
+		return tx.TxNum < uint64(len(flags)) && peer.TxValidationCode(flags[tx.TxNum]) == peer.TxValidationCode_VALID
+	}
+	validIDs := map[cdriver.TxID]bool{}
+	for _, tx := range txs {
+		if tx.Type == common.HeaderType_ENDORSER_TRANSACTION && valid(tx) {
+			validIDs[tx.TxID] = true
+		}
+	}
+	return slices.DeleteFunc(txs, func(tx CommitTx) bool {
+		return tx.Type == common.HeaderType_ENDORSER_TRANSACTION && validIDs[tx.TxID] && !valid(tx)
+	})
 }
 
 func (c *Committer) commitTxs(ctx context.Context, parallelizableTxGroups ParallelExecutable[SerialExecutable[CommitTx]], blockMetadata *common.BlockMetadata) error {

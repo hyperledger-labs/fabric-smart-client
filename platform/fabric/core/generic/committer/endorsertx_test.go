@@ -17,7 +17,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	commoncommitter "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -276,11 +275,12 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		require.Error(t, event.Err)
 	})
 
-	t.Run("unknown status stores unknown envelope and marks discarded", func(t *testing.T) {
+	// The envelope of an invalid transaction this node does not know is neither
+	// stored nor parsed: a stored forgery would discard the honest envelope with
+	// the same txID, and one that does not parse would stop the channel.
+	t.Run("unknown status marks discarded without touching the envelope", func(t *testing.T) {
 		t.Parallel()
-		stored := false
 		setDiscarded := false
-		done := &fake.RWSet{}
 		c := &Committer{
 			logger:            logger,
 			ProcessNamespaces: []string{"tracked-ns"},
@@ -294,64 +294,20 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 				},
 			},
 			EnvelopeService: &fake.EnvelopeService{
-				ExistsFn: func(context.Context, string) bool { return false },
 				StoreEnvelopeFn: func(context.Context, string, any) error {
-					stored = true
+					t.Error("the envelope of an invalid transaction must not be stored")
 					return nil
 				},
 			},
 			RWSetLoaderService: &fake.RWSetLoader{
 				InspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-					return &fake.RWSet{NamespacesList: []cdriver.Namespace{"tracked-ns"}}, nil, nil
-				},
-				GetFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-					return done, nil, nil
+					t.Error("the envelope of an invalid transaction must not be parsed")
+					return nil, nil, stderrors.New("inspect-failed")
 				},
 			},
-			TransactionFilters: commoncommitter.NewAggregatedTransactionFilter(),
 		}
 		event := &FinalityEvent{Ctx: t.Context(), TxID: "tx-unknown", ValidationCode: fdriver.Invalid, ValidationMessage: "bad"}
-		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx-unknown", 13, []byte("raw"), event))
-		require.True(t, stored)
-		require.True(t, setDiscarded)
-		require.GreaterOrEqual(t, done.DoneCount, 1)
-	})
-
-	// A different envelope under the txID is reported and the transaction is
-	// still discarded, without loading the read-write set of either envelope.
-	t.Run("unknown status with a conflicting stored envelope marks discarded", func(t *testing.T) {
-		t.Parallel()
-		setDiscarded := false
-		c := &Committer{
-			logger:            logger,
-			ProcessNamespaces: []string{"tracked-ns"},
-			Vault: &fake.Vault{
-				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-					return fdriver.Unknown, "", nil
-				},
-				SetDiscardedFn: func(context.Context, cdriver.TxID, string) error {
-					setDiscarded = true
-					return nil
-				},
-			},
-			EnvelopeService: &fake.EnvelopeService{
-				StoreEnvelopeFn: func(context.Context, string, any) error {
-					return errors.Wrapf(dbdriver.ErrConflict, "key taken")
-				},
-			},
-			RWSetLoaderService: &fake.RWSetLoader{
-				InspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-					return &fake.RWSet{NamespacesList: []cdriver.Namespace{"tracked-ns"}}, nil, nil
-				},
-				GetFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-					t.Error("the read-write set of a conflicting envelope must not be loaded")
-					return &fake.RWSet{}, nil, nil
-				},
-			},
-			TransactionFilters: commoncommitter.NewAggregatedTransactionFilter(),
-		}
-		event := &FinalityEvent{Ctx: t.Context(), TxID: "tx-forged", ValidationCode: fdriver.Invalid, ValidationMessage: "bad"}
-		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx-forged", 13, []byte("raw"), event))
+		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx-unknown", 13, []byte("not an envelope"), event))
 		require.True(t, setDiscarded)
 		require.Error(t, event.Err)
 	})
@@ -368,34 +324,6 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		}
 		err := c.DiscardEndorserTransaction(t.Context(), "tx-status-err", 1, []byte("raw"), &FinalityEvent{TxID: "tx-status-err"})
 		require.ErrorContains(t, err, "failed getting tx's status")
-	})
-
-	t.Run("unknown status with inspect error returns failure", func(t *testing.T) {
-		t.Parallel()
-		c := &Committer{
-			logger: logger,
-			Vault: &fake.Vault{
-				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-					return fdriver.Unknown, "", nil
-				},
-			},
-			EnvelopeService: &fake.EnvelopeService{
-				ExistsFn: func(context.Context, string) bool { return false },
-			},
-			RWSetLoaderService: &fake.RWSetLoader{
-				InspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-					return nil, nil, stderrors.New("inspect-failed")
-				},
-			},
-			TransactionFilters: commoncommitter.NewAggregatedTransactionFilter(),
-		}
-		err := c.DiscardEndorserTransaction(t.Context(), "tx-inspect-err", 1, []byte("raw"), &FinalityEvent{
-			Ctx:               t.Context(),
-			TxID:              "tx-inspect-err",
-			ValidationCode:    fdriver.Invalid,
-			ValidationMessage: "bad",
-		})
-		require.ErrorContains(t, err, "failed to get rws from envelope")
 	})
 }
 
