@@ -82,6 +82,23 @@ after a peer fault looks at the one series that is not.
 To list the scenarios a target runs, pass its label filter to a dry run, for example
 `cd integration/fabric/faultrecovery && ginkgo --dry-run -v --label-filter=crash`.
 
+### Outages on one of several networks
+
+A node on several networks keeps a delivery or notification stream, orderer connections and
+a vault per network, so an outage on one network must leave the others working. The suites
+whose nodes join two networks check this rather than the fault-recovery suites, which run
+one network each:
+
+| Spec | Suite | Fault |
+|---|---|---|
+| "keeps committing on alpha while beta's peers are down" | `fabric-twonets` | `StopPeer` on every peer of `beta` |
+| "keeps committing on Fabric while the Fabric-x committer is down" | `fabric-mixednets` | `StopCommitter` on `fx` |
+
+Each spec selects the broken network's connection with the `Network` field of
+`fsc.Connection`, expects it `Reconnecting` while the other network's stays `Connected` and
+a transaction commits there, then restarts the component and expects a transaction to commit
+on the network that was down.
+
 ### Sharing one network
 
 The specs in the main `Describe` of each faultrecovery suite share one network
