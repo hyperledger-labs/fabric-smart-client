@@ -12,6 +12,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -64,12 +66,75 @@ func (c *Ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
 	}, nil
 }
 
+// GetTransactionByID returns the transaction with the given txID and its
+// validation code. qscc returns the first envelope carrying txID, which can be
+// an invalid envelope forged with the txID and ordered ahead of the honest one
+// in the same block. When that envelope is invalid, GetTransactionByID returns
+// the valid endorser transaction with the same txID in its block, if there is
+// one (see committer.ShadowedEnvelopes), and otherwise the envelope qscc
+// returned. It asks the same peer for the block, and returns an error, not the
+// invalid envelope, when it cannot read the block.
 func (c *Ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	raw, err := c.queryChaincode(GetTransactionByID, txID)
+	peerConnConf, err := c.pickQueryPeer()
 	if err != nil {
 		return nil, err
 	}
-	return c.TransactionManager.NewProcessedTransaction(raw)
+	raw, err := c.queryPeer(peerConnConf, GetTransactionByID, txID)
+	if err != nil {
+		return nil, err
+	}
+	// NewProcessedTransaction rejects an envelope that is not an endorser
+	// transaction, which an invalid forgery can be; its error is returned
+	// only if no valid envelope shadows it.
+	pt, ptErr := c.TransactionManager.NewProcessedTransaction(raw)
+	if ptErr == nil && pt.IsValid() {
+		return pt, nil
+	}
+	if ptErr != nil {
+		code := &peer.ProcessedTransaction{}
+		if err := proto.Unmarshal(raw, code); err != nil || code.GetValidationCode() == int32(peer.TxValidationCode_VALID) {
+			return nil, ptErr
+		}
+	}
+	shadowing, err := c.shadowingTransaction(peerConnConf, txID)
+	if err != nil {
+		return nil, err
+	}
+	if shadowing != nil {
+		return shadowing, nil
+	}
+	return pt, ptErr
+}
+
+// shadowingTransaction returns the valid endorser transaction carrying txID in
+// the block the peer holds for txID, or nil if the block has none. This is the
+// rule of committer.ShadowedEnvelopes: only a valid endorser transaction
+// shadows. Only that block needs checking: Fabric flags an envelope carrying
+// txID in a later block DUPLICATE_TXID.
+func (c *Ledger) shadowingTransaction(peerConnConf *grpc.ConnectionConfig, txID string) (driver.ProcessedTransaction, error) {
+	raw, err := c.queryPeer(peerConnConf, GetBlockByTxID, txID)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed fetching block of transaction [%s]", txID)
+	}
+	block := &common.Block{}
+	if err := proto.Unmarshal(raw, block); err != nil {
+		return nil, errors.Wrapf(err, "failed unmarshalling block of transaction [%s]", txID)
+	}
+	var flags []byte
+	if metadata := block.GetMetadata().GetMetadata(); len(metadata) > int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+		flags = metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER]
+	}
+	for i, tx := range block.GetData().GetData() {
+		if i >= len(flags) || peer.TxValidationCode(flags[i]) != peer.TxValidationCode_VALID {
+			continue
+		}
+		_, _, chdr, err := fabricutils.UnmarshalTx(tx)
+		if err != nil || chdr.GetTxId() != txID || common.HeaderType(chdr.GetType()) != common.HeaderType_ENDORSER_TRANSACTION {
+			continue
+		}
+		return (&Block{Block: block, TransactionManager: c.TransactionManager}).ProcessedTransaction(i)
+	}
+	return nil, nil
 }
 
 func (c *Ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
@@ -106,13 +171,25 @@ func (c *Ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
 }
 
 func (c *Ledger) queryChaincode(function string, param any) ([]byte, error) {
-	params := []any{c.ChannelName}
-	if param != nil {
-		params = append(params, param)
+	peerConnConf, err := c.pickQueryPeer()
+	if err != nil {
+		return nil, err
 	}
+	return c.queryPeer(peerConnConf, function, param)
+}
+
+func (c *Ledger) pickQueryPeer() (*grpc.ConnectionConfig, error) {
 	peerConnConf := c.ConfigService.PickPeer(driver.PeerForQuery)
 	if peerConnConf == nil {
 		return nil, errors.New("no peer configured for query")
+	}
+	return peerConnConf, nil
+}
+
+func (c *Ledger) queryPeer(peerConnConf *grpc.ConnectionConfig, function string, param any) ([]byte, error) {
+	params := []any{c.ChannelName}
+	if param != nil {
+		params = append(params, param)
 	}
 	return c.ChaincodeManager.Chaincode(QuerySystemChaincode).
 		NewInvocation(function, params...).

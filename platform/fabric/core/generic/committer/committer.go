@@ -482,9 +482,9 @@ func (c *Committer) commitBlockOnce(ctx context.Context, block *common.Block) er
 // endorser transaction. Anyone who knows a txID can therefore have an invalid
 // envelope carrying it, of the endorser or any other type, ordered ahead of the
 // honest one, and the honest envelope still validates. The committer,
-// delivery.DeliverReceive, delivery scans and the delivery-based listener
-// manager apply this rule, so the forgery cannot make a committed transaction
-// look invalid on them.
+// delivery.DeliverReceive, delivery scans, the delivery-based listener manager
+// and ledger.Ledger.GetTransactionByID apply this rule, so the forgery cannot
+// make a committed transaction look invalid on them.
 //
 // An index beyond the validation flags counts as invalid. Only a valid endorser
 // transaction shadows another envelope, and an envelope that does not parse is

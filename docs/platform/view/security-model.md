@@ -230,13 +230,18 @@ rule, `committer.ShadowedEnvelopes`: the verdict is that of the txID's valid env
 has one, and otherwise that of its first envelope. The
 committer skips the shadowed invalid envelope, so the transaction's vault status and finality event
 are those of the honest envelope. Remote finality checks (`delivery.DeliverReceive`), transaction
-scans (`Delivery.Scan` and `ScanFromBlock`), and the delivery-based listener manager, which does not
-pass a shadowed envelope to its `EventInfoMapper`, apply the same rule. Block scans (`ScanBlock` and
+scans (`Delivery.Scan` and `ScanFromBlock`), ledger lookups (`Ledger.GetTransactionByID`), and
+the delivery-based listener manager, which does not pass a shadowed envelope to its
+`EventInfoMapper`, apply the same rule. A ledger lookup gets the first envelope carrying the txID
+from a peer's qscc; when that envelope is invalid, it fetches the envelope's block from the same
+peer and returns the valid endorser transaction with the same txID if the block has one. Every
+lookup of an invalid transaction fetches its block, forged or not, and returns an error, not the
+invalid verdict, when it cannot read the block. Block scans (`ScanBlock` and
 `ScanBlockFrom`) hand over whole blocks unchanged; a callback that resolves txIDs from them calls
-`committer.ShadowedEnvelopes` itself, as the listener manager does. Any other invalid envelope marks its transaction Invalid
-without the committer storing it or reading its read-write set. A forgery
-ordered in an earlier block is in Fabric's ledger index, so Fabric flags the honest envelope
-`DUPLICATE_TXID` and the transaction is invalid on every peer.
+`committer.ShadowedEnvelopes` itself, as the listener manager does. Any other invalid envelope
+marks its transaction Invalid without the committer storing it or reading its read-write set. A
+forgery ordered in an earlier block is in Fabric's ledger index, so Fabric flags the honest
+envelope `DUPLICATE_TXID` and the transaction is invalid on every peer.
 
 The transaction-metadata store keeps the first value written under a key and returns nil on later
 writes: transient data is stored again during multi-step endorsement.
