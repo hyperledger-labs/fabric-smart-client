@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	drivercommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	sqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -19,9 +20,9 @@ type MetadataStore struct {
 }
 
 func NewMetadataStore(dbs *drivercommon.RWDB, tables common.TableNames) (*MetadataStore, error) {
-	return buildMetadataStore(dbs.ReadDB, dbs.WriteDB, tables.Metadata), nil
+	return buildMetadataStore(dbs.ReadDB, dbs.WriteDB, tables.Metadata, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildMetadataStore(readDB, writeDB *sql.DB, table string) *MetadataStore {
-	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &postgres.ErrorMapper{})}
+func buildMetadataStore(readDB, writeDB *sql.DB, table string, timeout sqlcommon.QueryTimeout) *MetadataStore {
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &postgres.ErrorMapper{}, timeout)}
 }

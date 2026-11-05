@@ -33,7 +33,7 @@ func TestPostgresKVSReordersPrimaryKey(t *testing.T) {
 
 	dbs, err := NewDbProvider().Get(Opts{DataSource: setupDB(t), MaxOpenConns: 2})
 	require.NoError(t, err)
-	store := buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, "fsc_kvs")
+	store := buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, "fsc_kvs", 0)
 	ctx := t.Context()
 	table := store.table
 	_, err = store.writeDB.Exec(`CREATE TABLE ` + table + ` (

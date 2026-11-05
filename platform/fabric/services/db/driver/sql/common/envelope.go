@@ -18,8 +18,8 @@ import (
 // NewEnvelopeStore returns an envelope store over table, reading through readDB
 // and writing through writeDB. Its queries use $N placeholders, which both
 // SQLite and Postgres accept.
-func NewEnvelopeStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *EnvelopeStore {
-	return &EnvelopeStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
+func NewEnvelopeStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, timeout common.QueryTimeout) *EnvelopeStore {
+	return &EnvelopeStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, timeout)}
 }
 
 // EnvelopeStore is a write-once store of transaction envelopes by key.

@@ -20,9 +20,9 @@ type EnvelopeStore struct {
 }
 
 func NewEnvelopeStore(dbs *drivercommon.RWDB, tables common.TableNames) (*EnvelopeStore, error) {
-	return buildEnvelopeStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), tables.Envelope), nil
+	return buildEnvelopeStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), tables.Envelope, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildEnvelopeStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string) *EnvelopeStore {
-	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &sqlite.ErrorMapper{})}
+func buildEnvelopeStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string, timeout sqlcommon.QueryTimeout) *EnvelopeStore {
+	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &sqlite.ErrorMapper{}, timeout)}
 }

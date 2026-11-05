@@ -33,6 +33,9 @@ type Config struct {
 	SkipCreateTable bool
 	TableNameParams []string
 	Tracing         *sqlcommon.TracingConfig
+	// QueryTimeout bounds each statement, and each write transaction as a whole;
+	// zero adds no deadline.
+	QueryTimeout time.Duration
 }
 
 func NewConfigProvider(config config) *ConfigProvider {
@@ -56,6 +59,9 @@ func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) 
 	}
 	if len(o.DataSource) == 0 {
 		return nil, errors.New("missing data source")
+	}
+	if err := sqlcommon.QueryTimeout(o.QueryTimeout).Validate(); err != nil {
+		return nil, errors.WithMessagef(err, "persistence [%s]", name)
 	}
 	if o.MaxIdleConns == nil {
 		o.MaxIdleConns = drivercommon.CopyPtr(drivercommon.DefaultMaxIdleConns)

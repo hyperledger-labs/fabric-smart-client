@@ -226,7 +226,7 @@ func TestClose(t *testing.T) {
 }
 
 func mockKeyValueStore(write, read *sql.DB) *common.KeyValueStore {
-	return common.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{})
+	return common.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{}, 0)
 }
 
 // The range and set iterators pass query and row-read errors through the
@@ -269,7 +269,7 @@ func TestKeyValueStoreIterators_WrapErrors(t *testing.T) {
 				wrapper := &mock.SQLErrorWrapper{}
 				wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(driver.ErrConnectionLost, err.Error()) }
 
-				err = run(common.NewKeyValueStore(db, db, "kv_table", wrapper))
+				err = run(common.NewKeyValueStore(db, db, "kv_table", wrapper, 0))
 				require.ErrorIs(t, err, driver.ErrConnectionLost)
 				require.ErrorContains(t, err, dbErr.Error())
 			})

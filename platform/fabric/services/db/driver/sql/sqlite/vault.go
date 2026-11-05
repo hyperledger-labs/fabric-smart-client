@@ -33,12 +33,12 @@ func NewVaultStore(dbs *drivercommon.RWDB, tables common.TableNames) (*VaultStor
 	return buildVaultStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
-	}), nil
+	}, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildVaultStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, tables common.VaultTables) *VaultStore {
+func buildVaultStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, tables common.VaultTables, timeout sqlcommon.QueryTimeout) *VaultStore {
 	return &VaultStore{
-		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite.ErrorMapper{}, encodeKey, sqlite.IsolationLevels),
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite.ErrorMapper{}, encodeKey, sqlite.IsolationLevels, timeout),
 		tables:     tables,
 		readDB:     readDB,
 		writeDB:    writeDB,
@@ -49,15 +49,23 @@ func buildVaultStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, tables common.Va
 // survives, and its default BINARY collation compares keys bytewise.
 func encodeKey(k driver.PKey) any { return k }
 
+// Store marks txIDs busy, upserts writes and metaWrites, and marks txIDs valid,
+// all in one database transaction, bounded as a whole by the store's query
+// timeout. Database errors are mapped by sqlite.ErrorMapper.
 func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	if len(txIDs) == 0 && len(writes) == 0 && len(metaWrites) == 0 {
 		logger.DebugfContext(ctx, "Nothing to write")
 		return nil
 	}
+	return (&sqlite.ErrorMapper{}).WrapError(db.storeTx(ctx, txIDs, writes, metaWrites))
+}
 
+func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
+	ctx, cancel := db.Timeout.Context(ctx)
+	defer cancel()
 	tx, err := db.writeDB.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate db transaction")

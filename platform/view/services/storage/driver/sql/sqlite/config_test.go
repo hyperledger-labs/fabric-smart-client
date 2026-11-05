@@ -108,3 +108,26 @@ fsc:
 	_, err = common.GetPersistenceName(p, "fsc.kvs.persistence")
 	require.ErrorContains(t, err, "unconvertible type")
 }
+
+// TestGetOptsQueryTimeout checks queryTimeout is decoded as a duration and that a value
+// without a unit, which decodes as nanoseconds, fails with the key and the persistence.
+func TestGetOptsQueryTimeout(t *testing.T) {
+	t.Parallel()
+
+	for value, want := range map[string]string{"5s": "", "30": "queryTimeout", "-1s": "queryTimeout"} {
+		dir := t.TempDir()
+		yaml := "fsc:\n  persistences:\n    default:\n      type: sqlite\n      opts:\n        dataSource: x\n        queryTimeout: " + value + "\n"
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(yaml), 0o600))
+		p, err := fscconfig.NewProvider(dir)
+		require.NoError(t, err)
+
+		o, err := NewConfigProvider(common.NewConfig(p)).GetOpts("default")
+		if want == "" {
+			require.NoError(t, err)
+			assert.Equal(t, 5*time.Second, o.QueryTimeout)
+			continue
+		}
+		require.ErrorContains(t, err, want, value)
+		require.ErrorContains(t, err, "persistence [default]", value)
+	}
+}

@@ -20,13 +20,14 @@ import (
 
 // NewSimpleKeyDataStore returns a simple key-data store over table, reading
 // through readDB and writing through writeDB. Its queries use $N placeholders,
-// which both SQLite and Postgres accept.
-func NewSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *SimpleKeyDataStore {
+// which both SQLite and Postgres accept. timeout bounds each statement.
+func NewSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, timeout QueryTimeout) *SimpleKeyDataStore {
 	return &SimpleKeyDataStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
+		timeout:      timeout,
 	}
 }
 
@@ -35,6 +36,7 @@ type SimpleKeyDataStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
+	timeout      QueryTimeout
 }
 
 func (db *SimpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, error) {
@@ -43,6 +45,8 @@ func (db *SimpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, 
 		WriteWhere(sqlbuild.Eq("key", key)).
 		Build()
 	logger.Debug(query)
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	data, err := QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 	return data, db.errorWrapper.WrapError(err)
 }
@@ -92,12 +96,14 @@ func (db *SimpleKeyDataStore) insert(ctx context.Context, key string, data []byt
 		WriteString(" ON CONFLICT DO NOTHING").
 		Build()
 	logger.Debug(query, key)
-	return execInsert(ctx, db.writeDB, db.errorWrapper, query, params...)
+	return execInsert(ctx, db.writeDB, db.timeout, db.errorWrapper, query, params...)
 }
 
 // execInsert runs an INSERT ... ON CONFLICT DO NOTHING and reports whether it
-// inserted a row.
-func execInsert(ctx context.Context, writeDB WriteDB, errorWrapper driver.SQLErrorWrapper, query string, params ...any) (bool, error) {
+// inserted a row, under timeout.
+func execInsert(ctx context.Context, writeDB WriteDB, timeout QueryTimeout, errorWrapper driver.SQLErrorWrapper, query string, params ...any) (bool, error) {
+	ctx, cancel := timeout.Context(ctx)
+	defer cancel()
 	result, err := writeDB.ExecContext(ctx, query, params...)
 	if err != nil {
 		return false, errors.Wrapf(errorWrapper.WrapError(err), "failed executing query [%s]", query)

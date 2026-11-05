@@ -27,7 +27,7 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 	require.NoError(tb, err)
 	tables, err := common.GetTableNames(o.TablePrefix, o.TableNameParams...)
 	require.NoError(tb, err)
-	db := buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding)
+	db := buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding, 0)
 	require.NoError(tb, db.CreateSchema())
 	return db
 }

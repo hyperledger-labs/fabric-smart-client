@@ -26,7 +26,7 @@ Two persistences that share the same `type` but not `dataSource`, have different
 * Further properties such as `tablePrefix` and `maxIdleConns` complete the persistence.
 Two persistences can share the same `type` and `dataSource` and differ in the rest of the options.
 Connection pools are cached by `dataSource` (on Postgres, by `dataSource` and `tls` block), so such persistences share one pool, and the pool settings (`maxOpenConns`, `maxIdleConns`, `maxIdleTime`, and `skipPragmas` on SQLite or `startupConnectTimeout` on Postgres) of the first store opened on it apply to all of them.
-`tablePrefix` and `skipCreateTable` stay per persistence.
+`tablePrefix`, `skipCreateTable` and `queryTimeout` stay per persistence.
 
 We can have one or more persistences in a project, as well as one optional fallback persistence (`default`).
 
@@ -244,7 +244,7 @@ A step whose change SQL cannot express sets `Go`, which runs after the step's `S
 
 The rules for released steps cover the Go function too: a database that applied the step never runs a changed function body. A step that rewrites existing data needs a test that checks the rewritten values; the fixture tests under `platform/fabric/services/db/driver/sql/testdata` only check that the rows they wrote still read back after every step.
 
-A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store, opts...)` where it calls `CreateSchema()` today, with `opts` from the persistence's `ConfigProvider.MigrateOptions(skipCreateTable)`, as the FSC constructors do. On SQLite, pass the single-connection write pool.
+A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store, opts...)` where it calls `CreateSchema()` today, with `opts` from the persistence's `ConfigProvider.MigrateOptions(skipCreateTable)`, as the FSC constructors do. On SQLite, pass the single-connection write pool. To honor the persistence's `queryTimeout`, derive each statement's context with `sqlcommon.QueryTimeout(cfg.QueryTimeout).Context(ctx)`, and close an iterator of rows with `sqlcommon.NewWrappedIteratorWithCancel`, so that the deadline lasts until the rows are read.
 
 A table that several stores use is versioned by one of them, its owner: only the owner lists steps for the table, so the table has a single row in the versions table. Each store migrates when it is opened, so steps that depend on another store's tables, for example through a foreign key, run after that store has been opened.
 

@@ -20,9 +20,9 @@ type EndorseTxStore struct {
 }
 
 func NewEndorseTxStore(dbs *drivercommon.RWDB, tables common.TableNames) (*EndorseTxStore, error) {
-	return buildEndorseTxStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), tables.EndorseTx), nil
+	return buildEndorseTxStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), tables.EndorseTx, sqlcommon.QueryTimeout(dbs.QueryTimeout)), nil
 }
 
-func buildEndorseTxStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string) *EndorseTxStore {
-	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &sqlite.ErrorMapper{})}
+func buildEndorseTxStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, table string, timeout sqlcommon.QueryTimeout) *EndorseTxStore {
+	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &sqlite.ErrorMapper{}, timeout)}
 }

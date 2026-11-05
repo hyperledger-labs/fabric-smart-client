@@ -20,13 +20,14 @@ import (
 
 // NewSignerInfoStore returns a signer-info store over table, reading through
 // readDB and writing through writeDB. Its queries use $N placeholders, which
-// both SQLite and Postgres accept.
-func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *SignerInfoStore {
+// both SQLite and Postgres accept. timeout bounds each statement.
+func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, timeout QueryTimeout) *SignerInfoStore {
 	return &SignerInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
+		timeout:      timeout,
 	}
 }
 
@@ -35,6 +36,7 @@ type SignerInfoStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
+	timeout      QueryTimeout
 }
 
 func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...view.Identity) ([]view.Identity, error) {
@@ -51,7 +53,8 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 		WriteWhere(sqlbuild.In("id", idHashes...)).
 		Build()
 	logger.Debug(query, params)
-
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying db")
@@ -80,6 +83,8 @@ func (db *SignerInfoStore) PutSigner(ctx context.Context, id view.Identity) erro
 		Build()
 
 	logger.Debug(query, params)
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	_, execErr := db.writeDB.ExecContext(ctx, query, params...)
 	if execErr == nil {
 		logger.DebugfContext(ctx, "signer [%s] registered", id)

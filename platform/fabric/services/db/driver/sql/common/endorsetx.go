@@ -18,8 +18,8 @@ import (
 // NewEndorseTxStore returns an endorsement-transaction store over table, reading
 // through readDB and writing through writeDB. Its queries use $N placeholders,
 // which both SQLite and Postgres accept.
-func NewEndorseTxStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *EndorseTxStore {
-	return &EndorseTxStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
+func NewEndorseTxStore(writeDB common.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, timeout common.QueryTimeout) *EndorseTxStore {
+	return &EndorseTxStore{p: common.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, timeout)}
 }
 
 // EndorseTxStore is a write-once store of endorsed transactions by key.

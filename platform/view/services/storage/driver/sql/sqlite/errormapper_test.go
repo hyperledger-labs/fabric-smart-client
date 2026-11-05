@@ -71,7 +71,10 @@ func TestWrapErrorLeavesUnmappedCodes(t *testing.T) {
 	var sqliteErr *sqlite.Error
 	require.ErrorAs(t, wrapped, &sqliteErr, "still a sqlite error")
 	require.NotErrorIs(t, wrapped, driver.UniqueKeyViolation)
-	assert.NotErrorIs(t, wrapped, driver.SqlBusy)
+	require.NotErrorIs(t, wrapped, driver.SqlBusy)
+
+	// The context a caller added is kept.
+	assert.ErrorContains(t, (&ErrorMapper{}).WrapError(errors.Wrap(err, "failed writing state")), "failed writing state")
 }
 
 // TestWrapErrorMapsBusySnapshot checks SQLITE_BUSY_SNAPSHOT (517) maps to

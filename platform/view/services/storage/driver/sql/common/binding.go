@@ -22,13 +22,14 @@ const BindingStoreMaxEphemerals = 1000
 
 // NewBindingStore returns an identity binding store over table, reading through
 // readDB and writing through writeDB. Its queries use $N placeholders, which
-// both SQLite and Postgres accept.
-func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper) *BindingStore {
+// both SQLite and Postgres accept. timeout bounds each statement.
+func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, timeout QueryTimeout) *BindingStore {
 	return &BindingStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
+		timeout:      timeout,
 	}
 }
 
@@ -37,6 +38,7 @@ type BindingStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
+	timeout      QueryTimeout
 }
 
 func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error) {
@@ -46,6 +48,8 @@ func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity
 		Build()
 
 	logger.Debug(query, params)
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	result, err := QueryUniqueContext[view.Identity](ctx, db.readDB, query, params...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting wallet id for identity [%v]", ephemeral)
@@ -61,6 +65,8 @@ func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Ide
 		Build()
 
 	logger.Debug(query, params)
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return false, errors.Wrap(err, "error querying db")
@@ -152,6 +158,8 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 		Build()
 
 	logger.Debugf("executing bulk insert: %s", query)
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 
 	if _, err := db.writeDB.ExecContext(ctx, query, args...); err != nil {
 		err = db.errorWrapper.WrapError(err)
@@ -180,6 +188,10 @@ func (db *BindingStore) ReplaceBinding(ctx context.Context, longTerm, ephemeral 
 		return err
 	}
 
+	// One deadline for the transaction, used by every statement in it: a deadline
+	// on BeginTx alone does not interrupt a statement run under another context.
+	ctx, cancel := db.timeout.Context(ctx)
+	defer cancel()
 	tx, err := db.writeDB.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(db.errorWrapper.WrapError(err), "failed starting transaction")

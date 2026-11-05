@@ -62,7 +62,7 @@ func TestEndorseTX_PutData_Conflict(t *testing.T) {
 }
 
 func mockEndorseTXStore(db *sql.DB) *common.EndorseTxStore {
-	return common.NewEndorseTxStore(db, db, "test_table", &mock.SQLErrorWrapper{})
+	return common.NewEndorseTxStore(db, db, "test_table", &mock.SQLErrorWrapper{}, 0)
 }
 
 // TestEnvelope_ExistData_WrapsError checks that a read failure passes through
@@ -79,6 +79,6 @@ func TestEnvelope_ExistData_WrapsError(t *testing.T) {
 	wrapper := &mock.SQLErrorWrapper{}
 	wrapper.WrapErrorStub = func(err error) error { return errors.Wrap(dbdriver.ErrConnectionLost, err.Error()) }
 
-	_, err = common.NewEnvelopeStore(db, db, "test_table", wrapper).ExistsEnvelope(t.Context(), "k")
+	_, err = common.NewEnvelopeStore(db, db, "test_table", wrapper, 0).ExistsEnvelope(t.Context(), "k")
 	require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
 }

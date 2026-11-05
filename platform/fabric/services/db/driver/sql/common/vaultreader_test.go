@@ -40,7 +40,7 @@ func newVaultMockWithIso(t *testing.T, il sqlcommon.IsolationLevelMapper) (*fsql
 	t.Helper()
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	require.NoError(t, err)
-	return fsqlcommon.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, il), mockDB
+	return fsqlcommon.NewVaultStore(db, db, vaultTables, passthroughWrapper{}, idKey, il, 0), mockDB
 }
 
 // defaultIsoMapper maps every isolation level to the default one.
@@ -592,7 +592,7 @@ func TestVaultReads_RowErrorIsWrapped(t *testing.T) {
 			db, mockDB, err := sqlmock.New()
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = db.Close() })
-			store := fsqlcommon.NewVaultStore(db, db, vaultTables, &postgres.ErrorMapper{}, idKey, defaultIsoMapper{})
+			store := fsqlcommon.NewVaultStore(db, db, vaultTables, &postgres.ErrorMapper{}, idKey, defaultIsoMapper{}, 0)
 			mockDB.ExpectQuery("SELECT").WillReturnRows(
 				sqlmock.NewRows([]string{"a", "b", "c"}).AddRow("x", "y", "z").RowError(0, io.ErrUnexpectedEOF))
 

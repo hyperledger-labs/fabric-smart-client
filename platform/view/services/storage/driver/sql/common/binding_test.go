@@ -205,5 +205,5 @@ func TestReplaceBinding(t *testing.T) {
 }
 
 func mockBindingStore(db *sql.DB) *common.BindingStore {
-	return common.NewBindingStore(db, db, "bindings", passthroughErrorWrapper())
+	return common.NewBindingStore(db, db, "bindings", passthroughErrorWrapper(), 0)
 }
