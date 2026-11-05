@@ -8,8 +8,7 @@ This guide is for maintainers. It lists the steps to cut a release of Fabric Sma
 - Every release is cut from `main`. There are no release branches, and fixes are not
   backported to an earlier release.
 - The maintainer who cuts the release picks the version, `vX.Y.Z`; `go run ./scripts/release
-  bump` prints the next minor. A patch skips step 3, since `scripts/release` generates release
-  data only for a minor, and its GitHub release gets the generated changelog as its body.
+  bump` prints the next minor. `scripts/release` generates release data for a minor only.
 - A release tags the root module and every submodule (`integration`,
   `platform/fabric/services/state/cc/query`, `platform/view/services/comm/host/libp2p`) with
   the same version: `v0.28.0`, `integration/v0.28.0`, and so on. `scripts/tag-release.sh`
@@ -44,8 +43,9 @@ clean checkout of the commit to release. The examples release `v0.28.0` after `v
 3. **Commit the release data and notes.** Generate both files as
    [Previewing a release](../upgrade/releases/README.md#previewing-a-release) shows, for
    `v0.28.0` with previous tag `v0.27.0`, read the notes, and merge the two files to `main` in
-   a PR titled `chore(release): v0.28.0`. The tag then contains them, so a later `check`
-   compares them with the tag. Check out the merge commit before tagging.
+   a PR titled `chore(release): v0.28.0` and labelled `skip-changelog`, so the release PR stays
+   out of the next changelog. The tag then contains both files, so a later `check` compares
+   them with the tag. Check out the merge commit before tagging.
 
 4. **Create the tags.** Dry-run first; it lists one tag per module and refuses a version that
    is not `vMAJOR.MINOR.PATCH` or a tag that exists:

@@ -50,7 +50,7 @@ titles. A guide without opening paragraphs or a `# Checklist` section is refused
 
 ## Previewing a release
 
-From the repository root, with the tags fetched (`git fetch upstream --tags`):
+From the repository root, with the tags fetched (`git fetch origin --tags`):
 
 ```sh
 go run ./scripts/release/refnode version --json > report.json
