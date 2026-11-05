@@ -102,11 +102,13 @@ type store struct {
 	Steps   []step `json:"steps"`
 }
 
-// step is one schema step; Hash is migrate.Step.Hash.
+// step is one schema step; Hash is migrate.Step.Hash. Contract is migrate.Step.Contract: once
+// the step ran, binaries without it refuse the store, so rolling back past it is a restore.
 type step struct {
-	Version int    `json:"version"`
-	Name    string `json:"name"`
-	Hash    string `json:"hash"`
+	Version  int    `json:"version"`
+	Name     string `json:"name"`
+	Hash     string `json:"hash"`
+	Contract bool   `json:"contract"`
 }
 
 // getReport returns the report of this binary.
@@ -129,7 +131,7 @@ func getReport() report {
 	for _, s := range migrate.Schemas() {
 		steps := []step{}
 		for _, st := range s.Steps {
-			steps = append(steps, step{Version: st.Version, Name: st.Name, Hash: st.Hash()})
+			steps = append(steps, step{Version: st.Version, Name: st.Name, Hash: st.Hash(), Contract: st.Contract})
 		}
 		r.Stores = append(r.Stores, store{Type: s.Store, Dialect: string(s.Dialect), Steps: steps})
 	}

@@ -109,12 +109,25 @@ func TestJSON(t *testing.T) { //nolint:paralleltest // registers process-wide sc
 		}
 	}
 	got := map[string]string{}
+	contract := map[string]bool{}
 	for _, s := range r.Stores {
 		var lines strings.Builder
 		for _, step := range s.Steps {
 			fmt.Fprintf(&lines, "%d %s %s\n", step.Version, step.Hash, step.Name)
+			contract[fmt.Sprintf("%s-%s %d", s.Dialect, s.Type, step.Version)] = step.Contract
 		}
 		got[s.Dialect+"-"+s.Type] = lines.String()
 	}
 	require.Equal(t, want, got)
+
+	// Every step is reported with its flag; these are the FSC contract steps.
+	wantContract := map[string]bool{}
+	for key := range contract {
+		wantContract[key] = false
+	}
+	for _, key := range []string{"postgres-vault 2", "sqlite-vault 2", "postgres-endorsetx 2", "sqlite-endorsetx 2"} {
+		wantContract[key] = true
+	}
+	require.Equal(t, wantContract, contract)
+	require.Contains(t, out.String(), `"contract": true`)
 }

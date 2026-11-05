@@ -12,6 +12,11 @@ FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 FABRIC_X_TOOLS_VERSION ?= v1.0.3
 FABRIC_X_COMMITTER_VERSION ?= 1.0.7
 
+# scripts/release reports FABRIC_VERSION, FABRIC_X_TOOLS_VERSION,
+# FABRIC_X_COMMITTER_VERSION and POSTGRES_VERSION as the versions a release was
+# tested with.
+POSTGRES_VERSION ?= 16.2-alpine
+
 # Monitoring images. nwo runs the same refs; TestImagePins in integration/nwo fails
 # when the two disagree.
 JAEGER_VERSION ?= 2.12.0
@@ -148,8 +153,8 @@ jaeger:
 	docker pull cr.jaegertracing.io/jaegertracing/jaeger:$(JAEGER_VERSION)
 
 postgres:
-	docker pull postgres:16.2-alpine
-	docker tag postgres:16.2-alpine fsc.itests/postgres:latest
+	docker pull postgres:$(POSTGRES_VERSION)
+	docker tag postgres:$(POSTGRES_VERSION) fsc.itests/postgres:latest
 
 .PHONY: chaincode-images
 chaincode-images: ## Build container images for the in-tree CCaaS chaincodes

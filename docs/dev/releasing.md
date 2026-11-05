@@ -7,8 +7,9 @@ This guide is for maintainers. It lists the steps to cut a release of Fabric Sma
 
 - Every release is cut from `main`. There are no release branches, and fixes are not
   backported to an earlier release.
-- The maintainer who cuts the release picks the version, `vX.Y.Z`. A minor and a patch go
-  through the same steps.
+- The maintainer who cuts the release picks the version, `vX.Y.Z`; `go run ./scripts/release
+  bump` prints the next minor. A patch skips step 3, since `scripts/release` generates release
+  data only for a minor, and its GitHub release gets the generated changelog as its body.
 - A release tags the root module and every submodule (`integration`,
   `platform/fabric/services/state/cc/query`, `platform/view/services/comm/host/libp2p`) with
   the same version: `v0.28.0`, `integration/v0.28.0`, and so on. `scripts/tag-release.sh`
@@ -40,7 +41,13 @@ clean checkout of the commit to release. The examples release `v0.28.0` after `v
    git log --format='%h %s' v0.27.0..HEAD | grep -E '^[0-9a-f]+ [a-z]+(\([^)]*\))?!:'
    ```
 
-3. **Create the tags.** Dry-run first; it lists one tag per module and refuses a version that
+3. **Commit the release data and notes.** Generate both files as
+   [Previewing a release](../upgrade/releases/README.md#previewing-a-release) shows, for
+   `v0.28.0` with previous tag `v0.27.0`, read the notes, and merge the two files to `main` in
+   a PR titled `chore(release): v0.28.0`. The tag then contains them, so a later `check`
+   compares them with the tag. Check out the merge commit before tagging.
+
+4. **Create the tags.** Dry-run first; it lists one tag per module and refuses a version that
    is not `vMAJOR.MINOR.PATCH` or a tag that exists:
 
    ```bash
@@ -48,21 +55,15 @@ clean checkout of the commit to release. The examples release `v0.28.0` after `v
    make tag-release VERSION=v0.28.0
    ```
 
-4. **Push the tags.** Push the new tags only. `git push --tags` would push every local tag you
-   have:
+5. **Push the tags and create the GitHub release.** Push the new tags only; `git push --tags`
+   would push every local tag you have. The release takes the notes as its body and the data
+   file as an asset:
 
    ```bash
    git push origin $(git tag --points-at HEAD | grep -E '(^|/)v0\.28\.0$')
+   gh release create v0.28.0 --verify-tag --title v0.28.0 \
+     --notes-file docs/upgrade/releases/v0.28.0.md docs/upgrade/releases/v0.28.0.json
    ```
-
-5. **Create the GitHub release.** On
-   [Releases → Draft a new release](https://github.com/hyperledger-labs/fabric-smart-client/releases/new),
-   choose the tag `v0.28.0`, set the title to `v0.28.0`, pick `v0.27.0` as the previous tag
-   and click **Generate release notes**. Above the generated list, paste the summary of the
-   upgrade guide: the breaking changes for operators and for developers, and a link to the
-   guide at the tag
-   (`https://github.com/hyperledger-labs/fabric-smart-client/blob/v0.28.0/docs/upgrade/v0.27-to-v0.28.md`).
-   Publish it.
 
 6. **Add the storage fixtures.** `make tag-release` prints this step. The generator fetches
    the release from the module proxy, so it runs after the tags are public. In a branch off
