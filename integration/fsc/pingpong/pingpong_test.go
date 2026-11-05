@@ -9,6 +9,8 @@ package pingpong_test
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"slices"
@@ -25,10 +27,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -243,6 +247,22 @@ var _ = Describe("EndToEnd", func() {
 			It("negotiates the highest version both nodes support", s.TestVersion)
 		})
 	}
+
+	// The initiator re-reads its TLS certificate and key every second. The group has a network
+	// of its own, torn down after its spec.
+	Describe("Ping pong with TLS certificate reload", Label(fsc.WebSocket), Ordered, func() {
+		s := &TestSuite{TestSuite: integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+			ii, err := integration.Generate(StartPortWithGeneration(), integration.WithRaceDetection, pingpong.TLSReloadTopology(fsc.WebSocket)...)
+			if err != nil {
+				return nil, err
+			}
+			ii.DeleteOnStop = false
+			return ii, nil
+		})}
+		BeforeAll(s.Setup)
+		AfterAll(s.TearDown)
+		It("serves a renewed TLS certificate without a restart", s.TestTLSCertReload)
+	})
 
 	// Replication generates, so this group is genuinely websocket.
 	Describe("Network-based Ping pong With Websockets and replication", Label(fsc.WebSocket), Ordered, func() {
@@ -494,4 +514,118 @@ func GetFSCReplicaNames(nodeName string, replicationFactor int) []string {
 		result[i] = fmt.Sprintf("fsc.%s.%d", nodeName, i)
 	}
 	return result
+}
+
+// TestTLSCertReload renews the initiator's TLS certificate on disk and checks that its gRPC and
+// web listeners serve the renewed one within a few reload intervals, without a restart: the
+// expiry gauge of both moves, a new web client calls a view, and the initiator still reaches
+// the responder over P2P. The P2P transport does not reload, so that ping is a liveness check
+// and does not use the renewed certificate. A mismatched pair written next is refused, so the
+// gauge keeps the renewed expiry and a new client still connects. Writing the original pair
+// back last checks that a reload also returns to an earlier certificate.
+func (s *TestSuite) TestTLSCertReload() {
+	p := s.II.FscPlatform
+	initiator := p.Peer("fsc", "initiator")
+	Expect(initiator).NotTo(BeNil())
+	n := tlsNode{
+		dir:      p.NodeDir(nwonode.NewReplica(initiator, nwonode.ReplicaUniqueName("initiator", 0))),
+		identity: func() (viewclient.SigningIdentity, error) { return p.GetSigningIdentity(initiator) },
+	}
+	listeners := []string{"grpc", "web"}
+	// Each reload re-reads the files, so a few intervals cover a reload that just missed a write.
+	reloaded := 5 * pingpong.TLSReloadInterval
+
+	original, err := p.NodeTLSPair(initiator)
+	Expect(err).NotTo(HaveOccurred())
+	before := n.expectCertNotAfter(original, listeners, notAfterOf(original), reloaded)
+
+	By("renewing the initiator's certificate")
+	renewed, err := p.RenewNodeTLSPair(initiator, before.Add(24*time.Hour).Truncate(time.Second))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(p.WriteNodeTLSPair(initiator, renewed)).To(Succeed())
+	n.expectCertNotAfter(renewed, listeners, notAfterOf(renewed), reloaded)
+	n.expectNewWebClientCalls(renewed)
+	s.TestPingPong("initiator")
+
+	By("writing a mismatched pair, which the initiator refuses")
+	// The renewed certificate stays on disk and the original key replaces its key, so the
+	// node's files no longer match. The clients present the renewed pair, which the node keeps
+	// serving, since they cannot load the node's files either.
+	Expect(p.WriteNodeTLSPair(initiator, fsc.TLSPair{Cert: renewed.Cert, Key: original.Key})).To(Succeed())
+	Consistently(func(g Gomega) {
+		got := n.certNotAfter(g, renewed)
+		for _, l := range listeners {
+			g.Expect(got).To(HaveKeyWithValue(l, notAfterOf(renewed)), "listener [%s]", l)
+		}
+	}, reloaded, pingpong.TLSReloadInterval/2).Should(Succeed())
+	n.expectNewWebClientCalls(renewed)
+
+	By("writing the original pair back, which the initiator serves again")
+	Expect(p.WriteNodeTLSPair(initiator, original)).To(Succeed())
+	n.expectCertNotAfter(original, listeners, notAfterOf(original), reloaded)
+	n.expectNewWebClientCalls(original)
+}
+
+// tlsNode is a node whose TLS certificate a spec rewrites. Its clients are built for each check
+// from the node's configuration, with the pair the spec expects the node to serve in place of the
+// one its files name: a client built earlier trusts the certificate the node served then, and a
+// mismatched pair on disk cannot be loaded at all.
+type tlsNode struct {
+	dir      string
+	identity func() (viewclient.SigningIdentity, error)
+}
+
+// withPair makes cc trust pair's certificate and present pair, as nwo's clients do with the
+// node's own pair.
+func withPair(cc *commongrpc.ConnectionConfig, pair fsc.TLSPair) *commongrpc.ConnectionConfig {
+	cc.TLS.ServerRootCAs = [][]byte{pair.Cert}
+	cc.TLS.Certificate, cc.TLS.Key = pair.Cert, pair.Key
+	return cc
+}
+
+// certNotAfter returns the node's fsc_tls_cert_not_after by listener, read over a new
+// connection that trusts pair.
+func (n tlsNode) certNotAfter(g Gomega, pair fsc.TLSPair) map[string]time.Time {
+	cc, err := client.NewMetricsClientConfigFromFSC(n.dir)
+	g.Expect(err).NotTo(HaveOccurred())
+	mc, err := client.NewMetricsClient(withPair(cc, pair))
+	g.Expect(err).NotTo(HaveOccurred())
+	families, err := mc.Metrics()
+	g.Expect(err).NotTo(HaveOccurred())
+	return fsc.ParseTLSCertNotAfter(families)
+}
+
+// expectCertNotAfter waits until every listener in listeners reports want as the expiry of the
+// certificate it serves, read over connections that trust pair, and returns want.
+func (n tlsNode) expectCertNotAfter(pair fsc.TLSPair, listeners []string, want time.Time, timeout time.Duration) time.Time {
+	EventuallyWithOffset(1, func(g Gomega) {
+		got := n.certNotAfter(g, pair)
+		for _, l := range listeners {
+			g.Expect(got).To(HaveKeyWithValue(l, want), "listener [%s]", l)
+		}
+	}, timeout, 200*time.Millisecond).Should(Succeed())
+	return want
+}
+
+// expectNewWebClientCalls calls a view over a new web connection that trusts pair, so the
+// handshake verifies the certificate the node serves now.
+func (n tlsNode) expectNewWebClientCalls(pair fsc.TLSPair) {
+	cc, err := client.NewWebConnectionConfigFromFSC(n.dir)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	signer, err := n.identity()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	c, err := viewclient.NewClient(&viewclient.Config{ConnectionConfig: withPair(cc, pair), Transport: viewclient.TransportHTTP}, signer, noop.NewTracerProvider())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	res, err := c.CallView("init", nil)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+}
+
+// notAfterOf returns the expiry of the certificate in pair.
+func notAfterOf(pair fsc.TLSPair) time.Time {
+	block, _ := pem.Decode(pair.Cert)
+	ExpectWithOffset(1, block).NotTo(BeNil())
+	cert, err := x509.ParseCertificate(block.Bytes)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	return cert.NotAfter.UTC()
 }

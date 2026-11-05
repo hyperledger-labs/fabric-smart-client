@@ -76,6 +76,16 @@ func WithLoadBalancer() nwonode.Option {
 	}
 }
 
+// WithTLSReloadInterval sets fsc.tls.reloadInterval, so the node's gRPC, web and metrics
+// listeners re-read their TLS certificate and key every d and serve a renewed pair without a
+// restart. Without it the node never re-reads them.
+func WithTLSReloadInterval(d time.Duration) nwonode.Option {
+	return func(o *nwonode.Options) error {
+		o.Put("TLSReloadInterval", d)
+		return nil
+	}
+}
+
 func WithAlias(alias string) nwonode.Option {
 	return func(o *nwonode.Options) error {
 		o.AddAlias(alias)

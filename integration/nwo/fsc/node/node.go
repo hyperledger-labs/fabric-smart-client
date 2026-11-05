@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/onsi/gomega"
 	"go.yaml.in/yaml/v3"
@@ -180,6 +181,13 @@ func (o *Options) ReplicationFactor() int {
 		return f.(int)
 	}
 	return 1
+}
+
+// TLSReloadInterval returns the fsc.tls.reloadInterval WithTLSReloadInterval set, or 0 when
+// none is set, in which case the node never re-reads its TLS certificate and key.
+func (o *Options) TLSReloadInterval() time.Duration {
+	d, _ := o.Mapping["TLSReloadInterval"].(time.Duration)
+	return d
 }
 
 // LoadBalancer reports whether the node's replicas sit behind a load balancer.
