@@ -33,11 +33,18 @@ type bftOrdererState struct {
 // ordering service and succeeds once enough of them acknowledge it. It keeps a
 // pool of broadcast streams per orderer.
 //
+// Broadcast returns as soon as the threshold is met, or as soon as too many
+// orderers failed for it to be met, without waiting for the other orderers.
+// Their sends finish in the background: an accepted envelope puts the stream
+// back in the pool, a failed or rejected one discards it. Each send is bounded
+// by bftSendRecvTimeout and is not cancelled by the caller's context, which
+// only bounds the wait for a connection and for the threshold.
+//
 // It counts each envelope that reaches the threshold in OrderedTransactions, and
 // reports the state of each orderer: connected when a stream is opened and
 // after each envelope the orderer accepts, reconnecting when a failed stream is
-// discarded. A send that times out or is cancelled counts as failed. A stream
-// discarded after a rejection does not change the state: the orderer answered.
+// discarded. A send that times out counts as failed. A stream discarded after a
+// rejection does not change the state: the orderer answered.
 type BFTBroadcaster struct {
 	ConfigService driver.ConfigService
 	ClientFactory Services
@@ -111,78 +118,75 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 			time.Sleep(retryInterval)
 		}
 
-		counter := 0
+		results := make(chan error, n)
+		var success, failure int
 		var errs []error
-		var usedConnections []*Connection
-
-		var wg sync.WaitGroup
-		wg.Add(n)
-
-		var lock sync.Mutex
 
 		for _, orderer := range orderers {
 			go func(orderer *grpc.ConnectionConfig) {
-				defer wg.Done()
-
 				logger.DebugfContext(ctx, "get connection to [%s]", orderer.Address)
 				connection, err := o.getConnection(ctx, orderer)
-
-				lock.Lock()
 				if err != nil {
-					errs = append(errs, errors.Wrapf(err, "failed connecting to [%v]", orderer.Address))
 					logger.WarnfContext(ctx, "failed to get connection to orderer [%s]", orderer.Address, err)
-					lock.Unlock()
+					results <- errors.Wrapf(err, "failed connecting to [%s]", orderer.Address)
 					return
 				}
 
-				lock.Unlock()
-
 				logger.DebugfContext(ctx, "broadcast to [%s]", orderer.Address)
-				sendRecvCtx, cancel := context.WithTimeout(ctx, bftSendRecvTimeout)
+				// Broadcast may return before this send ends, and the caller may then
+				// cancel ctx. SendAndRecv aborts the stream when its context is done, so
+				// a send derived from ctx would count a slow but healthy orderer as
+				// failed and tear its connection down. The send keeps ctx's values but
+				// not its cancellation, and is bounded by bftSendRecvTimeout alone.
+				sendRecvCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), bftSendRecvTimeout)
 				status, err := connection.SendAndRecv(sendRecvCtx, env)
 				cancel()
 				if err != nil {
 					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, err.Error())
 					connection.State.Set(connstate.Reconnecting)
-					lock.Lock()
-					defer lock.Unlock()
-					usedConnections = append(usedConnections, connection)
-					errs = append(errs, errors.Wrapf(err, "failed broadcasting to [%v]", orderer.Address))
+					o.discardConnection(connection)
+					results <- errors.Wrapf(err, "failed broadcasting to [%s]", orderer.Address)
 					return
 				}
-
-				lock.Lock()
-				defer lock.Unlock()
 
 				switch status.GetStatus() {
 				case common.Status_SUCCESS:
 					connection.State.Set(connstate.Connected)
 					o.releaseConnection(connection, orderer)
-					counter++
+					results <- nil
 				default:
-					usedConnections = append(usedConnections, connection)
+					o.discardConnection(connection)
 					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, common.Status_name[int32(status.GetStatus())])
-					errs = append(errs, errors.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common.Status_name[int32(status.GetStatus())]))
+					results <- errors.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common.Status_name[int32(status.GetStatus())])
 					return
 				}
 			}(orderer)
 		}
 
-		wg.Wait()
-
-		// Discard errored connections on every path, including threshold success.
-		for _, connection := range usedConnections {
-			o.discardConnection(connection)
-		}
-
-		if counter >= threshold {
-			// success
-			o.metrics.OrderedTransactions.With("network", o.ConfigService.NetworkName()).Add(1)
-			return nil
+	collect:
+		for range n {
+			select {
+			case err := <-results:
+				if err == nil {
+					success++
+				} else {
+					failure++
+					errs = append(errs, err)
+				}
+			case <-ctx.Done():
+				return errors.Wrapf(ctx.Err(), "broadcast aborted with [%d of %d] successes", success, threshold)
+			}
+			if success >= threshold {
+				o.metrics.OrderedTransactions.With("network", o.ConfigService.NetworkName()).Add(1)
+				return nil
+			}
+			if failure > n-threshold {
+				break collect
+			}
 		}
 
 		// fail
-		logger.WarnfContext(ctx, "failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", counter, threshold, errs)
+		logger.WarnfContext(ctx, "failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", success, threshold, errs)
 	}
 
 	return errors.New("failed to send transaction to the ordering service")
