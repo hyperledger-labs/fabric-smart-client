@@ -308,6 +308,16 @@ INTEGRATION_TARGETS += fabricx-faultrecovery-crash
 # Its specs on a network where Org2 runs two committers run in a target of their own.
 INTEGRATION_TARGETS += fabricx-faultrecovery-committer-failover
 
+# Integration targets that CI runs on a schedule, not on every pull request (see
+# .github/workflows/mixedversion.yml): `make list-integration-tests`, which feeds
+# the pull request matrix, leaves them out.
+NIGHTLY_INTEGRATION_TARGETS = fabric-mixedversion
+
+# fabric-mixedversion runs nodes of FSC_PREVIOUS_RELEASE: a module version, or the
+# absolute path of a checkout. It defaults to the latest release tag other than one
+# at HEAD itself. See docs/dev/integration-tests/authoring.md.
+integration-tests-fabric-mixedversion: export FSC_PREVIOUS_RELEASE ?= $(shell git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname --no-contains HEAD 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -n1)
+
 # Targets are normally named <platform>-<suite> and map onto
 # ./integration/<platform>/<suite>. Targets that run one suite under a
 # different name need an explicit directory.
@@ -354,7 +364,7 @@ list-integration-tests: ## List all integration tests
 .PHONY: integration-tests
 integration-tests: $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) ## Run all integration tests
 
-$(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
+$(addprefix integration-tests-,$(INTEGRATION_TARGETS) $(NIGHTLY_INTEGRATION_TARGETS)) : integration-tests-%:
 	export FAB_BINS=$(FAB_BINS); \
 		cd ./integration/$(call integration_dir,$*); \
 		$(if $(INTEGRATION_GOFLAGS_$*),GOFLAGS="$(INTEGRATION_GOFLAGS_$*)" )ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
@@ -379,9 +389,9 @@ tidy: ## Run go mod tidy everywhere
 	@./scripts/gomate.sh tidy
 
 .PHONY: clean
-clean: $(addprefix clean-,$(INTEGRATION_TARGETS)) ## Clean generated testdata
+clean: $(addprefix clean-,$(INTEGRATION_TARGETS) $(NIGHTLY_INTEGRATION_TARGETS)) ## Clean generated testdata
 	rm -rf ./integration/nwo/cmd/fsccli/out
 	rm -rf ./out
 
-$(addprefix clean-,$(INTEGRATION_TARGETS)) : clean-%:
+$(addprefix clean-,$(INTEGRATION_TARGETS) $(NIGHTLY_INTEGRATION_TARGETS)) : clean-%:
 	rm -rf ./integration/$(call integration_dir,$*)/out

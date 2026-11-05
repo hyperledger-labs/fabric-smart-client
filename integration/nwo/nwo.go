@@ -233,6 +233,17 @@ func (n *NWO) ResumeFSCNode(id string) {
 	}
 }
 
+// ReplaceFSCRunner starts the named FSC node, which must be stopped, with the
+// runner that runner returns for the node's member name, and returns once it is
+// ready. Use it to start a replica on another binary: StartFSCNode clones the
+// runner, which keeps the binary it was built with.
+func (n *NWO) ReplaceFSCRunner(id string, runner func(memberName string) ifrit.Runner) {
+	i := n.fscIndex(id)
+	gomega.Expect(i).To(gomega.BeNumerically(">=", 0), "FSC node [%s] not found", id)
+	n.ViewMembers[i].Runner = runner(n.ViewMembers[i].Name)
+	n.invoke(n.ViewMembers[i])
+}
+
 // StartFSCNode starts the named FSC node, which must have been stopped or
 // killed before, and returns once it is ready.
 func (n *NWO) StartFSCNode(id string) {

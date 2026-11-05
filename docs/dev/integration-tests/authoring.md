@@ -45,6 +45,32 @@ enough when the name follows the `<platform>-<suite>` convention, which maps to
   parallel CI entries) → set `INTEGRATION_FLAGS_<target>`.
 - **The suite needs a build tag** (e.g. `-tags pkcs11`) → set
   `INTEGRATION_GOFLAGS_<target>`; it becomes the `GOFLAGS` the test binary is built with.
+- **The suite is too costly for every pull request** → add it to
+  `NIGHTLY_INTEGRATION_TARGETS`; CI runs it from a scheduled workflow of its own.
+
+## Nodes of another release
+
+A node or replica can run a binary built at another FSC release instead of the current
+tree, to test that releases work together:
+
+- `ii.FscPlatform.SetRelease(id, release)`, called in the suite's generator after
+  `integration.Generate` and before the network starts, selects the release of a node (all
+  its replicas) or of one replica such as `alice.1`.
+- `ii.UpgradeFSCNode(id, release)` stops a running replica and starts it on the binary of
+  `release`, keeping its configuration and databases, as an operator's binary swap does. An
+  empty `release` is the current tree.
+
+`release` is a module version (a tag such as `v0.28.0`, or a commit) or the absolute path of
+a checkout of the repository. nwo copies the node's generated `main` into a module of its
+own that requires the FSC modules at `release`, and builds it there without the race
+detector or coverage; a version needs the Go module proxy or network access. The generated
+`main` imports the packages of every view and SDK the topology registers for the node, so
+those packages must exist, with the same API, at `release`. A suite that runs nodes of the
+previous release therefore keeps its views in a package of its own that changes only
+compatibly, and skips when `fsc.ReleaseHasPackage` reports that the release predates the
+package. `integration/fabric/mixedversion` runs at `FSC_PREVIOUS_RELEASE`, which the
+`Makefile` sets to the latest release tag; set it to a checkout to run the suite against
+local changes.
 
 ## Network topology options
 

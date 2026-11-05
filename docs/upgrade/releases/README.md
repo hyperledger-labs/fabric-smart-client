@@ -24,7 +24,10 @@ Releases cut before this directory existed have no files here.
 
 - `modules`: the tags the release creates, one per module.
 - `upgrade`: how a deployment upgrades to the release. `stop-all` means every node of a network
-  stops before any node runs the release. `guide` is the upgrade guide of the release.
+  stops before any node runs the release. `rolling` means organizations upgrade their nodes one
+  at a time while the network runs, as [Rolling upgrades](../rolling-upgrade.md) describes. `data`
+  writes `stop-all` for every release; a release becomes `rolling` through a change to
+  `scripts/release`, once the mixed-version suite has run against its previous release. `guide` is the upgrade guide of the release.
 - `stores` and `components`: the schema steps of every FSC store and the wire format ranges,
   from `node version --json` of the reference binary `scripts/release/refnode` (see
   [the Node CLI reference](../../reference/node-cli.md#version)). A step with `contract: true`
