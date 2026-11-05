@@ -26,8 +26,8 @@ import (
 const PrometheusPort = 9090
 
 const (
-	PrometheusImg = "prom/prometheus:latest"
-	GrafanaImg    = "grafana/grafana:latest"
+	PrometheusImg = "ghcr.io/prometheus/prometheus:v3.15.1"
+	GrafanaImg    = "grafana/grafana:13.3.0"
 )
 
 var RequiredImages = []string{
@@ -87,7 +87,7 @@ func (n *Extension) startPrometheus() {
 		Name: containerName,
 		Config: &container.Config{
 			Hostname:     "prometheus",
-			Image:        "prom/prometheus:latest",
+			Image:        PrometheusImg,
 			Tty:          true,
 			ExposedPorts: docker.PortSet(n.platform.PrometheusPort()),
 			Cmd: []string{

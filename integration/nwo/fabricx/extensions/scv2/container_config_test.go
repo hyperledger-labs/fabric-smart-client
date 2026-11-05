@@ -88,7 +88,7 @@ func TestContainerImage(t *testing.T) {
 
 	t.Run("returns default image when empty", func(t *testing.T) {
 		t.Parallel()
-		require.Equal(t, committerImageName, containerImage(containerConfig{}))
+		require.Equal(t, DefaultCommitterImage, containerImage(containerConfig{}))
 	})
 
 	t.Run("returns custom image when set", func(t *testing.T) {

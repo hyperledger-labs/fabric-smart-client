@@ -12,9 +12,9 @@ import (
 	"sort"
 )
 
-const (
-	committerImageName = "hyperledger/fabric-x-committer-test-node:1.0.7"
-)
+// DefaultCommitterImage is the image nwo runs for the committer and orderer containers
+// unless WithCommitterImage sets another one.
+const DefaultCommitterImage = "ghcr.io/hyperledger/fabric-x-committer-test-node:1.0.7"
 
 type containerConfig struct {
 	ChannelName           string
@@ -32,7 +32,7 @@ type containerConfig struct {
 }
 
 func containerImage(cfg containerConfig) string {
-	return cmp.Or(cfg.Image, committerImageName)
+	return cmp.Or(cfg.Image, DefaultCommitterImage)
 }
 
 // containerCmd returns the command that runs the image's run script for the
