@@ -16,6 +16,7 @@ package ledger
 
 import (
 	"errors"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -24,7 +25,9 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -118,7 +121,7 @@ func TestGetTransactionByID(t *testing.T) {
 	}{
 		{
 			name:     "Success",
-			queryRes: []byte("tx-data"),
+			queryRes: mustMarshal(t, &peer.ProcessedTransaction{ValidationCode: int32(peer.TxValidationCode_VALID)}),
 			queryErr: nil,
 			wantErr:  false,
 		},
@@ -126,6 +129,11 @@ func TestGetTransactionByID(t *testing.T) {
 			name:     "QueryFailure",
 			queryRes: nil,
 			queryErr: errors.New("failed"),
+			wantErr:  true,
+		},
+		{
+			name:     "UnmarshalFailure",
+			queryRes: []byte("not a processed transaction"),
 			wantErr:  true,
 		},
 	}
@@ -159,6 +167,218 @@ func TestGetTransactionByID(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGetTransactionByIDShadowed checks that a lookup whose first envelope is
+// invalid returns the valid endorser transaction with the same txID in its
+// block, as committer.ShadowedEnvelopes rules, and the first envelope
+// otherwise. A valid lookup issues no block query, and a block that cannot be
+// fetched or parsed is an error, never the forgery's verdict.
+func TestGetTransactionByIDShadowed(t *testing.T) {
+	t.Parallel()
+	const txID = "tx1"
+	forged := envelope(t, common.HeaderType_ENDORSER_TRANSACTION, txID, "forged")
+	forgedMessage := envelope(t, common.HeaderType_MESSAGE, txID, "forged")
+	honest := envelope(t, common.HeaderType_ENDORSER_TRANSACTION, txID, "honest")
+	config := envelope(t, common.HeaderType_CONFIG, txID, "config")
+	other := envelope(t, common.HeaderType_ENDORSER_TRANSACTION, "tx2", "other")
+	garbage := &common.Envelope{Payload: []byte("not a payload")}
+
+	tests := []struct {
+		name    string
+		lookup  *common.Envelope
+		code    peer.TxValidationCode
+		block   []byte // GetBlockByTxID result; nil fails the query
+		want    *common.Envelope
+		wantVC  peer.TxValidationCode
+		wantErr string
+	}{
+		{
+			name:   "ValidLookup",
+			lookup: honest, code: peer.TxValidationCode_VALID,
+			want: honest, wantVC: peer.TxValidationCode_VALID,
+		},
+		{
+			name:   "ForgedEndorserThenHonest",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			block: blockOf(t, []*common.Envelope{forged, honest}, peer.TxValidationCode_BAD_PROPOSAL_TXID, peer.TxValidationCode_VALID),
+			want:  honest, wantVC: peer.TxValidationCode_VALID,
+		},
+		{
+			name:   "ForgedMessageThenHonest",
+			lookup: forgedMessage, code: peer.TxValidationCode_UNSUPPORTED_TX_PAYLOAD,
+			block: blockOf(t, []*common.Envelope{forgedMessage, other, honest}, peer.TxValidationCode_UNSUPPORTED_TX_PAYLOAD, peer.TxValidationCode_VALID, peer.TxValidationCode_VALID),
+			want:  honest, wantVC: peer.TxValidationCode_VALID,
+		},
+		{
+			name:   "UnparsableEnvelopeBeforeHonest",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			block: blockOf(t, []*common.Envelope{forged, garbage, honest}, peer.TxValidationCode_BAD_PROPOSAL_TXID, peer.TxValidationCode_VALID, peer.TxValidationCode_VALID),
+			want:  honest, wantVC: peer.TxValidationCode_VALID,
+		},
+		{
+			name:   "NoValidTwin",
+			lookup: forged, code: peer.TxValidationCode_MVCC_READ_CONFLICT,
+			block: blockOf(t, []*common.Envelope{forged, other}, peer.TxValidationCode_MVCC_READ_CONFLICT, peer.TxValidationCode_VALID),
+			want:  forged, wantVC: peer.TxValidationCode_MVCC_READ_CONFLICT,
+		},
+		{
+			// The twin is invalid too, so it does not shadow the forgery and
+			// the lookup keeps the first envelope. The block stores the
+			// forgery as an unparsable envelope, so only the twin can match.
+			name:   "InvalidTwinDoesNotShadow",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			block: blockOf(t, []*common.Envelope{garbage, honest}, peer.TxValidationCode_BAD_PROPOSAL_TXID, peer.TxValidationCode_MVCC_READ_CONFLICT),
+			want:  forged, wantVC: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+		},
+		{
+			name:   "ValidConfigDoesNotShadow",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			block: blockOf(t, []*common.Envelope{forged, config}, peer.TxValidationCode_BAD_PROPOSAL_TXID, peer.TxValidationCode_VALID),
+			want:  forged, wantVC: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+		},
+		{
+			name:   "TwinBeyondValidationFlags",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			block: blockOf(t, []*common.Envelope{forged, honest}, peer.TxValidationCode_BAD_PROPOSAL_TXID),
+			want:  forged, wantVC: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+		},
+		{
+			name:   "NoTransactionsFilter",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			block: mustMarshal(t, &common.Block{Data: &common.BlockData{Data: [][]byte{mustMarshal(t, forged), mustMarshal(t, honest)}}}),
+			want:  forged, wantVC: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+		},
+		{
+			// Without a valid twin, the parse error of a non-endorser
+			// forgery is returned, as before.
+			name:   "MessageForgeryWithoutTwin",
+			lookup: forgedMessage, code: peer.TxValidationCode_UNSUPPORTED_TX_PAYLOAD,
+			block:   blockOf(t, []*common.Envelope{forgedMessage, other}, peer.TxValidationCode_UNSUPPORTED_TX_PAYLOAD, peer.TxValidationCode_VALID),
+			wantErr: "only EndorserClient Transactions are supported",
+		},
+		{
+			name:   "BlockQueryFailure",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			wantErr: "failed fetching block of transaction [tx1]",
+		},
+		{
+			name:   "BlockUnmarshalFailure",
+			lookup: forged, code: peer.TxValidationCode_BAD_PROPOSAL_TXID,
+			block:   []byte("not a block"),
+			wantErr: "failed unmarshalling block of transaction [tx1]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			l, mockCM, mockLM, mockCS, mockTM := setupTestLedger(t)
+			mockLM.DefaultIdentityReturns(view.Identity("alice"))
+			queryPeer := &grpc.ConnectionConfig{Address: "peer0:7051"}
+			mockCS.PickPeerReturns(queryPeer)
+
+			// Each qscc function gets its own invocation.
+			lookup := mustMarshal(t, &peer.ProcessedTransaction{TransactionEnvelope: tt.lookup, ValidationCode: int32(tt.code)})
+			var blockQueries atomic.Int32
+			mockCC := &mock.Chaincode{}
+			mockCC.NewInvocationStub = func(function string, _ ...any) driver.ChaincodeInvocation {
+				inv := &mock.ChaincodeInvocation{}
+				inv.WithEndorsersByConnConfigStub = func(ccs ...*grpc.ConnectionConfig) driver.ChaincodeInvocation {
+					require.Equal(t, []*grpc.ConnectionConfig{queryPeer}, ccs)
+					return inv
+				}
+				inv.WithSignerIdentityReturns(inv)
+				switch {
+				case function == GetTransactionByID:
+					inv.QueryReturns(lookup, nil)
+				case function == GetBlockByTxID && tt.block == nil:
+					blockQueries.Add(1)
+					inv.QueryReturns(nil, errors.New("peer unavailable"))
+				case function == GetBlockByTxID:
+					blockQueries.Add(1)
+					inv.QueryReturns(tt.block, nil)
+				}
+				return inv
+			}
+			mockCM.ChaincodeReturns(mockCC)
+			// The fake reports the envelope and code it was built from, so the
+			// test sees which one the ledger chose. Like the transaction
+			// manager, it rejects an envelope that is not an endorser
+			// transaction.
+			mockTM.NewProcessedTransactionStub = func(raw []byte) (driver.ProcessedTransaction, error) {
+				pt := &peer.ProcessedTransaction{}
+				if err := proto.Unmarshal(raw, pt); err != nil {
+					return nil, err
+				}
+				_, _, chdr, err := fabricutils.UnmarshalTx(mustMarshal(t, pt.GetTransactionEnvelope()))
+				if err != nil {
+					return nil, err
+				}
+				if common.HeaderType(chdr.GetType()) != common.HeaderType_ENDORSER_TRANSACTION {
+					return nil, errors.New("only EndorserClient Transactions are supported")
+				}
+				res := &mock.ProcessedTransaction{}
+				res.EnvelopeReturns(mustMarshal(t, pt.GetTransactionEnvelope()))
+				res.ValidationCodeReturns(pt.GetValidationCode())
+				res.IsValidReturns(pt.GetValidationCode() == int32(peer.TxValidationCode_VALID))
+				return res, nil
+			}
+
+			res, err := l.GetTransactionByID(txID)
+			require.Equal(t, 1, mockCS.PickPeerCallCount(), "both queries go to the same peer")
+			wantQueries := int32(1)
+			if tt.code == peer.TxValidationCode_VALID {
+				wantQueries = 0
+			}
+			require.Equal(t, wantQueries, blockQueries.Load(), "block queries")
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				require.Nil(t, res)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, mustMarshal(t, tt.want), res.Envelope())
+			require.Equal(t, int32(tt.wantVC), res.ValidationCode())
+		})
+	}
+}
+
+// envelope returns an envelope with the given header type and txID whose
+// payload data is tag, so that envelopes with the same txID differ.
+func envelope(t *testing.T, typ common.HeaderType, txID, tag string) *common.Envelope {
+	t.Helper()
+	chdr := mustMarshal(t, &common.ChannelHeader{Type: int32(typ), TxId: txID})
+	payload := mustMarshal(t, &common.Payload{Header: &common.Header{ChannelHeader: chdr}, Data: []byte(tag)})
+	return &common.Envelope{Payload: payload}
+}
+
+// blockOf returns the bytes of a block holding envs with the given validation
+// codes.
+func blockOf(t *testing.T, envs []*common.Envelope, codes ...peer.TxValidationCode) []byte {
+	t.Helper()
+	data := make([][]byte, len(envs))
+	for i, env := range envs {
+		data[i] = mustMarshal(t, env)
+	}
+	flags := make([]byte, len(codes))
+	for i, code := range codes {
+		flags[i] = byte(code) //nolint:gosec // validation codes fit in a byte, as in the transactions filter
+	}
+	metadata := make([][]byte, int(common.BlockMetadataIndex_TRANSACTIONS_FILTER)+1)
+	metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER] = flags
+	return mustMarshal(t, &common.Block{
+		Header:   &common.BlockHeader{Number: 7},
+		Data:     &common.BlockData{Data: data},
+		Metadata: &common.BlockMetadata{Metadata: metadata},
+	})
+}
+
+func mustMarshal(t *testing.T, m proto.Message) []byte {
+	t.Helper()
+	raw, err := proto.Marshal(m)
+	require.NoError(t, err)
+	return raw
 }
 
 func TestGetBlockNumberByTxID(t *testing.T) {
