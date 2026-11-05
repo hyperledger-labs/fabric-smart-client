@@ -182,7 +182,7 @@ test needs none of them.
 
 | Method | Default | Description |
 |---|---|---|
-| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.7` | Docker image for every committer container and the orderer container. |
+| `WithCommitterImage(image string)` | `ghcr.io/hyperledger/fabric-x-committer-test-node:1.0.7` (`scv2.DefaultCommitterImage`) | Docker image for every committer container and the orderer container. |
 | `WithCommitterEnv(key, value string)` | *(see below)* | Set an environment variable of every committer container; an empty value removes a default. |
 | `WithOrdererEnv(key, value string)` | *(see below)* | Set an environment variable of the mock orderer container, such as `SC_ORDERER_BLOCK_SIZE`; an empty value removes a default. |
 

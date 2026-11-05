@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	ExplorerDB = "ghcr.io/hyperledger-labs/explorer-db:latest"
-	Explorer   = "ghcr.io/hyperledger-labs/explorer:latest"
+	ExplorerDB = "ghcr.io/hyperledger-labs/explorer-db:2.0.0"
+	Explorer   = "ghcr.io/hyperledger-labs/explorer:2.0.0"
 )
 
 var RequiredImages = []string{

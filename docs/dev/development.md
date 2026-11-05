@@ -70,7 +70,17 @@ To install a specific Fabric version, set the `FABRIC_VERSION` variable:
 FABRIC_VERSION=3.1.0 make install-fabric-bins
 ```
 
-The default `FABRIC_VERSION` is defined in the project [Makefile](../../Makefile). 
+The default `FABRIC_VERSION` is defined in the project [Makefile](../../Makefile).
+
+The `*_VERSION` variables at the top of the [Makefile](../../Makefile) also pin every
+container image the tests run. nwo names the same images, registry and tag included, and
+`TestImagePins` in `integration/nwo` fails when nwo runs an image the `Makefile` does not
+pull, so a version bump changes both. Images come from `ghcr.io` where the project publishes
+there; Grafana comes from Docker Hub and Jaeger from `cr.jaegertracing.io`. Postgres, Fabric's `baseos` and `ccenv` are the
+exception: `make` retags them to fixed local names (`fsc.itests/postgres:latest`,
+`hyperledger/fabric-baseos:latest`, `hyperledger/fabric-ccenv:latest`), because Podman
+resolves short image names differently from Docker and the peer configuration names the
+Fabric images.
 
 
 ### Fabric-x

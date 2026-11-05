@@ -12,6 +12,13 @@ FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 FABRIC_X_TOOLS_VERSION ?= v1.0.3
 FABRIC_X_COMMITTER_VERSION ?= 1.0.7
 
+# Monitoring images. nwo runs the same refs; TestImagePins in integration/nwo fails
+# when the two disagree.
+JAEGER_VERSION ?= 2.12.0
+PROMETHEUS_VERSION ?= v3.15.1
+GRAFANA_VERSION ?= 13.3.0
+EXPLORER_VERSION ?= 2.0.0
+
 # Must match `version:` in .github/workflows/golangci-lint.yml.
 GOLANGCI_LINT_VERSION ?= v2.14.0
 
@@ -124,22 +131,21 @@ fabric-ccenv:
 
 fabric-x-committer-test-node:
 	docker pull ghcr.io/hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION)
-	docker tag ghcr.io/hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION) hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION)
 
 explorer-db:
-	docker pull ghcr.io/hyperledger-labs/explorer-db:latest
+	docker pull ghcr.io/hyperledger-labs/explorer-db:$(EXPLORER_VERSION)
 
 explorer:
-	docker pull ghcr.io/hyperledger-labs/explorer:latest
+	docker pull ghcr.io/hyperledger-labs/explorer:$(EXPLORER_VERSION)
 
 prometheus:
-	docker pull prom/prometheus:latest
+	docker pull ghcr.io/prometheus/prometheus:$(PROMETHEUS_VERSION)
 
 grafana:
-	docker pull grafana/grafana:latest
+	docker pull grafana/grafana:$(GRAFANA_VERSION)
 
 jaeger:
-	docker pull cr.jaegertracing.io/jaegertracing/jaeger:2.12.0
+	docker pull cr.jaegertracing.io/jaegertracing/jaeger:$(JAEGER_VERSION)
 
 postgres:
 	docker pull postgres:16.2-alpine
