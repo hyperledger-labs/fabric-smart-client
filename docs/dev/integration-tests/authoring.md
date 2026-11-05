@@ -122,6 +122,33 @@ set, the generated `core.yaml` has no size keys. Use it instead of replacing
 `fscTopology.Templates.Core`: a copied template keeps emitting configuration keys that
 FSC later renames or removes. The setting is topology-wide and applies to every node.
 
+### Renewing a node's TLS certificate
+
+The node option `fsc.WithTLSReloadInterval(d)` sets `fsc.tls.reloadInterval`, so the node's
+gRPC, web and metrics listeners re-read their certificate and key every `d` and serve a renewed
+pair without a restart. Without it the key is left out of `core.yaml` and the node never
+re-reads them. `fscTopology.EnablePrometheusMetrics()` exports `fsc_tls_cert_not_after`, the
+expiry of the certificate each listener serves, which `fsc.ParseTLSCertNotAfter` reads by
+`listener` label.
+
+The FSC platform renews a node's certificate on disk:
+
+| Call | Effect |
+|---|---|
+| `NodeTLSPair(peer)` | reads the certificate and key the node's listeners serve |
+| `RenewNodeTLSPair(peer, notAfter)` | returns a new pair, with a new key, signed by the TLS CA of the node's organization; it keeps the subject and names of the current certificate, so every client that verifies the node today verifies the renewed one |
+| `WriteNodeTLSPair(peer, pair)` | overwrites the node's certificate and key |
+
+`fsc/pingpong`'s "serves a renewed TLS certificate without a restart" renews the initiator's
+certificate, checks that the gauge of both listeners moves, that a new client still calls a
+view and that the initiator still reaches the responder over P2P, then writes a mismatched pair
+and checks the renewed one stays, and last writes the original pair back. Only the gRPC, web
+and metrics listeners reload: the websocket P2P transport keeps the pair it loaded at startup,
+`fsc.identity`'s, so the P2P ping is a liveness check and does not use the renewed
+certificate. A client built before the renewal trusts the certificate the node served then, and
+a client built from a mismatched pair on disk cannot load it, so build each client for the check
+with the pair the node is expected to serve.
+
 ### Choosing a p2p comm type
 
 New suites use `fsc.WebSocket`. Add a `fsc.LibP2P` variant only when the suite

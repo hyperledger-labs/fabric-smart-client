@@ -51,6 +51,10 @@ fsc:
     # Require client certificates / mutual TLS for inbound connections. Overridden per
     # listener below where a suite needs it.
     clientAuthRequired: false
+    {{- with Peer.Options.TLSReloadInterval }}
+    # Re-read cert and key this often, so a renewed pair is served without a restart.
+    reloadInterval: {{ . }}
+    {{- end }}
   grpc:
     enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.

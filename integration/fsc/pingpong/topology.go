@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package pingpong
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -30,3 +32,17 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		AddOptions(replicationOpts.For("responder")...)
 	return []api.Topology{topology}
 }
+
+// TLSReloadTopology is Topology with the initiator re-reading its TLS certificate and key every
+// TLSReloadInterval, and Prometheus metrics, which report the expiry of the certificate each of
+// its listeners serves.
+func TLSReloadTopology(commType fsc.P2PCommunicationType) []api.Topology {
+	topologies := Topology(commType, integration.NoReplication)
+	t := topologies[0].(*fsc.Topology)
+	t.EnablePrometheusMetrics()
+	t.ListNodes("initiator")[0].AddOptions(fsc.WithTLSReloadInterval(TLSReloadInterval))
+	return topologies
+}
+
+// TLSReloadInterval is the initiator's fsc.tls.reloadInterval in TLSReloadTopology.
+const TLSReloadInterval = time.Second

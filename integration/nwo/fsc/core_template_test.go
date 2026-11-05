@@ -149,3 +149,22 @@ func TestCoreTemplate_ShutdownTimeouts(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal([]byte(core), &cfg))
 	require.Equal(t, map[string]string{"drainTimeout": "2s", "teardownTimeout": "10s"}, cfg.FSC.Shutdown)
 }
+
+func TestCoreTemplate_TLSReloadInterval(t *testing.T) {
+	t.Parallel()
+
+	tlsSection := func(core string) map[string]any {
+		var cfg struct {
+			FSC struct {
+				TLS map[string]any `yaml:"tls"`
+			} `yaml:"fsc"`
+		}
+		require.NoError(t, yaml.Unmarshal([]byte(core), &cfg))
+		return cfg.FSC.TLS
+	}
+
+	require.NotContains(t, tlsSection(renderCoreTemplate(t, node.CoreTemplate, NewTopology())), "reloadInterval",
+		"unset by default, so other suites do not reload")
+	core := renderCoreTemplate(t, node.CoreTemplate, NewTopology(), WithTLSReloadInterval(time.Second))
+	require.Equal(t, "1s", tlsSection(core)["reloadInterval"])
+}
