@@ -143,7 +143,7 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 		// check that the fsc node is associated with the fabric network
 		fscPeer := n.FSCPeerByName(fscNode.Name)
 		if fscPeer == nil {
-			continue // node has no identity in this Fabric network (e.g. pure bootstrap node)
+			continue // node has no identity in this Fabric network
 		}
 
 		// When TLS is enabled, the sidecar query service requires mTLS.

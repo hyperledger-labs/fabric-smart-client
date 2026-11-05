@@ -150,13 +150,6 @@ func (*Topology) NewTemplate(name string) *node.Node {
 	return n
 }
 
-func (t *Topology) SetBootstrapNode(n *node.Node) {
-	for _, n2 := range t.Nodes {
-		n2.Bootstrap = false
-	}
-	n.Bootstrap = true
-}
-
 func (t *Topology) ListNodes(ids ...string) []*node.Node {
 	if len(ids) == 0 {
 		return t.Nodes
@@ -205,9 +198,6 @@ func (t *Topology) AddSDKWithExtensions(base fscnode.SDK, extensions ...fscnode.
 }
 
 func (t *Topology) addNode(node *node.Node) *node.Node {
-	if len(t.Nodes) == 0 {
-		node.Bootstrap = true
-	}
 	t.Nodes = append(t.Nodes, node)
 	return node
 }

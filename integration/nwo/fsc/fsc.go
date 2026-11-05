@@ -20,7 +20,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 
@@ -238,18 +237,12 @@ func (p *Platform) setIdentities(address string, peer *nwonode.Replica) {
 func (*Platform) Load() {
 }
 
-func (p *Platform) membersFiltered(bootstrap bool) []grouper.Member {
-	members := grouper.Members{}
+func (p *Platform) Members() []grouper.Member {
+	members := make([]grouper.Member, 0, len(p.Peers))
 	for _, node := range p.Peers {
-		if node.Bootstrap == bootstrap {
-			members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
-		}
+		members = append(members, grouper.Member{Name: node.ID(), Runner: p.FSCNodeRunner(node)})
 	}
 	return members
-}
-
-func (p *Platform) Members() []grouper.Member {
-	return append(p.membersFiltered(true), p.membersFiltered(false)...)
 }
 
 func (p *Platform) PreRun() {
@@ -462,7 +455,6 @@ func (p *Platform) CheckTopology() {
 	p.Organizations = append(p.Organizations, org)
 	users := map[string]int{}
 	userNames := map[string][]string{}
-	bootstrapNodeFound := false
 
 	if len(p.Topology.Nodes) == 0 {
 		return
@@ -483,7 +475,6 @@ func (p *Platform) CheckTopology() {
 			peer := nwonode.NewReplica(&nwonode.Peer{
 				Name:            node.Name,
 				Organization:    org.Name,
-				Bootstrap:       node.Bootstrap,
 				ExecutablePath:  node.ExecutablePath,
 				ExtraIdentities: extraIdentities,
 				Node:            node,
@@ -501,21 +492,12 @@ func (p *Platform) CheckTopology() {
 			p.Peers = append(p.Peers, peer)
 			users[orgName]++
 			userNames[orgName] = append(userNames[orgName], node.Name)
-
-			// Is this a bootstrap node/
-			if node.Bootstrap {
-				bootstrapNodeFound = true
-			}
 		}
 	}
 
 	for _, organization := range p.Organizations {
 		organization.Users += users[organization.Name]
 		organization.UserNames = append(append([]string{}, userNames[organization.Name]...), "User1", "User2")
-	}
-
-	if !bootstrapNodeFound {
-		p.Topology.Nodes[0].Bootstrap = true
 	}
 }
 
@@ -732,14 +714,6 @@ func sqliteName(prefix nwonode.PersistenceKey) driver.PersistenceName {
 	return driver.PersistenceName(fmt.Sprintf("%s_persistence", prefix))
 }
 
-func (p *Platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
-	return grouper.NewParallel(syscall.SIGTERM, p.membersFiltered(true))
-}
-
-func (p *Platform) FSCNodeGroupRunner() ifrit.Runner {
-	return grouper.NewParallel(syscall.SIGTERM, p.membersFiltered(false))
-}
-
 func (p *Platform) FSCNodeRunner(node *nwonode.Replica, env ...string) *runner.Runner {
 	// set config path
 	env = append(env, fmt.Sprintf("FSCNODE_CFG_PATH=%s", p.NodeDir(node)))
@@ -914,18 +888,6 @@ func (p *Platform) NodePort(node *nwonode.Replica, portName api.PortName) uint16
 	peerPorts := p.Context.PortsByPeerID("fsc", node.ID())
 	gomega.Expect(peerPorts).NotTo(gomega.BeNil(), "cannot find ports for [%s][%v]", node.ID(), p.Context.PortsByPeerID)
 	return peerPorts[portName]
-}
-
-func (p *Platform) BootstrapNode(me *nwonode.Peer) string {
-	for _, node := range p.Topology.Nodes {
-		if node.Bootstrap {
-			if node.Name == me.Name {
-				return ""
-			}
-			return node.Name
-		}
-	}
-	return ""
 }
 
 func (*Platform) ClientAuthRequired() bool {

@@ -138,7 +138,6 @@ topologies:
       - responder: '&views.ApproverView{}'
         initiator: '&views.UpdateIOUView{}'
     name: approver
-    bootstrap: true
     options:
       mapping:
         fabric:

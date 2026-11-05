@@ -33,7 +33,7 @@ The Comm layer abstracts the underlying network transport and provides a session
 FSC supports different transport types, each suited for different deployment scenarios.
 
 ### [Libp2p](./libp2p.md)
-A robust, decentralized P2P stack based on the industry-standard `libp2p` library. It is recommended for decentralized deployments where peer discovery and NAT traversal are required.
+A P2P stack based on the `libp2p` library, over TCP with Noise or TLS. Like websocket, it dials each peer at the P2P address from the endpoint resolver.
 
 ### [WebSocket](websocket.md)
 A lightweight transport suitable for environments where standard HTTP/HTTPS ports are preferred. It uses standard HTTPS for handshakes and upgrades to WebSockets for communication.

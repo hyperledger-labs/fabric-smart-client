@@ -27,22 +27,22 @@ type HostNode struct {
 	Address host.PeerIPAddress
 }
 
-func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+func P2PLayerTestRound(t *testing.T, initiator, responder *HostNode) {
 	t.Helper()
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		messages := bootstrapNode.incomingMessages
+		messages := initiator.incomingMessages
 
 		info := host.StreamInfo{
-			RemotePeerID:      node.ID,
-			RemotePeerAddress: node.Address,
+			RemotePeerID:      responder.ID,
+			RemotePeerAddress: responder.Address,
 			ContextID:         "context",
 			SessionID:         "session",
 		}
-		err := bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg1")}, nil)
+		err := initiator.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg1")}, nil)
 		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 
-		err = bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg2")}, nil)
+		err = initiator.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg2")}, nil)
 		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 
 		msg := <-messages
@@ -50,7 +50,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		assert.Equal(t, []byte("msg3"), msg.message.Payload)
 	})
 
-	messages := node.incomingMessages
+	messages := responder.incomingMessages
 	msg := <-messages
 	require.NotNil(t, msg)
 	require.Equal(t, []byte("msg1"), msg.message.Payload)
@@ -60,30 +60,30 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	require.Equal(t, []byte("msg2"), msg.message.Payload)
 
 	info := host.StreamInfo{
-		RemotePeerID:      bootstrapNode.ID,
-		RemotePeerAddress: bootstrapNode.Address,
+		RemotePeerID:      initiator.ID,
+		RemotePeerAddress: initiator.Address,
 		ContextID:         "context",
 		SessionID:         "session",
 	}
-	err := node.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg3")}, nil)
+	err := responder.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg3")}, nil)
 	require.NoError(t, err)
 
 	wg.Wait()
 
-	bootstrapNode.Stop()
-	node.Stop()
+	initiator.Stop()
+	responder.Stop()
 }
 
-func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+func SessionsTestRound(t *testing.T, initiator, responder *HostNode) {
 	t.Helper()
 	ctx := t.Context()
-	bootstrapNode.Start(ctx)
-	node.Start(ctx)
+	initiator.Start(ctx)
+	responder.Start(ctx)
 
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-		session, err := bootstrapNode.NewSession("", "", node.Address, []byte(node.ID))
+		session, err := initiator.NewSession("", "", responder.Address, []byte(responder.ID))
 		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 		assert.NotNil(t, session)
 
@@ -100,7 +100,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		session.Close()
 	})
 
-	masterSession, err := node.MasterSession()
+	masterSession, err := responder.MasterSession()
 	require.NoError(t, err)
 	require.NotNil(t, masterSession)
 
@@ -108,7 +108,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	msg := <-masterSessionMsgs
 	require.Equal(t, []byte("ciao"), msg.Payload)
 
-	session, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+	session, err := responder.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, session)
 
@@ -122,20 +122,20 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 
 	wg.Wait()
 
-	bootstrapNode.Stop()
-	node.Stop()
+	initiator.Stop()
+	responder.Stop()
 }
 
-func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+func SessionsForMPCTestRound(t *testing.T, initiator, responder *HostNode) {
 	t.Helper()
 	ctx := t.Context()
-	bootstrapNode.Start(ctx)
-	node.Start(ctx)
+	initiator.Start(ctx)
+	responder.Start(ctx)
 
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-		session, err := bootstrapNode.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(node.ID), nil, nil)
+		session, err := initiator.NewResponderSession("myawesomempcid", "", responder.Address, []byte(responder.ID), nil, nil)
 		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 		assert.NotNil(t, session)
 
@@ -149,7 +149,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		session.Close()
 	})
 
-	session, err := node.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(bootstrapNode.ID), nil, nil)
+	session, err := responder.NewResponderSession("myawesomempcid", "", initiator.Address, []byte(initiator.ID), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, session)
 
@@ -163,23 +163,19 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 
 	wg.Wait()
 
-	bootstrapNode.Stop()
-	node.Stop()
+	initiator.Stop()
+	responder.Stop()
 }
 
-func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+func SessionsMultipleMessagesTestRound(t *testing.T, initiator, responder *HostNode) {
 	t.Helper()
 	numSessions := 100
-	// numWorkers := 20
-	// Set numWorkers to 20 to test true concurrency
-	// bootstrapNode.SetNumWorkers(numWorkers)
-	// node.SetNumWorkers(numWorkers)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 
-	bootstrapNode.Start(ctx)
-	node.Start(ctx)
+	initiator.Start(ctx)
+	responder.Start(ctx)
 
 	var wg sync.WaitGroup
 	wg.Add(numSessions)
@@ -192,7 +188,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 			caller := fmt.Sprintf("caller-%d", sessionIndex)
 			contextID := fmt.Sprintf("ctx-%d", sessionIndex)
 
-			s, err := bootstrapNode.NewSession(caller, contextID, node.Address, []byte(node.ID))
+			s, err := initiator.NewSession(caller, contextID, responder.Address, []byte(responder.ID))
 			assert.NoError(t, err)
 			assert.NotNil(t, s)
 
@@ -232,7 +228,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 		}(i)
 	}
 
-	masterSession, err := node.MasterSession()
+	masterSession, err := responder.MasterSession()
 	require.NoError(t, err)
 	require.NotNil(t, masterSession)
 
@@ -262,7 +258,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 				assert.Equal(t, messagesToReceive[0], payload)
 
 				// Create dedicated session to receive the rest
-				s, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+				s, err := responder.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
 				assert.NoError(t, err)
 				assert.NotNil(t, s)
 
@@ -297,8 +293,8 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 	wg.Wait()
 	responderWg.Wait()
 
-	bootstrapNode.Stop()
-	node.Stop()
+	initiator.Stop()
+	responder.Stop()
 }
 
 func messages(sessionIndex string) [][]byte {

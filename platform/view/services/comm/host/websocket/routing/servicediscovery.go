@@ -48,10 +48,6 @@ type serviceDiscovery struct {
 	strategy EndpointSelector
 }
 
-func (d *serviceDiscovery) LookupAll(id host.PeerID) ([]host.PeerIPAddress, bool) {
-	return d.router.Lookup(id)
-}
-
 func (d *serviceDiscovery) Lookup(id host.PeerID) host.PeerIPAddress {
 	if endpoints, ok := d.router.Lookup(id); ok && len(endpoints) > 0 {
 		return d.strategy(endpoints)

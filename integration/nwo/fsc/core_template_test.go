@@ -32,7 +32,6 @@ func (templateData) NodeLocalTLSDir(*node.Peer) string         { return "tls" }
 func (templateData) NodeDir(*node.Replica) string              { return "node" }
 func (templateData) NodePort(*node.Replica, api.PortName) int  { return 1234 }
 func (templateData) ClientAuthRequired() bool                  { return false }
-func (templateData) BootstrapNode(*node.Peer) string           { return "" }
 
 func renderCoreTemplate(t *testing.T, tmpl string, topology *Topology, opts ...node.Option) string {
 	t.Helper()

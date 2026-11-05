@@ -64,9 +64,6 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	fscTopology.AddSDK(sdk)
 
-	// in this topo we spawn a fsc node that helps with network discovery
-	fscTopology.SetBootstrapNode(fscTopology.AddNodeByName("bootstrap-node"))
-
 	return []api.Topology{
 		fabricTopology,
 		fscTopology,

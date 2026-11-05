@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -67,7 +68,6 @@ type P2PNode struct {
 	// selfClosed maps the registry key of each session that closed on its own to when it closed,
 	// see closedSessionTTL. Guarded by sessionsMutex.
 	selfClosed                 map[string]time.Time
-	finderWg                   sync.WaitGroup
 	handlersWg                 sync.WaitGroup
 	dispatchWg                 sync.WaitGroup
 	ctx                        context.Context
@@ -81,6 +81,9 @@ type P2PNode struct {
 	maxSendMsgSize             int
 	// sharedStreams is set when the host multiplexes many sessions on one stream, see host.SharedStreamsHost.
 	sharedStreams bool
+	// newStreams lets the senders that find no stream to a peer of a sharedStreams host wait for
+	// one new stream instead of opening one each, keyed by stream hash.
+	newStreams singleflight.Group
 }
 
 func NewNode(ctx context.Context, h host.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
@@ -157,7 +160,6 @@ func (p *P2PNode) Stop() {
 	p.handlersWg.Wait()
 	close(p.incomingMessages)
 	p.dispatchWg.Wait()
-	p.finderWg.Wait()
 }
 
 func (p *P2PNode) dispatchMessages(ctx context.Context) {
@@ -305,15 +307,10 @@ func (p *P2PNode) sendTo(ctx context.Context, info host.StreamInfo, msg proto.Me
 		return errors.Wrap(err, "error while sending message to cached stream")
 	}
 
-	logger.Debugf("new stream [%s]", info.SessionID)
-	nwStream, err := p.host.NewStream(ctx, info)
+	sh, err := p.newOutgoingStream(ctx, info, streamHash)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
+		return err
 	}
-	p.m.OpenedStreams.Add(1)
-
-	logger.Debugf("handle outgoing stream [%s]", info.SessionID)
-	sh := p.handleOutgoingStream(nwStream)
 
 	if session != nil {
 		logger.Debugf("register handle [%s]", info.SessionID)
@@ -326,6 +323,33 @@ func (p *P2PNode) sendTo(ctx context.Context, info host.StreamInfo, msg proto.Me
 		return errors.Wrap(err, "error while sending message to freshly created stream")
 	}
 	return nil
+}
+
+// newOutgoingStream opens a stream for info and starts reading from it. On a sharedStreams host,
+// concurrent callers with the same stream hash share one stream: otherwise a burst of first
+// sessions to a peer would open a stream per session, and libp2p resets those beyond its limit of
+// inbound streams per protocol and peer. The callers that share a stream also share the result
+// of the dial made with the first caller's ctx, including its error, and wait for it whatever
+// their own ctx.
+func (p *P2PNode) newOutgoingStream(ctx context.Context, info host.StreamInfo, streamHash host.StreamHash) (*streamHandler, error) {
+	open := func() (*streamHandler, error) {
+		logger.Debugf("new stream [%s]", info.SessionID)
+		nwStream, err := p.host.NewStream(ctx, info)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
+		}
+		p.m.OpenedStreams.Add(1)
+		return p.handleOutgoingStream(nwStream), nil
+	}
+	if !p.sharedStreams || len(streamHash) == 0 {
+		return open()
+	}
+	v, err, _ := p.newStreams.Do(streamHash, func() (any, error) { return open() })
+	if err != nil {
+		return nil, err
+	}
+	sh, _ := v.(*streamHandler)
+	return sh, nil
 }
 
 // streamPreamble returns the preamble the peer sent on the first live stream for info, the one
@@ -346,12 +370,10 @@ func (p *P2PNode) streamPreamble(ctx context.Context, info host.StreamInfo, sess
 	}
 	p.streamsMutex.RUnlock()
 	if sh == nil {
-		nwStream, err := p.host.NewStream(ctx, info)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
+		var err error
+		if sh, err = p.newOutgoingStream(ctx, info, hash); err != nil {
+			return nil, err
 		}
-		p.m.OpenedStreams.Add(1)
-		sh = p.handleOutgoingStream(nwStream)
 	}
 	session.lease(sh)
 	return sh.preamble, nil
@@ -393,10 +415,6 @@ func (p *P2PNode) handleStream(stream host.P2PStream) *streamHandler {
 	go sh.handleIncoming()
 
 	return sh
-}
-
-func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
-	return p.host.Lookup(peerID)
 }
 
 type streamHandler struct {

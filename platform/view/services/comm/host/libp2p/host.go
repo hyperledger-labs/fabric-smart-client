@@ -9,23 +9,19 @@ package libp2p
 import (
 	"context"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	libp2plogging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	libp2phost "github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap/zapcore"
 
@@ -48,34 +44,21 @@ const (
 	viewProtocol protocol.ID = "/fsc/view/1.0.0"
 )
 
-const rendezVousString = "fsc"
-
 type host struct {
 	libp2phost.Host
 
 	// peerID caches libp2phost.Host.ID().String() since the underlying libp2p peer ID
 	// never changes over the host's lifetime, avoiding repeated base58 encoding
 	// on every PeerID() call.
-	peerID        commhost.PeerID
-	finder        *routing.RoutingDiscovery
-	finderWg      sync.WaitGroup
-	stopFinder    atomic.Int32
-	peersMutex    sync.RWMutex
-	peers         map[commhost.PeerID]peer.AddrInfo
-	bootstrap     bool
-	bootstrapNode commhost.PeerIPAddress
-	metrics       *metrics
+	peerID  commhost.PeerID
+	metrics *metrics
 }
 
-func newLibP2PHost(
-	config libp2pConfig,
-	priv crypto.PrivKey,
-	metrics *metrics,
-	bootstrap bool,
-	bootstrapNode commhost.PeerIPAddress,
-) (*host, error) {
+// newLibP2PHost creates a host that listens on config.ListenAddress. It finds no peers on its
+// own: NewStream dials the address its caller passes.
+func newLibP2PHost(config libp2pConfig, priv crypto.PrivKey, metrics *metrics) (*host, error) {
 	listenAddress := config.ListenAddress()
-	logger.Debugf("libp2p: Creating new host at [%s], bootstrap: %v, bootstrapNode: [%s]...", listenAddress, bootstrap, bootstrapNode)
+	logger.Debugf("libp2p: Creating new host at [%s]...", listenAddress)
 	addr, err := multiaddr.NewMultiaddr(listenAddress)
 	if err != nil {
 		return nil, err
@@ -96,11 +79,14 @@ func newLibP2PHost(
 		libp2p.Security(libp2ptls.ID, libp2ptls.New),
 		// support noise connections
 		libp2p.Security(noise.ID, noise.New),
-		// support any other default transports (TCP)
-		libp2p.DefaultTransports,
+		// TCP without SO_REUSEPORT: with it a node dials from its listen port, so two nodes that
+		// dial each other at once get one TCP connection on which both start the security
+		// handshake as client, and neither connects. FSC needs no hole punching, which is all
+		// that reuseport is for.
+		libp2p.Transport(tcp.NewTCPTransport, tcp.DisableReuseport()),
 		// Let's prevent our peer from having too many
 		// connections by attaching a connection manager.
-		libp2p.ConnectionManager(connManager), libp2p.ForceReachabilityPublic(),
+		libp2p.ConnectionManager(connManager),
 		libp2p.BandwidthReporter(newReporter(metrics)),
 	}
 
@@ -116,32 +102,13 @@ func newLibP2PHost(
 		return nil, err
 	}
 
-	ctx := context.Background()
-	kademliaDHT, err := dht.New(h)
-	if err != nil {
-		return nil, err
-	}
-
-	err = kademliaDHT.Bootstrap(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	libp2pHost := &host{
-		Host:          h,
-		metrics:       metrics,
-		peerID:        h.ID().String(),
-		finder:        routing.NewRoutingDiscovery(kademliaDHT),
-		peers:         make(map[string]peer.AddrInfo),
-		bootstrap:     bootstrap,
-		bootstrapNode: bootstrapNode,
+		Host:    h,
+		metrics: metrics,
+		peerID:  h.ID().String(),
 	}
 	logger.Debugf("libp2p: successfully created new host [%s] at [%s]", libp2pHost.ID(), listenAddress)
 	return libp2pHost, nil
-}
-
-func (h *host) Wait() {
-	h.finderWg.Wait()
 }
 
 // PeerID returns the local node's libp2p peer identifier as a string. This is
@@ -152,58 +119,29 @@ func (h *host) PeerID() commhost.PeerID {
 	return h.peerID
 }
 
-func (h *host) Lookup(peerID string) ([]commhost.PeerIPAddress, bool) {
-	logger.Debugf("libp2p: Looking up addresses for peer [%s]...", peerID)
-	h.peersMutex.RLock()
-	defer h.peersMutex.RUnlock()
-
-	peer, in := h.peers[peerID]
-	if !in {
-		logger.Debugf("libp2p: Found NO addresses for peer [%s]", peerID)
-		return []string{}, false
-	}
-	addrs := make([]string, len(peer.Addrs))
-	for i, addr := range peer.Addrs {
-		addrs[i] = addr.String()
-	}
-	logger.Debugf("libp2p: Found addresses for peer [%s]: %v", peerID, addrs)
-	return addrs, in
-}
-
+// Start registers the handlers for incoming streams on both view protocols. It connects to no
+// peer.
 func (h *host) Start(newStreamCallback func(stream commhost.P2PStream)) error {
-	logger.Debugf("libp2p: Starting host [%s] (bootstrap: %v, bootstrapNode: [%s])...", h.ID(), h.bootstrap, h.bootstrapNode)
-	if h.bootstrap {
-		h.Peerstore().AddAddrs(h.ID(), h.Addrs(), time.Hour)
-		if err := h.startHost(false, newStreamCallback); err != nil {
-			logger.Errorf("libp2p: failed to start bootstrap host [%s]: %v", h.ID(), err)
-			return err
+	handler := func(s network.Stream) {
+		logger.Debugf("libp2p: received new incoming stream from peer [%s] on [%s]", s.Conn().RemotePeer().String(), s.Protocol())
+		uuid := fscutils.GenerateUUID()
+		st := &stream{
+			Stream: s,
+			info: commhost.StreamInfo{
+				RemotePeerID:      s.Conn().RemotePeer().String(),
+				RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
+				ContextID:         uuid,
+				SessionID:         uuid,
+			},
 		}
-		logger.Debugf("libp2p: bootstrap host [%s] started successfully", h.ID())
-		return nil
+		if err := h.openPreamble(context.Background(), st); err != nil {
+			return
+		}
+		newStreamCallback(st)
 	}
-
-	addr, err := multiaddr.NewMultiaddr(h.bootstrapNode)
-	if err != nil {
-		return err
-	}
-
-	peerinfo, err := peer.AddrInfoFromP2pAddr(addr)
-	if err != nil {
-		return err
-	}
-
-	logger.Debugf("libp2p: connecting to bootstrap node [%s]...", h.bootstrapNode)
-	err = h.Connect(context.Background(), *peerinfo)
-	if err != nil {
-		logger.Errorf("libp2p: failed to connect host [%s] to bootstrap node [%s]: %v", h.ID(), h.bootstrapNode, err)
-		return err
-	}
-	logger.Debugf("libp2p: host [%s] connected to bootstrap node [%s]", h.ID(), h.bootstrapNode)
-	if err := h.startHost(false, newStreamCallback); err != nil {
-		logger.Errorf("libp2p: failed to start host [%s]: %v", h.ID(), err)
-		return err
-	}
-	logger.Debugf("libp2p: host [%s] started successfully", h.ID())
+	h.SetStreamHandler(viewProtocolV2, handler)
+	h.SetStreamHandler(viewProtocol, handler)
+	logger.Debugf("libp2p: host [%s] started", h.ID())
 	return nil
 }
 
@@ -219,7 +157,6 @@ func (*host) SharedStreams() bool {
 func (h *host) Close() error {
 	logger.Debugf("libp2p: Closing host [%s]...", h.ID())
 	err := h.Host.Close()
-	h.stopFinder.Store(1)
 	logger.Debugf("libp2p: host [%s] closed with error [%v]", h.ID(), err)
 	return err
 }
@@ -293,75 +230,5 @@ func (h *host) openPreamble(ctx context.Context, s *stream) error {
 	}
 	logger.Debugf("libp2p: peer [%s] runs FSC [%s] revision [%s]", s.RemotePeerID(), p.GetFscVersion(), p.GetVcsRevision())
 	s.preamble = p
-	return nil
-}
-
-func (h *host) startFinder() {
-	logger.Debugf("libp2p: starting peer finder for host [%s]...", h.ID())
-	for {
-		peerChan, err := h.finder.FindPeers(context.Background(), rendezVousString)
-		if err != nil {
-			logger.Errorf("got error from peer finder: %s\n", err.Error())
-			goto sleep
-		}
-
-		for peer := range peerChan {
-			if peer.ID == h.ID() {
-				continue
-			}
-
-			h.peersMutex.Lock()
-			if _, in := h.peers[peer.ID.String()]; !in {
-				logger.Debugf("libp2p: Found new peer [%s] at %v", peer.ID, peer.Addrs)
-				h.peers[peer.ID.String()] = peer
-			}
-			h.peersMutex.Unlock()
-		}
-
-	sleep:
-		for range 4 {
-			if h.stopFinder.Load() != 0 {
-				logger.Debugf("libp2p: stopping peer finder for host [%s]", h.ID())
-				h.finderWg.Done()
-				return
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
-	}
-}
-
-func (h *host) startHost(failAdv bool, newStreamCallback func(stream commhost.P2PStream)) error {
-	logger.Debugf("libp2p: Advertising rendez-vous [%s]...", rendezVousString)
-	_, err := h.finder.Advertise(context.Background(), rendezVousString)
-	if err != nil {
-		if failAdv {
-			return errors.Wrap(err, "error while announcing")
-		}
-		logger.Warnf("error while announcing [%s]", err)
-	}
-
-	handler := func(s network.Stream) {
-		logger.Debugf("libp2p: received new incoming stream from peer [%s] on [%s]", s.Conn().RemotePeer().String(), s.Protocol())
-		uuid := fscutils.GenerateUUID()
-		st := &stream{
-			Stream: s,
-			info: commhost.StreamInfo{
-				RemotePeerID:      s.Conn().RemotePeer().String(),
-				RemotePeerAddress: s.Conn().RemoteMultiaddr().String(),
-				ContextID:         uuid,
-				SessionID:         uuid,
-			},
-		}
-		if err := h.openPreamble(context.Background(), st); err != nil {
-			return
-		}
-		newStreamCallback(st)
-	}
-	h.SetStreamHandler(viewProtocolV2, handler)
-	h.SetStreamHandler(viewProtocol, handler)
-
-	h.finderWg.Add(1)
-	go h.startFinder()
-
 	return nil
 }

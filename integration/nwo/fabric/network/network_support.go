@@ -1420,18 +1420,6 @@ func (n *Network) PeerPortByName(p *topology.Peer, portName api.PortName) uint16
 	return peerPorts[portName]
 }
 
-func (n *Network) BootstrapNode(me *topology.Peer) string {
-	for _, p := range n.Peers {
-		if p.Bootstrap {
-			if p.Name == me.Name {
-				return ""
-			}
-			return p.Name
-		}
-	}
-	return ""
-}
-
 func (n *Network) nextColor() string {
 	color := n.colorIndex%14 + 31
 	if color > 37 {

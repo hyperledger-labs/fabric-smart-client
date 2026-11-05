@@ -66,7 +66,7 @@ func twoHosts(t *testing.T) (dialer, listener *host, accepted chan commhost.P2PS
 		sk, id := generateKey(t)
 		c := &mock.LibP2PConfig{}
 		c.ListenAddressReturns(addr)
-		h, err := newLibP2PHost(c, sk, newMetrics(&disabled.Provider{}), true, "")
+		h, err := newLibP2PHost(c, sk, newMetrics(&disabled.Provider{}))
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = h.Close() })
 		return h, id

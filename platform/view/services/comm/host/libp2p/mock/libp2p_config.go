@@ -9,31 +9,10 @@ import (
 )
 
 type LibP2PConfig struct {
-	BootstrapStub        func() bool
-	bootstrapMutex       sync.RWMutex
-	bootstrapArgsForCall []struct {
-	}
-	bootstrapReturns struct {
-		result1 bool
-	}
-	bootstrapReturnsOnCall map[int]struct {
-		result1 bool
-	}
-	BootstrapListenAddressStub        func() host.PeerIPAddress
-	bootstrapListenAddressMutex       sync.RWMutex
-	bootstrapListenAddressArgsForCall []struct {
-	}
-	bootstrapListenAddressReturns struct {
-		result1 host.PeerIPAddress
-	}
-	bootstrapListenAddressReturnsOnCall map[int]struct {
-		result1 host.PeerIPAddress
-	}
 	ConnManagerGracePeriodStub        func() time.Duration
 	connManagerGracePeriodMutex       sync.RWMutex
-	connManagerGracePeriodArgsForCall []struct {
-	}
-	connManagerGracePeriodReturns struct {
+	connManagerGracePeriodArgsForCall []struct{}
+	connManagerGracePeriodReturns     struct {
 		result1 time.Duration
 	}
 	connManagerGracePeriodReturnsOnCall map[int]struct {
@@ -41,9 +20,8 @@ type LibP2PConfig struct {
 	}
 	ConnManagerHighWaterStub        func() int
 	connManagerHighWaterMutex       sync.RWMutex
-	connManagerHighWaterArgsForCall []struct {
-	}
-	connManagerHighWaterReturns struct {
+	connManagerHighWaterArgsForCall []struct{}
+	connManagerHighWaterReturns     struct {
 		result1 int
 	}
 	connManagerHighWaterReturnsOnCall map[int]struct {
@@ -51,9 +29,8 @@ type LibP2PConfig struct {
 	}
 	ConnManagerLowWaterStub        func() int
 	connManagerLowWaterMutex       sync.RWMutex
-	connManagerLowWaterArgsForCall []struct {
-	}
-	connManagerLowWaterReturns struct {
+	connManagerLowWaterArgsForCall []struct{}
+	connManagerLowWaterReturns     struct {
 		result1 int
 	}
 	connManagerLowWaterReturnsOnCall map[int]struct {
@@ -61,9 +38,8 @@ type LibP2PConfig struct {
 	}
 	ListenAddressStub        func() host.PeerIPAddress
 	listenAddressMutex       sync.RWMutex
-	listenAddressArgsForCall []struct {
-	}
-	listenAddressReturns struct {
+	listenAddressArgsForCall []struct{}
+	listenAddressReturns     struct {
 		result1 host.PeerIPAddress
 	}
 	listenAddressReturnsOnCall map[int]struct {
@@ -71,129 +47,22 @@ type LibP2PConfig struct {
 	}
 	PrivateKeyPathStub        func() string
 	privateKeyPathMutex       sync.RWMutex
-	privateKeyPathArgsForCall []struct {
-	}
-	privateKeyPathReturns struct {
+	privateKeyPathArgsForCall []struct{}
+	privateKeyPathReturns     struct {
 		result1 string
 	}
 	privateKeyPathReturnsOnCall map[int]struct {
 		result1 string
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *LibP2PConfig) Bootstrap() bool {
-	fake.bootstrapMutex.Lock()
-	ret, specificReturn := fake.bootstrapReturnsOnCall[len(fake.bootstrapArgsForCall)]
-	fake.bootstrapArgsForCall = append(fake.bootstrapArgsForCall, struct {
-	}{})
-	stub := fake.BootstrapStub
-	fakeReturns := fake.bootstrapReturns
-	fake.recordInvocation("Bootstrap", []interface{}{})
-	fake.bootstrapMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *LibP2PConfig) BootstrapCallCount() int {
-	fake.bootstrapMutex.RLock()
-	defer fake.bootstrapMutex.RUnlock()
-	return len(fake.bootstrapArgsForCall)
-}
-
-func (fake *LibP2PConfig) BootstrapCalls(stub func() bool) {
-	fake.bootstrapMutex.Lock()
-	defer fake.bootstrapMutex.Unlock()
-	fake.BootstrapStub = stub
-}
-
-func (fake *LibP2PConfig) BootstrapReturns(result1 bool) {
-	fake.bootstrapMutex.Lock()
-	defer fake.bootstrapMutex.Unlock()
-	fake.BootstrapStub = nil
-	fake.bootstrapReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *LibP2PConfig) BootstrapReturnsOnCall(i int, result1 bool) {
-	fake.bootstrapMutex.Lock()
-	defer fake.bootstrapMutex.Unlock()
-	fake.BootstrapStub = nil
-	if fake.bootstrapReturnsOnCall == nil {
-		fake.bootstrapReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.bootstrapReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *LibP2PConfig) BootstrapListenAddress() host.PeerIPAddress {
-	fake.bootstrapListenAddressMutex.Lock()
-	ret, specificReturn := fake.bootstrapListenAddressReturnsOnCall[len(fake.bootstrapListenAddressArgsForCall)]
-	fake.bootstrapListenAddressArgsForCall = append(fake.bootstrapListenAddressArgsForCall, struct {
-	}{})
-	stub := fake.BootstrapListenAddressStub
-	fakeReturns := fake.bootstrapListenAddressReturns
-	fake.recordInvocation("BootstrapListenAddress", []interface{}{})
-	fake.bootstrapListenAddressMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *LibP2PConfig) BootstrapListenAddressCallCount() int {
-	fake.bootstrapListenAddressMutex.RLock()
-	defer fake.bootstrapListenAddressMutex.RUnlock()
-	return len(fake.bootstrapListenAddressArgsForCall)
-}
-
-func (fake *LibP2PConfig) BootstrapListenAddressCalls(stub func() host.PeerIPAddress) {
-	fake.bootstrapListenAddressMutex.Lock()
-	defer fake.bootstrapListenAddressMutex.Unlock()
-	fake.BootstrapListenAddressStub = stub
-}
-
-func (fake *LibP2PConfig) BootstrapListenAddressReturns(result1 host.PeerIPAddress) {
-	fake.bootstrapListenAddressMutex.Lock()
-	defer fake.bootstrapListenAddressMutex.Unlock()
-	fake.BootstrapListenAddressStub = nil
-	fake.bootstrapListenAddressReturns = struct {
-		result1 host.PeerIPAddress
-	}{result1}
-}
-
-func (fake *LibP2PConfig) BootstrapListenAddressReturnsOnCall(i int, result1 host.PeerIPAddress) {
-	fake.bootstrapListenAddressMutex.Lock()
-	defer fake.bootstrapListenAddressMutex.Unlock()
-	fake.BootstrapListenAddressStub = nil
-	if fake.bootstrapListenAddressReturnsOnCall == nil {
-		fake.bootstrapListenAddressReturnsOnCall = make(map[int]struct {
-			result1 host.PeerIPAddress
-		})
-	}
-	fake.bootstrapListenAddressReturnsOnCall[i] = struct {
-		result1 host.PeerIPAddress
-	}{result1}
 }
 
 func (fake *LibP2PConfig) ConnManagerGracePeriod() time.Duration {
 	fake.connManagerGracePeriodMutex.Lock()
 	ret, specificReturn := fake.connManagerGracePeriodReturnsOnCall[len(fake.connManagerGracePeriodArgsForCall)]
-	fake.connManagerGracePeriodArgsForCall = append(fake.connManagerGracePeriodArgsForCall, struct {
-	}{})
+	fake.connManagerGracePeriodArgsForCall = append(fake.connManagerGracePeriodArgsForCall, struct{}{})
 	stub := fake.ConnManagerGracePeriodStub
 	fakeReturns := fake.connManagerGracePeriodReturns
 	fake.recordInvocation("ConnManagerGracePeriod", []interface{}{})
@@ -245,8 +114,7 @@ func (fake *LibP2PConfig) ConnManagerGracePeriodReturnsOnCall(i int, result1 tim
 func (fake *LibP2PConfig) ConnManagerHighWater() int {
 	fake.connManagerHighWaterMutex.Lock()
 	ret, specificReturn := fake.connManagerHighWaterReturnsOnCall[len(fake.connManagerHighWaterArgsForCall)]
-	fake.connManagerHighWaterArgsForCall = append(fake.connManagerHighWaterArgsForCall, struct {
-	}{})
+	fake.connManagerHighWaterArgsForCall = append(fake.connManagerHighWaterArgsForCall, struct{}{})
 	stub := fake.ConnManagerHighWaterStub
 	fakeReturns := fake.connManagerHighWaterReturns
 	fake.recordInvocation("ConnManagerHighWater", []interface{}{})
@@ -298,8 +166,7 @@ func (fake *LibP2PConfig) ConnManagerHighWaterReturnsOnCall(i int, result1 int) 
 func (fake *LibP2PConfig) ConnManagerLowWater() int {
 	fake.connManagerLowWaterMutex.Lock()
 	ret, specificReturn := fake.connManagerLowWaterReturnsOnCall[len(fake.connManagerLowWaterArgsForCall)]
-	fake.connManagerLowWaterArgsForCall = append(fake.connManagerLowWaterArgsForCall, struct {
-	}{})
+	fake.connManagerLowWaterArgsForCall = append(fake.connManagerLowWaterArgsForCall, struct{}{})
 	stub := fake.ConnManagerLowWaterStub
 	fakeReturns := fake.connManagerLowWaterReturns
 	fake.recordInvocation("ConnManagerLowWater", []interface{}{})
@@ -351,8 +218,7 @@ func (fake *LibP2PConfig) ConnManagerLowWaterReturnsOnCall(i int, result1 int) {
 func (fake *LibP2PConfig) ListenAddress() host.PeerIPAddress {
 	fake.listenAddressMutex.Lock()
 	ret, specificReturn := fake.listenAddressReturnsOnCall[len(fake.listenAddressArgsForCall)]
-	fake.listenAddressArgsForCall = append(fake.listenAddressArgsForCall, struct {
-	}{})
+	fake.listenAddressArgsForCall = append(fake.listenAddressArgsForCall, struct{}{})
 	stub := fake.ListenAddressStub
 	fakeReturns := fake.listenAddressReturns
 	fake.recordInvocation("ListenAddress", []interface{}{})
@@ -404,8 +270,7 @@ func (fake *LibP2PConfig) ListenAddressReturnsOnCall(i int, result1 host.PeerIPA
 func (fake *LibP2PConfig) PrivateKeyPath() string {
 	fake.privateKeyPathMutex.Lock()
 	ret, specificReturn := fake.privateKeyPathReturnsOnCall[len(fake.privateKeyPathArgsForCall)]
-	fake.privateKeyPathArgsForCall = append(fake.privateKeyPathArgsForCall, struct {
-	}{})
+	fake.privateKeyPathArgsForCall = append(fake.privateKeyPathArgsForCall, struct{}{})
 	stub := fake.PrivateKeyPathStub
 	fakeReturns := fake.privateKeyPathReturns
 	fake.recordInvocation("PrivateKeyPath", []interface{}{})
@@ -464,9 +329,18 @@ func (fake *LibP2PConfig) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *LibP2PConfig) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *LibP2PConfig) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}
