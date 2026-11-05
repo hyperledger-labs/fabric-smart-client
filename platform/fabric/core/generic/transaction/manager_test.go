@@ -13,9 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -73,6 +75,54 @@ func TestManager_NewTransactionFromBytes(t *testing.T) {
 	tx, err := m.NewTransactionFromBytes(ctx, "testchannel", validJSON)
 	require.NoError(t, err)
 	require.NotNil(t, tx)
+}
+
+// endorsedFabricTx returns the JSON of an endorsed Fabric transaction, as WrappedTransaction.Bytes
+// produces it, the same transaction as an envelope, and a manager that decodes both.
+func endorsedFabricTx(t *testing.T) (jsonRaw, envRaw []byte, m *transaction.Manager) {
+	t.Helper()
+	f := newEndorsableTx(t)
+	require.NoError(t, f.tx.SetRWSet())
+	require.NoError(t, f.tx.EndorseWithIdentity(view.Identity("endorser")))
+	jsonRaw, err := (&transaction.WrappedTransaction{Transaction: f.tx, TransactionType: driver.EndorserTransaction}).Bytes()
+	require.NoError(t, err)
+	envRaw, err = protos.EnvelopeFromJSON(jsonRaw)
+	require.NoError(t, err)
+	m = transaction.NewManager()
+	m.AddTransactionFactory(driver.EndorserTransaction, transaction.NewEndorserTransactionFactory("network", f.provider, f.sigService))
+	return jsonRaw, envRaw, m
+}
+
+func TestNewTransactionFromBytesReadsEnvelope(t *testing.T) {
+	t.Parallel()
+	jsonRaw, envRaw, m := endorsedFabricTx(t)
+
+	fromJSON, err := m.NewTransactionFromBytes(t.Context(), "channel", jsonRaw)
+	require.NoError(t, err)
+	fromEnv, err := m.NewTransactionFromBytes(t.Context(), "channel", envRaw)
+	require.NoError(t, err)
+
+	require.Equal(t, "txid", fromJSON.ID())
+	require.Equal(t, fromJSON.ID(), fromEnv.ID())
+	plainResults, err := fromJSON.Results()
+	require.NoError(t, err)
+	envResults, err := fromEnv.Results()
+	require.NoError(t, err)
+	require.Equal(t, []byte("rwset-bytes"), plainResults)
+	require.Equal(t, plainResults, envResults)
+}
+
+func TestNewTransactionFromBytesRejectsOtherPlatform(t *testing.T) {
+	t.Parallel()
+	_, envRaw, m := endorsedFabricTx(t)
+	env := &protos.TransactionEnvelope{}
+	require.NoError(t, proto.Unmarshal(envRaw, env))
+	env.Platform = "other"
+	other, err := proto.Marshal(env)
+	require.NoError(t, err)
+
+	_, err = m.NewTransactionFromBytes(t.Context(), "channel", other)
+	require.ErrorContains(t, err, "transaction for platform [other] on a [generic] network")
 }
 
 func TestEndorserTransactionFactory(t *testing.T) {

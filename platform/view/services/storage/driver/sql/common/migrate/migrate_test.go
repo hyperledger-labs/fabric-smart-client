@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,14 +27,20 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
-// store is a Versioned test store whose steps each create one table.
+// store is a Versioned test store whose steps each create one table. It also
+// implements migrate.ReadableByObserver, recording the readable_by of its
+// last successful open. readableBy is an atomic because
+// ConcurrentMigratorsApplyOnce shares one store across several goroutines
+// that call Migrate concurrently, standing in for separate migrators.
 type store struct {
-	name  string
-	steps []migrate.Step
+	name       string
+	steps      []migrate.Step
+	readableBy atomic.Int64
 }
 
 func (s *store) StoreName() string     { return s.name }
 func (s *store) Steps() []migrate.Step { return s.steps }
+func (s *store) SetReadableBy(v int)   { s.readableBy.Store(int64(v)) }
 func (*store) CreateSchema() error {
 	return errors.New("CreateSchema must not be called on a Versioned store")
 }
@@ -859,4 +866,40 @@ func TestContractStepPendingLogAndProcessOptions(t *testing.T) { //nolint:parall
 	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", newStore("plog_o", 1)))
 	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", o))
 	requireVersion(t, db, "plog_schema_versions", "plog_o", 1)
+}
+
+// Migrate reports the store's readable_by through SetReadableBy after every
+// successful open, including one that holds a contract step back.
+func TestMigrateReportsReadableBy(t *testing.T) {
+	t.Parallel()
+	db := sqliteBackend(t).open(t)
+	ctx := t.Context()
+
+	withContract := newStore("rb_s", 2)
+	withContract.steps[1].Contract = true
+
+	// A non-fresh store: step 1 exists already, so the contract step waits.
+	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", newStore("rb_s", 1)))
+	nonFresh := &store{name: "rb_s", steps: withContract.steps}
+	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", nonFresh))
+	require.Equal(t, int64(0), nonFresh.readableBy.Load())
+
+	// WithContract runs the contract step and reports its version; forget the
+	// opener row the earlier non-fresh open left, which would otherwise block it.
+	contracted := &store{name: "rb_s", steps: withContract.steps}
+	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", contracted, migrate.WithContract(), migrate.WithForgetOpeners("")))
+	require.Equal(t, int64(2), contracted.readableBy.Load())
+
+	// A fresh store runs the contract step at startup and reports its version.
+	fresh := &store{name: "rb_fresh_s", steps: []migrate.Step{
+		{Version: 1, Name: "create", SQL: []string{"CREATE TABLE rb_fresh_s (id INT)"}},
+		{Version: 2, Name: "contract", Contract: true, SQL: []string{"CREATE INDEX rb_fresh_s_id ON rb_fresh_s (id)"}},
+	}}
+	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", fresh))
+	require.Equal(t, int64(2), fresh.readableBy.Load())
+
+	// WithCheckOnly also reaches recordOpener on success and reports readable_by.
+	checked := &store{name: "rb_s", steps: withContract.steps}
+	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", checked, migrate.WithCheckOnly()))
+	require.Equal(t, int64(2), checked.readableBy.Load())
 }

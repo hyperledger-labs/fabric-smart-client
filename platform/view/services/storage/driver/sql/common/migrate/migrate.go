@@ -92,6 +92,12 @@ SPDX-License-Identifier: Apache-2.0
 // so an open that records itself meanwhile waits until the step commits; on
 // SQLite the step's BEGIN IMMEDIATE does the same.
 //
+// A store whose write format depends on whether one of its own contract steps
+// has run implements ReadableByObserver. Migrate calls SetReadableBy with the
+// store's readable_by after every successful open, including WithCheckOnly, so
+// the store can switch to the new write format once the step has run instead of
+// probing the versions table itself.
+//
 // # Rules for steps
 //
 //   - Steps are numbered 1, 2, 3, ... in the order they run.
@@ -219,6 +225,12 @@ type Versioned interface {
 	Steps() []Step
 }
 
+// ReadableByObserver is implemented by a store whose write format depends on whether a contract
+// step has run. Migrate calls SetReadableBy with the store's readable_by after each successful
+// open, including WithCheckOnly. A store open before a contract step runs elsewhere learns of it
+// only at its next open.
+type ReadableByObserver interface{ SetReadableBy(int) }
+
 type options struct {
 	checkOnly     bool
 	contract      bool
@@ -335,11 +347,13 @@ func CreateSchema(ctx context.Context, db *sql.DB, d Dialect, prefix string, obj
 // Migrate brings v's schema up to date: it runs every step of v whose version
 // is above the one recorded in <prefix>_schema_versions, up to the first
 // contract step it may not run, records each applied step, and records the
-// opener in <prefix>_schema_openers. It returns ErrSchemaTooNew if the database
-// records a readable_by above v's latest step, ErrPending with WithCheckOnly
-// when steps it would run are pending, naming each pending step, ErrOlderOpener
-// when a binary that lacks a contract step opens the store, and an error naming
-// the store and the step when a step fails. The package documentation describes
+// opener in <prefix>_schema_openers. On success, including WithCheckOnly, it
+// calls SetReadableBy on v with the store's readable_by if v implements
+// ReadableByObserver. It returns ErrSchemaTooNew if the database records a
+// readable_by above v's latest step, ErrPending with WithCheckOnly when steps
+// it would run are pending, naming each pending step, ErrOlderOpener when a
+// binary that lacks a contract step opens the store, and an error naming the
+// store and the step when a step fails. The package documentation describes
 // contract steps and the locking.
 func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versioned, opts ...Option) error {
 	o := newOptions(opts)
@@ -414,7 +428,14 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 			}
 		}
 	}
-	return recordOpener(ctx, db, d, table, openers, store, o, len(steps))
+	readableBy, err := recordOpener(ctx, db, d, table, openers, store, o, len(steps))
+	if err != nil {
+		return err
+	}
+	if ob, ok := v.(ReadableByObserver); ok {
+		ob.SetReadableBy(readableBy)
+	}
+	return nil
 }
 
 // logHeldBack logs that the contract step held[0] waits for node migrate
@@ -455,15 +476,17 @@ const openersColumns = "store TEXT NOT NULL, node TEXT NOT NULL, highest_step IN
 // contract step's lock on the openers table keeps the snapshot it took before
 // waiting, so only a later statement sees the step. Migrate makes sure both
 // tables exist unless WithCheckOnly is set; then a missing table fails the
-// open. The upsert needs SELECT, INSERT and UPDATE.
-func recordOpener(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, o options, latest int) (err error) {
+// open. The upsert needs SELECT, INSERT and UPDATE. It returns the readable_by
+// read in that same transaction, the one Migrate reports to a
+// ReadableByObserver.
+func recordOpener(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, o options, latest int) (readableBy int, err error) {
 	now := "CURRENT_TIMESTAMP" // UTC on SQLite
 	if d == Postgres {
 		now = "(now() AT TIME ZONE 'UTC')"
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
+		return 0, errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
 	}
 	defer func() {
 		if err != nil {
@@ -471,12 +494,16 @@ func recordOpener(ctx context.Context, db *sql.DB, d Dialect, table, openers, st
 		}
 	}()
 	if _, err := tx.ExecContext(ctx, "INSERT INTO "+openers+" (store, node, highest_step, opened_at) VALUES ($1, $2, $3, "+now+") ON CONFLICT (store, node, highest_step) DO UPDATE SET opened_at = excluded.opened_at", store, o.node, latest); err != nil { //nolint:gosec // table name comes from configuration, not user input
-		return errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
+		return 0, errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
 	}
-	if _, _, err := readRow(ctx, tx, table, store, latest); err != nil {
-		return err
+	_, readableBy, err = readRow(ctx, tx, table, store, latest)
+	if err != nil {
+		return 0, err
 	}
-	return errors.Wrapf(tx.Commit(), "store [%s]: failed to record opener in [%s]", store, openers)
+	if err := tx.Commit(); err != nil {
+		return 0, errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
+	}
+	return readableBy, nil
 }
 
 // describe lists steps as "step <n> [<name>]", comma-separated, with

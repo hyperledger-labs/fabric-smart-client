@@ -16,14 +16,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
-
-// fabricxDriverName is the driver name of Fabric-x networks; it must equal
-// fabricx.DriverName (platform/fabricx/provider.go). The endorser package does
-// not import platform/fabricx, which depends on it.
-const fabricxDriverName = "fabricx"
 
 // ErrInvalidTransaction is wrapped by the errors ValidateReceived returns for a
 // transaction that must be refused.
@@ -35,9 +31,10 @@ var ErrInvalidTransaction = errors.New("invalid transaction")
 // stored under. It checks that:
 //
 //   - the nonce and creator are non-empty;
-//   - the txID equals ComputeTxID(nonce, creator), unless the network of tx is a
-//     Fabric-x network, whose committer does not derive the txID from nonce and
-//     creator;
+//   - the txID equals ComputeTxID(nonce, creator), unless the transaction format
+//     of the driver of tx's network sets protos.TransactionFormat.SkipTxIDCheck,
+//     as for a platform whose committer does not derive the txID from nonce and
+//     creator. A driver without a registered format is checked;
 //   - a signed proposal, if present, is an ENDORSER_TRANSACTION with epoch 0, a
 //     non-empty nonce and creator, and a header whose txID, nonce and creator
 //     equal those of tx;
@@ -71,7 +68,7 @@ func ValidateReceived(tx *fabric.Transaction) error {
 	if len(tx.Nonce()) == 0 || len(tx.Creator()) == 0 {
 		return invalid("nonce or creator is empty")
 	}
-	if fns.ConfigService().DriverName() != fabricxDriverName {
+	if f, _ := protos.TransactionFormatOf(fns.ConfigService().DriverName()); !f.SkipTxIDCheck {
 		expected := fns.TransactionManager().ComputeTxID(&fabric.TxID{Nonce: tx.Nonce(), Creator: tx.Creator()})
 		if txID != expected {
 			return invalid("txID is not derived from nonce and creator")

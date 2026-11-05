@@ -15,14 +15,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
 const (
-	// DriverName is the name of the fabricx driver
-	DriverName = "fabricx"
+	// DriverName is the name of the fabricx driver; its transactions use the format
+	// registered under this name.
+	DriverName = protos.Platform
 )
 
 type Provider struct {

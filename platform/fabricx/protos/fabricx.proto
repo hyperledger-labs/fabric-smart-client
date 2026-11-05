@@ -1,0 +1,24 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+syntax = "proto3";
+
+package fsc.fabricx.v1;
+
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/protos";
+
+import "platform/fabric/protos/fabric.proto";
+
+// The messages in this file are the Fabric-x payloads of the fsc.fabric.v1 messages. Fields are
+// only ever added, never renumbered, retyped or removed, so every release reads the messages of
+// the release before it.
+
+// Transaction is a Fabric-x transaction as it is assembled, endorsed and passed between nodes.
+// It is the payload of a fsc.fabric.v1.TransactionEnvelope whose platform is "fabricx".
+message Transaction {
+  // base holds the fields Fabric-x transactions share with Fabric ones.
+  fsc.fabric.v1.Transaction base = 1;
+}

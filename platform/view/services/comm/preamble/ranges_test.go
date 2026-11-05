@@ -40,6 +40,15 @@ func TestPeerRange(t *testing.T) {
 	require.Equal(t, DefaultRange, PeerRange(nil, "iou"), "a peer without a preamble")
 }
 
+func TestFSCComponents(t *testing.T) {
+	t.Parallel()
+	require.Equal(t, []Component{
+		{Name: "view", Range: Range{1, 1}},
+		{Name: "fabric", Range: Range{1, 2}},
+		{Name: "fabricx", Range: Range{1, 2}},
+	}, FSCComponents)
+}
+
 // TestSetComponents changes process-wide state, so it runs alone and restores the default.
 func TestSetComponents(t *testing.T) { //nolint:paralleltest
 	t.Cleanup(func() { require.NoError(t, SetComponents(FSCComponents)) })

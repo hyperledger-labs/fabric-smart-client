@@ -40,8 +40,8 @@ var DefaultRange = Range{Min: 1, Max: 1}
 // FSCComponents are the components FSC owns, at the ranges this release supports.
 var FSCComponents = []Component{
 	{Name: "view", Range: Range{1, 1}},
-	{Name: "fabric", Range: Range{1, 1}},
-	{Name: "fabricx", Range: Range{1, 1}},
+	{Name: "fabric", Range: Range{1, 2}},
+	{Name: "fabricx", Range: Range{1, 2}},
 }
 
 // componentName is the form of a component name. It never contains '/', so a protocol name

@@ -118,3 +118,7 @@ for the trust and identity model.
   the messages of the release before it. `make buf-breaking` (CI: `buf.yml`) compares them
   against the latest release tag with buf's `FILE` rules. A new FSC proto belongs under a path
   `buf.yaml` includes.
+- A new message FSC nodes send each other or store is protobuf in a versioned proto package
+  (for example `fsc.fabric.v1` in `platform/fabric/protos`), not JSON of a Go struct, so
+  `buf breaking` checks its evolution. Marshal bytes that are stored or compared with
+  `proto.MarshalOptions{Deterministic: true}`.

@@ -5,6 +5,8 @@ version: v2
 modules:
   - path: .
     includes:
+      - platform/fabric/protos
+      - platform/fabricx/protos
       - platform/view
 breaking:
   use:

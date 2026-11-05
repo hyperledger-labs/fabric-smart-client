@@ -165,7 +165,7 @@ With `--json` it prints one JSON object for release tooling:
   "vcs_revision": "0123abcd",
   "vcs_modified": false,
   "framing_epoch": 1,
-  "components": [{"name": "view", "min": 1, "max": 1}, {"name": "fabric", "min": 1, "max": 1}, {"name": "fabricx", "min": 1, "max": 1}],
+  "components": [{"name": "view", "min": 1, "max": 1}, {"name": "fabric", "min": 1, "max": 2}, {"name": "fabricx", "min": 1, "max": 2}],
   "stores": [{"type": "vault", "dialect": "postgres", "steps": [{"version": 1, "name": "create tables", "hash": "a9dffb69…"}]}]
 }
 ```

@@ -70,8 +70,10 @@ func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []by
 // that checks existence first would conflict with it forever.
 //
 // The insert and the read-back are separate statements. This is safe because
-// the store never updates or deletes a row: once the insert finds the key
-// taken, the value read back is the one that won.
+// the store never deletes a row and changes one only in a contract step that
+// rewrites its encoding: once the insert finds the key taken, the value read
+// back is the one that won, possibly in that step's encoding. A caller whose
+// values have more than one encoding compares them on conflict.
 func (db *SimpleKeyDataStore) PutDataStrict(ctx context.Context, key string, data []byte) error {
 	if len(data) == 0 {
 		return errors.Errorf("empty data for key [%s]", key)

@@ -60,7 +60,7 @@ Security is integrated at every level of the Comm stack:
 
 Every stream opens with a preamble (`platform/view/services/comm/preamble`), so that nodes of different releases learn what the other supports without a decode error or a timeout. Its message only ever gains fields: no field is renumbered, retyped or removed, and `make buf-breaking` checks this against the latest release.
 
--   **Content**: the FSC version and VCS revision, the framing epoch, and per component the range of wire format versions the binary supports: FSC's `view`, `fabric` and `fabricx`, all at `{1, 1}`, and the components the application registers (see [Format negotiation](#format-negotiation)).
+-   **Content**: the FSC version and VCS revision, the framing epoch, and per component the range of wire format versions the binary supports: FSC's `view` at `{1, 1}` and `fabric` and `fabricx` at `{1, 2}`, and the components the application registers (see [Format negotiation](#format-negotiation)).
 -   **Framing epoch**: an integer (`preamble.FramingEpoch`, 1) raised only when the framing of `ViewPacket`s on a stream changes. A node refuses a peer whose epoch differs; the error names both epochs and starts with `version: `. FSC versions and revisions are logged at debug level and never compared, so nodes of different releases keep talking to each other.
 -   **After authentication**: a transport reads the peer's preamble only after it has bound the peer ID to the TLS certificate or the libp2p key.
 -   **Size limits**: a preamble over 4 KiB, or with a string field over 256 bytes, is refused.

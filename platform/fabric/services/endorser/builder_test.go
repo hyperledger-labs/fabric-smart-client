@@ -251,12 +251,12 @@ func TestNewTransactionFromBytes_MSPNotInitializedNotCounted(t *testing.T) {
 	require.Zero(t, f.metrics.count(security.KindInvalidTx))
 }
 
-// Fabric-x does not derive the txID from nonce and creator.
-func TestNewTransactionFromBytes_FabricxSkipsTxIDCheck(t *testing.T) {
+// A driver whose format sets SkipTxIDCheck accepts a txID not derived from nonce and creator.
+func TestNewTransactionFromBytes_FormatSkipsTxIDCheck(t *testing.T) {
 	t.Parallel()
 	f := newReceiveFixture(t, []byte("bob"))
-	f.conf.DriverNameReturns(fabricxDriverName)
-	f.dtx.IDReturns("fabricx-txid")
+	f.conf.DriverNameReturns(skipTxIDDriver)
+	f.dtx.IDReturns("not-derived-txid")
 
 	_, _, err := NewTransactionFromBytes(f.ctx, legacyRaw)
 	require.NoError(t, err)

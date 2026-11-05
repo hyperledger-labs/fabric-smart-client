@@ -12,16 +12,21 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
+	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
+	fsqlite "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/endorsetx"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -133,7 +138,120 @@ func TestEndorseTransactionServiceStoreTransaction(t *testing.T) {
 		require.ErrorIs(t, ets.StoreTransaction(ctx, txID, raw), dbdriver.ErrConflict, name)
 	}
 
+	// The memory driver opens a new store, which runs the contract step that stores envelopes.
+	want, err := protos.EnvelopeFromJSON(first)
+	require.NoError(t, err)
 	stored, err := ets.LoadTransaction(ctx, txID)
 	require.NoError(t, err)
-	require.Equal(t, first, stored, "the first record is kept")
+	require.Equal(t, want, stored, "the first record is kept")
+}
+
+// TestSameEndorsementAcrossForms stores a Fabric endorsement as JSON and offers it again as an
+// envelope. Re-signed endorsements of the same results are the same record in either form;
+// different results conflict.
+func TestSameEndorsementAcrossForms(t *testing.T) {
+	t.Parallel()
+
+	signer := newECDSASigner(t)
+	alice := view.Identity("alice")
+	f := newEndorsableTx(t)
+	f.sigService.GetSignerReturns(signer, nil)
+	require.NoError(t, f.tx.EndorseProposalWithIdentity(alice))
+	p, err := json.Marshal(f.tx)
+	require.NoError(t, err)
+	endorse := func(results string) []byte {
+		f := newEndorsableTx(t)
+		f.sigService.GetSignerReturns(signer, nil)
+		f.rwset.BytesReturns([]byte(results), nil)
+		require.NoError(t, f.tx.SetFromBytes(p))
+		require.NoError(t, f.tx.SetRWSet())
+		require.NoError(t, f.tx.EndorseWithIdentity(alice))
+		raw, err := (&transaction.WrappedTransaction{Transaction: f.tx, TransactionType: driver.EndorserTransaction}).Bytes()
+		require.NoError(t, err)
+		return raw
+	}
+	envelope := func(raw []byte) []byte {
+		env, err := protos.EnvelopeFromJSON(raw)
+		require.NoError(t, err)
+		return env
+	}
+
+	ets := transaction.NewEndorseTransactionService(newRealEndorseTxStore(t), "network", "channel")
+	ctx := t.Context()
+	txID := "txid-" + rand.Text()
+	require.NoError(t, ets.StoreTransaction(ctx, txID, endorse("rws")))
+	require.NoError(t, ets.StoreTransaction(ctx, txID, envelope(endorse("rws"))), "an envelope of a re-signed endorsement is the same")
+	require.ErrorIs(t, ets.StoreTransaction(ctx, txID, envelope(endorse("other-rws"))), dbdriver.ErrConflict)
+
+	envID := "txid-" + rand.Text()
+	require.NoError(t, ets.StoreTransaction(ctx, envID, envelope(endorse("rws"))))
+	require.NoError(t, ets.StoreTransaction(ctx, envID, endorse("rws")), "JSON of a re-signed endorsement is the same as a stored envelope")
+	require.ErrorIs(t, ets.StoreTransaction(ctx, envID, endorse("other-rws")), dbdriver.ErrConflict)
+}
+
+// TestStoreTransactionAcrossContractStep stores a Fabric endorsement as JSON in a SQLite store
+// whose contract step is held back, runs the step as node migrate --contract does, and reopens
+// the store as a restarted node does. The row is then an envelope; the same endorsement written
+// again, byte-equal or re-signed, is the same record, and different results conflict.
+func TestStoreTransactionAcrossContractStep(t *testing.T) {
+	t.Parallel()
+
+	signer := newECDSASigner(t)
+	alice := view.Identity("alice")
+	f := newEndorsableTx(t)
+	f.sigService.GetSignerReturns(signer, nil)
+	require.NoError(t, f.tx.EndorseProposalWithIdentity(alice))
+	p, err := json.Marshal(f.tx)
+	require.NoError(t, err)
+	endorse := func(results string) []byte {
+		f := newEndorsableTx(t)
+		f.sigService.GetSignerReturns(signer, nil)
+		f.rwset.BytesReturns([]byte(results), nil)
+		require.NoError(t, f.tx.SetFromBytes(p))
+		require.NoError(t, f.tx.SetRWSet())
+		require.NoError(t, f.tx.EndorseWithIdentity(alice))
+		raw, err := (&transaction.WrappedTransaction{Transaction: f.tx, TransactionType: driver.EndorserTransaction}).Bytes()
+		require.NoError(t, err)
+		return raw
+	}
+
+	// The table exists before the store is versioned, so opening it holds the contract step back.
+	ds := "file:" + filepath.Join(t.TempDir(), "etx.sqlite")
+	dbp := sqlite.NewDbProvider()
+	rw, err := dbp.Get(sqlite.Opts{DataSource: ds})
+	require.NoError(t, err)
+	tables, err := fsqlcommon.GetTableNames("")
+	require.NoError(t, err)
+	raw, err := fsqlite.NewEndorseTxStore(rw, tables)
+	require.NoError(t, err)
+	require.NoError(t, raw.CreateSchema())
+	cp := multiplexed.MockTypeConfig(fsqlite.Persistence, sqlite.Config{DataSource: ds})
+	open := func() driver.EndorserTransactionService {
+		s, err := endorsetx.NewStore[driver.Key](cp, multiplexed.NewDriver(cp, fsqlite.NewNamedDriver(cp, dbp)))
+		require.NoError(t, err)
+		return transaction.NewEndorseTransactionService(s, "network", "channel")
+	}
+
+	ctx := t.Context()
+	first := endorse("rws")
+	ets := open()
+	require.NoError(t, ets.StoreTransaction(ctx, "tx", first))
+	stored, err := ets.LoadTransaction(ctx, "tx")
+	require.NoError(t, err)
+	require.Equal(t, first, stored, "JSON is stored as given before the step")
+
+	require.NoError(t, migrate.Migrate(ctx, rw.WriteDB, migrate.SQLite, "", raw, migrate.WithContract()))
+	ets = open()
+	envelope, err := protos.EnvelopeFromJSON(first)
+	require.NoError(t, err)
+	stored, err = ets.LoadTransaction(ctx, "tx")
+	require.NoError(t, err)
+	require.Equal(t, envelope, stored, "the step rewrote the row as an envelope")
+
+	require.NoError(t, ets.StoreTransaction(ctx, "tx", first), "the byte-equal endorsement is the same record")
+	require.NoError(t, ets.StoreTransaction(ctx, "tx", endorse("rws")), "a re-signed endorsement is the same record")
+	require.ErrorIs(t, ets.StoreTransaction(ctx, "tx", endorse("other-rws")), dbdriver.ErrConflict)
+	stored, err = ets.LoadTransaction(ctx, "tx")
+	require.NoError(t, err)
+	require.Equal(t, envelope, stored, "the stored record is kept")
 }

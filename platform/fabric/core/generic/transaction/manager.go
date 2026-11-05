@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -55,8 +56,14 @@ func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.Tra
 // NewTransactionFromBytes decodes a transaction serialized by WrappedTransaction.Bytes
 // on this network, bound to the channel the transaction names. It does not check
 // that the bytes were built on this network; a caller decoding bytes received from
-// another node picks the network by SerializedTransaction.Key first.
+// another node picks the network by SerializedTransaction.Key first. raw is the JSON of a
+// SerializedTransaction or a Fabric TransactionEnvelope (see protos.JSONFor); an envelope of
+// another platform is an error.
 func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
+	raw, err := protos.JSONFor(raw, "generic")
+	if err != nil {
+		return nil, err
+	}
 	txRaw := &SerializedTransaction{}
 	if err := json.Unmarshal(raw, txRaw); err != nil {
 		return nil, err

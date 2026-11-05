@@ -7,10 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -28,6 +32,8 @@ type EndorsementsOnProposalTransaction interface {
 	FabricNetworkService() *fabric.NetworkService
 }
 
+// Response is the JSON object endorsementsOnProposalResponderView answers with at version 1
+// of the component of the transaction; from version 2 it answers with an EndorsementResponse.
 type Response struct {
 	ProposalResponses [][]byte
 }
@@ -61,7 +67,7 @@ const defaultParallelEndorsementTimeout = 30 * time.Second
 const parallelEndorsementDeadlineGrace = 500 * time.Millisecond
 
 type parallelCollectEndorsementsOnProposalView struct {
-	tx      EndorsementsOnProposalTransaction
+	tx      *Transaction
 	parties []view.Identity
 
 	timeout time.Duration
@@ -73,15 +79,16 @@ func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...vi
 
 func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (any, error) {
 	// send Transaction to each party and wait for their responses
-	if tx, ok := c.tx.(*Transaction); ok {
-		if err := RequireChannelKey(tx.Transaction); err != nil {
-			return nil, err
-		}
+	if err := RequireChannelKey(c.tx.Transaction); err != nil {
+		return nil, err
 	}
 	stateRaw, err := c.tx.Bytes()
 	if err != nil {
 		return nil, err
 	}
+	// The parties' sessions may be at different versions; the envelope is built once, for the
+	// first that needs it.
+	envelope := sync.OnceValues(func() ([]byte, error) { return protos.EnvelopeFromJSONFor(stateRaw, driverName(c.tx)) })
 	answerChannel := make(chan *answer, len(c.parties))
 
 	timeout := c.timeout
@@ -91,7 +98,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 
 	logger.DebugfContext(viewCtx.Context(), "Collect endorsements from %d parties for TX [%s]", len(c.parties), c.tx.ID())
 	for _, party := range c.parties {
-		go c.collectEndorsement(viewCtx, party, stateRaw, timeout, answerChannel)
+		go c.collectEndorsement(viewCtx, party, stateRaw, envelope, timeout, answerChannel)
 	}
 
 	fns, err := fabric.GetFabricNetworkService(viewCtx, c.tx.Network())
@@ -171,6 +178,7 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	viewCtx view.Context,
 	party view.Identity,
 	raw []byte,
+	envelope func() ([]byte, error),
 	timeout time.Duration,
 	answerChan chan *answer,
 ) {
@@ -178,6 +186,14 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	s, err := session.NewJSON(viewCtx, viewCtx.Initiator(), party)
 	if err != nil {
 		answerChan <- &answer{err: err, party: party}
+		return
+	}
+	asEnvelope, err := sendsEnvelope(viewCtx.Context(), s.Session(), c.tx)
+	if err == nil && asEnvelope {
+		raw, err = envelope()
+	}
+	if err != nil {
+		answerChan <- &answer{err: errors.WithMessage(err, "failed encoding transaction"), party: party}
 		return
 	}
 
@@ -189,12 +205,16 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 		answerChan <- &answer{err: err, party: party}
 		return
 	}
-	r := &Response{}
-	if err := s.ReceiveWithTimeout(r, timeout); err != nil {
+	reply, err := s.ReceiveRawWithTimeout(timeout)
+	var prs [][]byte
+	if err == nil {
+		prs, err = decodeResponses(reply)
+	}
+	if err != nil {
 		answerChan <- &answer{err: err, party: party}
 		return
 	}
-	answerChan <- &answer{prs: r.ProposalResponses, party: party}
+	answerChan <- &answer{prs: prs, party: party}
 }
 
 type endorsementsOnProposalResponderView struct {
@@ -229,10 +249,22 @@ func (s *endorsementsOnProposalResponderView) Call(viewCtx view.Context) (any, e
 	}
 	logger.Debugf("number of endorse proposal response produced [%d], send them back", len(prs))
 
-	session := session.JSON(viewCtx)
-
-	// Send the proposal responses back
-	err = session.Send(viewCtx.Context(), &Response{ProposalResponses: prs})
+	// Send the proposal responses back, in the encoding the session negotiated.
+	session := viewCtx.Session()
+	asProto, err := sendsEnvelope(viewCtx.Context(), session, s.tx)
+	if err != nil {
+		return nil, err
+	}
+	var raw []byte
+	if asProto {
+		raw, err = proto.Marshal(&protos.EndorsementResponse{ProposalResponses: prs})
+	} else {
+		raw, err = json.Marshal(&Response{ProposalResponses: prs})
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed marshalling endorsement response")
+	}
+	err = session.Send(viewCtx.Context(), raw)
 	if err != nil {
 		return nil, err
 	}

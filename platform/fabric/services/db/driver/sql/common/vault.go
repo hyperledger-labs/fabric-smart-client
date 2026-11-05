@@ -12,6 +12,9 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"sync"
+	"sync/atomic"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -19,9 +22,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 var logger = logging.MustGetLogger()
@@ -61,6 +66,9 @@ func NewVaultStore(writeDB common.WriteDB, readDB *sql.DB, tables VaultTables, e
 	}
 }
 
+// VaultStore is the SQL vault shared by the SQLite and Postgres drivers. It stores each key's
+// metadata gob-encoded until the vault's contract step 2 (see [VaultStore.MetadataToProtobuf])
+// has run, and as protobuf [protos.VaultMetadata] afterwards; readers accept both forms.
 type VaultStore struct {
 	*vaultReader
 	tables       VaultTables
@@ -72,7 +80,13 @@ type VaultStore struct {
 	// Timeout bounds each statement of the store, and the write transaction of a
 	// backend's Store as a whole.
 	Timeout common.QueryTimeout
+	// readableBy is the vault's readable_by as of its last open; see SetReadableBy.
+	readableBy atomic.Int32
 }
+
+// SetReadableBy implements migrate.ReadableByObserver: from readable_by 2 on, the vault
+// writes metadata as protobuf.
+func (db *VaultStore) SetReadableBy(v int) { db.readableBy.Store(int32(v)) } //nolint:gosec // a step number
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
 	logger.DebugfContext(ctx, "acquire tx id lock for [%s]", txID)
@@ -247,7 +261,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			var metaVersion driver.RawVersion
 			var err error
 			if metaVal, ok := metaWrite[pkey]; ok {
-				metadata, err = marshallMetadata(metaVal.Metadata)
+				metadata, err = db.marshallMetadata(metaVal.Metadata)
 				metaVersion = metaVal.Version
 			}
 			if len(metaVersion) > 0 && !bytes.Equal(val.Version, metaVersion) {
@@ -275,7 +289,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				// MetaWrites already written in the previous section
 				continue
 			}
-			metadata, err := marshallMetadata(metaVal.Metadata)
+			metadata, err := db.marshallMetadata(metaVal.Metadata)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to marshal metadata for [%s:%s]", ns, pkey)
 			}
@@ -561,22 +575,172 @@ func (db *VaultStore) Close() error {
 
 // Data marshal/unmarshal
 
-func marshallMetadata(metadata map[string][]byte) (m []byte, err error) {
+// protoMetadataStep is the contract step after which the vault writes metadata as protobuf.
+const protoMetadataStep = 2
+
+// metadataPageSize is the number of rows MetadataToProtobuf reads and rewrites at a time.
+const metadataPageSize = 1000
+
+// protoMetadataTag is the first byte of every protobuf VaultMetadata the vault writes: the tag
+// of field 1 (entries), length-delimited, which writers always set, even for an empty map. A gob
+// stream starts with a message length, never this byte for a map, so the first byte tells the
+// forms apart without depending on the type ids gob assigned earlier in the process.
+const protoMetadataTag = 0x0a
+
+// marshallMetadata encodes metadata as gob until the vault's contract step 2 has run, and
+// afterwards as the protobuf VaultMetadata toProtoMetadata gives. A map protobuf cannot carry
+// exactly, such as one with a key that is not UTF-8, is encoded as gob in either case.
+func (db *VaultStore) marshallMetadata(metadata map[string][]byte) ([]byte, error) {
+	if db.readableBy.Load() >= protoMetadataStep {
+		if raw, ok := toProtoMetadata(metadata); ok {
+			return raw, nil
+		}
+	}
 	var buf bytes.Buffer
-	err = gob.NewEncoder(&buf).Encode(metadata)
-	if err != nil {
-		return m, err
+	if err := gob.NewEncoder(&buf).Encode(metadata); err != nil {
+		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
-	if len(input) == 0 {
-		return m, err
+// toProtoMetadata returns the deterministic protobuf VaultMetadata of m if it decodes back to
+// the entries of m (see sameMetadata), so that no metadata is replaced by protobuf that reads
+// differently. The entries are always set, so an empty or nil map encodes as 0a 00 and reads
+// back as an empty map, as its gob encoding does, not as no metadata.
+func toProtoMetadata(m map[string][]byte) ([]byte, bool) {
+	raw, err := proto.MarshalOptions{Deterministic: true}.Marshal(&protos.VaultMetadata{Entries: &protos.Entries{Values: m}})
+	if err != nil {
+		return nil, false
 	}
+	back, err := unmarshalMetadata(raw)
+	if err != nil || !sameMetadata(m, back) {
+		return nil, false
+	}
+	return raw, true
+}
 
-	buf := bytes.NewBuffer(input)
-	decoder := gob.NewDecoder(buf)
-	err = decoder.Decode(&m)
+// sameMetadata reports whether a and b hold the same keys with the same bytes. A nil value
+// equals an empty one, as gob decodes an empty value as nil and protobuf as empty.
+func sameMetadata(a, b map[string][]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, av := range a {
+		bv, ok := b[k]
+		if !ok || !bytes.Equal(av, bv) {
+			return false
+		}
+	}
+	return true
+}
+
+// unmarshalMetadata decodes metadata in either form the vault stores: input starting with
+// protoMetadataTag is protobuf VaultMetadata, other input is gob. Empty input is no metadata
+// and returns a nil map; protobuf metadata returns a non-nil map, empty for no entries.
+func unmarshalMetadata(input []byte) (map[string][]byte, error) {
+	if len(input) == 0 {
+		return nil, nil
+	}
+	if input[0] == protoMetadataTag {
+		var m protos.VaultMetadata
+		if err := proto.Unmarshal(input, &m); err != nil {
+			return nil, err
+		}
+		if values := m.GetEntries().GetValues(); values != nil {
+			return values, nil
+		}
+		return map[string][]byte{}, nil
+	}
+	var m map[string][]byte
+	err := gob.NewDecoder(bytes.NewReader(input)).Decode(&m)
 	return m, err
+}
+
+// metadataRow is a row of the state table with metadata. pkey keeps the type the driver
+// scanned, so that it binds back as the same SQL type: TEXT on SQLite, BYTEA on Postgres.
+type metadataRow struct {
+	ns       string
+	pkey     any
+	metadata []byte
+}
+
+// MetadataToProtobuf is the vault's contract step 2 on both dialects. It rewrites the gob
+// metadata of every row as the protobuf toProtoMetadata gives, in pages of metadataPageSize
+// rows in (ns, pkey) order. Each page is read in full and its rows closed before its rows are
+// updated, as a connection runs one statement at a time. Rows without metadata and rows
+// already in protobuf stay unchanged; rows that do not decode as gob or do not convert exactly
+// stay unchanged too and are counted in one warning. A row is rewritten only if its metadata
+// still holds the bytes the step read: on Postgres the step runs in READ COMMITTED and does not
+// lock the state table, so a node that keeps running can commit new metadata for a row after
+// the step read it. Such a row keeps the metadata that node wrote, which readers accept in
+// either form, and is counted separately.
+func (db *VaultStore) MetadataToProtobuf(ctx context.Context, q migrate.Execer) error {
+	table := db.tables.StateTable
+	read, converted, changed, failed := 0, 0, 0, 0
+	// The first page has no lower bound, so that a row with the empty key is read too.
+	query, args := "SELECT ns, pkey, metadata FROM "+table+" WHERE length(metadata) > 0 ORDER BY ns, pkey LIMIT $1", []any{metadataPageSize} //nolint:gosec // table name comes from configuration
+	for {
+		page, err := readMetadataPage(ctx, q, query, args...)
+		if err != nil {
+			return errors.Wrapf(err, "failed reading [%s]", table)
+		}
+		for _, r := range page {
+			if r.metadata[0] == protoMetadataTag {
+				continue
+			}
+			m, err := unmarshalMetadata(r.metadata)
+			if err != nil {
+				failed++
+				continue
+			}
+			raw, ok := toProtoMetadata(m)
+			if !ok {
+				failed++
+				continue
+			}
+			res, err := q.ExecContext(ctx, "UPDATE "+table+" SET metadata = $1 WHERE ns = $2 AND pkey = $3 AND metadata = $4", raw, r.ns, r.pkey, r.metadata) //nolint:gosec // table name comes from configuration
+			if err != nil {
+				return errors.Wrapf(err, "failed rewriting metadata of [%s:%v] in [%s]", r.ns, r.pkey, table)
+			}
+			n, err := res.RowsAffected()
+			if err != nil {
+				return errors.Wrapf(err, "failed rewriting metadata of [%s:%v] in [%s]", r.ns, r.pkey, table)
+			}
+			if n == 0 {
+				changed++
+				continue
+			}
+			converted++
+		}
+		read += len(page)
+		logger.Infof("store [%s]: read %d row(s) with metadata, rewrote %d as protobuf, %d changed meanwhile and left as is, so far", table, read, converted, changed)
+		if len(page) < metadataPageSize {
+			break
+		}
+		last := page[len(page)-1]
+		query, args = "SELECT ns, pkey, metadata FROM "+table+" WHERE (ns, pkey) > ($1, $2) AND length(metadata) > 0 ORDER BY ns, pkey LIMIT $3", []any{last.ns, last.pkey, metadataPageSize} //nolint:gosec // table name comes from configuration
+	}
+	if failed > 0 {
+		logger.Warnf("store [%s]: %d row(s) of metadata do not convert to protobuf and stay gob", table, failed)
+	}
+	logger.Infof("store [%s]: rewrote the metadata of %d row(s) as protobuf; %d row(s) changed meanwhile and were left as is", table, converted, changed)
+	return nil
+}
+
+// readMetadataPage runs query and returns all its rows, closed.
+func readMetadataPage(ctx context.Context, q migrate.Execer, query string, args ...any) ([]metadataRow, error) {
+	rows, err := q.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var page []metadataRow
+	for rows.Next() {
+		var r metadataRow
+		if err := rows.Scan(&r.ns, &r.pkey, &r.metadata); err != nil {
+			return nil, err
+		}
+		page = append(page, r)
+	}
+	return page, rows.Err()
 }

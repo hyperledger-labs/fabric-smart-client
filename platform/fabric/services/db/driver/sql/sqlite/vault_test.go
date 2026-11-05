@@ -179,5 +179,5 @@ func TestVaultStoreMigratesOldLayout(t *testing.T) {
 	requireState(t, reopened, "ns-b", "k1", "b1")
 	var version int
 	require.NoError(t, reopened.readDB.QueryRowContext(ctx, "SELECT version FROM fsc_schema_versions WHERE store = $1", reopened.StoreName()).Scan(&version))
-	require.Equal(t, len(reopened.Steps()), version)
+	require.Equal(t, 1, version, "the contract step waits for node migrate --contract")
 }

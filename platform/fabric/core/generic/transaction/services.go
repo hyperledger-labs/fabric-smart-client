@@ -19,6 +19,7 @@ import (
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
@@ -133,7 +134,8 @@ func (s *ets) StoreTransaction(ctx context.Context, txid string, raw []byte) err
 // endorsement holds the fields of a serialized transaction that identify what
 // was endorsed. Fabric and Fabric-x transactions both serialize them as JSON
 // under these names; Fabric wraps the transaction in a [SerializedTransaction],
-// whose Raw holds it.
+// whose Raw holds it. A record stored as a TransactionEnvelope is converted to
+// this JSON first, so JSON and envelope records of one endorsement compare equal.
 type endorsement struct {
 	Raw             []byte
 	TSignedProposal *struct {
@@ -172,6 +174,10 @@ func sameEndorsement(a, b []byte) bool {
 
 func decodeEndorsement(raw []byte) (endorsement, bool) {
 	var e endorsement
+	raw, err := protos.JSONFor(raw, "")
+	if err != nil {
+		return e, false
+	}
 	if err := json.Unmarshal(raw, &e); err != nil {
 		return e, false
 	}

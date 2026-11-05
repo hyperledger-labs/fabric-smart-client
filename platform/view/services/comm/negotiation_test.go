@@ -106,8 +106,8 @@ func peerWith(ranges ...*preamble.ComponentRange) *preamble.Preamble {
 	return &preamble.Preamble{FramingEpoch: preamble.FramingEpoch, Ranges: ranges}
 }
 
-// TestInitiatorNegotiates runs against the default components: view, fabric and fabricx at
-// {1, 1}, so every version a session uses is 1 and only the peer's range decides overlap.
+// TestInitiatorNegotiates runs against the default components: view at {1, 1}, fabric and
+// fabricx at {1, 2}; the peer's range decides the version and whether one overlaps.
 func TestInitiatorNegotiates(t *testing.T) {
 	t.Parallel()
 
@@ -145,10 +145,10 @@ func TestInitiatorNegotiates(t *testing.T) {
 
 	t.Run("no overlap fails with both ranges and is stated as 0", func(t *testing.T) {
 		t.Parallel()
-		s, h := newInitiatorSession(t, peerWith(&preamble.ComponentRange{Component: "fabric", Min: 2, Max: 3}))
+		s, h := newInitiatorSession(t, peerWith(&preamble.ComponentRange{Component: "fabric", Min: 3, Max: 4}))
 		_, _, err := s.Version(t.Context(), "fabric")
 		require.ErrorIs(t, err, view.ErrNoCommonVersion)
-		require.EqualError(t, err, "component [fabric]: local [1, 1], peer [2, 3]: no common version")
+		require.EqualError(t, err, "component [fabric]: local [1, 2], peer [3, 4]: no common version")
 		v, err := view.SessionVersion(t.Context(), s, "view")
 		require.NoError(t, err, "other components still negotiate")
 		require.Equal(t, uint32(1), v)
