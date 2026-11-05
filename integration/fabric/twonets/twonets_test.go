@@ -79,41 +79,27 @@ func (s *TestSuite) TestEndorseOnNonDefaultNetwork() {
 func (s *TestSuite) TestOutageOnOneNetwork() {
 	alphaDelivery := fsc.Connection{Network: "alpha", Component: connstate.ComponentDelivery}
 	betaDelivery := fsc.Connection{Network: "beta", Component: connstate.ComponentDelivery}
-	expectDelivery(s.II, "alice", alphaDelivery, connstate.Connected, time.Minute)
-	expectDelivery(s.II, "alice", betaDelivery, connstate.Connected, time.Minute)
+	// Alice's delivery has one peer per network, that of her organization (Org1_peer_0,
+	// Org3_peer_0), so each selects a single series.
+	s.II.EventuallyConnectionState("alice", alphaDelivery, connstate.Connected, time.Minute)
+	s.II.EventuallyConnectionState("alice", betaDelivery, connstate.Connected, time.Minute)
 
 	for _, p := range betaPeers {
 		s.II.StopPeer(p)
 	}
-	expectDelivery(s.II, "alice", betaDelivery, connstate.Reconnecting, time.Minute)
+	s.II.EventuallyConnectionState("alice", betaDelivery, connstate.Reconnecting, time.Minute)
 
 	twonets.EndorseAcross(s.II, []twonets.Endorsement{
 		{Initiator: "alice", Endorser: "bob", Network: "alpha", Namespace: "ns1"},
 	})
-	expectDelivery(s.II, "alice", alphaDelivery, connstate.Connected, time.Minute)
+	s.II.EventuallyConnectionState("alice", alphaDelivery, connstate.Connected, time.Minute)
 
 	for _, p := range betaPeers {
 		s.II.StartPeer(p)
 	}
-	expectDelivery(s.II, "alice", betaDelivery, connstate.Connected, faultrecovery.RecoveryTimeout)
-	twonets.EndorseAcross(s.II, []twonets.Endorsement{
+	s.II.EventuallyConnectionState("alice", betaDelivery, connstate.Connected, faultrecovery.RecoveryTimeout)
+	// A peer that is up may not serve its channel yet, so the first endorsement on beta retries.
+	twonets.EndorseAcrossEventually(s.II, []twonets.Endorsement{
 		{Initiator: "bob", Endorser: "alice", Network: "beta", Namespace: "ns2"},
-	})
-}
-
-// expectDelivery waits until node's delivery on the network conn selects streams from one
-// peer in state want. Delivery reports the peer it streams from as a series of its own and
-// sets the one it left Disconnected, so only the series that is not counts.
-func expectDelivery(ii *integration.Infrastructure, node string, conn fsc.Connection, want connstate.State, timeout time.Duration) {
-	EventuallyWithOffset(1, func(g Gomega) {
-		families, err := ii.WebClient(node).Metrics()
-		g.Expect(err).NotTo(HaveOccurred())
-		var live []connstate.State
-		for _, st := range fsc.ParseConnectionState(families, conn) {
-			if st != connstate.Disconnected {
-				live = append(live, st)
-			}
-		}
-		g.Expect(live).To(Equal([]connstate.State{want}))
-	}, timeout, 500*time.Millisecond).Should(Succeed(), "delivery of [%s] on [%s] never held state %d on one peer", node, conn.Network, want)
+	}, faultrecovery.RecoveryTimeout)
 }
