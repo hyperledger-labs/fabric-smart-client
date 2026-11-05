@@ -200,6 +200,8 @@ func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = db.Close() })
 		m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		// The vault has a contract step, so Migrate checks whether its table exists.
+		m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 		_, err = NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: &drivercommon.RWDB{ReadDB: db, WriteDB: db}}).NewVault("")
 		require.ErrorIs(t, err, migrate.ErrPending)
 		require.NoError(t, m.ExpectationsWereMet())

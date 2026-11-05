@@ -129,7 +129,9 @@ func (db *VaultStore) StoreName() string { return db.tables.StateTable }
 
 // Steps returns the vault's schema steps. Step 1 creates the status and state
 // tables if they do not exist, converts a TEXT pkey to BYTEA and reorders a
-// primary key of (pkey, ns) to (ns, pkey).
+// primary key of (pkey, ns) to (ns, pkey). Step 2, a contract step, rewrites gob
+// metadata as protobuf (see fsqlcommon.VaultStore.MetadataToProtobuf); binaries
+// that read only gob refuse the vault afterwards.
 func (db *VaultStore) Steps() []migrate.Step {
 	return []migrate.Step{{
 		Version: 1,
@@ -141,6 +143,11 @@ func (db *VaultStore) Steps() []migrate.Step {
 			}
 			return postgres.ReorderPrimaryKeyTx(ctx, q, db.tables.StateTable)
 		},
+	}, {
+		Version:  2,
+		Name:     "metadata as protobuf",
+		Go:       db.MetadataToProtobuf,
+		Contract: true,
 	}}
 }
 

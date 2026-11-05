@@ -43,10 +43,10 @@ func TestCheckPeers(t *testing.T) {
 	same := preamble.LocalBytes()
 	otherEpoch := encoded(t, func(p *preamble.Preamble) { p.FramingEpoch++ })
 	disjoint := encoded(t, func(p *preamble.Preamble) {
-		p.Ranges[1] = &preamble.ComponentRange{Component: "fabric", Min: 2, Max: 3}
+		p.Ranges[1] = &preamble.ComponentRange{Component: "fabric", Min: 3, Max: 4}
 	})
 	overlap := encoded(t, func(p *preamble.Preamble) {
-		p.Ranges[1] = &preamble.ComponentRange{Component: "fabric", Min: 1, Max: 2}
+		p.Ranges[1] = &preamble.ComponentRange{Component: "fabric", Min: 2, Max: 3}
 	})
 	fewer := encoded(t, func(p *preamble.Preamble) { p.Ranges = p.Ranges[:1] })
 
@@ -55,10 +55,10 @@ func TestCheckPeers(t *testing.T) {
 		code  int
 		out   string
 	}{
-		"overlapping":         {map[string][]byte{"a": same, "b": overlap}, 0, "fabric: local [1,1] peer [1,2]: uses 1"},
+		"overlapping":         {map[string][]byte{"a": same, "b": overlap}, 0, "fabric: local [1,2] peer [2,3]: uses 2"},
 		"no preamble":         {map[string][]byte{"a": nil}, 0, "no preamble"},
-		"component not known": {map[string][]byte{"a": fewer}, 0, "fabricx: local [1,1], not announced by the peer"},
-		"disjoint":            {map[string][]byte{"a": same, "b": disjoint}, ExitIncompatible, "fabric: local [1,1] peer [2,3]: no overlap"},
+		"component not known": {map[string][]byte{"a": fewer}, 0, "fabricx: local [1,2], not announced by the peer"},
+		"disjoint":            {map[string][]byte{"a": same, "b": disjoint}, ExitIncompatible, "fabric: local [1,2] peer [3,4]: no overlap"},
 		"other epoch":         {map[string][]byte{"a": otherEpoch}, ExitIncompatible, "peer framing epoch 2, local 1"},
 		"unreachable":         {map[string][]byte{"a": same, "down": nil}, ExitFailed, "peer [down] at [down:1]: unreachable"},
 		"down and disjoint":   {map[string][]byte{"down": nil, "b": disjoint}, ExitFailed, "unreachable"},

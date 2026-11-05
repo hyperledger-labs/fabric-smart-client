@@ -59,7 +59,8 @@ signer-equals-creator must check that itself.
 On Fabric-x networks the txID-equality check is skipped: the Fabric-x committer does not require
 `txid == ComputeTxID(nonce, creator)` for data transactions, and a Fabric-x proposal response is
 bound to its transaction only by the txID, not by a proposal hash. FSC skips the check there
-because the committer does not enforce it, so on Fabric-x a remote peer can still choose the txID
+because the committer does not enforce it (the Fabric-x transaction format sets
+`protos.TransactionFormat.SkipTxIDCheck`; a driver without a registered format is checked), so on Fabric-x a remote peer can still choose the txID
 its transaction is stored under. The proposal header consistency checks and the creator check still
 apply on Fabric-x.
 
@@ -72,6 +73,20 @@ was revoked after endorsement does not block that transaction from committing. T
 (`fabric.TransactionManager.NewTransactionFromBytes`, `endorser.Builder.NewTransactionFromBytes`,
 `Transaction.SetFromBytes`) do not validate either; call `ValidateReceived` explicitly if building
 a transaction from bytes outside those two paths.
+
+Signatures are verified over the bytes the signer produced, which either form of a transaction
+keeps byte for byte (see [Messages between nodes](../fabric/fabric-sdk.md#messages-between-nodes)):
+an endorsement over the `payload` bytes of the received `ProposalResponse` followed by the
+endorser's identity, and a proposal signature over the `proposal_bytes` of the received
+`SignedProposal`. Those fields and the signatures (`signature` of the `SignedProposal`, the
+`endorsement` of each `ProposalResponse`) are copied as they are; the outer `SignedProposal` and
+`ProposalResponse` messages are decoded and marshaled again when a transaction is converted
+between its forms. No signature covers the rest of the outer `ProposalResponse` (its `response`
+status and message, `version` and `timestamp`), the routing fields of a `TransactionEnvelope`
+(`platform`, the channel key, `network_hint`), or the transaction fields outside the signed
+proposal, such as the transient map. A receiver treats them as unauthenticated: it checks the
+envelope's channel against the channel header of the signed proposal, and the routing key only
+selects among the node's own networks.
 
 A certification envelope (`platform/fabric/services/state/certification.go`, decoded with
 `endorser.NewTransactionFromEnvelopeBytesOn`) also comes from a peer, but it does not pass through
@@ -185,15 +200,19 @@ own record kept. These stores are therefore write-once:
 
 The SQL stores insert with `ON CONFLICT DO NOTHING` and, when no row was inserted, read the stored
 record back and compare bytes. The envelope and endorsed-transaction stores refuse an empty
-record, which their existence check would report as absent. Their rows are never updated or deleted, so the record read back is
-the one that won, and of two concurrent writers of different records exactly one succeeds.
+record, which their existence check would report as absent. Their rows are never deleted, and
+updated only by the endorse-tx store's contract step 2, which rewrites a JSON transaction as the
+envelope of the same transaction (see [Schema migrations](services/schema-migrations.md#contract-steps)).
+The record read back is therefore the one that won, and of two concurrent writers of different
+records exactly one succeeds.
 
 An endorsed transaction holds this node's proposal responses, whose signatures differ on every
 signing. `ets.StoreTransaction` (`platform/fabric/core/generic/transaction/services.go`) therefore
 treats two records as the same when they carry the same signed proposal and all their proposal
 responses carry the same payload, which holds the proposal hash and the results. A record can have
 more responses than the stored one, as when the node endorses the same transaction with a second
-identity.
+identity. It decodes both records first, so a JSON record and an envelope of the same endorsement
+compare equal.
 
 A conflict is counted as the security rejection `store_conflict` (see
 [Security metrics](services/monitoring_metrics.md#security)). `endorseView` reports the session's

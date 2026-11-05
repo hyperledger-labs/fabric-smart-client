@@ -18,9 +18,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
@@ -50,6 +52,7 @@ func TestCollectEndorsementsView(t *testing.T) {
 	fakeTx.ResultsReturns([]byte("results"), nil)
 
 	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeFNS.NameReturns("net1")
 	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
@@ -167,7 +170,7 @@ func newEndorseFixture(t *testing.T) *endorseFixture {
 	fakeCH.NameReturns("ch1")
 	fakeCH.ChannelMembershipReturns(&mock.ChannelMembership{})
 	fakeFNS.ChannelReturns(fakeCH, nil)
-	fakeFNS.ConfigServiceReturns(&mock.ConfigService{})
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeTM := &mock.TransactionManager{}
 	fakeTM.ComputeTxIDStub = func(id *driver.TxIDComponents) string { return protoutil.ComputeTxID(id.Nonce, id.Creator) }
 	fakeFNS.TransactionManagerReturns(fakeTM)
@@ -298,6 +301,7 @@ func TestFinalityView(t *testing.T) {
 	})
 
 	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeFNS.NameReturns("net1")
 	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
@@ -380,6 +384,7 @@ func TestOrderingView(t *testing.T) {
 	})
 
 	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeFNS.NameReturns("net1")
 	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
@@ -489,6 +494,7 @@ func newParallelEndorsementFixture(endpointService *endpoint.Service) *parallelE
 
 	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
@@ -715,8 +721,9 @@ func TestParallelCollectEndorsementsOnProposalView_ReportsAppendFailure(t *testi
 	require.Contains(t, err.Error(), "cannot append")
 }
 
-func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
-	t.Parallel()
+// newResponderFixture returns a view context and the transaction, on a Fabric network, that
+// an endorsementsOnProposalResponderView endorses.
+func newResponderFixture() (*mock.Context, *mock.Transaction, *Transaction) {
 	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
 	fakeSP := &mock.Provider{}
@@ -726,6 +733,7 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 
 	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
@@ -758,6 +766,12 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	et := &Transaction{
 		Transaction: ft,
 	}
+	return fakeCtx, fakeTx, et
+}
+
+func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
+	t.Parallel()
+	fakeCtx, fakeTx, et := newResponderFixture()
 
 	ev := NewEndorsementOnProposalResponderView(et)
 	fakeSession := &mock.Session{}
@@ -808,6 +822,7 @@ func newCollectFixture(t *testing.T) *collectFixture {
 	fakeTx.ResultsReturns([]byte("results"), nil)
 
 	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeFNS.NameReturns("net1")
 	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
@@ -969,6 +984,7 @@ func TestEndorsement_HijackerEndorsementRefused(t *testing.T) {
 	fakeTx.BytesReturns([]byte("bytes"), nil)
 	fakeTx.ResultsReturns([]byte("results"), nil)
 	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.ConfigServiceReturns(genericConfig())
 	fakeFNS.NameReturns("net1")
 	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
@@ -1037,6 +1053,7 @@ func TestSendViewsRequireChannelKey(t *testing.T) {
 	ch := &mock.Channel{}
 	ch.ChannelMembershipReturns(&mock.ChannelMembership{})
 	fns := &mock.FabricNetworkService{}
+	fns.ConfigServiceReturns(genericConfig())
 	fns.ChannelReturns(ch, nil)
 	tx := &Transaction{Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fns, "net1"), dtx)}
 	rws := &mock.RWSet{}
@@ -1054,4 +1071,181 @@ func TestSendViewsRequireChannelKey(t *testing.T) {
 	}
 	require.Zero(t, ctx.GetSessionCallCount(), "nothing is sent")
 	require.Zero(t, dtx.BytesCallCount())
+}
+
+// genericConfig is the configuration of a Fabric network.
+func genericConfig() *mock.ConfigService {
+	c := &mock.ConfigService{}
+	c.DriverNameReturns("generic")
+	return c
+}
+
+// The parallel view sends each party the form its session negotiated.
+func TestParallelCollectEndorsementsOnProposalView_FormPerSession(t *testing.T) {
+	t.Parallel()
+	f := newParallelEndorsementFixture(nil)
+	f.tx.BytesReturns(wireTxRaw, nil)
+	sessions := map[string]*versionedSession{"bob": {version: 1}, "carol": {version: 2}}
+	for _, s := range sessions {
+		ch := make(chan *view.Message, 1)
+		ch <- &view.Message{Payload: []byte(`{}`)}
+		s.ReceiveReturns(ch)
+	}
+	f.ctx.GetSessionCalls(func(_ view.View, party view.Identity, _ ...view.View) (view.Session, error) {
+		return sessions[string(party)], nil
+	})
+
+	_, err := NewParallelCollectEndorsementsOnProposalView(f.ft, []byte("bob"), []byte("carol")).WithTimeout(time.Second).Call(f.ctx)
+	require.NoError(t, err)
+
+	_, sent := sessions["bob"].SendArgsForCall(0)
+	require.Equal(t, wireTxRaw, sent)
+	_, sent = sessions["carol"].SendArgsForCall(0)
+	want, err := protos.EnvelopeFromJSON(wireTxRaw)
+	require.NoError(t, err)
+	require.Equal(t, want, sent)
+}
+
+// The sequential view sends a party at version 2 the envelope.
+func TestCollectEndorsementsView_SendsEnvelopeAtV2(t *testing.T) {
+	t.Parallel()
+	f := newCollectFixture(t)
+	f.tx.BytesReturns(wireTxRaw, nil)
+	s := &versionedSession{version: 2}
+	s.ReceiveReturns(f.msgCh)
+	f.ctx.GetSessionReturns(s, nil)
+	f.reply(t)
+
+	// bob's reply carries no endorsement, so Call fails after sending; only what it sent matters.
+	_, err := f.view.Call(f.ctx)
+	require.Error(t, err)
+	require.Equal(t, 1, s.SendCallCount())
+	_, sent := s.SendArgsForCall(0)
+	want, err := protos.EnvelopeFromJSON(wireTxRaw)
+	require.NoError(t, err)
+	require.Equal(t, want, sent)
+}
+
+// protoResponses is the EndorsementResponse carrying prs, as sent at version 2.
+func protoResponses(t *testing.T, prs ...[]byte) []byte {
+	t.Helper()
+	raw, err := proto.Marshal(&protos.EndorsementResponse{ProposalResponses: prs})
+	require.NoError(t, err)
+	return raw
+}
+
+func TestDecodeResponses(t *testing.T) {
+	t.Parallel()
+	prs := [][]byte{[]byte("pr1"), []byte("pr2")}
+	array, err := json.Marshal(prs)
+	require.NoError(t, err)
+	object, err := json.Marshal(&Response{ProposalResponses: prs})
+	require.NoError(t, err)
+
+	for name, raw := range map[string][]byte{
+		"JSON array":  array,
+		"JSON object": object,
+		"protobuf":    protoResponses(t, prs...),
+	} {
+		got, err := decodeResponses(raw)
+		require.NoError(t, err, name)
+		require.Equal(t, prs, got, name)
+	}
+
+	got, err := decodeResponses([]byte("null"))
+	require.NoError(t, err)
+	require.Empty(t, got)
+
+	for name, raw := range map[string][]byte{
+		"empty":        nil,
+		"bad JSON":     []byte("[1"),
+		"bad protobuf": {0x0a, 0x05},
+	} {
+		_, err := decodeResponses(raw)
+		require.Error(t, err, name)
+	}
+}
+
+// endorseView answers in the encoding its session negotiated: today's JSON array at v1,
+// an EndorsementResponse from v2.
+func TestEndorseView_ResponseEncoding(t *testing.T) {
+	t.Parallel()
+	v1, err := json.Marshal([][]byte{[]byte("pr")})
+	require.NoError(t, err)
+	for version, want := range map[uint32][]byte{1: v1, 2: protoResponses(t, []byte("pr"))} {
+		f := newEndorseFixture(t)
+		s := &versionedSession{version: version}
+		f.ctx.SessionReturns(s)
+
+		_, err := NewEndorseView(f.et).Call(f.ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, s.SendCallCount())
+		_, sent := s.SendArgsForCall(0)
+		require.Equal(t, want, sent, "v%d", version)
+		got, err := decodeResponses(sent)
+		require.NoError(t, err)
+		require.Equal(t, [][]byte{[]byte("pr")}, got)
+	}
+}
+
+// The sequential view accepts an EndorsementResponse and today's JSON null.
+func TestCollectEndorsementsView_DecodesResponses(t *testing.T) {
+	t.Parallel()
+	f := newCollectFixture(t)
+	resp := &mock.ProposalResponse{}
+	resp.EndorserReturns([]byte("bob"))
+	resp.ResultsReturns([]byte("results"))
+	f.tm.NewProposalResponseFromBytesReturns(resp, nil)
+	f.msgCh <- &view.Message{Payload: protoResponses(t, []byte("resp1"))}
+
+	_, err := f.view.Call(f.ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, f.tx.AppendProposalResponseCallCount())
+	pr := f.tm.NewProposalResponseFromBytesArgsForCall(0)
+	require.Equal(t, []byte("resp1"), pr)
+
+	f.msgCh <- &view.Message{Payload: []byte("null")}
+	_, err = f.view.Call(f.ctx)
+	require.ErrorContains(t, err, "invalid endorsement, expected one signed by")
+}
+
+// The parallel responder answers in the encoding its session negotiated: today's Response
+// object at v1, an EndorsementResponse from v2.
+func TestEndorsementOnProposalResponderView_ResponseEncoding(t *testing.T) {
+	t.Parallel()
+	pr := &mock.ProposalResponse{}
+	pr.BytesReturns([]byte("pr1"), nil)
+	// The bytes the responder sent through session.JSON(viewCtx).Send(&Response{...}).
+	v1, err := json.Marshal(&Response{ProposalResponses: [][]byte{[]byte("pr1")}})
+	require.NoError(t, err)
+	for version, want := range map[uint32][]byte{1: v1, 2: protoResponses(t, []byte("pr1"))} {
+		ctx, tx, et := newResponderFixture()
+		tx.ProposalResponsesReturns([]driver.ProposalResponse{pr}, nil)
+		s := &versionedSession{version: version}
+		ctx.SessionReturns(s)
+
+		_, err := NewEndorsementOnProposalResponderView(et).Call(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, s.SendCallCount())
+		_, sent := s.SendArgsForCall(0)
+		require.Equal(t, want, sent, "v%d", version)
+		got, err := decodeResponses(sent)
+		require.NoError(t, err)
+		require.Equal(t, [][]byte{[]byte("pr1")}, got)
+	}
+}
+
+// The parallel view accepts an EndorsementResponse.
+func TestParallelCollectEndorsementsOnProposalView_DecodesProto(t *testing.T) {
+	t.Parallel()
+	f := newParallelEndorsementFixture(nil)
+	f.answerWith(t, []byte("bob"))
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: protoResponses(t, []byte("resp1"))}
+	f.session.ReceiveReturns(ch)
+
+	_, err := NewParallelCollectEndorsementsOnProposalView(f.ft, []byte("bob")).WithTimeout(time.Second).Call(f.ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, f.tx.AppendProposalResponseCallCount())
+	require.Equal(t, []byte("resp1"), f.tm.NewProposalResponseFromBytesArgsForCall(0))
 }

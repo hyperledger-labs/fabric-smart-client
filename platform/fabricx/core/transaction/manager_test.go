@@ -8,6 +8,7 @@ package transaction
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -19,6 +20,7 @@ import (
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -192,6 +194,77 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		require.Equal(t, "local", concrete.Network())
 		require.Equal(t, driver.TransientMap{"k": []byte("v")}, concrete.Transient())
 	})
+}
+
+// endorsedFabricxTx returns the JSON of an endorsed Fabric-x transaction, as Transaction.Bytes
+// produces it, the same transaction as an envelope, and a manager that decodes both.
+func endorsedFabricxTx(t *testing.T) (jsonRaw, envRaw []byte, m *Manager) {
+	t.Helper()
+	_, creator := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+	rws := &mock.RWSet{}
+	rws.BytesReturns(mustRawTx(t, sampleTx("ns1", "key1", "v1")), nil)
+	tx := &Transaction{
+		ctx: t.Context(), TTxID: "tx1", TNonce: []byte("nonce"), TCreator: creator,
+		TChannel: "channel1", TChaincode: "cc", TFunction: "invoke", channel: endorsingChannel(), rwSetHandle: rws,
+	}
+	require.NoError(t, tx.EndorseWithSigner(creator, &mock.Signer{}))
+	jsonRaw, err := tx.Bytes()
+	require.NoError(t, err)
+	envRaw, err = protos.EnvelopeFromJSONFor(jsonRaw, "fabricx")
+	require.NoError(t, err)
+	m = NewManager()
+	m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
+		newTransaction: func(context.Context, string, []byte, []byte, cdriver.TxID, []byte) (driver.Transaction, error) {
+			return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
+		},
+	})
+	return jsonRaw, envRaw, m
+}
+
+func TestNewTransactionFromBytesReadsEnvelope(t *testing.T) {
+	t.Parallel()
+	jsonRaw, envRaw, m := endorsedFabricxTx(t)
+
+	fromJSON, err := m.NewTransactionFromBytes(t.Context(), "channel1", jsonRaw)
+	require.NoError(t, err)
+	fromEnv, err := m.NewTransactionFromBytes(t.Context(), "channel1", envRaw)
+	require.NoError(t, err)
+
+	require.Equal(t, "tx1", fromJSON.ID())
+	require.Equal(t, fromJSON.ID(), fromEnv.ID())
+	plainResults, err := fromJSON.Results()
+	require.NoError(t, err)
+	envResults, err := fromEnv.Results()
+	require.NoError(t, err)
+	require.NotEmpty(t, plainResults)
+	require.Equal(t, plainResults, envResults)
+}
+
+func TestNewTransactionFromBytesRejectsOtherPlatform(t *testing.T) {
+	t.Parallel()
+	_, envRaw, m := endorsedFabricxTx(t)
+	env := &protos.TransactionEnvelope{}
+	require.NoError(t, proto.Unmarshal(envRaw, env))
+	env.Platform = "generic"
+	other, err := proto.Marshal(env)
+	require.NoError(t, err)
+
+	_, err = m.NewTransactionFromBytes(t.Context(), "channel1", other)
+	require.ErrorContains(t, err, "transaction for platform [generic] on a [fabricx] network")
+}
+
+// A keyless Fabric envelope, which a node routes to its default network, is refused by a
+// Fabric-x network instead of being decoded as an empty transaction.
+func TestNewTransactionFromBytesRejectsKeylessFabricEnvelope(t *testing.T) {
+	t.Parallel()
+	_, _, m := endorsedFabricxTx(t)
+	wrapped, err := json.Marshal(&transaction.SerializedTransaction{Type: driver.EndorserTransaction, Raw: []byte(`{"TTxID":"tx1","TChannel":"channel1"}`)})
+	require.NoError(t, err)
+	env, err := protos.EnvelopeFromJSON(wrapped)
+	require.NoError(t, err)
+
+	_, err = m.NewTransactionFromBytes(t.Context(), "channel1", env)
+	require.ErrorContains(t, err, "transaction for platform [generic] on a [fabricx] network")
 }
 
 func TestManagerNewTransactionFromEnvelopeBytes(t *testing.T) {

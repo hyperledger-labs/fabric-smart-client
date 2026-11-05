@@ -159,6 +159,8 @@ The constructors pass the options from `sqlcommon.MigrateOptions`: `migrate.With
 
 `Migrate` reads the version without taking the migration lock, so a store that is up to date never waits for a running migration. When steps are pending, Postgres migrators of one table prefix exclude each other with an advisory lock; every 10 seconds a waiting node logs the session that holds it, read from `pg_locks` and `pg_stat_activity`, and it waits until `WithLockTimeout` elapses, without limit by default. The lock is held by one session across several transactions, so the migrating node needs a direct connection or a session-pooling proxy, not PgBouncer in transaction-pooling mode. SQLite runs each step in a `BEGIN IMMEDIATE` transaction on the write connection, so a second process on the same file waits at most for the connection's `busy_timeout`; after that its step fails with `SQLITE_BUSY` and the store does not open. A failed step rolls back and the store does not open. A database whose `readable_by` is above the highest step the binary knows fails with `migrate.ErrSchemaTooNew`.
 
+A store whose write format depends on one of its own contract steps implements `migrate.ReadableByObserver`; `Migrate` calls its `SetReadableBy` with the store's `readable_by` after every successful open, including `WithCheckOnly`, so the store learns once the step has run without reading the versions table itself.
+
 ### Versioning an application store
 
 A store adopts versioning by adding two methods next to `CreateSchema`. `StoreName` returns the store's primary table name, and `Steps` returns every step in order, starting at version 1:

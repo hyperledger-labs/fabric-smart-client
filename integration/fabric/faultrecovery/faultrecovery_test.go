@@ -8,6 +8,7 @@ package faultrecovery_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -622,11 +623,17 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		DeferCleanup(faultrecovery.SetSkipCreateTable, s.II, "bob", false)
 
 		// --check lists every store with pending steps, not only the first, and exits 10.
+		// The endorse-tx store and the vault also have a contract step, which --check
+		// without --contract holds back, so only step 1 is pending for them too.
 		check := s.II.MigrateFSCNode("bob", "--check")
 		Expect(check.ExitCode()).To(Equal(start.ExitPending))
 		out := string(check.Err.Contents()) + string(check.Out.Contents())
-		for _, store := range []string{"fsc_kvs", "fsc_default_bind", "fsc_default_sign", "fsc_default_aud", "fsc_default_etx", "fsc_default_meta", "fsc_default_env", "fsc_default__testchannel_vstate"} {
-			Expect(strings.Contains(out, "store ["+store+"] is at version 0, binary expects 1; pending: step 1 [")).To(BeTrue(), "store [%s] not listed as pending", store)
+		for store, latest := range map[string]int{
+			"fsc_kvs": 1, "fsc_default_bind": 1, "fsc_default_sign": 1, "fsc_default_aud": 1,
+			"fsc_default_etx": 2, "fsc_default_meta": 1, "fsc_default_env": 1, "fsc_default__testchannel_vstate": 2,
+		} {
+			want := fmt.Sprintf("store [%s] is at version 0, binary expects %d; pending: step 1 [", store, latest)
+			Expect(strings.Contains(out, want)).To(BeTrue(), "store [%s] not listed as pending", store)
 		}
 
 		Expect(s.II.MigrateFSCNode("bob").ExitCode()).To(BeZero())

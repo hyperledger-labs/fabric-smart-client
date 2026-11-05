@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/endorsetx"
@@ -91,6 +92,11 @@ func TestEndorseTransactionServiceStoresFabricxTransactions(t *testing.T) {
 	require.NoError(t, ets.StoreTransaction(ctx, txID, retry), "a re-signed endorsement of the same read-write set is not a conflict")
 	require.ErrorIs(t, ets.StoreTransaction(ctx, txID, endorse("v2")), dbdriver.ErrConflict)
 
+	// The memory driver opens a new store, which runs the contract step that stores envelopes.
+	// The transaction carries no channel key, so the store cannot tell its platform and keeps
+	// its JSON.
+	_, err = protos.EnvelopeFromJSON(first)
+	require.ErrorIs(t, err, protos.ErrNoChannelKey)
 	stored, err := ets.LoadTransaction(ctx, txID)
 	require.NoError(t, err)
 	require.Equal(t, first, stored, "the first record is kept")

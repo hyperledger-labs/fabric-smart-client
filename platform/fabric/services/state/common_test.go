@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
+	emock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -389,7 +390,11 @@ func newTestEndorserTransactionWithRWSet(rwset *testRWSet) *endorser.Transaction
 func newTestStateTransaction(ns string) (*Transaction, *testRWSet, *testDriverTransaction) {
 	rwset := newTestRWSet()
 	driverTx := newTestDriverTransaction(rwset)
-	endorserTx := &endorser.Transaction{Transaction: fabric.NewTransaction(nil, driverTx)}
+	conf := &emock.ConfigService{}
+	conf.DriverNameReturns("generic")
+	fns := &emock.FabricNetworkService{}
+	fns.ConfigServiceReturns(conf)
+	endorserTx := &endorser.Transaction{Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fns, "net"), driverTx)}
 	stateTx := &Transaction{
 		Transaction: endorserTx,
 		Namespace:   NewNamespaceForName(endorserTx, ns, false),

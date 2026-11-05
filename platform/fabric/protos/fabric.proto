@@ -1,0 +1,103 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+syntax = "proto3";
+
+package fsc.fabric.v1;
+
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos";
+
+// The messages in this file are what FSC nodes send each other and store about transactions.
+// Fields are only ever added, never renumbered, retyped or removed, so every release reads the
+// messages of the release before it. Fabric messages embedded here (pb.SignedProposal,
+// pb.ProposalResponse) are carried as their marshaled bytes, so the signed bytes reach the
+// receiver exactly as the signer produced them.
+
+// TransactionEnvelope is a transaction together with what the receiving node needs to pick the
+// local network and channel it belongs to. The transaction itself is the payload, in the format
+// of the platform the envelope names.
+message TransactionEnvelope {
+  // platform is the driver name of the sender's network (ChannelKey.Platform), such as
+  // "generic" for Fabric. It is never empty, and it selects the format of payload.
+  string platform = 1;
+  // channel_genesis_hash is the header hash of the channel's block 0 (ChannelKey.GenesisHash).
+  // It is empty when the sender had no channel key, and the receiver then uses its default
+  // network.
+  bytes channel_genesis_hash = 2;
+  // channel is the channel name. A receiver checks it against the channel header of the
+  // signed proposal.
+  string channel = 3;
+  // network_hint is the sender's name for its network. It is for logs only: network names are
+  // local to each node.
+  string network_hint = 4;
+  // payload is the marshaled transaction in the format of platform: a Transaction for
+  // "generic".
+  bytes payload = 5;
+}
+
+// Transaction is a Fabric transaction as it is assembled, endorsed and passed between nodes;
+// other platforms build their payload on it. Once signed_proposal is set, the receiver reads
+// tx_id, nonce, creator, chaincode, chaincode_version, function and parameters from it; before
+// that, they travel as their own fields.
+message Transaction {
+  // signed_proposal is the marshaled pb.SignedProposal, or empty if the proposal is not signed
+  // yet.
+  bytes signed_proposal = 1;
+  // proposal_responses are the marshaled pb.ProposalResponse endorsements collected so far.
+  repeated bytes proposal_responses = 2;
+  // transient is data for the endorsers that is not part of the signed proposal.
+  map<string, bytes> transient = 3;
+  // tx_id is the transaction ID.
+  string tx_id = 4;
+  // nonce is the nonce the transaction ID is computed from.
+  bytes nonce = 5;
+  // creator is the serialized identity of the transaction's creator.
+  bytes creator = 6;
+  // chaincode is the name of the chaincode, or namespace, the transaction invokes.
+  string chaincode = 7;
+  // chaincode_version is the version of that chaincode.
+  string chaincode_version = 8;
+  // function is the function the transaction invokes.
+  string function = 9;
+  // parameters are the arguments of function.
+  repeated bytes parameters = 10;
+  // rwset is the serialized read-write set of the simulation, or empty when it equals the
+  // results of the first proposal response.
+  bytes rwset = 11;
+}
+
+// EndorsementResponse is what an endorser returns to the node that asked for its endorsement.
+message EndorsementResponse {
+  // proposal_responses are the marshaled pb.ProposalResponse endorsements.
+  repeated bytes proposal_responses = 1;
+}
+
+// FinalityRequest asks a node to report when a transaction becomes final.
+message FinalityRequest {
+  // tx_id is the transaction ID.
+  string tx_id = 1;
+  // platform is the driver name of the requester's network (ChannelKey.Platform). It is set
+  // whenever channel_genesis_hash is.
+  string platform = 2;
+  // channel_genesis_hash is the header hash of the channel's block 0, or empty if the
+  // requester had no channel key.
+  bytes channel_genesis_hash = 3;
+  // channel is the channel name.
+  string channel = 4;
+}
+
+// VaultMetadata is the metadata a vault stores about a transaction. Writers always set
+// entries, so a marshaled VaultMetadata starts with the tag of field 1, even for an empty map.
+message VaultMetadata {
+  // entries are the metadata entries.
+  Entries entries = 1;
+}
+
+// Entries is a map of metadata entries.
+message Entries {
+  // values maps each metadata key to its value.
+  map<string, bytes> values = 1;
+}

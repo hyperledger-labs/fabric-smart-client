@@ -196,6 +196,10 @@ func (f *sendTransactionView) Call(viewCtx view.Context) (any, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed getting session")
 		}
+		txRaw, err = endorser.WireBytes(viewCtx.Context(), session, f.tx.Transaction, txRaw)
+		if err != nil {
+			return nil, errors.WithMessage(err, "failed encoding transaction")
+		}
 
 		// Send transaction
 		err = session.Send(viewCtx.Context(), txRaw)
@@ -224,6 +228,10 @@ func (f *sendTransactionBackView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	session := viewCtx.Session()
+	txRaw, err = endorser.WireBytes(viewCtx.Context(), session, f.tx.Transaction, txRaw)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed encoding transaction")
+	}
 
 	// Send transaction
 	err = session.Send(viewCtx.Context(), txRaw)

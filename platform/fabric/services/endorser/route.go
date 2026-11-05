@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
@@ -41,16 +42,16 @@ type keyedBytes struct {
 var warnedLegacy sync.Map
 
 // routeReceived returns the name of the local network that serialized transaction
-// raw belongs to, and the key raw carries (nil if none). It picks the network that
-// has a configured channel matching the ChannelKey in raw, preferring the default
-// network when several do, as when one network is configured under two names.
-// Several matches none of which is the default network is an error.
+// raw belongs to, and the key raw carries (nil if none). raw is JSON or a
+// TransactionEnvelope of any registered platform; routeKey picks the network for the key.
 //
 // raw without a key comes from a node that does not send one; it is routed to the
-// default network and a warning is logged once per sender. For bytes with a key,
-// it returns an error if no local network matches; a candidate channel whose key
-// cannot be read yet does not match, and the error says so.
+// default network and a warning is logged once per sender.
 func routeReceived(sp services.Provider, sender string, raw []byte) (string, *driver.ChannelKey, error) {
+	raw, err := protos.JSONFor(raw, "")
+	if err != nil {
+		return "", nil, errors.WithMessage(err, "failed decoding transaction")
+	}
 	var kb keyedBytes
 	if err := json.Unmarshal(raw, &kb); err != nil {
 		return "", nil, errors.Wrap(err, "failed decoding transaction")
@@ -63,10 +64,22 @@ func routeReceived(sp services.Provider, sender string, raw []byte) (string, *dr
 		}
 		return "", nil, nil
 	}
-
-	nsp, err := fabric.GetNetworkServiceProvider(sp)
+	network, err := routeKey(sp, kb.Key)
 	if err != nil {
 		return "", nil, err
+	}
+	return network, kb.Key, nil
+}
+
+// routeKey returns the name of the local network that has a configured channel
+// matching key, preferring the default network when several do, as when one
+// network is configured under two names. Several matches none of which is the
+// default network is an error, and so is no match; a candidate channel whose key
+// cannot be read yet does not match, and the error says so. key must not be nil.
+func routeKey(sp services.Provider, key *driver.ChannelKey) (string, error) {
+	nsp, err := fabric.GetNetworkServiceProvider(sp)
+	if err != nil {
+		return "", err
 	}
 	defaultName := nsp.DefaultName()
 	var matches []string
@@ -82,37 +95,37 @@ func routeReceived(sp services.Provider, sender string, raw []byte) (string, *dr
 		// check the configuration), so this check is what keeps a sender from making
 		// the node open a channel it does not use.
 		conf := fns.ConfigService()
-		if conf.DriverName() != kb.Key.Platform || !slices.Contains(conf.ChannelIDs(), kb.Key.Channel) {
+		if conf.DriverName() != key.Platform || !slices.Contains(conf.ChannelIDs(), key.Channel) {
 			continue
 		}
-		ch, err := fns.Channel(kb.Key.Channel)
+		ch, err := fns.Channel(key.Channel)
 		if err != nil {
 			unknown = errors.Join(unknown, errors.WithMessagef(err, "network [%s]", name))
 			continue
 		}
-		key, err := ch.ChannelKey()
+		local, err := ch.ChannelKey()
 		if err != nil {
 			unknown = errors.Join(unknown, errors.WithMessagef(err, "network [%s]: genesis hash unknown", name))
 			continue
 		}
-		if !key.Matches(kb.Key) {
+		if !local.Matches(key) {
 			continue
 		}
 		if fns.Name() == defaultName {
-			return fns.Name(), kb.Key, nil
+			return fns.Name(), nil
 		}
 		matches = append(matches, fns.Name())
 	}
 	switch len(matches) {
 	case 1:
-		return matches[0], kb.Key, nil
+		return matches[0], nil
 	case 0:
 	default:
-		return "", nil, errors.Errorf("networks %v all match channel [%s] and none is the default network", matches, kb.Key.Channel)
+		return "", errors.Errorf("networks %v all match channel [%s] and none is the default network", matches, key.Channel)
 	}
-	err = errors.Errorf("no local network matches channel [%s] with genesis hash [%x] on platform [%s]", kb.Key.Channel, kb.Key.GenesisHash, kb.Key.Platform)
+	err = errors.Errorf("no local network matches channel [%s] with genesis hash [%x] on platform [%s]", key.Channel, key.GenesisHash, key.Platform)
 	if unknown != nil {
-		return "", nil, errors.Join(err, unknown)
+		return "", errors.Join(err, unknown)
 	}
-	return "", nil, err
+	return "", err
 }

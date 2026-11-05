@@ -19,6 +19,8 @@ import (
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
+	xprotos "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -66,9 +68,17 @@ func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.Tra
 	return txFactory.NewTransaction(ctx, channel, nonce, creator, txID, rawRequest)
 }
 
+// NewTransactionFromBytes creates an endorser transaction and populates it from raw via
+// Transaction.SetFromBytes. raw is the JSON of a Fabric-x transaction or a Fabric-x
+// TransactionEnvelope (see protos.JSONFor and the format of package xprotos); an envelope of
+// another platform is an error.
 func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
 	// TODO: remove fixed transaction type
 	txFactory, err := m.transactionFactory(driver.EndorserTransaction)
+	if err != nil {
+		return nil, err
+	}
+	raw, err = protos.JSONFor(raw, xprotos.Platform)
 	if err != nil {
 		return nil, err
 	}

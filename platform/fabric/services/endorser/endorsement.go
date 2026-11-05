@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -84,6 +86,10 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed getting session")
 		}
+		txRaw, err = WireBytes(viewCtx.Context(), session, c.tx, txRaw)
+		if err != nil {
+			return nil, errors.WithMessage(err, "failed encoding transaction")
+		}
 
 		// Get a channel to receive the answer
 		logger.DebugfContext(viewCtx.Context(), "Start receiving from party")
@@ -122,10 +128,9 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 
 		logger.Debugf("got response from party [%s]", party)
 
-		// The response contains an array of marshalled ProposalResponse message
-		var responses [][]byte
-		if err := json.Unmarshal(msg.Payload, &responses); err != nil {
-			return nil, errors.Wrap(err, "failed unmarshalling response")
+		responses, err := decodeResponses(msg.Payload)
+		if err != nil {
+			return nil, err
 		}
 
 		found := false
@@ -251,13 +256,23 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.WithMessagef(err, "failed storing tx env [%s]", s.tx.ID())
 	}
 
-	// Send the proposal response back
-	raw, err := json.Marshal(responses)
+	// Send the proposal responses back, in the encoding the session negotiated.
+	session := viewCtx.Session()
+	asProto, err := sendsEnvelope(viewCtx.Context(), session, s.tx)
 	if err != nil {
 		return nil, err
 	}
+	var raw []byte
+	if asProto {
+		raw, err = proto.Marshal(&protos.EndorsementResponse{ProposalResponses: responses})
+	} else {
+		raw, err = json.Marshal(responses)
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed marshalling endorsement response")
+	}
 
-	err = viewCtx.Session().Send(viewCtx.Context(), raw)
+	err = session.Send(viewCtx.Context(), raw)
 	if err != nil {
 		return nil, err
 	}

@@ -137,6 +137,8 @@ The fuzz targets live across several packages handling untrusted pre-auth bytes:
   `FuzzTransactionSetFromEnvelopeBytes`, `FuzzNewProposalResponseFromBytes`.
 - [`platform/fabricx/core/transaction/fuzz_test.go`](../../platform/fabricx/core/transaction/fuzz_test.go):
   `FuzzFabricxNewProposalResponseFromBytes`, `FuzzFabricxUnpackEnvelopeFromBytes`.
+- [`platform/fabric/protos/fuzz_test.go`](../../platform/fabric/protos/fuzz_test.go):
+  `FuzzJSONFromEnvelope`, a received transaction envelope converted to JSON.
 - [`platform/fabric/core/generic/msp/x509/fuzz_test.go`](../../platform/fabric/core/generic/msp/x509/fuzz_test.go):
   `FuzzDeserializeVerifier`.
 - [`platform/view/services/comm/io/fuzz_test.go`](../../platform/view/services/comm/io/fuzz_test.go):

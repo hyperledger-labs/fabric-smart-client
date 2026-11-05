@@ -599,7 +599,7 @@ func TestPostgresVaultStoreMigratesOldLayoutConcurrently(t *testing.T) {
 	}
 	var version int
 	require.NoError(t, store.writeDB.QueryRowContext(ctx, "SELECT version FROM fsc_schema_versions WHERE store = $1", store.StoreName()).Scan(&version))
-	require.Equal(t, len(store.Steps()), version)
+	require.Equal(t, 1, version, "the contract step waits for node migrate --contract")
 }
 
 // Step 1 on an up-to-date vault takes no table lock: it completes while

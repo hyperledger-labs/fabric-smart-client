@@ -168,7 +168,7 @@ They all use the same physical table shape: a logical transaction key mapped to 
 | --- | --- | --- |
 | EnvelopeStore | `fsc_default_env` | Fabric envelope bytes |
 | MetadataStore | `fsc_default_meta` | JSON-marshaled metadata bytes |
-| EndorseTxStore | `fsc_default_etx` | opaque transaction bytes |
+| EndorseTxStore | `fsc_default_etx` | endorsed transaction: JSON, or a protobuf `TransactionEnvelope` once contract step 2 has run |
 
 ### Shared Schema
 
@@ -228,7 +228,7 @@ Notes:
 
 - the primary key is `(ns, pkey)`
 - `metadata` is stored as encoded bytes
-- metadata values are marshaled from a `map[string][]byte`
+- metadata values are marshaled from a `map[string][]byte`: gob-encoded, or a protobuf `VaultMetadata` once contract step 2 has run; readers tell the two apart by the first byte
 - unlike the View KVS, the vault state table is the main persisted application state surface for many Fabric applications
 
 ## Schema Versions Table

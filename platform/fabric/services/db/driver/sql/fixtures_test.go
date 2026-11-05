@@ -141,6 +141,18 @@ func checkRows(t *testing.T, s fixtureStores) {
 	assert.Equal(t, driver.Valid, status.Code)
 }
 
+// runContract runs the contract steps of every store in s that has one, which an open
+// without WithContract holds back on a released database, and reads back every row again.
+func runContract(t *testing.T, db *sql.DB, d migrate.Dialect, s fixtureStores) {
+	t.Helper()
+	for _, store := range []any{s.etx, s.vault} {
+		v, ok := store.(migrate.Versioned)
+		require.True(t, ok, "%T is not migrate.Versioned", store)
+		require.NoError(t, migrate.Migrate(t.Context(), db, d, "", v, migrate.WithContract()))
+	}
+	checkRows(t, s)
+}
+
 // requireLatest checks that every store in s is recorded at its latest step.
 func requireLatest(t *testing.T, db *sql.DB, s fixtureStores) {
 	t.Helper()
@@ -154,7 +166,8 @@ func requireLatest(t *testing.T, db *sql.DB, s fixtureStores) {
 }
 
 // TestFixturesSQLite opens the SQLite database of every fixture directory (see
-// fixtureDirs), migrates every store, and reads back every row.
+// fixtureDirs), migrates every store, reads back every row, and does so again after running
+// the contract steps.
 func TestFixturesSQLite(t *testing.T) {
 	t.Parallel()
 	for name, dir := range fixtureDirs() {
@@ -190,6 +203,7 @@ func TestFixturesSQLite(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "ns,pkey", cols, table)
 			}
+			runContract(t, rw.WriteDB, migrate.SQLite, s)
 			requireLatest(t, rw.ReadDB, s)
 		})
 	}
@@ -290,7 +304,8 @@ func sequenceOf(def *string) (string, bool) {
 }
 
 // TestPostgresFixtures restores the Postgres database of every fixture
-// directory (see fixtureDirs), migrates every store, and reads back every row.
+// directory (see fixtureDirs), migrates every store, reads back every row, and does so again
+// after running the contract steps.
 func TestPostgresFixtures(t *testing.T) {
 	t.Parallel()
 	for name, dir := range fixtureDirs() {
@@ -324,6 +339,7 @@ func TestPostgresFixtures(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "ns,pkey", cols, table)
 			}
+			runContract(t, rw.WriteDB, migrate.Postgres, s)
 			requireLatest(t, rw.ReadDB, s)
 		})
 	}

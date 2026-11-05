@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 )
 
@@ -191,19 +192,43 @@ func TestValidateReceived_SignatureNotChecked(t *testing.T) {
 	require.NoError(t, r.validate())
 }
 
-// The Fabric-x committer does not require txID == ComputeTxID(nonce, creator).
-func TestValidateReceived_FabricxSkipsTxIDCheck(t *testing.T) {
-	t.Parallel()
-	r := newReceivedTx().withProposal(t, func(m *proposalMsgs) { m.chdr.TxId = "forged" })
-	r.conf.DriverNameReturns(fabricxDriverName)
-	r.dtx.IDReturns("forged")
-	require.NoError(t, r.validate())
+// skipTxIDDriver is the driver name of a test platform whose format skips the txID check, as a
+// platform whose committer does not derive the txID from nonce and creator registers it.
+const skipTxIDDriver = "test-skip-txid"
 
-	r = newReceivedTx().withProposal(t, func(m *proposalMsgs) {
+func init() {
+	protos.RegisterTransactionFormat(skipTxIDDriver, protos.TransactionFormat{
+		Component:     "test-skip-txid",
+		SkipTxIDCheck: true,
+		ToPayload:     func(raw []byte) ([]byte, *driver.ChannelKey, error) { return raw, nil, nil },
+		ToJSON:        func(*protos.TransactionEnvelope) ([]byte, error) { return nil, errors.New("not implemented") },
+	})
+}
+
+// The format of the driver decides whether the txID must equal ComputeTxID(nonce, creator):
+// a driver without a format is checked, a format with SkipTxIDCheck is not.
+func TestValidateReceivedUsesFormat(t *testing.T) {
+	t.Parallel()
+	for driverName, wantErr := range map[string]bool{"generic": true, "unregistered": true, skipTxIDDriver: false} {
+		t.Run(driverName, func(t *testing.T) {
+			t.Parallel()
+			r := newReceivedTx().withProposal(t, func(m *proposalMsgs) { m.chdr.TxId = "forged" })
+			r.conf.DriverNameReturns(driverName)
+			r.dtx.IDReturns("forged")
+			if wantErr {
+				require.ErrorContains(t, r.validate(), "txID is not derived from nonce and creator")
+				return
+			}
+			require.NoError(t, r.validate())
+		})
+	}
+
+	// Skipping the txID check keeps the proposal checks.
+	r := newReceivedTx().withProposal(t, func(m *proposalMsgs) {
 		m.chdr.TxId = "forged"
 		m.shdr.Nonce = []byte("other-nonce")
 	})
-	r.conf.DriverNameReturns(fabricxDriverName)
+	r.conf.DriverNameReturns(skipTxIDDriver)
 	r.dtx.IDReturns("forged")
 	require.ErrorContains(t, r.validate(), "proposal nonce does not match")
 }
