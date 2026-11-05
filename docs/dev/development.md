@@ -123,7 +123,6 @@ make checks
 | `make lint`          | `golangci-lint run` in every module                                   |
 | `make lint-auto-fix` | the same, with `--fix` to apply what `golangci-lint` can fix itself   |
 | `make lint-fmt`      | `golangci-lint fmt`, applying the formatter configuration CI enforces  |
-| `make fmt`           | `gofmt -s -w` over the whole tree                                     |
 | `make go-fix`        | reports the modernizations `go fix` suggests, without applying them    |
 | `make go-fix-apply`  | applies those modernizations, in every module                          |
 | `make docs-links`    | fails if a Markdown page other than `AGENTS.md` and `docs/agents/` links into `docs/agents/` |

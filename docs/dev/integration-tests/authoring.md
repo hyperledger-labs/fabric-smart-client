@@ -43,8 +43,8 @@ enough when the name follows the `<platform>-<suite>` convention, which maps to
   [One target at a time](../development.md#one-target-at-a-time).
 - **The suite needs ginkgo flags** (e.g. a `--label-filter` so one suite becomes several
   parallel CI entries) → set `INTEGRATION_FLAGS_<target>`.
-- **The suite needs `-tags pkcs11`** → add it to `HSM_INTEGRATION_TARGETS` instead of
-  `INTEGRATION_TARGETS`; that list compiles the test binary with the build tag.
+- **The suite needs a build tag** (e.g. `-tags pkcs11`) → set
+  `INTEGRATION_GOFLAGS_<target>`; it becomes the `GOFLAGS` the test binary is built with.
 
 ## Network topology options
 

@@ -2,14 +2,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-TOP = .
+#########################
+# Pinned versions
+#########################
 
-# pinned versions
 FABRIC_VERSION ?= 3.1.4
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 
 FABRIC_X_TOOLS_VERSION ?= v1.0.3
 FABRIC_X_COMMITTER_VERSION ?= 1.0.7
+
+# Must match `version:` in .github/workflows/golangci-lint.yml.
+GOLANGCI_LINT_VERSION ?= v2.14.0
+
+#########################
+# Paths
+#########################
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE ?= $(PWD)/../fabric
@@ -20,10 +28,6 @@ FAB_BINS ?= $(FABRIC_BINARY_BASE)/bin
 # with fxconfig.BinSubdir.
 FABRIC_X_BINS ?= $(FAB_BINS)/fabric-x
 
-# integration test options
-GINKGO_TEST_OPTS ?=
-GINKGO_TEST_OPTS += --keep-going
-
 # Run `make help` to find the supported targets
 .DEFAULT_GOAL := help
 
@@ -32,8 +36,11 @@ help: ## List all commands with documentation
 	@echo "Available commands:"
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
+# lint, go fix, docs links and govulncheck
+include checks.mk
+
 #########################
-# Install tools
+# Tools
 #########################
 
 .PHONY: install-tools
@@ -45,13 +52,7 @@ install-tools: ## Install all tools
 .PHONY: install-linter-tool
 install-linter-tool: ## Install linter in $(go env GOPATH)/bin
 	@echo "Installing golangci Linter"
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.14.0
-
-.PHONY: install-fabricx-tools
-install-fabricx-tools: ## Install the fabric-x tools in $(FABRIC_X_BINS)
-	@env GOBIN=$(FABRIC_X_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/fxconfig@$(FABRIC_X_TOOLS_VERSION)
-	@env GOBIN=$(FABRIC_X_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/configtxgen@$(FABRIC_X_TOOLS_VERSION)
-	@env GOBIN=$(FABRIC_X_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/cryptogen@$(FABRIC_X_TOOLS_VERSION)
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
 
 .PHONY: install-fabric-bins
 install-fabric-bins: ## Install fabric binaries in $(FABRIC_BINARY_BASE)
@@ -62,6 +63,10 @@ install-fabric-bins: ## Install fabric binaries in $(FABRIC_BINARY_BASE)
 	  exit 1; \
 	}
 
+.PHONY: install-fabricx-tools
+install-fabricx-tools: ## Install the fabric-x tools in $(FABRIC_X_BINS)
+	@env GOBIN=$(FABRIC_X_BINS) go install $(addprefix github.com/hyperledger/fabric-x/tools/,$(addsuffix @$(FABRIC_X_TOOLS_VERSION),fxconfig configtxgen cryptogen))
+
 .PHONY: install-softhsm
 install-softhsm: ## Install softhsm
 	./ci/scripts/install_softhsm.sh
@@ -71,7 +76,7 @@ install-fsccli: ## Install fsccli
 	cd integration; go install ./nwo/cmd/fsccli
 
 #########################
-# Generate protos
+# Code generation
 #########################
 
 .PHONY: generate-protos
@@ -87,10 +92,6 @@ BUF_AGAINST ?= $(shell git describe --tags --abbrev=0 --match 'v*')
 buf-breaking: ## Check that the FSC protos (buf.yaml) only add to what $(BUF_AGAINST) has
 	buf breaking --against '.git#tag=$(or $(BUF_AGAINST),$(error no v* tag reachable; git fetch --tags or set BUF_AGAINST))' --against-config buf.yaml
 
-#########################
-# Generate mocks
-#########################
-
 .PHONY: generate-mocks
 generate-mocks: ## Delete all counterfeiter mock folders and regenerate via go generate ./...
 	@./scripts/find-mocks.sh > /dev/null
@@ -98,18 +99,11 @@ generate-mocks: ## Delete all counterfeiter mock folders and regenerate via go g
 	go generate ./...
 
 #########################
-# Container
+# Container images
 #########################
 
 .PHONY: pull-images-fabric fabric-baseos fabric-ccenv
 pull-images-fabric: fabric-baseos fabric-ccenv ## Pull fabric images
-
-.PHONY: chaincode-images
-chaincode-images: ## Build container images for the in-tree CCaaS chaincodes
-	@grep -vE '^\s*(#|$$)' scripts/chaincode/images.txt | \
-	  while read -r image module pkg; do \
-	    scripts/chaincode/build-image.sh "$$image" "$$module" "$$pkg" || exit 1; \
-	  done
 
 .PHONY: pull-images-fabricx fabric-x-committer-test-node
 pull-images-fabricx: fabric-x-committer-test-node ## Pull fabric-x images
@@ -151,12 +145,20 @@ postgres:
 	docker pull postgres:16.2-alpine
 	docker tag postgres:16.2-alpine fsc.itests/postgres:latest
 
-#########################
-# Tests
-#########################
+.PHONY: chaincode-images
+chaincode-images: ## Build container images for the in-tree CCaaS chaincodes
+	@grep -vE '^\s*(#|$$)' scripts/chaincode/images.txt | \
+	  while read -r image module pkg; do \
+	    scripts/chaincode/build-image.sh "$$image" "$$module" "$$pkg" || exit 1; \
+	  done
 
-# include the checks target
-include $(TOP)/checks.mk
+.PHONY: clean-fabric-peer-images
+clean-fabric-peer-images: ## Clean up generated fabric peer images
+	docker images -a | grep "_peer_" | awk '{print $$3}' | xargs docker rmi
+
+#########################
+# Unit tests
+#########################
 
 # we use a multi-module repo structure here and therefore need to carefully collect packages for unit tests
 GO_PACKAGES = $$(go list ./...)
@@ -221,7 +223,7 @@ unit-tests-extensions: ## Run unit tests of the extension modules (optional driv
 	rm -rf $$raw; exit $$rc
 
 .PHONY: unit-tests-postgres
-unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
+unit-tests-postgres: ## Run unit tests for postgres (requires the images from pull-images-database)
 	@env $(UNIT_TEST_ENV) go test $(GO_TEST_PARAMS) $(GO_COVERPKG) $(COVER_FLAGS) --run '(Postgres)' $(POSTGRES_TEST_PKGS)
 	@$(FILTER_COVERAGE)
 
@@ -229,8 +231,17 @@ unit-tests-postgres: ## Run unit tests for postgres (requires container images a
 unit-tests-sdk: ## Run sdk wiring tests
 	@env $(UNIT_TEST_ENV) go test $(GO_TEST_PARAMS) --run "(TestWiring)" $(GO_PACKAGES_SDK)
 
-run-otlp:
-	cd platform/view/services/tracing; docker-compose up -d
+.PHONY: coverage-local
+coverage-local: ## Run unit tests and show filtered coverage
+	@$(MAKE) unit-tests-root COVERAGE=1 COVERAGE_PROFILE=$(CURDIR)/coverage.out
+	@go tool cover -func=coverage.out | tail -n 1
+
+#########################
+# Integration tests
+#########################
+
+GINKGO_TEST_OPTS ?=
+GINKGO_TEST_OPTS += --keep-going
 
 INTEGRATION_TARGETS =
 
@@ -263,13 +274,12 @@ INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
 # them as parallel matrix entries rather than serially in one job.
 INTEGRATION_TARGETS += fabric-iou-libp2p
+# Needs softhsm (make install-softhsm) and the pkcs11 build tag, see INTEGRATION_GOFLAGS.
+INTEGRATION_TARGETS += fabric-iouhsm
 INTEGRATION_TARGETS += fabric-runtimeconfig
 INTEGRATION_TARGETS += fabric-twonets
 # A Fabric and a Fabric-x network on the same nodes; needs the Fabric-x binaries too.
 INTEGRATION_TARGETS += fabric-mixednets
-
-## hsm section (require -tags pkcs11 for test binary compilation)
-HSM_INTEGRATION_TARGETS = fabric-iouhsm
 
 ## fabricx section
 INTEGRATION_TARGETS += fabricx-iou
@@ -315,25 +325,24 @@ INTEGRATION_FLAGS_fabricx-faultrecovery-replication = --label-filter=replication
 INTEGRATION_FLAGS_fabricx-faultrecovery-partition   = --label-filter=partition
 INTEGRATION_FLAGS_fabricx-faultrecovery-crash       = --label-filter=crash
 
+# Per-target GOFLAGS for the test binary. Every file of fabric/iouhsm is built
+# with the pkcs11 tag; without it the suite compiles to no specs and passes.
+INTEGRATION_GOFLAGS_fabric-iouhsm = -tags=pkcs11
+
 integration_default_dir = $(firstword $(subst -, ,$(1)))/$(subst $(firstword $(subst -, ,$(1)))-,,$(1))
 integration_dir = $(or $(INTEGRATION_DIR_$(1)),$(call integration_default_dir,$(1)))
 
 .PHONY: list-integration-tests
 list-integration-tests: ## List all integration tests
-	@$(foreach t,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS),echo "$(t)";)
+	@$(foreach t,$(INTEGRATION_TARGETS),echo "$(t)";)
 
 .PHONY: integration-tests
-integration-tests: $(addprefix integration-tests-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) ## Run all integration tests
-
-$(addprefix integration-tests-,$(HSM_INTEGRATION_TARGETS)) : integration-tests-%:
-	export FAB_BINS=$(FAB_BINS); \
-		cd ./integration/$(call integration_dir,$*); \
-		GOFLAGS="-tags=pkcs11" ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
+integration-tests: $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) ## Run all integration tests
 
 $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 	export FAB_BINS=$(FAB_BINS); \
 		cd ./integration/$(call integration_dir,$*); \
-		ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
+		$(if $(INTEGRATION_GOFLAGS_$*),GOFLAGS="$(INTEGRATION_GOFLAGS_$*)" )ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
 
 #########################
 # Release
@@ -347,31 +356,17 @@ endif
 	./scripts/tag-release.sh $(if $(DRY),--dry) $(VERSION)
 
 #########################
-# Cleaning
+# Housekeeping
 #########################
-
-.PHONY: clean
-clean: $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) ## Clean generated testdata
-	rm -rf ./integration/nwo/cmd/fsccli/out
-	rm -rf ./out
-
-$(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) : clean-%:
-	rm -rf ./integration/$(call integration_dir,$*)/out
 
 .PHONY: tidy
 tidy: ## Run go mod tidy everywhere
 	@./scripts/gomate.sh tidy
 
-.PHONY: fmt
-fmt: ## Run gofmt on the entire project
-	@echo "Running gofmt..."
-	@gofmt -l -s -w .
+.PHONY: clean
+clean: $(addprefix clean-,$(INTEGRATION_TARGETS)) ## Clean generated testdata
+	rm -rf ./integration/nwo/cmd/fsccli/out
+	rm -rf ./out
 
-.PHONY: clean-fabric-peer-images
-clean-fabric-peer-images: ## Clean up generated fabric peer images
-	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
-
-.PHONY: coverage-local
-coverage-local: ## Run unit tests and show filtered coverage
-	@$(MAKE) unit-tests-root COVERAGE=1 COVERAGE_PROFILE=$(CURDIR)/coverage.out
-	@go tool cover -func=coverage.out | tail -n 1
+$(addprefix clean-,$(INTEGRATION_TARGETS)) : clean-%:
+	rm -rf ./integration/$(call integration_dir,$*)/out

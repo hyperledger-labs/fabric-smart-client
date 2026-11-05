@@ -10,7 +10,7 @@ checks: lint go-fix docs-links ## Run all code checks (lint + go fix + docs link
 .PHONY: docs-links
 docs-links: ## Check that no page for people links into docs/agents/
 	@echo "Checking docs links..."
-	@if cd $(TOP) && git grep -nE '\]\([^)]*agents/' -- '*.md' ':!AGENTS.md' ':!CLAUDE.md' ':!docs/agents/'; then \
+	@if git grep -nE '\]\([^)]*agents/' -- '*.md' ':!AGENTS.md' ':!CLAUDE.md' ':!docs/agents/'; then \
 		echo "these pages link into docs/agents/; link the page for people instead (docs/dev/documentation.md)"; exit 1; \
 	fi
 
@@ -30,7 +30,7 @@ docs-links: ## Check that no page for people links into docs/agents/
 # tools/ is excluded on purpose: it is a build-tagged dependency pin with no
 # buildable package, and golangci-lint fails there with "no go files to
 # analyze".
-GO_MODULE_DIRS = $(shell cd $(TOP) && git ls-files \
+GO_MODULE_DIRS = $(shell git ls-files \
 	| grep -E '(^|/)go\.mod$$' \
 	| xargs -n1 dirname \
 	| grep -vx tools \
@@ -67,7 +67,7 @@ lint-auto-fix: ## Run linter with auto-fix
 	@$(call in_all_modules,golangci-lint run --color=always --timeout=4m --fix)
 
 .PHONY: lint-fmt
-lint-fmt:
+lint-fmt: ## Run golangci-lint fmt in every module
 	@echo "Running Go Formatters..."
 	@$(call in_all_modules,golangci-lint fmt)
 
