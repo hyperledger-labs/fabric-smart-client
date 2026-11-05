@@ -31,6 +31,8 @@ func Topology() []api.Topology {
 	fx.AddNamespace("ns2", topology.Unanimity("Org1"))
 
 	fscTopology := fsc.NewTopology()
+	// The outage spec reads alice's connection states from /metrics.
+	fscTopology.EnablePrometheusMetrics()
 	for node, defaultNetwork := range map[string]string{"alice": "fab", "bob": "fx"} {
 		fscTopology.AddNodeByName(node).
 			AddOptions(
