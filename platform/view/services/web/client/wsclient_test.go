@@ -92,10 +92,11 @@ func TestOpenWSClientConnContext_Deadline(t *testing.T) {
 		}
 	}()
 
+	// start is taken before the context, so the deadline cannot begin before the measurement.
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
-	start := time.Now()
 	conn, err := OpenWSClientConnContext(ctx, "ws://"+listener.Addr().String(), nil)
 	elapsed := time.Since(start)
 
