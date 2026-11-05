@@ -54,9 +54,10 @@ root only sees the root module — the other four are invisible to it.
   `./scripts/gomate.sh update github.com/some/dep@v1.2.3`.
 - A dependency used only by code under `integration/` or the libp2p host
   belongs in *that* module's `go.mod`, not the root one.
-- **Releases** tag each module separately
+- **Releases** tag every module with the same version
   (`make tag-release VERSION=vX.Y.Z`, see [`scripts/tag-release.sh`](scripts/tag-release.sh));
-  a change in a submodule needs its own tag to be consumable downstream.
+  a change in a submodule is consumable downstream only after the next release. The steps are
+  in [`docs/dev/releasing.md`](docs/dev/releasing.md).
 
 ## Where to look next
 
@@ -72,6 +73,7 @@ Read these on demand — don't load them up front.
 | Node configuration (`core.yaml`) | [`docs/configuration.md`](docs/configuration.md) | |
 | Architecture overview & concepts | [`docs/core-concepts.md`](docs/core-concepts.md) | |
 | Contribution workflow | [`docs/dev/workflow.md`](docs/dev/workflow.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) | |
+| Cutting a release | [`docs/dev/releasing.md`](docs/dev/releasing.md) | |
 | Where documentation goes and how it is written | [`docs/dev/documentation.md`](docs/dev/documentation.md) | |
 
 ## Documentation
