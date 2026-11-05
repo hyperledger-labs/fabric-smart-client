@@ -84,6 +84,8 @@ fsc:
     {{- if gt Topology.P2P.MaxSendMsgSize 0 }}
     maxSendMsgSize: {{ Topology.P2P.MaxSendMsgSize }}
     {{- end }}
+    # Transport options, such as websocket and libp2p; tests that rewrite core.yaml add to it.
+    opts: {}
   persistences: {{ range $key, $value := Persistences }}
     {{ $key }}:
       type: {{ $value.Type }}

@@ -111,7 +111,7 @@ func TestCoreTemplate_P2PMessageSizeLimits(t *testing.T) {
 			p2p := p2pSection(t, core)
 			require.Equal(t, tt.wantRecv, p2p["maxRecvMsgSize"])
 			require.Equal(t, tt.wantSend, p2p["maxSendMsgSize"])
-			require.Contains(t, p2p, "type", "the keys must not displace the rest of fsc.p2p")
+			require.Contains(t, p2p, "opts", "the keys must not displace the rest of fsc.p2p")
 			require.Contains(t, p2p, "listenAddress")
 
 			if tt.wantRecv == nil && tt.wantSend == nil {
