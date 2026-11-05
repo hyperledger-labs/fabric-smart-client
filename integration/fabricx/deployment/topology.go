@@ -29,12 +29,9 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespace(Namespace, topology.Unanimity("Org1"))
 
-	// Note that we currently spawn a single committer used by all the nodes in the network.
 	fabricTopology.
-		WithCommitterName("committer").
-		WithCommitterOrg("Org2").
-		WithCommitterEnv("SC_ORDERER_BLOCK_SIZE", "10").
-		WithCommitterEnv("SC_ORDERER_BLOCK_TIMEOUT", "1s")
+		WithOrdererEnv("SC_ORDERER_BLOCK_SIZE", "10").
+		WithOrdererEnv("SC_ORDERER_BLOCK_TIMEOUT", "1s")
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType

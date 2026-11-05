@@ -11,7 +11,6 @@ import (
 	"text/template"
 
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )
 
 const nsExtensionTemplate = `
@@ -39,8 +38,8 @@ fabric:
     {{- end }}
 `
 
-func generateNSExtension(n *network.Network, sidecarOrg, sidecarName string) {
-	scPeer := n.Peer(sidecarOrg, sidecarName)
-	scAddr := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(scPeer, fabric_network.ListenPort))
-	generateExtensions(n, scAddr, template.Must(template.New("ns").Parse(nsExtensionTemplate)))
+func generateNSExtension(e *Extension) {
+	generateExtensions(e, func(c *committer) string {
+		return fmt.Sprintf("127.0.0.1:%d", e.network.PeerPort(c.sidecarPeer(), fabric_network.ListenPort))
+	}, template.Must(template.New("ns").Parse(nsExtensionTemplate)))
 }

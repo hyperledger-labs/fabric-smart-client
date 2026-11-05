@@ -38,8 +38,8 @@ fabric:
     {{- end }}
 `
 
-func generateQSExtension(n *network.Network, sidecarOrg, sidecarName string) {
-	scPeer := n.Peer(sidecarOrg, sidecarName)
-	scAddr := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(scPeer, network.QueryServicePortName))
-	generateExtensions(n, scAddr, template.Must(template.New("qs").Parse(qsExtensionTemplate)))
+func generateQSExtension(e *Extension) {
+	generateExtensions(e, func(c *committer) string {
+		return fmt.Sprintf("127.0.0.1:%d", e.network.PeerPort(c.sidecarPeer(), network.QueryServicePortName))
+	}, template.Must(template.New("qs").Parse(qsExtensionTemplate)))
 }

@@ -23,7 +23,7 @@ around it.
 | `StopPeer(name)` / `StartPeer(name)` | the same as `StopFSCNode` / `StartFSCNode` for a Fabric peer, e.g. `Org1_peer_0` |
 | `StopOrderer(name)` / `StartOrderer(name)` | the same for a Fabric orderer, e.g. `orderer` |
 | `StopPostgres(dbName)` / `StartPostgres(dbName)` | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive |
-| `fabricx.FxPlatform(ii).StopCommitter()` / `StartCommitter()` | stop / restart the Fabric-x committer services; see [Fabric-x committer](#fabric-x-committer) |
+| `fabricx.FxPlatform(ii).StopCommitter(names...)` / `StartCommitter(names...)` | stop / restart the services of the named Fabric-x committers, every committer with no name; see [Fabric-x committer](#fabric-x-committer) |
 | `common.Proxy` `Partition()` / `Heal()` / `SetLatency(d)` | cut, restore or slow a link through a fault proxy; see [Partitions and latency](#partitions-and-latency) |
 | `EventuallyConnectionState(node, conn, want, timeout)` | poll the node's `/metrics` until every `fsc_connection_state` series that `conn` (an `fsc.Connection`) selects is `want`; see [Connection state](#connection-state) |
 | `WebClient(node).Ready()` | `nil` once the node's `GET /readyz` answers 200 |
@@ -39,13 +39,19 @@ discovers all the others through gossip.
 
 ### Fabric-x committer
 
-`fabricx.FxPlatform(ii).StopCommitter()` and `StartCommitter()` stop and restart the
-committer services (sidecar, coordinator, verifier, validator-committer, query) inside the
-all-in-one committer container. Its database and mock orderer keep running. Start waits
-until the sidecar, query and ordering services accept connections, and fails at once if the
-services exit first; a transaction ordered after that commits. The committer test
-container's mock orderer holds its blocks in memory only and loses them on restart, so a
-Fabric-x spec cannot restart the orderer.
+Every organization with a peer in a Fabric-x network runs a committer, named `CommitterName(org)`
+(`Org2_committer_0`), in a container of its own with its own database, and each FSC node
+uses its own organization's committer. All committers read from one mock orderer in a
+separate container; the [Fabric-x guide](../../platform/fabric-x/README.md#integration-tests)
+covers the topology options.
+
+`fabricx.FxPlatform(ii).StopCommitter(names...)` and `StartCommitter(names...)` stop and
+restart the services of the named committers, every committer when no name is given, so a spec can take one
+organization's committer down while the others keep committing. The databases and the
+mock orderer keep running. Start waits until the sidecar and query services accept
+connections, and fails at once if the services exit first; a transaction ordered after that
+commits. The mock orderer holds its blocks in memory only, so a Fabric-x spec cannot
+restart the orderer.
 
 ## The fault-recovery suites
 

@@ -37,6 +37,7 @@ const (
 
 var (
 	notification = fsc.Connection{Component: connstate.ComponentFabricxNotification}
+	query        = fsc.Connection{Component: connstate.ComponentFabricxQuery}
 	database     = fsc.Connection{Component: connstate.ComponentDatabase}
 
 	// bobReplicas are the replica IDs of bob in faultrecovery.ReplicatedFSCTopology.
@@ -130,13 +131,44 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
 
+	It("keeps committing while another org's committer is down", func() {
+		committers := nwofabricx.FxPlatform(s.II)
+		committers.StopCommitter(fxfaultrecovery.Org2Committer)
+		// Starting running services fails, so the cleanup restarts them only if the spec
+		// fails while they are down.
+		down := true
+		DeferCleanup(func() {
+			if down {
+				committers.StartCommitter(fxfaultrecovery.Org2Committer)
+			}
+		})
+		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
+
+		// Bob endorses without its committer; alice's committer reports the txs final.
+		txIDs := make([]string, 3)
+		for i := range txIDs {
+			txIDs[i] = faultrecovery.Order(s.II, faultrecovery.Endorse(s.II, i))
+		}
+		faultrecovery.WaitFinalOn(s.II, "alice", txIDs...)
+		s.II.EventuallyConnectionState("alice", notification, connstate.Connected, time.Minute)
+
+		// Org2's committer catches up from the orderer, so bob settles the txs too.
+		committers.StartCommitter(fxfaultrecovery.Org2Committer)
+		down = false
+		s.II.EventuallyConnectionState("bob", notification, connstate.Connected, time.Minute)
+		for i, txID := range txIDs {
+			faultrecovery.ExpectSettled(s.II, "bob", txID, i)
+		}
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+
 	It("survives committer restart", func() {
 		committer := nwofabricx.FxPlatform(s.II)
 		tx := faultrecovery.Endorse(s.II, 1)
 
-		// Bob's listener is registered while the committer is down, so it waits on no
-		// stream and is requested on the one opened after the restart. The transaction
-		// is ordered after the restart, so the restarted sidecar has to deliver it.
+		// Bob's finality call starts while the committer is down, and the transaction is
+		// ordered after the restart, so the restarted sidecar has to deliver it.
+		s.II.EventuallyConnectionState("bob", query, connstate.Connected, time.Minute)
 		committer.StopCommitter()
 		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
 		final := make(chan error, 1)
@@ -148,9 +180,12 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 			_, err := s.II.Client("bob").CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
 			final <- err
 		}()
-		// Nothing reports that the listener is registered. Registering first asks the
-		// unreachable query service, which answers within its 10 s request timeout.
-		time.Sleep(15 * time.Second)
+		// Bob's query connection goes Reconnecting once a query fails against the stopped
+		// committer: his finality call's status check or his channel config poll, whichever
+		// runs first. Nothing reports that the listener is registered, so the restart can
+		// overtake the registration; the listener is then settled through the restarted
+		// committer either way.
+		s.II.EventuallyConnectionState("bob", query, connstate.Reconnecting, time.Minute)
 		committer.StartCommitter()
 
 		faultrecovery.Order(s.II, tx)

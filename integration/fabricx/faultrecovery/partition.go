@@ -41,7 +41,7 @@ func (p *FaultProxies) Close() {
 	_ = p.Notification.Close()
 }
 
-// SetFaultProxies starts a proxy in front of the committer's notification service, points
+// SetFaultProxies starts a proxy in front of bob's committer's notification service, points
 // bob's core.yaml at it, and enables the gRPC client keepalive of bob's notification
 // service (see KeepaliveTime). Every other link, bob's query service and alice's links
 // included, is direct.
@@ -49,8 +49,9 @@ func (p *FaultProxies) Close() {
 // starts; the proxies forward until Close.
 func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	n := nwofabricx.FxPlatform(ii).Network
-	committer := n.Peer(n.CommitterOrg, n.CommitterName)
-	gomega.Expect(committer).NotTo(gomega.BeNil(), "no committer peer")
+	// Bob is in Org2 and uses Org2's committer.
+	committer := n.Peer("Org2", Org2Committer)
+	gomega.Expect(committer).NotTo(gomega.BeNil(), "no committer peer for bob")
 	notification := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committer, fabricnetwork.ListenPort))
 
 	p := &FaultProxies{

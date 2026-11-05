@@ -35,7 +35,10 @@ func ordererConsenters(n *network.Network) []consenter {
 	return consenters
 }
 
-// generateMockOrdererConfigFile creates a mock orderer configuration.
+// generateMockOrdererConfigFile creates a mock orderer configuration. out-block-capacity is
+// how many blocks the mock orderer keeps for delivery; it is large so a committer that is
+// down while another keeps consuming still finds its blocks when it restarts, since the mock
+// orderer drops the oldest blocks once it holds that many.
 // NOTE: This is a simplified mock configuration. The consenter-msp-identities
 // are hardcoded and must match the actual network topology.
 func generateMockOrdererConfigFile(configPath string, consenters []consenter) error {
@@ -56,7 +59,7 @@ server:
       - /some/CA-cert.pem
 block-size: 1024
 block-timeout: 30s
-out-block-capacity: 1024
+out-block-capacity: 100000
 payload-cache-size: 1024
 send-genesis-block: true
 artifacts-path:

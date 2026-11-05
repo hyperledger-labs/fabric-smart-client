@@ -58,14 +58,18 @@ func NewPlatformFactory() *ExtendedPlatformFactory {
 			if !ok {
 				panic(fmt.Sprintf("expected *fabricx.Topology, got %T", t))
 			}
-			return scv2.NewExtension(fxTopo.Topology, platform.Network, scv2.CommitterConfig{
-				SidecarName:  fxTopo.Committer.Name,
-				SidecarOrg:   fxTopo.Committer.Org,
-				SidecarHost:  fxTopo.Committer.Host,
-				SidecarPorts: fxTopo.Committer.Ports,
-				Image:        fxTopo.Committer.Image,
-				EnvVars:      fxTopo.Committer.EnvVars,
-			})
+			var cfgs []scv2.CommitterConfig
+			for _, c := range fxTopo.AllCommitters() {
+				cfgs = append(cfgs, scv2.CommitterConfig{
+					SidecarName:  c.Name,
+					SidecarOrg:   c.Org,
+					SidecarHost:  c.Host,
+					SidecarPorts: c.Ports,
+					Image:        c.Image,
+					EnvVars:      c.EnvVars,
+				})
+			}
+			return scv2.NewExtension(fxTopo.Topology, platform.Network, fxTopo.OrdererEnvVars, cfgs...)
 		})
 }
 
@@ -93,14 +97,15 @@ func (*PlatformFactory) New(registry api.Context, t api.Topology, builder api.Bu
 	}
 
 	// create a new fabricx network
+	first := fxTopo.AllCommitters()[0]
 	n := network.New(
 		registry,
 		fxTopo.Topology,
 		builder,
 		[]fabric_network.ChaincodeProcessor{},
 		common.UniqueName(),
-		fxTopo.Committer.Org,
-		fxTopo.Committer.Name,
+		first.Org,
+		first.Name,
 	)
 
 	// create the platform
@@ -150,14 +155,14 @@ func (p *Platform) Members() []grouper.Member {
 	return p.Network.Members()
 }
 
-// StopCommitter stops the committer services and returns once they have
-// exited; the committer container's database and mock orderer keep running.
-// The test fails if the platform runs no committer.
-func (p *Platform) StopCommitter() { p.committer().StopCommitter() }
+// StopCommitter stops the services of the committers named names, every committer when
+// names is empty, and returns once they have exited; each committer's database and the
+// mock orderer keep running. The test fails if the platform runs no committer.
+func (p *Platform) StopCommitter(names ...string) { p.committer().StopCommitter(names...) }
 
-// StartCommitter starts the committer services stopped by StopCommitter and
-// returns once they accept connections.
-func (p *Platform) StartCommitter() { p.committer().StartCommitter() }
+// StartCommitter starts the services of the committers named names, every committer when
+// names is empty, stopped by StopCommitter, and returns once they accept connections.
+func (p *Platform) StartCommitter(names ...string) { p.committer().StartCommitter(names...) }
 
 func (p *Platform) committer() *scv2.Extension {
 	for _, ext := range p.Network.Extensions {
