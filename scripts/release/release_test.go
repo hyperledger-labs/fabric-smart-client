@@ -398,6 +398,13 @@ func TestCheck(t *testing.T) {
 	writeFiles(t, dir, map[string]string{"docs/upgrade/releases/v0.29.0.json": strings.Replace(string(raw), "stop-all", "rolling", 1)})
 	require.ErrorContains(t, check(dir, r), `docs/upgrade/releases/v0.29.0.json is not what "data" generates`)
 
+	// The same error names the other cause: an untouched file goes stale when main moves on,
+	// here by a component range.
+	writeFiles(t, dir, map[string]string{"docs/upgrade/releases/v0.29.0.json": string(raw)})
+	moved := readReport(t)
+	moved.Components[0].Max++
+	require.ErrorContains(t, check(dir, moved), "or the tree changed since it was generated")
+
 	// A released file never changes.
 	writeFiles(t, dir, map[string]string{"docs/upgrade/releases/v0.29.0.json": string(raw)})
 	commit(t, dir, nil)

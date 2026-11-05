@@ -185,7 +185,8 @@ func check(dir string, r Report) error {
 			return err
 		}
 		if !bytes.Equal(got, want) {
-			return errors.Errorf(`%s is not what "data" generates; regenerate it instead of editing it`, rel)
+			return errors.Errorf(`%s is not what "data" generates: it was edited, or the tree changed `+
+				`since it was generated (a schema step, a component range, a pin); regenerate it`, rel)
 		}
 	}
 	return nil

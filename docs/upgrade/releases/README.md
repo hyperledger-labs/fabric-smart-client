@@ -64,7 +64,9 @@ go run ./scripts/release check --report report.json
 
 `check` fails when a data file here was edited by hand: a file whose release is tagged must
 equal the file at the tag, since a released record never changes, and a file without a tag
-must equal what `data` generates from the checked-out tree. The notes are not checked, since
+must equal what `data` generates from the checked-out tree. An untagged file also fails when
+the tree changed after it was generated, by a schema step, a component range or a pin;
+regenerate it. The notes are not checked, since
 the changelog they include comes from GitHub; review them in the release PR.
 
 `data` refuses a patch version (`vX.Y.Z` with `Z` above 0): a patch has no upgrade guide of its
