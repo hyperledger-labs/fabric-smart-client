@@ -1,0 +1,20 @@
+# Groups GitHub's generated release notes by the changelog label that the PR-title
+# check (.github/workflows/pr-title.yaml) sets from each PR's Conventional Commits
+# type. A PR lands in the first category whose label it has, so a breaking feat
+# is listed only under "Breaking changes".
+changelog:
+  exclude:
+    labels: [skip-changelog]
+  categories:
+    - title: Breaking changes
+      labels: [breaking]
+    - title: Features
+      labels: [feature]
+    - title: Bug fixes
+      labels: [fix]
+    - title: Performance
+      labels: [perf]
+    - title: Dependencies
+      labels: [dependencies]
+    - title: Other changes
+      labels: ["*"]

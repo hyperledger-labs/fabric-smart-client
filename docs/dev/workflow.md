@@ -192,6 +192,14 @@ test(integration): run libp2p in four targets instead of nine
 refactor(storage)!: replace squirrel with an internal SQL builder
 ```
 
+The type is one of `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `ci`, `build`,
+`chore`, `style` and `revert`; the scope is optional and lowercase. git's own
+`Revert "<original header>"` is accepted too. The PR title is the same header: the
+release notes are generated from PR titles, grouped by the label the title maps to
+(see [PR Labels](#pr-labels)), and the `pr-title` check fails when the title does not
+follow the format or, once the branch is a single commit, when the commit's header
+differs from the title.
+
 #### Step 2: squash before requesting review
 
 Rebase onto the current `main`, collapse the branch into one commit, and write the
@@ -261,6 +269,22 @@ process go in this document.
 | `status: needs review`   | The pull request is ready for maintainer review                                       |
 | `status: needs revision` | The pull request requires changes from the author before it can be reviewed or merged |
 
+The `pr-title` check sets one changelog label from the type in the PR title and
+replaces it when the title changes. `.github/release.yml` groups the generated
+release notes by these labels:
+
+| PR title                                    | Label            | Release notes section          |
+|---------------------------------------------|------------------|--------------------------------|
+| any type with `!` (`feat!:`, `fix(view)!:`) | `breaking`       | Breaking changes               |
+| `feat`                                      | `feature`        | Features                       |
+| `fix`                                       | `fix`            | Bug fixes                      |
+| `perf`                                      | `perf`           | Performance                    |
+| `chore(deps)`, `build(deps)`                | `dependencies`   | Dependencies                   |
+| `test`, `ci`, `build`, `style`              | `skip-changelog` | not listed                     |
+| `refactor`, `docs`, `chore`, `revert`       | none             | Other changes                  |
+
+Do not set these labels by hand: the check overwrites them from the title.
+
 ### PR Inactivity
 
 | Threshold                                                   | Action                                                                     |
@@ -277,6 +301,8 @@ When a PR is auto-closed, the linked issue is also reset: the assignee is remove
 Standard automated checks run on every PR:
 
 - DCO sign-off
+- `pr-title`: the title follows Conventional Commits and, once the branch is a single
+  commit, equals the commit's header (see [The commit message](#the-commit-message))
 - Unit tests
 - Integration tests
 - Linter / static analysis

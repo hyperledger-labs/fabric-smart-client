@@ -73,3 +73,6 @@ jobs:
 
       - name: Run On-Comment Bot Tests
         run: node .github/scripts/tests/test-on-comment-bot.js
+
+      - name: Run PR-Title Bot Tests
+        run: node .github/scripts/tests/test-pr-title.js

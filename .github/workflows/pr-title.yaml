@@ -1,0 +1,42 @@
+name: PR Title
+
+# Checks that the PR title follows Conventional Commits and, once the PR has one
+# commit, that the commit's header equals the title: that header is what lands on
+# main. Sets the changelog label the title maps to, which .github/release.yml
+# groups the generated release notes by. See bot-pr-title.js.
+on:
+  # pull_request_target gives fork PRs a token that can set labels and statuses.
+  # The job checks out the default branch only and never runs code from the PR;
+  # it reads the title and the commits through the API.
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: pr-title-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Check the PR title
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # ratchet:actions/github-script@v9.0.0
+        with:
+          script: |
+            const script = require('./.github/scripts/bot-pr-title.js');
+            await script({ github, context });
