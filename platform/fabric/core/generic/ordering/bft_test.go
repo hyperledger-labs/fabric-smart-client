@@ -51,11 +51,26 @@ func (*fakeBroadcastStream) CloseSend() error { return nil }
 // CloseSend calls.
 type gatedStream struct {
 	release    chan struct{}
+	sent       chan struct{}
+	markSent   func()
 	status     common.Status
 	closeCalls atomic.Int32
 }
 
-func (*gatedStream) Send(*common.Envelope) error { return nil }
+func newGatedStream(status common.Status) *gatedStream {
+	sent := make(chan struct{})
+	return &gatedStream{
+		release:  make(chan struct{}),
+		sent:     sent,
+		markSent: func() { close(sent) },
+		status:   status,
+	}
+}
+
+func (g *gatedStream) Send(*common.Envelope) error {
+	g.markSent()
+	return nil
+}
 
 func (g *gatedStream) Recv() (*ab.BroadcastResponse, error) {
 	<-g.release
@@ -221,7 +236,7 @@ func TestBFTBroadcaster_Broadcast_SlowOrdererReturnsToPool(t *testing.T) {
 		OrderersValue: orderers,
 	}
 
-	slow := &gatedStream{release: make(chan struct{}), status: common.Status_SUCCESS}
+	slow := newGatedStream(common.Status_SUCCESS)
 	// Let the slow orderer answer exactly once, also when an assertion fails
 	// first, so its goroutine does not outlive the test.
 	var releaseOnce sync.Once
@@ -251,7 +266,12 @@ func TestBFTBroadcaster_Broadcast_SlowOrdererReturnsToPool(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	require.Empty(t, b.ordererState("o4").pool, "slow orderer is still in flight")
+	select {
+	case <-slow.sent:
+		require.Empty(t, b.ordererState("o4").pool, "slow orderer is still in flight")
+	case <-time.After(time.Second):
+		t.Fatal("slow orderer never received the envelope")
+	}
 
 	release()
 	require.Eventually(t, func() bool { return len(b.ordererState("o4").pool) == 1 }, time.Second, 10*time.Millisecond, "slow orderer's connection should return to the pool")
@@ -317,6 +337,38 @@ func TestBFTBroadcaster_Broadcast_RetryProgressesWhileSlotsHeld(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Broadcast did not resume once o3's slot was released")
 	}
+}
+
+// A goroutine still waiting for a connection when Broadcast returns gives up
+// instead of taking a slot that frees later and sending the envelope late.
+func TestBFTBroadcaster_Broadcast_WaitingSendExitsAfterReturn(t *testing.T) {
+	t.Parallel()
+
+	orderers := []*grpc.ConnectionConfig{
+		{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"},
+	}
+	cfg := &fake.ConfigService{
+		PoolSizeValue: 1,
+		RetriesValue:  1,
+		OrderersValue: orderers,
+	}
+	b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
+
+	// o1-o3 answer from a pooled connection. o4's only slot is held and its
+	// pool is empty, so its goroutine waits in getConnection.
+	for _, o := range orderers {
+		state := b.ordererState(o.Address)
+		<-state.slots
+		if o.Address != "o4" {
+			state.pool <- &Connection{Address: o.Address, Stream: &fakeBroadcastStream{status: common.Status_SUCCESS}}
+		}
+	}
+
+	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+
+	o4 := b.ordererState("o4")
+	o4.slots <- struct{}{}
+	require.Never(t, func() bool { return len(o4.slots) == 0 || len(o4.pool) > 0 }, 200*time.Millisecond, 10*time.Millisecond, "o4's goroutine should have given up when Broadcast returned")
 }
 
 // getConnection must return promptly when the caller's context is cancelled

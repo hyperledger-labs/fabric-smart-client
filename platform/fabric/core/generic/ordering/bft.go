@@ -118,6 +118,11 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 			time.Sleep(retryInterval)
 		}
 
+		// Only getConnection uses attemptCtx: once the attempt ends, goroutines
+		// still waiting for a connection give up instead of competing with the
+		// next attempt for slots and sending the envelope late. Sends that
+		// already hold a connection run to completion.
+		attemptCtx, cancelAttempt := context.WithCancel(ctx)
 		results := make(chan error, n)
 		var success, failure int
 		var errs []error
@@ -125,7 +130,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 		for _, orderer := range orderers {
 			go func(orderer *grpc.ConnectionConfig) {
 				logger.DebugfContext(ctx, "get connection to [%s]", orderer.Address)
-				connection, err := o.getConnection(ctx, orderer)
+				connection, err := o.getConnection(attemptCtx, orderer)
 				if err != nil {
 					logger.WarnfContext(ctx, "failed to get connection to orderer [%s]", orderer.Address, err)
 					results <- errors.Wrapf(err, "failed connecting to [%s]", orderer.Address)
@@ -163,7 +168,6 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 			}(orderer)
 		}
 
-	collect:
 		for range n {
 			select {
 			case err := <-results:
@@ -174,16 +178,19 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 					errs = append(errs, err)
 				}
 			case <-ctx.Done():
+				cancelAttempt()
 				return errors.Wrapf(ctx.Err(), "broadcast aborted with [%d of %d] successes", success, threshold)
 			}
 			if success >= threshold {
+				cancelAttempt()
 				o.metrics.OrderedTransactions.With("network", o.ConfigService.NetworkName()).Add(1)
 				return nil
 			}
 			if failure > n-threshold {
-				break collect
+				break
 			}
 		}
+		cancelAttempt()
 
 		// fail
 		logger.WarnfContext(ctx, "failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", success, threshold, errs)
@@ -199,6 +206,12 @@ func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionC
 	case connection := <-state.pool:
 		return connection, nil
 	default:
+	}
+
+	// A caller that is gone may reuse an idle connection, but must not open a
+	// new one or wait for a slot.
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	select {
