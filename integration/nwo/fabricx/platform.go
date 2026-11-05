@@ -97,14 +97,15 @@ func (*PlatformFactory) New(registry api.Context, t api.Topology, builder api.Bu
 	}
 
 	// create a new fabricx network
+	first := fxTopo.AllCommitters()[0]
 	n := network.New(
 		registry,
 		fxTopo.Topology,
 		builder,
 		[]fabric_network.ChaincodeProcessor{},
 		common.UniqueName(),
-		fxTopo.AllCommitters()[0].Org,
-		fxTopo.AllCommitters()[0].Name,
+		first.Org,
+		first.Name,
 	)
 
 	// create the platform

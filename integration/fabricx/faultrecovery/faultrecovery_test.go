@@ -166,11 +166,8 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 		committer := nwofabricx.FxPlatform(s.II)
 		tx := faultrecovery.Endorse(s.II, 1)
 
-		// Bob's listener is registered while the committer is down, so it waits on no
-		// stream and is requested on the one opened after the restart. The transaction
-		// is ordered after the restart, so the restarted sidecar has to deliver it.
-		// Bob's query connection reports Connected from the earlier specs' queries, so its
-		// move to Reconnecting below is caused by this spec.
+		// Bob's finality call starts while the committer is down, and the transaction is
+		// ordered after the restart, so the restarted sidecar has to deliver it.
 		s.II.EventuallyConnectionState("bob", query, connstate.Connected, time.Minute)
 		committer.StopCommitter()
 		s.II.EventuallyConnectionState("bob", notification, connstate.Reconnecting, time.Minute)
@@ -183,10 +180,11 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 			_, err := s.II.Client("bob").CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
 			final <- err
 		}()
-		// Registering the listener first asks the query service whether the tx is already
-		// final. While the committer is down that call fails and reports bob's query connection
-		// Reconnecting, and the listener is registered right after it returns; StartCommitter
-		// takes seconds, so the restart cannot overtake the registration.
+		// Bob's query connection goes Reconnecting once a query fails against the stopped
+		// committer: his finality call's status check or his channel config poll, whichever
+		// runs first. Nothing reports that the listener is registered, so the restart can
+		// overtake the registration; the listener is then settled through the restarted
+		// committer either way.
 		s.II.EventuallyConnectionState("bob", query, connstate.Reconnecting, time.Minute)
 		committer.StartCommitter()
 

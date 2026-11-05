@@ -105,7 +105,7 @@ func (e *Extension) StopCommitter(names ...string) {
 
 // StartCommitter starts the services of the committers named names, every committer when
 // names is empty, stopped by StopCommitter, and returns once their sidecar and query
-// services, and the mock orderer, accept connections. The services resume from their
+// services accept connections. The services resume from their
 // database, and each sidecar fetches the blocks it has not processed yet from the mock
 // orderer, so a transaction ordered after StartCommitter returns commits. The test fails
 // at once if the services exit before they are ready.
@@ -141,7 +141,7 @@ func (c *committer) start() {
 	attached, err := d.Client.ExecAttach(ctx, created.ID, dcli.ExecAttachOptions{TTY: true})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	sidecarPort, queryServicePort := c.ports()
-	e.waitUntilReady(e.forwardLogs(c.containerName(), attached.Reader, attached.Close), sidecarPort, queryServicePort, e.orderingPort())
+	e.waitUntilReady(e.forwardLogs(c.containerName(), attached.Reader, attached.Close), sidecarPort, queryServicePort)
 }
 
 func (e *Extension) launchContainers() {
@@ -176,7 +176,6 @@ func (e *Extension) launchContainers() {
 	e.runContainer(e.ordererContainerName(), []string{fabricx_network.OrdererHost}, ordererCfg, []string{"orderer"},
 		[]int{orderingServicePort},
 		[]mount.Mount{crypto, block, {Type: mount.TypeBind, Source: mockOrdererConfigPath, Target: "/root/config/mock-orderer.yaml", ReadOnly: true}},
-		[]int{orderingServicePort},
 	)
 
 	// Each committer runs in a container of its own, with its own database.
@@ -186,7 +185,6 @@ func (e *Extension) launchContainers() {
 		e.runContainer(c.containerName(), nil, c.containerConfig(), []string{"db", "committer"},
 			[]int{sidecarPort, queryServicePort},
 			[]mount.Mount{crypto, block},
-			[]int{sidecarPort, queryServicePort, orderingServicePort},
 		)
 	}
 }
@@ -213,10 +211,10 @@ func (c *committer) containerConfig() containerConfig {
 
 // runContainer creates and starts a container of the committer test image named name, running
 // the image's run script for ops, publishing ports on the host, with mounts, and waits until
-// every port in ready accepts connections on the host. It joins the network's Docker network
+// every port in ports accepts connections on the host. It joins the network's Docker network
 // under aliases, and on Linux maps host.docker.internal to the host gateway, as Docker Desktop
 // does itself.
-func (e *Extension) runContainer(name string, aliases []string, cfg containerConfig, ops []string, ports []int, mounts []mount.Mount, ready []int) {
+func (e *Extension) runContainer(name string, aliases []string, cfg containerConfig, ops []string, ports []int, mounts []mount.Mount) {
 	var extraHosts []string
 	if runtime.GOOS == "linux" {
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
@@ -261,7 +259,7 @@ func (e *Extension) runContainer(name string, aliases []string, cfg containerCon
 		Follow:     true,
 	})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	e.waitUntilReady(e.forwardLogs(name, logs, func() { _ = logs.Close() }), ready...)
+	e.waitUntilReady(e.forwardLogs(name, logs, func() { _ = logs.Close() }), ports...)
 }
 
 // forwardLogs forwards what the container named containerName writes to r to the
@@ -288,10 +286,10 @@ func (*Extension) forwardLogs(containerName string, r io.Reader, closeReader fun
 	return ctx
 }
 
-// waitUntilReady waits until every port in ports accepts connections on the host,
-// over TLS when the network uses it, presenting the first committer's admin credentials,
-// which every service accepts since each trusts every organization's CA. The test fails if they do not within 90 seconds
-// or ctx ends first.
+// waitUntilReady waits until every port in ports accepts connections on the host, over TLS
+// when the network uses it, presenting the first committer's admin credentials, which every
+// service accepts since each trusts every organization's CA. The test fails if they do not
+// within 90 seconds or ctx ends first.
 func (e *Extension) waitUntilReady(ctx context.Context, ports ...int) {
 	sidecarPeer := e.committers[0].sidecarPeer()
 

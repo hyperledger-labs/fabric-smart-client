@@ -112,5 +112,5 @@ func CheckNamespaceExists(ii *integration.Infrastructure, name string, version i
 	// first we find out fabric-x platform
 	fx := nwofabricx.FxPlatform(ii)
 	Expect(fx).NotTo(BeNil())
-	Eventually(fx.Network.ListInstalledNames(), timeout, interval).Should(ContainElements(exp), "namespace '%s' should be present with version %d after update", name, version)
+	Eventually(fx.Network.ListInstalledNames, timeout, interval).Should(ContainElements(exp), "namespace '%s' should be present with version %d after update", name, version)
 }

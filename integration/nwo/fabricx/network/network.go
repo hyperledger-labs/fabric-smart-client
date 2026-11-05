@@ -60,9 +60,9 @@ func New(reg api.Context, topology *topology.Topology, builderClient fabric_netw
 // OrdererHost is the name the Fabric-x orderer is reached at, in its TLS certificate and in
 // the channel configuration. Committer containers resolve it through the orderer container's
 // alias on the suite's Docker network; FSC nodes on the host resolve it to loopback, where
-// the orderer port is published, since *.localhost names resolve there. On macOS Go resolves
-// *.localhost only through the system resolver, so FSC nodes must be built with cgo, the
-// default there.
+// the orderer port is published. The host resolves *.localhost to loopback through the system
+// resolver: on macOS that is the default, and fails only when Go is forced to its own resolver
+// (GODEBUG=netdns=go, -tags netgo); on Linux it needs systemd-resolved or nss-myhostname.
 const OrdererHost = "orderer.localhost"
 
 func (n *Network) GenerateConfigTree() {
@@ -159,6 +159,19 @@ func addSystemNamespacePolicies(profiles []*topology.Profile) {
 	}
 }
 
+// committerPeers returns the sidecar peers of the network's committers: CheckTopology
+// removes every Fabric peer, so the only Fabric peers left are those the committer extension
+// adds, one per committer.
+func (n *Network) committerPeers() []*topology.Peer {
+	var peers []*topology.Peer
+	for _, p := range n.Peers {
+		if p.Type == topology.FabricPeer {
+			peers = append(peers, p)
+		}
+	}
+	return peers
+}
+
 func (n *Network) removePeers() {
 	n.Peers = make([]*topology.Peer, 0)
 }
@@ -178,7 +191,7 @@ func (n *Network) PostRun(load bool) {
 		expNss = append(expNss, Namespace{Name: chaincode.Chaincode.Name, Version: 0})
 	}
 
-	// List all deployed namespaces and verify they are available.
+	// List all deployed namespaces and verify they are available on every committer.
 	gomega.Eventually(n.tryListInstalledNames).WithTimeout(namespacePropagationTimeout).ProbeEvery(2 * time.Second).Should(gomega.ContainElements(expNss))
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
@@ -252,10 +265,34 @@ func createNSCommon(n *Network, chaincode *topology.ChannelChaincode) fxconfig.N
 }
 
 // tryListInstalledNames is a polling-safe variant of ListInstalledNames.
-// It returns an empty slice on any error (command start failure or non-zero
-// exit code) instead of panicking, making it safe to use inside
+// It returns an error instead of panicking, making it safe to use inside
 // gomega.Eventually for retrying.
+//
+// It returns the namespaces, at their version, that every committer lists. Each committer
+// fetches blocks from the orderer at its own pace, and an FSC node reads namespaces from
+// its own organization's committer, so a namespace counts as deployed only once all of
+// them have it.
 func (n *Network) tryListInstalledNames() ([]Namespace, error) {
+	committers := n.committerPeers()
+	if len(committers) == 0 {
+		return nil, errors.New("no committer peer found")
+	}
+	common, err := n.tryListInstalledNamesOn(committers[0])
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range committers[1:] {
+		nss, err := n.tryListInstalledNamesOn(c)
+		if err != nil {
+			return nil, err
+		}
+		common = slices.DeleteFunc(common, func(ns Namespace) bool { return !slices.Contains(nss, ns) })
+	}
+	return common, nil
+}
+
+// tryListInstalledNamesOn lists the namespaces the query service of committerNode reports.
+func (n *Network) tryListInstalledNamesOn(committerNode *topology.Peer) ([]Namespace, error) {
 	orgName, err := namespaceApproverOrg(n)
 	if err != nil {
 		return nil, err
@@ -263,10 +300,6 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	peers := n.PeersInOrg(orgName)
 	if len(peers) == 0 {
 		return nil, errors.Errorf("no peers found for org %s", orgName)
-	}
-	committerNode := n.Peer(n.CommitterOrg, n.CommitterName)
-	if committerNode == nil {
-		return nil, errors.Errorf("no committer peer (name=%v) found for org=%v", n.CommitterName, n.CommitterOrg)
 	}
 	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, QueryServicePortName))
 
@@ -298,7 +331,7 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	return parseNamespaceList(string(sess.Out.Contents())), nil
 }
 
-// ListInstalledNames queries the SC query service for deployed namespaces.
+// ListInstalledNames returns the namespaces every committer's query service lists.
 // It panics (via gomega assertions) on any error. For polling use inside
 // gomega.Eventually, use tryListInstalledNames instead.
 func (n *Network) ListInstalledNames() []Namespace {

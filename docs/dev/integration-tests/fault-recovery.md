@@ -39,23 +39,19 @@ discovers all the others through gossip.
 
 ### Fabric-x committer
 
-A Fabric-x network runs the mock orderer in a container of its own and each committer in
-another, with its own database. Committers reach the orderer at `orderer.localhost`, the
-orderer container's alias on the suite's Docker network; FSC nodes on the host resolve the
-same name to loopback, where the orderer port is published. Every organization with a peer
-runs a committer, named `CommitterName(org)` (`Org2_committer_0`), the way each Fabric
-organization runs `<org>_peer_0`, and each FSC node uses its own organization's committers.
-The first organization's committer is the network's default. `AddCommitter(org, opts...)`
-adds a further one, such as a second in an organization, named `<org>_committer_<n>` unless
-`WithName` names it; `WithCommitterImage` and `WithCommitterEnv` configure every committer,
-and `WithOrdererEnv` sets an env var of the mock orderer, such as `SC_ORDERER_BLOCK_SIZE`.
+Every organization with a peer in a Fabric-x network runs a committer, named `CommitterName(org)`
+(`Org2_committer_0`), in a container of its own with its own database, and each FSC node
+uses its own organization's committer. All committers read from one mock orderer in a
+separate container; the [Fabric-x guide](../../platform/fabric-x/README.md#integration-tests)
+covers the topology options.
+
 `fabricx.FxPlatform(ii).StopCommitter(names...)` and `StartCommitter(names...)` stop and
-restart the services (sidecar, coordinator, verifier, validator-committer, query) of the
-named committers, every committer when no name is given. Their databases and the mock
-orderer keep running. Start waits until the sidecar, query and ordering services accept
+restart the services of the named committers, every committer when no name is given, so a spec can take one
+organization's committer down while the others keep committing. The databases and the
+mock orderer keep running. Start waits until the sidecar and query services accept
 connections, and fails at once if the services exit first; a transaction ordered after that
-commits. The mock orderer holds its blocks in memory only and loses them on restart, so a
-Fabric-x spec cannot restart the orderer.
+commits. The mock orderer holds its blocks in memory only, so a Fabric-x spec cannot
+restart the orderer.
 
 ## The fault-recovery suites
 

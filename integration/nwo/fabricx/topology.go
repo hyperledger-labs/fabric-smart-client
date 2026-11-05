@@ -40,7 +40,7 @@ type CommitterConfig struct {
 	Name string
 	Org  string
 
-	// Optional fixed host for the sidecar peer (empty = use docker bridge IP)
+	// Optional extra host name in the sidecar's TLS certificate; FSC nodes reach the committer at 127.0.0.1
 	Host string
 
 	// Optional pre-allocated ports (nil = auto-allocate)
@@ -60,7 +60,7 @@ func WithName(name string) CommitterOption {
 	return func(c *CommitterConfig) { c.Name = name }
 }
 
-// WithHost sets a fixed host for the committer's sidecar peer entry.
+// WithHost adds host to the TLS certificate of the committer's sidecar.
 func WithHost(host string) CommitterOption {
 	return func(c *CommitterConfig) { c.Host = host }
 }
