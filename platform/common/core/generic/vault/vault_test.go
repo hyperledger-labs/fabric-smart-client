@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -270,6 +271,20 @@ func newMemoryVault(t *testing.T) (*Vault[ValidationCode], driver.VaultStore) {
 	return v, ddb
 }
 
+// failOnceStore fails the first Store call without touching the backing store,
+// as an atomic store that rolled back would. Later calls reach the backing store.
+type failOnceStore struct {
+	driver.VaultStore
+	failed atomic.Bool
+}
+
+func (f *failOnceStore) Store(ctx context.Context, txIDs []cdriver.TxID, writes cdriver.Writes, metaWrites cdriver.MetaWrites) error {
+	if f.failed.CompareAndSwap(false, true) {
+		return errors.New("injected store failure")
+	}
+	return f.VaultStore.Store(ctx, txIDs, writes, metaWrites)
+}
+
 // TestVaultRWSExists reports whether an interceptor is currently registered
 // for a transaction.
 func TestVaultRWSExists(t *testing.T) {
@@ -392,4 +407,69 @@ func TestVaultClose(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, v.Close())
+}
+
+// TestCommitTX_StoreFailureLeavesNoWrites checks that a commit whose Store call
+// fails leaves no writes and does not mark the tx valid, and that committing the
+// rebuilt rwset again on a healthy store gives the same states and status as a
+// single clean commit.
+func TestCommitTX_StoreFailureLeavesNoWrites(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	const ns = "ns"
+
+	writeTx := func(v *Vault[ValidationCode]) {
+		rws, err := v.NewRWSet(ctx, "tx1")
+		require.NoError(t, err)
+		require.NoError(t, rws.SetState(ns, "k1", []byte("v1")))
+		require.NoError(t, rws.SetState(ns, "k2", []byte("v2")))
+		rws.Done()
+	}
+
+	// in-memory stores share one SQLite database and are kept apart by name;
+	// the suffix keeps this store's tables apart from the clean vault below
+	ddb, err := fvault.OpenMemoryVault(t.Name() + "-failing")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ddb.Close() })
+	provider := &testArtifactProvider{
+		removeNils: func(items []cdriver.VaultRead) []cdriver.VaultRead { return items },
+	}
+	v, err := provider.NewNonCachedVault(&failOnceStore{VaultStore: ddb})
+	require.NoError(t, err)
+
+	// failed commit
+	writeTx(v)
+	err = v.CommitTX(ctx, "tx1", 1, 0)
+	require.ErrorContains(t, err, "injected store failure")
+
+	itr, err := ddb.GetAllStates(ctx, ns)
+	require.NoError(t, err)
+	states, err := collections.ReadAll(itr)
+	require.NoError(t, err)
+	require.Empty(t, states, "a failed commit leaves no writes")
+
+	vcode, _, err := v.Status(ctx, "tx1")
+	require.NoError(t, err)
+	require.NotEqual(t, valid, vcode, "a failed commit does not mark the tx valid")
+
+	// retry on a healthy store; the failed commit already unmapped the rwset
+	writeTx(v)
+	err = v.CommitTX(ctx, "tx1", 1, 0)
+	require.NoError(t, err)
+
+	vcode, _, err = v.Status(ctx, "tx1")
+	require.NoError(t, err)
+	require.Equal(t, valid, vcode, "the retried commit marks the tx valid")
+
+	// reference: the same tx committed once, at the same block and index
+	clean, cleanDB := newMemoryVault(t)
+	writeTx(clean)
+	require.NoError(t, clean.CommitTX(ctx, "tx1", 1, 0))
+
+	cleanCode, _, err := clean.Status(ctx, "tx1")
+	require.NoError(t, err)
+	require.Equal(t, cleanCode, vcode, "retry and clean commit give the same status")
+
+	compare(t, ns, cleanDB, ddb)
 }
