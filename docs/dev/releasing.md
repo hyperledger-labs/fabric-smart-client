@@ -22,13 +22,18 @@ This guide is for maintainers. It lists the steps to cut a release of Fabric Sma
 You need write access to the repository (see [MAINTAINERS.md](../../MAINTAINERS.md)) and a
 clean checkout of the commit to release. The examples release `v0.28.0` after `v0.27.0`.
 
+The commands assume that the git remote `upstream` points to
+`https://github.com/hyperledger-labs/fabric-smart-client.git`, not to your fork: release tags
+exist only there, and tags pushed anywhere else are not a release. If you work from a fork, add
+the remote as [Rebasing](rebasing.md) shows.
+
 ## Cutting a release
 
 1. **Check out the commit to release** in a clean worktree. Usually it is the head of `main`:
 
    ```bash
-   git fetch origin --tags
-   git worktree add ../fsc-release origin/main
+   git fetch upstream --tags
+   git worktree add ../fsc-release upstream/main
    cd ../fsc-release
    ```
 
@@ -42,10 +47,11 @@ clean checkout of the commit to release. The examples release `v0.28.0` after `v
 
 3. **Commit the release data and notes.** Generate both files as
    [Previewing a release](../upgrade/releases/README.md#previewing-a-release) shows, for
-   `v0.28.0` with previous tag `v0.27.0`, read the notes, and merge the two files to `main` in
-   a PR titled `chore(release): v0.28.0` and labelled `skip-changelog`, so the release PR stays
-   out of the next changelog. The tag then contains both files, so a later `check` compares
-   them with the tag. Check out the merge commit before tagging.
+   `v0.28.0` with previous tag `v0.27.0`, read the notes (they link to the upgrade guide and
+   the data file, list the tested versions and end with the changelog), and merge the two files
+   to `main` in a PR titled `chore(release): v0.28.0` and labelled `skip-changelog`, so the
+   release PR stays out of the next changelog. The tag then contains both files, so a later
+   `check` compares them with the tag. Check out the merge commit before tagging.
 
 4. **Create the tags.** Dry-run first; it lists one tag per module and refuses a version that
    is not `vMAJOR.MINOR.PATCH` or a tag that exists:
@@ -56,13 +62,12 @@ clean checkout of the commit to release. The examples release `v0.28.0` after `v
    ```
 
 5. **Push the tags and create the GitHub release.** Push the new tags only; `git push --tags`
-   would push every local tag you have. The release takes the notes as its body and the data
-   file as an asset:
+   would push every local tag you have. The release takes the notes as its body:
 
    ```bash
-   git push origin $(git tag --points-at HEAD | grep -E '(^|/)v0\.28\.0$')
-   gh release create v0.28.0 --verify-tag --title v0.28.0 \
-     --notes-file docs/upgrade/releases/v0.28.0.md docs/upgrade/releases/v0.28.0.json
+   git push upstream $(git tag --points-at HEAD | grep -E '(^|/)v0\.28\.0$')
+   gh release create v0.28.0 -R hyperledger-labs/fabric-smart-client --verify-tag \
+     --title v0.28.0 --notes-file docs/upgrade/releases/v0.28.0.md
    ```
 
 6. **Add the storage fixtures.** `make tag-release` prints this step. The generator fetches

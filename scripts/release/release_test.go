@@ -270,83 +270,6 @@ func TestRenderIsDeterministic(t *testing.T) {
 	require.True(t, bytes.HasSuffix(out[0], []byte("}\n")))
 }
 
-func TestGuideParts(t *testing.T) {
-	t.Parallel()
-	intro, checklist, err := guideParts(filepath.Join("..", "..", "docs", "upgrade", "v0.26-to-v0.27.md"))
-	require.NoError(t, err)
-	require.True(t, strings.HasPrefix(intro, "This guide takes an application"), intro)
-	require.Contains(t, checklist, "Operators:")
-	require.Contains(t, checklist, "Developers:")
-
-	guides, err := filepath.Glob(filepath.Join("..", "..", "docs", "upgrade", "*.md"))
-	require.NoError(t, err)
-	require.NotEmpty(t, guides)
-	for _, g := range guides {
-		_, _, err := guideParts(g)
-		require.NoError(t, err, g)
-	}
-
-	dir := t.TempDir()
-	for _, tc := range []struct{ name, guide, err string }{
-		{
-			name:  "fenced headings are text",
-			guide: "# T\n\nIntro.\n\n```sh\n# Checklist\n```\n\n# Checklist\n\n## Ops\n- a\n```\n# not a heading\n```\n\n# Later\n",
-		},
-		{name: "no checklist", guide: "# T\n\nIntro.\n\n# For operators\n", err: `no "# Checklist" section`},
-		{name: "checklist only in a fence", guide: "# T\n\nIntro.\n\n```\n# Checklist\n```\n", err: `no "# Checklist" section`},
-		{name: "heading after the title", guide: "# T\n\n## Platforms\n\n# Checklist\n- a\n", err: "no paragraph between the title and the first heading"},
-	} {
-		path := filepath.Join(dir, strings.ReplaceAll(tc.name, " ", "-")+".md")
-		require.NoError(t, os.WriteFile(path, []byte(tc.guide), 0o600))
-		intro, checklist, err := guideParts(path)
-		if tc.err != "" {
-			require.ErrorContains(t, err, tc.err, tc.name)
-			require.ErrorContains(t, err, path, tc.name)
-			continue
-		}
-		require.NoError(t, err, tc.name)
-		require.Equal(t, "Intro.\n\n```sh\n# Checklist\n```", intro)
-		require.Equal(t, "### Ops\n- a\n```\n# not a heading\n```", checklist)
-	}
-}
-
-func TestAbsLinks(t *testing.T) {
-	t.Parallel()
-	const base = "https://github.com/hyperledger-labs/fabric-smart-client/blob/v0.29.0/docs/"
-	got := absLinks("[a](#b) [c](v0.27-to-v0.28.md#d) [e](../dev/x.md) [f](https://x.org/y#z)",
-		"docs/upgrade/v0.28-to-v0.29.md", "v0.29.0")
-	require.Equal(t, "[a]("+base+"upgrade/v0.28-to-v0.29.md#b) [c]("+base+"upgrade/v0.27-to-v0.28.md#d) "+
-		"[e]("+base+"dev/x.md) [f](https://x.org/y#z)", got)
-}
-
-func TestUnwrap(t *testing.T) {
-	t.Parallel()
-	in := "A wrapped\nparagraph.\n\n- an item\n  continued\n- next\n\n```sh\nkeep\nthis\n```\n\nLast\nline."
-	want := "A wrapped paragraph.\n\n- an item continued\n- next\n\n```sh\nkeep\nthis\n```\n\nLast line."
-	require.Equal(t, want, unwrap(in))
-}
-
-func TestAddedSteps(t *testing.T) {
-	t.Parallel()
-	const steps = "platform/fabric/services/db/driver/sql/testdata/steps/"
-	dir := newRepo(t, map[string]string{
-		steps + "postgres-vault.steps": "1 aaaa create tables\n",
-		steps + "sqlite-vault.steps":   "1 bbbb create tables\n",
-	})
-	run(t, dir, "tag", "v0.28.0")
-	stores := []Store{
-		{Type: "vault", Dialect: "postgres", Steps: []Step{{Version: 1, Name: "create tables"}, {Version: 2, Name: "metadata as protobuf", Contract: true}}},
-		{Type: "vault", Dialect: "sqlite", Steps: []Step{{Version: 1, Name: "create tables"}, {Version: 2, Name: "metadata as protobuf"}}},
-		{Type: "kvs", Dialect: "postgres", Steps: []Step{{Version: 1, Name: "create table"}}},
-	}
-	got, err := addedSteps(dir, mustVersion(t, "v0.28.0"), stores)
-	require.NoError(t, err)
-	require.Equal(t, []stepRow{
-		{Store: "kvs", Version: 1, Name: "create table"},
-		{Store: "vault", Version: 2, Name: "metadata as protobuf", Contract: true},
-	}, got, "a store without a file at the tag is new; a contract step in one dialect makes the row a restore")
-}
-
 func TestNotes(t *testing.T) {
 	t.Parallel()
 	dir := releaseRepo(t)
@@ -355,27 +278,27 @@ func TestNotes(t *testing.T) {
 	changelog, err := os.ReadFile(filepath.Join("testdata", "changelog.md"))
 	require.NoError(t, err)
 
+	// A minor needs its upgrade guide, which the notes link to.
 	_, err = notes(dir, d, string(changelog))
 	require.ErrorContains(t, err, "docs/upgrade/v0.28-to-v0.29.md")
 
-	guide, err := os.ReadFile(filepath.Join("testdata", "guide.md"))
-	require.NoError(t, err)
-	writeFiles(t, dir, map[string]string{d.Upgrade.Guide: string(guide)})
+	writeFiles(t, dir, map[string]string{d.Upgrade.Guide: "# Upgrading from v0.28 to v0.29\n"})
 	got, err := notes(dir, d, string(changelog))
 	require.NoError(t, err)
 	golden(t, "v0.29.0.md", []byte(got))
 
-	// Without added steps the section is omitted.
-	d.Stores = nil
-	got, err = notes(dir, d, string(changelog))
-	require.NoError(t, err)
-	require.NotContains(t, got, "## Schema steps")
-	require.Contains(t, got, "## Protocol versions")
-
-	// The notes describe only the modes they know, so they cannot contradict the data.
-	d.Upgrade.Mode = "rolling"
-	_, err = notes(dir, d, string(changelog))
-	require.ErrorContains(t, err, `upgrade mode "rolling"`)
+	// The notes link to the guide on main, so a fix to the guide reaches every reader, and to the
+	// release data at the tag, which never changes. They copy neither.
+	const blob = "https://github.com/hyperledger-labs/fabric-smart-client/blob/"
+	require.Contains(t, got, "[upgrade guide]("+blob+"main/docs/upgrade/v0.28-to-v0.29.md)")
+	require.Contains(t, got, "]("+blob+"v0.29.0/docs/upgrade/releases/v0.29.0.json)")
+	for _, s := range []string{"## Checklist", "## Schema steps", "## Protocol versions", "Stop-all", "#checklist"} {
+		require.NotContains(t, got, s)
+	}
+	// Tested with is one row, in the order of testedNames.
+	require.Contains(t, got, "| Go | Hyperledger Fabric | Fabric-x committer | Fabric-x tools | PostgreSQL |\n|---|---|---|---|---|\n| 1.27.3 | 3.1.4 | 1.0.7 | v1.0.3 | 16.2 |\n")
+	// The changelog follows unchanged.
+	require.True(t, strings.HasSuffix(got, strings.TrimSpace(string(changelog))+"\n"))
 }
 
 func TestCheck(t *testing.T) {
@@ -416,6 +339,12 @@ func TestCheck(t *testing.T) {
 
 // TestRefnodeReportsEveryGoldenStore fails when a store has golden steps but the reference binary
 // does not report it, so its steps would be missing from the release data.
+// stepsDirs hold the golden steps files, <dialect>-<store>.steps, of every FSC store.
+var stepsDirs = []string{
+	"platform/view/services/storage/driver/sql/testdata/steps",
+	"platform/fabric/services/db/driver/sql/testdata/steps",
+}
+
 func TestRefnodeReportsEveryGoldenStore(t *testing.T) {
 	t.Parallel()
 	out, err := exec.Command("go", "run", "./refnode", "version", "--json").Output()
