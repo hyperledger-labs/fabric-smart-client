@@ -205,8 +205,10 @@ the channel configuration, so the topology is all a suite changes.
 
 To check that a node used the BFT broadcaster, count its `fsc_connection_state` series
 for the network's `orderer` component after one commit. The BFT broadcaster sends the
-envelope to every orderer, so it leaves one series per orderer. The CFT broadcaster sends
-it to one orderer per attempt, so it leaves one, or one per retry.
+envelope to every orderer, so it leaves one series per orderer. It returns once enough
+orderers accepted the envelope, so the last series may appear after the commit: poll for
+the count with `Eventually`. The CFT broadcaster sends it to one orderer per attempt, so
+it leaves one, or one per retry.
 
 ## Declaring a namespace
 

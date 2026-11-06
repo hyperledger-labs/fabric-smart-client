@@ -53,13 +53,16 @@ func (s *TestSuite) TestSucceeded() {
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
 	// Both broadcasters count ordered transactions alike, so the orderer connections tell
-	// them apart. The BFT broadcaster sends the envelope to all four orderers of beta and
-	// returns only after each send ends, so the commit leaves a series for each. The CFT
-	// broadcaster sends it to one orderer per attempt, at most 3 with nwo's numRetries.
-	families, err := s.II.WebClient("alice").Metrics()
-	Expect(err).NotTo(HaveOccurred())
+	// them apart. The BFT broadcaster sends the envelope to all four orderers of beta, so
+	// the commit leaves a series for each. It returns once three of them accepted it, so
+	// the last series may appear after the commit. The CFT broadcaster sends it to one
+	// orderer per attempt, at most 3 with nwo's numRetries.
 	betaOrderers := fsc.Connection{Network: "beta", Component: connstate.ComponentOrderer}
-	Expect(fsc.ParseConnectionState(families, betaOrderers)).To(HaveLen(4), "alice must have broadcast to every orderer of beta")
+	Eventually(func(g Gomega) {
+		families, err := s.II.WebClient("alice").Metrics()
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(fsc.ParseConnectionState(families, betaOrderers)).To(HaveLen(4), "alice must have broadcast to every orderer of beta")
+	}).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(Succeed())
 }
 
 // TestEndorseOnNonDefaultNetwork has each node build a transaction on its default
