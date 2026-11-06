@@ -19,8 +19,9 @@ This guide is for maintainers. It lists the steps to cut a release of Fabric Sma
 
 ## Before you start
 
-You need write access to the repository (see [MAINTAINERS.md](../../MAINTAINERS.md)) and a
-clean checkout of the commit to release. The examples release `v0.28.0` after `v0.27.0`.
+You need write access to the repository (see [MAINTAINERS.md](../../MAINTAINERS.md)), a
+clean checkout of the commit to release, and Docker, which generating the storage fixtures uses
+to run Postgres. The examples release `v0.28.0` after `v0.27.0`.
 
 The commands assume that the git remote `upstream` points to
 `https://github.com/hyperledger-labs/fabric-smart-client.git`, not to your fork: release tags
@@ -45,13 +46,59 @@ the remote as [Rebasing](rebasing.md) shows.
    git log --format='%h %s' v0.27.0..HEAD | grep -E '^[0-9a-f]+ [a-z]+(\([^)]*\))?!:'
    ```
 
-3. **Commit the release data and notes.** Generate both files as
-   [Previewing a release](../upgrade/releases/README.md#previewing-a-release) shows, for
-   `v0.28.0` with previous tag `v0.27.0`, read the notes (they link to the upgrade guide and
-   the data file, list the tested versions and end with the changelog), and merge the two files
-   to `main` in a PR titled `chore(release): v0.28.0` and labelled `skip-changelog`, so the
-   release PR stays out of the next changelog. The tag then contains both files, so a later
-   `check` compares them with the tag. Check out the merge commit before tagging.
+3. **Open the release PR.** It adds everything the release records, so the tag contains it:
+
+   - **The release data and notes.** `bump` prints the version to release; the other
+     commands write the data file and the notes, and `check` confirms the data file is what
+     the tree generates:
+
+     ```bash
+     go run ./scripts/release bump        # v0.28.0
+     go run ./scripts/release/refnode version --json > report.json
+     go run ./scripts/release data --version v0.28.0 --report report.json \
+       > docs/upgrade/releases/v0.28.0.json
+     gh api repos/hyperledger-labs/fabric-smart-client/releases/generate-notes \
+       -f tag_name=v0.28.0 -f previous_tag_name=v0.27.0 -f target_commitish=main \
+       --jq .body > changelog.md
+     go run ./scripts/release notes --data docs/upgrade/releases/v0.28.0.json \
+       --changelog changelog.md > docs/upgrade/releases/v0.28.0.md
+     go run ./scripts/release check --report report.json
+     ```
+
+     Read `docs/upgrade/releases/v0.28.0.md`: it links to the upgrade guide and the data
+     file, lists the tested versions and ends with the changelog. What each file holds is in
+     [the release data README](../upgrade/releases/README.md).
+   - **The storage fixtures.** Generate them from this checkout, then add `"v0.28.0"` to
+     `fixtureVersions` in `platform/fabric/services/db/driver/sql/fixtures_test.go` before
+     running the fixture tests, so they open the new fixture (`TestFixturesSQLite/v0.28.0` and
+     `TestPostgresFixtures/v0.28.0`):
+
+     ```bash
+     platform/fabric/services/db/driver/sql/testdata/generate.sh --local v0.28.0
+     # add "v0.28.0" to fixtureVersions in fixtures_test.go
+     go test -run Fixtures ./platform/fabric/services/db/driver/sql/
+     ```
+
+     `--local` builds the fixture writer against the checkout, which is the commit the release
+     PR's merge tags; see
+     [the fixture README](../../platform/fabric/services/db/driver/sql/testdata/README.md).
+
+   Commit `docs/upgrade/releases/v0.28.0.json`, `docs/upgrade/releases/v0.28.0.md`, the new
+   `platform/fabric/services/db/driver/sql/testdata/v0.28.0/` directory and the change to
+   `fixtures_test.go`, and nothing else: `report.json` and `changelog.md` from the preview are
+   scratch files. Open the PR titled `build(release): v0.28.0`: the PR-title check labels a
+   `build` PR `skip-changelog`, so the release PR stays out of the next changelog (see
+   [PR Labels](workflow.md#pr-labels)). Its CI runs the fixture tests on the new fixture. Once
+   it merges, check out the commit it merged as, which is the commit to tag:
+
+   ```bash
+   git fetch upstream
+   git checkout "$(gh pr view <release PR number> -R hyperledger-labs/fabric-smart-client \
+     --json mergeCommit --jq .mergeCommit.oid)"
+   git log --oneline -1   # build(release): v0.28.0
+   ```
+
+   Tag that commit, not a later head of `main`: the notes and the fixtures describe it.
 
 4. **Create the tags.** Dry-run first; it lists one tag per module and refuses a version that
    is not `vMAJOR.MINOR.PATCH` or a tag that exists:
@@ -62,7 +109,8 @@ the remote as [Rebasing](rebasing.md) shows.
    ```
 
 5. **Push the tags and create the GitHub release.** Push the new tags only; `git push --tags`
-   would push every local tag you have. The release takes the notes as its body:
+   would push every local tag you have. The release takes the notes as its body. Once a tag is
+   pushed it is the release; if something is wrong, cut the next version:
 
    ```bash
    git push upstream $(git tag --points-at HEAD | grep -E '(^|/)v0\.28\.0$')
@@ -70,19 +118,7 @@ the remote as [Rebasing](rebasing.md) shows.
      --title v0.28.0 --notes-file docs/upgrade/releases/v0.28.0.md
    ```
 
-6. **Add the storage fixtures.** `make tag-release` prints this step. The generator fetches
-   the release from the module proxy, so it runs after the tags are public. In a branch off
-   `main`:
-
-   ```bash
-   platform/fabric/services/db/driver/sql/testdata/generate.sh v0.28.0
-   ```
-
-   Add `"v0.28.0"` to `fixtureVersions` in
-   `platform/fabric/services/db/driver/sql/fixtures_test.go` and open a PR. See
-   [the fixture README](../../platform/fabric/services/db/driver/sql/testdata/README.md).
-
-7. **Announce the release** in
+6. **Announce the release** in
    [#fabric-smart-client](https://discord.com/channels/905194001349627914/945691888348967012) on
    the LFDT Discord with a link to the GitHub release.
 
