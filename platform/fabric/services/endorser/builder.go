@@ -40,18 +40,7 @@ func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.Transaction
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to compile options")
 	}
-	return t.newTransactionWithType(
-		ctx,
-		fabricOptions.Creator,
-		"",
-		fabricOptions.Channel,
-		fabricOptions.Nonce,
-		nil,
-		false,
-		fabricOptions.RawRequest,
-		&fabricOptions.TransactionType,
-		fabricOptions.TxID,
-	)
+	return t.buildFromOptions(ctx, "", nil, false, fabricOptions)
 }
 
 // NewTransactionFromBytes decodes a transaction from its serialized form on the
@@ -103,11 +92,19 @@ func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, er
 }
 
 func (t *Builder) buildTransaction(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
-	return t.newTransactionWithType(ctx, creator, network, channel, nonce, raw, envelope, nil, nil, "")
+	return t.buildFromOptions(ctx, network, raw, envelope, &fabric.TransactionOptions{
+		Creator:         creator,
+		Nonce:           nonce,
+		Channel:         channel,
+		TransactionType: fabric.EndorserTransaction,
+	})
 }
 
-func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool, rawRequest []byte, tType *fabric.TransactionType, txid string) (*Transaction, error) {
-	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, logging.SHA256Base64(raw))
+// buildFromOptions creates a transaction on network from o, or decodes it from raw
+// when raw is set. ctx takes precedence over o.Ctx.
+func (t *Builder) buildFromOptions(ctx context.Context, network string, raw []byte, envelope bool, o *fabric.TransactionOptions) (*Transaction, error) {
+	creator := o.Creator
+	logger.Debugf("NewTransaction [%s,%s,%s]", creator.UniqueID(), o.Channel, logging.SHA256Base64(raw))
 	defer logger.Debugf("NewTransaction...done.")
 
 	if t.sp == nil {
@@ -123,18 +120,12 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 
 	options := []fabric.TransactionOption{
 		fabric.WithCreator(creator),
-		fabric.WithNonce(nonce),
-		fabric.WithChannel(channel),
+		fabric.WithNonce(o.Nonce),
+		fabric.WithChannel(o.Channel),
 		fabric.WithContext(ctx),
-	}
-	if tType != nil {
-		options = append(options, fabric.WithTransactionType(*tType))
-	}
-	if rawRequest != nil {
-		options = append(options, fabric.WithRawRequest(rawRequest))
-	}
-	if len(txid) != 0 {
-		options = append(options, fabric.WithTxID(txid))
+		fabric.WithTransactionType(o.TransactionType),
+		fabric.WithRawRequest(o.RawRequest),
+		fabric.WithTxID(o.TxID),
 	}
 
 	var fabricTransaction *fabric.Transaction

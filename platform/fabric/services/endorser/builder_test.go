@@ -247,22 +247,28 @@ func TestNewTransaction_WithTxID(t *testing.T) {
 	builder, err := NewBuilder(fakeSP)
 	require.NoError(t, err)
 
-	tx, err := builder.NewTransaction(context.Background(),
-		fabric.WithChannel("ch1"),
-		fabric.WithCreator(creator),
-		fabric.WithNonce(nonce),
-		fabric.WithTxID("tx1"),
-	)
-	require.NoError(t, err)
-	require.Equal(t, "tx1", tx.ID())
+	t.Run("set", func(t *testing.T) {
+		t.Parallel()
+		tx, err := builder.NewTransaction(t.Context(),
+			fabric.WithChannel("ch1"),
+			fabric.WithCreator(creator),
+			fabric.WithNonce(nonce),
+			fabric.WithTxID("tx1"),
+		)
+		require.NoError(t, err)
+		require.Equal(t, "tx1", tx.ID())
+	})
 
-	derived, err := builder.NewTransaction(context.Background(),
-		fabric.WithChannel("ch1"),
-		fabric.WithCreator(creator),
-		fabric.WithNonce(nonce),
-	)
-	require.NoError(t, err)
-	require.Equal(t, protoutil.ComputeTxID(nonce, creator), derived.ID())
+	t.Run("derived", func(t *testing.T) {
+		t.Parallel()
+		tx, err := builder.NewTransaction(t.Context(),
+			fabric.WithChannel("ch1"),
+			fabric.WithCreator(creator),
+			fabric.WithNonce(nonce),
+		)
+		require.NoError(t, err)
+		require.Equal(t, protoutil.ComputeTxID(nonce, creator), tx.ID())
+	})
 }
 
 func TestNewTransactionFromBytes_RejectsForgedTxID(t *testing.T) {
