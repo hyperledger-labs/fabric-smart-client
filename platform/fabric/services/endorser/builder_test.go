@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
@@ -216,6 +217,58 @@ func newReceiveNetwork(name string, key *driver.ChannelKey) (*receiveNetwork, *m
 	n.ConfigServiceReturns(n.conf)
 	n.LocalMembershipReturns(&mock.LocalMembership{})
 	return n, ch
+}
+
+func TestNewTransaction_WithTxID(t *testing.T) {
+	t.Parallel()
+	nonce := []byte("nonce-1")
+	creator := view.Identity("creator-1")
+
+	fakeSP := &mock.Provider{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.NameReturns("net1")
+	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
+	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
+		if v == reflect.TypeFor[*fabric.NetworkServiceProvider]() {
+			return fakeNSP, nil
+		}
+		return nil, errors.New("service not found")
+	})
+	fakeCH := &mock.Channel{}
+	fakeCH.NameReturns("ch1")
+	fakeFNS.ChannelReturns(fakeCH, nil)
+
+	mgr := transaction.NewManager()
+	mgr.AddTransactionFactory(driver.EndorserTransaction, transaction.NewEndorserTransactionFactory("net1", fakeFNS, nil))
+	fakeFNS.TransactionManagerReturns(mgr)
+
+	builder, err := NewBuilder(fakeSP)
+	require.NoError(t, err)
+
+	t.Run("set", func(t *testing.T) {
+		t.Parallel()
+		tx, err := builder.NewTransaction(t.Context(),
+			fabric.WithChannel("ch1"),
+			fabric.WithCreator(creator),
+			fabric.WithNonce(nonce),
+			fabric.WithTxID("tx1"),
+		)
+		require.NoError(t, err)
+		require.Equal(t, "tx1", tx.ID())
+	})
+
+	t.Run("derived", func(t *testing.T) {
+		t.Parallel()
+		tx, err := builder.NewTransaction(t.Context(),
+			fabric.WithChannel("ch1"),
+			fabric.WithCreator(creator),
+			fabric.WithNonce(nonce),
+		)
+		require.NoError(t, err)
+		require.Equal(t, protoutil.ComputeTxID(nonce, creator), tx.ID())
+	})
 }
 
 func TestNewTransactionFromBytes_RejectsForgedTxID(t *testing.T) {
