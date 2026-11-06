@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -214,6 +215,76 @@ func TestPostgresMigrateLockTimeout(t *testing.T) { //nolint:paralleltest // rep
 	require.ErrorContains(t, err, "migration lock on [timeout_schema_versions] not granted within 200ms")
 	require.ErrorContains(t, err, fmt.Sprintf("held by pid %d (application_name [holder-pod-0]", pid))
 	requireNoTable(t, db, b.dialect, "timeout_s_t1")
+}
+
+// TestMigrateFilledMeanwhile and TestPostgresMigrateFilledMeanwhile run
+// testFilledMeanwhile. They are not parallel because they wait for InProgress,
+// which other migrations of this process would also set.
+func TestMigrateFilledMeanwhile(t *testing.T) { //nolint:paralleltest // reads package-level state
+	testFilledMeanwhile(t, sqliteBackend(t))
+}
+
+func TestPostgresMigrateFilledMeanwhile(t *testing.T) { //nolint:paralleltest // reads package-level state
+	migrate.SetLockIntervals(t, 10*time.Millisecond, time.Hour)
+	testFilledMeanwhile(t, postgresBackend(t))
+}
+
+// testFilledMeanwhile checks that a newer binary which read an empty store
+// holds its contract step back when an older binary applies step 1 before the
+// newer one takes the lock, even though the older binary has not recorded its
+// opener row yet: the older binary then still opens the store. The test plays
+// the older binary on its own connection and stops it between its step and
+// its opener row, the window ContractStepOnStoreFilledMeanwhile hits only by
+// chance.
+func testFilledMeanwhile(t *testing.T, b backend) {
+	t.Helper()
+	ctx := t.Context()
+	var holder *sql.Conn
+	if b.dialect == migrate.Postgres {
+		holder, _ = lockHolder(t, b.open(t), "race_schema_versions")
+	} else {
+		var err error
+		holder, err = b.open(t).Conn(ctx)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = holder.Close() })
+	}
+	exec := func(q string) {
+		t.Helper()
+		_, err := holder.ExecContext(ctx, q)
+		require.NoError(t, err)
+	}
+	if b.dialect == migrate.SQLite {
+		exec("BEGIN IMMEDIATE")
+	}
+
+	next := newStore("race_s", 2)
+	next.steps[1].Contract = true
+	newDB := b.open(t)
+	newDone := make(chan error, 1)
+	go func() {
+		newDone <- migrate.Migrate(ctx, newDB, b.dialect, "race", next, migrate.WithNode("new"))
+	}()
+	// InProgress turns true once the newer binary has read the empty store
+	// and goes for the lock the older binary holds.
+	require.Eventually(t, migrate.InProgress, 5*time.Second, time.Millisecond)
+
+	if b.dialect == migrate.Postgres {
+		exec("BEGIN")
+	}
+	exec("CREATE TABLE race_schema_versions (store TEXT PRIMARY KEY, version INT NOT NULL, readable_by INT NOT NULL)")
+	exec("CREATE TABLE race_schema_openers (store TEXT NOT NULL, node TEXT NOT NULL, highest_step INT NOT NULL, opened_at TIMESTAMP NOT NULL, PRIMARY KEY (store, node, highest_step))")
+	exec("CREATE TABLE race_s_t1 (id INT)")
+	exec("INSERT INTO race_schema_versions (store, version, readable_by) VALUES ('race_s', 1, 0)")
+	exec("COMMIT")
+	if b.dialect == migrate.Postgres {
+		exec("SELECT pg_advisory_unlock(" + strconv.FormatInt(migrate.LockKey("race_schema_versions"), 10) + ")")
+	}
+
+	require.NoError(t, <-newDone)
+	requireVersion(t, newDB, "race_schema_versions", "race_s", 1)
+	requireNoTable(t, newDB, b.dialect, "race_s_t2")
+	// The older binary records its opener row now and still reads the store.
+	require.NoError(t, migrate.Migrate(ctx, b.open(t), b.dialect, "race", newStore("race_s", 1), migrate.WithNode("old")))
 }
 
 // TestPostgresOpenerPrivilege checks that a role that may not write the openers
