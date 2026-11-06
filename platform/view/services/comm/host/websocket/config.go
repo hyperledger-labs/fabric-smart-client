@@ -305,6 +305,7 @@ func newClientTLSConfig(serverRootCAPool *x509.CertPool, opts grpc.SecureOptions
 		MinVersion:         tls.VersionTLS13,
 		MaxVersion:         tls.VersionTLS13,
 		RootCAs:            serverRootCAPool,
+		ServerName:         opts.ServerNameOverride,
 		InsecureSkipVerify: false,
 		// Unlike Certificates, which crypto/tls only presents when the server's AcceptableCAs
 		// list its issuer, this always presents the identity certificate and leaves the trust

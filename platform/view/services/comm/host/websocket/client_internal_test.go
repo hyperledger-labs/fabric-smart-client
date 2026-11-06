@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commhost "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 // tlsCapturingStreamProvider records the TLS configuration of the last outbound stream.
@@ -61,7 +62,6 @@ func TestClientRootCAsFollowExtraCAs(t *testing.T) {
 	open := func() *tls.Config {
 		_, err := h.client.OpenStream(commhost.StreamInfo{RemotePeerAddress: "127.0.0.1:9999"}, t.Context())
 		require.NoError(t, err)
-		require.Equal(t, "127.0.0.1", sp.config.ServerName)
 		return sp.config
 	}
 	trustsPeer := func(c *tls.Config) bool {
@@ -129,4 +129,34 @@ func TestClientOpenStreamConcurrentWithChangingExtraCAs(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+// fsc.p2p.opts.websocket.tls.serverNameOverride is the SNI name of every outbound stream.
+// Without it ServerName stays empty, and the dialer sends the host of the dialed address.
+func TestClientServerNameOverride(t *testing.T) {
+	t.Parallel()
+
+	serverName := func(t *testing.T, body string) string {
+		t.Helper()
+		dir, _, _ := writeNodeDir(t, body)
+		p, err := viewconfig.NewProvider(dir)
+		require.NoError(t, err)
+		cfg, err := NewConfig(p)
+		require.NoError(t, err)
+		sp := &tlsCapturingStreamProvider{}
+		h, err := NewHost("self", nil, sp, cfg, extraCAs{})
+		require.NoError(t, err)
+		_, err = h.client.OpenStream(commhost.StreamInfo{RemotePeerAddress: "127.0.0.1:9999"}, t.Context())
+		require.NoError(t, err)
+		return sp.config.ServerName
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		t.Parallel()
+		assert.Empty(t, serverName(t, p2pCore))
+	})
+	t.Run("set", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, "peer.example.com", serverName(t, p2pCore+"          serverNameOverride: peer.example.com\n"))
+	})
 }

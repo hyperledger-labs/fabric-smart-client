@@ -257,7 +257,7 @@ func (c *MultiplexedProvider) getClientConn(ctx context.Context, urlStr string, 
 	c.dialing[key] = inFlight
 	c.mu.Unlock()
 
-	wsConn, header, err := client.OpenWSClientConnWithHeader(ctx, urlStr, config, wireReadLimit(c.MaxRecvMsgSize))
+	wsConn, header, err := client.OpenWSClientConnWithHeader(ctx, urlStr, verifyServer(config, info.RemotePeerID), wireReadLimit(c.MaxRecvMsgSize))
 	var serverPre *preamble.Preamble
 	if err == nil && config != nil {
 		err = verifyServerPeerID(wsConn, info.RemotePeerID)

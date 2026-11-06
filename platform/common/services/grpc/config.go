@@ -203,9 +203,10 @@ type SecureOptions struct {
 	MaxVersion uint16
 	// TimeShift makes TLS handshakes time sampling shift to the past by a given duration
 	TimeShift time.Duration
-	// ServerNameOverride overrides the SNI name and the hostname verified in the server's
-	// certificate. Needed when dialling an IP address against a certificate issued for a
-	// hostname. Client-side only; a TLS server ignores it.
+	// ServerNameOverride overrides the SNI name and, on clients that verify a host name, the
+	// name verified in the server's certificate. Needed when dialling an IP address against a
+	// certificate issued for a hostname. The websocket P2P client verifies no host name, so
+	// there it sets only SNI. Client-side only; a TLS server ignores it.
 	ServerNameOverride string
 }
 

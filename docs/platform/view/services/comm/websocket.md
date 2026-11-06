@@ -40,17 +40,16 @@ graph TD
 
 ### Protocol Handshake and Upgrading
 
-The steps below are those of the multiplexed provider, which nodes use. The test-only `SimpleProvider` skips the preamble steps 6 and 9 and sends no preamble.
+The steps below are those of the multiplexed provider, which nodes use. The test-only `SimpleProvider` skips the preamble steps 5 and 8 and sends no preamble.
 
 1.  **TCP/TLS Connect**: The client establishes a TLS connection to the server's WEBSOCKET endpoint (e.g., `https://node-a:11511/p2p`).
 2.  **mTLS Identity**: Both parties use the node's main identity (configured via `fsc.identity.key.file` and `fsc.identity.cert.file`) for mutual authentication.
-3.  **mTLS Verification**: Both parties exchange and verify certificates. The server extracts the `expectedPeerID` from the client's verified certificate.
+3.  **mTLS Verification and Server Identity Binding**: Both parties exchange and verify certificates. The client verifies the chain of the server's certificate, derives the `PeerID` from its public key and fails the handshake if it differs from the `PeerID` it dialed, so it sends nothing to a server that is not the dialed peer. It matches no host name: the `PeerID` pins the server's key, so identity certificates without SANs work, and a certificate that chains to a trusted CA is not enough to impersonate another peer. The server extracts the `expectedPeerID` from the client's verified certificate.
 4.  **WebSocket Upgrade**: The client sends an `Upgrade: websocket` header. The server's upgrade response carries its preamble in the `Fsc-Preamble` header.
-5.  **Server Identity Binding**: The client derives the `PeerID` from the server's verified certificate and closes the connection if it differs from the `PeerID` it dialed. A certificate that chains to a trusted CA and is valid for the dialed host is therefore not enough to impersonate another peer.
-6.  **Server Preamble**: The client then checks the server's preamble and closes the connection if it names another framing epoch. A server without the header runs a release without preambles and is accepted.
-7.  **Meta Handshake**: Once the WebSocket is established, the client sends an initial `StreamMeta` JSON packet containing its claimed `PeerID`, `ContextID`, `SessionID`, and its encoded preamble.
-8.  **Identity Binding Validation**: The server compares the `PeerID` in the `StreamMeta` against the `expectedPeerID` from the TLS certificate. If they mismatch, the connection is terminated.
-9.  **Client Preamble**: The server then checks the client's preamble. A preamble that is malformed or names another framing epoch gets the sub-connection an Err frame starting with `version: `; the websocket stays open. A `StreamMeta` without a preamble comes from an older release and is accepted. See [Stream preamble](./readme.md#stream-preamble).
+5.  **Server Preamble**: The client then checks the server's preamble and closes the connection if it names another framing epoch. A server without the header runs a release without preambles and is accepted.
+6.  **Meta Handshake**: Once the WebSocket is established, the client sends an initial `StreamMeta` JSON packet containing its claimed `PeerID`, `ContextID`, `SessionID`, and its encoded preamble.
+7.  **Identity Binding Validation**: The server compares the `PeerID` in the `StreamMeta` against the `expectedPeerID` from the TLS certificate. If they mismatch, the connection is terminated.
+8.  **Client Preamble**: The server then checks the client's preamble. A preamble that is malformed or names another framing epoch gets the sub-connection an Err frame starting with `version: `; the websocket stays open. A `StreamMeta` without a preamble comes from an older release and is accepted. See [Stream preamble](./readme.md#stream-preamble).
 
 ## Multiplexing and Logical Streams
 
@@ -75,7 +74,7 @@ type MultiplexedMessage struct {
 -   **TLS Caching**: Trusted root CAs are cached in memory to avoid disk I/O during handshakes. Dynamic trust updates (from the `EndpointService`) are appended to a clone of this cached pool in memory, significantly improving connection throughput.
 -   **Minimum TLS Version**: Both `ClientTLSConfig` and `ServerTLSConfig` (in `config.go`) set `MinVersion: tls.VersionTLS13`, so older protocol versions cannot be negotiated even if a peer offers them.
 -   **Identity Binding (Issue #871)**: The `PeerID` asserted in the application layer (during the WebSocket upgrade) is strictly validated against the public key extracted from the verified TLS certificate. The transport layer rejects any attempt to spoof an identity.
--   **Server Identity Binding**: A client stream opens only if the server's verified certificate belongs to the dialed `PeerID`. The multiplexed provider caches connections per address and `PeerID`, so a cached connection never carries a stream for a different peer.
+-   **Server Identity Binding**: A client stream opens only if the server's verified certificate belongs to the dialed `PeerID`. The client checks this during the TLS handshake and again on the established connection. The multiplexed provider caches connections per address and `PeerID`, so a cached connection never carries a stream for a different peer.
 -   **Runtime Trust Updates**: The transport trusts the peer certificates the `EndpointService` holds at the time of each connection. The server re-reads them on every inbound handshake and the client on every outbound stream, so a peer added at runtime is trusted and a peer removed at runtime is no longer trusted. Removal does not close established connections, and an outbound connection that is already open keeps carrying new streams.
 -   **Read Limits**: Each WebSocket connection has a 10MB read limit (`SetReadLimit`) to prevent OOM attacks.
 -   **WebSocket Hardening**:
@@ -101,7 +100,7 @@ The WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`. 
 ```yaml
 fsc:
   p2p:
-    # Transport type must be "websocket" or "websocket"
+    # Transport type; "websocket" selects this transport
     type: websocket
     # Address to listen for incoming connections. 
     # Use "0.0.0.0:0" for dynamic port assignment.
@@ -129,6 +128,11 @@ fsc:
           clientRootCAs:
             files:
               - /path/to/client/tls/ca.crt
+          # SNI name sent when dialing a peer. Defaults to the host of the dialed address; no
+          # SNI is sent when that is an IP address. The client verifies the chain of the
+          # server's certificate and the peer ID derived from it, never a host name, so the
+          # server's certificate needs no SANs.
+          serverNameOverride: ""
   
   identity:
     # Path to the node's key and certificate used for mTLS handshake

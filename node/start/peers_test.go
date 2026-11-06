@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -210,6 +211,81 @@ fsc:
 
 	var out bytes.Buffer
 	require.Equal(t, ExitFailed, checkPeers(t.Context(), &out, peers, dial), out.String())
+}
+
+// node peers --check sends fsc.p2p.opts.websocket.tls.serverNameOverride as SNI, and the host of
+// the dialed address when it is unset.
+func TestConfiguredPeersSendServerNameOverride(t *testing.T) {
+	t.Parallel()
+	for override, want := range map[string]string{"": "localhost", "peer.example.com": "peer.example.com"} {
+		t.Run("override="+override, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			identity := func(name string) tls.Certificate {
+				cert, key, err := websocket.GenerateTestCert(name)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(filepath.Join(dir, name+".crt"), cert, 0o600))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, name+".key"), key, 0o600))
+				pair, err := tls.X509KeyPair(cert, key)
+				require.NoError(t, err)
+				return pair
+			}
+			identity("self")
+			responder := identity("responder")
+			sni := make(chan string, 1)
+			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if conn, err := (&gwebsocket.Upgrader{}).Upgrade(w, r, nil); err == nil {
+					_ = conn.Close()
+				}
+			}))
+			srv.TLS = &tls.Config{
+				Certificates: []tls.Certificate{responder},
+				ClientAuth:   tls.RequireAnyClientCert,
+				MinVersion:   tls.VersionTLS13,
+				GetConfigForClient: func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+					select {
+					case sni <- hello.ServerName:
+					default:
+					}
+					return nil, nil
+				},
+			}
+			srv.StartTLS()
+			t.Cleanup(srv.Close)
+			// Dial by name: crypto/tls sends no SNI for an IP address.
+			_, port, err := net.SplitHostPort(strings.TrimPrefix(srv.URL, "https://"))
+			require.NoError(t, err)
+
+			tlsBlock := "          enabled: true\n          clientRootCAs: {files: [self.crt]}\n"
+			if override != "" {
+				tlsBlock += "          serverNameOverride: " + override + "\n"
+			}
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(`
+fsc:
+  identity:
+    cert: {file: self.crt}
+    key: {file: self.key}
+  p2p:
+    type: websocket
+    listenAddress: /ip4/127.0.0.1/tcp/9000
+    opts:
+      websocket:
+        tls:
+`+tlsBlock+`  endpoint:
+    resolvers:
+    - {name: responder, identity: {path: responder.crt}, addresses: {P2P: "localhost:`+port+`"}}
+`), 0o600))
+			cfg, err := config.NewProvider(dir)
+			require.NoError(t, err)
+			peers, dial, err := configuredPeers(cfg)
+			require.NoError(t, err)
+			require.Len(t, peers, 1)
+
+			_, err = dial(t.Context(), peers[0].id, peers[0].address)
+			require.NoError(t, err)
+			require.Equal(t, want, <-sni)
+		})
+	}
 }
 
 // configuredPeers refuses the resolver entries the node's resolver loader refuses. Address keys

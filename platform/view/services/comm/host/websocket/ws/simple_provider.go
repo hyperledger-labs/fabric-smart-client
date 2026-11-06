@@ -96,7 +96,7 @@ func (p *SimpleProvider) NewClientStream(info host.StreamInfo, ctx context.Conte
 	// We use the background context instead of passing the existing context,
 	// because the net/http server doesn't monitor connections upgraded to WebSocket.
 	// Hence, when the connection is lost, the context will not be cancelled.
-	conn, err := client.OpenWSClientConn(url.String(), config)
+	conn, err := client.OpenWSClientConn(url.String(), verifyServer(config, info.RemotePeerID))
 	if err != nil {
 		logger.Errorf("Dial failed: %s", err.Error())
 		return nil, errors.Wrap(err, "failed to open websocket")

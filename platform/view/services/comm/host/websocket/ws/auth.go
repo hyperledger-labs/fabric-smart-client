@@ -33,21 +33,24 @@ func expectedPeerIDFromRequest(request *http.Request) (host.PeerID, error) {
 
 // verifyServerPeerID checks that the server certificate verified during conn's TLS handshake
 // belongs to expected, the peer ID the client dialed. It is the client-side counterpart of
-// expectedPeerIDFromRequest: without it, any certificate that chains to a trusted CA and is
-// valid for the dialed host would be accepted as the dialed peer. conn must be a TLS
-// connection.
+// expectedPeerIDFromRequest: without it, any certificate that chains to a trusted CA would be
+// accepted as the dialed peer. conn must be a TLS connection.
 //
-// The providers call it after the dial rather than from a tls.Config.VerifyConnection
-// callback on purpose: the multiplexed provider reuses a cached connection for later streams
-// without a new handshake, so a handshake-time check alone would not cover them. The binding
-// holds only together with the cache key, which includes the verified peer ID.
+// [verifyServer] makes the same check during the handshake. The providers repeat it after the
+// dial because the multiplexed provider reuses a cached connection for later streams without a
+// new handshake, so a handshake-time check alone would not cover them. The binding holds only
+// together with the cache key, which includes the verified peer ID.
 func verifyServerPeerID(conn *websocket.Conn, expected host.PeerID) error {
 	tlsConn, ok := conn.NetConn().(*tls.Conn)
 	if !ok {
 		return errors.New("missing TLS connection state")
 	}
 	cs := tlsConn.ConnectionState()
-	actual, err := peerIDFromConnectionState(&cs)
+	return checkPeerID(&cs, expected)
+}
+
+func checkPeerID(cs *tls.ConnectionState, expected host.PeerID) error {
+	actual, err := peerIDFromConnectionState(cs)
 	if err != nil {
 		return err
 	}
@@ -55,6 +58,48 @@ func verifyServerPeerID(conn *websocket.Conn, expected host.PeerID) error {
 		return errors.Errorf("peer identity binding failed: dialed [%s], tls [%s]", expected, actual)
 	}
 	return nil
+}
+
+// verifyServer returns a copy of config that authenticates the server as expected during the
+// TLS handshake: it verifies the certificate chain against config.RootCAs, at config.Time when
+// set, and requires the certificate's public key to belong to expected, the peer ID being dialed. A
+// server that fails either check is refused before the client sends the websocket upgrade
+// request.
+//
+// It matches no host name: the peer ID pins the server's key, which a host name cannot add to,
+// and identity certificates often name no host. ServerName is still sent as SNI. crypto/tls has
+// no way to skip only the host name check, so the copy sets InsecureSkipVerify and does the
+// chain verification itself in VerifyConnection. Call it once RootCAs is final: the copy
+// verifies against the pool config holds at this call.
+func verifyServer(config *tls.Config, expected host.PeerID) *tls.Config {
+	if config == nil {
+		return nil
+	}
+	c := config.Clone()
+	roots := c.RootCAs
+	c.InsecureSkipVerify = true
+	c.VerifyConnection = func(cs tls.ConnectionState) error {
+		if len(cs.PeerCertificates) == 0 {
+			return errors.New("server presented no certificate")
+		}
+		intermediates := x509.NewCertPool()
+		for _, cert := range cs.PeerCertificates[1:] {
+			intermediates.AddCert(cert)
+		}
+		opts := x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: intermediates,
+			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		}
+		if c.Time != nil {
+			opts.CurrentTime = c.Time()
+		}
+		if _, err := cs.PeerCertificates[0].Verify(opts); err != nil {
+			return errors.Wrap(err, "failed to verify server certificate")
+		}
+		return checkPeerID(&cs, expected)
+	}
+	return c
 }
 
 func peerIDFromConnectionState(cs *tls.ConnectionState) (host.PeerID, error) {
