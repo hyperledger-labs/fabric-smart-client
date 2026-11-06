@@ -48,6 +48,17 @@ variable such as `prom.DefaultRegisterer`) runs serially instead and says which 
 with `//nolint:paralleltest // <state>`. Placed on the line above the `func`, the
 directive also covers that test's subtests.
 
+### Goroutines that outlive the call
+
+When the code under test leaves goroutines running after it returns, as the BFT
+broadcaster does with the sends to slower orderers, run the test in a
+[`testing/synctest`](https://pkg.go.dev/testing/synctest) bubble:
+`synctest.Test(t, func(t *testing.T) { ... })`. `synctest.Wait()` returns once every
+other goroutine in the bubble is blocked or done, so the test asserts on a settled state
+instead of polling with `require.Eventually`, and timers run on the bubble's fake clock,
+so a 10-second timeout passes at once. `synctest.Test` fails the test if a goroutine is
+still blocked when its function returns: release blocked fakes with `t.Cleanup`.
+`platform/fabric/core/generic/ordering/bft_test.go` has examples.
 
 ### Choosing `assert` over `require`
 

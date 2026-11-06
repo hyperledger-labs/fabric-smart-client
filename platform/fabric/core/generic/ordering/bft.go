@@ -40,6 +40,11 @@ type bftOrdererState struct {
 // by bftSendRecvTimeout and is not cancelled by the caller's context, which
 // only bounds the wait for a connection and for the threshold.
 //
+// An orderer whose send has not started when the attempt ends still gets the
+// envelope if it has an idle stream in its pool or a free slot to open one. If
+// it has neither, it is skipped: waiting for a slot would compete with the
+// next attempt or broadcast and send the envelope late.
+//
 // It counts each envelope that reaches the threshold in OrderedTransactions, and
 // reports the state of each orderer: connected when a stream is opened and
 // after each envelope the orderer accepts, reconnecting when a failed stream is
@@ -118,10 +123,8 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 			time.Sleep(retryInterval)
 		}
 
-		// Only getConnection uses attemptCtx: once the attempt ends, goroutines
-		// still waiting for a connection give up instead of competing with the
-		// next attempt for slots and sending the envelope late. Sends that
-		// already hold a connection run to completion.
+		// Only getConnection uses attemptCtx. Once the attempt ends, a goroutine
+		// that would have to wait for a slot gives up; see the type's godoc.
 		attemptCtx, cancelAttempt := context.WithCancel(ctx)
 		results := make(chan error, n)
 		var success, failure int
@@ -132,7 +135,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 				logger.DebugfContext(ctx, "get connection to [%s]", orderer.Address)
 				connection, err := o.getConnection(attemptCtx, orderer)
 				if err != nil {
-					logger.WarnfContext(ctx, "failed to get connection to orderer [%s]", orderer.Address, err)
+					logger.WarnfContext(ctx, "failed to get connection to orderer [%s]: %s", orderer.Address, err)
 					results <- errors.Wrapf(err, "failed connecting to [%s]", orderer.Address)
 					return
 				}
@@ -206,12 +209,6 @@ func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionC
 	case connection := <-state.pool:
 		return connection, nil
 	default:
-	}
-
-	// A caller that is gone may reuse an idle connection, but must not open a
-	// new one or wait for a slot.
-	if err := ctx.Err(); err != nil {
-		return nil, err
 	}
 
 	select {

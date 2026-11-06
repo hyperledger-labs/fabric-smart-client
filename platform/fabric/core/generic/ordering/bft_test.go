@@ -9,11 +9,11 @@ package ordering
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
-	"slices"
-	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -51,26 +51,11 @@ func (*fakeBroadcastStream) CloseSend() error { return nil }
 // CloseSend calls.
 type gatedStream struct {
 	release    chan struct{}
-	sent       chan struct{}
-	markSent   func()
 	status     common.Status
 	closeCalls atomic.Int32
 }
 
-func newGatedStream(status common.Status) *gatedStream {
-	sent := make(chan struct{})
-	return &gatedStream{
-		release:  make(chan struct{}),
-		sent:     sent,
-		markSent: func() { close(sent) },
-		status:   status,
-	}
-}
-
-func (g *gatedStream) Send(*common.Envelope) error {
-	g.markSent()
-	return nil
-}
+func (*gatedStream) Send(*common.Envelope) error { return nil }
 
 func (g *gatedStream) Recv() (*ab.BroadcastResponse, error) {
 	<-g.release
@@ -129,246 +114,212 @@ func (f *fakeRetryServices) NewOrdererClient(grpc.ConnectionConfig) (Client, err
 // broadcast meets its BFT threshold and returns success.
 func TestBFTBroadcaster_DiscardsFailedConnectionsOnPartialFailureSuccess(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		failing := &fakeBroadcastStream{recvErr: errors.New("induced Recv failure")}
+		b, _ := newPrefilledBFT(4, nil, accepting(), accepting(), accepting(), failing)
 
-	orderers := []*grpc.ConnectionConfig{
-		{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"},
-	}
-	cfg := &fake.ConfigService{
-		PoolSizeValue: len(orderers),
-		RetriesValue:  1,
-		OrderersValue: orderers,
-	}
-	b := NewBFTBroadcaster(cfg, nil, newTestMetrics())
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		synctest.Wait()
 
-	streams := map[string]*fakeBroadcastStream{
-		"o1": {status: common.Status_SUCCESS},
-		"o2": {status: common.Status_SUCCESS},
-		"o3": {status: common.Status_SUCCESS},
-		"o4": {recvErr: errors.New("induced Recv failure")},
-	}
-	// Pre-fill each orderer's pool with one connection, consuming one slot, so
-	// getConnection reuses it (bypassing ClientFactory) and the per-orderer slot
-	// accounting can be asserted after the broadcast.
-	for _, o := range orderers {
-		state := b.ordererState(o.Address)
-		<-state.slots
-		state.pool <- &Connection{Address: o.Address, Stream: streams[o.Address]}
-	}
-
-	err := b.Broadcast(t.Context(), &common.Envelope{})
-	require.NoError(t, err)
-
-	// o4's errored connection must be discarded, returning its slot, so o4 is
-	// back to full capacity. o1-o3 succeeded and their connections went back to
-	// the pool, so those slots stay held.
-	require.Eventually(t, func() bool { return len(b.ordererState("o4").slots) == len(orderers) }, time.Second, 10*time.Millisecond, "failed connection's slot should be released")
-	for _, addr := range []string{"o1", "o2", "o3"} {
-		require.Len(t, b.ordererState(addr).slots, len(orderers)-1, "pooled connection keeps holding its slot")
-	}
+		// o4's errored connection is discarded, returning its slot. o1-o3 put
+		// their connections back in the pool, so those slots stay held.
+		require.Len(t, b.ordererState("o4").slots, 4, "failed connection's slot should be released")
+		for _, addr := range []string{"o1", "o2", "o3"} {
+			require.Len(t, b.ordererState(addr).slots, 3, "pooled connection keeps holding its slot")
+		}
+	})
 }
 
-// A hung orderer does not delay Broadcast once the other orderers meet the
-// threshold. When its send ends, its stream is closed once and its slot released.
-func TestBFTBroadcaster_Broadcast_ReturnsWithoutHungOrderer(t *testing.T) {
-	t.Parallel()
-
-	orderers := []*grpc.ConnectionConfig{
-		{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"},
+// newPrefilledBFT returns a BFT broadcaster for one orderer per stream. Each
+// orderer's pool holds one connection on its stream, which takes one of its
+// poolSize slots, so Broadcast reuses it instead of asking services.
+func newPrefilledBFT(poolSize int, services Services, streams ...Broadcast) (*BFTBroadcaster, []*grpc.ConnectionConfig) {
+	orderers := make([]*grpc.ConnectionConfig, len(streams))
+	for i := range streams {
+		orderers[i] = &grpc.ConnectionConfig{Address: fmt.Sprintf("o%d", i+1)}
 	}
-	cfg := &fake.ConfigService{
-		PoolSizeValue: len(orderers),
-		RetriesValue:  1,
-		OrderersValue: orderers,
-	}
-
-	b := NewBFTBroadcaster(cfg, nil, newTestMetrics())
-
-	hung := &blockingStream{done: make(chan struct{})}
-	// Unblock the hung Recv exactly once, also when an assertion fails first,
-	// so its goroutine does not outlive the test.
-	var releaseOnce sync.Once
-	release := func() { releaseOnce.Do(func() { close(hung.done) }) }
-	t.Cleanup(release)
-	streams := map[string]Broadcast{
-		"o1": &fakeBroadcastStream{status: common.Status_SUCCESS},
-		"o2": &fakeBroadcastStream{status: common.Status_SUCCESS},
-		"o3": &fakeBroadcastStream{status: common.Status_SUCCESS},
-		"o4": hung,
-	}
-
-	// Pre-fill each orderer's pool with one connection, consuming one slot, so
-	// getConnection reuses it (bypassing ClientFactory) and the per-orderer slot
-	// accounting can be asserted after the broadcast.
-	for _, o := range orderers {
+	cfg := &fake.ConfigService{PoolSizeValue: poolSize, RetriesValue: 1, OrderersValue: orderers}
+	b := NewBFTBroadcaster(cfg, services, newTestMetrics())
+	for i, o := range orderers {
 		state := b.ordererState(o.Address)
 		<-state.slots
-		state.pool <- &Connection{Address: o.Address, Stream: streams[o.Address]}
+		state.pool <- &Connection{Address: o.Address, Stream: streams[i]}
 	}
+	return b, orderers
+}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+func accepting() Broadcast { return &fakeBroadcastStream{status: common.Status_SUCCESS} }
 
-	start := time.Now()
-	err := b.Broadcast(ctx, &common.Envelope{})
-	cancel()
-	require.NoError(t, err)
-	require.Less(t, time.Since(start), time.Second, "Broadcast must not wait for the hung orderer")
-	release()
+// The tests below run in a synctest bubble: synctest.Wait returns once every
+// send still running after Broadcast returned is blocked or done, and
+// bftSendRecvTimeout passes on the bubble's fake clock.
 
-	require.Eventually(t, func() bool { return len(b.ordererState("o4").slots) == len(orderers) }, time.Second, 10*time.Millisecond, "hung connection's slot should be released")
-	hung.mu.Lock()
-	closeCalls := hung.closeCalls
-	hung.mu.Unlock()
-	require.Equal(t, 1, closeCalls, "hung stream should be closed exactly once")
+// A hung orderer does not delay Broadcast once the other orderers meet the
+// threshold. Its send times out after bftSendRecvTimeout, which closes its
+// stream once and releases its slot.
+func TestBFTBroadcaster_Broadcast_ReturnsWithoutHungOrderer(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		hung := &blockingStream{done: make(chan struct{})}
+		t.Cleanup(func() { close(hung.done) })
+		b, _ := newPrefilledBFT(4, nil, accepting(), accepting(), accepting(), hung)
+
+		start := time.Now()
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		require.Less(t, time.Since(start), bftSendRecvTimeout, "Broadcast must not wait for the hung orderer")
+
+		o4 := b.ordererState("o4")
+		synctest.Wait()
+		require.Len(t, o4.slots, 3, "the hung send still holds its slot")
+
+		time.Sleep(bftSendRecvTimeout)
+		synctest.Wait()
+		require.Len(t, o4.slots, 4, "the timed-out send releases its slot")
+		require.Empty(t, o4.pool)
+		hung.mu.Lock()
+		defer hung.mu.Unlock()
+		require.Equal(t, 1, hung.closeCalls, "the hung stream is closed exactly once")
+	})
 }
 
 // An orderer that answers after Broadcast returned puts its connection back in
-// the pool, even when the caller cancels its context right after Broadcast
-// returns.
+// the pool, even though the caller cancelled its context right after Broadcast
+// returned.
 func TestBFTBroadcaster_Broadcast_SlowOrdererReturnsToPool(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		slow := &gatedStream{release: make(chan struct{}), status: common.Status_SUCCESS}
+		b, _ := newPrefilledBFT(4, nil, accepting(), accepting(), accepting(), slow)
 
-	orderers := []*grpc.ConnectionConfig{
-		{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"},
-	}
-	cfg := &fake.ConfigService{
-		PoolSizeValue: len(orderers),
-		RetriesValue:  1,
-		OrderersValue: orderers,
-	}
+		ctx, cancel := context.WithCancel(t.Context())
+		require.NoError(t, b.Broadcast(ctx, &common.Envelope{}))
+		cancel()
 
-	slow := newGatedStream(common.Status_SUCCESS)
-	// Let the slow orderer answer exactly once, also when an assertion fails
-	// first, so its goroutine does not outlive the test.
-	var releaseOnce sync.Once
-	release := func() { releaseOnce.Do(func() { close(slow.release) }) }
-	t.Cleanup(release)
-	streams := map[string]Broadcast{
-		"o1": &fakeBroadcastStream{status: common.Status_SUCCESS},
-		"o2": &fakeBroadcastStream{status: common.Status_SUCCESS},
-		"o3": &fakeBroadcastStream{status: common.Status_SUCCESS},
-		"o4": slow,
-	}
+		o4 := b.ordererState("o4")
+		synctest.Wait()
+		require.Empty(t, o4.pool, "the slow send is still running")
 
-	b := NewBFTBroadcaster(cfg, nil, newTestMetrics())
-
-	// Pre-fill each orderer's pool with one connection, consuming one slot, so
-	// getConnection reuses it (bypassing ClientFactory) and o4's pool can be
-	// asserted after the broadcast.
-	for _, o := range orderers {
-		state := b.ordererState(o.Address)
-		<-state.slots
-		state.pool <- &Connection{Address: o.Address, Stream: streams[o.Address]}
-	}
-
-	ctx, cancel := context.WithCancel(t.Context())
-
-	err := b.Broadcast(ctx, &common.Envelope{})
-	require.NoError(t, err)
-	cancel()
-
-	select {
-	case <-slow.sent:
-		require.Empty(t, b.ordererState("o4").pool, "slow orderer is still in flight")
-	case <-time.After(time.Second):
-		t.Fatal("slow orderer never received the envelope")
-	}
-
-	release()
-	require.Eventually(t, func() bool { return len(b.ordererState("o4").pool) == 1 }, time.Second, 10*time.Millisecond, "slow orderer's connection should return to the pool")
-	require.Zero(t, slow.closeCalls.Load(), "slow orderer's connection must not be discarded")
+		close(slow.release)
+		synctest.Wait()
+		require.Len(t, o4.pool, 1, "the slow orderer's connection returns to the pool")
+		require.Zero(t, slow.closeCalls.Load(), "the slow orderer's connection is not discarded")
+	})
 }
 
-// A retry makes progress while sends of the previous attempt still hold slots:
-// a getConnection blocked on a held slot resumes once that send ends.
+// A retry makes progress while sends of the failed attempt still hold slots: a
+// getConnection that waits for a held slot resumes once that send ends.
 func TestBFTBroadcaster_Broadcast_RetryProgressesWhileSlotsHeld(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		// o1 and o2 reject once the test releases them, ending the first
+		// attempt. o3 and o4 hang and keep holding their only slot. The retry
+		// opens new connections, which accept.
+		reject1 := &gatedStream{release: make(chan struct{}), status: common.Status_BAD_REQUEST}
+		reject2 := &gatedStream{release: make(chan struct{}), status: common.Status_BAD_REQUEST}
+		hung3 := &blockingStream{done: make(chan struct{})}
+		hung4 := &blockingStream{done: make(chan struct{})}
+		t.Cleanup(func() { close(hung4.done) })
+		b, _ := newPrefilledBFT(1, fakeServices{}, reject1, reject2, hung3, hung4)
+		b.ConfigService.(*fake.ConfigService).RetriesValue = 2
 
-	orderers := []*grpc.ConnectionConfig{
-		{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"},
-	}
-	cfg := &fake.ConfigService{
-		PoolSizeValue: 1,
-		RetriesValue:  2,
-		OrderersValue: orderers,
-	}
+		done := make(chan error, 1)
+		go func() { done <- b.Broadcast(t.Context(), &common.Envelope{}) }()
 
-	b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
+		// Every orderer holds the envelope before the first attempt fails, so
+		// no send of the first attempt can start during the retry.
+		synctest.Wait()
+		close(reject1.release)
+		close(reject2.release)
 
-	// o3 and o4 hang in the first attempt and keep holding their only slot.
-	// Each is unblocked exactly once, also when an assertion fails first.
-	hung3 := &blockingStream{done: make(chan struct{})}
-	hung4 := &blockingStream{done: make(chan struct{})}
-	var releaseOnce3, releaseOnce4 sync.Once
-	release3 := func() { releaseOnce3.Do(func() { close(hung3.done) }) }
-	release4 := func() { releaseOnce4.Do(func() { close(hung4.done) }) }
-	t.Cleanup(release3)
-	t.Cleanup(release4)
-	streams := map[string]Broadcast{
-		"o1": &fakeBroadcastStream{status: common.Status_BAD_REQUEST},
-		"o2": &fakeBroadcastStream{status: common.Status_BAD_REQUEST},
-		"o3": hung3,
-		"o4": hung4,
-	}
+		synctest.Wait()
+		require.Empty(t, done, "the retry needs o3 or o4, whose slots are held")
 
-	// Pre-fill each orderer's pool with one connection, taking its only slot.
-	// Connections opened on the retry come from ClientFactory and succeed.
-	for _, o := range orderers {
-		state := b.ordererState(o.Address)
-		<-state.slots
-		state.pool <- &Connection{Address: o.Address, Stream: streams[o.Address]}
-	}
-
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-
-	// The second attempt waits in getConnection for o3 or o4, so Broadcast runs
-	// in a goroutine while the test checks that it waits, then frees o3's slot.
-	done := make(chan error, 1)
-	go func() {
-		done <- b.Broadcast(ctx, &common.Envelope{})
-	}()
-	require.Never(t, func() bool { return len(done) > 0 }, 200*time.Millisecond, 10*time.Millisecond, "Broadcast needs o3 or o4, whose slots are held")
-
-	release3()
-
-	select {
-	case err := <-done:
-		require.NoError(t, err)
-	case <-time.After(time.Second):
-		t.Fatal("Broadcast did not resume once o3's slot was released")
-	}
+		close(hung3.done)
+		synctest.Wait()
+		require.Len(t, done, 1, "the retry resumes once o3's slot is released")
+		require.NoError(t, <-done)
+	})
 }
 
-// A goroutine still waiting for a connection when Broadcast returns gives up
-// instead of taking a slot that frees later and sending the envelope late.
+// A goroutine that still waits for a slot when Broadcast returns gives up, so
+// it cannot take a slot that frees later and send the envelope late.
 func TestBFTBroadcaster_Broadcast_WaitingSendExitsAfterReturn(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		b, _ := newPrefilledBFT(1, fakeServices{}, accepting(), accepting(), accepting(), accepting())
+		// Check out o4's connection: its only slot stays held and its pool is empty.
+		o4 := b.ordererState("o4")
+		<-o4.pool
 
-	orderers := []*grpc.ConnectionConfig{
-		{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"},
-	}
-	cfg := &fake.ConfigService{
-		PoolSizeValue: 1,
-		RetriesValue:  1,
-		OrderersValue: orderers,
-	}
-	b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		synctest.Wait()
 
-	// o1-o3 answer from a pooled connection. o4's only slot is held and its
-	// pool is empty, so its goroutine waits in getConnection.
-	for _, o := range orderers {
-		state := b.ordererState(o.Address)
-		<-state.slots
-		if o.Address != "o4" {
-			state.pool <- &Connection{Address: o.Address, Stream: &fakeBroadcastStream{status: common.Status_SUCCESS}}
+		o4.slots <- struct{}{}
+		synctest.Wait()
+		require.Len(t, o4.slots, 1, "no goroutine took o4's freed slot")
+		require.Empty(t, o4.pool, "no connection to o4 was opened")
+	})
+}
+
+// Starting with no connections, every orderer gets the envelope, also the ones
+// whose send starts after Broadcast returned.
+func TestBFTBroadcaster_Broadcast_ColdStartReachesEveryOrderer(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
+		cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers}
+		b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
+
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		synctest.Wait()
+		for _, o := range orderers {
+			require.Len(t, b.ordererState(o.Address).pool, 1, "%s accepted the envelope and pooled its connection", o.Address)
 		}
+	})
+}
+
+// After the attempt ended, getConnection still reuses an idle connection or
+// opens one on a free slot. Only waiting for a slot is skipped.
+func TestBFTBroadcaster_GetConnectionAfterAttemptEnded(t *testing.T) {
+	t.Parallel()
+	to := &grpc.ConnectionConfig{Address: "o1"}
+	ended := func(t *testing.T) context.Context {
+		t.Helper()
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		return ctx
 	}
 
-	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+	t.Run("reuses an idle connection", func(t *testing.T) {
+		t.Parallel()
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 1}, fakeServices{}, newTestMetrics())
+		idle, err := b.getConnection(t.Context(), to)
+		require.NoError(t, err)
+		b.releaseConnection(idle, to)
 
-	o4 := b.ordererState("o4")
-	o4.slots <- struct{}{}
-	require.Never(t, func() bool { return len(o4.slots) == 0 || len(o4.pool) > 0 }, 200*time.Millisecond, 10*time.Millisecond, "o4's goroutine should have given up when Broadcast returned")
+		c, err := b.getConnection(ended(t), to)
+		require.NoError(t, err)
+		require.Same(t, idle, c)
+	})
+
+	t.Run("opens a connection on a free slot", func(t *testing.T) {
+		t.Parallel()
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 1}, fakeServices{}, newTestMetrics())
+
+		c, err := b.getConnection(ended(t), to)
+		require.NoError(t, err)
+		require.NotNil(t, c)
+	})
+
+	t.Run("does not wait for a held slot", func(t *testing.T) {
+		t.Parallel()
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 1}, fakeServices{}, newTestMetrics())
+		_, err := b.getConnection(t.Context(), to)
+		require.NoError(t, err)
+
+		_, err = b.getConnection(ended(t), to)
+		require.ErrorIs(t, err, context.Canceled)
+	})
 }
 
 // getConnection must return promptly when the caller's context is cancelled
@@ -990,50 +941,56 @@ func TestBFTBroadcaster_ConcurrentBroadcasts(t *testing.T) {
 	}
 }
 
+// Both tests below wait in a synctest bubble for the sends that finish after
+// Broadcast returned, so each Broadcast starts with every connection pooled.
+
 func TestBFTBroadcast_BrokenConnectionReportsReconnecting(t *testing.T) {
 	t.Parallel()
-	orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
-	cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers, NetworkNameValue: "test-network"}
-	connState, rec := connstatetest.NewMetrics()
-	m := newTestMetrics()
-	m.ConnState = connState
-	b := NewBFTBroadcaster(cfg, fakeServices{}, m)
+	synctest.Test(t, func(t *testing.T) {
+		orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
+		cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers, NetworkNameValue: "test-network"}
+		connState, rec := connstatetest.NewMetrics()
+		m := newTestMetrics()
+		m.ConnState = connState
+		b := NewBFTBroadcaster(cfg, fakeServices{}, m)
 
-	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
-	conn := <-b.ordererState("o1").pool
-	conn.Stream = &fakeBroadcastStream{sendErr: errors.New("orderer went away")}
-	b.ordererState("o1").pool <- conn
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		synctest.Wait()
+		conn := <-b.ordererState("o1").pool
+		conn.Stream = &fakeBroadcastStream{sendErr: errors.New("orderer went away")}
+		b.ordererState("o1").pool <- conn
 
-	// Three of four orderers still meet the threshold.
-	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
-	require.Eventually(t, func() bool {
+		// Three of four orderers still meet the threshold.
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		synctest.Wait()
 		last, _ := rec.Last("o1")
-		return connstate.Reconnecting == last
-	}, time.Second, 10*time.Millisecond)
-	// connect, then one accepted envelope per broadcast
-	require.Eventually(t, func() bool {
-		return slices.Equal([]connstate.State{connstate.Connected, connstate.Connected, connstate.Connected}, rec.States("o2"))
-	}, time.Second, 10*time.Millisecond)
+		require.Equal(t, connstate.Reconnecting, last)
+		// connect, then one accepted envelope per broadcast
+		require.Equal(t, []connstate.State{connstate.Connected, connstate.Connected, connstate.Connected}, rec.States("o2"))
+	})
 }
 
 func TestBFTBroadcast_CountsOrderedTransactions(t *testing.T) {
 	t.Parallel()
-	orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
-	cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers, NetworkNameValue: "test-network"}
-	counter := &mock.Counter{}
-	counter.WithReturns(counter)
-	b := NewBFTBroadcaster(cfg, fakeServices{}, &metrics.Metrics{OrderedTransactions: counter})
+	synctest.Test(t, func(t *testing.T) {
+		orderers := []*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"}}
+		cfg := &fake.ConfigService{PoolSizeValue: 1, RetriesValue: 1, OrderersValue: orderers, NetworkNameValue: "test-network"}
+		counter := &mock.Counter{}
+		counter.WithReturns(counter)
+		b := NewBFTBroadcaster(cfg, fakeServices{}, &metrics.Metrics{OrderedTransactions: counter})
 
-	require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
-	require.Equal(t, 1, counter.AddCallCount(), "one envelope, counted once however many orderers accepted it")
-	require.Equal(t, []string{"network", "test-network"}, counter.WithArgsForCall(0))
+		require.NoError(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		synctest.Wait()
+		require.Equal(t, 1, counter.AddCallCount(), "one envelope, counted once however many orderers accepted it")
+		require.Equal(t, []string{"network", "test-network"}, counter.WithArgsForCall(0))
 
-	// Below the threshold the envelope is not ordered and not counted.
-	for _, o := range orderers[:2] {
-		conn := <-b.ordererState(o.Address).pool
-		conn.Stream = &fakeBroadcastStream{status: common.Status_SERVICE_UNAVAILABLE}
-		b.ordererState(o.Address).pool <- conn
-	}
-	require.Error(t, b.Broadcast(t.Context(), &common.Envelope{}))
-	require.Equal(t, 1, counter.AddCallCount())
+		// Below the threshold the envelope is not ordered and not counted.
+		for _, o := range orderers[:2] {
+			conn := <-b.ordererState(o.Address).pool
+			conn.Stream = &fakeBroadcastStream{status: common.Status_SERVICE_UNAVAILABLE}
+			b.ordererState(o.Address).pool <- conn
+		}
+		require.Error(t, b.Broadcast(t.Context(), &common.Envelope{}))
+		require.Equal(t, 1, counter.AddCallCount())
+	})
 }
