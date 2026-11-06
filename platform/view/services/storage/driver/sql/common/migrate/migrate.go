@@ -80,8 +80,11 @@ SPDX-License-Identifier: Apache-2.0
 //
 // Migrate runs a contract step only WithContract, or on a fresh store: one
 // that had neither a row nor its primary table (StoreName) when Migrate read
-// it, and that no binary lacking the step has opened since. A store without a row whose table exists was created by a binary
-// without versioning, which may still read it, so it is not fresh. Otherwise
+// it, on which no other migrator has applied a step since, and that no binary
+// lacking the step has opened since. Another migrator records its opener row
+// only after its steps commit, so a step it applied makes the store not fresh.
+// A store without a row whose table exists was created by a binary without
+// versioning, which may still read it, so it is not fresh. Otherwise
 // Migrate stops before the step, logs that the step is pending, and returns
 // with the store at its current version; later steps wait too. The binary that
 // ships a contract step therefore works on the store both before and after it.
@@ -157,6 +160,9 @@ var (
 
 // errHeldBack stops a migration before a contract step it may not run.
 var errHeldBack = errors.New("contract step held back")
+
+// errAppliedMeanwhile reports that another migrator applied a step first.
+var errAppliedMeanwhile = errors.New("step applied meanwhile")
 
 // Dialect selects the SQL dialect and the locking strategy.
 type Dialect string
@@ -524,7 +530,8 @@ func describe(steps []Step) string {
 // against concurrent callers, so both tables are created under the lock. fresh
 // reports that Migrate found neither a row nor the store's table. A contract
 // step runs only with o.contract, or on a fresh store that no binary lacking
-// the step has opened since; otherwise run stops before it.
+// the step has opened since and on which no other migrator applied a step
+// meanwhile; otherwise run stops before it.
 func run(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, pending []Step, latest int, o options, fresh bool) error {
 	inProgress.Add(1)
 	defer inProgress.Add(-1)
@@ -551,6 +558,12 @@ func run(ctx context.Context, db *sql.DB, d Dialect, table, openers, store strin
 	}
 	for i, s := range pending {
 		err := apply(ctx, conn, d, table, openers, store, s, latest, o.contract, fresh)
+		if errors.Is(err, errAppliedMeanwhile) {
+			// Another migrator wrote the store and may not know the contract
+			// step, and its opener row may not exist yet.
+			fresh = false
+			continue
+		}
 		if errors.Is(err, errHeldBack) {
 			logHeldBack(store, pending[i:])
 			return nil
@@ -631,10 +644,10 @@ func readRow(ctx context.Context, q Execer, table, store string, latest int) (ve
 	return version, readableBy, nil
 }
 
-// apply runs s in one transaction on conn and records it, unless the row shows
-// that another migrator applied s meanwhile. SQLite uses BEGIN IMMEDIATE so the
-// transaction holds the write lock from the start and cannot fail on upgrading
-// a read lock. A contract step first checks the openers table and raises
+// apply runs s in one transaction on conn and records it. It returns
+// errAppliedMeanwhile if the row shows that another migrator applied s. SQLite
+// uses BEGIN IMMEDIATE so the transaction holds the write lock from the start
+// and cannot fail on upgrading a read lock. A contract step first checks the openers table and raises
 // readable_by with the version. A contract step returns errHeldBack unless
 // contract is set or the store is fresh. On a fresh store it also returns
 // errHeldBack instead of ErrOlderOpener: another binary created the store
@@ -659,8 +672,11 @@ func apply(ctx context.Context, conn *sql.Conn, d Dialect, table, openers, store
 	}()
 
 	version, readableBy, err := readRow(ctx, conn, table, store, latest)
-	if err != nil || version >= s.Version {
+	if err != nil {
 		return err
+	}
+	if version >= s.Version {
+		return errAppliedMeanwhile
 	}
 	if s.Contract {
 		if !contract && !fresh {
