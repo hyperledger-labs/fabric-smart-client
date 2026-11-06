@@ -166,7 +166,7 @@ With `--json` it prints one JSON object for release tooling:
   "vcs_modified": false,
   "framing_epoch": 1,
   "components": [{"name": "view", "min": 1, "max": 1}, {"name": "fabric", "min": 1, "max": 2}, {"name": "fabricx", "min": 1, "max": 2}],
-  "stores": [{"type": "vault", "dialect": "postgres", "steps": [{"version": 1, "name": "create tables", "hash": "a9dffb69…"}]}]
+  "stores": [{"type": "vault", "dialect": "postgres", "steps": [{"version": 1, "name": "create tables", "hash": "a9dffb69…", "contract": false}]}]
 }
 ```
 
@@ -182,8 +182,9 @@ With `--json` it prints one JSON object for release tooling:
   dirty tree; `framing_epoch` and `components` are what the binary sends in its stream
   preamble: FSC's components and those the application registers with
   `preamble.RegisterComponent`; `stores` lists, per SQL dialect, every store type the binary's SDKs register when
-  they are built, with its schema steps and `migrate.Step.Hash` (the memory driver uses the
-  `sqlite` steps). The view SDK registers the view stores and the Fabric SDK the Fabric stores,
+  they are built, with its schema steps, `migrate.Step.Hash` and `contract`, true for a
+  contract step: once it ran, binaries without it refuse the store, so rolling back past it is a
+  restore (the memory driver uses the `sqlite` steps). The view SDK registers the view stores and the Fabric SDK the Fabric stores,
   so a binary without the Fabric SDK lists only the view stores; see
   [Reporting store schemas](../platform/view/services/db-driver.md#reporting-store-schemas).
   Hashes are those of a node without a table prefix, since the step SQL names the tables

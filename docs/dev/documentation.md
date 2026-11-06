@@ -42,6 +42,16 @@ people, and the agent page links to it.
 New pages are linked from [`docs/README.md`](../README.md) or from the section page they
 belong to, so a reader can reach every page from the index.
 
+### Upgrade guides
+
+The upgrade guide of a minor release, `docs/upgrade/v<from>-to-v<to>.md`, starts with
+opening paragraphs between its title and its first heading: what the release changes, and
+whether organizations upgrade together. It ends with a `# Checklist` section that lists every
+step for operators and for developers. The release notes quote both
+(see [`docs/upgrade/releases/`](../upgrade/releases/README.md)), with every link resolved
+against the release tag, and `go run ./scripts/release notes` refuses a guide without them.
+Headings in fenced code blocks are not headings.
+
 ## How documentation is written
 
 Documentation, Godoc comments and standalone pages alike, describes the **current

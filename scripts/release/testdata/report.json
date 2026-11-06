@@ -1,0 +1,87 @@
+{
+  "fsc_version": "v0.29.0",
+  "app_module": "github.com/hyperledger-labs/fabric-smart-client/scripts/release/refnode",
+  "app_version": "(devel)",
+  "vcs_revision": "0123abcd",
+  "vcs_modified": false,
+  "framing_epoch": 1,
+  "components": [
+    {
+      "name": "view",
+      "min": 1,
+      "max": 1
+    },
+    {
+      "name": "fabric",
+      "min": 1,
+      "max": 2
+    },
+    {
+      "name": "fabricx",
+      "min": 1,
+      "max": 2
+    }
+  ],
+  "stores": [
+    {
+      "type": "kvs",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "47a23a7a55b1b7bcded4e8b5e77d070eaa52023141386ebaba855cf062133e1f",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "kvs",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "47a23a7a55b1b7bcded4e8b5e77d070eaa52023141386ebaba855cf062133e1f",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "vault",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create tables",
+          "hash": "a9dffb69b50ed21446649dd2993ce6b59f7669eeda90aeebbc92a941a21965c3",
+          "contract": false
+        },
+        {
+          "version": 2,
+          "name": "metadata as protobuf",
+          "hash": "c3e4dcf1483ab734577fef6270f1e512e6e083c25d7f355a15ceb9e53cb7637c",
+          "contract": true
+        }
+      ]
+    },
+    {
+      "type": "vault",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create tables",
+          "hash": "c2426fbe607b3491f1fe3dff98df3532f63b45e88c7431df9b707354203dfd61",
+          "contract": false
+        },
+        {
+          "version": 2,
+          "name": "metadata as protobuf",
+          "hash": "c3e4dcf1483ab734577fef6270f1e512e6e083c25d7f355a15ceb9e53cb7637c",
+          "contract": true
+        }
+      ]
+    }
+  ]
+}
