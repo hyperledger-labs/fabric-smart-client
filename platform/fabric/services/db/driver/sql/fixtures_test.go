@@ -36,7 +36,7 @@ import (
 
 // fixtureVersions are the releases under testdata whose databases HEAD must
 // open and migrate. testdata/README.md describes how they are generated.
-var fixtureVersions = []string{"v0.26.0", "v0.27.0"}
+var fixtureVersions = []string{"v0.26.0", "v0.27.0", "v0.28.0"}
 
 // fixtureDirEnv names an extra fixture directory, written by testdata/generate.sh
 // outside the repository, that the fixture tests open as well. The fixtures
