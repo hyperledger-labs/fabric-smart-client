@@ -44,13 +44,15 @@ belong to, so a reader can reach every page from the index.
 
 ### Upgrade guides
 
-The upgrade guide of a minor release, `docs/upgrade/v<from>-to-v<to>.md`, starts with
-opening paragraphs between its title and its first heading: what the release changes, and
-whether organizations upgrade together. It ends with a `# Checklist` section that lists every
-step for operators and for developers. The release notes quote both
-(see [`docs/upgrade/releases/`](../upgrade/releases/README.md)), with every link resolved
-against the release tag, and `go run ./scripts/release notes` refuses a guide without them.
-Headings in fenced code blocks are not headings.
+The upgrade guide of a minor release, `docs/upgrade/v<from>-to-v<to>.md`, says what an
+operator or a developer has to do to upgrade from the previous minor. It starts with opening
+paragraphs between its title and its first heading: what the release changes, and whether
+organizations upgrade together. It ends with a `# Checklist` section that lists every step for
+operators and for developers. The release notes link to the guide on `main` instead of quoting
+it (see [`docs/upgrade/releases/`](../upgrade/releases/README.md)), so a fix to the guide after
+the release reaches everyone who follows the link. A guide therefore stays in the repository
+after later releases, and `go run ./scripts/release notes` refuses a minor whose guide does not
+exist.
 
 ## How documentation is written
 

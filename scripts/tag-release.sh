@@ -80,6 +80,7 @@ for tag in "${TAGS[@]}"; do
     echo "  created $tag"
 done
 
-echo "Done. Run 'git push origin --tags' to publish."
+echo "Done. To publish, push exactly these tags to the main repository (docs/dev/releasing.md, step 5):"
+echo "  git push upstream ${TAGS[*]}"
 echo "Once the tags are public, add the storage fixtures of $VERSION (see platform/fabric/services/db/driver/sql/testdata/README.md):"
 echo "  platform/fabric/services/db/driver/sql/testdata/generate.sh $VERSION"

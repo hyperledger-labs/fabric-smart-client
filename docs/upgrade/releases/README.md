@@ -41,16 +41,25 @@ deterministic, so the file of a release can be regenerated and compared.
 
 ## The release notes
 
-The notes quote the upgrade guide's opening paragraphs and its `# Checklist` section, with
-links that point at the release tag. Then come the upgrade mode, the tested versions, the schema
-steps added since the previous release (a contract step's Rollback is `restore from backup`,
-any other `free`), the wire format ranges, and the changelog GitHub generates from the PR
-titles. A guide without opening paragraphs or a `# Checklist` section is refused; see
-[Upgrade guides](../../dev/documentation.md#upgrade-guides).
+The notes say only what is not written down elsewhere, and link to the rest:
+
+- **Upgrading:** a link to the upgrade guide on `main`, which says what an upgrade requires. A
+  fix to the guide after the release reaches every reader. A minor without a guide is refused;
+  see [Upgrade guides](../../dev/documentation.md#upgrade-guides).
+- **Tested with:** the versions in `tested_with`, as one row.
+- A link to the release data file at the release tag, which lists every store's schema steps
+  and the component version ranges. A released record never changes, so the tag is where it
+  lives.
+- The changelog GitHub generates from the PR titles, grouped by label, unchanged.
+
+The guide and the data file are linked rather than quoted, so the release body keeps no second
+copy of either. The data link works once the tag is pushed, since the release PR commits the
+file before tagging.
 
 ## Previewing a release
 
-From the repository root, with the tags fetched (`git fetch origin --tags`):
+From the repository root, with the release tags fetched (`git fetch upstream --tags`, where
+`upstream` points to the main repository; see [Releasing](../../dev/releasing.md#before-you-start)):
 
 ```sh
 go run ./scripts/release/refnode version --json > report.json
