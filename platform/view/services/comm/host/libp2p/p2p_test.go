@@ -192,6 +192,48 @@ func TestSessionChurn_NoLostReplies(t *testing.T) {
 	}
 }
 
+// TestSessionClosedWhenPeerDies checks that a session whose remote node stops
+// closes its Receive channel once no replacement stream arrives within
+// sessionStreamGrace, so a caller ranging over it does not block forever on a
+// dead peer.
+func TestSessionClosedWhenPeerDies(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	alice, bob := setupTwoNodes(t)
+
+	alice.Start(ctx)
+	bob.Start(ctx)
+
+	sess, err := alice.NewSession("", "", bob.Address, []byte(bob.ID))
+	require.NoError(t, err)
+	require.NoError(t, sess.Send(ctx, []byte("hi! bob")))
+
+	msess, err := bob.MasterSession()
+	require.NoError(t, err)
+	select {
+	case msg := <-msess.Receive():
+		require.Equal(t, []byte("hi! bob"), msg.Payload)
+	case <-time.After(5 * time.Second):
+		t.Fatal("bob did not receive alice's first message")
+	}
+
+	bob.Stop()
+
+	// sessionStreamGrace (5s) plus 10s of slack. Created once, so messages
+	// drained before the close do not restart the timer.
+	deadline := time.After(15 * time.Second)
+	for {
+		select {
+		case _, ok := <-sess.Receive():
+			if !ok {
+				return // channel closed: the session noticed bob is gone
+			}
+		case <-deadline:
+			t.Fatal("session to a stopped peer did not close within 15s")
+		}
+	}
+}
+
 func generateKey(t *testing.T) (crypto.PrivKey, string) {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
