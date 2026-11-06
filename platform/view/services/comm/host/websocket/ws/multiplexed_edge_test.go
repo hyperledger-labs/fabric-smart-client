@@ -1037,10 +1037,11 @@ func TestNewClientStream_DialHonoursCallerContextDeadline(t *testing.T) {
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	t.Cleanup(func() { _ = p.Close() })
 
+	// start is taken before the context, so the deadline cannot begin before the measurement.
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
 	defer cancel()
 
-	start := time.Now()
 	_, err = p.NewClientStream(host.StreamInfo{RemotePeerAddress: hang.Addr().String()}, ctx, "client", nil)
 	elapsed := time.Since(start)
 
