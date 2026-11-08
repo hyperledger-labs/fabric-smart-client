@@ -163,7 +163,7 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	}
 
 	cp := config.NewClientProvider(fakeConfigProvider)
-	cc, err := cp.NotificationServiceClient("test-network")
+	cc, err := cp.NotificationServiceClient("test-network", "")
 	require.NoError(t, err)
 	require.Equal(t, addr, cc.Target())
 }

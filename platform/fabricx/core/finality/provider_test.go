@@ -38,7 +38,7 @@ type mockGRPCClientProvider struct {
 	notificationServiceClientFunc func(string) (*grpc.ClientConn, error)
 }
 
-func (m *mockGRPCClientProvider) NotificationServiceClient(network string) (*grpc.ClientConn, error) {
+func (m *mockGRPCClientProvider) NotificationServiceClient(network, _ string) (*grpc.ClientConn, error) {
 	if m.notificationServiceClientFunc != nil {
 		return m.notificationServiceClientFunc(network)
 	}

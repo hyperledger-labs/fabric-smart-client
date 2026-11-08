@@ -34,8 +34,10 @@ import (
 //
 //go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
 type GRPCClientProvider interface {
-	// NotificationServiceClient returns a gRPC client connection for the specified network.
-	NotificationServiceClient(network string) (*grpc.ClientConn, error)
+	// NotificationServiceClient returns a gRPC client connection for the specified network,
+	// avoiding the endpoint whose target is skip if another one is configured. It picks among
+	// connections the provider dialled once and keeps, so a ledger calls it on every call.
+	NotificationServiceClient(network, skip string) (*grpc.ClientConn, error)
 }
 
 // Provider provides ledger implementations to access transactions and blocks on the ledger.
@@ -103,20 +105,28 @@ func (p *Provider) NewLedger(network, _ string) (driver.Ledger, error) {
 	return p.ledgers.Get(network)
 }
 
-// buildLedger creates a new ledger instance for the specified network.
-// It establishes a gRPC connection and creates the necessary client stubs.
+// buildLedger creates a new ledger instance for the specified network. On every call the
+// ledger picks one of the GRPCClientProvider's connections, which are dialled once and kept,
+// so it moves to another committer of the node's organization when the one it used becomes
+// unavailable, without opening a connection per call.
 func (p *Provider) buildLedger(network string) (driver.Ledger, error) {
 	baseCtx, err := p.baseCtx.Get()
 	if err != nil {
 		return nil, err
 	}
 
-	cc, err := p.grpcClientProvider.NotificationServiceClient(network)
-	if err != nil {
+	// The first pick dials the network's endpoints, so a broken configuration fails the build
+	// rather than every call.
+	if _, err := p.grpcClientProvider.NotificationServiceClient(network, ""); err != nil {
 		return nil, err
 	}
-	// Create the gRPC client stubs
-	client := committerpb.NewSidecarServiceClient(cc)
+	newClient := func(skip string) (committerpb.SidecarServiceClient, string, error) {
+		cc, err := p.grpcClientProvider.NotificationServiceClient(network, skip)
+		if err != nil {
+			return nil, "", err
+		}
+		return committerpb.NewSidecarServiceClient(cc), cc.Target(), nil
+	}
 
 	// get the query service
 	qs, err := p.queryServiceProvider.Get(network, "")
@@ -124,7 +134,7 @@ func (p *Provider) buildLedger(network string) (driver.Ledger, error) {
 		return nil, err
 	}
 
-	return New(client, qs, baseCtx), nil
+	return NewWithClientFactory(newClient, qs, baseCtx), nil
 }
 
 // Context returns the base context used by the provider for RPC calls. It

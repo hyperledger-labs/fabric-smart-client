@@ -15,6 +15,8 @@ import (
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -520,4 +522,60 @@ func TestProcessedTransaction_ValidationCode(t *testing.T) {
 	code := int32(committerpb.Status_COMMITTED)
 	pt := ledger.NewProcessedTransaction("", nil, code, nil)
 	assert.Equal(t, code, pt.ValidationCode())
+}
+
+// committers is a client factory over two committers, a and b, that records each skip it is
+// asked with and picks b only when a is skipped, as config.ClientProvider does.
+type committers struct {
+	a, b  *mock.SidecarServiceClient
+	skips []string
+}
+
+func (c *committers) newClient(skip string) (committerpb.SidecarServiceClient, string, error) {
+	c.skips = append(c.skips, skip)
+	if skip == "a" {
+		return c.b, "b", nil
+	}
+	return c.a, "a", nil
+}
+
+func TestLedger_FailsOverWhenCommitterUnavailable(t *testing.T) {
+	t.Parallel()
+	c := &committers{a: &mock.SidecarServiceClient{}, b: &mock.SidecarServiceClient{}}
+	c.a.GetBlockByTxIDReturns(nil, status.Error(codes.Unavailable, "connection refused"))
+	c.b.GetBlockByTxIDReturns(&cb.Block{Header: &cb.BlockHeader{Number: 7}}, nil)
+	l := ledger.NewWithClientFactory(c.newClient, &mock.QueryService{}, context.Background())
+
+	blockNum, err := l.GetBlockNumberByTxID("tx")
+	require.NoError(t, err)
+	require.Equal(t, uint64(7), blockNum, "answered by the second committer")
+	require.Equal(t, []string{"", "a"}, c.skips, "the retry skips the committer that was unavailable")
+	require.Equal(t, 1, c.a.GetBlockByTxIDCallCount())
+	require.Equal(t, 1, c.b.GetBlockByTxIDCallCount())
+}
+
+func TestLedger_DoesNotRetryOtherErrors(t *testing.T) {
+	t.Parallel()
+	c := &committers{a: &mock.SidecarServiceClient{}, b: &mock.SidecarServiceClient{}}
+	c.a.GetBlockByNumberReturns(nil, status.Error(codes.NotFound, "no such block"))
+	l := ledger.NewWithClientFactory(c.newClient, &mock.QueryService{}, context.Background())
+
+	_, err := l.GetBlockByNumber(3)
+	require.Error(t, err)
+	require.Equal(t, codes.NotFound, status.Code(errors.Unwrap(err)))
+	require.Equal(t, []string{""}, c.skips, "a committer that answered is not skipped")
+	require.Zero(t, c.b.GetBlockByNumberCallCount())
+}
+
+func TestLedger_GivesUpWhenEveryCommitterIsUnavailable(t *testing.T) {
+	t.Parallel()
+	c := &committers{a: &mock.SidecarServiceClient{}, b: &mock.SidecarServiceClient{}}
+	for _, m := range []*mock.SidecarServiceClient{c.a, c.b} {
+		m.GetBlockchainInfoReturns(nil, status.Error(codes.Unavailable, "connection refused"))
+	}
+	l := ledger.NewWithClientFactory(c.newClient, &mock.QueryService{}, context.Background())
+
+	_, err := l.GetLedgerInfo()
+	require.Error(t, err)
+	require.Equal(t, []string{"", "a"}, c.skips, "one retry, then the error")
 }

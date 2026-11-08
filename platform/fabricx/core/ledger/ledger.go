@@ -11,6 +11,8 @@ import (
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -27,26 +29,63 @@ var logger = logging.MustGetLogger()
 
 // ledger implements the driver.Ledger interface for FabricX.
 type ledger struct {
-	// client is the SidecarServiceClient for interacting with the committer.
-	client committerpb.SidecarServiceClient
+	// newClient returns the committer client for one attempt and its endpoint, avoiding the
+	// endpoint named by skip. It picks among connections that already exist and dials
+	// nothing, so calling it per attempt is cheap, and a call that finds its committer
+	// unavailable is retried on another committer of the node's organization.
+	newClient func(skip string) (committerpb.SidecarServiceClient, string, error)
 	// queryService is the QueryService for querying transaction status.
 	queryService queryservice.QueryService
 	// baseCtx is the background context for RPC calls.
 	baseCtx context.Context
 }
 
-// New returns a new ledger instance with the given clients and base context.
+// New returns a new ledger instance that makes every call on client.
 func New(client committerpb.SidecarServiceClient, queryService queryservice.QueryService, baseCtx context.Context) *ledger {
+	return NewWithClientFactory(func(string) (committerpb.SidecarServiceClient, string, error) {
+		return client, "", nil
+	}, queryService, baseCtx)
+}
+
+// NewWithClientFactory returns a new ledger instance that takes its committer client from
+// newClient on every call, so it uses whichever committer is healthy at that moment rather
+// than the one it started with. When a call fails with codes.Unavailable, it takes a client
+// again with the failed endpoint as skip and retries the call once, so the ledger follows
+// the node to another committer of its organization.
+func NewWithClientFactory(newClient func(skip string) (committerpb.SidecarServiceClient, string, error), queryService queryservice.QueryService, baseCtx context.Context) *ledger {
 	return &ledger{
-		client:       client,
+		newClient:    newClient,
 		queryService: queryService,
 		baseCtx:      baseCtx,
 	}
 }
 
+// call runs rpc on a freshly picked client. If the committer turns out to be unavailable, it
+// runs rpc once more on a client that skips that endpoint.
+func call[T any](c *ledger, rpc func(committerpb.SidecarServiceClient) (T, error)) (T, error) {
+	var zero T
+	var err error
+	var endpoint string
+	for range 2 {
+		var client committerpb.SidecarServiceClient
+		// endpoint is empty on the first attempt and the unavailable one on the retry.
+		if client, endpoint, err = c.newClient(endpoint); err != nil {
+			return zero, err
+		}
+		res, rpcErr := rpc(client)
+		if status.Code(rpcErr) != codes.Unavailable {
+			return res, rpcErr
+		}
+		err = rpcErr
+	}
+	return zero, err
+}
+
 // GetLedgerInfo returns information about the ledger, such as height and current block hash.
 func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
-	info, err := c.client.GetBlockchainInfo(c.baseCtx, &emptypb.Empty{})
+	info, err := call(c, func(client committerpb.SidecarServiceClient) (*cb.BlockchainInfo, error) {
+		return client.GetBlockchainInfo(c.baseCtx, &emptypb.Empty{})
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get blockchain info")
 	}
@@ -63,7 +102,9 @@ func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
 // reports, so this can still answer finality.TxNotFound for a transaction that is
 // already final; a caller that queries right after finality has to retry.
 func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	env, err := c.client.GetTxByID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	env, err := call(c, func(client committerpb.SidecarServiceClient) (*cb.Envelope, error) {
+		return client.GetTxByID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	})
 	if err != nil {
 		return nil, errors.Wrapf(finality.TxNotFound, "failed to get tx for txID [%s]: %s", txID, err)
 	}
@@ -93,7 +134,9 @@ func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 
 // GetBlockNumberByTxID returns the block number that contains the given transaction ID.
 func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
-	block, err := c.client.GetBlockByTxID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	block, err := call(c, func(client committerpb.SidecarServiceClient) (*cb.Block, error) {
+		return client.GetBlockByTxID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	})
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to get block for txID [%s]", txID)
 	}
@@ -111,7 +154,9 @@ func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
 
 // GetBlockByNumber returns the block at the given block number.
 func (c *ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
-	block, err := c.client.GetBlockByNumber(c.baseCtx, &committerpb.BlockNumber{Number: number})
+	block, err := call(c, func(client committerpb.SidecarServiceClient) (*cb.Block, error) {
+		return client.GetBlockByNumber(c.baseCtx, &committerpb.BlockNumber{Number: number})
+	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block by number [%d]", number)
 	}

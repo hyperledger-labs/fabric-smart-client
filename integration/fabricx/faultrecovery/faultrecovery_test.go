@@ -33,6 +33,9 @@ const (
 	// partition labels the specs that cut bob's links to the committer silently through
 	// fault proxies, which run in a target of their own.
 	partition = "partition"
+	// committerFailover labels the specs on a network where Org2 runs two committers, which
+	// run in a target of their own.
+	committerFailover = "committer-failover"
 )
 
 var (
@@ -335,3 +338,69 @@ func expectStreamedFinality(ii *integration.Infrastructure) {
 		ii.EventuallyConnectionState(r, notification, connstate.Connected, time.Minute)
 	}
 }
+
+// Org2 runs two committers, so bob and charlie list both. The specs share one network, see
+// faultrecovery.ShareNetwork.
+var _ = Describe("Fault Recovery with Fabric-x and two committers in one organization", Ordered, ContinueOnFailure, Label(fsc.WebSocket, committerFailover), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return newInfrastructure(fxfaultrecovery.CommitterFailoverTopology(dbPrefix)...)
+	})
+	faultrecovery.ShareNetwork(s)
+
+	It("fails over to the organization's second committer", func() {
+		committers := nwofabricx.FxPlatform(s.II)
+		secondNotification, secondQuery := fxfaultrecovery.CommitterEndpoints(s.II, "Org2", fxfaultrecovery.Org2SecondCommitter)
+
+		// Bob endorses the txs and starts waiting for their finality while both committers run.
+		// Nothing reports when his listeners are registered, so the stop below may come before
+		// or after; either way bob can learn the txs' finality only through the second committer.
+		txs := make([]*views.Endorsed, 3)
+		for i := range txs {
+			txs[i] = faultrecovery.Endorse(s.II, i)
+		}
+		finals := make([]chan error, len(txs))
+		for i, tx := range txs {
+			finals[i] = make(chan error, 1)
+			go func() {
+				// Covers the failover and ordering; a listener is settled Unknown only after
+				// the notification service's listenerTTL (2 min).
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				_, err := s.II.Client("bob").CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: tx.TxID}))
+				finals[i] <- err
+			}()
+		}
+
+		committers.StopCommitter(fxfaultrecovery.Org2Committer)
+		down := true
+		// Restarts the first committer only if the spec fails while it is down.
+		DeferCleanup(func() {
+			if down {
+				committers.StartCommitter(fxfaultrecovery.Org2Committer)
+			}
+		})
+
+		// Ordered after the stop, so bob can only learn their finality through the second
+		// committer.
+		for i, tx := range txs {
+			faultrecovery.Order(s.II, tx)
+			faultrecovery.ExpectSettled(s.II, "bob", tx.TxID, i)
+		}
+		for _, final := range finals {
+			Eventually(final, 5*time.Minute).Should(Receive(BeNil()))
+		}
+		s.II.EventuallyConnectionState("bob", fsc.Connection{Component: connstate.ComponentFabricxNotification, Endpoint: secondNotification}, connstate.Connected, time.Minute)
+		s.II.EventuallyConnectionState("bob", fsc.Connection{Component: connstate.ComponentFabricxQuery, Endpoint: secondQuery}, connstate.Connected, time.Minute)
+
+		// The ledger API moves to the second committer too: LedgerOf succeeds only if
+		// GetBlockByTxID, GetTxByID, GetBlockchainInfo and GetBlockByNumber all answer while the
+		// first committer is down. BlockHasTx is not checked: a Fabric-x envelope parsed from
+		// block data carries no txID, so it is false on Fabric-x whichever committer answers.
+		ledger := faultrecovery.LedgerOf(s.II, "bob", txs[0].TxID, "unknown-tx")
+		Expect(ledger.LedgerHeight).To(BeNumerically(">", ledger.BlockNumber))
+
+		committers.StartCommitter(fxfaultrecovery.Org2Committer)
+		down = false
+		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
+	})
+})
