@@ -61,11 +61,10 @@ type BFTBroadcaster struct {
 	poolSize int
 }
 
+// NewBFTBroadcaster returns a BFTBroadcaster with one pool of connectionPoolSize(configService)
+// streams per orderer.
 func NewBFTBroadcaster(configService driver.ConfigService, cf Services, metrics *metrics.Metrics) *BFTBroadcaster {
-	poolSize := configService.OrdererConnectionPoolSize()
-	if poolSize <= 0 {
-		logger.Panicf("invalid ordering.connectionPoolSize [%d]: must be > 0", poolSize)
-	}
+	poolSize := connectionPoolSize(configService)
 	return &BFTBroadcaster{
 		ConfigService: configService,
 		ClientFactory: cf,

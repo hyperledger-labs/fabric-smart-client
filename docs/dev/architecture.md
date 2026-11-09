@@ -88,7 +88,9 @@ p.Container().Decorate(func(viewsdk.GRPCServerConstructor) viewsdk.GRPCServerCon
 
 A replacement must expose the connection's TLS state to handlers as the built-in listeners do
 (the view service binds commands to a verified client certificate), and `Stop` must wait for
-in-flight handlers.
+in-flight handlers. `SDK.Start` calls a `WebServer`'s `Start` inline, so it must return once
+the listener serves, or with the error that prevents it; a `GRPCServer`'s `Start` serves until
+`Stop`, in a goroutine of its own.
 
 **Adding a view transport.** The remote view API is mounted by `Backend`s, collected from the
 `view-remote-backends` dig group. `SDK.Start` mounts the ones `fsc.view.remote.backends`
@@ -123,7 +125,7 @@ p.Container().Provide(func() viewsdk.PolicyCheckerEntry { return viewsdk.PolicyC
 
 **Reporting application readiness.** `GET /readyz` answers 503 while a gate in the
 `fsc-readiness-gates` dig group is not ready, with the gate's reason in the body. The node's own
-gates, `draining` and `migrating`, come first, and connection state comes after. A child SDK
+gates, `draining`, `migrating` and `grpc server stopped`, come first, and connection state comes after. A child SDK
 provides a gate from its `Install` for startup work of its own, such as loading parameters or
 rebuilding a store. `NotReady` runs on every probe and must not block. `/healthz` and the gRPC
 health service ignore these gates.
