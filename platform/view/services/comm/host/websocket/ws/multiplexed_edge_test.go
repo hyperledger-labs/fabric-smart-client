@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +27,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/goleak"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
@@ -1048,4 +1050,110 @@ func TestNewClientStream_DialHonoursCallerContextDeadline(t *testing.T) {
 	require.Error(t, err)
 	assert.GreaterOrEqual(t, elapsed, 300*time.Millisecond)
 	assert.Less(t, elapsed, 2*time.Second, "dial was not bounded by caller context deadline")
+}
+
+// When the peer closes a sub-connection, its reader gets the peer's error only once the
+// sub-connection is closed, so the Close the reader then makes waits for no acknowledgement:
+// the peer has already sent its Err frame, and none would come. Each closed sub-connection that
+// waited would stay in closing until the connection dies. The race is narrow, so the test
+// closes many sub-connections on one connection.
+func TestSubConnClosedByPeerDoesNotAwaitAck(t *testing.T) {
+	t.Parallel()
+	testSetup(t)
+
+	const n = 1000
+	for _, side := range []string{"server", "client"} {
+		t.Run(side, func(t *testing.T) {
+			t.Parallel()
+			var c *multiplexedBaseConn
+			var peerWS *gwebsocket.Conn
+			if side == "server" {
+				sc, ws := newPipedServerConn(t, "client-peer", n, func(host.P2PStream) {})
+				c, peerWS = sc.multiplexedBaseConn, ws
+			} else {
+				cc, ws := newPipedClientConn(t, n, func() {})
+				c, peerWS = cc.multiplexedBaseConn, ws
+			}
+			raw := newRawPeer(t, peerWS)
+
+			// Each reader does what a stream does on an error: it closes the sub-connection.
+			errs := make(chan error, n)
+			for i := range n {
+				id := fmt.Sprint(i)
+				sc := c.newSubConn(id)
+				c.mu.Lock()
+				c.subConns[id] = sc
+				c.mu.Unlock()
+				go func() {
+					_, _, err := sc.ReadMessage()
+					errs <- errors.Join(err, sc.Close())
+				}()
+				raw.send(MultiplexedMessage{ID: id, Err: "EOF"})
+			}
+			for range n {
+				require.ErrorIs(t, <-errs, io.EOF)
+			}
+			// Each ID is acknowledged once, by whichever goroutine shut it down.
+			acks := make(map[SubConnId]struct{}, n)
+			for range n {
+				mm := raw.next()
+				require.Equal(t, "EOF", mm.Err)
+				acks[mm.ID] = struct{}{}
+			}
+			require.Len(t, acks, n)
+			raw.sync()
+			require.Empty(t, raw.frames, "a Close after the peer's close sends nothing")
+			require.Equal(t, 0, closingCount(c))
+		})
+	}
+}
+
+// When both sides close a sub-connection at once, each side's Err frame is the other's
+// acknowledgement, so neither side keeps the ID in closing. The local Close and the peer's Err
+// frame race in two places: before the read loop looks the ID up, and between that lookup and
+// the read loop's shutdown. The race is narrow, so the test closes many sub-connections.
+func TestSubConnClosedByBothSidesAtOnce(t *testing.T) {
+	t.Parallel()
+	testSetup(t)
+
+	const n = 1000
+	for _, side := range []string{"server", "client"} {
+		t.Run(side, func(t *testing.T) {
+			t.Parallel()
+			var c *multiplexedBaseConn
+			var peerWS *gwebsocket.Conn
+			if side == "server" {
+				sc, ws := newPipedServerConn(t, "client-peer", n, func(host.P2PStream) {})
+				c, peerWS = sc.multiplexedBaseConn, ws
+			} else {
+				cc, ws := newPipedClientConn(t, n, func() {})
+				c, peerWS = cc.multiplexedBaseConn, ws
+			}
+			raw := newRawPeer(t, peerWS)
+
+			errs := make(chan error, n)
+			for i := range n {
+				id := fmt.Sprint(i)
+				sc := c.newSubConn(id)
+				c.mu.Lock()
+				c.subConns[id] = sc
+				c.mu.Unlock()
+				go func() { errs <- sc.Close() }()
+				raw.send(MultiplexedMessage{ID: id, Err: "EOF"})
+			}
+			for range n {
+				require.NoError(t, <-errs)
+			}
+			acks := make(map[SubConnId]struct{}, n)
+			for range n {
+				mm := raw.next()
+				require.Equal(t, "EOF", mm.Err)
+				acks[mm.ID] = struct{}{}
+			}
+			require.Len(t, acks, n)
+			raw.sync()
+			require.Empty(t, raw.frames, "each ID gets exactly one Err frame")
+			require.Equal(t, 0, closingCount(c))
+		})
+	}
 }
