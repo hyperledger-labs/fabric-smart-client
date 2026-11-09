@@ -63,10 +63,11 @@ func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.Id
 	return ci
 }
 
-// Close stops the background identity provisioning and returns once it has stopped, so no
-// identity is cached and no backend call starts after Close returns. Identities already in the
-// cache are still served. It should be called when the IdentityCache is no longer needed, to
-// release the provisioning goroutine. Close is safe to call more than once.
+// Close stops the background identity provisioning. It blocks until provisioning has
+// stopped, which can take as long as a backend call in progress; after it returns, no
+// identity is cached and no backend call starts. Identities already in the cache are still
+// served. It should be called when the IdentityCache is no longer needed, to release the
+// provisioning goroutine. Close is safe to call more than once and from several goroutines.
 func (c *IdentityCache) Close() {
 	// Waits for a provisioning start in progress, and keeps a later Identity call from
 	// starting one.
