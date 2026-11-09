@@ -131,7 +131,7 @@ out into a `*_test_utils.go` file, as `platform/common/services/logging` does wi
 
 ### Storage fixtures
 
-`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. A release adds its fixture in its release PR with `testdata/generate.sh --local <release>` and lists it in `fixtureVersions`; see `testdata/README.md` and [Releasing](releasing.md). Never edit a fixture by hand. The `Storage fixtures` workflow also generates the latest release's fixture into a temporary directory and opens it through `FSC_FIXTURE_DIR`, so a change to `generate.go` must keep building against that release.
+`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. A release adds its fixture directory in its release PR with `testdata/generate.sh --local <release>`, and the tests pick it up; see `testdata/README.md` and [Releasing](releasing.md). Never edit a fixture by hand. The `Storage fixtures` workflow also generates the latest release's fixture into a temporary directory and opens it through `FSC_FIXTURE_DIR`, so a change to `generate.go` must keep building against that release.
 
 ## Fuzzing
 

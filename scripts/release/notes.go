@@ -15,7 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-const blobURL = "https://github.com/hyperledger-labs/fabric-smart-client/blob/"
+// mainRepo is the GitHub repository of FSC releases, owner/name.
+const mainRepo = "hyperledger-labs/fabric-smart-client"
 
 // testedNames are the columns of the "Tested with" table, in order.
 var testedNames = []struct{ key, name string }{
@@ -31,7 +32,9 @@ var testedNames = []struct{ key, name string }{
 // Both files are linked rather than quoted, so the release body keeps no second copy of them. The
 // guide is linked on main, where a fix to it reaches every reader of the release; the data file
 // is linked at the tag, since a released record never changes.
-func notes(dir string, d Data, changelog string) (string, error) {
+// The links point to repository repo, owner/name, which a release from a fork sets to the
+// fork.
+func notes(dir, repo string, d Data, changelog string) (string, error) {
 	if _, ok := parseVersion(d.Version); !ok {
 		return "", errors.Errorf("invalid version [%s]", d.Version)
 	}
@@ -39,6 +42,7 @@ func notes(dir string, d Data, changelog string) (string, error) {
 		return "", errors.Wrapf(err, "a minor needs its upgrade guide %s", d.Upgrade.Guide)
 	}
 
+	blobURL := "https://github.com/" + repo + "/blob/"
 	var b strings.Builder
 	fmt.Fprintf(&b, "## Upgrading\n\nRead the [upgrade guide](%smain/%s) before upgrading. What changed is listed below.\n\n",
 		blobURL, d.Upgrade.Guide)

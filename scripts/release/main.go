@@ -9,8 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 // release.
 //
 //	release bump
+//	release previous --version vX.Y.Z
 //	release data --version vX.Y.Z --report report.json
-//	release notes --data vX.Y.Z.json --changelog changelog.md
+//	release notes --data vX.Y.Z.json --changelog changelog.md [--repo owner/name]
 //	release check --report report.json
 package main
 
@@ -32,8 +33,9 @@ const releasesDir = "docs/upgrade/releases"
 
 const usage = `usage:
   release bump
+  release previous --version vX.Y.Z
   release data --version vX.Y.Z --report report.json
-  release notes --data vX.Y.Z.json --changelog changelog.md
+  release notes --data vX.Y.Z.json --changelog changelog.md [--repo owner/name]
   release check --report report.json
 `
 
@@ -60,6 +62,7 @@ func runCommand(dir, cmd string, args []string) (string, error) {
 	report := fs.String("report", "", "the output of `refnode version --json`")
 	data := fs.String("data", "", "the release data file")
 	changelog := fs.String("changelog", "", "the changelog GitHub generated for the release")
+	repo := fs.String("repo", mainRepo, "the GitHub repository the notes link to, owner/name")
 	if err := fs.Parse(args); err != nil {
 		return "", err
 	}
@@ -82,6 +85,23 @@ func runCommand(dir, cmd string, args []string) (string, error) {
 			return "", err
 		}
 		return v.String() + "\n", nil
+	case "previous":
+		if err := required("version"); err != nil {
+			return "", err
+		}
+		v, ok := parseVersion(*version)
+		if !ok {
+			return "", errors.Errorf("invalid version [%s], want vX.Y.Z", *version)
+		}
+		tags, err := releaseTags(dir)
+		if err != nil {
+			return "", err
+		}
+		prev, err := previousRelease(tags, v)
+		if err != nil {
+			return "", err
+		}
+		return prev.String() + "\n", nil
 	case "data":
 		if err := required("version", "report"); err != nil {
 			return "", err
@@ -112,7 +132,7 @@ func runCommand(dir, cmd string, args []string) (string, error) {
 		if err != nil {
 			return "", errors.Wrap(err, "failed reading the changelog")
 		}
-		return notes(dir, d, string(c))
+		return notes(dir, *repo, d, string(c))
 	case "check":
 		if err := required("report"); err != nil {
 			return "", err

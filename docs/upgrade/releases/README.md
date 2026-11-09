@@ -61,8 +61,10 @@ file before tagging.
 
 ## Previewing a release
 
-From the repository root, with the release tags fetched (`git fetch upstream --tags`, where
-`upstream` points to the main repository; see [Releasing](../../dev/releasing.md#before-you-start)):
+`make release-prepare` runs these commands; see [Releasing](../../dev/releasing.md). To
+preview a release by hand, run them from the repository root, with the release tags fetched
+(`git fetch upstream --tags`, where `upstream` points to the main repository; see
+[Before you start](../../dev/releasing.md#before-you-start)):
 
 ```sh
 go run ./scripts/release/refnode version --json > report.json
@@ -78,8 +80,10 @@ go run ./scripts/release check --report report.json
 equal the file at the tag, since a released record never changes, and a file without a tag
 must equal what `data` generates from the checked-out tree. An untagged file also fails when
 the tree changed after it was generated, by a schema step, a component range or a pin;
-regenerate it. The notes are not checked, since
-the changelog they include comes from GitHub; review them in the release PR.
+regenerate it. `check` does not read the notes, since the changelog they include comes from
+GitHub: the `Release check` workflow and `make release-publish` regenerate them with the
+changelog GitHub generates for the release PR's base, and fail when they differ. Review them
+in the release PR.
 
 `data` refuses a patch version (`vX.Y.Z` with `Z` above 0): a patch has no upgrade guide of its
 own, so only minors have release data.

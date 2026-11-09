@@ -374,11 +374,22 @@ $(addprefix integration-tests-,$(INTEGRATION_TARGETS) $(NIGHTLY_INTEGRATION_TARG
 #########################
 
 .PHONY: tag-release
-tag-release: ## Create git tags for all modules at HEAD. Usage: make tag-release VERSION=v0.13.0 [DRY=1]
+tag-release: ## Create git tags for all modules at HEAD. Usage: make tag-release VERSION=v0.13.0 [DRY=1] [PUSH=<remote>]
 ifndef VERSION
 	$(error VERSION is required. Usage: make tag-release VERSION=v0.13.0)
 endif
-	./scripts/tag-release.sh $(if $(DRY),--dry) $(VERSION)
+	./scripts/tag-release.sh $(if $(DRY),--dry) $(if $(PUSH),--push=$(PUSH)) $(VERSION)
+
+# The release steps of docs/dev/releasing.md. Each asks before it changes anything outside
+# the checkout. VERSION, DRY_RUN, RELEASE_REPO, REMOTE and YES reach the script from the make
+# command line or the environment; scripts/release.sh describes them.
+.PHONY: release-prepare release-pr release-publish
+release-prepare: ## Generate the release files of the next minor on release/vX.Y.Z, staged
+	@./scripts/release.sh prepare
+release-pr: ## Commit the release files, push the branch and open the release PR
+	@./scripts/release.sh pr
+release-publish: ## Tag the merged release commit, push the tags and create the GitHub release
+	@./scripts/release.sh publish
 
 #########################
 # Housekeeping

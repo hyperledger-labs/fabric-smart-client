@@ -83,6 +83,21 @@ func TestParseVersion(t *testing.T) {
 	}
 }
 
+func TestPreviousCommand(t *testing.T) {
+	t.Parallel()
+	dir := newRepo(t, nil)
+	for _, tag := range []string{"v0.27.0", "v0.28.0", "integration/v0.29.0"} {
+		run(t, dir, "tag", tag)
+	}
+	out, err := runCommand(dir, "previous", []string{"--version", "v0.29.0"})
+	require.NoError(t, err)
+	require.Equal(t, "v0.28.0\n", out)
+	_, err = runCommand(dir, "previous", []string{"--version", "v0.27.0"})
+	require.ErrorContains(t, err, "no release before v0.27.0")
+	_, err = runCommand(dir, "previous", nil)
+	require.ErrorContains(t, err, "previous needs --version")
+}
+
 func TestBump(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -279,11 +294,11 @@ func TestNotes(t *testing.T) {
 	require.NoError(t, err)
 
 	// A minor needs its upgrade guide, which the notes link to.
-	_, err = notes(dir, d, string(changelog))
+	_, err = notes(dir, mainRepo, d, string(changelog))
 	require.ErrorContains(t, err, "docs/upgrade/v0.28-to-v0.29.md")
 
 	writeFiles(t, dir, map[string]string{d.Upgrade.Guide: "# Upgrading from v0.28 to v0.29\n"})
-	got, err := notes(dir, d, string(changelog))
+	got, err := notes(dir, mainRepo, d, string(changelog))
 	require.NoError(t, err)
 	golden(t, "v0.29.0.md", []byte(got))
 
@@ -295,6 +310,11 @@ func TestNotes(t *testing.T) {
 	for _, s := range []string{"## Checklist", "## Schema steps", "## Protocol versions", "Stop-all", "#checklist"} {
 		require.NotContains(t, got, s)
 	}
+	// A release from a fork links to the fork.
+	fork, err := notes(dir, "someone/fabric-smart-client", d, string(changelog))
+	require.NoError(t, err)
+	require.Contains(t, fork, "(https://github.com/someone/fabric-smart-client/blob/main/docs/upgrade/v0.28-to-v0.29.md)")
+	require.Contains(t, fork, "(https://github.com/someone/fabric-smart-client/blob/v0.29.0/docs/upgrade/releases/v0.29.0.json)")
 	// Tested with is one row, in the order of testedNames.
 	require.Contains(t, got, "| Go | Hyperledger Fabric | Fabric-x committer | Fabric-x tools | PostgreSQL |\n|---|---|---|---|---|\n| 1.27.3 | 3.1.4 | 1.0.7 | v1.0.3 | 16.2 |\n")
 	// The changelog follows unchanged.

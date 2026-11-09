@@ -3,18 +3,28 @@ name: Tests
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.gitignore'
+    # Not for docs only, but always for a release: scripts/release.sh publish tags
+    # a release only after this workflow passed on its PR. The last matching
+    # pattern decides.
+    paths:
+      - '**'
+      - '!**/*.md'
+      - '!docs/**'
+      - '!LICENSE'
+      - '!.gitignore'
+      - 'docs/upgrade/releases/v*'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.gitignore'
+    # Not for docs only, but always for a release: scripts/release.sh publish tags
+    # a release only after this workflow passed on its PR. The last matching
+    # pattern decides.
+    paths:
+      - '**'
+      - '!**/*.md'
+      - '!docs/**'
+      - '!LICENSE'
+      - '!.gitignore'
+      - 'docs/upgrade/releases/v*'
   workflow_dispatch:
 
 # A newer push to the same pull request makes the in-flight run obsolete, so
