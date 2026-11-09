@@ -25,8 +25,9 @@ import (
 
 // GRPCClientProvider provides gRPC client connections for a given network.
 type GRPCClientProvider interface {
-	// NotificationServiceClient returns a gRPC client connection for the specified network.
-	NotificationServiceClient(network string) (*grpc.ClientConn, error)
+	// NotificationServiceClient returns a gRPC client connection for the specified network,
+	// avoiding the endpoint whose target is skip if another one is configured.
+	NotificationServiceClient(network, skip string) (*grpc.ClientConn, error)
 }
 
 // ListenerManager defines the interface for managing finality listeners for transactions.
@@ -203,7 +204,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 // worker loop directly, where zero leaves nothing to drain the queue and negative panics.
 func newNotificationManagerWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 	newNotifyClient := func() (committerpb.SidecarServiceClient, string, error) {
-		cc, err := grpcClientProvider.NotificationServiceClient(network)
+		cc, err := grpcClientProvider.NotificationServiceClient(network, "")
 		if err != nil {
 			return nil, "", errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
 		}

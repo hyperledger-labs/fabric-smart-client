@@ -161,6 +161,18 @@ fabric:
 
 For mTLS, add `clientCert` and `clientKey` under the `tls` block — see the [Notification Service TLS Modes](#tls-modes) section above for the full set of options, which apply identically here.
 
+## Several committers
+
+An organization can run several committers, and a node lists every one of them under `notificationService.endpoints` and `queryService.endpoints`. The node dials every endpoint and uses the first one that is not failing, so when its committer goes down it moves to another without a restart:
+
+| Path | Moves |
+|---|---|
+| Queries (transaction status, channel configuration) | after a call fails with `Unavailable`, retried once on another endpoint |
+| Notification stream (finality) | when the stream reconnects |
+| Ledger API (`GetBlockByNumber`, `GetBlockNumberByTxID`, `GetTransactionByID`, `GetLedgerInfo`) | after a call fails with `Unavailable`, retried once on another endpoint |
+
+A call made while every committer is down fails with the error of the last attempt.
+
 
 ## Integration Tests
 

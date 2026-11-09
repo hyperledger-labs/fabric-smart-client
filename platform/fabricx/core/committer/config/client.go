@@ -51,13 +51,14 @@ func NewClientProvider(configProvider ServiceConfigProvider) *ClientProvider {
 
 // NotificationServiceClient returns a gRPC connection to the notification service for the
 // specified network, dialling every endpoint on first use. The connection is chosen per call,
-// so a caller should ask again after a failure instead of keeping the one it got.
-func (c *ClientProvider) NotificationServiceClient(network string) (*grpc.ClientConn, error) {
+// so a caller should ask again after a failure instead of keeping the one it got, passing the
+// target of the connection that failed as skip; an empty skip skips nothing. See pick.
+func (c *ClientProvider) NotificationServiceClient(network, skip string) (*grpc.ClientConn, error) {
 	conns, err := c.notification.Get(network)
 	if err != nil {
 		return nil, err
 	}
-	return pick(conns, ""), nil
+	return pick(conns, skip), nil
 }
 
 // QueryServiceClient returns a gRPC connection to the query service for the specified

@@ -9,12 +9,10 @@ import (
 )
 
 type GRPCClientProvider struct {
-	NotificationServiceClientStub        func(string) (*grpc.ClientConn, error)
+	NotificationServiceClientStub        func(string, string) (*grpc.ClientConn, error)
 	notificationServiceClientMutex       sync.RWMutex
-	notificationServiceClientArgsForCall []struct {
-		arg1 string
-	}
-	notificationServiceClientReturns struct {
+	notificationServiceClientArgsForCall []GRPCClientProviderNotificationServiceClientArgs
+	notificationServiceClientReturns     struct {
 		result1 *grpc.ClientConn
 		result2 error
 	}
@@ -23,21 +21,26 @@ type GRPCClientProvider struct {
 		result2 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *GRPCClientProvider) NotificationServiceClient(arg1 string) (*grpc.ClientConn, error) {
+// GRPCClientProviderNotificationServiceClientArgs holds the arguments of one call to NotificationServiceClient.
+type GRPCClientProviderNotificationServiceClientArgs struct {
+	Arg1 string
+	Arg2 string
+}
+
+func (fake *GRPCClientProvider) NotificationServiceClient(arg1 string, arg2 string) (*grpc.ClientConn, error) {
 	fake.notificationServiceClientMutex.Lock()
 	ret, specificReturn := fake.notificationServiceClientReturnsOnCall[len(fake.notificationServiceClientArgsForCall)]
-	fake.notificationServiceClientArgsForCall = append(fake.notificationServiceClientArgsForCall, struct {
-		arg1 string
-	}{arg1})
+	fake.notificationServiceClientArgsForCall = append(fake.notificationServiceClientArgsForCall, GRPCClientProviderNotificationServiceClientArgs{arg1, arg2})
 	stub := fake.NotificationServiceClientStub
 	fakeReturns := fake.notificationServiceClientReturns
-	fake.recordInvocation("NotificationServiceClient", []interface{}{arg1})
+	fake.recordInvocation("NotificationServiceClient", []interface{}{arg1, arg2})
 	fake.notificationServiceClientMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -51,17 +54,25 @@ func (fake *GRPCClientProvider) NotificationServiceClientCallCount() int {
 	return len(fake.notificationServiceClientArgsForCall)
 }
 
-func (fake *GRPCClientProvider) NotificationServiceClientCalls(stub func(string) (*grpc.ClientConn, error)) {
+func (fake *GRPCClientProvider) NotificationServiceClientCalls(stub func(string, string) (*grpc.ClientConn, error)) {
 	fake.notificationServiceClientMutex.Lock()
 	defer fake.notificationServiceClientMutex.Unlock()
 	fake.NotificationServiceClientStub = stub
 }
 
-func (fake *GRPCClientProvider) NotificationServiceClientArgsForCall(i int) string {
+func (fake *GRPCClientProvider) NotificationServiceClientArgsForCall(i int) (string, string) {
 	fake.notificationServiceClientMutex.RLock()
 	defer fake.notificationServiceClientMutex.RUnlock()
 	argsForCall := fake.notificationServiceClientArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *GRPCClientProvider) NotificationServiceClientArgs() []GRPCClientProviderNotificationServiceClientArgs {
+	fake.notificationServiceClientMutex.RLock()
+	defer fake.notificationServiceClientMutex.RUnlock()
+	args := make([]GRPCClientProviderNotificationServiceClientArgs, len(fake.notificationServiceClientArgsForCall))
+	copy(args, fake.notificationServiceClientArgsForCall)
+	return args
 }
 
 func (fake *GRPCClientProvider) NotificationServiceClientReturns(result1 *grpc.ClientConn, result2 error) {
@@ -100,9 +111,18 @@ func (fake *GRPCClientProvider) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *GRPCClientProvider) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *GRPCClientProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

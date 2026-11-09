@@ -53,6 +53,16 @@ connections, and fails at once if the services exit first; a transaction ordered
 commits. The mock orderer holds its blocks in memory only, so a Fabric-x spec cannot
 restart the orderer.
 
+`CommitterFailoverTopology` adds a second committer to Org2, `Org2_committer_1`, so bob and
+charlie list both under `notificationService.endpoints` and `queryService.endpoints`. Its spec,
+"fails over to the organization's second committer", stops `Org2_committer_0` while bob waits
+for the finality of three transactions, orders them, and checks that bob settles them, that a
+ledger call succeeds, and that his notification and query connections to the second committer
+report `Connected`; the ledger call shows the ledger API follows the node to the second
+committer too. `fxfaultrecovery.CommitterEndpoints` returns a committer's two addresses, to
+select its series with the `Endpoint` field of `fsc.Connection`. The main network keeps one
+committer per organization, because there stopping Org2's committer must leave bob without one.
+
 ## The fault-recovery suites
 
 Fault scenarios go in `integration/fabric/faultrecovery` and
@@ -71,6 +81,7 @@ targets, which CI runs as parallel jobs:
 | `fabricx-faultrecovery-crash` | `crash` | the main network |
 | `fabricx-faultrecovery-replication` | `replication` | replicated nodes |
 | `fabricx-faultrecovery-partition` | `partition` | the main network behind a fault proxy |
+| `fabricx-faultrecovery-committer-failover` | `committer-failover` | Org2 runs two committers (`CommitterFailoverTopology`) |
 
 Both suites run the FSC nodes alice and bob on Postgres, and charlie, a second responder in
 Org2, on SQLite, the default persistence. The Fabric suite adds three raft orderers, named

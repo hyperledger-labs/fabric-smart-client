@@ -305,6 +305,8 @@ INTEGRATION_TARGETS += fabricx-faultrecovery-replication
 INTEGRATION_TARGETS += fabricx-faultrecovery-partition
 # Its crash and catch-up specs run in a target of their own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-crash
+# Its specs on a network where Org2 runs two committers run in a target of their own.
+INTEGRATION_TARGETS += fabricx-faultrecovery-committer-failover
 
 # Targets are normally named <platform>-<suite> and map onto
 # ./integration/<platform>/<suite>. Targets that run one suite under a
@@ -318,6 +320,7 @@ INTEGRATION_DIR_fabric-faultrecovery-crash = fabric/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-replication = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-crash = fabricx/faultrecovery
+INTEGRATION_DIR_fabricx-faultrecovery-committer-failover = fabricx/faultrecovery
 
 # Per-target ginkgo flags. A suite split into several targets selects each
 # target's specs by label. The suite's default target uses a negative filter
@@ -331,10 +334,11 @@ INTEGRATION_FLAGS_fabric-faultrecovery-replication     = --label-filter=replicat
 INTEGRATION_FLAGS_fabric-faultrecovery-partition       = --label-filter=partition
 INTEGRATION_FLAGS_fabric-faultrecovery-bft             = --label-filter=bft
 INTEGRATION_FLAGS_fabric-faultrecovery-crash           = --label-filter=crash
-INTEGRATION_FLAGS_fabricx-faultrecovery             = --label-filter='!replication && !partition && !crash'
-INTEGRATION_FLAGS_fabricx-faultrecovery-replication = --label-filter=replication
-INTEGRATION_FLAGS_fabricx-faultrecovery-partition   = --label-filter=partition
-INTEGRATION_FLAGS_fabricx-faultrecovery-crash       = --label-filter=crash
+INTEGRATION_FLAGS_fabricx-faultrecovery                    = --label-filter='!replication && !partition && !crash && !committer-failover'
+INTEGRATION_FLAGS_fabricx-faultrecovery-replication        = --label-filter=replication
+INTEGRATION_FLAGS_fabricx-faultrecovery-partition          = --label-filter=partition
+INTEGRATION_FLAGS_fabricx-faultrecovery-crash              = --label-filter=crash
+INTEGRATION_FLAGS_fabricx-faultrecovery-committer-failover = --label-filter=committer-failover
 
 # Per-target GOFLAGS for the test binary. Every file of fabric/iouhsm is built
 # with the pkcs11 tag; without it the suite compiles to no specs and passes.
