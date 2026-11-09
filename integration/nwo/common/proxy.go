@@ -10,6 +10,7 @@ import (
 	"io"
 	"maps"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -26,6 +27,9 @@ type Proxy struct {
 	mu   sync.Mutex
 	next int
 	open map[string]int
+	// forwarding holds every connection being forwarded, keyed by its client side, so
+	// CloseConnections can close it and wait until it is no longer forwarded.
+	forwarding map[net.Conn]*forwarded
 	// healed is closed by Heal; it is nil while the proxy is not partitioned.
 	healed chan struct{}
 	// latency delays each forwarded chunk, see SetLatency.
@@ -41,7 +45,7 @@ func StartProxy(address string, backends ...string) (*Proxy, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed listening on [%s]", address)
 	}
-	p := &Proxy{listener: l, backends: backends, open: map[string]int{}}
+	p := &Proxy{listener: l, backends: backends, open: map[string]int{}, forwarding: map[net.Conn]*forwarded{}}
 	go p.serve()
 	return p, nil
 }
@@ -62,6 +66,31 @@ func (p *Proxy) Connections() map[string]int {
 func (p *Proxy) Close() error {
 	p.Heal()
 	return p.listener.Close()
+}
+
+// CloseConnections closes both sides of every connection the proxy forwards, as a load
+// balancer does when it drops its connections on an idle timeout or a restart, and keeps
+// accepting new ones. Each side reads the end of the stream at once. It returns once none of
+// the closed connections is forwarded any more, so Connections no longer counts them.
+// Connections accepted meanwhile are forwarded as usual.
+func (p *Proxy) CloseConnections() {
+	p.mu.Lock()
+	closing := slices.Collect(maps.Values(p.forwarding))
+	p.mu.Unlock()
+	for _, f := range closing {
+		_ = f.client.Close()
+		_ = f.backend.Close()
+	}
+	for _, f := range closing {
+		<-f.done
+	}
+}
+
+// forwarded is a connection the proxy forwards to a backend; done is closed once it is no
+// longer forwarded.
+type forwarded struct {
+	client, backend net.Conn
+	done            chan struct{}
 }
 
 // Partition stops forwarding bytes in both directions until Heal, without closing any
@@ -136,8 +165,8 @@ func (p *Proxy) forward(c net.Conn) {
 			logger.Debugf("proxy [%s] skips backend [%s]: [%s]", p.Addr(), backend, err)
 			continue
 		}
-		p.count(backend, 1)
-		defer p.count(backend, -1)
+		f := p.track(c, b, backend)
+		defer p.untrack(f, backend)
 		defer func() { _ = b.Close() }()
 
 		// The first direction to end closes both connections, which ends the other.
@@ -168,10 +197,23 @@ func (p *Proxy) pipe(dst io.Writer, src io.Reader) {
 	}
 }
 
-func (p *Proxy) count(backend string, delta int) {
+// track records that c is forwarded to b at backend.
+func (p *Proxy) track(c, b net.Conn, backend string) *forwarded {
+	f := &forwarded{client: c, backend: b, done: make(chan struct{})}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.open[backend] += delta; p.open[backend] == 0 {
+	p.forwarding[c] = f
+	p.open[backend]++
+	return f
+}
+
+// untrack records that the forwarding of f to backend has ended.
+func (p *Proxy) untrack(f *forwarded, backend string) {
+	p.mu.Lock()
+	delete(p.forwarding, f.client)
+	if p.open[backend]--; p.open[backend] == 0 {
 		delete(p.open, backend)
 	}
+	p.mu.Unlock()
+	close(f.done)
 }

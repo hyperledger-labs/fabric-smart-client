@@ -38,8 +38,10 @@ func FSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 
 // ReplicatedFSCTopology returns the nodes of FSCTopology with two replicas each of alice
 // and bob, every replica on its node's one database; charlie has a single replica. Bob's
-// replicas sit behind a load balancer (fsc.WithLoadBalancer), so the sessions alice opens
-// to bob are spread over them; alice has none.
+// replicas sit behind a load balancer (fsc.WithLoadBalancer); alice has none. Alice
+// multiplexes all her sessions to bob over one websocket, which the load balancer hands to
+// one of his replicas, so that replica serves every session until the connection closes
+// and alice dials again, when the round robin may pick the other one.
 func ReplicatedFSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 	return newFSCTopology(sdk, dbPrefix,
 		map[string]int{"alice": 2, "bob": 2},

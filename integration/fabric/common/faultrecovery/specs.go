@@ -455,6 +455,34 @@ func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection) {
 		}
 	})
 
+	ginkgo.It("continues on the other replica when the load balancer drops the connection", func() {
+		// An echo opens alice's connection, which ConnectedReplica looks for.
+		gomega.Expect(Echo(s.II, false)).To(gomega.Succeed())
+		held, others := ConnectedReplica(s.II, "bob")
+		gomega.Expect(others).To(gomega.HaveLen(1))
+
+		// Both replicas stay up: the balancer closes the connection on its own, as it does on
+		// an idle timeout or a restart, and both ends read the end of the stream at once.
+		echo := BlockedEcho(s.II, s.II.Client("alice"), "bob", held.ID())
+		s.II.FscPlatform.LoadBalancer("bob").CloseConnections()
+		// The echo view waits a minute for the reply, so only the closed session ends it
+		// this early.
+		var err error
+		gomega.Eventually(echo, SessionCloseTimeout).Should(gomega.Receive(&err))
+		gomega.Expect(err).To(gomega.MatchError(view.ErrViewExecutionFailed))
+		// The replica that lost the connection is still up and closes its half on its own:
+		// the responder's view context is released, and ShareNetwork's leak check holds the
+		// Sessions and ViewContexts gauges of every replica to their baseline after the spec.
+		gomega.Eventually(func() float64 {
+			return MetricSum(s.II, held.ID(), ViewContexts)
+		}, SessionCloseTimeout, 100*time.Millisecond).Should(gomega.BeZero())
+
+		// Alice dials the balancer again, and the round robin may hand her to either replica.
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
+		now, _ := ConnectedReplica(s.II, "bob")
+		ginkgo.GinkgoWriter.Printf("alice's connection moved from [%s] to [%s]\n", held.UniqueName, now.UniqueName)
+	})
+
 	ginkgo.It("fails an in-flight view cleanly when its replica dies", func() {
 		// An echo opens alice's connection, which ConnectedReplica looks for.
 		gomega.Expect(Echo(s.II, false)).To(gomega.Succeed())
