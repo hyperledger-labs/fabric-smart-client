@@ -5,10 +5,10 @@ go 1.27.3
 require (
 	github.com/bufbuild/buf v1.75.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.14.0
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	golang.org/x/vuln v1.9.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.2
-	google.golang.org/protobuf v1.36.13-0.20261016172727-e9ee2a76ab8e
+	google.golang.org/protobuf v1.37.0-rc.1
 )
 
 require (
