@@ -1107,3 +1107,53 @@ func TestSubConnClosedByPeerDoesNotAwaitAck(t *testing.T) {
 		})
 	}
 }
+
+// When both sides close a sub-connection at once, each side's Err frame is the other's
+// acknowledgement, so neither side keeps the ID in closing. The local Close and the peer's Err
+// frame race in two places: before the read loop looks the ID up, and between that lookup and
+// the read loop's shutdown. The race is narrow, so the test closes many sub-connections.
+func TestSubConnClosedByBothSidesAtOnce(t *testing.T) {
+	t.Parallel()
+	testSetup(t)
+
+	const n = 1000
+	for _, side := range []string{"server", "client"} {
+		t.Run(side, func(t *testing.T) {
+			t.Parallel()
+			var c *multiplexedBaseConn
+			var peerWS *gwebsocket.Conn
+			if side == "server" {
+				sc, ws := newPipedServerConn(t, "client-peer", n, func(host.P2PStream) {})
+				c, peerWS = sc.multiplexedBaseConn, ws
+			} else {
+				cc, ws := newPipedClientConn(t, n, func() {})
+				c, peerWS = cc.multiplexedBaseConn, ws
+			}
+			raw := newRawPeer(t, peerWS)
+
+			errs := make(chan error, n)
+			for i := range n {
+				id := fmt.Sprint(i)
+				sc := c.newSubConn(id)
+				c.mu.Lock()
+				c.subConns[id] = sc
+				c.mu.Unlock()
+				go func() { errs <- sc.Close() }()
+				raw.send(MultiplexedMessage{ID: id, Err: "EOF"})
+			}
+			for range n {
+				require.NoError(t, <-errs)
+			}
+			acks := make(map[SubConnId]struct{}, n)
+			for range n {
+				mm := raw.next()
+				require.Equal(t, "EOF", mm.Err)
+				acks[mm.ID] = struct{}{}
+			}
+			require.Len(t, acks, n)
+			raw.sync()
+			require.Empty(t, raw.frames, "each ID gets exactly one Err frame")
+			require.Equal(t, 0, closingCount(c))
+		})
+	}
+}
