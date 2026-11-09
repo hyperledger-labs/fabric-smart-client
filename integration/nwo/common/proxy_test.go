@@ -208,3 +208,41 @@ func TestProxy_SetLatencyDelaysEachChunk(t *testing.T) {
 	p.SetLatency(0)
 	require.Less(t, roundTrip(), 200*time.Millisecond)
 }
+
+// CloseConnections closes both sides of every open connection, as a load balancer that drops
+// its connections does, and keeps accepting new ones.
+func TestProxy_CloseConnectionsKeepsAccepting(t *testing.T) {
+	t.Parallel()
+	addr := echoBackend(t)
+	p := newTestProxy(t, addr)
+
+	c, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.NoError(t, c.SetReadDeadline(time.Now().Add(5*time.Second)))
+	buf := make([]byte, 1)
+	// A round trip first, so the proxy has forwarded the connection before CloseConnections.
+	_, err = c.Write([]byte{'a'})
+	require.NoError(t, err)
+	_, err = c.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, map[string]int{addr: 1}, p.Connections())
+
+	p.CloseConnections()
+
+	// The client reads the end of the stream, not a timeout: the proxy closed its side.
+	_, err = c.Read(buf)
+	require.ErrorIs(t, err, io.EOF)
+	require.Empty(t, p.Connections(), "a closed connection is no longer counted")
+
+	// The proxy still accepts and forwards a new connection.
+	late, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = late.Close() })
+	require.NoError(t, late.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, err = late.Write([]byte{'b'})
+	require.NoError(t, err)
+	_, err = late.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "b", string(buf))
+}

@@ -25,6 +25,7 @@ around it.
 | `StopPostgres(dbName)` / `StartPostgres(dbName)` | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive |
 | `fabricx.FxPlatform(ii).StopCommitter(names...)` / `StartCommitter(names...)` | stop / restart the services of the named Fabric-x committers, every committer with no name; see [Fabric-x committer](#fabric-x-committer) |
 | `common.Proxy` `Partition()` / `Heal()` / `SetLatency(d)` | cut, restore or slow a link through a fault proxy; see [Partitions and latency](#partitions-and-latency) |
+| `common.Proxy` `CloseConnections()` | close both sides of every connection the proxy forwards and keep accepting new ones, as a load balancer does on an idle timeout or a restart; see [Replicated nodes](#replicated-nodes) |
 | `EventuallyConnectionState(node, conn, want, timeout)` | poll the node's `/metrics` until every `fsc_connection_state` series that `conn` (an `fsc.Connection`) selects is `want`; see [Connection state](#connection-state) |
 | `WebClient(node).Ready()` | `nil` once the node's `GET /readyz` answers 200 |
 
@@ -146,7 +147,7 @@ both suites need goes there.
 | `ViewSpecs(s)` | called once per suite: a view with two responders, bob and charlie, while charlie is down; it must fail within `SessionCloseTimeout`, and bob must release his half |
 | `DependencySpecs(s, dbPrefix)` | take down bob's Postgres database, `DBName(dbPrefix, "bob")`, and bring it back |
 | `HostileSpecs(s)` | a bob that changes the transaction before endorsing it; alice must reject the endorsement |
-| `FailoverSpecs(s, conn)` | on `ReplicatedFSCTopology`: kill the replica of bob that holds alice's connection through bob's load balancer; `conn` is the connection a restarted replica must report `Connected` again before the next spec |
+| `FailoverSpecs(s, conn)` | on `ReplicatedFSCTopology`: kill the replica of bob that holds alice's connection through bob's load balancer, or have the load balancer drop the connection with both replicas up; `conn` is the connection a restarted replica must report `Connected` again before the next spec |
 
 The `crash` specs run on the main network in a target of their own,
 `fabric-faultrecovery-crash` and `fabricx-faultrecovery-crash`, which the default targets
@@ -247,6 +248,19 @@ the websocket transport requires since it authenticates both sides from the TLS
 certificates. `FscPlatform.LoadBalancer(name).Connections()` returns the open connections
 per replica P2P address, so a spec can find the replica that holds a peer's connection;
 `faultrecovery.ConnectedReplica(ii, name)` returns that replica and the others.
+
+Alice multiplexes all her sessions to bob over one websocket, so the replica that holds it
+serves every one of them; she reaches the other replica only after that connection closes
+and she dials again. A dropped connection runs the same close path on both ends whatever
+closed it. On a load balancer that closes the connection with a FIN, alice's provider and
+the replica both read the end of the stream at once, as when a replica dies;
+`Proxy.CloseConnections()` reproduces it while both replicas stay up. A balancer that drops
+the flow silently is detected by the websocket keepalive instead, as a partition is (see
+[Partitions and latency](#partitions-and-latency)). `FailoverSpecs` covers the three cases
+in [#2546](https://github.com/hyperledger-labs/fabric-smart-client/issues/2546): "fails an
+in-flight view cleanly when its replica dies", "continues on the other replica when the load
+balancer drops the connection" and "serves new sessions after the replica holding them
+dies".
 
 `StopFSCNode`, `KillFSCNode` and `StartFSCNode` take a replica name such as `bob.1` to act
 on that replica alone, and `Client("fsc.bob.1")` and `WebClient("fsc.bob.1")` reach it. A
