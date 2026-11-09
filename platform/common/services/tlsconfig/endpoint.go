@@ -27,7 +27,7 @@ func ResolveEndpointClient(src Source, parentKey string, child map[string]any) (
 	if err != nil {
 		return grpc.SecureOptions{}, err
 	}
-	return buildClient(src, parentKey, mergeClient(parent, own), nil, nil)
+	return buildClient(src, parentKey, mergeClient(parent, own))
 }
 
 // ArraySource is a [Source] whose configuration also holds arrays of maps. Only the two

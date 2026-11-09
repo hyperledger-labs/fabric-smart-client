@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package tlsconfig
 
 import (
+	"bytes"
 	"cmp"
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 )
 
 // Source is the configuration this package reads. Satisfied by *config.Provider and by the
@@ -42,7 +44,7 @@ func ResolveServer(src Source, parentKey, key string) (grpc.SecureOptions, error
 	if err != nil {
 		return grpc.SecureOptions{}, err
 	}
-	return buildServer(src, key, mergeServer(parent, child), false, false)
+	return buildServer(src, key, mergeServer(parent, child), false)
 }
 
 // ResolveClient resolves the client half of key.
@@ -56,7 +58,7 @@ func ResolveClient(src Source, key string) (grpc.SecureOptions, error) {
 	if err != nil {
 		return grpc.SecureOptions{}, err
 	}
-	return buildClient(src, key, c, nil, nil)
+	return buildClient(src, key, c)
 }
 
 // ResolveWebsocketP2P resolves the websocket P2P block, returning the SERVER direction first
@@ -67,40 +69,75 @@ func ResolveClient(src Source, key string) (grpc.SecureOptions, error) {
 // trust anchors arrive at handshake time rather than from configuration. The one block is read
 // once and viewed through both roles, and it has no parent to inherit from.
 //
-// identityCert and identityKey are the fsc.identity keypair the block falls back to: the peer
+// identityCert and identityKey are the fsc.identity keypair both directions present: the peer
 // ID a host announces is derived from the public key of the certificate it presents, so the
 // transport keypair has to be the node's identity.
+//
+// It returns an error when the identity keypair is not configured, when the block sets enabled,
+// clientAuthRequired or clientAuthEnabled to false, or when cert or clientCert names a file
+// whose first certificate is not the identity certificate.
 func ResolveWebsocketP2P(src Source, key string, identityCert, identityKey *File) (server, client grpc.SecureOptions, err error) {
 	raw, _ := src.RawSubtree(key)
 	t, err := decode[TLS](key, raw)
 	if err != nil {
 		return server, client, err
 	}
-	cert, keyFile := cmp.Or(t.Cert, identityCert), cmp.Or(t.Key, identityKey)
+	for _, f := range []struct {
+		name string
+		v    *bool
+	}{{"enabled", t.Enabled}, {"clientAuthRequired", t.ClientAuthRequired}, {"clientAuthEnabled", t.ClientAuthEnabled}} {
+		if f.v != nil && !*f.v {
+			return server, client, errors.Errorf("[%s] %s cannot be false: websocket P2P "+
+				"always runs mutual TLS", key, f.name)
+		}
+	}
+
+	if identityCert == nil || identityCert.File == "" || identityKey == nil || identityKey.File == "" {
+		return server, client, errors.Errorf("[%s] websocket P2P presents the node identity: "+
+			"set fsc.identity.cert.file and fsc.identity.key.file", key)
+	}
+	// The peer ID comes from the first certificate of the identity file, so cert and
+	// clientCert are compared on that one, whatever the encoding or any chain after it.
+	identity, err := readFile(src, "fsc.identity", "cert.file", identityCert)
+	if err != nil {
+		return server, client, err
+	}
+	identity = id.CanonicalIdentity(identity)
 
 	server, err = buildServer(src, key, ServerTLS{
-		Enabled:            t.Enabled,
-		Cert:               cert,
-		Key:                keyFile,
-		ClientAuthRequired: t.ClientAuthRequired,
+		Enabled:            new(true),
+		Cert:               cmp.Or(t.Cert, identityCert),
+		Key:                cmp.Or(t.Key, identityKey),
+		ClientAuthRequired: new(true),
 		ClientRootCAs:      t.ClientRootCAs,
-	}, true, true)
+	}, true)
 	if err != nil {
 		return server, client, err
 	}
-	// The client half falls back to the server half's keypair, identity default included.
 	client, err = buildClient(src, key, ClientTLS{
-		Enabled:            t.Enabled,
+		Enabled:            new(true),
 		RootCAs:            t.RootCAs,
-		ClientAuthEnabled:  t.ClientAuthEnabled,
-		ClientCert:         t.ClientCert,
-		ClientKey:          t.ClientKey,
+		ClientAuthEnabled:  new(true),
+		ClientCert:         cmp.Or(t.ClientCert, identityCert),
+		ClientKey:          cmp.Or(t.ClientKey, identityKey),
 		ServerNameOverride: t.ServerNameOverride,
-	}, cert, keyFile)
+	})
 	if err != nil {
 		return server, client, err
+	}
+
+	if t.Cert != nil && !bytes.Equal(id.CanonicalIdentity(server.Certificate), identity) {
+		return server, client, notIdentity(key, "cert")
+	}
+	if t.ClientCert != nil && !bytes.Equal(id.CanonicalIdentity(client.Certificate), identity) {
+		return server, client, notIdentity(key, "clientCert")
 	}
 	return server, client, nil
+}
+
+func notIdentity(key, field string) error {
+	return errors.Errorf("[%s] %s must be the fsc.identity certificate: the peer ID a node "+
+		"announces is derived from it", key, field)
 }
 
 // decode strictly decodes one subtree. An unknown key is an error naming the key and the
@@ -116,14 +153,13 @@ func decode[T any](key string, raw map[string]any) (T, error) {
 	return out, nil
 }
 
-// buildServer loads and validates the server direction. defaultClientAuth is used when neither
-// the block nor its parent set clientAuthRequired. dynamicClientRootCAs records that trust
-// anchors arrive at handshake time rather than from configuration, which makes the
-// "clientAuthRequired with an empty pool" check unsound — it holds only for a static pool.
-func buildServer(src Source, key string, s ServerTLS, defaultClientAuth, dynamicClientRootCAs bool) (grpc.SecureOptions, error) {
+// buildServer loads and validates the server direction. dynamicClientRootCAs records that
+// trust anchors arrive at handshake time rather than from configuration, which makes the
+// "clientAuthRequired with an empty pool" check unsound: it holds only for a static pool.
+func buildServer(src Source, key string, s ServerTLS, dynamicClientRootCAs bool) (grpc.SecureOptions, error) {
 	out := grpc.SecureOptions{
 		UseTLS:            deref(s.Enabled, false),
-		RequireClientCert: deref(s.ClientAuthRequired, defaultClientAuth),
+		RequireClientCert: deref(s.ClientAuthRequired, false),
 		MinVersion:        deref(s.MinVersion, 0),
 		MaxVersion:        deref(s.MaxVersion, 0),
 		ReloadInterval:    deref(s.ReloadInterval, 0),
@@ -143,9 +179,7 @@ func buildServer(src Source, key string, s ServerTLS, defaultClientAuth, dynamic
 	return out, validateServer(key, out, dynamicClientRootCAs)
 }
 
-func buildClient(src Source, key string, c ClientTLS, fallbackCert, fallbackKey *File) (grpc.SecureOptions, error) {
-	cert, keyFile := cmp.Or(c.ClientCert, fallbackCert), cmp.Or(c.ClientKey, fallbackKey)
-
+func buildClient(src Source, key string, c ClientTLS) (grpc.SecureOptions, error) {
 	out := grpc.SecureOptions{
 		UseTLS:             deref(c.Enabled, false),
 		ServerNameOverride: deref(c.ServerNameOverride, ""),
@@ -153,10 +187,10 @@ func buildClient(src Source, key string, c ClientTLS, fallbackCert, fallbackKey 
 		MaxVersion:         deref(c.MaxVersion, 0),
 	}
 	var err error
-	if out.Certificate, err = readFile(src, key, "clientCert", cert); err != nil {
+	if out.Certificate, err = readFile(src, key, "clientCert", c.ClientCert); err != nil {
 		return out, err
 	}
-	if out.Key, err = readFile(src, key, "clientKey", keyFile); err != nil {
+	if out.Key, err = readFile(src, key, "clientKey", c.ClientKey); err != nil {
 		return out, err
 	}
 	if out.ServerRootCAs, err = readFiles(src, key, "rootCAs", c.RootCAs); err != nil {
@@ -171,7 +205,7 @@ func buildClient(src Source, key string, c ClientTLS, fallbackCert, fallbackKey 
 	if !out.RequireClientCert {
 		out.Certificate, out.Key = nil, nil
 	}
-	return out, validateClient(key, out, cert, keyFile)
+	return out, validateClient(key, out, c.ClientCert, c.ClientKey)
 }
 
 func deref[T any](p *T, fallback T) T {

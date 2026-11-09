@@ -87,6 +87,19 @@ func TestTransportKeypairIsTheIdentityKeypair(t *testing.T) {
 	require.NotEqual(t, transportCert, cfg.serverTLS.Certificate)
 }
 
+// An explicit transport keypair other than the identity one is rejected rather than
+// presented, which would break the same binding.
+func TestNewConfigRejectsANonIdentityTransportKeypair(t *testing.T) {
+	t.Parallel()
+	dir, _, _ := writeNodeDir(t, p2pCore+"          cert:\n            file: p2p.crt\n"+
+		"          key:\n            file: p2p.key\n")
+	p, err := viewconfig.NewProvider(dir)
+	require.NoError(t, err)
+
+	_, err = NewConfig(p)
+	require.ErrorContains(t, err, "cert must be the fsc.identity certificate")
+}
+
 // fsc.tls holds the LISTENER certificate, which is a different credential. The P2P block
 // must not inherit it, or the binding above breaks.
 func TestP2PDoesNotInheritTheListenerKeypair(t *testing.T) {
