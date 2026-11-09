@@ -485,8 +485,7 @@ func (c *multiplexedClientConn) readIncoming() {
 			c.ackClose(mm.ID)
 		case mm.Err != "":
 			logger.Debugf("client sub-connection mmId=%v errored: %v", mm.ID, mm.Err)
-			_ = sc.deliver(result{err: mm.ToError()})
-			_ = sc.shutdown(false)
+			_ = sc.shutdown(false, mm.ToError())
 		default:
 			if !sc.deliver(result{value: mm.Msg}) {
 				logger.Warnf("failed to deliver message to sub-connection [%s], closing sub-connection", mm.ID)
@@ -550,8 +549,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 			c.ackClose(mm.ID)
 		case mm.Err != "":
 			logger.Debugf("Server subconn [%s] errored: %v", mm.ID, mm.Err)
-			_ = sc.deliver(result{err: mm.ToError()})
-			_ = sc.shutdown(false)
+			_ = sc.shutdown(false, mm.ToError())
 		default:
 			if !sc.deliver(result{value: mm.Msg}) {
 				logger.Warnf("failed to deliver message to sub-connection [%s], closing sub-connection", mm.ID)
@@ -735,7 +733,7 @@ func (c *multiplexedBaseConn) Kill() error {
 	// releases the subConn mu that shutdown needs.
 	err := c.conn.Close()
 	for _, sc := range subConns {
-		err = errors.Join(err, sc.shutdown(false))
+		err = errors.Join(err, sc.shutdown(false, nil))
 	}
 
 	return err
@@ -845,16 +843,24 @@ func (c *subConn) writeMultiplexedMessage(msg MultiplexedMessage) error {
 // Close closes the sub-connection and tells the peer with an io.EOF Err frame. Until the peer
 // acknowledges it, frames that arrive for the ID are dropped. Close is idempotent.
 func (c *subConn) Close() error {
-	return c.shutdown(true)
+	return c.shutdown(true, nil)
 }
 
 // shutdown tears the sub-connection down. awaitAck is false when the peer closed it first, in
 // which case the Err frame sent here is the acknowledgement and nothing more will arrive.
-func (c *subConn) shutdown(awaitAck bool) error {
+// peerErr, when not nil, is the peer's error. It reaches the reader together with the close,
+// so a Close the reader makes on seeing it is a no-op instead of waiting for an acknowledgement.
+func (c *subConn) shutdown(awaitAck bool, peerErr error) error {
 	c.mu.Lock()
 	if c.isClosed {
 		c.mu.Unlock()
 		return nil
+	}
+	if peerErr != nil {
+		select {
+		case c.receiverChan <- result{err: peerErr}:
+		default:
+		}
 	}
 	c.isClosed = true
 	close(c.receiverChan)
