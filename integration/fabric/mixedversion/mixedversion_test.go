@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package mixedversion_test
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,8 +18,10 @@ import (
 	"github.com/onsi/gomega/gexec"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/mixedversion"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/mixedversion/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
@@ -37,11 +42,11 @@ var _ = BeforeEach(func() {
 	}
 })
 
-// newSuite returns a suite on mixedversion.Topology whose nodes in previous run the previous
-// release; the others run the current tree.
-func newSuite(previous ...string) *integration.TestSuite {
+// newSuite returns a suite on topology whose nodes in previous run the previous release;
+// the others run the current tree.
+func newSuite(topology func() []api.Topology, previous ...string) *integration.TestSuite {
 	return integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		ii, err := integration.Generate(integration.MixedVersionPort.StartPortForNode(), integration.WithRaceDetection, mixedversion.Topology()...)
+		ii, err := integration.Generate(integration.MixedVersionPort.StartPortForNode(), integration.WithRaceDetection, topology()...)
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +59,7 @@ func newSuite(previous ...string) *integration.TestSuite {
 
 var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 	Describe("an approver on the previous release", func() {
-		s := newSuite("approver")
+		s := newSuite(mixedversion.Topology, "approver")
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 
@@ -73,7 +78,7 @@ var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 	})
 
 	Describe("a node upgraded replica by replica", func() {
-		s := newSuite("alice")
+		s := newSuite(mixedversion.Topology, "alice")
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 
@@ -104,7 +109,102 @@ var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 			expectValue(s.II, "fsc.alice.1", "a1", 5)
 		})
 	})
+
+	Describe("a responder upgraded replica by replica under load", func() {
+		s := newSuite(mixedversion.RollingTopology, "approver")
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+
+		// alice submits one transaction after the other while the approver's replicas, behind
+		// a load balancer on one database, move to the current tree one at a time and one moves
+		// back. A stopping replica drains: alice's session in progress finishes, and her next
+		// one gets "draining", which makes her dial again through the balancer and reach a
+		// replica that serves. So at most one submission fails per restart, and a failed
+		// submission must not commit: alice got an error, so a committed asset would be a
+		// success she never saw.
+		It("keeps committing through the upgrade and a rollback", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var committed atomic.Int32
+			done := make(chan []submission, 1)
+			go func() {
+				defer GinkgoRecover()
+				done <- submitUntil(ctx, s.II, &committed)
+			}()
+
+			// Each step restarts the replica that holds alice's connection, since restarting the
+			// idle one tests nothing: the first two upgrade both replicas, because alice moves to
+			// the other one after each drain, and the last rolls one back.
+			releases := []string{"", "", previousRelease}
+			var last string
+			for _, release := range releases {
+				before := committed.Load()
+				Eventually(committed.Load, time.Minute, time.Second).Should(BeNumerically(">", before+1), "no commits before a restart")
+				held, _ := faultrecovery.ConnectedReplica(s.II, "approver")
+				Expect(held.UniqueName).NotTo(Equal(last), "alice stayed on the restarted replica")
+				last = held.UniqueName
+				s.II.UpgradeFSCNode(held.UniqueName, release)
+			}
+			before := committed.Load()
+			Eventually(committed.Load, time.Minute, time.Second).Should(BeNumerically(">", before+1), "no commits after the last restart")
+			cancel()
+			var subs []submission
+			Eventually(done, 3*time.Minute).Should(Receive(&subs), "submissions did not stop")
+
+			// The count comes first, so a run of failures fails the spec at once instead of
+			// checking each failed submission for 5s.
+			var failed []submission
+			for _, sub := range subs {
+				if sub.err != nil {
+					GinkgoWriter.Printf("submission [%s] failed: %v\n", sub.id, sub.err)
+					failed = append(failed, sub)
+				}
+			}
+			Expect(len(failed)).To(BeNumerically("<=", len(releases)), "at most one failed submission per restart")
+			for _, sub := range failed {
+				Consistently(func() error {
+					_, err := s.II.Client("fsc.approver.0").CallView("query", common.JSONMarshall(&views.Query{ID: sub.id}))
+					return err
+				}, 5*time.Second, time.Second).Should(MatchError(ContainSubstring("not found")), "failed submission [%s] committed", sub.id)
+			}
+			for i, sub := range subs {
+				if sub.err == nil {
+					for _, replica := range []string{"fsc.approver.0", "fsc.approver.1", "fsc.alice.0"} {
+						expectValue(s.II, replica, sub.id, i)
+					}
+				}
+			}
+		})
+	})
 })
+
+// submission is the outcome of creating the asset id.
+type submission struct {
+	id  string
+	err error
+}
+
+// submitUntil creates the assets r0, r1, ... with values 0, 1, ... from alice, one after
+// the other, until ctx ends, and returns every submission in order, so the i-th has value i. It counts each that
+// committed in committed. A submission in progress when ctx ends runs to completion.
+func submitUntil(ctx context.Context, ii *integration.Infrastructure, committed *atomic.Int32) []submission {
+	var subs []submission
+	for i := 0; ctx.Err() == nil; i++ {
+		sub := submission{id: fmt.Sprintf("r%d", i)}
+		// ctx only says when to stop: cancelling a submission in progress would record a
+		// failure the spec did not cause.
+		callCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+		_, sub.err = ii.Client("alice").CallViewWithContext(callCtx, "create", common.JSONMarshall(&views.Create{
+			ID: sub.id, Value: i, Approver: ii.Identity("approver"),
+		}))
+		cancel()
+		if sub.err == nil {
+			committed.Add(1)
+		}
+		subs = append(subs, sub)
+	}
+	return subs
+}
 
 // contract is stored in the state metadata of every asset the specs write.
 const contract = "mixedversion"
@@ -123,8 +223,8 @@ func update(ii *integration.Infrastructure, replica, id string, value int) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-// expectValue waits until replica reads value for the asset id. Both replicas of alice
-// commit every block to their shared database, so the other replica's commit may land
+// expectValue waits until replica reads value for the asset id. The replicas of a node
+// commit every block to their shared database, so another replica's commit may land
 // first or last.
 func expectValue(ii *integration.Infrastructure, replica, id string, value int) {
 	Eventually(func(g Gomega) {

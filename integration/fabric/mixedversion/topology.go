@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fscnode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
@@ -25,7 +26,14 @@ import (
 // The nodes of a previous release are built from this topology's generated main, so
 // it registers only the views of package views and the Fabric SDK, which exist at the
 // previous release.
-func Topology() []api.Topology {
+func Topology() []api.Topology { return newTopology(false) }
+
+// RollingTopology is Topology with the approver on two replicas too, on one Postgres
+// database and behind a load balancer (fsc.WithLoadBalancer), so alice's sessions reach
+// whichever approver replica serves while the others restart.
+func RollingTopology() []api.Topology { return newTopology(true) }
+
+func newTopology(replicatedApprover bool) []api.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
@@ -37,6 +45,11 @@ func Topology() []api.Topology {
 			"alice": postgres.DefaultConfig(postgres.WithDBName("mixedversion-alice")),
 		},
 	}
+	if replicatedApprover {
+		db.ReplicationFactors["approver"] = 2
+		db.SQLConfigs["approver"] = postgres.DefaultConfig(postgres.WithDBName("mixedversion-approver"))
+		db.NodeOptions = map[string][]fscnode.Option{"approver": {fsc.WithLoadBalancer()}}
+	}
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = fsc.WebSocket
@@ -44,7 +57,8 @@ func Topology() []api.Topology {
 		AddOptions(fabric.WithOrganization("Org1")).
 		AddOptions(db.For("approver")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateView{}).
-		RegisterResponder(&views.ApproverView{}, &views.UpdateView{})
+		RegisterResponder(&views.ApproverView{}, &views.UpdateView{}).
+		RegisterViewFactory("query", &views.QueryViewFactory{})
 	fscTopology.AddNodeByName("alice").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(db.For("alice")...).
