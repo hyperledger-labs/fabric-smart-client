@@ -7,14 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package core
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"testing"
 
+	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -472,4 +475,19 @@ fabric:
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "channel name is empty")
+}
+
+// Building the provider must leave the logging that logging.Init set up in place.
+func TestNewFabricNetworkServiceProvider_KeepsLogging(t *testing.T) { //nolint:paralleltest // changes the global logging state
+	t.Cleanup(func() { logging.Init(logging.Config{}) })
+
+	var buf bytes.Buffer
+	logging.Init(logging.Config{LogSpec: "debug", Writer: &buf})
+
+	_, err := NewFabricNetworkServiceProvider(newTestProvider(t, baseYAML+"logging:\n  spec: info\n"), nil, nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, "debug", flogging.Global.Spec(), "spec reset to the config file's")
+	logging.MustGetLogger().Info("hello")
+	assert.Contains(t, buf.String(), "hello", "writer replaced")
 }

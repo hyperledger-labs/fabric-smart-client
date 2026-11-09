@@ -10,11 +10,8 @@ import (
 	"context"
 	"io"
 	"maps"
-	"os"
 	"reflect"
 	"sync"
-
-	"github.com/hyperledger/fabric-lib-go/common/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -67,7 +64,6 @@ func NewFabricNetworkServiceProvider(configService DynamicConfigService, namedDr
 		drivers:       drivers,
 		validators:    validators,
 	}
-	provider.InitFabricLogging()
 	return provider, nil
 }
 
@@ -174,16 +170,6 @@ func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetwork
 		p.networks[network] = net
 	}
 	return net, nil
-}
-
-// InitFabricLogging initializes the fabric logging system
-// using the FSC configuration.
-func (p *FSNProvider) InitFabricLogging() {
-	flogging.Init(flogging.Config{
-		Format:  p.configService.GetString("logging.format"),
-		Writer:  os.Stderr,
-		LogSpec: p.configService.GetString("logging.spec"),
-	})
 }
 
 // newFNS instantiates the driver.FabricNetworkService for network by re-reading the live
