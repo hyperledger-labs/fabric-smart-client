@@ -974,3 +974,72 @@ func TestMigrateReportsReadableBy(t *testing.T) {
 	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", checked, migrate.WithCheckOnly()))
 	require.Equal(t, int64(2), checked.readableBy.Load())
 }
+
+// TestPostgresMigratorDiesMidStep checks that a migrator that dies in the middle of a
+// step releases the lock and rolls the step back, so that a waiting migrator runs it once.
+func TestPostgresMigratorDiesMidStep(t *testing.T) { //nolint:paralleltest // replaces package-level state
+	b := postgresBackend(t)
+	migrate.SetLockIntervals(t, 10*time.Millisecond, 50*time.Millisecond)
+	logs := migrate.RecordLogs(t)
+
+	t.Run("ExpandStep", func(t *testing.T) {
+		dbA, dbB, admin := b.open(t), b.open(t), b.open(t)
+		ctx := t.Context()
+
+		var calls atomic.Int32
+		running, release := make(chan struct{}), make(chan struct{})
+		var releaseOnce sync.Once
+		unblock := func() { releaseOnce.Do(func() { close(release) }) }
+		t.Cleanup(unblock)
+
+		s := &store{name: "dies_s", steps: []migrate.Step{
+			{Version: 1, Name: "create", SQL: []string{"CREATE TABLE dies_s (id INT)"}},
+			{Version: 2, Name: "insert", Go: func(ctx context.Context, q migrate.Execer) error {
+				if _, err := q.ExecContext(ctx, "INSERT INTO dies_s (id) VALUES (1)"); err != nil {
+					return err
+				}
+				if calls.Add(1) == 1 { // only the first run blocks
+					close(running)
+					<-release
+				}
+				return nil
+			}},
+		}}
+
+		doneA := make(chan error, 1)
+		go func() { doneA <- migrate.Migrate(ctx, dbA, b.dialect, "dies", s) }()
+		<-running
+		pid := advisoryHolderPID(t, admin, "dies_schema_versions")
+
+		doneB := make(chan error, 1)
+		go func() { doneB <- migrate.Migrate(ctx, dbB, b.dialect, "dies", s) }()
+		require.Eventually(t, func() bool {
+			return len(logs.EntriesContaining(fmt.Sprintf("held by pid %d (", pid))) > 0
+		}, 5*time.Second, 10*time.Millisecond)
+
+		_, err := admin.ExecContext(ctx, "SELECT pg_terminate_backend($1)", pid)
+		require.NoError(t, err)
+		require.NoError(t, <-doneB)
+
+		var rows int
+		require.NoError(t, admin.QueryRowContext(ctx, "SELECT count(*) FROM dies_s").Scan(&rows))
+		require.Equal(t, 1, rows)
+		requireVersion(t, admin, "dies_schema_versions", "dies_s", 2)
+
+		unblock() // the dead step returns, and its Migrate fails
+		require.Error(t, <-doneA)
+	})
+}
+
+// advisoryHolderPID returns the backend pid that holds the migration lock of table.
+func advisoryHolderPID(t *testing.T, db *sql.DB, table string) int {
+	t.Helper()
+	key := migrate.LockKey(table)
+	var pid int
+	require.NoError(t, db.QueryRowContext(t.Context(), `SELECT l.pid FROM pg_locks l
+		WHERE l.locktype = 'advisory' AND l.granted AND l.objsubid = 1
+		  AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+		  AND l.classid::bigint = $1 AND l.objid::bigint = $2`,
+		int64(uint64(key)>>32), int64(uint32(key))).Scan(&pid)) //nolint:gosec // splitting the key into its two unsigned halves
+	return pid
+}
