@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -71,11 +72,11 @@ func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest // timing-sens
 		return c.CacheSize() >= 10
 	}, 2*time.Second, 10*time.Millisecond, "cache should fill up to capacity")
 
+	// Close the cache to stop background provisioning. Close returns once the goroutine has
+	// stopped, so the size and the backend count read after it no longer change.
+	c.Close()
 	initialCacheSize := c.CacheSize()
 	initialCounter := counter.Load()
-
-	// Close the cache to stop background provisioning
-	c.Close()
 
 	// Exhaust all cached identities
 	for range initialCacheSize {
@@ -128,4 +129,85 @@ func TestIdentityCacheDisabled(t *testing.T) {
 	require.Equal(t, view.Identity([]byte("hello world")), id)
 	require.Equal(t, []byte("audit"), audit)
 	require.Equal(t, int32(1), counter.Load())
+}
+
+// Close must not return while the provisioning goroutine can still cache an identity. The
+// goroutine is held in a backend call while Close runs and the cache is drained; it is released
+// only after a Close that does not wait would have returned, so it then reaches its send with
+// the cache empty and its context done at once, and without the wait it caches one more
+// identity after Close has returned about half the time.
+func TestIdentityCacheCloseWaitsForProvisioning(t *testing.T) {
+	t.Parallel()
+
+	var calls atomic.Int32
+	held := make(chan struct{})
+	release := make(chan struct{})
+	var holdOnce sync.Once
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		// The first call fills the one-slot cache; the next one is held, whichever call that is.
+		if calls.Add(1) > 1 {
+			holdOnce.Do(func() {
+				close(held)
+				<-release
+			})
+		}
+		return []byte("hello world"), []byte("audit"), nil
+	}, 1, nil, &IdentityCacheOptions{CacheTimeout: time.Minute})
+
+	// Starts provisioning and takes an identity from the cache, freeing its slot.
+	_, _, err := c.Identity(nil)
+	require.NoError(t, err)
+	<-held
+
+	closed := make(chan struct{})
+	go func() {
+		c.Close()
+		close(closed)
+	}()
+	// A Close that waits is still blocked here; one that does not has returned. Drain the
+	// cache, then let the held call finish.
+	select {
+	case <-closed:
+		t.Log("Close returned while the provisioning goroutine was in the backend")
+	case <-time.After(50 * time.Millisecond):
+	}
+	for c.CacheSize() > 0 {
+		_, _, err := c.Identity(nil)
+		require.NoError(t, err)
+	}
+	close(release)
+	<-closed
+
+	// After Close returns, nothing more reaches the cache or the backend. The held call may
+	// have cached its identity before Close returned, since the goroutine's send and its
+	// cancellation are both ready then; what Close guarantees is that the state is final.
+	size, n := c.CacheSize(), calls.Load()
+	require.Never(t, func() bool {
+		return c.CacheSize() != size || calls.Load() != n
+	}, 100*time.Millisecond, 2*time.Millisecond, "nothing is cached and no backend call starts after Close returns")
+}
+
+// Close is safe before any Identity call, more than once, and concurrently with Identity.
+func TestIdentityCacheCloseIdempotent(t *testing.T) {
+	t.Parallel()
+
+	never := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		return []byte("id"), nil, nil
+	}, 1, nil, nil)
+	never.Close()
+	never.Close()
+
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		return []byte("id"), nil, nil
+	}, 1, nil, &IdentityCacheOptions{CacheTimeout: time.Millisecond})
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Go(func() {
+			_, _, err := c.Identity(nil)
+			require.NoError(t, err)
+		})
+		wg.Go(c.Close)
+	}
+	wg.Wait()
+	c.Close()
 }

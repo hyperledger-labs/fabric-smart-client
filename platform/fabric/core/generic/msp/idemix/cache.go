@@ -38,8 +38,11 @@ type IdentityCache struct {
 	opts   *driver.IdentityOptions
 	// Max wait time for cached identity
 	cacheTimeout time.Duration
-	// Cancellation function for background provisioning
+	// cancel stops the background provisioning, and done is closed when it has returned.
+	// Both are set by the once.Do that starts provisioning and read after a once.Do, which
+	// orders the reads after the write.
 	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // NewIdentityCache returns a cache that keeps up to size identities from backed ready in
@@ -60,12 +63,19 @@ func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.Id
 	return ci
 }
 
-// Close cancels the background identity provisioning goroutine.
-// It should be called when the IdentityCache is no longer needed to prevent goroutine leaks.
+// Close stops the background identity provisioning and returns once it has stopped, so no
+// identity is cached and no backend call starts after Close returns. Identities already in the
+// cache are still served. It should be called when the IdentityCache is no longer needed, to
+// release the provisioning goroutine. Close is safe to call more than once.
 func (c *IdentityCache) Close() {
-	if c.cancel != nil {
-		c.cancel()
+	// Waits for a provisioning start in progress, and keeps a later Identity call from
+	// starting one.
+	c.once.Do(func() {})
+	if c.cancel == nil {
+		return
 	}
+	c.cancel()
+	<-c.done
 }
 
 // CacheSize returns the current number of cached identities available in the cache.
@@ -84,6 +94,7 @@ func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, [
 	c.once.Do(func() {
 		var backgroundCtx context.Context
 		backgroundCtx, c.cancel = context.WithCancel(context.Background())
+		c.done = make(chan struct{})
 		go c.provisionIdentities(backgroundCtx)
 	})
 
@@ -139,6 +150,7 @@ func (c *IdentityCache) fetchIdentityFromBackend(opts *driver.IdentityOptions) (
 }
 
 func (c *IdentityCache) provisionIdentities(ctx context.Context) {
+	defer close(c.done)
 	count := 0
 	for {
 		id, audit, err := c.backed(c.opts)
