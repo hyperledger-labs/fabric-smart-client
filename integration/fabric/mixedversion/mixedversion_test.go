@@ -8,8 +8,11 @@ package mixedversion_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -23,7 +26,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/mixedversion/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/node/start"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
 // previousRelease is the FSC release the specs run some nodes at: a module version, such
@@ -86,8 +92,8 @@ var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 		// replica at a time moves to the current tree and back, as an operator's rolling
 		// upgrade and rollback do, while the other keeps serving the same stores. Every
 		// write stores state metadata, and every update reads the metadata the other
-		// release wrote: the current tree holds its contract steps back on these stores,
-		// so both releases keep writing the form the previous release reads.
+		// release wrote: the current tree holds back every contract step the previous
+		// release lacks, so both releases keep writing a form the other reads.
 		It("keeps reading and updating its stores across the upgrade and a rollback", func() {
 			create(s.II, "fsc.alice.0", "a1", 10, contract)
 
@@ -107,6 +113,76 @@ var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 			s.II.UpgradeFSCNode("alice.1", "")
 			update(s.II, "fsc.alice.0", "a1", 5)
 			expectValue(s.II, "fsc.alice.1", "a1", 5)
+		})
+
+		// The contract-step runbook of the upgrade guides on alice's shared database. The
+		// previous release creates the stores, which runs every contract step it knows, so
+		// the steps under test are those `version --json` lists for the current tree only,
+		// in store types both releases have; a store type only the current tree has is new
+		// and runs its contract steps at its first open. `node migrate --contract` waits
+		// for these steps while alice's opener rows of the previous release remain, and
+		// once they ran, the previous release refuses the stores. If the previous release
+		// knows every such step, nothing waits and a rollback reads the stores.
+		It("runs its contract steps once no replica runs the previous release", func() {
+			create(s.II, "fsc.alice.0", "a1", 10, contract)
+			previous := nodeCommand(s.II, "alice.1")
+			previousSteps := contractSteps(s.II.RunFSCNodeCommand("alice.1", "version", "--json"))
+
+			// alice's opener rows of the previous release, among them alice.0's, block each
+			// step that release lacks, and --contract names alice.
+			s.II.UpgradeFSCNode("alice.1", "")
+			var newSteps []string
+			for store, steps := range contractSteps(s.II.RunFSCNodeCommand("alice.1", "version", "--json")) {
+				if previous, ok := previousSteps[store]; ok {
+					for _, step := range steps {
+						if !slices.Contains(previous, step) {
+							newSteps = append(newSteps, store+"/"+step)
+						}
+					}
+				}
+			}
+			GinkgoWriter.Printf("contract steps the previous release lacks: %v\n", newSteps)
+			s.II.StopFSCNode("alice.1")
+			if len(newSteps) > 0 {
+				out := expectMigrate(s.II, start.ExitOlderOpener, "alice.1", "--check", "--contract")
+				Expect(out).To(ContainSubstring("node [alice]"))
+			} else {
+				expectMigrate(s.II, 0, "alice.1", "--check", "--contract")
+			}
+			s.II.StartFSCNode("alice.1")
+			update(s.II, "fsc.alice.1", "a1", 9)
+			expectValue(s.II, "fsc.alice.0", "a1", 9)
+
+			// With both replicas on the current tree, forgetting alice's opener rows lets
+			// the steps run, and none is pending afterwards.
+			s.II.UpgradeFSCNode("alice.0", "")
+			s.II.StopFSCNode("alice.0")
+			s.II.StopFSCNode("alice.1")
+			expectMigrate(s.II, 0, "alice.1", "--contract", "--forget-opener", "alice")
+			expectMigrate(s.II, 0, "alice.1", "--check", "--contract")
+			s.II.StartFSCNode("alice.0")
+			s.II.StartFSCNode("alice.1")
+			expectValue(s.II, "fsc.alice.1", "a1", 9)
+			update(s.II, "fsc.alice.1", "a1", 8)
+			expectValue(s.II, "fsc.alice.0", "a1", 8)
+
+			// Rolling alice.1 back: a release without a step that ran refuses the stores, which
+			// its `node migrate --check` reports before a start would; one that knows every
+			// step reads and updates them.
+			if len(newSteps) > 0 {
+				s.II.StopFSCNode("alice.1")
+				cmd := exec.Command(previous.Path, "node", "migrate", "--check")
+				cmd.Env, cmd.Dir = previous.Env, previous.Dir
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(session, time.Minute).Should(gexec.Exit(start.ExitSchemaTooNew))
+				Expect(string(session.Err.Contents())).To(ContainSubstring(migrate.ErrSchemaTooNew.Error()))
+				return
+			}
+			s.II.UpgradeFSCNode("alice.1", previousRelease)
+			expectValue(s.II, "fsc.alice.1", "a1", 8)
+			update(s.II, "fsc.alice.1", "a1", 7)
+			expectValue(s.II, "fsc.alice.0", "a1", 7)
 		})
 	})
 
@@ -204,6 +280,58 @@ func submitUntil(ctx context.Context, ii *integration.Infrastructure, committed 
 		subs = append(subs, sub)
 	}
 	return subs
+}
+
+// nodeCommand returns the start command of the FSC replica id, such as alice.1, whose
+// binary and environment run that replica at its current release.
+func nodeCommand(ii *integration.Infrastructure, id string) *exec.Cmd {
+	for _, m := range ii.NWO.ViewMembers {
+		if m.Name == "fsc."+id {
+			return m.Runner.(*runner.Runner).Command
+		}
+	}
+	Fail("no FSC replica " + id)
+	return nil
+}
+
+// contractSteps returns the contract steps of each Postgres store type in the output of
+// `version --json`, as "<version> <name>"; a store type without contract steps maps to none.
+func contractSteps(session *gexec.Session) map[string][]string {
+	ExpectWithOffset(1, session).To(gexec.Exit(0), string(session.Err.Contents()))
+	var report struct {
+		Stores []struct {
+			Type    string
+			Dialect string
+			Steps   []struct {
+				Version  int
+				Name     string
+				Contract bool
+			}
+		}
+	}
+	ExpectWithOffset(1, json.Unmarshal(session.Out.Contents(), &report)).To(Succeed())
+	steps := map[string][]string{}
+	for _, st := range report.Stores {
+		if st.Dialect != string(migrate.Postgres) {
+			continue
+		}
+		steps[st.Type] = []string{}
+		for _, step := range st.Steps {
+			if step.Contract {
+				steps[st.Type] = append(steps[st.Type], fmt.Sprintf("%d %s", step.Version, step.Name))
+			}
+		}
+	}
+	return steps
+}
+
+// expectMigrate runs `node migrate` with flags for the stopped replica id, expects it to
+// exit with code and returns its output.
+func expectMigrate(ii *integration.Infrastructure, code int, id string, flags ...string) string {
+	session := ii.MigrateFSCNode(id, flags...)
+	out := string(session.Out.Contents()) + string(session.Err.Contents())
+	ExpectWithOffset(1, session.ExitCode()).To(Equal(code), out)
+	return out
 }
 
 // contract is stored in the state metadata of every asset the specs write.

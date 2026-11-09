@@ -3,19 +3,32 @@ name: Mixed versions
 # Runs integration/fabric/mixedversion: nodes of the latest release tag other than
 # one at HEAD next to nodes built from HEAD (see FSC_PREVIOUS_RELEASE in the
 # Makefile). It builds a second set of node binaries, so it runs nightly, on
-# demand, and on pull requests that touch the suite or the release build, rather
-# than on every pull request.
+# demand, and on pull requests that touch the suite, the release build, or what
+# two releases share: the SQL stores and their schema steps, the stream preamble
+# and the wire and stored messages. A failed nightly run, or a manual run with
+# report, opens or comments on the issue the report job keeps; the next
+# successful reported run closes it.
 on:
   schedule:
     # Nightly, off the round minute and away from the fixtures and fuzz runs.
     - cron: '17 4 * * *'
   workflow_dispatch:
+    inputs:
+      report:
+        description: 'Report the result on the tracking issue, as a nightly run does'
+        type: boolean
+        default: false
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/mixedversion.yml'
       - 'integration/fabric/mixedversion/**'
       - 'integration/nwo/fsc/release.go'
+      - 'platform/fabric/services/db/driver/sql/**'
+      - 'platform/view/services/storage/driver/sql/**'
+      - 'platform/view/services/comm/preamble/**'
+      - 'platform/fabric/protos/**'
+      - 'platform/fabricx/protos/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -63,3 +76,29 @@ jobs:
 
       - name: Run the mixed-version suite
         run: make integration-tests-fabric-mixedversion
+
+  # Keeps one open issue per failure streak: a failed run opens it or comments on it, a
+  # successful run closes it. Pull request runs never report.
+  report:
+    needs: previous-release
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.report) }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: Mixed versions nightly run failed
+      RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      RESULT: ${{ needs.previous-release.result }}
+    steps:
+      - name: Open, comment on or close the tracking issue
+        run: |
+          issue=$(gh issue list --state open --label testing --search "\"$TITLE\" in:title" --json number,title --jq "map(select(.title == env.TITLE))[0].number // empty")
+          if [ "$RESULT" = success ]; then
+            [ -z "$issue" ] || gh issue close "$issue" --comment "Passed again in $RUN."
+          elif [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "Failed again in $RUN."
+          else
+            gh issue create --title "$TITLE" --label testing --label ci --body "The \`Mixed versions\` workflow failed in $RUN. The next successful nightly run, or manual run with report, closes this issue."
+          fi
