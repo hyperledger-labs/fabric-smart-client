@@ -273,9 +273,10 @@ func (p *SDK) Start(ctx context.Context) error {
 		ConfigService    driver.ConfigService
 		Remote           RemoteConfig
 		ConnStates       *connstate.Metrics
-		MetricsProvider  metrics.Provider `optional:"true"`
-		Backends         []Backend        `group:"view-remote-backends"`
-		Drain            drainState       `optional:"true"`
+		MetricsProvider  metrics.Provider    `optional:"true"`
+		Backends         []Backend           `group:"view-remote-backends"`
+		Drain            drainState          `optional:"true"`
+		ReadinessGates   []web.ReadinessGate `group:"fsc-readiness-gates"`
 	},
 	) (err error) {
 		// The gRPC listener bound its address when it was built. Until Serve takes it over,
@@ -288,16 +289,16 @@ func (p *SDK) Start(ctx context.Context) error {
 			}()
 		}
 		viewService := in.ViewService
-		var gates []web.ReadinessGate
+		var drain web.ReadinessGate
 		if in.Drain != nil {
 			gate := drainGate{Service: in.ViewService, state: in.Drain}
-			viewService, gates = gate, []web.ReadinessGate{gate}
+			viewService, drain = gate, gate
 			if hs, ok := in.GRPCServer.(interface{ SetNotServing() }); ok {
 				in.Drain.OnDrain(hs.SetNotServing)
 			}
 		}
 		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, RemoteViewTimeout(in.ConfigService))
-		mountHealth(in.WebServer, in.ConnStates, gates...)
+		mountHealth(in.WebServer, in.ConnStates, drain, in.ReadinessGates...)
 		reportCertExpiry(in.MetricsProvider, in.GRPCServer, in.WebServer, in.OperationsServer.Own)
 		if err := mountBackends(in.Remote, in.Backends, viewService); err != nil {
 			return err

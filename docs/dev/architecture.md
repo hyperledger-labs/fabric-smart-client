@@ -121,6 +121,17 @@ refusal wraps `view.ErrDenied`. Details and an ACL example:
 p.Container().Provide(func() viewsdk.PolicyCheckerEntry { return viewsdk.PolicyCheckerEntry{Checker: myACL} })
 ```
 
+**Reporting application readiness.** `GET /readyz` answers 503 while a gate in the
+`fsc-readiness-gates` dig group is not ready, with the gate's reason in the body. The node's own
+gates, `draining` and `migrating`, come first, and connection state comes after. A child SDK
+provides a gate from its `Install` for startup work of its own, such as loading parameters or
+rebuilding a store. `NotReady` runs on every probe and must not block. `/healthz` and the gRPC
+health service ignore these gates.
+
+```go
+p.Container().Provide(func() viewsdk.ReadinessGateEntry { return viewsdk.ReadinessGateEntry{Gate: myGate} })
+```
+
 ## Multi-network support
 
 FSC can run against multiple Fabric networks simultaneously. Network names are

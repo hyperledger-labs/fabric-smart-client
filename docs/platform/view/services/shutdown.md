@@ -137,3 +137,7 @@ TLS handshake; use a TCP probe or an exec probe that presents one.
 registers the view manager, which implements it. An SDK does not need to implement or pass on
 anything for the drain. To release what it started, an SDK implements `Stop() error` (part of
 `commondig.SDK`) and calls the `Stop` of the SDK it wraps last, so that what it uses outlives it.
+
+An SDK can hold `GET /readyz` at 503 with a readiness gate of its own (`viewsdk.ReadinessGateEntry`).
+Such a gate never hides `draining`: the drain gate is checked first. The gRPC health service
+ignores these gates and reports `NOT_SERVING` only while the node drains.

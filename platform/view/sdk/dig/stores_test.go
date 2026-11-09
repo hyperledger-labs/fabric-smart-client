@@ -84,7 +84,7 @@ func TestReadyzMigrating(t *testing.T) { //nolint:paralleltest // reads package-
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
 	ws := &recordingWebServer{}
-	mountHealth(ws, connstate.NewMetrics(&disabled.Provider{}))
+	mountHealth(ws, connstate.NewMetrics(&disabled.Provider{}), nil)
 	get := func() (int, string) {
 		rec := httptest.NewRecorder()
 		ws.handlers["/readyz"].ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))

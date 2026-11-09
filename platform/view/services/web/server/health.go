@@ -28,16 +28,19 @@ type ReadinessGate interface {
 
 // Readyz returns a handler that reports readiness. A gate that is not ready takes precedence:
 // the handler responds 503 with the body {"status":"not ready","reason":"<reason>"} of the first
-// such gate. Otherwise it reports from the connection states tracked by m: it responds 503 when
-// a connection is stopped, or when a component (network, channel, and component labels) has not
-// been connected through any of its endpoints since startup; otherwise 200. Reconnecting does
-// not make the node unready. The body is then the JSON list of the unready components with their
-// reason.
+// such gate; a nil gate is skipped. Otherwise it reports from the connection states tracked by
+// m: it responds 503 when a connection is stopped, or when a component (network, channel, and
+// component labels) has not been connected through any of its endpoints since startup;
+// otherwise 200. Reconnecting does not make the node unready. The body is then the JSON list of
+// the unready components with their reason.
 func Readyz(m *connstate.Metrics, gates ...ReadinessGate) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var body any
 		for _, g := range gates {
+			if g == nil {
+				continue
+			}
 			if reason, notReady := g.NotReady(); notReady {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				body = map[string]string{"status": "not ready", "reason": reason}
