@@ -12,6 +12,9 @@ inject faults, [Fault-Recovery Tests](../dev/integration-tests/fault-recovery.md
   a suite never imports another suite's package.
 - Keep `integration`, `integration/nwo/...` and `integration/benchmark/...` compatible:
   Panurus imports them.
+- `integration/fabric/mixedversion/views` runs at the previous release too: change it only
+  compatibly, using API that release has; see
+  [Nodes of another release](../dev/integration-tests/authoring.md#nodes-of-another-release).
 - A fault scenario that applies to both platforms goes into a shared spec group in
   `integration/fabric/common/faultrecovery`, so both suites run it. A spec under
   `ShareNetwork` leaves the network healthy and leaks no sessions or view contexts.

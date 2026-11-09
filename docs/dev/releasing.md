@@ -88,8 +88,20 @@ the remote as [Rebasing](rebasing.md) shows.
    `fixtures_test.go`, and nothing else: `report.json` and `changelog.md` from the preview are
    scratch files. Open the PR titled `build(release): v0.28.0`: the PR-title check labels a
    `build` PR `skip-changelog`, so the release PR stays out of the next changelog (see
-   [PR Labels](workflow.md#pr-labels)). Its CI runs the fixture tests on the new fixture. Once
-   it merges, check out the commit it merged as, which is the commit to tag:
+   [PR Labels](workflow.md#pr-labels)). Its CI runs the fixture tests on the new fixture.
+
+   The release PR adds only data and fixtures, so the code it releases is the head of `main`
+   it starts from. Run the `Mixed versions` workflow on `main` before you open it, which runs
+   nodes of `v0.27.0` next to nodes of that code, and check that its specs ran rather than
+   skipped:
+
+   ```bash
+   gh workflow run mixedversion.yml -R hyperledger-labs/fabric-smart-client --ref main
+   ```
+
+   `data` writes `upgrade.mode` `stop-all` for every release; marking one `rolling` is a
+   change to `scripts/release` (see [the release data README](../upgrade/releases/README.md)). Once the release PR
+   merges, check out the commit it merged as, which is the commit to tag:
 
    ```bash
    git fetch upstream

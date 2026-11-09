@@ -4,6 +4,8 @@ A node that gets SIGTERM or SIGINT, or whose `Node.Stop` is called, lets running
 before it stops its components, and stops them in an order where none outlives what it uses.
 `Node.Stop` and `node start` therefore block for up to `fsc.shutdown.drainTimeout` plus
 `fsc.shutdown.teardownTimeout`.
+Replacing a node's binary one node at a time relies on this; see
+[Rolling upgrades](../../../upgrade/rolling-upgrade.md).
 
 ## Order
 

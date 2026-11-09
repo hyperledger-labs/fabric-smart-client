@@ -111,6 +111,10 @@ type Platform struct {
 	// loadBalancers holds, by node name, the proxy address of each node with WithLoadBalancer.
 	loadBalancers map[string]string
 	proxies       map[string]*common.Proxy
+
+	// releases holds, by replica unique name, the FSC release a replica's binary is built
+	// at, see SetRelease. A replica without one runs the current tree.
+	releases map[string]string
 }
 
 func NewPlatform(registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
@@ -769,7 +773,15 @@ func (p *Platform) fscNodeCommand(node *nwonode.Replica, command common.Command,
 	if len(node.ExecutablePath) == 0 {
 		node.ExecutablePath = p.GenerateCmd(nil, node)
 	}
-	cmd := common.NewCommand(p.Builder.Build(node.ExecutablePath), command)
+	var bin string
+	if release := p.releases[node.UniqueName]; release != "" {
+		var err error
+		bin, err = p.buildAtRelease(node, release)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	} else {
+		bin = p.Builder.Build(node.ExecutablePath)
+	}
+	cmd := common.NewCommand(bin, command)
 	cmd.Env = append(cmd.Env, env...)
 	cmd.Env = append(cmd.Env, "FSCNODE_LOGGING_SPEC="+p.Topology.Logging.Spec)
 	if p.Context.IgnoreSigHUP() {
@@ -792,6 +804,25 @@ func (p *Platform) fscNodeCommand(node *nwonode.Replica, command common.Command,
 	cmd.Env = append(cmd.Env, fmt.Sprintf("FSCNODE_LOGGING_SPEC=%s", p.Topology.Logging.Spec))
 
 	return cmd
+}
+
+// SetRelease makes the replicas id names run a binary built at the FSC release release
+// instead of the current tree; see buildAtRelease for the forms release takes. id is a node
+// name, which selects all its replicas, or a replica's unique name such as alice.1. An
+// empty release selects the current tree again. A running replica keeps its binary until
+// it is restarted with a new runner, see FSCNodeRunner.
+func (p *Platform) SetRelease(id, release string) {
+	found := false
+	for _, r := range p.Peers {
+		if r.Name == id || r.UniqueName == id {
+			if p.releases == nil {
+				p.releases = map[string]string{}
+			}
+			p.releases[r.UniqueName] = release
+			found = true
+		}
+	}
+	gomega.Expect(found).To(gomega.BeTrue(), "no FSC node or replica [%s]", id)
 }
 
 func (p *Platform) GenerateCmd(output io.Writer, node *nwonode.Replica) string {

@@ -22,6 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/tedsuo/ifrit"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -338,6 +339,28 @@ func (i *Infrastructure) StartFSCNode(id string) {
 	}
 
 	i.NWO.StartFSCNode(id)
+}
+
+// UpgradeFSCNode stops the FSC node or replica id and starts it again on a binary
+// built at the FSC release release, or on the current tree if release is empty;
+// see fsc.Platform.SetRelease. id is a node name, which selects its first
+// replica, or a replica name such as alice.1. The replica keeps its
+// configuration and databases, as an operator's binary swap does.
+func (i *Infrastructure) UpgradeFSCNode(id, release string) {
+	if i.NWO == nil {
+		panic("call generate or load first")
+	}
+
+	i.NWO.StopFSCNode(id)
+	i.NWO.ReplaceFSCRunner(id, func(memberName string) ifrit.Runner {
+		for _, r := range i.FscPlatform.Peers {
+			if r.ID() == memberName {
+				i.FscPlatform.SetRelease(r.UniqueName, release)
+				return i.FscPlatform.FSCNodeRunner(r)
+			}
+		}
+		panic("no FSC replica for member " + memberName)
+	})
 }
 
 // MigrateFSCNode runs `node migrate` with the given flags, such as `--check`,

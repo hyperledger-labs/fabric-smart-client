@@ -48,6 +48,8 @@ Coding agents start from [`AGENTS.md`](../AGENTS.md).
 ## Upgrading
 
 A node or database older than v0.26.0 is upgraded to v0.26.x first, then to later releases.
+Releases whose release data allows it are upgraded node by node; see
+[Rolling upgrades](upgrade/rolling-upgrade.md).
 
 - [Upgrading from v0.13 to v0.26](upgrade/v0.13-to-v0.26.md)
 - [Upgrading from v0.26 to v0.27](upgrade/v0.26-to-v0.27.md)

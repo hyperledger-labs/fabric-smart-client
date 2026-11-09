@@ -1,0 +1,65 @@
+name: Mixed versions
+
+# Runs integration/fabric/mixedversion: nodes of the latest release tag other than
+# one at HEAD next to nodes built from HEAD (see FSC_PREVIOUS_RELEASE in the
+# Makefile). It builds a second set of node binaries, so it runs nightly, on
+# demand, and on pull requests that touch the suite or the release build, rather
+# than on every pull request.
+on:
+  schedule:
+    # Nightly, off the round minute and away from the fixtures and fuzz runs.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/mixedversion.yml'
+      - 'integration/fabric/mixedversion/**'
+      - 'integration/nwo/fsc/release.go'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  previous-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # the tags
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+
+      - name: Install ginkgo
+        run: cd tools && go install github.com/onsi/ginkgo/v2/ginkgo
+
+      - name: Set up Fabric
+        run: make -j4 install-fabric-bins pull-images-database
+
+      - name: Build chaincode images
+        run: make chaincode-images
+
+      # ponytail: v0.28.0 predates the suite, so every spec would skip against it. Until the
+      # previous release contains the views, run them from a checkout of that release with
+      # HEAD's copy added: the views change only compatibly, so this is the copy the next
+      # release ships. Remove this step once v0.29.0 is tagged.
+      - name: Add the suite's views to a release that predates them
+        run: |
+          prev=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname --no-contains HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          views=integration/fabric/mixedversion/views
+          if [ -z "$(git ls-tree "$prev" "$views")" ]; then
+            git worktree add --detach "$RUNNER_TEMP/previous" "$prev"
+            mkdir -p "$RUNNER_TEMP/previous/$views"
+            cp "$views"/*.go "$RUNNER_TEMP/previous/$views/"
+            echo "FSC_PREVIOUS_RELEASE=$RUNNER_TEMP/previous" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run the mixed-version suite
+        run: make integration-tests-fabric-mixedversion
