@@ -330,6 +330,11 @@ func TestReleaseScript(t *testing.T) {
 
 		require.ElementsMatch(t, []string{"v0.29.0", "sub/v0.29.0"}, f.tagsOf(f.target))
 		require.Equal(t, []string{"v0.28.0"}, f.upstreamTags())
+		// The fork's tags are not left in the checkout, where a release of the main
+		// repository would see them.
+		local, err := git(f.dir, "tag", "--list", "*v0.29.0")
+		require.NoError(t, err)
+		require.Empty(t, local)
 		for line := range strings.SplitSeq(strings.TrimSpace(f.logged()), "\n") {
 			switch {
 			case strings.Contains(line, "generate-notes"):
@@ -373,6 +378,8 @@ func TestReleaseScript(t *testing.T) {
 		require.Contains(t, out, "dry run, would run: gh pr create")
 		out = f.mustRelease("publish", "DRY_RUN=1")
 		require.Contains(t, out, "checking release/v0.29.0 as if it were merged")
+		// A dry release-pr committed nothing, so there is no release commit to list tags of.
+		require.Contains(t, out, "tagging needs the release commit")
 		require.Contains(t, out, "dry run, would run: ./scripts/tag-release.sh --push=upstream v0.29.0")
 		require.Contains(t, out, "dry run, would run: gh release create v0.29.0")
 

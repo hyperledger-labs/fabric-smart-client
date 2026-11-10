@@ -289,6 +289,11 @@ publish() {
         echo "dry run, would run: ./scripts/tag-release.sh --push=$REMOTE $version"
     else
         ./scripts/tag-release.sh --push="$REMOTE" "$version"
+        # A fork's tags stay in the fork: left in this repository, the next minor and the
+        # tag conflict check of a release of the main repository would see them.
+        if [[ "$REPO" != "$MAIN_REPO" ]]; then
+            git tag -d $(git tag --list "$version" "*/$version") >/dev/null
+        fi
     fi
     release "$version" "$RELEASES/$version.md"
     echo "The checkout is on the release commit, detached; switch back with: git switch main"

@@ -61,20 +61,9 @@ file before tagging.
 
 ## Previewing a release
 
-`make release-prepare` runs these commands; see [Releasing](../../dev/releasing.md). To
-preview a release by hand, run them from the repository root, with the release tags fetched
-(`git fetch upstream --tags`, where `upstream` points to the main repository; see
-[Before you start](../../dev/releasing.md#before-you-start)):
-
-```sh
-go run ./scripts/release/refnode version --json > report.json
-go run ./scripts/release bump                                   # the next minor, e.g. v0.29.0
-go run ./scripts/release data --version v0.29.0 --report report.json > docs/upgrade/releases/v0.29.0.json
-gh api repos/hyperledger-labs/fabric-smart-client/releases/generate-notes \
-  -f tag_name=v0.29.0 -f previous_tag_name=v0.28.0 -f target_commitish=main --jq .body > changelog.md
-go run ./scripts/release notes --data docs/upgrade/releases/v0.29.0.json --changelog changelog.md > docs/upgrade/releases/v0.29.0.md
-go run ./scripts/release check --report report.json
-```
+`make release-prepare` generates both files; [Without the scripts](../../dev/releasing.md#without-the-scripts)
+lists the commands it runs, to preview a release by hand. It needs the remote `upstream` that
+[Before you start](../../dev/releasing.md#before-you-start) describes.
 
 `check` fails when a data file here was edited by hand: a file whose release is tagged must
 equal the file at the tag, since a released record never changes, and a file without a tag
@@ -82,8 +71,8 @@ must equal what `data` generates from the checked-out tree. An untagged file als
 the tree changed after it was generated, by a schema step, a component range or a pin;
 regenerate it. `check` does not read the notes, since the changelog they include comes from
 GitHub: the `Release check` workflow and `make release-publish` regenerate them with the
-changelog GitHub generates for the release PR's base, and fail when they differ. Review them
-in the release PR.
+changelog GitHub generates for the release PR's base commit, and fail when they differ. Review
+them in the release PR.
 
 `data` refuses a patch version (`vX.Y.Z` with `Z` above 0): a patch has no upgrade guide of its
 own, so only minors have release data.

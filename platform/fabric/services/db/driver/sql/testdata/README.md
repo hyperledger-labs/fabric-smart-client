@@ -14,7 +14,7 @@ The fixtures do not test the conversion of a Postgres vault `pkey` column from `
 
 ## Generating
 
-Every release gets a fixture directory, added by its release PR so that the release tag contains it; see [Releasing](../../../../../../../docs/dev/releasing.md). `make release-prepare` runs `generate.sh --local`, which builds against the checkout: the release is not tagged yet, and the PR's merge commit is the commit that gets tagged.
+Every release gets a fixture directory, added by its release PR so that the release tag contains it; see [Releasing](../../../../../../../docs/dev/releasing.md). `make release-prepare` runs `generate.sh --local`, which builds against the checkout: the release is not tagged yet, and the PR's squash commit, the release commit, is the commit that gets tagged.
 
 ```bash
 ./generate.sh --local v0.28.0  # a release PR: builds against this checkout, writes v0.28.0/
