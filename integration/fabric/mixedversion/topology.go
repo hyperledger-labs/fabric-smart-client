@@ -57,12 +57,15 @@ func newTopology(replicatedApprover bool) []api.Topology {
 		AddOptions(fabric.WithOrganization("Org1")).
 		AddOptions(db.For("approver")...).
 		RegisterResponder(&views.ApproverView{}, &views.CreateView{}).
+		RegisterResponder(&views.ApproverView{}, &views.EndorseView{}).
 		RegisterResponder(&views.ApproverView{}, &views.UpdateView{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{})
 	fscTopology.AddNodeByName("alice").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(db.For("alice")...).
 		RegisterViewFactory("create", &views.CreateViewFactory{}).
+		RegisterViewFactory("endorse", &views.EndorseViewFactory{}).
+		RegisterViewFactory("broadcast", &views.BroadcastViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{})
 	fscTopology.AddSDK(&sdk.SDK{})

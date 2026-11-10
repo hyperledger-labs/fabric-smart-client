@@ -115,6 +115,40 @@ var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 			expectValue(s.II, "fsc.alice.1", "a1", 5)
 		})
 
+		// alice's replicas commit every block to their shared database, so a replica that
+		// dies after it broadcast a transaction leaves it Busy there for the replica of the
+		// other release to settle. alice.1 moves to the current tree, and each replica in
+		// turn endorses, broadcasts and is killed. Org2's peer, which delivers blocks to both
+		// replicas, is down from the broadcast on, so the transaction is ordered but no replica commits
+		// it before the kill: the survivor reads the shared database and finds no asset.
+		// Once the peer is back, the survivor commits the transaction as valid, the only
+		// way it reads the asset, and the restarted replica spends it.
+		It("settles the transaction of a killed replica on the replica of the other release", func() {
+			s.II.UpgradeFSCNode("alice.1", "")
+			for i, r := range [][2]string{{"alice.0", "alice.1"}, {"alice.1", "alice.0"}} {
+				killed, survivor := "fsc."+r[0], "fsc."+r[1]
+				id := fmt.Sprintf("k%d", i)
+				res, err := s.II.Client(killed).CallView("endorse", common.JSONMarshall(&views.Create{
+					ID: id, Value: 10, Contract: contract, Approver: s.II.Identity("approver"),
+				}))
+				Expect(err).NotTo(HaveOccurred())
+				s.II.StopPeer("Org2_peer_0")
+				_, err = s.II.Client(killed).CallView("broadcast", common.JSONMarshall(&views.Broadcast{Tx: res.([]byte)}))
+				Expect(err).NotTo(HaveOccurred())
+				s.II.KillFSCNode(r[0])
+				Consistently(func() error {
+					_, err := s.II.Client(survivor).CallView("query", common.JSONMarshall(&views.Query{ID: id}))
+					return err
+				}, 3*time.Second, time.Second).Should(MatchError(ContainSubstring("not found")), "a replica committed [%s] before the kill", id)
+
+				s.II.StartPeer("Org2_peer_0")
+				expectValue(s.II, survivor, id, 10)
+				s.II.StartFSCNode(r[0])
+				update(s.II, killed, id, 9)
+				expectValue(s.II, survivor, id, 9)
+			}
+		})
+
 		// The contract-step runbook of the upgrade guides on alice's shared database. The
 		// previous release creates the stores, which runs every contract step it knows, so
 		// the steps under test are those `version --json` lists for the current tree only,
