@@ -11,3 +11,11 @@ benchmarks ([Benchmark examples](benchmark/README.md)).
   suite.
 - [Fault-Recovery Tests](../docs/dev/integration-tests/fault-recovery.md): injecting faults
   into a running network.
+
+Some suites are also tutorials, with a README that walks through their code:
+
+- [Ping Pong](fsc/pingpong/README.md): two FSC nodes exchanging messages through views.
+- [Secured Asset Transfer in Fabric](fabric/atsachaincode/README.md): FSC views that invoke a
+  Fabric chaincode.
+- [Secured Asset Transfer](fabric/common/atsa/README.md): the same application written with
+  FSC views and the state service instead of chaincode.

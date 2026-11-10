@@ -1,5 +1,7 @@
 # Ping Pong
 
+This tutorial teaches the basics of FSC views: two nodes that exchange messages over a session. It belongs to the [programming model](../../../docs/platform/view/programming-model.md) guide.
+
 The goal of this section is to familiarise ourselves with the Fabric Smart Client basic concepts.
 At the end of this document, we will gain the following knowledge:
 - What it means for party to establish a communication channel

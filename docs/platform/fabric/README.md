@@ -7,6 +7,7 @@ The Fabric platform extends the FSC view runtime with services and APIs for comm
 - [Fabric SDK architecture](fabric-sdk.md)
 - [Fabric platform driver architecture](drivers.md)
 - [Fabric platform configuration](configuration.md)
+- [Fabric security](security.md): what a node checks in transactions and identities from other nodes
 
 ## Use Fabric from a view
 

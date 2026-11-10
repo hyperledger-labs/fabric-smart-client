@@ -1,5 +1,7 @@
 # Secured Asset Transfer in Fabric
 
+This tutorial teaches how to drive a Fabric chaincode from FSC views and test it with the integration infrastructure. It belongs to the [Fabric platform](../../../docs/platform/fabric/README.md) guide.
+
 The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html)
 is a tutorial that demonstrates how an asset can be represented and traded between organizations 
 in a Hyperledger Fabric blockchain channel.

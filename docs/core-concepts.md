@@ -83,6 +83,8 @@ FSC is founded on the following key ingredients to build interactive protocols:
   view representing him in protocol. Bob gets Alice’s message by first obtaining the session Alice opened.
   Bob can use the very same session to respond to Alice and the ping-pong can continue until Alice and Bob reach their goal.
 
+The [Programming Model Guide](platform/view/programming-model.md) shows how to write views that use identities and sessions, and the [View API](platform/view/view-api.md) specifies their contracts.
+
 ## FSC nodes and networks
 
 We call **FSC Node** a network node that runs the FSC stack. FSC nodes form an **FSC network**.

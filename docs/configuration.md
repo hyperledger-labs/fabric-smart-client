@@ -1,6 +1,19 @@
-# Example configuration
+# Node configuration (core.yaml)
 
-The following configuration example provides descriptions for the various keys required for a Fabric Smart Client node that uses the Fabric SDK.
+Every FSC node reads one `core.yaml`. The annotated example below lists every key the node reads, with its default and meaning. Its top-level sections are:
+
+- `logging`: log format and levels.
+- `fsc`: the node itself (identity, TLS, gRPC, P2P, storage and persistences, views, web server, tracing, metrics, endpoints), read by the View platform.
+- `fabric`: one entry per Fabric or Fabric-x network, read by the Fabric and Fabric-x platforms. A node that installs only the View SDK leaves it out.
+
+After the example:
+
+- [Migrating TLS configuration](#migrating-tls-configuration)
+- [Overriding configuration keys](#overriding-configuration-keys)
+- [HSM Support](#hsm-support)
+- [Persistence: sqlite/postgres](#persistence-sqlitepostgres), including [Query timeout](#query-timeout) and [Postgres errors](#postgres-errors)
+
+The platform pages explain settings that need more than a comment: [Fabric](platform/fabric/configuration.md), [Fabric-x](platform/fabric-x/configuration.md) and [View](platform/view/configuration.md).
 
 ```yaml
 ---

@@ -54,16 +54,7 @@ These layers have different responsibilities:
 - **Persistence:** the configured backend selection under `fsc.persistences`
 - **Backend:** the actual database implementation, such as SQLite or Postgres
 
-## Key Terms
-
-For detailed definitions of persistence, store, and driver concepts, see the [Database drivers](db-driver.md) documentation.
-
-Key runtime concepts:
-
-- **Persistence**: A named database configuration under `fsc.persistences` that defines the backend type and connection details
-- **Store**: A logical runtime data partition (e.g., KVS, vault, envelope store) backed by one or more tables
-- **Runtime Service**: The API that application code uses from a running view (e.g., `state.GetVault(viewCtx)`)
-- **Direct DB Access**: Inspecting the underlying database with external tools like `sqlite3` or `psql` for troubleshooting
+Persistence, store and driver are defined in [Database drivers](db-driver.md#project-terminology).
 
 ## Access from a Running View
 
@@ -204,7 +195,8 @@ Direct inspection should be treated as **read-only**.
 ### Locate the Active Persistence
 
 Each logical store chooses a persistence by name.
-The persistence definitions live under `fsc.persistences`.
+The persistence definitions live under `fsc.persistences`; `fsc.persistences.<name>.opts.dataSource`
+is the SQLite file path or the Postgres connection string.
 
 Common store-to-persistence mappings are:
 
@@ -258,123 +250,19 @@ At runtime:
 - **sqlite**: local file-based, easiest for local inspection with separate read/write handles
 - **postgres**: external database, best for shared/remote inspection with a single connection pool
 
-## Table Naming
+### Tables and Columns
 
-Table names are derived from the configured `tablePrefix` (default: `fsc`) combined with store-specific suffixes and parameters. For complete details on table naming conventions, table families, and physical schemas, see [Database layout](database-layout.md) and [Database drivers](db-driver.md).
+Table names derive from the persistence's `tablePrefix` (default `fsc`), the store's parameters and a
+store-specific suffix. For a network `default` and a channel `testchannel`, the vault tables are
+`fsc_default__testchannel_vstate` and `fsc_default__testchannel_vstatus`. Every table, its columns
+and the naming rules are in [Database layout](database-layout.md).
 
-### View Platform Tables
+At the `kvs.KVS` API layer, values are typically JSON-marshaled before they are persisted, so `val`
+in `fsc_kvs` is often readable JSON. In Fabric-based applications the main application state is
+usually in the vault, so `fsc_kvs` may contain little or no application data. On Postgres, the vault
+stores `pkey` as `BYTEA`; inspect it with `encode(pkey, 'escape')`.
 
-The KVS store is created without extra naming parameters, while the binding, signer info, and audit info stores are created with the `default` parameter.
-
-With the default prefix, a generated node typically creates:
-
-| Logical store | Default table | Main contents |
-| --- | --- | --- |
-| KVS | `fsc_kvs` | namespaced key/value data |
-| Binding | `fsc_default_bind` | ephemeral-to-long-term identity bindings |
-| Signer info | `fsc_default_sign` | known signer identities |
-| Audit info | `fsc_default_aud` | audit bytes by identity |
-
-### Fabric Platform Tables
-
-The Fabric envelope, metadata, and endorse transaction stores also use the `default` parameter in a generated node.
-
-With the default prefix, a generated node typically creates:
-
-| Logical store | Default table | Main contents |
-| --- | --- | --- |
-| Envelope | `fsc_default_env` | envelope bytes by `network.channel.txid` |
-| Metadata | `fsc_default_meta` | metadata bytes by `network.channel.txid` |
-| EndorseTx | `fsc_default_etx` | endorse transaction bytes by `network.channel.txid` |
-
-The Fabric vault tables are per network and per channel.
-Their base suffixes are:
-
-- `vstate`
-- `vstatus`
-
-So the effective table names are of the form:
-
-- `<prefix>_<escaped network+channel params>_vstate`
-- `<prefix>_<escaped network+channel params>_vstatus`
-
-For a network named `default` and a channel named `testchannel`, the generated tables (on SQLite and Postgres alike) are:
-
-- `fsc_default__testchannel_vstate`
-- `fsc_default__testchannel_vstatus`
-
-## What the Stored Data Looks Like
-
-### View KVS
-
-The View KVS stores:
-
-- `ns`: logical namespace
-- `pkey`: binary key
-- `val`: raw value bytes
-
-At the `kvs.KVS` API layer, values are typically JSON-marshaled before they are persisted.
-This means the stored bytes are often JSON and may be readable after decoding, but the database still stores them as bytes.
-In Fabric-based applications, the main application state is often stored in the Fabric vault instead of `fsc_kvs`, so it is normal for `fsc_kvs` to contain little or no application data.
-
-### Binding, Signer, and Audit Stores
-
-- binding rows map an ephemeral identity hash to a long-term identity
-- signer rows track known identity hashes
-- audit rows map identity hashes to audit bytes
-
-### Fabric Envelope, Metadata, and EndorseTx Stores
-
-These tables use a simple `key` / `data` layout.
-The key is the logical transaction key:
-
-`network.channel.txid`
-
-The payload is opaque binary data from the point of view of direct DB inspection.
-
-### Fabric Vault State and Status
-
-The Fabric vault uses two main tables:
-
-- `vstatus`
-  - tracks transaction status codes and messages
-- `vstate`
-  - stores current state rows by namespace and key
-
-The state rows include:
-
-- namespace
-- persisted key
-- raw value bytes
-- version bytes
-- metadata bytes
-
-Namespaces and keys are stored verbatim. SQLite stores keys as `TEXT`; Postgres stores them as `BYTEA`, so inspect them
-with `encode(pkey, 'escape')`.
-
-## Inspecting a Live Database
-
-### Locating the Database
-
-**SQLite**: The file path is defined in `fsc.persistences.<name>.opts.dataSource` (e.g., `/path/to/default.sqlite`)
-
-**Postgres**: The connection string is defined in `fsc.persistences.<name>.opts.dataSource`
-
-### Key Tables and Columns
-
-**Transaction status** (`fsc_<network>__<channel>_vstatus`):
-- `tx_id`, `code`, `message`, `pos`
-
-**Vault state** (`fsc_<network>__<channel>_vstate`):
-- `ns`, `pkey`, `val`, `metadata`, `kversion`
-
-**Envelopes** (`fsc_default_env`):
-- `key` (format: `network.channel.txid`), `data`
-
-**View KVS** (`fsc_kvs`):
-- `ns`, `pkey`, `val`
-
-### Important Notes
+### Binary columns
 
 - Payload columns (`val`, `data`, `metadata`) contain binary data that may be JSON, protobuf, or encoded bytes
 - Use `hex()` or `length()` functions when inspecting binary columns

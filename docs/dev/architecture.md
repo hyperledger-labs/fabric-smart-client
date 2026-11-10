@@ -1,4 +1,4 @@
-# Architecture & Dependency Injection
+# Architecture and Dependency Injection
 
 ## Platform layers
 

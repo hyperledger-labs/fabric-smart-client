@@ -8,12 +8,10 @@ This document focuses on the public API and its runtime semantics. For the inter
 
 ## Overview
 
-At the API level, a view-based FSC application is built from four concepts:
-
-- **View**: A unit of protocol logic implemented by application code.
-- **Context**: The execution environment supplied to a running view.
-- **Session**: A logical communication channel to another FSC node.
-- **Identity**: The local or remote identity bound to a context or session.
+At the API level, a view-based FSC application is built from four concepts: view, context,
+session and identity. [Core concepts](../../core-concepts.md#design-key-ingredients) defines views,
+sessions and identities, and the [Programming Model Guide](programming-model.md#core-concepts) shows how an application uses
+them. This page specifies their contracts.
 
 The typical lifecycle is:
 
@@ -345,85 +343,17 @@ Typical characteristics:
 
 Views can temporarily switch role through nested execution options such as `AsResponder(session)` and `AsInitiator()`.
 
-## Minimal Example
+## Example
 
-This example shows two view implementations as a reference of the View API adapted from `integration/fsc/pingpong`.
+The [Programming Model Guide](programming-model.md#initiator-and-responder-pattern) has a complete
+ping/pong initiator and responder that use this API. An initiator resolves an identity, opens a
+session with `GetSession(viewCtx.Initiator(), party)`, sends with `Send`, and reads the reply from
+`Receive()`, checking `Message.Status` for `view.ERROR`. A responder reads from `Session()` and
+replies on the same session with `Send` or `SendError`.
 
-The initiator view:
+[`integration/fsc/signedpingpong`](../../../integration/fsc/signedpingpong) extends the pattern with
+message signing based on `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID` (see
+[Symmetric signing with session identity](programming-model.md#symmetric-signing-with-session-identity)).
 
-```go
-type Initiator struct{}
-
-func (p *Initiator) Call(viewCtx view.Context) (any, error) {
-    identityProvider, err := id.GetProvider(viewCtx)
-    if err != nil {
-        return nil, err
-    }
-    responder := identityProvider.Identity("responder")
-
-    session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
-    if err != nil {
-        return nil, err
-    }
-
-    if err := session.Send(viewCtx.Context(), []byte("ping")); err != nil {
-        return nil, err
-    }
-
-    select {
-    case msg := <-session.Receive():
-        if msg.Status == view.ERROR {
-            return nil, errors.New(string(msg.Payload))
-        }
-        if string(msg.Payload) != "pong" {
-            return nil, errors.New("expected pong")
-        }
-        return "OK", nil
-    case <-viewCtx.Context().Done():
-        return nil, viewCtx.Context().Err()
-    case <-time.After(time.Minute):
-        return nil, errors.New("responder didn't pong in time")
-    }
-}
-```
-
-The responder view:
-
-```go
-type Responder struct{}
-
-func (p *Responder) Call(viewCtx view.Context) (any, error) {
-    session := viewCtx.Session()
-
-    select {
-    case msg := <-session.Receive():
-        if string(msg.Payload) != "ping" {
-            if err := session.SendError(viewCtx.Context(), []byte("expected ping")); err != nil {
-                return nil, err
-            }
-            return nil, errors.New("expected ping")
-        }
-        if err := session.Send(viewCtx.Context(), []byte("pong")); err != nil {
-            return nil, err
-        }
-        return "OK", nil
-    case <-viewCtx.Context().Done():
-        return nil, viewCtx.Context().Err()
-    case <-time.After(5 * time.Second):
-        return nil, errors.New("time out reached")
-    }
-}
-```
-
-This example shows the core API pattern:
-
-- resolve an identity;
-- open or retrieve a session;
-- send a payload;
-- receive a message;
-- branch on `view.OK` or `view.ERROR`;
-- return an application result.
-
-For an example that extends this pattern with message signing using `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID`, see `integration/fsc/signedpingpong`. That integration test shows how both parties can symmetrically resolve their own and their peer's identity directly from the session and sign or verify messages without additional out-of-band lookups.
-
-For a full architecture-level walkthrough of how initiators, responders, contexts, and the registry interact, see the [View service](services/view-service.md).
+For a walkthrough of how initiators, responders, contexts and the registry interact at runtime, see
+the [View service](services/view-service.md).

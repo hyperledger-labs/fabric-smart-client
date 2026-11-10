@@ -1,25 +1,6 @@
 # Fabric Platform Configuration
 
-The Fabric platform configuration lives inside the shared FSC `core.yaml` described in the [shared node configuration](../../configuration.md) guide.
-
-## Start with the Shared Configuration
-
-Before adding Fabric-specific sections, configure the common FSC node settings:
-
-- `logging`
-- `fsc`, in particular its subsections `fsc.grpc`, `fsc.p2p`, `fsc.persistences`, `fsc.web`, `fsc.tracing`, `fsc.metrics`
-
-## Fabric-Specific Settings
-
-When a node uses the Fabric platform, the `core.yaml` also includes `fabric` network definitions and related services such as:
-
-- network connection settings
-- identities and MSP material
-- finality handling
-- vault and persistence wiring
-- channel and chaincode access configuration
-
-Use the full [example configuration](../../configuration.md) as the starting point for a Fabric-enabled FSC node.
+A Fabric node's settings live in the `fabric` section of the shared FSC `core.yaml`, next to the `logging` and `fsc` sections every node has. Every key is listed in the [node configuration reference](../../configuration.md); this page covers how a node with several networks matches a transaction to one of them.
 
 ## Several Networks on One Node
 

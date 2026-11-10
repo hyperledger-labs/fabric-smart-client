@@ -1,5 +1,7 @@
 # Secured Asset Transfer
 
+This tutorial teaches how to build a Fabric application from FSC views and the state service, without chaincode. It belongs to the [Fabric platform](../../../../docs/platform/fabric/README.md) guide.
+
 FSC offers a programming model for Fabric-based distributed applications that is closer to the business logic
 than to the blockchain. This example shows it on a known application.
 
@@ -22,7 +24,7 @@ There, we will learn:
 - How to write an integration test for that solution.
 
 
-# Secured Asset Transfer in Fabric with FSC
+## Secured Asset Transfer in Fabric with FSC
 
 In [/integration/fabric/atsachaincode](../../atsachaincode/README.md) we learned about: 
 1. The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html),
@@ -211,8 +213,5 @@ func (f *IssueView) Call(viewCtx view.Context) (any, error) {
 
 ```
 
-### Agree to Sell an Asset 
-
-### Agree to Buy an Asset
-
-### Transfer an Asset
+The other steps of the process, agreeing to sell, agreeing to buy and transferring an asset, are in
+[`views/agree.go`](views/agree.go) and [`views/transfer.go`](views/transfer.go).

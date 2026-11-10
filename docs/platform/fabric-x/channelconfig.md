@@ -1,237 +1,70 @@
-# Channel Configuration Monitor Service
+# Channel configuration updates
 
-## Overview
+A Fabric-x channel's configuration changes over time, for example when an organization joins or
+the orderer endpoints change. An FSC node picks these changes up with a channel configuration
+monitor (`platform/fabricx/core/channel/config`): it polls the committer's query service for the
+latest configuration transaction and, when it finds a newer one, updates the channel's membership
+service and ordering service. This applies to Fabric-x networks only.
 
-The Channel Configuration Monitor Service is a service under `platform/fabricx/core/channel/config` that periodically monitors for new channel configuration transactions and automatically updates the membership and ordering services when configuration changes are detected.
+## Lifecycle
 
-## Problem Statement
+The Fabric-x channel provider starts one monitor per channel when it opens the channel and stops
+it when the channel is closed. No caller action is needed. Every monitor of a network shares the
+network's `configMonitor` settings.
 
-In Hyperledger Fabric networks, channel configuration can change over time (e.g., new organizations joining, orderer endpoints being updated). Currently, there is no automated mechanism to detect and apply these configuration changes. This service addresses this gap by:
+The monitor keeps the last processed configuration in memory only. After a restart it checks the
+current configuration and applies it.
 
-1. Periodically checking for new configuration transactions using the query service
-2. Detecting configuration changes (version or config sequence)
-3. Updating the membership service with new MSP configurations
-4. Updating the ordering service with new orderer endpoints
+## How a change is detected and applied
 
-## Architecture
+On start the monitor checks immediately, then once every `pollInterval`. Each check:
 
-### Components
+1. calls `GetConfigTransaction` on the query service;
+2. compares the reported version, and the config sequence in the envelope's own content, with
+   the last processed ones;
+3. if either is newer, calls `Update(envelope)` on the membership service, extracts the
+   orderer configuration with `OrdererConfig`, and passes the consensus type and orderers to
+   `Configure` on the ordering service;
+4. records the new version and sequence.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  ChannelConfigMonitor                        │
-├─────────────────────────────────────────────────────────────┤
-│  - Polling Loop (configurable interval)                      │
-│  - Configuration Version Tracking (in-memory)                │
-│  - Error Handling with Exponential Backoff                   │
-│  - Lifecycle tied to the channel                             │
-└─────────────────────────────────────────────────────────────┘
-           │                    │                    │
-           ▼                    ▼                    ▼
-    ┌──────────┐        ┌──────────┐        ┌──────────┐
-    │  Query   │        │Membership│        │ Ordering │
-    │ Service  │        │ Service  │        │ Service  │
-    └──────────┘        └──────────┘        └──────────┘
-```
+The sequence check means a committer that reports a stale version cannot hide a configuration
+whose content has advanced. If the sequence cannot be read from the envelope, the monitor logs a
+warning and relies on the version alone.
 
-## Design Decisions
-
-### 1. Polling Interval
-- **Decision**: Configurable interval with 1-minute default
-- **Rationale**: Balances responsiveness with network overhead
-- **Configuration**: `fabric.<network>.configMonitor.pollInterval`
-
-### 2. State Persistence
-- **Decision**: In-memory only (resets on restart)
-- **Rationale**: Simplifies implementation; on restart, the service will check current config and update if needed
-- **Implementation**: Track last processed config version and config sequence in memory
-
-### 3. Error Handling
-- **Decision**: Retry with exponential backoff, log errors, continue monitoring
-- **Rationale**: Transient network issues shouldn't stop monitoring; persistent errors are logged for investigation
-- **Parameters**:
-  - Initial retry delay: 1 second
-  - Max retry delay: 5 minutes
-  - Max retries per cycle: 5
-
-### 4. Lifecycle Management
-- **Decision**: The Fabric-x channel provider starts the monitor when it opens a channel and stops it when the channel is closed
-- **Usage**: No caller action is needed
-
-### 5. Channel Scope
-- **Decision**: One service instance per channel
-- **Rationale**: Simplifies implementation
-- **Implication**: Each channel gets its own monitor instance; all of them share the network's `configMonitor` settings
+A check that fails (query service unavailable, an empty configuration transaction, a failed
+membership or ordering update) is retried with exponential backoff: the first retry waits
+`initialRetryDelay`, each later one doubles the wait up to `maxRetryDelay`, and at most
+`maxRetries` retries follow the first attempt. When they are exhausted the monitor logs the
+error and waits for the next poll. Closing the channel cancels a pending retry and stops the
+monitor.
 
 ## Configuration
 
-### Configuration Structure
+The monitor is configured per network under `fabric.<network>.configMonitor`, listed with every
+other key in the [node configuration reference](../../configuration.md). Every key is optional:
 
-The Channel Configuration Monitor is configured per network, under `fabric.<network>.configMonitor`, and the settings apply to every channel of that network. All configuration parameters are optional and have sensible defaults.
+| Key | Default | Validation |
+|-----|---------|------------|
+| `pollInterval` | `1m` | must be positive |
+| `maxRetries` | `5` | must be non-negative; `0` disables retries |
+| `initialRetryDelay` | `1s` | must be positive and not exceed `maxRetryDelay` |
+| `maxRetryDelay` | `5m` | must be positive |
 
-**Note:** This configuration applies **only to Fabric-x** networks, not standard Fabric networks.
-
-```yaml
-fabric:
-  <network>:
-    # Channel Configuration Monitor settings (applies to all channels in this network)
-    configMonitor:
-      # How often to check for configuration updates
-      # Default: 1m (1 minute)
-      # Format: Go duration string (e.g., "30s", "2m", "1h")
-      pollInterval: 60s
-      
-      # Maximum number of retry attempts for failed operations
-      # Default: 5
-      # Set to 0 to disable retries
-      maxRetries: 5
-      
-      # Initial delay before the first retry attempt
-      # Default: 1s
-      # Format: Go duration string
-      initialRetryDelay: 1s
-      
-      # Maximum delay between retry attempts (exponential backoff cap)
-      # Default: 5m
-      # Format: Go duration string
-      maxRetryDelay: 5m
-    
-    channels:
-      - name: <channel>
-        # ... other channel configuration
-```
-
-### Configuration Examples
-
-#### Minimal Configuration (Using Defaults)
-
-If you don't specify the `configMonitor` section, the service will use default values:
-
-```yaml
-fabric:
-  mynetwork:
-    # configMonitor section omitted - uses defaults
-    channels:
-      - name: mychannel
-```
-
-#### Custom Configuration for High-Frequency Monitoring
-
-For environments where configuration changes need to be detected quickly:
+A value that fails validation stops the channel from opening with an error that names the key,
+such as `pollInterval must be positive`.
 
 ```yaml
 fabric:
   mynetwork:
     configMonitor:
-      pollInterval: 10s        # Check every 10 seconds
-      maxRetries: 10           # More retry attempts
-      initialRetryDelay: 500ms # Faster initial retry
-      maxRetryDelay: 1m        # Lower max delay
+      pollInterval: 10s
+      maxRetries: 10
+      initialRetryDelay: 500ms
+      maxRetryDelay: 1m
     channels:
       - name: mychannel
 ```
 
-#### Conservative Configuration for Stable Networks
-
-For production environments with infrequent configuration changes:
-
-```yaml
-fabric:
-  mynetwork:
-    configMonitor:
-      pollInterval: 5m         # Check every 5 minutes
-      maxRetries: 3            # Fewer retries
-      initialRetryDelay: 2s    # Longer initial delay
-      maxRetryDelay: 10m       # Higher max delay
-    channels:
-      - name: mychannel
-```
-
-### Environment Variable Overrides
-
-Configuration values can be overridden using environment variables. The pattern follows:
-
-```
-CORE_FABRIC_<NETWORK>_CONFIGMONITOR_<PARAMETER>
-```
-
-**Examples:**
-
-```bash
-# Override poll interval for 'mynetwork' network
-export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_POLLINTERVAL=30s
-
-# Override max retries
-export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_MAXRETRIES=10
-
-# Override initial retry delay
-export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_INITIALRETRYDELAY=2s
-
-# Override max retry delay
-export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_MAXRETRYDELAY=10m
-```
-
-**Note:** Network names in environment variables should be uppercase.
-
-### Configuration Validation
-
-The service validates configuration parameters on startup:
-
-| Parameter | Validation Rule | Error if Invalid |
-|-----------|----------------|------------------|
-| `pollInterval` | Must be > 0 | "pollInterval must be positive" |
-| `maxRetries` | Must be >= 0 | "maxRetries must be non-negative" |
-| `initialRetryDelay` | Must be > 0 | "initialRetryDelay must be positive" |
-| `maxRetryDelay` | Must be > 0 | "maxRetryDelay must be positive" |
-| `initialRetryDelay` vs `maxRetryDelay` | initialRetryDelay <= maxRetryDelay | "initialRetryDelay must not exceed maxRetryDelay" |
-
-If validation fails, the node will fail to start with a descriptive error message.
-
-### Key Algorithms
-
-#### 1. Monitoring Loop
-```
-1. On start, check immediately; afterwards, wait for the poll interval
-2. Query for latest config transaction (GetConfigTransaction)
-3. Compare the version and the envelope's config sequence with the last processed ones
-4. If either is newer:
-   a. Update membership service with envelope
-   b. Extract orderer config from membership service
-   c. Update ordering service with orderer config
-   d. Update last processed version and sequence
-5. On error:
-   a. Log error
-   b. Apply exponential backoff
-   c. Retry up to max retries
-   d. Continue monitoring after retry exhaustion
-6. Repeat from step 1
-```
-
-#### 2. Configuration Update Process
-```
-1. Call QueryService.GetConfigTransaction()
-2. Extract version from ConfigTransactionInfo and config sequence from the envelope
-3. If version > lastVersion or sequence > lastSequence:
-   a. Call MembershipService.Update(envelope)
-   b. Call MembershipService.OrdererConfig(configService)
-   c. Call OrderingService.Configure(consensusType, orderers)
-   d. Update lastVersion and lastSequence
-```
-
-### Error Scenarios
-
-| Scenario | Handling |
-|----------|----------|
-| Query service unavailable | Retry with backoff, log error, continue |
-| Invalid config transaction | Log error, skip update, continue monitoring |
-| Membership update fails | Retry with backoff, log error, continue |
-| Ordering service update fails | Retry with backoff, log error, continue |
-| Context cancelled | Clean shutdown, stop monitoring |
-
-### Dependencies
-
-- **Query Service** (`platform/fabricx/core/committer/queryservice`): For retrieving configuration transactions
-- **Membership Service** (`platform/fabricx/core/membership`): For updating MSP configurations and extracting orderer config
-- **Ordering Service**: For updating orderer endpoints
-- **Config Service**: For reading configuration parameters
-- **Logger**: For logging operations and errors
+The keys can be overridden from the environment like any other key (see
+[Overriding configuration keys](../../configuration.md#overriding-configuration-keys)), for
+example `CORE_FABRIC_MYNETWORK_CONFIGMONITOR_POLLINTERVAL=30s`.

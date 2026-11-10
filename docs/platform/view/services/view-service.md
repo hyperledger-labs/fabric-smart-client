@@ -627,5 +627,6 @@ The View Service uses structured logging:
 
 - [View Service over HTTP](./view-service-http.md) - The view service's HTTP binding
 - [Communication Service](./comm/readme.md) - P2P communication layer
-- [View SDK](../view-sdk.md) - High-level view development guide
+- [Programming Model Guide](../programming-model.md) - How to write views
+- [View API](../view-api.md) - The contracts of views, contexts and sessions
 - [Configuration Guide](../../../configuration.md) - FSC configuration reference

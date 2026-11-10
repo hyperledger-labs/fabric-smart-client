@@ -302,16 +302,12 @@ When a PR is auto-closed, the linked issue is also reset: the assignee is remove
 
 ### PR Checks
 
-Standard automated checks run on every PR:
-
-- DCO sign-off
-- `pr-title`: the title follows Conventional Commits and, once the branch is a single
-  commit, equals the commit's header (see [The commit message](#the-commit-message))
-- Unit tests
-- Integration tests
-- Linter / static analysis
-
-The full set of checks is defined in the repository's CI configuration.
+When a PR opens, a bot checks the DCO sign-off, the GPG signatures, merge conflicts and the
+linked issue. `pr-title` checks that the title follows Conventional Commits and, once the
+branch is a single commit, equals the commit's header (see
+[The commit message](#the-commit-message)). The code checks and tests that CI gates on, with
+the `make` target that runs each locally, are listed in
+[What CI Gates](development.md#what-ci-gates).
 
 ## Roles
 

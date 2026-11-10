@@ -13,15 +13,20 @@ Before you begin, ensure you have the following installed:
 - **Go** — [Install Go](https://go.dev/doc/install) (see the required version in [`go.mod`](../../go.mod))
 - **Docker** — [Install Docker Engine](https://docs.docker.com/engine) (or a compatible container manager)
 
-## Clone the Repository
+## Fork and clone
 
-Clone the FSC repository to your local workspace.  
-Throughout this document, `$FSC_PATH` refers to the local path of your cloned repository.
+Fork [the repository](https://github.com/hyperledger-labs/fabric-smart-client) on GitHub,
+clone your fork, and add the main repository as the `upstream` remote. Your fork is
+`origin`: you push branches there and open pull requests from it. `upstream` is what you
+rebase onto (see [Rebasing](rebasing.md)).
+Throughout this document, `$FSC_PATH` refers to the local path of your clone.
 
 ```bash
 export FSC_PATH=$HOME/myprojects/fabric-smart-client
-git clone https://github.com/hyperledger-labs/fabric-smart-client.git $FSC_PATH
+git clone https://github.com/YOUR_GITHUB_NAME/fabric-smart-client.git $FSC_PATH
 cd $FSC_PATH
+git remote add upstream https://github.com/hyperledger-labs/fabric-smart-client.git
+git fetch upstream
 ```
 
 ## Setting Up Developer Tools

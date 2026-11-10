@@ -18,6 +18,8 @@ This model lets you write business protocols directly as Go code instead of push
 
 ## Core Concepts
 
+[Core concepts](../../core-concepts.md#design-key-ingredients) defines views, identities and sessions, and the [View API](view-api.md) specifies their contracts. This section shows how a view uses them.
+
 ### Views
 
 A view is the unit of application logic in FSC.
@@ -634,10 +636,11 @@ Applications with their own recipient exchange can reuse the same proof:
 `state.SignRecipientProof` and `state.VerifyRecipientProof`
 (`platform/fabric/services/state/proof.go`) sign and check it, and `endpoint.Service.BindProven`
 binds the verified identity to the caller's node identity. See
-[Security Model](security-model.md#recipient-proof-of-ownership).
+[Recipient proof of ownership](../fabric/security.md#recipient-proof-of-ownership).
 
 ## Related Documentation
 
+- [View API](view-api.md)
 - [View SDK architecture](view-sdk.md)
 - [View service](services/view-service.md)
 - [View platform configuration](configuration.md)

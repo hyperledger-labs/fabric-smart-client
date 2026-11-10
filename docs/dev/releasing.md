@@ -59,7 +59,7 @@ You need:
 - commit signing set up (see [Signing](signing.md)),
 - the git remote `upstream` pointing to `https://github.com/hyperledger-labs/fabric-smart-client.git`.
   The steps push to it and tag through it; release tags exist only there. If you work from a
-  fork, add the remote as [Rebasing](rebasing.md) shows. If your clone's `origin` is the main
+  fork, add the remote as [Fork and clone](development.md#fork-and-clone) shows. If your clone's `origin` is the main
   repository, set `REMOTE=origin` instead.
 
 The steps run in your current checkout. It must be clean, and `make release-prepare` switches

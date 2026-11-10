@@ -10,6 +10,7 @@ Ginkgo v2 and Gomega.
 | Page | Read it to |
 |---|---|
 | [Authoring Integration Tests](authoring.md) | write a new suite: topology, storage, comm type, consensus, namespaces, spec structure |
+| [Fabric-x committers in integration tests](fabricx-committers.md) | configure the committer and orderer containers of a Fabric-x network, or add committers |
 | [Fault-Recovery Tests](fault-recovery.md) | inject faults into a running network and check that FSC recovers |
 | [Development Guide](../development.md#integration-tests) | install the Fabric binaries and Docker images, and run, profile or measure coverage of a target |
 

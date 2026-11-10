@@ -689,7 +689,7 @@ func HostileSpecs(s *integration.TestSuite) {
 
 	ginkgo.It("refuses a transaction whose txID the sender chose", func() {
 		if nwofabricx.FxPlatform(s.II) != nil {
-			ginkgo.Skip("Fabric-x does not derive the txID from nonce and creator, so endorsers do not check it; see docs/platform/view/security-model.md")
+			ginkgo.Skip("Fabric-x does not derive the txID from nonce and creator, so endorsers do not check it; see docs/platform/fabric/security.md")
 		}
 		rejected := EndorseForgedTxID(s.II, 1)
 		gomega.Expect(rejected.TxID).NotTo(gomega.BeEmpty())

@@ -5,7 +5,8 @@ Rebasing keeps your branch in-sync with the upstream main, meaning you are worki
 ## Step-by-Step Guide
 
 ### 1. Add the original repo as a remote called "upstream"
-Only do this once per repository clone.
+Only do this once per repository clone. [Fork and clone](development.md#fork-and-clone)
+already does it.
 
 If not already done:
 ```bash
