@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -56,19 +57,70 @@ type CreateView struct {
 }
 
 func (v *CreateView) Call(viewCtx view.Context) (any, error) {
+	tx, err := newCreateTransaction(viewCtx, v.Create)
+	if err != nil {
+		return nil, err
+	}
+	return submit(viewCtx, tx, v.Approver)
+}
+
+// EndorseView is CreateView without ordering: it returns the endorsed transaction as
+// raw bytes, the input of BroadcastView, so a spec can act on the network between
+// endorsing and ordering it. It takes the input of CreateView.
+type EndorseView struct {
+	Create
+}
+
+func (v *EndorseView) Call(viewCtx view.Context) (any, error) {
+	tx, err := newCreateTransaction(viewCtx, v.Create)
+	if err != nil {
+		return nil, err
+	}
+	if err := endorse(viewCtx, tx, v.Approver); err != nil {
+		return nil, err
+	}
+	return tx.Bytes()
+}
+
+// Broadcast is the input of BroadcastView.
+type Broadcast struct {
+	// Tx is the transaction EndorseView returned.
+	Tx []byte
+}
+
+// BroadcastView sends the transaction EndorseView returned to the ordering service and
+// returns its ID without waiting for finality, so a spec can kill the initiator before
+// the transaction is final.
+type BroadcastView struct {
+	Broadcast
+}
+
+func (v *BroadcastView) Call(viewCtx view.Context) (any, error) {
+	tx, err := state.NewTransactionFromBytes(viewCtx, v.Tx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := viewCtx.RunView(endorser.NewOrderingView(tx.Transaction)); err != nil {
+		return nil, err
+	}
+	return tx.ID(), nil
+}
+
+// newCreateTransaction returns a transaction that creates the Asset of in.
+func newCreateTransaction(viewCtx view.Context, in Create) (*state.Transaction, error) {
 	tx, err := state.NewTransaction(viewCtx)
 	if err != nil {
 		return nil, err
 	}
 	tx.SetNamespace(Namespace)
 	var opts []state.AddOutputOption
-	if v.Contract != "" {
-		opts = append(opts, state.WithContract(v.Contract))
+	if in.Contract != "" {
+		opts = append(opts, state.WithContract(in.Contract))
 	}
-	if err := tx.AddOutput(&Asset{ID: v.ID, Value: v.Value}, opts...); err != nil {
+	if err := tx.AddOutput(&Asset{ID: in.ID, Value: in.Value}, opts...); err != nil {
 		return nil, err
 	}
-	return submit(viewCtx, tx, v.Approver)
+	return tx, nil
 }
 
 // Update is the input of UpdateView.
@@ -108,12 +160,18 @@ func (v *UpdateView) Call(viewCtx view.Context) (any, error) {
 	return submit(viewCtx, tx, v.Approver)
 }
 
-// submit collects the endorsements of the initiator, which signs with its default
-// identity, and of approver, then orders tx and waits until it is final. It returns
-// the transaction ID.
-func submit(viewCtx view.Context, tx *state.Transaction, approver view.Identity) (any, error) {
+// endorse collects the endorsements of the initiator, which signs with its default
+// identity, and of approver.
+func endorse(viewCtx view.Context, tx *state.Transaction, approver view.Identity) error {
 	me := tx.FabricNetworkService().IdentityProvider().DefaultIdentity()
-	if _, err := viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, approver)); err != nil {
+	_, err := viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, approver))
+	return err
+}
+
+// submit endorses tx, see endorse, then orders it and waits until it is final. It
+// returns the transaction ID.
+func submit(viewCtx view.Context, tx *state.Transaction, approver view.Identity) (any, error) {
+	if err := endorse(viewCtx, tx, approver); err != nil {
 		return nil, err
 	}
 	if _, err := viewCtx.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, finalityTimeout)); err != nil {
@@ -122,7 +180,7 @@ func submit(viewCtx view.Context, tx *state.Transaction, approver view.Identity)
 	return tx.ID(), nil
 }
 
-// ApproverView endorses the transactions of CreateView and UpdateView and waits
+// ApproverView endorses the transactions of CreateView, EndorseView and UpdateView and waits
 // until they are final.
 type ApproverView struct{}
 
@@ -176,6 +234,20 @@ type CreateViewFactory struct{}
 func (*CreateViewFactory) NewView(in []byte) (view.View, error) {
 	f := &CreateView{}
 	return f, json.Unmarshal(in, &f.Create)
+}
+
+type EndorseViewFactory struct{}
+
+func (*EndorseViewFactory) NewView(in []byte) (view.View, error) {
+	f := &EndorseView{}
+	return f, json.Unmarshal(in, &f.Create)
+}
+
+type BroadcastViewFactory struct{}
+
+func (*BroadcastViewFactory) NewView(in []byte) (view.View, error) {
+	f := &BroadcastView{}
+	return f, json.Unmarshal(in, &f.Broadcast)
 }
 
 type UpdateViewFactory struct{}
