@@ -14,7 +14,7 @@ The fixtures do not test the conversion of a Postgres vault `pkey` column from `
 
 ## Generating
 
-Every release gets a fixture directory, added by its release PR so that the release tag contains it; see [Releasing](../../../../../../../docs/dev/releasing.md). The release PR runs `generate.sh --local`, which builds against the checkout: the release is not tagged yet, and the PR's merge commit is the commit that gets tagged.
+Every release gets a fixture directory, added by its release PR so that the release tag contains it; see [Releasing](../../../../../../../docs/dev/releasing.md). `make release-prepare` runs `generate.sh --local`, which builds against the checkout: the release is not tagged yet, and the PR's squash commit, the release commit, is the commit that gets tagged.
 
 ```bash
 ./generate.sh --local v0.28.0  # a release PR: builds against this checkout, writes v0.28.0/
@@ -22,7 +22,7 @@ Every release gets a fixture directory, added by its release PR so that the rele
 ./generate.sh v0.27.0 /tmp/fx  # writes /tmp/fx/
 ```
 
-`generate.sh` builds `generate.go` in a temporary module that requires the given release from the Go module proxy, or, with `--local`, the repository checkout it is in. It runs the program and writes `SHA256SUMS`. It needs Docker for Postgres (`postgres.StartPostgres` with the same environment variables as the Postgres unit tests). Add the version to `fixtureVersions` in `fixtures_test.go`.
+`generate.sh` builds `generate.go` in a temporary module that requires the given release from the Go module proxy, or, with `--local`, the repository checkout it is in. It runs the program and writes `SHA256SUMS`. It needs Docker for Postgres (`postgres.StartPostgres` with the same environment variables as the Postgres unit tests). The fixture tests open every `vX.Y.Z` directory here, so a new release only adds files.
 
 A fixture built with `--local` and one built from the published release of the same commit hold the same rows: the Postgres file is identical, and the SQLite file can store the rows in another order.
 

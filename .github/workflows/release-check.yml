@@ -1,0 +1,63 @@
+name: Release check
+
+# Fails when a release data file in docs/upgrade/releases differs from what
+# `scripts/release data` generates from the PR's tree, or a released one differs
+# from the file at its tag (`scripts/release check`), and when the notes of an
+# untagged release differ from what `scripts/release notes` generates with the
+# changelog GitHub generates now for the PR's base. Only the notes a PR changes are
+# checked: a release merged to main stays untagged until make release-publish, and
+# its notes go stale for every later base. A release PR that was updated with main
+# after make release-prepare fails here; prepare it again. See docs/dev/releasing.md.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-check.yml'
+      - 'docs/upgrade/releases/**'
+      - 'scripts/release.sh'
+      - 'scripts/release/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  release-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # generate-notes needs it; it creates nothing
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # the tags
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - name: Check the release data
+        run: |
+          go run ./scripts/release/refnode version --json > "$RUNNER_TEMP/report.json"
+          go run ./scripts/release check --report "$RUNNER_TEMP/report.json"
+      # The notes check is make release-publish's (scripts/release.sh check-notes): the
+      # changelog of the PRs merged up to the base the PR's head contains, the merge base of
+      # the two parents of the merge commit checked out, which is the parent of the squash
+      # commit that gets tagged. Releases a PR deletes, such as a revert, are skipped.
+      # generate-notes needs write access to the main repository, where the release tags
+      # are, so a fork's CI cannot check its notes; make release-publish checks them.
+      - name: Check the release notes
+        if: github.repository == 'hyperledger-labs/fabric-smart-client'
+        run: |
+          releases=docs/upgrade/releases
+          base=$(git merge-base HEAD^1 HEAD^2)
+          for f in $(git diff --name-only --diff-filter=d "$base" HEAD^2 -- "$releases/v*.md"); do
+            v=$(basename "$f" .md)
+            [[ "$v" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+            git rev-parse -q --verify "refs/tags/$v" >/dev/null && continue
+            YES=1 ./scripts/release.sh check-notes "$v" "$base"
+          done

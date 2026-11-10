@@ -1,137 +1,353 @@
 # Releasing
 
 This guide is for maintainers. It lists the steps to cut a release of Fabric Smart Client
-(FSC).
+(FSC): seven steps and about two hours, most of it waiting for CI.
 
 ## How FSC is released
 
-- Every release is cut from `main`. There are no release branches, and fixes are not
-  backported to an earlier release.
-- The maintainer who cuts the release picks the version, `vX.Y.Z`; `go run ./scripts/release
-  bump` prints the next minor. `scripts/release` generates release data for a minor only.
+- Every release is a minor cut from `main`. There are no pre-releases, release branches or
+  backports.
 - A release tags the root module and every submodule (`integration`,
   `platform/fabric/services/state/cc/query`, `platform/view/services/comm/host/libp2p`) with
   the same version: `v0.28.0`, `integration/v0.28.0`, and so on. `scripts/tag-release.sh`
   finds the modules in the commit it tags. The submodules `replace` the root module with a
-  relative path, so no `go.mod` changes before tagging.
+  relative path, so no `go.mod` changes before tagging. The tags are lightweight.
+- A *release PR*, titled `build(release): vX.Y.0`, adds everything the release records, so
+  the tag contains it. These are the *release files*:
+  - `docs/upgrade/releases/vX.Y.0.json`, the *release data*, and
+    `docs/upgrade/releases/vX.Y.0.md`, the *release notes*, which become the body of the GitHub
+    release. `scripts/release` generates both; what each holds is in
+    [the release data README](../upgrade/releases/README.md).
+  - The storage fixtures in `platform/fabric/services/db/driver/sql/testdata/vX.Y.0/`, generated
+    by `testdata/generate.sh --local`; see
+    [the fixture README](../../platform/fabric/services/db/driver/sql/testdata/README.md). The
+    fixture tests open every release directory there, so the PR changes no code.
+- The release PR starts from a commit of `main`, its *base commit*. It is squash-merged, so it
+  lands on `main` as one commit, `build(release): vX.Y.0 (#n)`, the *release commit*. The
+  release commit is what gets tagged.
+- The upgrade guide `docs/upgrade/vX.Y-to-vX.Z.md` (for `v0.29.0`, `v0.28-to-v0.29.md`) is the
+  only part of a release written by hand; the release notes link to it.
 - The Go module proxy keeps the first content it sees for a version. Never move, delete or
   re-push a tag after pushing it; if a release is broken, cut the next version.
 
+Three `make` targets cut a release: `make release-prepare`, `make release-pr` and
+`make release-publish`. `scripts/release.sh` holds their logic. Every step stops at the first
+error and asks before it changes anything outside your checkout, so you can stop at any point;
+[Stopping or abandoning a release](#stopping-or-abandoning-a-release) says what to do then.
+
 ## Before you start
 
-You need write access to the repository (see [MAINTAINERS.md](../../MAINTAINERS.md)), a
-clean checkout of the commit to release, and Docker, which generating the storage fixtures uses
-to run Postgres. The examples release `v0.28.0` after `v0.27.0`.
+You need:
 
-The commands assume that the git remote `upstream` points to
-`https://github.com/hyperledger-labs/fabric-smart-client.git`, not to your fork: release tags
-exist only there, and tags pushed anywhere else are not a release. If you work from a fork, add
-the remote as [Rebasing](rebasing.md) shows.
+- write access to the repository (see [MAINTAINERS.md](../../MAINTAINERS.md)),
+- `gh` logged in (`gh auth login`), Go, and Docker running: the storage fixtures run Postgres,
+- commit signing set up (see [Signing](signing.md)),
+- the git remote `upstream` pointing to `https://github.com/hyperledger-labs/fabric-smart-client.git`.
+  The steps push to it and tag through it; release tags exist only there. If you work from a
+  fork, add the remote as [Rebasing](rebasing.md) shows. If your clone's `origin` is the main
+  repository, set `REMOTE=origin` instead.
+
+The steps run in your current checkout. It must be clean, and `make release-prepare` switches
+it to the branch `release/v0.29.0`. A separate clone or worktree keeps your own work out of the
+way.
+
+The examples release `v0.29.0` after `v0.28.0`.
 
 ## Cutting a release
 
-1. **Check out the commit to release** in a clean worktree. Usually it is the head of `main`:
+1. **Check that the upgrade guide is complete.** `docs/upgrade/v0.28-to-v0.29.md` describes
+   what changes for operators and developers since `v0.28.0`; PRs that break something add to
+   it as they merge. Every breaking change needs a section that says what to do, the opening
+   paragraphs say whether organizations upgrade together, and the checklist lists every step.
+   To list the breaking commits:
 
    ```bash
    git fetch upstream --tags
-   git worktree add ../fsc-release upstream/main
-   cd ../fsc-release
+   git log --format='%h %s' v0.28.0..upstream/main | grep -E '^[0-9a-f]+ [a-z]+(\([^)]*\))?!:'
    ```
 
-2. **Check the upgrade guide.** `docs/upgrade/v0.27-to-v0.28.md` describes what changes for
-   operators and developers since `v0.27.0`. PRs that break something add to it as they
-   merge. Read it, and fix gaps in a PR before tagging. To list the breaking commits:
+   Fix gaps in a PR and merge it first. If the guide does not exist, add it the same way:
+   `make release-prepare` refuses a release without one.
 
-   ```bash
-   git log --format='%h %s' v0.27.0..HEAD | grep -E '^[0-9a-f]+ [a-z]+(\([^)]*\))?!:'
-   ```
-
-3. **Open the release PR.** It adds everything the release records, so the tag contains it:
-
-   - **The release data and notes.** `bump` prints the version to release; the other
-     commands write the data file and the notes, and `check` confirms the data file is what
-     the tree generates:
-
-     ```bash
-     go run ./scripts/release bump        # v0.28.0
-     go run ./scripts/release/refnode version --json > report.json
-     go run ./scripts/release data --version v0.28.0 --report report.json \
-       > docs/upgrade/releases/v0.28.0.json
-     gh api repos/hyperledger-labs/fabric-smart-client/releases/generate-notes \
-       -f tag_name=v0.28.0 -f previous_tag_name=v0.27.0 -f target_commitish=main \
-       --jq .body > changelog.md
-     go run ./scripts/release notes --data docs/upgrade/releases/v0.28.0.json \
-       --changelog changelog.md > docs/upgrade/releases/v0.28.0.md
-     go run ./scripts/release check --report report.json
-     ```
-
-     Read `docs/upgrade/releases/v0.28.0.md`: it links to the upgrade guide and the data
-     file, lists the tested versions and ends with the changelog. What each file holds is in
-     [the release data README](../upgrade/releases/README.md).
-   - **The storage fixtures.** Generate them from this checkout, then add `"v0.28.0"` to
-     `fixtureVersions` in `platform/fabric/services/db/driver/sql/fixtures_test.go` before
-     running the fixture tests, so they open the new fixture (`TestFixturesSQLite/v0.28.0` and
-     `TestPostgresFixtures/v0.28.0`):
-
-     ```bash
-     platform/fabric/services/db/driver/sql/testdata/generate.sh --local v0.28.0
-     # add "v0.28.0" to fixtureVersions in fixtures_test.go
-     go test -run Fixtures ./platform/fabric/services/db/driver/sql/
-     ```
-
-     `--local` builds the fixture writer against the checkout, which is the commit the release
-     PR's merge tags; see
-     [the fixture README](../../platform/fabric/services/db/driver/sql/testdata/README.md).
-
-   Commit `docs/upgrade/releases/v0.28.0.json`, `docs/upgrade/releases/v0.28.0.md`, the new
-   `platform/fabric/services/db/driver/sql/testdata/v0.28.0/` directory and the change to
-   `fixtures_test.go`, and nothing else: `report.json` and `changelog.md` from the preview are
-   scratch files. Open the PR titled `build(release): v0.28.0`: the PR-title check labels a
-   `build` PR `skip-changelog`, so the release PR stays out of the next changelog (see
-   [PR Labels](workflow.md#pr-labels)). Its CI runs the fixture tests on the new fixture.
-
-   The release PR adds only data and fixtures, so the code it releases is the head of `main`
-   it starts from. Run the `Mixed versions` workflow on `main` before you open it, which runs
-   nodes of `v0.27.0` next to nodes of that code, and check that its specs ran rather than
-   skipped:
+2. **Run the mixed-version suite on `main`.** The release PR adds only release files, so the
+   code it releases is the head of `main` it starts from. The `Mixed versions` workflow runs
+   nodes of `v0.28.0` next to nodes of that code:
 
    ```bash
    gh workflow run mixedversion.yml -R hyperledger-labs/fabric-smart-client --ref main
+   gh run watch -R hyperledger-labs/fabric-smart-client "$(gh run list -R hyperledger-labs/fabric-smart-client \
+     --workflow mixedversion.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
    ```
 
-   `data` writes `upgrade.mode` `stop-all` for every release; marking one `rolling` is a
-   change to `scripts/release` (see [the release data README](../upgrade/releases/README.md)). Once the release PR
-   merges, check out the commit it merged as, which is the commit to tag:
+   In the run's log, every spec must have passed and none skipped. If it fails, do not release:
+   fix `main` first.
+
+3. **Prepare the release.**
 
    ```bash
-   git fetch upstream
-   git checkout "$(gh pr view <release PR number> -R hyperledger-labs/fabric-smart-client \
-     --json mergeCommit --jq .mergeCommit.oid)"
-   git log --oneline -1   # build(release): v0.28.0
+   make release-prepare
    ```
 
-   Tag that commit, not a later head of `main`: the notes and the fixtures describe it.
+   It picks the next minor after the latest tag (`VERSION=v0.29.0` overrides it). It checks
+   that `upstream/main` has the upgrade guide and that no release PR of another version is
+   open, asks you to confirm that the guide it names is complete, and then whether to start.
+   On the branch `release/v0.29.0`, reset to `upstream/main`, it generates the release files,
+   runs `check` and the fixture tests, and stages the release files.
 
-4. **Create the tags.** Dry-run first; it lists one tag per module and refuses a version that
-   is not `vMAJOR.MINOR.PATCH` or a tag that exists:
+   Read the release notes in `docs/upgrade/releases/v0.29.0.md`; after step 4 the release PR's
+   **Files changed** tab shows them rendered. If it stops, or to prepare again, see
+   [Stopping or abandoning a release](#stopping-or-abandoning-a-release).
+
+4. **Open the release PR.**
 
    ```bash
-   make tag-release VERSION=v0.28.0 DRY=1
-   make tag-release VERSION=v0.28.0
+   make release-pr
    ```
 
-5. **Push the tags and create the GitHub release.** Push the new tags only; `git push --tags`
-   would push every local tag you have. The release takes the notes as its body. Once a tag is
-   pushed it is the release; if something is wrong, cut the next version:
+   It commits the staged release files, signed off and signed, as `build(release): v0.29.0`,
+   pushes the branch to `upstream`, and opens the release PR, or updates it if it is open. It
+   refuses any other staged or changed file. The PR-title check labels the PR
+   `skip-changelog`, so it stays out of the next changelog.
+
+   CI gates the release. `Tests` runs the full suite on the release PR, including the fixture
+   tests on the new fixture. `Release check` fails when the release data or the release notes
+   differ from what `make release-prepare` generates for the PR's base commit.
+
+5. **Get the PR reviewed and merge it.** Another maintainer approves it. `main` accepts only a
+   PR that is up to date with it, so a merge to `main` while the release PR is open forces an
+   update. Do not use **Update branch** then: run `make release-prepare` and `make release-pr`
+   again, which rebuild the release on the new `main` and update the same PR. If you update the
+   branch anyway and the merged PR had a changelog entry, `Release check` fails because the
+   release notes miss it.
+
+6. **Publish the release.** `Tests` runs again on the release commit once it lands on `main`,
+   which takes about an hour, and `make release-publish` refuses to tag before it passed. Wait
+   for it, then run:
 
    ```bash
-   git push upstream $(git tag --points-at HEAD | grep -E '(^|/)v0\.28\.0$')
-   gh release create v0.28.0 -R hyperledger-labs/fabric-smart-client --verify-tag \
-     --title v0.28.0 --notes-file docs/upgrade/releases/v0.28.0.md
+   make release-publish
    ```
 
-6. **Announce the release** in
+   It finds the release commit of `v0.29.0` on `upstream/main`, however far `main` has moved
+   since; if the release was prepared again after the merge, it takes the newest one. It checks
+   the release data and the release notes against that commit, checks that `Tests` passed on
+   it, lists the tags and asks before it pushes them. The push is all or none. It then creates
+   the GitHub release from the release notes.
+
+   Your checkout is left on the release commit, detached. Return and delete the local release
+   branch, which the merge already deleted on GitHub:
+
+   ```bash
+   git switch main
+   git branch -D release/v0.29.0
+   ```
+
+   If the push fails, no tag exists and you can run the step again. If it stops after the push,
+   run it again: it creates the missing GitHub release. For anything else, see
+   [Stopping or abandoning a release](#stopping-or-abandoning-a-release).
+
+7. **Announce the release** in
    [#fabric-smart-client](https://discord.com/channels/905194001349627914/945691888348967012) on
    the LFDT Discord with a link to the GitHub release.
 
-Remove the worktree with `git worktree remove ../fsc-release`.
+## Trying a release first
+
+`DRY_RUN=1` runs every step without writing to GitHub:
+
+```bash
+make release-prepare DRY_RUN=1
+make release-pr DRY_RUN=1
+make release-publish DRY_RUN=1
+```
+
+- `make release-prepare` does everything it does without the setting, since it changes only
+  your checkout: it resets the branch, generates the release files and stages them.
+- `make release-pr` lists what it would commit and prints the push and the PR it would open.
+  It commits nothing.
+- On the release branch, `make release-publish` checks the release as if the branch were
+  merged: it regenerates the release notes for the base commit and prints the GitHub release it
+  would create. It lists the tags only once the release commit exists, that is after a real
+  `make release-pr`; with only staged files it says that tagging needs the release commit. It
+  cannot check `Tests`, which needs the merged PR.
+- Off the release branch, after the merge, `make release-publish` runs every real check,
+  `Tests` included, and prints the push and the GitHub release instead of making them. It is a
+  safe check before the real step 6.
+
+The dry run calls GitHub only to read: the changelog and the open PRs. It leaves the branch and
+the staged release files of `make release-prepare`. Run `make release-pr` without `DRY_RUN` to
+go on, or remove them as [Stopping or abandoning a release](#stopping-or-abandoning-a-release)
+shows.
+
+## Stopping or abandoning a release
+
+You can stop at any point: answer `n` at a question or press Ctrl-C. The scripts create
+nothing on GitHub before `make release-pr` and no tag before you confirm the push in
+`make release-publish`. Temporary files are removed when a script exits. A Ctrl-C while
+`make release-prepare` generates the fixtures can leave the Postgres container it started
+running:
+
+```bash
+docker ps --filter ancestor=fsc.itests/postgres:latest   # the container, with a random name
+docker rm -f <container>
+```
+
+What to do depends on how far the release got. The commands are for `v0.29.0`; run them in
+the checkout you released from.
+
+**After `make release-prepare`.** The release exists only on your machine: the branch
+`release/v0.29.0` and the staged release files. If `make release-prepare` stopped partway, you
+are on that branch with some of the release files written but not staged; the same commands
+clean up. Remove the release files, then run `make release-prepare` again to prepare again, or
+switch back and delete the branch to abandon the release:
+
+```bash
+git rm -r -f -q --cached --ignore-unmatch docs/upgrade/releases/v0.29.0.json \
+  docs/upgrade/releases/v0.29.0.md platform/fabric/services/db/driver/sql/testdata/v0.29.0
+rm -rf docs/upgrade/releases/v0.29.0.json docs/upgrade/releases/v0.29.0.md \
+  platform/fabric/services/db/driver/sql/testdata/v0.29.0
+git switch main                  # to abandon the release
+git branch -D release/v0.29.0
+```
+
+These commands touch only the release files, staged or not. Do not use `git reset --hard`
+unless the tree holds nothing else you want to keep.
+
+**After `make release-pr`, before the merge.** The release PR is open and its branch is on
+`upstream`. To fix the release, change what is wrong on `main` in a normal PR and run
+`make release-prepare` and `make release-pr` again: they rebuild the branch, force-push it and
+update the same PR. To abandon the release, close the PR; `--delete-branch` deletes the branch
+both locally and on `upstream`:
+
+```bash
+git switch main
+gh pr close release/v0.29.0 -R hyperledger-labs/fabric-smart-client --delete-branch \
+  --comment "Abandoned; the next release is prepared again from main."
+```
+
+**After the merge, before `make release-publish` pushes the tags.** The release files are on
+`main`, but nothing is tagged, so nothing is released. If `make release-publish` stops on a
+check, fix the cause and run it again, or prepare the release again: `make release-prepare` and
+`make release-pr` give a PR that updates the release files on `main`. To abandon the release,
+revert every release commit of the version in a PR, so that the untagged release data leaves
+`main`. There are two if the release was prepared again after the merge:
+
+```bash
+git switch -c revert/v0.29.0 upstream/main
+git revert --no-edit -s -S $(git log --format=%H --grep='^build(release): v0\.29\.0\( (#[0-9]*)\)\?$' upstream/main -- \
+  docs/upgrade/releases/v0.29.0.json docs/upgrade/releases/v0.29.0.md)
+git push upstream revert/v0.29.0
+gh pr create -R hyperledger-labs/fabric-smart-client --base main --head revert/v0.29.0 \
+  --title 'Revert "build(release): v0.29.0"'
+```
+
+The revert also removes the release's fixtures. Until it merges, `make release-publish` keeps
+finding `v0.29.0`, and `make release-prepare` prepares `v0.29.0` again, since the next version
+follows the latest tag.
+
+**After the tags are pushed.** The release exists: the Go module proxy may already have
+fetched it, and it keeps that content for good. Never delete or move the tags. If the GitHub
+release is missing, run `make release-publish` again. If the release is broken, say so in the
+GitHub release and on Discord, fix it on `main`, and cut the next version.
+
+## Releasing from a fork
+
+The same steps cut a release in your fork, to test the process or a change to it end to end.
+`RELEASE_REPO` names the fork; the branch, the release PR, the tags and the GitHub release are
+then the fork's, and the release notes link to the fork. `REMOTE` defaults to `origin`, which
+must point to the fork.
+
+```bash
+export RELEASE_REPO=<you>/fabric-smart-client
+make release-prepare VERSION=v0.29.0
+make release-pr
+# review and squash-merge the PR in the fork
+make release-publish
+```
+
+- Set `VERSION`. The next minor is computed from the tags in your local repository, and those
+  can differ from the main repository's.
+- Merge the release PR with **Squash and merge**, which the main repository enforces and
+  `make release-publish` relies on: it looks for the commit `build(release): v0.29.0 (#n)`.
+- `Tests` must pass on the release commit in the fork before `make release-publish` tags, so
+  the fork needs Actions enabled. The full suite takes about an hour of the fork's Actions
+  minutes.
+- The release tags are only in the main repository, so the steps fetch its tags and its `main`.
+  The previous release comes from those tags, and the changelog is generated in the main
+  repository: it lists the PRs merged there up to the latest commit of its `main` that the
+  fork's release is based on. The fork's own commits are not in it.
+- `Release check` skips the release notes in a fork: the token of the fork's CI cannot generate
+  notes in the main repository. `make release-publish` checks them from your machine.
+- `make release-publish` pushes the tags to the fork and then removes them from your local
+  repository, so a later release of the main repository in the same checkout does not see them.
+  Go never sees the fork's tags: `go get` of the module resolves it in the main repository.
+
+Each step checks that `REMOTE` points to `RELEASE_REPO`, so a release meant for the main
+repository never goes to a fork, and a fork's release never goes to the main repository.
+
+## Settings
+
+The steps take these settings, all optional, as environment variables or on the `make` command
+line:
+
+| Setting | Meaning | Default |
+|---|---|---|
+| `VERSION` | the version `make release-prepare` prepares, `vX.Y.0` | the next minor after the latest release tag |
+| `DRY_RUN=1` | do every local step and check, and print what would be written to GitHub; see [Trying a release first](#trying-a-release-first) | off |
+| `RELEASE_REPO` | the repository to release in, `owner/name`; see [Releasing from a fork](#releasing-from-a-fork) | `hyperledger-labs/fabric-smart-client` |
+| `REMOTE` | the git remote of `RELEASE_REPO` | `upstream`, or `origin` for a fork |
+| `YES=1` | answer every question with yes, including the tag push of `make release-publish` | off |
+
+## Without the scripts
+
+The steps by hand, for when a script stops and you cannot fix the cause:
+
+1. **The release PR.** In a clean worktree of `upstream/main`, generate the release files and
+   commit them, nothing else. The scratch files go to a temporary directory.
+
+   ```bash
+   git fetch upstream --tags
+   git worktree add -b release/v0.29.0 ../fsc-release upstream/main
+   cd ../fsc-release
+   tmp=$(mktemp -d)
+   go run ./scripts/release/refnode version --json > "$tmp/report.json"
+   go run ./scripts/release data --version v0.29.0 --report "$tmp/report.json" \
+     > docs/upgrade/releases/v0.29.0.json
+   gh api repos/hyperledger-labs/fabric-smart-client/releases/generate-notes \
+     -f tag_name=v0.29.0 -f previous_tag_name=v0.28.0 -f target_commitish="$(git rev-parse HEAD)" \
+     --jq .body > "$tmp/changelog.md"
+   go run ./scripts/release notes --data docs/upgrade/releases/v0.29.0.json \
+     --changelog "$tmp/changelog.md" > docs/upgrade/releases/v0.29.0.md
+   go run ./scripts/release check --report "$tmp/report.json"
+   platform/fabric/services/db/driver/sql/testdata/generate.sh --local v0.29.0
+   go test -run Fixtures ./platform/fabric/services/db/driver/sql/
+   git add docs/upgrade/releases/v0.29.0.* platform/fabric/services/db/driver/sql/testdata/v0.29.0
+   git commit -s -S -m "build(release): v0.29.0"
+   git push upstream release/v0.29.0
+   gh pr create -R hyperledger-labs/fabric-smart-client --base main --head release/v0.29.0 \
+     --title "build(release): v0.29.0"
+   ```
+
+2. **The tags**, on the release commit, not a later head of `main`: the release notes and the
+   fixtures describe it. Check that `Tests` passed on it first. The dry run lists one tag per
+   module; `PUSH=upstream` creates the tags and pushes exactly these, all or none.
+   `make tag-release` takes `DRY=1`, not `DRY_RUN=1`. It refuses a version that is not
+   `vMAJOR.MINOR.PATCH`, a tag that exists, and a commit without the release data.
+
+   ```bash
+   git fetch upstream
+   commit=$(gh pr view <release PR number> -R hyperledger-labs/fabric-smart-client \
+     --json mergeCommit --jq .mergeCommit.oid)
+   gh run list -R hyperledger-labs/fabric-smart-client --workflow tests.yml --event push --commit "$commit"
+   git checkout "$commit"
+   make tag-release VERSION=v0.29.0 DRY=1
+   make tag-release VERSION=v0.29.0 PUSH=upstream
+   ```
+
+3. **The GitHub release**, with the release notes as its body:
+
+   ```bash
+   gh release create v0.29.0 -R hyperledger-labs/fabric-smart-client --verify-tag \
+     --title v0.29.0 --notes-file docs/upgrade/releases/v0.29.0.md
+   ```
+
+Remove the worktree with `cd .. && git worktree remove fsc-release`.

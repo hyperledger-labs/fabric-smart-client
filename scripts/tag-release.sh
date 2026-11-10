@@ -2,17 +2,20 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 [--dry] <version>"
-    echo "  --dry    Print tags that would be created without creating them"
-    echo "  version  Git tag version, e.g. v0.13.0"
+    echo "Usage: $0 [--dry] [--push=<remote>] <version>"
+    echo "  --dry             Print tags that would be created without creating them"
+    echo "  --push=<remote>   Push the created tags to <remote>, all or none"
+    echo "  version           Git tag version, e.g. v0.13.0"
     exit 1
 }
 
 DRY=false
+REMOTE=""
 VERSION=""
 for arg in "$@"; do
     case "$arg" in
         --dry) DRY=true ;;
+        --push=?*) REMOTE="${arg#--push=}" ;;
         -*) echo "Error: unknown flag $arg" >&2; usage ;;
         *) [[ -n "$VERSION" ]] && usage; VERSION="$arg" ;;
     esac
@@ -26,6 +29,15 @@ fi
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+
+# A minor's release data is part of the tagged commit, so a check of the tag sees it. A patch
+# has no release data yet (scripts/release generates it for minors only), so it is tagged
+# without.
+DATA="docs/upgrade/releases/${VERSION}.json"
+if [[ "$VERSION" =~ \.0$ ]] && ! git -C "$REPO_ROOT" cat-file -e "${HEAD}:${DATA}" 2>/dev/null; then
+    echo "Error: ${DATA} is not in the commit to tag; merge the release PR first" >&2
+    exit 1
+fi
 
 # Collect all module paths: root first, then submodules excluding tools.
 #
@@ -80,5 +92,16 @@ for tag in "${TAGS[@]}"; do
     echo "  created $tag"
 done
 
-echo "Done. To publish, push exactly these tags to the main repository (docs/dev/releasing.md, step 5):"
+if [[ -n "$REMOTE" ]]; then
+    # Exactly the new tags (--tags would push every local tag), all or none.
+    if ! git -C "$REPO_ROOT" push --atomic "$REMOTE" "${TAGS[@]}"; then
+        # Nothing reached the remote; remove the local tags so that a rerun starts over.
+        git -C "$REPO_ROOT" tag -d "${TAGS[@]}" >/dev/null
+        echo "Error: pushing the tags to $REMOTE failed; no tag was created" >&2
+        exit 1
+    fi
+    exit 0
+fi
+
+echo "Done. To publish, push exactly these tags to the main repository (docs/dev/releasing.md, Without the scripts):"
 echo "  git push upstream ${TAGS[*]}"

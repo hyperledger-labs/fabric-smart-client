@@ -54,10 +54,11 @@ root only sees the root module — the other four are invisible to it.
   `./scripts/gomate.sh update github.com/some/dep@v1.2.3`.
 - A dependency used only by code under `integration/` or the libp2p host
   belongs in *that* module's `go.mod`, not the root one.
-- **Releases** tag every module with the same version
-  (`make tag-release VERSION=vX.Y.Z`, see [`scripts/tag-release.sh`](scripts/tag-release.sh));
+- **Releases** are cut by a maintainer with `make release-prepare`, `make release-pr` and
+  `make release-publish` (`scripts/release.sh`), which tag every module with the same version;
   a change in a submodule is consumable downstream only after the next release. The steps are
-  in [`docs/dev/releasing.md`](docs/dev/releasing.md).
+  in [`docs/dev/releasing.md`](docs/dev/releasing.md). Never run `make release-pr` or
+  `make release-publish` without `DRY_RUN=1`: they push to GitHub and tag.
 
 ## Where to look next
 

@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,9 +35,36 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// fixtureVersions are the releases under testdata whose databases HEAD must
-// open and migrate. testdata/README.md describes how they are generated.
-var fixtureVersions = []string{"v0.26.0", "v0.27.0", "v0.28.0"}
+// releaseDirRe matches the name of a release's fixture directory under testdata.
+var releaseDirRe = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
+
+// fixtureVersions returns the releases with a fixture directory in dir: the releases
+// whose databases HEAD must open and migrate. testdata/README.md describes how they are
+// generated.
+func fixtureVersions(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	var versions []string
+	for _, e := range entries {
+		if e.IsDir() && releaseDirRe.MatchString(e.Name()) {
+			versions = append(versions, e.Name())
+		}
+	}
+	return versions
+}
+
+func TestFixtureVersionsFromTestdata(t *testing.T) {
+	t.Parallel()
+	require.Subset(t, fixtureVersions(t, "testdata"), []string{"v0.26.0", "v0.27.0", "v0.28.0"})
+
+	dir := t.TempDir()
+	for _, d := range []string{"v0.27.0", "v0.100.0", "v9.9.9", "steps", "v1.0"} {
+		require.NoError(t, os.Mkdir(filepath.Join(dir, d), 0o750))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "v1.0.0"), nil, 0o600))
+	require.ElementsMatch(t, []string{"v0.27.0", "v0.100.0", "v9.9.9"}, fixtureVersions(t, dir))
+}
 
 // fixtureDirEnv names an extra fixture directory, written by testdata/generate.sh
 // outside the repository, that the fixture tests open as well. The fixtures
@@ -47,9 +75,10 @@ const fixtureDirEnv = "FSC_FIXTURE_DIR"
 // fixtureDirs returns the fixture directories the fixture tests open, keyed by
 // subtest name: testdata/<version> for each of fixtureVersions, and the
 // directory in fixtureDirEnv if set.
-func fixtureDirs() map[string]string {
+func fixtureDirs(t *testing.T) map[string]string {
+	t.Helper()
 	dirs := map[string]string{}
-	for _, v := range fixtureVersions {
+	for _, v := range fixtureVersions(t, "testdata") {
 		dirs[v] = filepath.Join("testdata", v)
 	}
 	if dir := os.Getenv(fixtureDirEnv); dir != "" {
@@ -170,7 +199,7 @@ func requireLatest(t *testing.T, db *sql.DB, s fixtureStores) {
 // the contract steps.
 func TestFixturesSQLite(t *testing.T) {
 	t.Parallel()
-	for name, dir := range fixtureDirs() {
+	for name, dir := range fixtureDirs(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "fsc.sqlite")
@@ -308,7 +337,7 @@ func sequenceOf(def *string) (string, bool) {
 // after running the contract steps.
 func TestPostgresFixtures(t *testing.T) {
 	t.Parallel()
-	for name, dir := range fixtureDirs() {
+	for name, dir := range fixtureDirs(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			fixture := map[string]*pgTable{}
