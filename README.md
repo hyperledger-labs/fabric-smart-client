@@ -8,58 +8,38 @@
 [![CodeQL](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml)
 [![Coverage Status](https://coveralls.io/repos/github/hyperledger-labs/fabric-smart-client/badge.svg?branch=main)](https://coveralls.io/github/hyperledger-labs/fabric-smart-client?branch=main)
 
-The **Fabric Smart Client (FSC)** is a next-generation client-side framework for Hyperledger [Fabric](https://github.com/hyperledger/fabric) and [Fabric-x](https://github.com/hyperledger/fabric-x).  
-It lets you focus on **business logic and distributed workflows**, rather than low-level DLT details.
+The Fabric Smart Client (FSC) is a Go framework for building client applications on Hyperledger [Fabric](https://github.com/hyperledger/fabric) and [Fabric-x](https://github.com/hyperledger/fabric-x). You write a business process as a set of *views*, one for each party, that exchange messages over sessions. FSC handles identities, endorsement, ordering, commit notifications and the peer-to-peer channels between the parties.
 
-FSC abstracts away the complexity of a DLT network, enabling developers to build distributed applications with ease.
+## Features
+- A view and session programming model for multi-party protocols.
+- Direct peer-to-peer communication between FSC nodes.
+- Transaction assembly, endorsement collection and finality tracking for Fabric and Fabric-x.
+- One node can connect to several networks, each configured in `core.yaml`.
 
-## Key Features
-- **High-level APIs** that abstract away the complexity of interactive distributed applications.
-- **Peer-to-peer client overlay** enabling direct interaction as needed.
-- **Advanced transaction orchestration** to implement complex application business processes.
-- **Integration-ready with Fabric and Fabric-x networks** via simple configuration, with support for multiple versions.
-- **Token SDK** as an example of building distributed ledger applications on top of FSC.
+## Getting started
+To write your first FSC application:
+1. Read [Core concepts](docs/core-concepts.md) for what FSC is and how a business process maps to views.
+2. Follow the [Programming model guide](docs/platform/view/programming-model.md): how an application creates a node, installs SDKs, and registers initiator and responder views.
+3. Add the ledger you target: the [Fabric platform](docs/platform/fabric/README.md) or the [Fabric-x platform](docs/platform/fabric-x/README.md).
+4. Configure your node with [`core.yaml`](docs/configuration.md).
 
-## Quick links
-- **Documentation:** [docs/README.md](docs/README.md)
-- **API reference (Godoc):** [pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client](https://pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client)
-- **Examples and integration tests:** [`integration/fabric/`](integration/fabric/) and [`integration/fabricx/`](integration/fabricx/)  
-- **Token SDK:** https://github.com/hyperledger-labs/fabric-token-sdk
+The [documentation index](docs/README.md) lists every guide, and the [Go API reference](https://pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client) documents the packages.
 
-
-## Getting Started
-
-To start developing and testing your application with the Fabric Smart Client:
-
-Ensure you have a working [Go environment](docs/dev/development.md).
-
-Clone the repository:
-```bash
-git clone https://github.com/hyperledger-labs/fabric-smart-client.git
-cd fabric-smart-client
-```
-
-## Examples and Integration
-
-The [`integration/`](integration/) directory includes example applications and integration tests for Fabric and Fabric-x networks. 
-
-Start with:
-- [`integration/fabric/`](integration/fabric/) — examples and tests for Hyperledger Fabric
-- [`integration/fabricx/`](integration/fabricx/) — examples and tests for Hyperledger Fabric-x
-
-These examples demonstrate common FSC patterns, transaction flows, and how to wire the client with a ledger network.
+## Related projects
+- [Panurus](https://github.com/LFDT-Panurus/panurus): a token layer built on FSC.
+- [Fabric-x Committer](https://github.com/hyperledger/fabric-x-committer): the validation and commit service that FSC's Fabric-x platform submits transactions to.
 
 ## Contributing
 
-We welcome contributions from everyone. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines. 
+We welcome contributions from everyone. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the guidelines.
 
 Join our community on the LFDT Discord [#fabric-smart-client](https://discord.com/channels/905194001349627914/945691888348967012).
-We also have a community meeting every Wednesday at 1400 CET on [Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/96953495257?password=0517864f-e5ef-4ef5-89fa-8638e15fddec). Please see the [Hyperledger Fabric community calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/lf-decentralized-trust?view=week) for details.
+We also have a community meeting every Wednesday at 1400 CET on [Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/96953495257?password=0517864f-e5ef-4ef5-89fa-8638e15fddec). Please see the [LF Decentralized Trust community calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/lf-decentralized-trust?view=week) for details.
 Meeting notes are available [here](https://docs.google.com/document/d/13t5-9tfA-7L0Ok4DaK3da_3TpAz5CCd5h5_LryhJyRM/edit?usp=sharing).
 
 ## Versioning
 
-This project follows [Semantic Versioning (SemVer)](https://semver.org/). See available releases here: https://github.com/hyperledger-labs/fabric-smart-client/tags
+Releases follow [Semantic Versioning](https://semver.org/) and are listed on the [releases page](https://github.com/hyperledger-labs/fabric-smart-client/releases). FSC is pre-1.0, so a minor release can change APIs and storage formats; each minor release has an [upgrade guide](docs/README.md#upgrading).
 
 ## Disclaimer and License
 

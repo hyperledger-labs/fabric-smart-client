@@ -4,7 +4,7 @@ This document provides guidelines and steps for setting up your local developmen
 
 For general development best practices, see the following guidelines:  
 - [Fabric-x Committer Development Guidelines](https://github.com/hyperledger/fabric-x-committer/blob/main/guidelines.md)
-- [Fabric TokenSDK Development Guidelines](https://github.com/hyperledger-labs/fabric-token-sdk/blob/main/docs/development/development.md)
+- [Panurus Development Guidelines](https://github.com/LFDT-Panurus/panurus/blob/main/docs/development/development.md)
 
 ## Prerequisites
 
