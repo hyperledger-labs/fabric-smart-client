@@ -39,6 +39,14 @@ type handlerCall struct {
 	handler fabric.FinalityListener
 	txID    string
 	status  int
+	message string
+}
+
+// txStatus is a status with the message that came with it. The committer's
+// notifications carry none; the query service's answers may.
+type txStatus struct {
+	code    int
+	message string
 }
 
 // handlerEntry holds the listeners waiting on one transaction, together with the
@@ -48,10 +56,10 @@ type handlerEntry struct {
 	listeners []fabric.FinalityListener
 	expiresAt time.Time
 
-	// status is the committer's answer, remembered because the queue was full when it
-	// arrived. Its presence makes the entry due on the next sweep whatever expiresAt
-	// says. A pointer because Unknown is itself a valid status: nil means "never heard".
-	status *int
+	// status is the answer, remembered because the queue was full when it arrived. Its
+	// presence makes the entry due on the next sweep whatever expiresAt says. A pointer
+	// because Unknown is itself a valid status: nil means "never heard".
+	status *txStatus
 }
 
 type notificationListenerManager struct {
@@ -101,9 +109,9 @@ type notificationListenerManager struct {
 	stopped bool
 
 	// resolver, when set, is asked for the status of the pending txIDs each time a stream
-	// fails and once a new stream has re-requested them, since the committer does not
-	// report a transaction that became final before its subscription. resolveSignal,
-	// made by serve, wakes runResolver for that.
+	// fails or cannot be opened, and once a new stream has re-requested them, since the
+	// committer does not report a transaction that became final before its subscription.
+	// resolveSignal, made by serve, wakes runResolver for that.
 	resolver      atomic.Pointer[TxStatusResolver]
 	resolveSignal chan struct{}
 
@@ -180,7 +188,7 @@ func (n *notificationListenerManager) serve(ctx context.Context, connect func(co
 	// The queue belongs to this serve call, not the manager, so no callback can outlive
 	// the call that produced it.
 	q := make(chan handlerCall, n.handlerQueueSize)
-	resolved := make(chan map[string]int)
+	resolved := make(chan map[string]txStatus)
 	n.resolveSignal = make(chan struct{}, 1)
 
 	// Never cancelled, only deadline-bounded by callHandler: serve often returns
@@ -356,7 +364,7 @@ func (n *notificationListenerManager) newRequest(txIDs ...string) *committerpb.N
 // impossible rather than merely guarded: dispatch and sweepExpired both settle by
 // deleting an entry, and handlersMu alone would not stop one taking a listener the
 // other already holds. It is also what lets handOff trust cap-len.
-func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan handlerCall, resolved <-chan map[string]int) error {
+func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan handlerCall, resolved <-chan map[string]txStatus) error {
 	sweepEvery := n.sweepInterval
 	if sweepEvery <= 0 {
 		sweepEvery = config.DefaultSweepInterval
@@ -387,12 +395,12 @@ func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan
 // All-or-nothing keeps the caller to one decision; a partial hand-off would have to
 // remember which listeners already ran. An entry with more listeners than the queue's
 // whole capacity never fits here, and is settled at teardown where sends block.
-func handOff(q chan handlerCall, txID string, listeners []fabric.FinalityListener, status int) bool {
+func handOff(q chan handlerCall, txID string, listeners []fabric.FinalityListener, status txStatus) bool {
 	if cap(q)-len(q) < len(listeners) {
 		return false
 	}
 	for _, h := range listeners {
-		q <- handlerCall{handler: h, txID: txID, status: status}
+		q <- handlerCall{handler: h, txID: txID, status: status.code, message: status.message}
 	}
 	return true
 }
@@ -423,12 +431,12 @@ func (n *notificationListenerManager) settleAllAndClear(q chan handlerCall, stat
 
 	n.handlersMu.Lock()
 	for txID, entry := range n.handlers {
-		settleWith := status
+		settleWith := txStatus{code: status}
 		if entry.status != nil {
 			settleWith = *entry.status
 		}
 		for _, h := range entry.listeners {
-			calls = append(calls, handlerCall{handler: h, txID: txID, status: settleWith})
+			calls = append(calls, handlerCall{handler: h, txID: txID, status: settleWith.code, message: settleWith.message})
 		}
 	}
 	clear(n.handlers)
@@ -467,7 +475,7 @@ func (n *notificationListenerManager) callHandler(ctx context.Context, c handler
 	})
 	defer stop()
 
-	c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
+	c.handler.OnStatus(timeoutCtx, c.txID, c.status, c.message)
 }
 
 // track moves state reporting to endpoint before a stream is opened on it. As in the
@@ -649,12 +657,17 @@ func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
 //
 // Takes no context; callbacks run under the pool's context.
 func (n *notificationListenerManager) dispatch(q chan handlerCall, resp *committerpb.NotificationResponse) {
-	n.settle(q, parseResponse(resp))
+	parsed := parseResponse(resp)
+	statuses := make(map[string]txStatus, len(parsed))
+	for txID, code := range parsed {
+		statuses[txID] = txStatus{code: code}
+	}
+	n.settle(q, statuses)
 }
 
-// settle settles the listeners of each txID in statuses with its status, as dispatch
-// describes. It runs on the dispatcher goroutine.
-func (n *notificationListenerManager) settle(q chan handlerCall, statuses map[string]int) {
+// settle settles the listeners of each txID in statuses with its status and message, as
+// dispatch describes. It runs on the dispatcher goroutine.
+func (n *notificationListenerManager) settle(q chan handlerCall, statuses map[string]txStatus) {
 	deferred, total := 0, 0
 
 	n.handlersMu.Lock()
@@ -703,7 +716,7 @@ func (n *notificationListenerManager) sweepExpired(q chan handlerCall) {
 		// A remembered status means the answer did arrive and only the hand-off
 		// failed; report that rather than Unknown, and do so whatever the deadline
 		// says. Otherwise the deadline decides, and only while local expiry is on.
-		status := fdriver.Unknown
+		status := txStatus{code: fdriver.Unknown}
 		switch {
 		case entry.status != nil:
 			status = *entry.status
@@ -741,7 +754,7 @@ func (n *notificationListenerManager) requestResolve() {
 // final ones to the dispatcher on resolved, until ctx ends. It runs on its own goroutine:
 // a query blocks for up to the resolver's own timeout, and neither the dispatcher nor the
 // reconnect loop should wait for it.
-func (n *notificationListenerManager) runResolver(ctx context.Context, resolved chan<- map[string]int) {
+func (n *notificationListenerManager) runResolver(ctx context.Context, resolved chan<- map[string]txStatus) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -761,9 +774,10 @@ func (n *notificationListenerManager) runResolver(ctx context.Context, resolved 
 }
 
 // resolvePending returns the txIDs still waiting for an answer that the resolver reports
-// Valid or Invalid, with their status. It returns nothing without a resolver, and skips a
-// batch the resolver fails on: the stream or the next attempt still answers for it.
-func (n *notificationListenerManager) resolvePending(ctx context.Context) map[string]int {
+// Valid or Invalid, with their status and the resolver's message. It returns nothing
+// without a resolver, and skips a batch the resolver fails on: the stream or the next
+// attempt still answers for it.
+func (n *notificationListenerManager) resolvePending(ctx context.Context) map[string]txStatus {
 	r := n.resolver.Load()
 	if r == nil {
 		return nil
@@ -777,7 +791,7 @@ func (n *notificationListenerManager) resolvePending(ctx context.Context) map[st
 	}
 	n.handlersMu.RUnlock()
 
-	statuses := map[string]int{}
+	statuses := map[string]txStatus{}
 	for batch := range slices.Chunk(txIDs, maxTxIDsPerRequest) {
 		res, err := (*r).Statuses(ctx, batch...)
 		if err != nil {
@@ -786,7 +800,7 @@ func (n *notificationListenerManager) resolvePending(ctx context.Context) map[st
 		}
 		for _, st := range res {
 			if st.ValidationCode == fdriver.Valid || st.ValidationCode == fdriver.Invalid {
-				statuses[st.TxID] = st.ValidationCode
+				statuses[st.TxID] = txStatus{code: st.ValidationCode, message: st.Message}
 			}
 		}
 	}

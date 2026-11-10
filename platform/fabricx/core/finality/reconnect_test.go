@@ -57,24 +57,33 @@ func startReconnecting(t *testing.T, nlm *notificationListenerManager, fn *fakeN
 
 // countingListener records every OnStatus call.
 type countingListener struct {
-	calls  atomic.Int32
-	status atomic.Int32
+	calls   atomic.Int32
+	status  atomic.Int32
+	message atomic.Pointer[string]
 }
 
-func (l *countingListener) OnStatus(_ context.Context, _ driver.TxID, status int, _ string) {
+func (l *countingListener) OnStatus(_ context.Context, _ driver.TxID, status int, message string) {
 	l.status.Store(int32(status))
+	l.message.Store(&message)
 	l.calls.Add(1)
 }
 
-// switchResolver answers every txID with code, which a test may change while
-// listeners are pending. calls counts Statuses invocations.
-type switchResolver struct{ code, calls atomic.Int32 }
+// switchResolver answers every txID with code and the message for it, both of which a
+// test may change while listeners are pending. calls counts Statuses invocations.
+type switchResolver struct {
+	code, calls atomic.Int32
+	message     atomic.Pointer[string]
+}
 
 func (r *switchResolver) Statuses(_ context.Context, txIDs ...driver.TxID) ([]driver.TxValidationStatus[fdriver.ValidationCode], error) {
 	r.calls.Add(1)
+	var message string
+	if m := r.message.Load(); m != nil {
+		message = *m
+	}
 	out := make([]driver.TxValidationStatus[fdriver.ValidationCode], len(txIDs))
 	for i, id := range txIDs {
-		out[i] = driver.TxValidationStatus[fdriver.ValidationCode]{TxID: id, ValidationCode: fdriver.ValidationCode(r.code.Load())}
+		out[i] = driver.TxValidationStatus[fdriver.ValidationCode]{TxID: id, ValidationCode: fdriver.ValidationCode(r.code.Load()), Message: message}
 	}
 	return out, nil
 }
@@ -444,6 +453,8 @@ func TestReconnect_ResolvesTxCommittedDuringOutage(t *testing.T) {
 				// it commits after that, during the outage, so only a later resolve finds it.
 				synctest.Wait()
 				require.Zero(t, l.calls.Load())
+				committedMsg := "COMMITTED"
+				resolver.message.Store(&committedMsg)
 				resolver.code.Store(int32(fdriver.Valid))
 				if reconnect {
 					s2 := <-fn.opened
@@ -455,6 +466,7 @@ func TestReconnect_ResolvesTxCommittedDuringOutage(t *testing.T) {
 				synctest.Wait()
 				require.Equal(t, int32(1), l.calls.Load(), "the listener is settled from the query service")
 				require.Equal(t, int32(fdriver.Valid), l.status.Load())
+				require.Equal(t, committedMsg, *l.message.Load(), "with the query service's message")
 			})
 		})
 	}
