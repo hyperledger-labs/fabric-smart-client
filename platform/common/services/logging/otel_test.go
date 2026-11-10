@@ -37,9 +37,12 @@ func recordingSpanCtx(t *testing.T) (ctx context.Context, ended func() tracetest
 func otelTestLogger(t *testing.T, lvl zapcore.Level, sanitize bool) (Logger, *observer.ObservedLogs) {
 	t.Helper()
 	t.Cleanup(func() { Init(Config{}) })
-	Init(Config{OtelSanitize: sanitize})
+	// Build the logger before Init. Package-level loggers are created the same way,
+	// and sanitize is read when the span event is recorded.
 	core, observed := observer.New(lvl)
-	return newLogger(zap.New(core).Named("my.logger")), observed
+	logger := newLogger(zap.New(core).Named("my.logger"))
+	Init(Config{OtelSanitize: sanitize})
+	return logger, observed
 }
 
 func TestSpanEvent_RecordedWithLoggerName(t *testing.T) { //nolint:paralleltest // mutates the shared global config
@@ -103,6 +106,33 @@ func TestSpanEvent_SanitizedWhenConfigured(t *testing.T) { //nolint:paralleltest
 	require.Len(t, span.Events, 1)
 	require.Equal(t, FilterPrintableWithMarker("ok\x00bad"), span.Events[0].Name)
 	require.NotContains(t, span.Events[0].Name, "\x00")
+}
+
+func TestSpanEvent_UnsanitizedWhenDisabledAfterCreate(t *testing.T) { //nolint:paralleltest // mutates the shared global config
+	logger, _ := otelTestLogger(t, zapcore.InfoLevel, false)
+	ctx, ended := recordingSpanCtx(t)
+	logger.InfowContext(ctx, "a\x00b")
+
+	span := ended()
+	require.Len(t, span.Events, 1)
+	require.Equal(t, "a\x00b", span.Events[0].Name)
+}
+
+func TestSpanEvent_SanitizeFollowsLaterChanges(t *testing.T) { //nolint:paralleltest // mutates the shared global config
+	t.Cleanup(func() { Init(Config{}) })
+	core, _ := observer.New(zapcore.InfoLevel)
+	logger := newLogger(zap.New(core))
+	ctx, ended := recordingSpanCtx(t)
+
+	Init(Config{OtelSanitize: true})
+	logger.InfowContext(ctx, "a\x00b")
+	Init(Config{OtelSanitize: false})
+	logger.InfowContext(ctx, "a\x00b")
+
+	span := ended()
+	require.Len(t, span.Events, 2)
+	require.Equal(t, "[nonprintable] ab", span.Events[0].Name)
+	require.Equal(t, "a\x00b", span.Events[1].Name)
 }
 
 func TestSpanEvent_NoSpanInContextIsSafe(t *testing.T) { //nolint:paralleltest // mutates the shared global config
