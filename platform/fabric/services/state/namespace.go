@@ -152,7 +152,7 @@ func (n *Namespace) AddInputByLinearID(id string, state any, opts ...AddInputOpt
 	logger.Debugf("AddInputByLinearID [%s,%s] [%s]", n.namespace(), id, logging.SHA256Base64(raw))
 	err = n.codec.Unmarshal(raw, state)
 	if err != nil {
-		return errors.Wrapf(err, "failed unmarshalling state [%s, %s] [%s]", n.namespace(), id, string(raw))
+		return errors.Wrapf(err, "failed unmarshalling state [%s, %s] [%s]", n.namespace(), id, logging.SHA256Base64(raw))
 	}
 
 	err = n.unmarshalTags(rwSet, state, mapping)
@@ -164,12 +164,12 @@ func (n *Namespace) AddInputByLinearID(id string, state any, opts ...AddInputOpt
 	addInputOptions := &addInputOptions{}
 	for _, opt := range opts {
 		if err := opt(addInputOptions); err != nil {
-			return errors.Wrapf(err, "failed parsing opts [%s, %s] [%s]", n.namespace(), id, string(raw))
+			return errors.Wrapf(err, "failed parsing opts [%s, %s] [%s]", n.namespace(), id, logging.SHA256Base64(raw))
 		}
 	}
 	if addInputOptions.certification {
 		if err := n.certifyInput(id); err != nil {
-			return errors.Wrapf(err, "failed certifying input [%s, %s] [%s]", n.namespace(), id, string(raw))
+			return errors.Wrapf(err, "failed certifying input [%s, %s] [%s]", n.namespace(), id, logging.SHA256Base64(raw))
 		}
 	}
 
@@ -265,7 +265,7 @@ func (n *Namespace) GetOutputAt(index int, state any) error {
 
 	mapping, err := n.getFieldMapping(n.namespace(), k, true)
 	if err != nil {
-		return errors.Wrapf(err, "failed getting mapping [%s, %d] [%s]", n.namespace(), index, string(raw))
+		return errors.Wrapf(err, "failed getting mapping [%s, %d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	}
 
 	if len(mapping) != 0 && len(mapping["_root_"]) != 0 {
@@ -276,12 +276,12 @@ func (n *Namespace) GetOutputAt(index int, state any) error {
 	logger.Debugf("GetOutputAt [%s,%d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	err = n.codec.Unmarshal(raw, state)
 	if err != nil {
-		return errors.Wrapf(err, "failed unmarshalling state [%s, %d] [%s]", n.namespace(), index, string(raw))
+		return errors.Wrapf(err, "failed unmarshalling state [%s, %d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	}
 
 	err = n.unmarshalTags(rwSet, state, mapping)
 	if err != nil {
-		return errors.Wrapf(err, "failed unmarshalling tags [%s, %d] [%s]", n.namespace(), index, string(raw))
+		return errors.Wrapf(err, "failed unmarshalling tags [%s, %d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	}
 
 	return nil
@@ -318,7 +318,7 @@ func (n *Namespace) GetInputAt(index int, state any) error {
 
 	mapping, err := n.getFieldMapping(n.namespace(), k, flag)
 	if err != nil {
-		return errors.Wrapf(err, "failed getting mapping [%s, %d] [%s]", n.namespace(), index, string(raw))
+		return errors.Wrapf(err, "failed getting mapping [%s, %d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	}
 
 	if len(mapping) != 0 && len(mapping["_root_"]) != 0 {
@@ -329,12 +329,12 @@ func (n *Namespace) GetInputAt(index int, state any) error {
 	logger.Debugf("GetInputAt [%s,%d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	err = n.codec.Unmarshal(raw, state)
 	if err != nil {
-		return errors.Wrapf(err, "failed unmarshalling state [%s, %d] [%s]", n.namespace(), index, string(raw))
+		return errors.Wrapf(err, "failed unmarshalling state [%s, %d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	}
 
 	err = n.unmarshalTags(rwSet, state, mapping)
 	if err != nil {
-		return errors.Wrapf(err, "failed unmarshalling tags [%s, %d] [%s]", n.namespace(), index, string(raw))
+		return errors.Wrapf(err, "failed unmarshalling tags [%s, %d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	}
 
 	return nil

@@ -136,6 +136,7 @@ func TestNamespaceGetOutputAtUnmarshalMismatch(t *testing.T) {
 	err := tx.GetOutputAt(0, &House{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed unmarshalling state")
+	require.NotContains(t, err.Error(), "not-json")
 }
 
 func TestNamespaceGetOutputAtMappingError(t *testing.T) {
@@ -159,6 +160,7 @@ func TestNamespaceGetInputAtUnmarshalMismatch(t *testing.T) {
 	err := tx.GetInputAt(0, &House{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed unmarshalling state")
+	require.NotContains(t, err.Error(), "not-json")
 }
 
 // TestNamespaceGetInputAtFallsBackToCertifiedInput covers the recovery path: when
@@ -241,6 +243,7 @@ func TestNamespaceAddInputByLinearIDUnmarshalMismatch(t *testing.T) {
 	err := tx.AddInputByLinearID("id-1", &House{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed unmarshalling state")
+	require.NotContains(t, err.Error(), "not-json")
 }
 
 // TestNamespaceAddInputByLinearIDOptionError checks an option that fails aborts

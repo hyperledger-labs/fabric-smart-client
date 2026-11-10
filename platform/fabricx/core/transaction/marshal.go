@@ -7,11 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
-	"encoding/json"
-
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/protoutil"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -34,10 +31,7 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		return nil, errors.Wrapf(err, "merge proposal response endorsements for tx [%s]", t.ID())
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		str, _ := json.MarshalIndent(tx, "", "\t")
-		logger.Debugf("fabricx transaction: %s", str)
-	}
+	logger.Debugf("fabricx transaction [txID=%s] namespaces=%d endorsements=%d", t.ID(), len(tx.GetNamespaces()), len(tx.GetEndorsements()))
 
 	// marshall transaction
 	rawTx, err := proto.Marshal(tx)

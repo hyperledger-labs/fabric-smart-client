@@ -3,7 +3,10 @@
 Read [Code Conventions](../dev/conventions.md) first. Before calling a change finished:
 
 - No `fmt.Errorf` in the changed files: errors come from `pkg/utils/errors`.
-- Logging goes through `platform/common/services/logging`. Raw state values, payloads, keys and credentials are never logged at any level; log a hash (`logging.SHA256Base64`), a length, or an identifier ([Logging & monitoring](../dev/conventions.md#logging--monitoring)).
+- Logging goes through `platform/common/services/logging`. No raw state values, payloads,
+  private keys or credentials in log lines or error messages; use a hash
+  (`logging.SHA256Base64`), a length, or an identifier
+  ([Logging & monitoring](../dev/conventions.md#logging--monitoring)).
 - Every new exported identifier has a Godoc comment ([Conventions → Godoc](../dev/conventions.md#godoc)).
 - A configuration key added, renamed or removed is updated in `docs/configuration.md` and
   in the reference test of the component that reads it, in the same commit; run that

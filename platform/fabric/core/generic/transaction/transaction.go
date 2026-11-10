@@ -212,7 +212,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	network := t.TNetwork
 	err := json.Unmarshal(raw, t)
 	if err != nil {
-		return errors.Wrapf(err, "SetFromBytes: failed unmarshalling payload [%s]", string(raw))
+		return errors.Wrapf(err, "SetFromBytes: failed unmarshalling payload [%s]", logging.SHA256Base64(raw))
 	}
 	t.TNetwork = network
 	logger.Debugf("set transient [%s]", logging.Keys(t.TTransient))
@@ -223,7 +223,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	if t.TSignedProposal != nil {
 		up, err := UnpackSignedProposal(t.TSignedProposal)
 		if err != nil {
-			return errors.Wrapf(err, "SetFromBytes: failed unpacking proposal [%s]", string(raw))
+			return errors.Wrapf(err, "SetFromBytes: failed unpacking proposal [%s]", logging.SHA256Base64(raw))
 		}
 		for _, r := range t.TProposalResponses {
 			prp, err := protoutil.UnmarshalProposalResponsePayload(r.GetPayload())

@@ -139,8 +139,7 @@ func (*Namespace) marshalTags(_ *fabric.RWSet, source any) (any, map[string][]by
 					hash := sha256.New()
 					hash.Write(field.Bytes())
 					h := hash.Sum(nil)
-					logger.Debugf("computing hash [%s] in place of [%s:%s]",
-						base64.StdEncoding.EncodeToString(h), t.Field(i).Name, logging.SHA256Base64(field.Bytes()))
+					logger.Debugf("computing hash [%s] for field [%s]", base64.StdEncoding.EncodeToString(h), t.Field(i).Name)
 					field.Set(reflect.ValueOf(h))
 				default:
 					// Anything else would be silently left unhashed, emitting the value
@@ -185,13 +184,11 @@ func (*Namespace) unmarshalTags(_ *fabric.RWSet, source any, mapping map[string]
 					hash.Write(original)
 					h := hash.Sum(nil)
 
-					logger.Debugf("recomputing hash [%s] in place of [%s:%s]",
-						base64.StdEncoding.EncodeToString(h), t.Field(i).Name, logging.SHA256Base64(original))
+					logger.Debugf("recomputing hash [%s] for field [%s]", base64.StdEncoding.EncodeToString(h), t.Field(i).Name)
 
 					if !bytes.Equal(h, field.Bytes()) {
-						return errors.Errorf("failed checking hash, it does not match [%s][%s, %s!=%s]",
+						return errors.Errorf("failed checking hash, it does not match [%s][%s!=%s]",
 							t.Field(i).Name,
-							string(original),
 							base64.StdEncoding.EncodeToString(h),
 							base64.StdEncoding.EncodeToString(field.Bytes()))
 					}
