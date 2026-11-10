@@ -937,7 +937,8 @@ fabric:
       persistence: mypostgres
       txidstore:
         cache:
-          # TBD: What does this cache, what does 0 mean and what is the scale
+          # Number of valid transaction statuses each replica keeps in memory; any other
+          # status is always read from the vault. 0 disables the cache.
           # If not specified or set to <0 it defaults to 100.
           size: 200
 

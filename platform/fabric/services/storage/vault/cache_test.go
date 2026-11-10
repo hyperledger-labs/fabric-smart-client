@@ -209,19 +209,30 @@ func TestCachedStoreStorePropagatesError(t *testing.T) {
 	require.False(t, ok)
 }
 
+// SetStatuses caches a Valid status, and drops the entry for any other, which another
+// replica may still change.
 func TestCachedStoreSetStatusesUpdatesCache(t *testing.T) {
 	t.Parallel()
 	backed := newMockVaultStore()
 	s := newCachedTestStore(backed)
 
-	err := s.SetStatuses(context.Background(), driver.Invalid, "bad tx", "tx1", "tx2")
-	require.NoError(t, err)
-
+	require.NoError(t, s.SetStatuses(context.Background(), driver.Valid, "ok", "tx1", "tx2"))
 	for _, txID := range []driver.TxID{"tx1", "tx2"} {
 		e, ok := s.cache.Get(txID)
 		require.True(t, ok)
-		require.Equal(t, driver.Invalid, e.Code)
-		require.Equal(t, "bad tx", e.Message)
+		require.Equal(t, driver.Valid, e.Code)
+		require.Equal(t, "ok", e.Message)
+	}
+
+	s.cache.Put("tx3", &entry{Code: driver.Valid})
+	require.NoError(t, s.SetStatuses(context.Background(), driver.Invalid, "bad tx", "tx1", "tx3"))
+	for _, txID := range []driver.TxID{"tx1", "tx3"} {
+		_, ok := s.cache.Get(txID)
+		require.False(t, ok, "an Invalid status is not cached")
+		got, err := s.GetTxStatus(t.Context(), txID)
+		require.NoError(t, err)
+		require.Equal(t, driver.Invalid, got.Code)
+		require.Equal(t, "bad tx", got.Message)
 	}
 }
 
@@ -237,6 +248,43 @@ func TestCachedStoreSetStatusesBusyRereadsBacked(t *testing.T) {
 	_, err := s.GetTxStatus(t.Context(), "tx1")
 	require.NoError(t, err)
 	require.Equal(t, before+1, backed.getCalls.Load())
+}
+
+// Replicas of a node share the backing store, and another replica may commit a transaction
+// at any time, even one this replica discarded, so every status but Valid is reread from the
+// backing store on every call. A Valid status is served from the cache.
+func TestCachedStoreGetTxStatusCachesOnlyValid(t *testing.T) {
+	t.Parallel()
+	name := map[driver.TxStatusCode]string{driver.Unknown: "unknown", driver.Valid: "valid", driver.Invalid: "invalid", driver.Busy: "busy"}
+	for _, before := range []driver.TxStatusCode{driver.Busy, driver.Unknown, driver.Invalid} {
+		t.Run(name[before]+" to valid", func(t *testing.T) {
+			t.Parallel()
+			backed := newMockVaultStore()
+			backed.statuses["tx1"] = &driver.TxStatus{TxID: "tx1", Code: before}
+			s := newCachedTestStore(backed)
+
+			got, err := s.GetTxStatus(t.Context(), "tx1")
+			require.NoError(t, err)
+			require.Equal(t, before, got.Code)
+			calls := backed.getCalls.Load()
+			_, err = s.GetTxStatus(t.Context(), "tx1")
+			require.NoError(t, err)
+			require.Equal(t, calls+1, backed.getCalls.Load(), "a status other than Valid is reread")
+
+			// Another replica commits the transaction.
+			backed.statuses["tx1"] = &driver.TxStatus{TxID: "tx1", Code: driver.Valid, Message: "committed"}
+			got, err = s.GetTxStatus(t.Context(), "tx1")
+			require.NoError(t, err)
+			require.Equal(t, driver.Valid, got.Code)
+			require.Equal(t, "committed", got.Message)
+
+			calls = backed.getCalls.Load()
+			got, err = s.GetTxStatus(t.Context(), "tx1")
+			require.NoError(t, err)
+			require.Equal(t, driver.Valid, got.Code)
+			require.Equal(t, calls, backed.getCalls.Load(), "a Valid status is served from the cache")
+		})
+	}
 }
 
 func TestCachedStoreSetStatusesPropagatesError(t *testing.T) {
