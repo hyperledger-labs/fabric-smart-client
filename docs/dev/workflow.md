@@ -51,7 +51,7 @@ A contributor who has already completed any issue at a given level or higher aut
 
 ### Creating an Issue
 
-Anyone may open an issue using the `bug`, `feature`, or `task` template. New issues start untriaged.
+Anyone may open an issue using the **Bug Report**, **Feature**, or **Task** template. New issues start untriaged.
 
 Maintainers and core contributors review new issues and apply `status: ready for dev` once the issue is well-defined, scoped, and accepted.
 
@@ -202,12 +202,14 @@ differs from the title.
 
 #### Step 2: squash before requesting review
 
-Rebase onto the current `main`, collapse the branch into one commit, and write the
+Rebase onto the current upstream `main` (the `upstream` remote from
+[Rebasing](rebasing.md)), collapse the branch into one commit, and write the
 message:
 
 ```bash
-git rebase main -S
-git reset --soft main
+git fetch upstream
+git rebase upstream/main -S
+git reset --soft upstream/main
 git commit -s -S
 git push --force-with-lease
 ```
@@ -236,7 +238,7 @@ Once the PR is approved, collapse the fixups into their target commit and force-
 the branch is a single commit again and ready to merge:
 
 ```bash
-git rebase -i --autosquash -S main
+git rebase -i --autosquash -S upstream/main
 git push --force-with-lease
 ```
 
@@ -317,7 +319,7 @@ The full set of checks is defined in the repository's CI configuration.
 | **Core contributor** | Has `triage` permission on the repository           |
 | **Contributor**      | Everyone else                                       |
 
-Maintainers and core contributors are exempt from all assignment and PR-linking rules described below. PRs from `dependabot` are also exempt. Maintainers may directly assign any contributor to any issue at any time, bypassing eligibility checks.
+Maintainers and core contributors are exempt from all assignment and PR-linking rules described above. PRs from `dependabot` are also exempt. Maintainers may directly assign any contributor to any issue at any time, bypassing eligibility checks.
 
 ### Maintainer and Core Contributor Commands
 

@@ -145,7 +145,7 @@ Let us go through the main steps:
   The first step is therefore to retrieve the responder's identity.
   This can be done by using the identity service.
   If you are asking yourself: Where is defined the responder's identity?
-  It is in the initiator's configuration file. More information in this [Section](#FSC node's Configuration File).
+  It is in the initiator's configuration file. More information in this [Section](#fsc-nodes-configuration-file).
 - **Run `Rounds` ping/pong rounds**: `Initiator.Call` loops `Rounds` times (`DefaultRounds`, i.e. 3, if
   unset), running a `PingView` in each round. Each round gets its own context, bounded by
   `roundTimeout` and cancelled as soon as the round is over. This matters because sessions (and,
@@ -300,7 +300,7 @@ FSC provides an `Integration Test Infrastructure` that allow the developer to:
 - Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
-To run the test, it is just enough to run `go test` from the folder containing the test.
+To run the test, run `make integration-tests-fsc-pingpong` from the repository root.
 
 Let us go step by step.
 
@@ -308,29 +308,34 @@ Let us go step by step.
 
 The `Ping Pong` example induces an FSC network topology with two FSC nodes.
 One node for the `initiator` and another node for the `responder`.
-We can describe the network topology programmatically as follows:
+We can describe the network topology programmatically as follows (from [`topology.go`](./topology.go)):
 
 ```go
 package pingpong
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
-func Topology() []nwo.Topology {
+func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Create an empty FSC topology
 	topology := fsc.NewTopology()
+	topology.WebEnabled = true
+	topology.P2PCommunicationType = commType
 
 	// Add the initiator fsc node
-	topology.AddNodeByName("initiator").SetExecutable(
-		"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/initiator",
-	)
+	topology.AddNodeByName("initiator").
+		SetExecutable("github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/initiator").
+		AddOptions(fsc.WithAlias("alice")).
+		AddOptions(replicationOpts.For("initiator")...)
 	// Add the responder fsc node
-	topology.AddNodeByName("responder").RegisterResponder(
-		&Responder{}, &Initiator{},
-	)
-	return []nwo.Topology{topology}
+	topology.AddNodeByName("responder").
+		SetExecutable("github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/cmd/responder").
+		AddOptions(fsc.WithAlias("bob")).
+		AddOptions(replicationOpts.For("responder")...)
+	return []api.Topology{topology}
 }
 ```
 
@@ -345,25 +350,34 @@ the nodes in the network we want to bootstrap. Each node will have its own defin
 We have two nodes here, the `initiator`, Alice, and the `responder`, Bob. 
 
 - **Create an empty FSC network topology**: We start by creating an empty topology to which FSC node 
-  definitions will be added.
-- **Add the `initiator` FSC node (Executable's Package Path)**: One way to add an FSC node to the topology 
+  definitions will be added. `commType` selects the P2P transport (`fsc.WebSocket` or `fsc.LibP2P`),
+  and `replicationOpts` lets a test run several replicas of a node.
+- **Add the FSC nodes (Executable's Package Path)**: One way to add an FSC node to the topology 
   is to use the `AddNodeByName` method.
   This method creates and returns an empty description of an FSC node and assign it a name.
   When the node description is ready, it can be populated in multiple ways.
-  In the above example, the `initiator` node is populated by setting the `Executable's Package Path`.
+  In the above example, both nodes are populated by setting the `Executable's Package Path`.
   Indeed, the method `SetExecutable` allows the developer to specify the package path that contains the main go file.
-  Here is the content of the main file:
+  Here is the content of the initiator's main file, trimmed to the `init` view
+  (the real [`cmd/initiator/main.go`](./cmd/initiator/main.go) registers more factories):
 ```go
 package main
 
 import (
+	"log"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
+	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
 	node := fscnode.New()
+	if err := node.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(node))); err != nil {
+		log.Fatalf("failed installing SDK: %v", err)
+	}
 	node.Execute(func() error {
 		// Here, register view factories and responders as needed
 		registry := view.GetRegistry(node)
@@ -374,53 +388,52 @@ func main() {
 	})
 }
 ```
-- **Add the responder FSC node (Executable Synthesizer)** as : Again, we start by adding a new FSC node definition 
-  to the topology for the `responder`.
-  However, we describe the responder node differently.
-  Indeed, the node definition can be populated directly with the view factories and responders.
-  Then, at network bootstrap, the integration infrastructure synthesise the responder's `main` file on the fly.
-  This is the output of the synthesization:
+- **Add an FSC node without a main file (Executable Synthesizer)**: Instead of `SetExecutable`,
+  a node definition can be populated directly with view factories and responders, using
+  `RegisterViewFactory` and `RegisterResponder`. For example, `topology.AddNodeByName("responder").RegisterResponder(&Responder{}, &Initiator{})`.
+  Then, at network bootstrap, the integration infrastructure synthesises the node's `main` file on the fly.
+  For such a responder, the output of the synthesis looks like this:
 ```go
 package main
 
 import (
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
-	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	pingpong "github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 )
 
 func main() {
 	n := fscnode.New()
-	n.InstallSDK(fabric.NewSDK(n))
 	n.Execute(func() error {
-		// Here, register view factories and responders as needed
 		registry := viewregistry.GetRegistry(n)
 		registry.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})
-
 		return nil
 	})
 }
 ```
+  SDKs added with `AddSDK` show up as `n.InstallSDK(...)` calls before `n.Execute`.
 
 ### Bootstrap these networks
 
 Once the topology is ready, the relative networks can be bootstrapped by creating a new integration test infrastructure.
 
 ```go
-var err error
 // Create the integration ii
-ii, err = integration.Generate(StartPort2(), pingpong.Topology()...)
+ii, err := integration.Generate(StartPortWithGeneration(), integration.WithRaceDetection, pingpong.Topology(fsc.WebSocket, integration.NoReplication)...)
 Expect(err).NotTo(HaveOccurred())
 // Start the integration ii
 ii.Start()
 ```
 
+`StartPortWithGeneration` is defined in [`pingpong_suite_test.go`](./pingpong_suite_test.go): every
+suite defines the start-port helpers it needs, each backed by its own port range in `integration`.
 Depending on the specific networks, configuration files, crypto material, and so on will be generated.
 Finally, the FSC nodes will be executed in their own process.
 
-You can find all the generated material for the `ping pong` example [`here`](./testdata/fsc).
+`Generate` writes this material to a fresh temporary directory. The suite also keeps a checked-in
+copy for the `ping pong` example [`here`](./testdata/fsc), which its "loaded artifacts" specs and the
+node-based specs start from.
 There, you will find the following folders 
 - `crypto` that contains all the crypto material (we use a customized version
 of Fabric's `cryptogen`), and 
@@ -441,50 +454,66 @@ alice := ii.Client("initiator")
 
 We are now ready to put together all components in a BDD test.
 To make everything more concrete, let us take an example and see how its BDD test looks like.
-For this purpose, the ping-pong example will do the job.
+For this purpose, the ping-pong example will do the job. This is a trimmed version of
+[`pingpong_test.go`](./pingpong_test.go):
 
 ```go
-Describe("Network-based Ping pong", func() {
-    var (
-        ii *integration.Infrastructure
-    )
-
-    AfterEach(func() {
-        // Stop the ii
-        ii.Stop()
-    })
-
-    It("generate artifacts & successful pingpong", func() {
-        var err error
-        // Create the integration ii
-        ii, err = integration.Generate(StartPort2(), pingpong.Topology()...)
-        Expect(err).NotTo(HaveOccurred())
-        // Start the integration ii
-        ii.Start()
-        time.Sleep(3 * time.Second)
-        // Get a client for the fsc node labelled initiator
-        initiator := ii.Client("initiator")
-        // Initiate a view and check the output
-        res, err := initiator.CallView("init", nil)
-        Expect(err).NotTo(HaveOccurred())
-        Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-    })
+var _ = Describe("EndToEnd", func() {
+	Describe("Network-based Ping pong, generated artifacts", Label(fsc.WebSocket), Ordered, func() {
+		s := NewTestSuite(fsc.WebSocket, doGenerate, integration.NoReplication)
+		BeforeAll(s.Setup)
+		AfterAll(s.TearDown)
+		It("pings the responder", func() { s.TestPingPong("initiator") })
+	})
 })
+
+type TestSuite struct {
+	*integration.TestSuite
+}
+
+func NewTestSuite(commType fsc.P2PCommunicationType, generate bool, nodeOpts *integration.ReplicationOptions) *TestSuite {
+	return &TestSuite{
+		TestSuite: integration.NewTestSuite(func() (ii *integration.Infrastructure, err error) {
+			topologies := pingpong.Topology(commType, nodeOpts)
+			if generate {
+				ii, err = integration.Generate(StartPortWithGeneration(), integration.WithRaceDetection, topologies...)
+			} else {
+				ii, err = integration.Load(0, testdataDir, integration.WithRaceDetection, topologies...)
+			}
+			if err != nil {
+				return nil, err
+			}
+			ii.DeleteOnStop = false
+			return ii, nil
+		}),
+	}
+}
+
+func (s *TestSuite) TestPingPong(clients ...string) {
+	for _, clientName := range clients {
+		// Initiate a view and check the output
+		res, err := s.II.Client(clientName).CallView("init", nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
+	}
+}
 ```
 
 Let us describe what is happening in the above BDD test:
 
-- **Create the integration network**: This steps creates the
+- **Create the integration network**: `integration.NewTestSuite` takes a function that creates the
   integration test infrastructure consisting of all networks described by the passed topologies.
   Each node in each network gets one or more network ports starting from
   initial network port number used to construct the integration infrastructure.
-- **Start the integration infrastructure**: To do this, simply call the `Start` function.
+  The `Ordered` container shares one network among its specs: `BeforeAll(s.Setup)` creates it
+  before the first spec and `AfterAll(s.TearDown)` stops it after the last.
+- **Start the integration infrastructure**: `Setup` calls the function above and then `Start`.
   Depending on the specific networks, configuration files, crypto material, and so on
   will be generated.
   Finally, the nodes will be executed in their own process.
 - **Get a client for the FSC node labelled `initiator`**:
   To access a FSC node, the test developers can get an instance of the
-  View Service client by the node's name.
+  View Service client by the node's name, here with `s.II.Client`.
 - **Initiate a view and check the output**:
   With the View Service client in hand, the test developers can initiate a view on the given node
   and get the result.
@@ -501,7 +530,8 @@ The above questions can be answered by looking at an FSC node's configuration fi
 ### FSC node's Configuration File
 
 Let's start from the configuration file. 
-Here is the annotated configuration file used for the `initiator`, Alice. 
+Here is the annotated configuration file used for the `initiator`, Alice, in the node-based and
+"loaded artifacts" specs, without its unused `fsc.p2p.opts` section.
 You can find it [`here`](testdata/fsc/nodes/initiator.0/core.yaml) too.
 
 ````yaml
@@ -509,24 +539,11 @@ You can find it [`here`](testdata/fsc/nodes/initiator.0/core.yaml) too.
 # Logging section
 logging:
  # Spec
- spec: grpc=error:debug
- # Format
- format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
+ spec: grpc=error:info
 fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.
-  id: initiator
-  # The networkId allows for logical separation of networks and is used when
-  # naming docker resources.
-  networkId: 2bhw25xuircy7mqvyxwllcnzsq
-  # This represents the endpoint to other FSC nodes in the same organization.
-  address: 127.0.0.1:20000
-  # Whether the FSC node should programmatically determine its address
-  # This case is useful for docker containers.
-  # When set to true, will override FSC address.
-  addressAutoDetect: true
-  # GRPC Server listener address   
-  listenAddress: 127.0.0.1:20000
+  id: fsc.initiator
   # Identity of this node, used to connect to other nodes
   identity:
     # X.509 certificate used as identity of this node
@@ -535,72 +552,80 @@ fsc:
     # Private key matching the X.509 certificate
     key:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/keystore/priv_sk
-  # TLS Settings
-  # (We use here the same set of properties as Hyperledger Fabric)
+  # The remote view API, on the gRPC listener and the web server's HTTP binding.
+  view:
+    remote:
+      enabled: true
+      backends: [grpc, web]
+      clients:
+      - ./../../crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
+  # Server-side TLS defaults, inherited field by field by every listener this node owns.
+  # A service's own tls: block overrides only the fields it sets.
   tls:
     # Require server-side TLS
-    enabled:  true
-    # Require client certificates / mutual TLS for inbound connections.
-    # Note that clients that are not configured to use a certificate will
-    # fail to connect to the node.
-    clientAuthRequired: false
+    enabled: true
     # X.509 certificate used for TLS server
     cert:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
     # Private key used for TLS server
     key:
       file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
-    # X.509 certificate used for TLS when making client connections.
-    # If not set, fsc.tls.cert.file will be used instead
-    clientCert:
-      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
-    # Private key used for TLS when making client connections.
-    # If not set, fsc.tls.key.file will be used instead
-    clientKey:
-      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
-    # rootcert.file represents the trusted root certificate chain used for verifying certificates
-    # of other nodes during outbound connections.
-    rootcert:
-      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
-    # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
-    # used for verifying certificates of client connections.
-    clientRootCAs:
-      files:
-      - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
-    rootCertFile: ./../../crypto/ca-certs.pem
+    # Require client certificates / mutual TLS for inbound connections.
+    clientAuthRequired: false
+  grpc:
+    enabled: true
+    # This represents the endpoint to other FSC nodes in the same organization.
+    address: 127.0.0.1:21000
+    # TLS Settings
+    # (We use here the same set of properties as Hyperledger Fabric)
+    # enabled, cert, key and clientAuthRequired are all inherited from fsc.tls above.
+    # This block is intentionally absent: a listener that overrides nothing needs no block,
+    # and this fixture exists to exercise exactly that path.
   # P2P configuration
   p2p:
+    # Type of p2p communication: websocket or libp2p
+    type: libp2p
     # Listening address
-    listenAddress: /ip4/127.0.0.1/tcp/20001
+    listenAddress: /ip4/127.0.0.1/tcp/21001
   persistences:
     default:
       type: memory
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
-    persistence:
+    cache:
+        # Sets the maximum number of cached items 
+        size: 200
+  # HTML Server configuration for REST calls
+  web:
+    enabled: true
+    # HTTPS server listener address
+    address: 0.0.0.0:21002
+    # enabled, cert, key and clientAuthRequired:false all come from fsc.tls. Only the
+    # client CA pool is set here, which exercises a partial override.
+    tls:
+      # clientRootCAs without clientAuthRequired means: verify a client certificate if one
+      # is offered, but do not demand one.
+      clientRootCAs:
+        files:
+        - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt
+  tracing:
+    provider: none
+    udp:
+      address: 127.0.0.1:8125
+  metrics:
+    # metrics provider: prometheus, none or disabled
+    provider: none
+
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
     resolvers: 
-    - name: initiator
-      domain: fsc.example.com
-      identity:
-        id: initiator
-        path: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/msp/signcerts/initiator.fsc.example.com-cert.pem
-      addresses:
-        Listen: 127.0.0.1:20000
-        P2P: 127.0.0.1:20001
-        View: 127.0.0.1:20000
     - name: responder
       domain: fsc.example.com
       identity:
-        id: responder
         path: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
-      addresses:
-        # GRPC Server listening address
-        Listen: 127.0.0.1:20002
-        # P2P listening address
-        P2P: 127.0.0.1:20003
-        # View Service listening address (usually the same as Listen)
-        View: 127.0.0.1:20002
+      addresses: 
+        P2P: 127.0.0.1:21004
+      aliases: 
+        - bob
 ````

@@ -72,11 +72,11 @@ type MultiplexedMessage struct {
 ## Performance and Security
 
 -   **TLS Caching**: Trusted root CAs are cached in memory to avoid disk I/O during handshakes. Dynamic trust updates (from the `EndpointService`) are appended to a clone of this cached pool in memory, significantly improving connection throughput.
--   **Minimum TLS Version**: Both `ClientTLSConfig` and `ServerTLSConfig` (in `config.go`) set `MinVersion: tls.VersionTLS13`, so older protocol versions cannot be negotiated even if a peer offers them.
+-   **Minimum TLS Version**: Both `ClientTLSConfig` and `ServerTLSConfig` (in `platform/view/services/comm/host/websocket/config.go`) set `MinVersion: tls.VersionTLS13`, so older protocol versions cannot be negotiated even if a peer offers them.
 -   **Identity Binding (Issue #871)**: The `PeerID` asserted in the application layer (during the WebSocket upgrade) is strictly validated against the public key extracted from the verified TLS certificate. The transport layer rejects any attempt to spoof an identity.
 -   **Server Identity Binding**: A client stream opens only if the server's verified certificate belongs to the dialed `PeerID`. The client checks this during the TLS handshake and again on the established connection. The multiplexed provider caches connections per address and `PeerID`, so a cached connection never carries a stream for a different peer.
 -   **Runtime Trust Updates**: The transport trusts the peer certificates the `EndpointService` holds at the time of each connection. The server re-reads them on every inbound handshake and the client on every outbound stream, so a peer added at runtime is trusted and a peer removed at runtime is no longer trusted. Removal does not close established connections, and an outbound connection that is already open keeps carrying new streams.
--   **Read Limits**: Each WebSocket connection has a 10MB read limit (`SetReadLimit`) to prevent OOM attacks.
+-   **Read Limits**: Each WebSocket connection sets a read limit (`SetReadLimit`) derived from `fsc.p2p.maxRecvMsgSize` plus the base64 and envelope overhead (`wireReadLimit`) to prevent OOM attacks.
 -   **WebSocket Hardening**:
     -   **Binary Enforcement**: All WebSocket messages are sent as binary packets.
     -   **Deadlines**: Uses read/write deadlines and pong handlers to detect and close stalled connections.
@@ -109,7 +109,7 @@ fsc:
     opts:
       # ------------------- websocket specific options -------------------------
       websocket:
-        # Maximum number of sub-connections per peer. Default: 100
+        # Maximum number of sub-connections per physical connection. Default: 100
         maxSubConns: 100
         # Comma-separated list of allowed origins for CORS (Cross-Origin Resource Sharing)
         # Example: "https://example.com,https://app.example.com"

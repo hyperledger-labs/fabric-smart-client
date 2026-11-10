@@ -48,9 +48,11 @@ Once you understand you have a merge conflict and have a vision of the final doc
 
 VS Code makes solving merge-conflicts easier with a 3-pane interface for resolving conflicts:
 
-- Incoming Change → code from main (left/top)
-- Current Change → code from your branch (right/top)
+- Incoming Change → your commit that the rebase is replaying (left/top)
+- Current Change → code from upstream main, which is `HEAD` during the rebase (right/top)
 - Result → the lower/third pane, where you create the final merged file.
+
+During a rebase the two sides are the reverse of a merge: "Current" is the upstream branch you are rebasing onto, and "Incoming" is your own change.
 
 You want to accept or reject content from the top left and top right panes, and edit the final pane in the bottom so the final code submission reasonably resolves the issue while respecting the work of others.
 
@@ -61,8 +63,8 @@ You want to accept or reject content from the top left and top right panes, and 
 2. Look at both the Incoming Change (left) and Current Change (right) panels.
 
 3. In the Result (lower pane), edit the file so it contains the correct final version.
-   - Sometimes keep Incoming (main)
-   - Sometimes keep Current (your branch)
+   - Sometimes keep Current (upstream main)
+   - Sometimes keep Incoming (your commit)
    - Often, combine both parts and edit the code manually.
 
    If the conflict is resolved correctly, VS Code will mark it as fixed.
@@ -108,7 +110,7 @@ You want to accept or reject content from the top left and top right panes, and 
 
 #### 2. Message: *“Are you sure you want to continue with conflicts?”*
 - **What it means:** Some conflicts are still unresolved or the files were not saved properly.
-- **Solution:** Double-check your files in VS Code, make sure they are saved, and resolve any remaining conflict markers:
+- **Solution:** Double-check your files in VS Code, make sure they are saved, and resolve any remaining conflict markers.
 
 ### If you need to stop
 ```bash
@@ -135,7 +137,7 @@ At each conflict instance, you'll have to repeat: fix the conflict, stage the fi
 Undo the last rebase commit, but keep changes staged (while still in rebase):
   If you are in the middle of a rebase and realize the last step went wrong, you can undo it while keeping changes staged:
 ```bash
-git reset --soft HEAD~i
+git reset --soft HEAD~n
 ```
 
 > [!NOTE]

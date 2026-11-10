@@ -9,10 +9,9 @@ The Fabric Smart Client CLI (`fsccli`) is a helper utility command-line tool for
 ```bash
 # Build from source
 cd fabric-smart-client
-make fsccli
+make install-fsccli
 
-# The binary will be available at:
-# ./bin/fsccli
+# go install places the binary in $GOBIN (default: $(go env GOPATH)/bin)
 ```
 
 
@@ -103,7 +102,7 @@ topologies:
 
 **Supported Topology Types:**
 - `fabric` - Hyperledger Fabric network topology
-- `fabricx` - Hyperledger Fabric-X network topology
+- `fabricx` - Hyperledger Fabric-x network topology
 - `fsc` - Fabric Smart Client network topology
 
 **Output:**
@@ -220,6 +219,10 @@ fsccli view [flags]
 - `-t, --tlsCert <file>` - Client TLS certificate (optional, for mutual TLS)
 - `-k, --tlsKey <file>` - Client TLS key (optional, for mutual TLS)
 
+**Authentication:**
+- `-r, --userCert <file>` - User certificate for message authentication
+- `-u, --userKey <file>` - User key for message signing
+
 
 ### `validate`
 
@@ -237,7 +240,7 @@ fsccli validate config --path <config-dir>
 Run preflight validation on an FSC configuration directory.
 
 **Flags:**
-- `-p, --path <dir>` - **(Required)** Path to the FSC configuration directory
+- `-p, --path <dir>` - Path to the FSC configuration directory (default `./`)
 
 **Examples:**
 
@@ -267,10 +270,6 @@ configuration is valid
 ```
 
 A configuration that is valid but leaves the operations endpoints rejecting every request, because `fsc.metrics.clientAuthRequired` defaults to true on a listener that never requests a client certificate, adds a `- warning:` line naming the remedies.
-
-**Authentication:**
-- `-r, --userCert <file>` - User certificate for message authentication
-- `-u, --userKey <file>` - User key for message signing
 
 #### Examples
 
@@ -347,10 +346,10 @@ fsccli view \
 version: 1
 address: localhost:9000
 tlsconfig:
-  peercacertpath: /Users/saed/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/testdata/fsc/nodes/fsc.node1/tls-ca-cert.pem
+  peercacertpath: <repo>/integration/fsc/pingpong/testdata/fsc/nodes/fsc.node1/tls-ca-cert.pem
 signerconfig:
-  identitypath: /Users/saed/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/testdata/fsc/nodes/fsc.node1/iss/default-issuer-cert.pem
-  keypath: /Users/saed/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/testdata/fsc/nodes/fsc.node1/iss/default-issuer-priv-key.pem
+  identitypath: <repo>/integration/fsc/pingpong/testdata/fsc/nodes/fsc.node1/iss/default-issuer-cert.pem
+  keypath: <repo>/integration/fsc/pingpong/testdata/fsc/nodes/fsc.node1/iss/default-issuer-priv-key.pem
 ```
 
 **5. Invoke view without input:**
@@ -402,7 +401,7 @@ The CLI automatically detects base64 encoding and decodes it.
 
 HSM (Hardware Security Module) related utilities.
 
-> **Note:** This command is only available when FSC is built with PKCS#11 support (`-tags pkcs11`).
+> **Note:** The HSM utilities need a build with PKCS#11 support (`-tags pkcs11`). Without that tag, `fsccli hsm` only prints a help text saying so.
 
 **Usage:**
 ```bash

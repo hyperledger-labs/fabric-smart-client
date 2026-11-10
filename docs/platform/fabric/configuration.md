@@ -7,13 +7,7 @@ The Fabric platform configuration lives inside the shared FSC `core.yaml` descri
 Before adding Fabric-specific sections, configure the common FSC node settings:
 
 - `logging`
-- `fsc`
-- `grpc`
-- `p2p`
-- `persistences`
-- `web`
-- `tracing`
-- `metrics`
+- `fsc`, in particular its subsections `fsc.grpc`, `fsc.p2p`, `fsc.persistences`, `fsc.web`, `fsc.tracing`, `fsc.metrics`
 
 ## Fabric-Specific Settings
 

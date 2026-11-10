@@ -152,7 +152,7 @@ sequenceDiagram
     participant Remote
 
     User->>Manager: InitiateView(ctx, view)
-    Manager->>ContextFactory: NewForInitiator(ctx, id, view)
+    Manager->>ContextFactory: NewForInitiator(ctx, contextID, id, view)
     ContextFactory->>Context: Create Context
     Context-->>Manager: Context
     Manager->>Context: RunView(view)
@@ -338,8 +338,9 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (any, 
 - `AsInitiator()`: Run as an initiator (sets `context.Initiator()`)
 - `AsResponder(session)`: Run as a responder with a specific session
 - `WithViewCall(func)`: Execute a function instead of `view.Call`
-- `SameContext`: Reuse the parent context without creating a child
-- `WithContext(ctx)`: Use a specific Go context
+- `WithSameContext()`: Reuse the parent context without creating a child
+- `WithContext(ctx)`: Use a specific Go context and reuse the parent context (as `WithSameContext()`)
+- `WithGoContext(ctx)`: Use a specific Go context in a child context
 
 ### Helper Functions
 

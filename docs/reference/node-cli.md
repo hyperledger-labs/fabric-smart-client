@@ -150,7 +150,7 @@ Display version information.
 node:
  Go version: go1.27.3
  OS/Arch: darwin/arm64
- FSC version: v0.27.0
+ FSC version: v0.28.0
  Application: github.com/acme/app v1.4.0
  Revision: 7c647bd239b9e626ec4f02d4a2cca157c251e264 (modified)
 ```
@@ -255,7 +255,7 @@ The FSC node handles these signals for graceful shutdown:
 
 Views that observe their context (`ctx.Done()`) return promptly once it is cancelled. A view that ignores it can still find storage closed if it outlives the wait.
 
-**Note:** The signal handling uses Go's `signal.NotifyContext` for cross-platform compatibility. On Unix-like systems, both SIGINT and SIGTERM trigger graceful shutdown. On Windows, Ctrl+C and Ctrl+Break are handled appropriately.
+**Note:** The node listens for both signals with Go's `signal.Notify`. A second SIGINT or SIGTERM during the shutdown skips the rest of the drain. On Windows, Ctrl+C and Ctrl+Break arrive as `os.Interrupt` and trigger the same shutdown.
 
 ## Exit Codes
 

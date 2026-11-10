@@ -32,7 +32,7 @@ The configuration service automatically maps environment variables with the `COR
 
 **Example:**
 The environment variable `CORE_FSC_ID` maps to the configuration key `fsc.id`.
-The environment variable `CORE_FABRIC_NETWORK1_NAME` maps to the configuration key `fabric.network1.name`.
+The environment variable `CORE_FABRIC_MYNETWORK_NAME` maps to the configuration key `fabric.mynetwork.name`.
 The environment variable `CORE_FSC_PERSISTENCES_MY__DB_OPTS_DATASOURCE` maps to the configuration key `fsc.persistences.my_db.opts.datasource`.
 
 *Note:* If the configuration key already exists with a specific type (e.g., integer or boolean), the environment variable value will be automatically converted to that type.
@@ -58,7 +58,7 @@ logging:
 
 # Nested structure
 fabric:
-  network1:
+  mynetwork:
     name: main_network
     enabled: true
 ```
@@ -66,30 +66,30 @@ fabric:
 ### Accessing Configuration in Go
 
 ```go
-func (s *MyService) DoSomething(config *config.Provider) {
+func (s *MyService) DoSomething(cp *config.Provider) {
     // Get node ID
-    nodeID := config.ID() // equivalent to config.GetString("fsc.id")
+    nodeID := cp.ID() // equivalent to cp.GetString("fsc.id")
     
     // Get a string
-    logSpec := config.GetString("logging.spec")
+    logSpec := cp.GetString("logging.spec")
     
     // Get a boolean
-    enabled := config.GetBool("fabric.network1.enabled")
+    enabled := cp.GetBool("fabric.mynetwork.enabled")
     
     // Get a path (automatically translated if relative)
-    dbPath := config.GetPath("fsc.persistences.mydb.opts.dataSource")
+    dbPath := cp.GetPath("fsc.persistences.mydb.opts.dataSource")
     
     // Unmarshal a sub-tree into a struct
     var opts MyOptions
-    err := config.UnmarshalKey("fabric.network1", &opts)
+    err := cp.UnmarshalKey("fabric.mynetwork", &opts)
 }
 ```
 
 ### Merging Configuration at Runtime
 
 ```go
-func (s *MyService) UpdateConfig(config *config.Provider, rawYaml []byte) {
-    err := config.MergeConfig(rawYaml)
+func (s *MyService) UpdateConfig(cp *config.Provider, rawYaml []byte) {
+    err := cp.MergeConfig(rawYaml)
     if err != nil {
         // handle error
     }

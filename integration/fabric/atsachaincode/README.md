@@ -38,14 +38,14 @@ type Agreement struct {
 
 ### Network Topology
 
-For simplicity, let's consider two organizations: `OrgA` and `OrgB`.
+For simplicity, let's consider two organizations: `Org1` and `Org2`.
 Each organization has at least one Fabric peer. 
-There are also two clients: Alice who belongs to `OrgA`, and Bob who belongs to `OrgB`.
+There are also two clients: Alice who belongs to `Org1`, and Bob who belongs to `Org2`.
 Each of them run a Fabric Smart Client node equipped with the proper Fabric identity.
-Alice's (resp. Bob's) FSC node connects to the Fabric peer in `OrgA` (resp. `OrgB`).
+Alice's (resp. Bob's) FSC node connects to the Fabric peer in `Org1` (resp. `Org2`).
 
 Therefore, we have a vanilla Fabric network with:
-- Two Organizations (`OrgA` and `OrgB`);
+- Two Organizations (`Org1` and `Org2`);
 - Single channel;
 - A Chaincode (`asset_transfer`) that coordinates the business operations and can be endorsed by any organization; 
   The chaincode implicitly defines a namespace into the ledger that stores the states.
@@ -96,14 +96,16 @@ This is how the networks can be described programmatically for our `Secured asse
 
 ```go
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 )
 
-func Topology() []nwo.Topology {
+func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Define a new Fabric topology starting from a Default configuration with a single channel `testchannel`
 	// and solo ordering.
 	fabricTopology := fabric.NewDefaultTopology()
@@ -125,33 +127,38 @@ func Topology() []nwo.Topology {
 	fscTopology := fsc.NewTopology()
 
 	// Define Alice's FSC node
-	alice := fscTopology.AddNodeByName("alice")
-	// Equip it with a Fabric identity from Org1 that is a client
-	alice.AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole())
-	// Register the factories of the initiator views for each business process
-	alice.RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{})
-	alice.RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{})
-	alice.RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{})
-	alice.RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{})
-	alice.RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{})
-	alice.RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{})
-	alice.RegisterViewFactory("Transfer", &views.TransferViewFactory{})
+	fscTopology.AddNodeByName("alice").
+		// Equip it with a Fabric identity from Org1 that is a client
+		AddOptions(fabric.WithOrganization("Org1"), fabric.WithClientRole()).
+		AddOptions(replicationOpts.For("alice")...).
+		// Register the factories of the initiator views for each business process
+		RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{}).
+		RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{}).
+		RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{}).
+		RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{}).
+		RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{}).
+		RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{}).
+		RegisterViewFactory("Transfer", &views.TransferViewFactory{})
 
 	// Define Bob's FSC node
-	bob := fscTopology.AddNodeByName("bob")
-	// Equip it with a Fabric identity from Org2 that is a client
-	bob.AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole())
-	// Register the factories of the initiator views for each business process
-	bob.RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{})
-	bob.RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{})
-	bob.RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{})
-	bob.RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{})
-	bob.RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{})
-	bob.RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{})
-	bob.RegisterViewFactory("Transfer", &views.TransferViewFactory{})
+	fscTopology.AddNodeByName("bob").
+		// Equip it with a Fabric identity from Org2 that is a client
+		AddOptions(fabric.WithOrganization("Org2"), fabric.WithClientRole()).
+		AddOptions(replicationOpts.For("bob")...).
+		// Register the factories of the initiator views for each business process
+		RegisterViewFactory("CreateAsset", &views.CreateAssetViewFactory{}).
+		RegisterViewFactory("ReadAsset", &views.ReadAssetViewFactory{}).
+		RegisterViewFactory("ReadAssetPrivateProperties", &views.ReadAssetPrivatePropertiesViewFactory{}).
+		RegisterViewFactory("ChangePublicDescription", &views.ChangePublicDescriptionViewFactory{}).
+		RegisterViewFactory("AgreeToSell", &views.AgreeToSellViewFactory{}).
+		RegisterViewFactory("AgreeToBuy", &views.AgreeToBuyViewFactory{}).
+		RegisterViewFactory("Transfer", &views.TransferViewFactory{})
+
+	// Add Fabric SDK to FSC Nodes
+	fscTopology.AddSDK(&fabricsdk.SDK{})
 
 	// Done
-	return []nwo.Topology{fabricTopology, fscTopology}
+	return []api.Topology{fabricTopology, fscTopology}
 }
 ```
 
@@ -168,14 +175,14 @@ The developer does not have to worry about this.
 To bootstrap the networks described by the above topologies, we can simply do this:
 
 ```go
-    // Create the integration ii
-    ii, err := integration.Generate(StartPort(), chaincode.Topology()...)
-    Expect(err).NotTo(HaveOccurred())
-    // Start the integration ii
-    ii.Start()
-
+s := &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+	return integration.GenerateAt(StartPort(), "out/testdata", integration.WithRaceDetection, atsa.Topology(integration.NoReplication)...)
+})}
+// Create and start the integration ii
+s.Setup()
 ```
-(The above code is taken from this [`test file`](atsa_test.go)).
+(The above code is adapted from this [`test file`](atsa_test.go), which calls `s.Setup` from a
+`BeforeEach`. `StartPort` is defined in the suite's [`atsa_suite_test.go`](atsa_suite_test.go).)
 
 ### Initiate a Business Process
 
@@ -190,7 +197,7 @@ take care also of this.
 
 To get the View Service client for Alice, we can do the following:
 ```go
-alice := ii.Client("alice")
+alice := s.II.Client("alice")
 ```
 At this point, we are ready to invoke the `CreateAsset` view, like this:
 ```go
@@ -204,7 +211,7 @@ ap := &views.AssetProperties{
 
 _, err := alice.CallView("CreateAsset", common.JSONMarshall(&views.CreateAsset{
   AssetProperties:   ap,
-  PublicDescription: ""A new asset for Org1MSP"",
+  PublicDescription: "A new asset for Org1MSP",
 }))
 Expect(err).NotTo(HaveOccurred())
 ```
@@ -233,7 +240,7 @@ func (c *CreateAssetView) Call(viewCtx view.Context) (any, error) {
 			"CreateAsset",
 			c.AssetProperties.ID,
 			c.PublicDescription,
-		).WithTransientEntry("asset_properties", apRaw).WithEndorsersFromMyOrg(),
+		).WithTransientEntry("asset_properties", apRaw).WithEndorsersFromMyOrg().WithNumRetries(2).WithRetrySleep(2 * time.Second),
 	)
 	assert.NoError(err, "failed creating asset")
 

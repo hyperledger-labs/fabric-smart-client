@@ -17,13 +17,13 @@ Both services support endpoint-based gRPC connectivity and optional TLS or mutua
 
 ### Notification service tuning
 
-`notificationService` configures the client used to subscribe to transaction status updates from the committer's notification service. It is what backs, for example, the finality listeners a view application registers via `fabric.Channel().Committer().AddFinalityListener(txID, listener)`: It subscribes to the transaction on the notification stream and invokes the listener's `OnStatus` callback once the committer reports an outcome.
+`notificationService` configures the client used to subscribe to transaction status updates from the committer's notification service. It is what backs, for example, the finality listeners a view application registers via `ch.Committer().AddFinalityListener(txID, listener)`, where `ch` is the channel `fabric.GetChannel(sp, network, channel)` returns: It subscribes to the transaction on the notification stream and invokes the listener's `OnStatus` callback once the committer reports an outcome.
 
 | Key | Default | What it controls |
 |-----|---------|------------------|
 | `endpoints[].address` | — | `host:port` of a notification service endpoint. At least one is required. |
-| `endpoints[].connectionTimeout` | `30s` | Minimum timeout for establishing the gRPC connection to that endpoint. |
-| `endpoints[].tls` | disabled | TLS settings for that endpoint: `enabled`, `rootCerts` (server TLS), plus `clientKey` / `clientCert` (mutual TLS) and `serverNameOverride`. |
+| `endpoints[].connectionTimeout` | `5s` | No effect: endpoints are dialled without blocking, and this timeout bounds a blocking dial only. |
+| `endpoints[].tls` | disabled | TLS settings for that endpoint: `enabled`, `rootCAs.files` (server TLS), plus `clientKey.file` / `clientCert.file` (mutual TLS) and `serverNameOverride`. Inherits field by field from the network's `tls` block. |
 | `requestTimeout` | `30s` | How long the committer waits for a subscribed transaction before answering. It is sent to the committer as the subscription's timeout, so the committer reports the outcomes it does have and flags only the still-pending transactions as timed out — rather than the client giving up locally and treating the whole batch as `Unknown`. In practice this is how long a finality listener waits before it is settled. |
 | `handlerTimeout` | `5s` | The deadline set on the context handed to a single `OnStatus` callback. Advisory: it cancels the context, but only the callback itself can decide to return. A callback still running past it is reported with a warning. |
 | `handlerWorkers` | `16` | How many `OnStatus` callbacks may run concurrently. A concurrency limit, not a rate limit: healthy callbacks return their slots immediately, so far more than this are delivered per second. See the warning below. |
@@ -91,11 +91,14 @@ fabric:
           connectionTimeout: 30s
           tls:
             enabled: true
-            rootCerts:
-              - /path/to/ca.crt
+            rootCAs:
+              files:
+                - /path/to/ca.crt
             # for mutual TLS, also set:
-            # clientKey: /path/to/client.key
-            # clientCert: /path/to/client.crt
+            # clientKey:
+            #   file: /path/to/client.key
+            # clientCert:
+            #   file: /path/to/client.crt
       requestTimeout: 30s
       handlerTimeout: 5s
       handlerWorkers: 16

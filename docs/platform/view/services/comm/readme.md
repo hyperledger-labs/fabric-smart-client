@@ -14,14 +14,14 @@ The Comm layer abstracts the underlying network transport and provides a session
 
 ### Components
 
-1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. It uses a **bounded worker pool** for concurrent message dispatching to prevent resource exhaustion.
+1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. A single dispatcher goroutine delivers incoming messages to the sessions (see [Delivery and Slow Consumers](#delivery-and-slow-consumers)).
 2.  **EndpointService**: The source of truth for peer identities and addresses. It manages resolvers that map PeerIDs to network endpoints and provides the public keys used for dynamic trust updates.
 3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket). The interface exposes `PeerID()`, which returns the local node's cryptographic peer identifier — the same value remote peers observe as `StreamInfo.RemotePeerID` and `SessionInfo.RemotePKID` when they connect to this node.
 4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `SendError`, `Receive`, `Close`) used by View developers. A session drops a stream as soon as reading from it fails, and closes when it is left without one (see [Reliability and Stability](#reliability-and-stability)).
 
 ### Message Flow
 
-1.  A View calls `context.GetSession(party)`.
+1.  A View calls `context.GetSession(caller, party)`.
 2.  The Comm service queries the **EndpointService** to resolve the `party`'s network address and identity.
 3.  The Comm service either retrieves an existing session or creates a new one.
 4.  When a message is sent, the `P2PNode` checks for a cached stream to the target peer.
@@ -48,11 +48,11 @@ Security is integrated at every level of the Comm stack:
 -   **Session Identity Exposure**: Each `NetworkStreamSession` populates `SessionInfo.RemotePKID` with the cryptographically verified remote peer ID and `SessionInfo.LocalPKID` with the local node's peer ID (obtained via `P2PHost.PeerID()`). Both fields are available to view code through `session.Info()`, enabling symmetric identity resolution and signing without out-of-band lookups.
 -   **Session Isolation**: All logical sessions are internally identified by a combination of the `SessionID` and the **authenticated** `PeerID` of the remote participant. This prevents attackers from injecting messages into sessions between other peers.
 -   **Resource Hardening**: The Comm layer enforces strict limits to prevent Denial of Service (DoS) attacks:
-    -   **Message Size Limit**: A global 10MB limit is enforced on all incoming and outgoing messages to prevent remote memory exhaustion (OOM) attacks.
+    -   **Message Size Limit**: Incoming messages are capped by `fsc.p2p.maxRecvMsgSize` and outgoing ones by `fsc.p2p.maxSendMsgSize` (default 10 MiB each) to prevent remote memory exhaustion (OOM) attacks.
         -   **Sender Behavior**: Attempts to send messages exceeding this limit will fail locally with an error (`message header or payload too large`), preventing network transmission.
-        -   **Recipient Behavior**: The recipient uses fail-fast reading by parsing the message length prefix first. If the prefix exceeds 10MB, the recipient immediately severs the physical connection and unregisters the stream to protect system resources.
-        -   **Payload vs Envelope**: Note that a 10MB raw payload will always fail, as the total message size (including metadata like `SessionID` and `ContextID`) will slightly exceed the limit. The practical maximum payload size is approximately 9.9MB.
-    -   **Master Session Protection**: Delivery to the "master session" (handling unknown traffic) is capped at a **5-second timeout** to ensure worker goroutines are not permanently stalled by junk traffic.
+        -   **Recipient Behavior**: The recipient uses fail-fast reading by parsing the message length prefix first. If the prefix exceeds `fsc.p2p.maxRecvMsgSize`, the recipient immediately severs the physical connection and unregisters the stream to protect system resources.
+        -   **Payload vs Envelope**: A raw payload as large as the limit always fails, as the total message size (including metadata like `SessionID` and `ContextID`) slightly exceeds it. With the default limit, the practical maximum payload size is approximately 9.9MB.
+    -   **Master Session Protection**: Delivery to the "master session" (handling unknown traffic) never blocks the dispatcher. If the master session's queue is full, the message is dropped and counted in `dropped_messages`; the master session stays open.
     -   **Responders per Peer**: The view P2P service runs at most `fsc.p2p.maxRespondersPerPeer` (default 1000) responders concurrently for each authenticated remote peer. A first message over the limit gets a `busy` error reply (see [Error replies a node sends unasked](#error-replies-a-node-sends-unasked)), so the initiator fails fast. Up to the same number of rejections can be pending per peer, counted separately from the responders; further first messages are dropped. One peer can thus have at most `limit` responders plus `limit` pending rejections, and cannot starve the other peers. A slot is freed only when its responder returns, so responders that never return keep their slot until the node shuts down.
     -   **Responders per Node**: `fsc.p2p.maxResponders` (default 0, unlimited) bounds the responders running concurrently across all peers, so that many peers, each within its own limit, cannot together exhaust the node. A first message from a peer under its own limit that would exceed it gets a `node_busy` error reply; a peer at its own limit gets `busy`, whatever the node-wide count. The same number separately bounds the rejections pending across all peers; further first messages are dropped. A message admitted while the node drains counts against both limits.
 
@@ -111,12 +111,12 @@ FSC uses a **Certificate Authority (CA) model** and **Public Key Infrastructure 
 ### Connection Authorization
 - **Mutual Authentication**: Both parties must present credentials (TLS certificates or Noise public keys) that are signed by a trusted CA or match a known public key in the `EndpointService`.
 - **Identity Enforcement**: The transport layer rejects connections from any node that cannot prove possession of the private key corresponding to its claimed identity.
-- **Revocation**: Connections are immediately closed if a peer's trust status changes or if the underlying transport security is compromised.
+- **Revocation**: A change to a peer's trust applies to new handshakes. The WebSocket transport does not close established connections when a peer is removed (see [WebSocket](websocket.md)).
 
 ## Performance and Flow Control
 
 ### Concurrent Message Dispatching
-The `P2PNode` uses a **bounded worker pool** to dispatch incoming messages. This prevents goroutine explosion and ensures that a single slow or stalled session does not block the entire node.
+The `P2PNode` dispatches incoming messages with a single dispatcher goroutine (`DefaultDispatcherWorkers = 1`), which keeps each session's messages in arrival order. Delivery never blocks, so a single slow or stalled session does not block the entire node (see [Delivery and Slow Consumers](#delivery-and-slow-consumers)).
 
 ### Atomic Stream Leasing
 The Comm layer uses an **atomic lease mechanism** to prevent race conditions between sending messages and closing streams. When a session attempts to use a cached stream, it must successfully "lease" the stream by atomically incrementing its reference counter (`refCtr`) using compare-and-swap operations. This ensures that:
@@ -184,7 +184,7 @@ fsc:
     streamReaderBufferSize: 4096
 ```
 
-For transport-specific configuration options and detailed examples, see the [Libp2p](./libp2p.md) and [WekSocket](websocket.md) documentation.
+For transport-specific configuration options and detailed examples, see the [Libp2p](./libp2p.md) and [WebSocket](websocket.md) documentation.
 
 ## Observability
 

@@ -18,7 +18,7 @@ Each time you want to sync your fork's main with the upstream main changes:
 ```bash
   git checkout main
   git fetch upstream
-  git pull upstream main
+  git merge --ff-only upstream/main
   git push origin main
 ```
 

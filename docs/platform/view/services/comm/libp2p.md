@@ -51,7 +51,7 @@ In Libp2p mode, the `PeerID` is the primary identifier.
 ## Performance and Hardening
 
 -   **Connection Manager**: Configured with a "low water mark" of 100 and a "high water mark" of 400 connections to prevent resource exhaustion.
--   **Read Limits (OOM Protection)**: Incoming messages are limited to 10MB to prevent remote memory exhaustion attacks. The system reads the varint-encoded length prefix and validates it before allocating the target buffer.
+-   **Read Limits (OOM Protection)**: Incoming messages are limited by `fsc.p2p.maxRecvMsgSize` (default 10 MiB) to prevent remote memory exhaustion attacks. The system reads the varint-encoded length prefix and validates it before allocating the target buffer.
 -   **Stream Sharing**: The `StreamHash` for libp2p is the `RemotePeerID`, so all sessions to a peer share its streams. Sessions that need a stream to a peer while there is none wait for one new stream instead of opening one each, which keeps a burst of new sessions under libp2p's limit of inbound streams per protocol and peer (by default 64, raised with the memory available). Closing a session does not close a shared stream, because the remote may still reply on it for another session. A shared stream is removed when reading from it fails (for example, the peer goes away or the connection is trimmed) and closed when the node stops.
 
 ## Trust and Access Control
@@ -100,7 +100,7 @@ fsc:
 | Host Implementation | `platform/view/services/comm/host/libp2p/host.go` |
 | Stream Wrapper | `platform/view/services/comm/host/libp2p/stream.go` |
 | Configuration | `platform/view/services/comm/host/libp2p/provider.go` |
-| Protobuf Reader | `pkg/utils/io/reader.go` |
+| Protobuf Reader | `platform/view/services/comm/io/reader.go` |
 | Metrics | `platform/view/services/comm/host/libp2p/metrics.go` |
 
 ## Bootstrapping for AI Agents

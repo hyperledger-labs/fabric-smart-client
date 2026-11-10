@@ -46,7 +46,7 @@ type Provider interface {
 	NewHistogram(HistogramOpts) Histogram
 }
 ```
-FSC provides three provider implementations (custom ones can also be added), that can be configured in the `core.yaml`:
+FSC provides two provider implementations (custom ones can also be added), that can be configured in the `core.yaml`:
 * `disabled.Provider`: No metrics are registered, when `fsc.metrics.provider = disabled`
 * `prometheus.Provider`: The default implementation, when `fsc.metrics.provider = prometheus`
 
@@ -54,7 +54,7 @@ The default implementation of the metric provider is defined in `view.SDK` and c
 ```go
 func (p *SDK) Install() error {
 	...
-	p.C.Decorate(func (_ metrics.Provider, dep1 Dep1, dep2 Dep2) metrics.Provider {
+	p.Container().Decorate(func(_ metrics.Provider, dep1 Dep1, dep2 Dep2) metrics.Provider {
 		return ...
 	})
 	...
@@ -79,9 +79,8 @@ type Metrics struct {
 func NewMetrics(provider metrics.Provider) *Metrics {
 	return &Metrics {
 		RequestsSent:     provider.NewCounter(metrics.CounterOpts{
-			Namespace:    "view", 
 			Name:         "requests_sent", 
-			Help:         "The number of view requests that have been received.", 
+			Help:         "The number of view requests that have been sent.", 
 			LabelNames:   []string{"command"}, 
 		}), 
 		RequestsReceived: provider.NewCounter(...), 
@@ -92,7 +91,7 @@ func NewMetrics(provider metrics.Provider) *Metrics {
 ```
 * In the service constructor, inject the `metrics.Provider` and create the `Metrics` struct.
 ```go
-type MyService {
+type MyService struct {
   ...
   Metrics *Metrics
   ...
@@ -118,7 +117,7 @@ func NewMetrics(provider metrics.Provider) *Metrics {...}
 
 func (p *SDK) Install() error {
 	...
-	p.C.Provide(NewMetrics)
+	p.Container().Provide(NewMetrics)
 	...
 	digutils.Register[NewService1](p.Container())
 	...
@@ -276,10 +275,9 @@ If you though want to create one, since views do not have a proper dependency in
 ```go
 type Context interface {
 	StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span)
-	StartSpan(name string, opts ...trace.SpanStartOption) trace.Span
 }
 ```
-In most of the cases `StartSpan` is enough, as it uses the existing span from the view context. However, there may be cases where you want to create a child context, e.g. when you receive a message from a session:
+Pass `context.Context()` to start a child of the view's span. You can also start from another context, e.g. when you receive a message from a session:
 ```go
 	ch := session.Receive()
 	var payload []byte
