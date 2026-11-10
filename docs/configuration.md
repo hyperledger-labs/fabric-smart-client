@@ -229,9 +229,12 @@ fsc:
           timeout: 10s
         # TLS configuration for websocket connections
         tls:
-          # Whether clients are required to provide certificates.
-          # Defaults to true for websocket p2p when omitted.
-          clientAuthRequired: true
+          # Websocket P2P always runs mutual TLS and presents the fsc.identity keypair in
+          # both directions. enabled, clientAuthRequired and clientAuthEnabled may be
+          # omitted or set to true; false fails at startup. cert/key and
+          # clientCert/clientKey may be omitted or name the fsc.identity keypair; another
+          # certificate fails at startup, because the peer ID a node announces is derived
+          # from its identity certificate.
           # Root certificates used by this node (as a websocket client) to verify remote server certificates.
           rootCAs:
             files:

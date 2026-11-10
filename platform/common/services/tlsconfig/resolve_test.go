@@ -182,7 +182,8 @@ func TestResolveServerClientAuthDefaults(t *testing.T) {
 	src := fakeSource{dir: dir, subtrees: map[string]map[string]any{"fsc.tls": base}}
 
 	// Websocket resolves through its own entry point, which makes mutual TLS mandatory.
-	ws, _, err := ResolveWebsocketP2P(src, "fsc.p2p.opts.websocket.tls", nil, nil)
+	ws, _, err := ResolveWebsocketP2P(src, "fsc.p2p.opts.websocket.tls",
+		&File{File: cert}, &File{File: key})
 	require.NoError(t, err)
 	require.True(t, ws.RequireClientCert, "websocket requires client certificates")
 
@@ -219,30 +220,124 @@ func TestResolveClientExplicitFalseSuppressesInheritedCreds(t *testing.T) {
 	require.Empty(t, suppressed.Certificate, "suppressed means the cert is not presented")
 }
 
-// clientCert/clientKey fall back to cert/key, which is what makes one composite block
-// usable for websocket P2P without restating the keypair.
-func TestResolveBothFallsBackToServerKeypair(t *testing.T) {
+// The websocket P2P block uses the fsc.identity keypair in both directions and runs mutual
+// TLS without enabled being set. Naming the identity files again changes nothing.
+func TestResolveWebsocketP2PUsesTheIdentityKeypair(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	cert, key, ca := writeKeyPair(t, dir)
-
-	src := fakeSource{dir: dir, subtrees: map[string]map[string]any{
-		"fsc.p2p.opts.websocket.tls": {
-			"enabled":       true,
-			"cert":          map[string]any{"file": cert},
-			"key":           map[string]any{"file": key},
-			"rootcas":       map[string]any{"files": []any{ca}},
-			"clientrootcas": map[string]any{"files": []any{ca}},
-		},
-	}}
-
-	server, client, err := ResolveWebsocketP2P(src, "fsc.p2p.opts.websocket.tls", nil, nil)
+	cas := map[string]any{"files": []any{ca}}
+	pemCert, err := os.ReadFile(filepath.Join(dir, cert))
 	require.NoError(t, err)
-	require.Equal(t, server.Certificate, client.Certificate, "clientCert falls back to cert")
-	require.True(t, client.RequireClientCert, "and so clientAuthEnabled defaults true")
-	require.True(t, server.RequireClientCert)
-	require.Len(t, server.ClientRootCAs, 1, "server verifies inbound peers")
-	require.Len(t, client.ServerRootCAs, 1, "client verifies outbound servers")
+	pemCA, err := os.ReadFile(filepath.Join(dir, ca))
+	require.NoError(t, err)
+	// Copies of the identity certificate that differ in bytes but not in their first
+	// certificate, which is the one the peer ID is derived from.
+	for name, content := range map[string][]byte{
+		"copy.crt":  pemCert,
+		"chain.crt": append(append([]byte{}, pemCert...), pemCA...),
+		"crlf.crt":  []byte(strings.ReplaceAll(string(pemCert), "\n", "\r\n") + "\r\n"),
+	} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), content, 0o600))
+	}
+	copyOf := func(file string) map[string]any {
+		return map[string]any{
+			"cert":       map[string]any{"file": file},
+			"clientcert": map[string]any{"file": file},
+		}
+	}
+
+	for name, block := range map[string]map[string]any{
+		"identity by default":  {"rootcas": cas, "clientrootcas": cas},
+		"copy at another path": copyOf("copy.crt"),
+		"copy with its chain":  copyOf("chain.crt"),
+		"copy with CRLF":       copyOf("crlf.crt"),
+		"identity restated": {
+			"enabled":            true,
+			"clientauthrequired": true,
+			"clientauthenabled":  true,
+			"cert":               map[string]any{"file": cert},
+			"key":                map[string]any{"file": key},
+			"clientcert":         map[string]any{"file": cert},
+			"clientkey":          map[string]any{"file": key},
+			"rootcas":            cas,
+			"clientrootcas":      cas,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			src := fakeSource{dir: dir, subtrees: map[string]map[string]any{
+				"fsc.p2p.opts.websocket.tls": block,
+			}}
+			server, client, err := ResolveWebsocketP2P(src, "fsc.p2p.opts.websocket.tls",
+				&File{File: cert}, &File{File: key})
+			require.NoError(t, err)
+			require.True(t, server.UseTLS)
+			require.True(t, client.UseTLS)
+			require.True(t, server.RequireClientCert, "server verifies inbound peers")
+			require.True(t, client.RequireClientCert, "client presents its certificate")
+			require.NotEmpty(t, server.Certificate)
+			require.Equal(t, server.Certificate, client.Certificate)
+			if block["rootcas"] != nil {
+				require.Len(t, server.ClientRootCAs, 1, "server verifies inbound peers")
+				require.Len(t, client.ServerRootCAs, 1, "client verifies outbound servers")
+			}
+		})
+	}
+}
+
+// A websocket P2P key that cannot take effect is an error naming the key: mutual TLS is
+// mandatory, and the transport certificate has to be the fsc.identity one, because the peer
+// ID a node announces is derived from it.
+func TestResolveWebsocketP2PRejectsKeysThatCannotTakeEffect(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	cert, key, _ := writeKeyPair(t, dir)
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "other"), 0o700))
+	otherCert, otherKey, _ := writeKeyPair(t, filepath.Join(dir, "other"))
+	otherCert, otherKey = filepath.Join("other", otherCert), filepath.Join("other", otherKey)
+
+	for _, tc := range []struct {
+		name    string
+		block   map[string]any
+		wantErr string
+	}{
+		{"enabled false", map[string]any{"enabled": false}, "enabled"},
+		{"clientAuthEnabled false", map[string]any{"clientauthenabled": false}, "clientAuthEnabled"},
+		{"clientAuthRequired false", map[string]any{"clientauthrequired": false}, "clientAuthRequired"},
+		{"another cert", map[string]any{
+			"cert": map[string]any{"file": otherCert},
+			"key":  map[string]any{"file": otherKey},
+		}, "cert"},
+		{"another clientCert", map[string]any{
+			"clientcert": map[string]any{"file": otherCert},
+			"clientkey":  map[string]any{"file": otherKey},
+		}, "clientCert"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			src := fakeSource{dir: dir, subtrees: map[string]map[string]any{
+				"fsc.p2p.opts.websocket.tls": tc.block,
+			}}
+			_, _, err := ResolveWebsocketP2P(src, "fsc.p2p.opts.websocket.tls",
+				&File{File: cert}, &File{File: key})
+			require.ErrorContains(t, err, "[fsc.p2p.opts.websocket.tls] "+tc.wantErr+" ")
+		})
+	}
+}
+
+// Websocket P2P presents the node identity, so a missing or unreadable one is reported under
+// fsc.identity rather than under a websocket key the operator never set.
+func TestResolveWebsocketP2PNamesAMissingIdentity(t *testing.T) {
+	t.Parallel()
+	src := fakeSource{dir: t.TempDir()}
+
+	_, _, err := ResolveWebsocketP2P(src, "fsc.p2p.opts.websocket.tls", nil, nil)
+	require.ErrorContains(t, err, "set fsc.identity.cert.file and fsc.identity.key.file")
+
+	_, _, err = ResolveWebsocketP2P(src, "fsc.p2p.opts.websocket.tls",
+		&File{File: "missing.crt"}, &File{File: "missing.key"})
+	require.ErrorContains(t, err, "fsc.identity.cert.file: cannot read")
 }
 
 // A misspelling under a tls: subtree is an error naming the key, not a silent discard that

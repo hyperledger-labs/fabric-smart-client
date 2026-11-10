@@ -89,7 +89,7 @@ type ExtraCAPoolProvider interface {
 // fsc.p2p.opts.websocket.tls through [tlsconfig] so an unknown key under it is an error
 // rather than a silent discard.
 //
-// The transport keypair defaults to fsc.identity and CANNOT be given a separate credential:
+// The transport keypair is fsc.identity and CANNOT be a separate credential:
 // the peer ID a host announces is derived from the public key of its verified TLS
 // certificate ([ws.expectedPeerIDFromRequest]). The server rejects any connection whose
 // claimed peer ID does not match the client certificate, and the client rejects any server
@@ -102,9 +102,6 @@ type ExtraCAPoolProvider interface {
 func NewConfig(cs configService) (*config, error) {
 	identityCertPath := cs.GetPath("fsc.identity.cert.file")
 
-	// This surface's rules all differ from the templates — mandatory mutual TLS, trust
-	// anchors supplied at handshake time, and a keypair that must be the node's identity —
-	// so tlsconfig gives it its own entry point rather than an options struct.
 	serverTLS, clientTLS, err := tlsconfig.ResolveWebsocketP2P(cs, websocketTLSKey,
 		&tlsconfig.File{File: identityCertPath},
 		&tlsconfig.File{File: cs.GetPath("fsc.identity.key.file")})
