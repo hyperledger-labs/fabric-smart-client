@@ -34,6 +34,25 @@ forms whatever version the session uses, telling them apart by the first byte: `
 byte is an error. An endorsement response that starts with `[`, `{` or `n` is JSON, anything
 else is an `EndorsementResponse`.
 
+### Collecting endorsements
+
+`endorser.NewCollectEndorsementsView`, which `state.NewCollectEndorsementsView` wraps, asks each
+party in turn for its endorsement and stops at the first one that fails. Its error tells a
+caller whether the party was unavailable, so that an application with several endorsers can try
+the next one. It matches, with `errors.Is`:
+
+| Failure | Error |
+|---|---|
+| The party rejected the session, for example because it drains, is busy, or has no responder for the view | the rejection's sentinel, such as `session.ErrDraining`, `session.ErrBusy` or `session.ErrUnknownView`, and `session.ErrRejected` (see [Error replies a node sends unasked](../view/services/comm/readme.md#error-replies-a-node-sends-unasked)) |
+| The session closed before the party answered | `comm.ErrSessionClosed` |
+| The party did not answer within a minute | `context.DeadlineExceeded` |
+| The view's context ended first | the context's error |
+| The transaction could not be sent, for example to a node that is down | the send's error, such as a dial error wrapping `syscall.ECONNREFUSED` |
+
+An error reply that is not a rejection, and an endorsement that does not verify, wrap none of
+these. A failed attempt adds nothing to the transaction, so the caller can pass it to another
+party.
+
 ### The transaction envelope
 
 A `TransactionEnvelope` carries what the receiver needs to pick the local network and channel

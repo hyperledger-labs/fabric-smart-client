@@ -8,6 +8,7 @@ package endorser
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -82,22 +85,22 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		}
 
 		logger.DebugfContext(viewCtx.Context(), "Get session with party")
-		session, err := viewCtx.GetSession(viewCtx.Initiator(), party)
+		s, err := viewCtx.GetSession(viewCtx.Initiator(), party)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed getting session")
 		}
-		txRaw, err = WireBytes(viewCtx.Context(), session, c.tx, txRaw)
+		txRaw, err = WireBytes(viewCtx.Context(), s, c.tx, txRaw)
 		if err != nil {
 			return nil, errors.WithMessage(err, "failed encoding transaction")
 		}
 
 		// Get a channel to receive the answer
 		logger.DebugfContext(viewCtx.Context(), "Start receiving from party")
-		ch := session.Receive()
+		ch := s.Receive()
 
 		// Send transaction
 		logger.DebugfContext(viewCtx.Context(), "Send raw transaction to party")
-		err = session.Send(viewCtx.Context(), txRaw)
+		err = s.Send(viewCtx.Context(), txRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed sending transaction content")
 		}
@@ -111,7 +114,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		case m, ok := <-ch:
 			timeout.Stop()
 			if !ok {
-				return nil, errors.Errorf("session to party %s closed", party)
+				return nil, errors.Wrapf(comm.ErrSessionClosed, "session to party %s closed", party)
 			}
 			msg = m
 		case <-viewCtx.Context().Done():
@@ -119,11 +122,11 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 			return nil, errors.Wrapf(viewCtx.Context().Err(), "stopped waiting for party %s", party)
 		case <-timeout.C:
 			timeout.Stop()
-			return nil, errors.Errorf("Timeout from party %s", party)
+			return nil, errors.Wrapf(context.DeadlineExceeded, "Timeout from party %s", party)
 		}
 		logger.DebugfContext(viewCtx.Context(), "Received transaction from party")
 		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
+			return nil, replyError(msg)
 		}
 
 		logger.Debugf("got response from party [%s]", party)
@@ -191,6 +194,16 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 	return c.tx, nil
 }
 
+// replyError returns the error for msg, an error reply from a party. A rejection, such as a
+// draining or busy node, is session.RejectionError's error, which a caller can match with
+// errors.Is; any other reply is its payload text.
+func replyError(msg *view.Message) error {
+	if err := session.RejectionError(msg); errors.Is(err, session.ErrRejected) {
+		return err
+	}
+	return errors.New(string(msg.Payload))
+}
+
 // SetVerifierProviders sets additional providers used to verify the collected endorsements.
 // They apply to the collection only; Transaction.HasBeenEndorsedBy consults the providers
 // registered with Transaction.AppendVerifierProvider.
@@ -199,6 +212,20 @@ func (c *collectEndorsementsView) SetVerifierProviders(p []fabric.VerifierProvid
 	return c
 }
 
+// NewCollectEndorsementsView returns a view that endorses tx with each of parties in turn:
+// locally for an identity of this node, and otherwise by sending tx to the party and waiting
+// up to a minute for its endorsement. It stops at the first party that fails, and a caller can
+// match the error with errors.Is:
+//   - session.ErrRejected and the rejection's sentinel, such as session.ErrDraining,
+//     session.ErrBusy or session.ErrUnknownView, when the party rejected the session;
+//   - comm.ErrSessionClosed when the session closed before the party answered;
+//   - context.DeadlineExceeded when the party did not answer within the minute, and the
+//     context's error when the view's context ended first;
+//   - the send's error, such as a dial error, when tx could not be sent.
+//
+// Any other failure, such as an error reply that is not a rejection or an endorsement that
+// does not verify, wraps none of these. A failure leaves tx without the failed party's
+// endorsement, so tx can be passed to another party.
 func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {
 	return &collectEndorsementsView{tx: tx, parties: parties}
 }
@@ -257,8 +284,8 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	// Send the proposal responses back, in the encoding the session negotiated.
-	session := viewCtx.Session()
-	asProto, err := sendsEnvelope(viewCtx.Context(), session, s.tx)
+	sess := viewCtx.Session()
+	asProto, err := sendsEnvelope(viewCtx.Context(), sess, s.tx)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +299,7 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.Wrap(err, "failed marshalling endorsement response")
 	}
 
-	err = session.Send(viewCtx.Context(), raw)
+	err = sess.Send(viewCtx.Context(), raw)
 	if err != nil {
 		return nil, err
 	}
