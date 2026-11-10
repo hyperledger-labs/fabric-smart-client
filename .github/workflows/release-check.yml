@@ -14,6 +14,7 @@ on:
     paths:
       - '.github/workflows/release-check.yml'
       - 'docs/upgrade/releases/**'
+      - 'scripts/release.sh'
       - 'scripts/release/**'
 
 concurrency:
