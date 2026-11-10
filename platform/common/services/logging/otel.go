@@ -46,7 +46,6 @@ func NewOtelLogger(zapLogger *zap.Logger) otelLogger {
 	return ctxFieldLogger{
 		SugaredLogger: zapLogger.Sugar(),
 		loggerName:    zapLogger.Name(),
-		sanitize:      OtelSanitize(),
 	}
 }
 
@@ -57,7 +56,6 @@ type ctxFieldLogger struct {
 	*zap.SugaredLogger
 
 	loggerName string
-	sanitize   bool
 }
 
 // levelEnabled reports whether lvl would actually be written by the underlying zap core.
@@ -90,8 +88,9 @@ func (l ctxFieldLogger) addEvent(span trace.Span, lvl zapcore.Level, msg string)
 	if lvl >= zapcore.ErrorLevel {
 		span.SetStatus(codes.Error, msg)
 	}
-	if l.sanitize {
-		// ensure it is printable
+	// Read at the call. Package-level loggers are created during package
+	// initialization, and logging.Init applies logging.otel.sanitize later.
+	if OtelSanitize() {
 		msg = FilterPrintableWithMarker(msg)
 	}
 	span.AddEvent(msg, trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
