@@ -1,6 +1,6 @@
 # Metrics Catalog
 
-This document catalogs the metric families currently defined by the Fabric Smart Client (FSC) codebase. For each family, it records the exported name, type, labels, and operational meaning. It focuses on the metrics that FSC itself declares and emits. It excludes the standard Go runtime, process, and Prometheus HTTP handler metrics that exporters expose independently of FSC.
+This document catalogs the metric families defined by the Fabric Smart Client (FSC). For each family, it records the exported name, type, labels, and operational meaning. It focuses on the metrics that FSC itself declares and emits. It excludes the standard Go runtime, process, and Prometheus HTTP handler metrics that exporters expose independently of FSC.
 
 ## Overview
 
@@ -13,7 +13,7 @@ Each tracer base produces two trace-derived families, `*_operations` and `*_dura
 
 This catalog is organized by subsystem and records the metric family names that Prometheus sees.
 
-The activation conditions in the current codebase are:
+The activation conditions are:
 
 - libp2p transport families appear only when the node uses the libp2p communication stack
 - WebSocket transport families appear only when the node uses the WebSocket communication stack
@@ -21,7 +21,7 @@ The activation conditions in the current codebase are:
 - Fabric ordering, delivery, committer, vault, and finality families appear only when the node executes a Fabric transaction flow
 - caller-process tracer families appear only in the process that creates those tracers
 
-Not every family is emitted by the FSC node itself. In the current catalog, the caller-process families are `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`.
+Not every family is emitted by the FSC node itself. The caller-process families are `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`.
 
 ## Scope and Conventions
 
@@ -58,7 +58,7 @@ Most FSC packages do not hard-code the namespace or subsystem. Instead, the Prom
 - metric name `contexts`
 - exported metric `fsc_view_services_view_contexts`
 
-Explicit overrides are used in the following places within the current catalog:
+Explicit overrides are used in the following places:
 
 - `platform/fabric/core/generic/metrics/metrics.go` registers `fsc_fabric_core_generic_ordering_ordered_transactions`
 - `platform/view/services/metrics/connstate/connstate.go` registers the `fsc_connection_*` families
@@ -76,7 +76,7 @@ For trace-derived metrics, the namespace and subsystem are also fixed by `tracin
 
 The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
-- the explicit metric families, except `fsc_common_services_grpc_conn_*` (see [Current Caveats](#current-caveats)) and the families of the communication transport the node does not use (libp2p or WebSocket)
+- the explicit metric families, except `fsc_common_services_grpc_conn_*` (see [Known gaps](#known-gaps)) and the families of the communication transport the node does not use (libp2p or WebSocket)
 - all trace-derived families except `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`
 
 The two caller-process families are exported only by the process that creates those tracers:
@@ -226,7 +226,7 @@ Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, up
 | `fsc_common_services_grpc_conn_opened` | counter | none | Number of gRPC connections opened. |
 | `fsc_common_services_grpc_conn_closed` | counter | none | Number of gRPC connections closed. |
 
-These counters are implemented by FSC's custom gRPC server stats handler. The handler itself is tested, but the default runtime currently wires the gRPC server through OpenTelemetry's server handler. See [Current Caveats](#current-caveats).
+These counters are implemented by FSC's custom gRPC server stats handler. The handler itself is tested, but the default runtime wires the gRPC server through OpenTelemetry's server handler. See [Known gaps](#known-gaps).
 
 Primary implementation: `platform/common/services/grpc/metrics.go`, with the custom stats handler in `platform/common/services/grpc/serverstatshandler.go`.
 
@@ -478,7 +478,7 @@ Primary implementation: `platform/view/services/comm/host/websocket/ws/multiplex
 | `fsc_fabric_core_generic_committer_commits` | none | Committer tracer for `commit_block` and `commit_tx` spans. |
 | `fsc_fabric_core_generic_committer_committer` | none | Committer tracer used for operations such as waiting for finality and reloading config transactions. |
 
-The delivery tracer uses the label `type`, with the currently observed values:
+The delivery tracer uses the label `type`, with the values:
 
 - `unknown`
 - `block`
@@ -533,13 +533,13 @@ The following labels are part of the current FSC metric surface.
 | `version` | FSC version string | node version |
 | `view` | Fully qualified FSC view identifier | Go package and type-based identifier |
 
-## Current Caveats
+## Known gaps
 
 The following families have implementation caveats:
 
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared but never starts a span, so these families are never emitted.
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared but never incremented, so it stays at zero.
-- `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
+- `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
 - `fsc_view_services_view_client_client_*`: these are caller-process metrics. The standard integration harness creates its external view clients with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
 - `fsc_view_services_view_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.
 

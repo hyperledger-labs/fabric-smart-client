@@ -563,14 +563,17 @@ sequenceDiagram
 
 ## Configuration
 
-The View Service is configured through the FSC configuration file. Key settings include:
+The remote view API is configured under `fsc.view.remote`:
 
-- **Identity Configuration**: Default identity and identity provider settings
-- **Session Configuration**: Session factory and communication layer settings
-- **Tracing Configuration**: OpenTelemetry tracing provider settings
-- **Metrics Configuration**: Prometheus metrics provider settings
+- `enabled`: serves the remote view API; off by default.
+- `backends`: the transports it is served on, `grpc` (the `fsc.grpc` listener) and `web` (the HTTP binding on `fsc.web`).
+- `timeout`: execution timeout of views called remotely (default 2m).
+- `timeWindow`: how far a command's timestamp may be from the local clock (default 15m).
+- `clients`: identities, besides the node's own, allowed to call views (see [Remote View API Access Control](#remote-view-api-access-control)).
+- `maxMessageSize`: largest command the remote view API accepts.
+- `maxConcurrentRequests`: most commands run at once (see [Concurrent commands](#concurrent-commands)).
 
-See the [Configuration Guide](../../../configuration.md) for detailed configuration options.
+The [configuration reference](../../../configuration.md) describes each key.
 
 ## Observability
 

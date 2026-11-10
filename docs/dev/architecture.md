@@ -155,11 +155,9 @@ Worked examples live in
 
 ## Where FSC sits in the ecosystem
 
-- **[Panurus](https://github.com/LFDT-Panurus/panurus)** (formerly Token SDK) is a
-  token layer built *on top of* FSC. It reuses FSC's view/session model and even
-  imports `pkg/utils/errors`, so its conventions are a stricter superset of FSC's —
-  a useful reference when tightening our own.
+- **[Panurus](https://github.com/LFDT-Panurus/panurus)** is a token layer built on
+  top of FSC. It uses FSC's view/session model and FSC's `pkg/utils/errors`.
 - **[Fabric-x Committer](https://github.com/hyperledger/fabric-x-committer)** is the
   validation/commit service the `fabricx` platform submits transactions to. It is a
-  separate Go codebase with deliberately different conventions (e.g. `cockroachdb/errors`,
-  concrete-types-over-interfaces) — align with it only on the wire/protocol, not on Go style.
+  separate Go codebase with its own conventions; FSC shares its wire protocol, not its
+  Go style.

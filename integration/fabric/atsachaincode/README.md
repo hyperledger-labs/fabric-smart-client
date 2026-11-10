@@ -164,15 +164,14 @@ func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 
 It is pretty straight-forward the meaning of each step. However, let us dedicate some time to the FSC topology. 
 One limitation of golang is that it cannot load code at runtime. This means that all views 
-that a node might use must be burned inside the FSC node executable (We will solve this problem 
-by adding support for YAEGI, [`Issue 19`](https://github.com/hyperledger-labs/fabric-smart-client/issues/19)).
+that a node might use must be burned inside the FSC node executable.
 This is the reason we specify the view factories at topology definition time. At network bootstrapping time,
 the Integration Test Infrastructure synthesizes the `main` file for each FSC node and builds it.
 The developer does not have to worry about this.
 
 ### Bootstrap the networks
 
-To bootstrap the networks described by the above topologies, we can simply do this:
+To bootstrap the networks described by the above topologies, we do this:
 
 ```go
 s := &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
@@ -192,8 +191,8 @@ we can have Alice issuing directly an asset.
 To do so, Alice must contact her FSC node and ask the node to create a new instance of the `CreateAsset` view, on input 
 the asset to be created, and run it.
 Now, recall that each FSC node exposes a GRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
-to this GRPC service and send the proper command. Fortunately enough, the Integration Test Infrastructure 
-take care also of this.
+to this GRPC service and send the proper command. The Integration Test Infrastructure 
+takes care of this.
 
 To get the View Service client for Alice, we can do the following:
 ```go

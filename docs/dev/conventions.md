@@ -10,8 +10,8 @@
 ## Error handling
 
 Use `github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors`. Do **not**
-build or wrap errors with `fmt.Errorf` (the codebase uses `errors.Wrapf`/`Errorf`
-~10x more than `fmt.Errorf`, and downstream projects such as Panurus enforce this).
+build or wrap errors with `fmt.Errorf` (downstream projects such as Panurus enforce
+this too).
 
 Permitted constructors: `errors.New`, `errors.Errorf`, `errors.Wrap`,
 `errors.Wrapf`, `errors.WithMessage`, `errors.WithMessagef`, `errors.Join`.

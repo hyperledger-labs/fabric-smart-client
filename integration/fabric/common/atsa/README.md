@@ -1,26 +1,25 @@
 # Secured Asset Transfer
 
-There is nothing better than an example to start learning something new. One of the main goals of FSC is to speed up
-the development of Fabric-based distributed applications by offering a programming model that is closer to the
-business logic rather than the blockchain.
+FSC offers a programming model for Fabric-based distributed applications that is closer to the business logic
+than to the blockchain. This example shows it on a known application.
 
 The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html)
 is a Fabric sample that demonstrates how an asset can be represented and traded between organizations
 in a Hyperledger Fabric blockchain channel.
 
-We will use this application to showcase the `Fabric Smart Client`'s advanced capabilities for application development.
+We use this application to show how to build it with the `Fabric Smart Client`.
 If you are familiar with classic Fabric chaincode, we suggest to first look into [/integration/fabric/atsachaincode](../../atsachaincode/README.md).
 There we will explain the following:
 - First, show how the `Fabric Smart Client`'s integration infrastructure provides a convenient programmatic
-  environment to test chaincodes-based solutions. Already a huge improvement for the developers.
+  environment to test chaincode-based solutions.
 - Second, highlights the limitations of the current sample and show how these limitations can be overcome
-  using the `Fabric Smart Client`'s advanced capabilities and the Hyperledger Fabric hidden gems.
+  using the `Fabric Smart Client` and the Hyperledger Fabric hidden gems.
 
 Next, let us move on and implement the same application without chaincode.
 There, we will learn:
 - The shortcomings of the current approach to solve the problem.
-- How to implement a new solution based on the `Fabric Smart Client`'s advanced capabilities.
-- How to write an integration test for the new solution.
+- How to implement the solution based on the `Fabric Smart Client`.
+- How to write an integration test for that solution.
 
 
 # Secured Asset Transfer in Fabric with FSC
@@ -52,11 +51,11 @@ The quick answer is yes.
 In developing the secured asset transfer application with FSC, 
 we will keep the same business logic for the sake of simplicity. 
 Namely, there will be an issue phase, an agreement phase, and a transfer phase. 
-However, we will change paradigm: The `asset_transfer` chaincode will not mediate anymore the interactions 
+However, we will change paradigm: The `asset_transfer` chaincode does not mediate the interactions 
 between business parties (issuers and asset owners). 
 The business parties will interact directly to achieve the business goals.
 
-We have already learned, when exploring the ['Fabric's hidden gems'](../../../../docs/core-concepts.md#fabric-and-its-hidden-gems),
+We have already learned, when exploring the ['Fabric roles and transaction flow'](../../../../docs/core-concepts.md#fabric-roles-and-transaction-flow),
 that an endorser is just a network node that executes `some code` and possesses a signing key compatible with an endorsement policy. 
 The node produces a signature to signal its approval. Therefore, if we equip an FSC node with 
 a signing secret key accepted by our endorsement policy, that FSC node can endorse Fabric transactions.

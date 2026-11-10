@@ -98,7 +98,7 @@ func (s *MyService) UpdateConfig(cp *config.Provider, rawYaml []byte) {
 
 ## Implementation Details
 
-The configuration service is based on [github.com/knadh/koanf](https://github.com/knadh/koanf), a light-weight, extensible configuration management library for Go. While the `config.Provider` interface abstracts most of these details, the underlying implementation utilizes `koanf` for its powerful parsing, merging, and environment variable substitution capabilities.
+The configuration service is based on [github.com/knadh/koanf](https://github.com/knadh/koanf), a configuration library for Go. The `config.Provider` interface hides most of it; the implementation uses `koanf` for parsing, merging and environment variable substitution.
 This implementation supports the field tag `yaml` as well. This allows the developer to support something like this:
 
 ```go

@@ -1,16 +1,15 @@
 # The Fabric Smart Client
 
-The **Fabric Smart Client** (FSC) is the next-generation Client SDK for Hyperledger [Fabric](https://github.com/hyperledger/fabric) and [Fabric-x](https://github.com/hyperledger/fabric-x).
-FSC simplifies the development of Fabric-based distributed applications by putting at the centre the **business processes**, and by
-**hiding the unnecessary burden** of dealing with Fabric(x).
+The **Fabric Smart Client** (FSC) is a client-side framework for Hyperledger [Fabric](https://github.com/hyperledger/fabric) and [Fabric-x](https://github.com/hyperledger/fabric-x).
+An FSC application is written as the **business processes** it runs; FSC handles the interaction with Fabric and Fabric-x.
 
 A business process is a collection of related and structured activities carried by business parties
 in which a specific sequence of steps serves a particular business goal. In other words, a business process
 is an interactive protocol among business parties each of which has its own business view (or simply view)
 of the process. A **view** is then the sequence of steps that a business party must execute to serve a particular business goal.
-FSC aims to offer a comfortable environment to build such interactive protocols backed by the Hyperledger Fabric(x).
+FSC provides the building blocks for such interactive protocols on top of Fabric and Fabric-x.
 
-## Fabric and its Hidden Gems
+## Fabric roles and transaction flow
 
 A Fabric network consists of a set of network nodes. As Fabric is permissioned, all network nodes have an identity.
 These nodes take up one of three roles:
@@ -43,8 +42,7 @@ interactive protocols used by Fabric nodes. It can be split in three phases:
   - (iii) The ledger update phase runs last, in which the block is appended to the locally stored ledger, and the blockchain state is updated.
 
 Notice that, each phase is essentially an interactive protocol, executed by given parties, used to achieve a specific goal.
-A few remarks on the above protocol will help the reader to understand the reasons why we decided to revise it,
-and the directions we want to follow:
+Two properties of this protocol shape the design of FSC:
 - **Each party should be able to run its own business logic** The *endorsement policy* does not say anything
   about the process that should be used to assemble the RWSet.
   In particular:
@@ -57,8 +55,6 @@ and the directions we want to follow:
   This means that a client cannot endorse the transaction, an endorser cannot submit transactions to the ordering service,
   and so on. Indeed, an endorser is just a network node that possesses a signing secret key accepted by some endorsement policy.
   Therefore, a Fabric Smart Client node equipped with the proper key material can play the role of endorser.
-
-The above remarks guided us during the design of the Fabric Smart Client.
 
 ## Design Key Ingredients
 
@@ -87,7 +83,7 @@ FSC is founded on the following key ingredients to build interactive protocols:
   view representing him in protocol. Bob gets Alice’s message by first obtaining the session Alice opened.
   Bob can use the very same session to respond to Alice and the ping-pong can continue until Alice and Bob reach their goal.
 
-## FSC is the Perfect Companion for Fabric
+## FSC nodes and networks
 
 We call **FSC Node** a network node that runs the FSC stack. FSC nodes form an **FSC network**.
 This network lives alongside one or more Fabric networks.
@@ -115,8 +111,7 @@ FSC comes with the following SDKs:
     - To manage and execute business views.
     - To handle node identities.
 - The [`Fabric platform`](platform/fabric/README.md) builds on top of the `View` platform and offers API and services to allow FSC nodes to communicate
-  with Fabric. The Fabric module is not just the usual Fabric Client SDK, it is more.
-  Indeed, we can identify the following components that make the Fabric module different from the current Fabric Client SDKs:
+  with Fabric. It contains the following components:
   - **Chaincode API**: These are APIs that allow the developer to invoke any chaincode and assemble Fabric transactions
     as she would do with the Fabric Client SDK.
   - **Identity Management**: The Fabric platform allows an FSC node to play the role of an Endorser,
@@ -125,7 +120,6 @@ FSC comes with the following SDKs:
     the SPM API allows the developer to think directly in terms of business objects. The SPM API takes care of translating
     these business objects to a well-formed RWSet. Therefore, FSC nodes can collaboratively assemble a Fabric Transaction and its RWSet,
     and then other FSC nodes, playing the role of endorsers, endorse the assembled transaction.
-    This gives much more flexibility than the default chaincode-centric protocol to assemble transactions, that Fabric offers.
   - **Vault**: The Fabric platform equips an FSC node with a local storage system that contains only the transactions
     the node is interested about or helped to assemble. An FSC node does not need to store the entire ledger but
     only what is relevant. This storage space allows the FSC nodes to keep temporary version of the transactions

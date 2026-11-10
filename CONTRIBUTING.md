@@ -47,12 +47,12 @@ Once assigned, follow the [Development Guide](docs/dev/development.md) to:
 
 ## Submitting an Issue
 
-### Bug Reports 🐛
+### Bug Reports
 
-⚠️ **Ensure you are using the latest release of the Fabric Smart Client** — it's possible the bug is already fixed.
+**Ensure you are using the latest release of the Fabric Smart Client.** The bug may already be fixed.
 
 1. Visit the [Issues page](https://github.com/hyperledger-labs/fabric-smart-client/issues).
-2. ⚠️ **Check the bug is not already reported.** If it is, comment to confirm you're also experiencing it.
+2. **Check the bug is not already reported.** If it is, comment to confirm you're also experiencing it.
 3. Click **New Issue** and choose the **Bug Report** template.
 
 The template will guide you through providing a description, steps to reproduce, expected vs. actual behavior, and
@@ -60,17 +60,17 @@ environment details. The more reproducible the report, the faster a fix can land
 
 Security vulnerabilities should be disclosed responsibly. Please see [SECURITY.md](SECURITY.md)
 
-### Feature Requests 💡
+### Feature Requests
 
 **Note:** If you intend to implement a feature yourself, please submit the request _before_ writing any code and
-ask to be assigned. Features are for user-facing capabilities — new platforms, services, API methods, etc.
+ask to be assigned. Features are for user-facing capabilities: new platforms, services, API methods, etc.
 Improvements to tooling, CI, or the contribution process are [Tasks](#tasks) instead.
 
 1. Visit the [Issues page](https://github.com/hyperledger-labs/fabric-smart-client/issues).
 2. Verify the feature has not already been proposed.
-3. Click **New Issue** and choose the **Feature Request** template.
+3. Click **New Issue** and choose the **Feature** template.
 
-### Tasks 🔧
+### Tasks
 
 Use a Task for maintenance, improvement, or operational work: refactoring, dependency updates, documentation
 improvements, CI/CD changes, test coverage, or enhancements to existing features.

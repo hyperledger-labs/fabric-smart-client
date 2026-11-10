@@ -103,9 +103,9 @@ fsc:
 | Protobuf Reader | `platform/view/services/comm/io/reader.go` |
 | Metrics | `platform/view/services/comm/host/libp2p/metrics.go` |
 
-## Bootstrapping for AI Agents
+## Code walkthrough
 
-To understand how messages move through libp2p:
-1.  Start at `platform/view/services/comm/p2p.go`: `handleStream` is where libp2p streams enter the FSC logic.
-2.  Look at `platform/view/services/comm/host/libp2p/host.go`: `NewStream` shows how FSC initiates outbound connections using libp2p.
-3.  Check `platform/view/services/comm/host/libp2p/provider.go`: `NewHostGeneratorProvider` shows how the libp2p stack is initialized from configuration.
+- **Setup**: `NewHostGeneratorProvider` (`host/libp2p/provider.go`) holds the libp2p configuration; its `GetNewHost` loads the node's key and builds the libp2p host.
+- **Incoming streams**: `host.Start` (`host/libp2p/host.go`) registers one stream handler for `/fsc/view/2.0.0` and `/fsc/view/1.0.0`. The handler wraps each stream, exchanges preambles and passes the stream to `P2PNode.handleIncomingStream` (`comm/p2p.go`).
+- **Outgoing streams**: `P2PNode` opens a stream with `host.NewStream` (`host/libp2p/host.go`) when a session needs one to a peer.
+- **Reading and writing**: `P2PNode.handleStream` (`comm/p2p.go`) wraps every stream, incoming or outgoing, in a `streamHandler` with a varint-delimited protobuf reader and writer (`comm/io`).

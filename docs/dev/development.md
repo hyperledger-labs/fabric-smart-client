@@ -45,10 +45,9 @@ make install-fabric-bins pull-images-fabric
 
 > [!IMPORTANT]
 > `FABRIC_BINARY_BASE` defaults to `$(PWD)/../fabric`, which assumes you are in your
-> primary checkout. Run this from a worktree under `.claude/worktrees/<name>/` and it
-> resolves to a sibling of the *worktree* — a second Fabric install, in the wrong
-> place, inside the repository, with no warning. From a worktree, either run the target
-> from the primary checkout or pass the base explicitly:
+> primary checkout. Run this from a git worktree and it resolves to a sibling of the
+> *worktree*: a second Fabric install in the wrong place, with no warning. From a
+> worktree, either run the target from the primary checkout or pass the base explicitly:
 >
 > ```bash
 > FABRIC_BINARY_BASE=$HOME/fabric make install-fabric-bins
@@ -102,7 +101,7 @@ Most integration tests require Fabric(x) binaries to launch a local test network
 Set the `FAB_BINS` environment variable to point to the directory containing these binaries:
 
 ```bash
-export FAB_BINS=/home/yourusername/fabric/bin
+export FAB_BINS=$FSC_PATH/../fabric/bin
 ```
 
 One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
@@ -111,7 +110,7 @@ One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
 
 > [!NOTE]
 > Do *not* store the Fabric binaries inside your fabric-smart-client repository.
-Doing so may cause integration tests to fail when installing chaincode.
+> Doing so may cause integration tests to fail when installing chaincode.
 
 ## Running Tests
 
@@ -298,7 +297,7 @@ Before pushing for review, read [Commit Hygiene](workflow.md#commit-hygiene).
 
 `golangci-lint` keeps one machine-wide cache — `golangci-lint cache status` prints the
 directory — shared by every checkout of the repository. Working in more than one
-checkout, a second clone or a worktree under `.claude/worktrees/`, can therefore surface
+checkout, a second clone or a git worktree, can therefore surface
 findings against files outside the tree you are linting. The giveaway is a path that
 leaves your working directory:
 
@@ -328,11 +327,10 @@ ls $FAB_BINS/fabric-x   # fabric-x tools
 
 ### Fabric suites failing in `configtxgen`
 
-Before the fabric-x tools moved into `$FAB_BINS/fabric-x`,
-`make install-fabricx-tools` installed its `configtxgen` and `cryptogen` on top
-of fabric's. If you ran it against an older checkout, those two binaries in
-`$FAB_BINS` are still the fabric-x ones, and every `fabric-*` suite fails while
-generating artifacts. `make install-fabric-bins` will not repair it, because it
+Every `fabric-*` suite fails while generating artifacts when the `configtxgen`
+and `cryptogen` in `$FAB_BINS` are the fabric-x ones rather than fabric's. This
+happens when an older checkout's `make install-fabricx-tools` installed them
+directly into `$FAB_BINS` instead of `$FAB_BINS/fabric-x`. `make install-fabric-bins` will not repair it, because it
 skips the download whenever `bin/peer version` already matches
 `FABRIC_VERSION`. Remove the directory and re-install once:
 
@@ -407,7 +405,7 @@ Omit the argument to update all direct dependencies to their latest versions:
 ./scripts/gomate.sh update
 ```
 
-Be careful with updating all dependencies at once. This may easily break something.
+Updating all dependencies at once can introduce breaking changes; review the result.
 Note that `gomate.sh tidy` can also be invoked via `make tidy`. 
 After updating, run `make tidy` and `make checks` to verify the result.
 

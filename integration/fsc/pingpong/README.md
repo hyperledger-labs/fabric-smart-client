@@ -444,8 +444,8 @@ of Fabric's `cryptogen`), and
 Now, it is time for Alice to initiate the ping pong. To do so, Alice must contact her 
 FSC node and ask the node to create a new instance of the `init` view, and run it.
 Now, recall that each FSC node exposes a GRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
-to this GRPC service and send the proper command. Fortunately enough, the Integration Test Infrastructure
-take care also of this.
+to this GRPC service and send the proper command. The Integration Test Infrastructure
+takes care of this.
 
 To get the View Service client for Alice, we can do the following:
 ```go

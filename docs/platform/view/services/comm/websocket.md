@@ -10,7 +10,7 @@ This transport is designed for deployments where standard web ports are preferre
 - **HTTPS Handshake**: Initial connection and authentication happen over standard HTTP(S).
 - **WebSocket Upgrade**: Connections are upgraded to WebSockets for persistent, full-duplex messaging.
 - **Multiplexing**: Multiple logical FSC streams are multiplexed over a single physical WebSocket.
-- **Mutual TLS**: mTLS is mandatory and strictly enforced for both server and client authentication (`tls.RequireAndVerifyClientCert`).
+- **Mutual TLS**: mTLS is required for both server and client authentication (`tls.RequireAndVerifyClientCert`).
 - **TLS 1.3 Only**: Both server and client TLS configurations pin `MinVersion`/`MaxVersion` to `tls.VersionTLS13`; handshakes offering TLS 1.2 or lower are rejected.
 - **Dynamic Port Assignment**: The transport supports starting on a dynamic port (by setting the port to `0` in `listenAddress`). The actual assigned port is automatically retrieved and used for service discovery and readiness checks.
 
@@ -71,9 +71,9 @@ type MultiplexedMessage struct {
 
 ## Performance and Security
 
--   **TLS Caching**: Trusted root CAs are cached in memory to avoid disk I/O during handshakes. Dynamic trust updates (from the `EndpointService`) are appended to a clone of this cached pool in memory, significantly improving connection throughput.
+-   **TLS Caching**: Trusted root CAs are cached in memory to avoid disk I/O during handshakes. Dynamic trust updates (from the `EndpointService`) are appended to a clone of this cached pool in memory.
 -   **Minimum TLS Version**: Both `ClientTLSConfig` and `ServerTLSConfig` (in `platform/view/services/comm/host/websocket/config.go`) set `MinVersion: tls.VersionTLS13`, so older protocol versions cannot be negotiated even if a peer offers them.
--   **Identity Binding (Issue #871)**: The `PeerID` asserted in the application layer (during the WebSocket upgrade) is strictly validated against the public key extracted from the verified TLS certificate. The transport layer rejects any attempt to spoof an identity.
+-   **Identity Binding**: The `PeerID` asserted in the application layer (during the WebSocket upgrade) is validated against the public key extracted from the verified TLS certificate. The transport layer rejects any attempt to spoof an identity.
 -   **Server Identity Binding**: A client stream opens only if the server's verified certificate belongs to the dialed `PeerID`. The client checks this during the TLS handshake and again on the established connection. The multiplexed provider caches connections per address and `PeerID`, so a cached connection never carries a stream for a different peer.
 -   **Runtime Trust Updates**: The transport trusts the peer certificates the `EndpointService` holds at the time of each connection. The server re-reads them on every inbound handshake and the client on every outbound stream, so a peer added at runtime is trusted and a peer removed at runtime is no longer trusted. Removal does not close established connections, and an outbound connection that is already open keeps carrying new streams.
 -   **Read Limits**: Each WebSocket connection sets a read limit (`SetReadLimit`) derived from `fsc.p2p.maxRecvMsgSize` plus the base64 and envelope overhead (`wireReadLimit`) to prevent OOM attacks.
@@ -149,16 +149,15 @@ fsc:
 
 | Feature | File Path |
 | :--- | :--- |
-| WEBSOCKET Host Implementation | `platform/view/services/comm/host/websocket/host.go` |
+| WebSocket Host Implementation | `platform/view/services/comm/host/websocket/host.go` |
 | WebSocket Multiplexer | `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go` |
 | mTLS Auth and Identity Extraction | `platform/view/services/comm/host/websocket/ws/auth.go` |
 | WebSocket Stream Wrapper | `platform/view/services/comm/host/websocket/ws/stream.go` |
 | Delimited Proto Reader | `platform/view/services/comm/host/websocket/ws/streamreader.go` |
 | CA Pool Caching | `platform/view/services/comm/host/websocket/config.go` |
 
-## Bootstrapping for AI Agents
+## Code walkthrough
 
-To follow the message flow in the WEBSOCKET transport:
-1.  **Outgoing**: `platform/view/services/comm/host/websocket/client.go` calls `OpenStream`, which uses the `MultiplexedProvider` to either get a sub-connection or open a new WebSocket.
-2.  **Incoming**: `platform/view/services/comm/host/websocket/server.go` registers a handler on `/p2p`. The handler calls `NewServerStream` in `MultiplexedProvider`.
-3.  **Data Encoding**: Note that `websocket.stream` uses a `delimitedReader` to ensure that raw protobuf packets are correctly framed within WebSocket binary messages.
+- **Outgoing streams**: `host.NewStream` (`host/websocket/host.go`) resolves the peer's address through the routing service and calls `client.OpenStream` (`host/websocket/client.go`), which adds the current extra CAs to the TLS root pool and calls `MultiplexedProvider.NewClientStream`. The provider reuses a cached WebSocket to that address and `PeerID` for a new sub-connection or dials a new one.
+- **Incoming streams**: the server (`host/websocket/server.go`) serves `GET /p2p` and hands each request to `MultiplexedProvider.NewServerStream`, which upgrades it to a WebSocket and passes every new sub-connection to the `P2PNode` callback.
+- **Framing**: `stream.Write` (`host/websocket/ws/stream.go`) feeds the bytes the comm layer writes into a `delimitedReader` (`ws/streamreader.go`), which emits one complete length-delimited `ViewPacket` at a time, so each message the stream sends carries exactly one packet.

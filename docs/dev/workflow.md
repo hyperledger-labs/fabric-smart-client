@@ -13,11 +13,11 @@ The process is designed to:
 
 Every issue should have a type:
 
-| Type      | Meaning                           |
-|-----------|-----------------------------------|
-| `Bug`     | Something is broken               |
-| `Feature` | New feature or improvement        |
-| `Task`    | A specific, bounded piece of work |
+| Type      | Meaning                                       |
+|-----------|-----------------------------------------------|
+| `Bug`     | Something is broken                           |
+| `Feature` | New user-facing capability                    |
+| `Task`    | Maintenance, improvement, or operational work |
 
 And one of the following status labels:
 

@@ -7,7 +7,7 @@ If you are looking for runtime usage and operator inspection guidance, see [Runt
 ## Project terminology
 
 ### Database
-A project can support multiple databases, as long as the relations of the DB don't have to interact. The common practice would be to use just one DB per project, e.g. Postgres. We can also have multiple Postgres databases in one project (also not recommended for simplicity purposes). 
+A project can use several databases, of the same type or of different types (for example two Postgres databases), as long as no relation spans two of them. One database per project, for example Postgres, is the simpler setup.
 
 ### Persistence
 A persistence is an instantiation strategy, and it is backed by a specific database.
@@ -246,7 +246,7 @@ A step whose change SQL cannot express sets `Go`, which runs after the step's `S
 
 The rules for released steps cover the Go function too: a database that applied the step never runs a changed function body. A step that rewrites existing data needs a test that checks the rewritten values; the fixture tests under `platform/fabric/services/db/driver/sql/testdata` only check that the rows they wrote still read back after every step.
 
-A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store, opts...)` where it calls `CreateSchema()` today, with `opts` from the persistence's `ConfigProvider.MigrateOptions(skipCreateTable)`, as the FSC constructors do. On SQLite, pass the single-connection write pool. To honor the persistence's `queryTimeout`, derive each statement's context with `sqlcommon.QueryTimeout(cfg.QueryTimeout).Context(ctx)`, and close an iterator of rows with `sqlcommon.NewWrappedIteratorWithCancel`, so that the deadline lasts until the rows are read.
+A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store, opts...)` in place of `CreateSchema()`, with `opts` from the persistence's `ConfigProvider.MigrateOptions(skipCreateTable)`, as the FSC constructors do. On SQLite, pass the single-connection write pool. To honor the persistence's `queryTimeout`, derive each statement's context with `sqlcommon.QueryTimeout(cfg.QueryTimeout).Context(ctx)`, and close an iterator of rows with `sqlcommon.NewWrappedIteratorWithCancel`, so that the deadline lasts until the rows are read.
 
 A table that several stores use is versioned by one of them, its owner: only the owner lists steps for the table, so the table has a single row in the versions table. Each store migrates when it is opened, so steps that depend on another store's tables, for example through a foreign key, run after that store has been opened.
 
@@ -298,10 +298,8 @@ type Driver interface {
 
 ## Adding Drivers or Creating Drivers on new Projects
 
-Although in the scope of this project, it is sufficient to extend the existing Driver with the addition of more methods for new stores, it will be necessary to add stores in extending projects.
-
-In that case, you will need to create a new Driver interface that follows the same principles as before (containing only the new stores) and make sure that:
-* the `Driver` is implemented by all necessary DBs. If you do not support `memory` in your `core.yaml`, then there is no need to create an extending `Driver`. Similarly, if you want to support more DBs, you will need to extend them accordingly.
+Within FSC, a new store is added as a method of the existing `Driver`. A project built on FSC that adds its own stores defines a new `Driver` interface instead, built on the same principles and containing only the new stores, and makes sure that:
+* every database the project supports implements the new `Driver`. A database the project's `core.yaml` does not use, such as `memory`, needs no implementation; supporting another database means implementing the `Driver` for it too.
 * there is a new `multiplexed.Driver` that combines the rest of the `Driver` implementations
 * the `Driver` implementations are wired in the SDK
 * there is a section in the `core.yaml` that follows the same format and defines the characteristics of the store

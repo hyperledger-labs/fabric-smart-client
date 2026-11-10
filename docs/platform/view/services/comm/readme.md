@@ -44,7 +44,7 @@ Security is integrated at every level of the Comm stack:
 
 -   **Node Identity**: All transport implementations use the node's main identity (configured via `fsc.identity.key.file` and `fsc.identity.cert.file`) for securing the transport layer.
 -   **Transport Security**: All communication is encrypted and authenticated at the transport layer (e.g., mTLS for Websocket, Noise/TLS for Libp2p).
--   **Identity Binding**: The identity asserted in the application layer is strictly validated against the cryptographically verified identity from the transport layer. This ensures that the remote peer's identity is a verified source of truth.
+-   **Identity Binding**: The identity asserted in the application layer is validated against the cryptographically verified identity from the transport layer. This ensures that the remote peer's identity is a verified source of truth.
 -   **Session Identity Exposure**: Each `NetworkStreamSession` populates `SessionInfo.RemotePKID` with the cryptographically verified remote peer ID and `SessionInfo.LocalPKID` with the local node's peer ID (obtained via `P2PHost.PeerID()`). Both fields are available to view code through `session.Info()`, enabling symmetric identity resolution and signing without out-of-band lookups.
 -   **Session Isolation**: All logical sessions are internally identified by a combination of the `SessionID` and the **authenticated** `PeerID` of the remote participant. This prevents attackers from injecting messages into sessions between other peers.
 -   **Resource Hardening**: The Comm layer enforces strict limits to prevent Denial of Service (DoS) attacks:

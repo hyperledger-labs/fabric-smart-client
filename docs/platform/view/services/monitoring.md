@@ -2,11 +2,11 @@
 
 ## Overview
 
-We use the following two methods to monitor the performance of the application:
+FSC offers two ways to monitor the performance of an application:
 * **Metrics** provide an overview of the overall system performance using aggregated results, e.g. total requests, requests per second, current state of a variable, average duration, percentile of duration
-* **Traces** help us analyze single requests by breaking down their lifecycles into smaller components
+* **Traces** analyze single requests by breaking down their lifecycles into smaller components
 
-For a complete list of the metric families currently defined by FSC, see the [Metrics Catalog](./monitoring_metrics.md).
+For a complete list of the metric families FSC defines, see the [Metrics Catalog](./monitoring_metrics.md).
 
 ## Metrics
 
@@ -128,8 +128,8 @@ func (p *SDK) Install() error {
 
 The visualization of the prometheus metrics can be done in three different steps:
 * **Prometheus Exporter:** The application collects the metrics and exposes them on `/metrics`, served on `fsc.metrics.address` when set and on `fsc.web.address` otherwise. Unless `fsc.metrics.clientAuthRequired` is `false`, the endpoint requires a verified client certificate, so a browser or scraper must present one signed by the listener's `clientRootCAs`.
-* **Prometheus Server:** A separate server can be run on the same or a different host that scrapes the data from the endpoint we explained above and presents aggregated results. The fastest way is using the Docker image `prom/prometheus:latest` and adding in the `prometheus.yaml` configuration file the endpoints that need to be scraped. The Prometheus server keeps a local database to record the history of the scraped metrics. The server provides a simple UI, as well as a REST interface to query the aggregated metrics.
-* **Grafana UI:** On top of the Prometheus server we can use a separate UI that issues queries to the Prometheus server and visualizes the results in more complex graphs. Additionally, dashboard pages can be defined to collect different graphs. The fastest way is using the Docker image `grafana/grafana:latest`, where the endpoint of the Prometheus server is passed in the configuration as a datasource, and the various dashboards are mounted on the image, so they don't need to be configured each time.
+* **Prometheus Server:** A separate server can be run on the same or a different host that scrapes the data from the endpoint above and presents aggregated results. The fastest way is using the Docker image `prom/prometheus:latest` and adding in the `prometheus.yaml` configuration file the endpoints that need to be scraped. The Prometheus server keeps a local database to record the history of the scraped metrics. The server provides a simple UI, as well as a REST interface to query the aggregated metrics.
+* **Grafana UI:** On top of the Prometheus server, a separate UI that issues queries to the Prometheus server and visualizes the results in more complex graphs. Additionally, dashboard pages can be defined to collect different graphs. The fastest way is using the Docker image `grafana/grafana:latest`, where the endpoint of the Prometheus server is passed in the configuration as a datasource, and the various dashboards are mounted on the image, so they don't need to be configured each time.
 
 ## Traces
 
@@ -160,11 +160,11 @@ Any other `fsc.tracing.provider` value is rejected at startup.
 The default implementation is defined in the view SDK, but can be overridden in the same way as the metrics provider.
 
 FSC provides also an enhanced implementation of the `tracing.Provider` that keeps metrics in the background for each span.
-Whenever we start spans, we keep track of the count and the duration of the operations. To use it, override the existing tracer provider with this implementation using `tracing.NewProviderWithBackingProvider`.
+For every span started, it records the count and the duration of the operation. To use it, override the existing tracer provider with this implementation using `tracing.NewProviderWithBackingProvider`.
 
 ### Adding traces
 
-The base unit of the traces are the spans. A span represents a unit of work. In our code, we only start new spans and then these spans are linked to compose traces by the remote agent (in case we use OTLP as provider).
+The base unit of the traces are the spans. A span represents a unit of work. FSC code only starts spans; the remote agent (with the OTLP provider) links them into traces.
 
 1. For instance, in the case of a transfer, the transfer operation is conceptually a trace. The first span of this trace can be created on the end user that initiates the client (e.g. alice).
 2. When the request arrives to the recipient (e.g. bob), another span can be initiated when the corresponding view is invoked.
@@ -174,24 +174,27 @@ The base unit of the traces are the spans. A span represents a unit of work. In 
 In order to link the different spans to compose a single trace, the span metadata (span context) have to be propagated from one request to the other (i.e. from alice to bob, from bob to the intermediaries, from bob back to alice).
 This happens automatically by passing the context from one unit of work to the other.
 
-We have the following main cases where the span context has to be transmitted:
+The span context has to be transmitted in the following cases:
 1. Within the same FSC node (case 3 in the above example). These calls can be performed in the following ways:
    1. calling a view
    2. calling a service
 2. During remote calls (cases 1, 2, 4 in the above example). These calls can be performed in the following ways:
    1. calling a view using GRPC/REST (case 1, when alice calls the view on bob)
    2. calling a RESTful API directly
-   3. using sessions (case 3, when bob collects endorsements using the session factory)
+   3. using sessions (case 4, when bob collects endorsements using the session factory)
 
-For all the above cases (except 1.ii), the span-context propagated is taken care of in the background by the application.
-The developer must however make sure that the context is propagated between invocations of services.
+FSC propagates the span context itself in cases 1.i and 2.i, and in case 2.iii over WebSocket: a view called in-process
+runs with the caller's context, a view called over gRPC or REST carries the span context in the request (through the
+OpenTelemetry gRPC and HTTP instrumentation), and a WebSocket session carries it in the stream metadata. A libp2p
+session does not carry it. In case 1.ii the developer passes the context to every service call, and in case 2.ii
+the HTTP client has to inject it, for example with `otelhttp.NewTransport`.
 
 #### Add Events
 
 **You will not need to add new spans, but only add events to the existing spans.**
 
 * The simplest way to add an event to an existing context is using the loggers methods.
-In the following cases, both events will be added, but the log will be logged only if we have debug logs enabled.
+In the following cases, both events will be added, but the log line is written only if debug logging is enabled.
 ```go
 logger.DebugfContext(ctx, "here is a debug event")
 logger.InfofContext(ctx, "here is an info event.")
@@ -297,7 +300,7 @@ Note that you can also link two spans for better visualization on the UI.
 
 ### Visualization
 
-Reading single spans from the console or a file is cumbersome and this is why we use tools that:
+Reading single spans from the console or a file is cumbersome and tools exist that:
 * collect the spans
 * combine the spans by their metadata (span context) and compose traces
 * allow querying of traces based on their name, labels, time, etc.

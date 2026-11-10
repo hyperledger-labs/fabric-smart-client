@@ -181,7 +181,7 @@ In particular:
 - common entry points are `queryservice.GetQueryService(...)` and the channel/vault API
 - the Fabric-x vault uses a `QueryService` for state reads
 - range queries are not supported by the Fabric-x vault query executor
-- local persistence still exists for envelope, metadata, and endorse-tx data, but Fabric-x state queries do not read from local SQL vault tables
+- envelope, metadata, and endorse-tx data are kept in local persistence, but Fabric-x state queries do not read from local SQL vault tables
 
 Operationally:
 

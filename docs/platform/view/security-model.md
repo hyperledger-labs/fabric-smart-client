@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. Remote parties are a separate boundary: the organization is the unit of trust, and FSC nodes and peers of other organizations may be malicious. [Data Received from Peers](#data-received-from-peers) and the sections after it describe what a node checks in their input. This document describes both, their implications, and best practices for secure deployment.
+The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. Remote parties are a separate boundary: the organization is the unit of trust, and FSC nodes and peers of other organizations may be malicious. [Data Received from Peers](#data-received-from-peers) and the sections after it describe what a node checks in their input. This page covers both boundaries: what view code can do inside the process, what a node checks in input from remote parties, and how to deploy a node with that in mind.
 
 ## Security Model
 
@@ -27,8 +27,6 @@ Unlike containerized or sandboxed execution environments, FSC views execute with
 ### Dependency Chain Trust
 
 The security model extends beyond your own view code:
-
-> **"Once your dependencies are in, they are in. While I may trust your code, I may not trust your dependencies."**
 
 - All transitive dependencies become part of the TCB
 - Compromised dependencies can exploit the same vulnerabilities as malicious view code
@@ -277,8 +275,19 @@ and whose signature counts for it, so the store and `endpoint.Service`
   a known long-term identity. A proven bind therefore replaces a row another party planted for
   the proven ephemeral. It does not repair a planted row on the long-term identity itself: the
   long term's self-row is written only if the long term has no row yet. Binds never remove such a
-  row; the operator check in the [upgrade guide](../../upgrade/v0.27-to-v0.28.md#binding-store)
-  does.
+  row; an operator does, as described below.
+
+A planted row is one whose `ephemeral_hash` is the hash (`base64(sha256(identity bytes))`) of an
+identity that is itself the `long_term_id` of some row, while the row binds it to a different
+long-term identity. In the default store the table is `fsc_default_bind`. Many such rows are
+legitimate: a node binds its own identities to each other (its Fabric MSP identity to its FSC
+identity, and an `endpoint.resolvers` entry to the FSC identity of the resolver with the same
+name), and endorsement checks rely on them. To find planted rows, list these candidates, decode
+both identities and compare the certificates they carry. Delete a row only if its two identities
+clearly belong to different parties; an identity without a certificate, such as an Idemix
+identity, cannot be attributed this way, so keep its rows. The
+[v0.27 to v0.28 upgrade guide](../../upgrade/v0.27-to-v0.28.md#binding-store) has the queries
+for Postgres and SQLite.
 
 The no-redirect rule protects only identities the node already knows. An identity with neither a
 self-row nor a resolver, such as a party this node has not exchanged with yet, can be bound as
@@ -334,10 +343,3 @@ describes.
 - Never mix trusted and untrusted views on the same node
 - Every client on `fsc.view.remote.clients` may call every view unless a policy checker narrows it;
   see [Remote View API Access Control](services/view-service.md#remote-view-api-access-control)
-
-## Conclusion
-
-The FSC view runtime security model requires **complete trust in all deployed view code and dependencies**. Developers must implement strict governance and access controls to ensure only trusted code executes on FSC nodes. 
-
-**Key Takeaway**: Treat view deployment with the same security rigor as deploying system-level code or kernel modules. Once malicious code enters the process space, the entire node is compromised.
-
