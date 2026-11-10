@@ -1001,23 +1001,25 @@ func TestPostgresMigratorDiesMidStep(t *testing.T) { //nolint:paralleltest // re
 
 		doneA := make(chan error, 1)
 		go func() { doneA <- migrate.Migrate(ctx, dbA, b.dialect, "dies", s) }()
-		<-d.running
+		recv(t, d.running)
 		doneB := make(chan error, 1)
-		go func() { doneB <- migrate.Migrate(ctx, dbB, b.dialect, "dies", s) }()
+		go func() { doneB <- migrate.Migrate(ctx, dbB, b.dialect, "dies", s, migrate.WithLockTimeout(waitTimeout)) }()
 		d.kill(t, admin, logs)
 
-		require.NoError(t, <-doneB)
+		require.NoError(t, recv(t, doneB))
 		require.EqualValues(t, 2, d.calls.Load(), "the waiting migrator ran the step")
 		var rows int
 		require.NoError(t, admin.QueryRowContext(ctx, "SELECT count(*) FROM dies_s").Scan(&rows))
 		require.Equal(t, 1, rows)
 		requireVersion(t, admin, "dies_schema_versions", "dies_s", 2)
 		d.unblock() // the dead step returns, and its Migrate fails
-		require.Error(t, <-doneA)
+		require.Error(t, recv(t, doneA))
 	})
 
-	// The older opener waits for the dead step's lock on the openers table and gets
-	// it before the waiting migrator gets the migration lock, so it records its row.
+	// The older opener waits for the dead step's lock on the openers table. Postgres
+	// grants it when the dead backend releases its locks, before the waiting migrator
+	// polls for the migration lock again, so the opener records its row and blocks
+	// the contract step. Once that row is forgotten, a migrator runs the step once.
 	t.Run("ContractStep", func(t *testing.T) { //nolint:paralleltest // uses the lock intervals and logger the parent replaced
 		dbA, dbB, dbOld, admin := b.open(t), b.open(t), b.open(t), b.open(t)
 		ctx := t.Context()
@@ -1032,27 +1034,53 @@ func TestPostgresMigratorDiesMidStep(t *testing.T) { //nolint:paralleltest // re
 
 		doneA := make(chan error, 1)
 		go func() { doneA <- migrate.Migrate(ctx, dbA, b.dialect, "diec", next, migrate.WithContract()) }()
-		<-d.running
+		recv(t, d.running)
 		opened := make(chan error, 1)
 		go func() { opened <- migrate.Migrate(ctx, dbOld, b.dialect, "diec", previous, migrate.WithNode("old")) }()
 		require.Eventually(t, func() bool {
 			var n int
 			err := admin.QueryRowContext(ctx, "SELECT count(*) FROM pg_locks WHERE relation = 'diec_schema_openers'::regclass AND NOT granted").Scan(&n)
 			return err == nil && n > 0
-		}, 5*time.Second, 10*time.Millisecond, "the older opener waits for the openers table")
+		}, waitTimeout, 10*time.Millisecond, "the older opener waits for the openers table")
 		doneB := make(chan error, 1)
-		go func() { doneB <- migrate.Migrate(ctx, dbB, b.dialect, "diec", next, migrate.WithContract()) }()
+		go func() {
+			doneB <- migrate.Migrate(ctx, dbB, b.dialect, "diec", next, migrate.WithContract(), migrate.WithLockTimeout(waitTimeout))
+		}()
 		d.kill(t, admin, logs)
 
-		require.NoError(t, <-opened)
-		require.ErrorIs(t, <-doneB, migrate.ErrOlderOpener)
+		require.NoError(t, recv(t, opened))
+		require.ErrorIs(t, recv(t, doneB), migrate.ErrOlderOpener)
 		require.EqualValues(t, 1, d.calls.Load(), "the contract step ran again")
 		requireRow(t, admin, "diec_schema_versions", "diec_s", 1, 0)
 		requireNoTable(t, admin, b.dialect, "diec_s_t2")
 		requireOpener(t, admin, "diec_schema_openers", "diec_s", "old", 1)
+
+		require.NoError(t, migrate.Migrate(ctx, dbB, b.dialect, "diec", next, migrate.WithContract(), migrate.WithForgetOpeners("old")))
+		require.EqualValues(t, 2, d.calls.Load(), "the contract step ran on the next migrator")
+		requireRow(t, admin, "diec_schema_versions", "diec_s", 2, 2)
+		var tables int
+		require.NoError(t, admin.QueryRowContext(ctx, "SELECT count(*) FROM pg_tables WHERE tablename = 'diec_s_t2'").Scan(&tables))
+		require.Equal(t, 1, tables)
 		d.unblock()
-		require.Error(t, <-doneA)
+		require.Error(t, recv(t, doneA))
 	})
+}
+
+// waitTimeout bounds every wait of TestPostgresMigratorDiesMidStep, so a lock that
+// is not released fails the test instead of hanging it.
+const waitTimeout = 5 * time.Second
+
+// recv returns the next value from c, failing t after waitTimeout.
+func recv[T any](t *testing.T, c <-chan T) T {
+	t.Helper()
+	select {
+	case v := <-c:
+		return v
+	case <-time.After(waitTimeout):
+		t.Fatalf("no result within %s", waitTimeout)
+		var zero T
+		return zero
+	}
 }
 
 // dyingStep is the Go part of a step whose first run blocks until unblock, so the
@@ -1091,7 +1119,8 @@ func (d *dyingStep) kill(t *testing.T, admin *sql.DB, logs *logging.Recorder) {
 	t.Helper()
 	require.Eventually(t, func() bool {
 		return len(logs.EntriesContaining(fmt.Sprintf("held by pid %d (", d.pid))) > 0
-	}, 5*time.Second, 10*time.Millisecond)
-	_, err := admin.ExecContext(t.Context(), "SELECT pg_terminate_backend($1)", d.pid)
-	require.NoError(t, err)
+	}, waitTimeout, 10*time.Millisecond)
+	var ok bool
+	require.NoError(t, admin.QueryRowContext(t.Context(), "SELECT pg_terminate_backend($1)", d.pid).Scan(&ok))
+	require.True(t, ok, "backend %d not terminated", d.pid)
 }
