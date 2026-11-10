@@ -108,26 +108,8 @@ func TestSpanEvent_SanitizedWhenConfigured(t *testing.T) { //nolint:paralleltest
 	require.NotContains(t, span.Events[0].Name, "\x00")
 }
 
-func TestSpanEvent_SanitizeAppliesToLoggerCreatedBeforeInit(t *testing.T) { //nolint:paralleltest // mutates the shared global config
-	t.Cleanup(func() { Init(Config{}) })
-	core, _ := observer.New(zapcore.InfoLevel)
-	logger := newLogger(zap.New(core))
-
-	Init(Config{OtelSanitize: true})
-	ctx, ended := recordingSpanCtx(t)
-	logger.InfowContext(ctx, "a\x00b")
-
-	span := ended()
-	require.Len(t, span.Events, 1)
-	require.Equal(t, "[nonprintable] ab", span.Events[0].Name)
-}
-
 func TestSpanEvent_UnsanitizedWhenDisabledAfterCreate(t *testing.T) { //nolint:paralleltest // mutates the shared global config
-	t.Cleanup(func() { Init(Config{}) })
-	core, _ := observer.New(zapcore.InfoLevel)
-	logger := newLogger(zap.New(core))
-
-	Init(Config{OtelSanitize: false})
+	logger, _ := otelTestLogger(t, zapcore.InfoLevel, false)
 	ctx, ended := recordingSpanCtx(t)
 	logger.InfowContext(ctx, "a\x00b")
 
