@@ -51,8 +51,9 @@ const BACKPORT_TITLE = /^(.+) \(backport (#\d+)\)$/;
 /**
  * Returns an error when the PR has exactly one commit and its header differs from
  * the title, or null otherwise. While a PR has several commits (fixups during
- * review) the header is not compared. A backport titled "<title> (backport #N)"
- * cherry-picks the squash commit of PR N, whose header is "<title> (#N)".
+ * review) the header is not compared. A backport to a release branch, titled
+ * "<title> (backport #N)", cherry-picks the squash commit of PR N, whose header is
+ * "<title> (#N)".
  * @param {object} botContext
  * @returns {Promise<string|null>}
  */
@@ -62,7 +63,7 @@ async function headerMismatch(botContext) {
   if (commits.length !== 1) return null;
   const header = (commits[0].commit?.message || '').split('\n')[0];
   if (header === botContext.pr.title) return null;
-  const backport = BACKPORT_TITLE.exec(botContext.pr.title);
+  const backport = botContext.pr.base?.ref?.startsWith('release-') && BACKPORT_TITLE.exec(botContext.pr.title);
   if (backport && header === `${backport[1]} (${backport[2]})`) return null;
   return `The commit header "${header}" must equal the PR title.`;
 }

@@ -142,7 +142,7 @@ function mockGithub({ commits = [] } = {}) {
   return github;
 }
 
-function context({ title, labels = [], commits = 1 }) {
+function context({ title, labels = [], commits = 1, base = 'main' }) {
   return {
     eventName: 'pull_request_target',
     repo: { owner: 'hyperledger-labs', repo: 'fabric-smart-client' },
@@ -153,6 +153,7 @@ function context({ title, labels = [], commits = 1 }) {
         title,
         commits,
         head: { sha: 'headsha' },
+        base: { ref: base },
         user: { login: 'alice' },
         labels: labels.map((name) => ({ name })),
       },
@@ -190,13 +191,21 @@ const scenarios = [
   {
     name: 'backport by Mergify: the cherry-picked header keeps the original PR number',
     title: 'fix(view): y (backport #2601)',
+    base: 'release-0.29',
     commits: [commit('fix(view): y (#2601)\n\n(cherry picked from commit abc)')],
     expect: { state: 'success', added: ['fix'], removed: [] },
   },
   {
     name: 'backport of another PR: failure',
     title: 'fix(view): y (backport #2601)',
+    base: 'release-0.29',
     commits: [commit('fix(view): y (#2602)')],
+    expect: { state: 'failure', descriptionIncludes: 'commit header', added: ['fix'], removed: [] },
+  },
+  {
+    name: 'backport title on a PR to main: header compared as usual',
+    title: 'fix(view): y (backport #2601)',
+    commits: [commit('fix(view): y (#2601)')],
     expect: { state: 'failure', descriptionIncludes: 'commit header', added: ['fix'], removed: [] },
   },
   {
@@ -219,7 +228,7 @@ async function runScenario(s, index) {
   console.log(`\n🧪 TEST ${index}: ${s.name}`);
   const github = mockGithub({ commits: s.commits });
   try {
-    await script({ github, context: context({ title: s.title, labels: s.labels, commits: s.prCommits || s.commits.length }) });
+    await script({ github, context: context({ title: s.title, labels: s.labels, commits: s.prCommits || s.commits.length, base: s.base }) });
   } catch (error) {
     console.log(`❌ threw: ${error.message}`);
     return false;

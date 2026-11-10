@@ -137,7 +137,6 @@ func sameSchema(dir string, prev, v semver, r Report) error {
 	if err := json.Unmarshal(raw, &released); err != nil {
 		return errors.Wrapf(err, "failed parsing the release data of %s", prev)
 	}
-	// Compared as JSON, where a nil and an empty list are the same.
 	was, err := json.Marshal(released)
 	if err != nil {
 		return errors.Wrap(err, "failed marshalling the released stores")

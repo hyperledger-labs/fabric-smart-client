@@ -176,14 +176,15 @@ prepare() {
         confirm "Is $guide complete: every breaking change has a section that says what to do, and the checklist lists every step?"
     else
         # A patch carries fixes only: a feature or a breaking change waits for the next minor.
-        # The release tooling and the workflows run from the branch: it needs them as on main.
-        if ! git cat-file -e "$REMOTE/$b:$RELEASES/$previous.json" 2>/dev/null ||
-            ! git show "$REMOTE/$b:.github/workflows/tests.yml" | grep -q "release-\*"; then
-            die "$b lacks the release tooling of main; backport it as docs/dev/releasing.md, Creating a release branch, shows"
+        # The release steps and CI run from the branch, so it must come from a minor cut with
+        # them: one whose Makefile has the release targets and whose Tests run on release-*.
+        if ! git grep -q '^release-pr:' "$REMOTE/$b" -- Makefile ||
+            ! git grep -q "release-\*" "$REMOTE/$b" -- .github/workflows/tests.yml; then
+            die "$b predates patch releases; only a minor cut with them gets a release branch (docs/dev/releasing.md, Creating a release branch)"
         fi
         local unfit
         unfit=$( (git log --format='%h %s' "$previous..$REMOTE/$b" | grep -E '^[0-9a-f]+ (feat[(:!]|[a-z]+(\([^)]*\))?!:)'
-            git log --format='%h %s%n%b' "$previous..$REMOTE/$b" | grep -B100 -E '^BREAKING[ -]CHANGE:' | grep -E '^[0-9a-f]{7,} ') |
+            git log -E --grep='^BREAKING[ -]CHANGE:' --format='%h %s' "$previous..$REMOTE/$b") |
             sort -u || true)
         [[ -z "$unfit" ]] || die "a patch carries fixes only, but $b has:"$'\n'"$unfit"
         say "$version has these commits since $previous:"
@@ -312,10 +313,11 @@ publish() {
     if [[ -z "$version" ]]; then
         # A run that stopped after pushing the tags left the GitHub release to create:
         # the latest release with a data file on $REMOTE and a tag in this repository.
+        # A patch can be such a release after a newer minor, so VERSION picks it.
         version=${VERSION:-$(released | tail -n1)}
         released | grep -qxF -- "$version" || die "no release ${VERSION:-of $REPO} on $REMOTE; merge the release PR first"
         gh release view "$version" -R "$REPO" >/dev/null 2>&1 &&
-            die "no untagged release on $REMOTE; merge the release PR first"
+            die "no untagged release on $REMOTE; merge the release PR first, or set VERSION to a release whose tags are pushed but which has no GitHub release"
         say "$version is tagged but has no GitHub release"
         confirm "Create the GitHub release of $version?"
         git show "$version:$RELEASES/$version.md" > "$TMP/notes.md"
@@ -358,8 +360,12 @@ publish() {
     echo "The checkout is on the release commit, detached; switch back with: git switch main"
 }
 
+# release creates the GitHub release $1 with notes $2. A patch is never marked Latest: a
+# newer minor may be out.
 release() {
-    write gh release create "$1" -R "$REPO" --verify-tag --title "$1" --notes-file "$2"
+    local latest=true
+    [[ "$1" =~ \.0$ ]] || latest=false
+    write gh release create "$1" -R "$REPO" --verify-tag --title "$1" --notes-file "$2" --latest="$latest"
     [[ "$REPO" == "$MAIN_REPO" ]] && echo "Announce the release in #fabric-smart-client on the LFDT Discord."
     return 0
 }

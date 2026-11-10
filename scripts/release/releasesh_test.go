@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,7 +50,8 @@ esac`,
 }
 
 // releaseFixture is a repository like FSC's as far as scripts/release.sh can tell, with
-// an upgrade guide for v0.29 and tag v0.28.0, cloned from a bare "upstream".
+// an upgrade guide for v0.29 and tag v0.28.0, cloned from a bare "upstream". v0.28.0 is cut
+// with patch releases: its Makefile has the release targets and its Tests run on release-*.
 type releaseFixture struct {
 	t                  *testing.T
 	dir, upstream, log string
@@ -68,6 +70,8 @@ func newReleaseFixture(t *testing.T) *releaseFixture {
 		fixturesDir + "/generate.sh":     "#!/usr/bin/env bash\nmkdir -p \"$(dirname \"$0\")/$2\" && echo fixture > \"$(dirname \"$0\")/$2/SHA256SUMS\"\n",
 		"scripts/release.sh":             readScript(t, "release.sh"),
 		"scripts/tag-release.sh":         readScript(t, "tag-release.sh"),
+		"Makefile":                       "release-pr:\n",
+		".github/workflows/tests.yml":    "branches: [main, 'release-*']\n",
 	}
 	src := newRepo(t, files)
 	require.NoError(t, os.Chmod(filepath.Join(src, fixturesDir, "generate.sh"), 0o700))  //nolint:gosec // an executable script
@@ -154,32 +158,19 @@ func (f *releaseFixture) mergeTo(version, base string) {
 	run(f.t, work, "push", "-q", "origin", "HEAD:"+base)
 }
 
-// releaseBranch creates release-0.28 on upstream from v0.28.0, with the release tooling of
-// main backported, as docs/dev/releasing.md says, and one commit of subject, as a backport adds
-// it.
-func (f *releaseFixture) releaseBranch(subject string) {
+// releaseBranch creates release-0.28 on upstream from v0.28.0, with commits of subjects on
+// it, as backports add them, oldest first.
+func (f *releaseFixture) releaseBranch(subjects ...string) {
 	f.t.Helper()
-	f.bareReleaseBranch()
-	run(f.t, f.dir, "switch", "-q", "-c", "backport", "upstream/release-0.28")
-	writeFiles(f.t, f.dir, map[string]string{
-		releasesDir + "/v0.28.0.json": "{}\n",
-		".github/workflows/tests.yml": "branches: [main, 'release-*']\n",
-	})
-	run(f.t, f.dir, "add", "-A")
-	run(f.t, f.dir, "commit", "-q", "-m", "ci: backport the release tooling")
-	writeFiles(f.t, f.dir, map[string]string{"fix.txt": subject + "\n"})
-	run(f.t, f.dir, "add", "fix.txt")
-	run(f.t, f.dir, "commit", "-q", "-m", subject)
+	run(f.t, f.dir, "switch", "-q", "-c", "backport", "v0.28.0")
+	for i, s := range subjects {
+		writeFiles(f.t, f.dir, map[string]string{fmt.Sprintf("fix%d.txt", i): s + "\n"})
+		run(f.t, f.dir, "add", "-A")
+		run(f.t, f.dir, "commit", "-q", "-m", s)
+	}
 	run(f.t, f.dir, "push", "-q", "upstream", "HEAD:refs/heads/release-0.28")
 	run(f.t, f.dir, "switch", "-q", "main")
 	run(f.t, f.dir, "branch", "-q", "-D", "backport")
-}
-
-// bareReleaseBranch creates release-0.28 on upstream at v0.28.0, nothing backported.
-func (f *releaseFixture) bareReleaseBranch() {
-	f.t.Helper()
-	run(f.t, f.dir, "push", "-q", "upstream", "v0.28.0^{commit}:refs/heads/release-0.28")
-	run(f.t, f.dir, "fetch", "-q", "upstream")
 }
 
 func (f *releaseFixture) upstreamTags() []string { return f.tagsOf(f.upstream) }
@@ -247,6 +238,7 @@ func TestReleaseScript(t *testing.T) {
 		require.Contains(t, out, `build(release): v0.29.0 (#42)`)
 		require.ElementsMatch(t, []string{"v0.28.0", "v0.29.0", "sub/v0.29.0"}, f.upstreamTags())
 		require.Contains(t, f.logged(), "gh release create v0.29.0")
+		require.Contains(t, f.logged(), "--latest=true")
 
 		// prepare and publish ask GitHub for the changelog of the same base: the commit
 		// the release PR is based on, which is the parent of the squash commit.
@@ -284,7 +276,9 @@ func TestReleaseScript(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, head, tagged)
 		require.Contains(t, f.logged(), "previous_tag_name=v0.28.0")
+		// A patch is never GitHub's latest release: a newer minor may be out.
 		require.Contains(t, f.logged(), "gh release create v0.28.1")
+		require.Contains(t, f.logged(), "--latest=false")
 	})
 
 	t.Run("publish asks which release when two are untagged", func(t *testing.T) {
@@ -574,11 +568,12 @@ func TestReleaseScriptRefuses(t *testing.T) {
 		f.merge()
 	}
 	for _, tc := range []struct {
-		name  string
-		setup func(f *releaseFixture)
-		step  string
-		env   []string
-		want  string
+		name    string
+		setup   func(f *releaseFixture)
+		step    string
+		env     []string
+		want    string
+		wantNot string
 	}{
 		{name: "prepare without the remote", step: "prepare", env: []string{"REMOTE=nowhere"}, want: "no remote nowhere"},
 		{name: "prepare on a dirty tree", setup: func(f *releaseFixture) {
@@ -595,11 +590,19 @@ func TestReleaseScriptRefuses(t *testing.T) {
 			f.releaseBranch("fix(view)!: a breaking fix (backport #5)")
 		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "a patch carries fixes only"},
 		{name: "prepare a patch with a breaking change footer", setup: func(f *releaseFixture) {
-			f.releaseBranch("fix(view): a fix (backport #5)\n\nBREAKING CHANGE: it breaks")
-		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "fix(view): a fix (backport #5)"},
-		{name: "prepare a patch on a branch without the release tooling", setup: func(f *releaseFixture) {
-			f.bareReleaseBranch()
-		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "release-0.28 lacks the release tooling of main"},
+			// The footer is far below its header, and a later fix is clean: only the
+			// breaking commit is named.
+			f.releaseBranch("fix(view): a breaking fix (backport #5)\n\n"+strings.Repeat("line\n", 120)+"BREAKING CHANGE: it breaks",
+				"fix(view): a clean fix (backport #6)")
+		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "fix(view): a breaking fix (backport #5)", wantNot: "a clean fix"},
+		{name: "prepare a patch of a minor cut before patch releases", setup: func(f *releaseFixture) {
+			// A minor whose Makefile has no release targets, as v0.28.0 of FSC.
+			run(f.t, f.dir, "switch", "-q", "-c", "old", "v0.28.0")
+			run(f.t, f.dir, "rm", "-q", "Makefile")
+			run(f.t, f.dir, "commit", "-q", "-m", "fix: a fix (backport #5)")
+			run(f.t, f.dir, "push", "-q", "upstream", "HEAD:refs/heads/release-0.28")
+			run(f.t, f.dir, "switch", "-q", "main")
+		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "release-0.28 predates patch releases"},
 		{name: "prepare while another release PR is open", step: "prepare", env: []string{"FAKE_OTHER_RELEASE_PR=release/v0.30.0"}, want: "release PR release/v0.30.0 is open"},
 		{name: "prepare a tagged release", step: "prepare", env: []string{"VERSION=v0.28.0"}, want: "v0.28.0 is tagged already"},
 		{name: "prepare with no release before", setup: func(f *releaseFixture) {
@@ -672,6 +675,9 @@ func TestReleaseScriptRefuses(t *testing.T) {
 			out, err := f.release(tc.step, tc.env...)
 			require.Error(t, err, out)
 			require.Contains(t, out, tc.want)
+			if tc.wantNot != "" {
+				require.NotContains(t, out, tc.wantNot)
+			}
 			// The refused step wrote nothing: no tag or branch on the remote, no PR or release.
 			require.Equal(t, tags, f.upstreamTags())
 			require.Equal(t, branches, f.branches(f.upstream))
