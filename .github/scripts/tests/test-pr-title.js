@@ -188,6 +188,18 @@ const scenarios = [
     expect: { state: 'failure', descriptionIncludes: 'commit header', added: ['fix'], removed: [] },
   },
   {
+    name: 'backport by Mergify: the cherry-picked header keeps the original PR number',
+    title: 'fix(view): y (backport #2601)',
+    commits: [commit('fix(view): y (#2601)\n\n(cherry picked from commit abc)')],
+    expect: { state: 'success', added: ['fix'], removed: [] },
+  },
+  {
+    name: 'backport of another PR: failure',
+    title: 'fix(view): y (backport #2601)',
+    commits: [commit('fix(view): y (#2602)')],
+    expect: { state: 'failure', descriptionIncludes: 'commit header', added: ['fix'], removed: [] },
+  },
+  {
     name: 'several commits (fixups during review): header not compared',
     title: 'fix(view): y',
     prCommits: 2,

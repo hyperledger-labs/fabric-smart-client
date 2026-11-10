@@ -26,8 +26,10 @@ Releases cut before this directory existed have no files here.
 - `upgrade`: how a deployment upgrades to the release. `stop-all` means every node of a network
   stops before any node runs the release. `rolling` means organizations upgrade their nodes one
   at a time while the network runs, as [Rolling upgrades](../rolling-upgrade.md) describes. `data`
-  writes `stop-all` for every release; a release becomes `rolling` through a change to
-  `scripts/release`, once the mixed-version suite has run against its previous release. `guide` is the upgrade guide of the release.
+  writes `stop-all` for every minor; a minor becomes `rolling` through a change to
+  `scripts/release`, once the mixed-version suite has run against its previous release. A patch
+  is `rolling`: `data` refuses one whose `stores` or `components` differ from those of the
+  release before it. `guide` is the upgrade guide of a minor, and empty for a patch.
 - `stores` and `components`: the schema steps of every FSC store and the wire format ranges,
   from `node version --json` of the reference binary `scripts/release/refnode` (see
   [the Node CLI reference](../../reference/node-cli.md#version)). A step with `contract: true`
@@ -46,9 +48,10 @@ deterministic, so the file of a release can be regenerated and compared.
 
 The notes say only what is not written down elsewhere, and link to the rest:
 
-- **Upgrading:** a link to the upgrade guide on `main`, which says what an upgrade requires. A
-  fix to the guide after the release reaches every reader. A minor without a guide is refused;
-  see [Upgrade guides](../../dev/documentation.md#upgrade-guides).
+- **Upgrading:** for a minor, a link to the upgrade guide on `main`, which says what an upgrade
+  requires. A fix to the guide after the release reaches every reader. A minor without a guide
+  is refused; see [Upgrade guides](../../dev/documentation.md#upgrade-guides). A patch has no
+  guide; its notes say that it has no breaking changes.
 - **Tested with:** the versions in `tested_with`, as one row.
 - A link to the release data file at the release tag, which lists every store's schema steps
   and the component version ranges. A released record never changes, so the tag is where it
@@ -74,5 +77,7 @@ GitHub: the `Release check` workflow and `make release-publish` regenerate them 
 changelog GitHub generates for the release PR's base commit, and fail when they differ. Review
 them in the release PR.
 
-`data` refuses a patch version (`vX.Y.Z` with `Z` above 0): a patch has no upgrade guide of its
-own, so only minors have release data.
+A patch `vX.Y.Z` follows `vX.Y.(Z-1)`, and a minor `vX.Y.0` follows `vX.(Y-1).0`: `data` refuses a
+version whose predecessor has no tag, and the changelog starts from that predecessor. The files
+of a patch are on its release branch `release-X.Y` and at its tag, not on `main`, so `check` on
+`main` skips the patch's tag.

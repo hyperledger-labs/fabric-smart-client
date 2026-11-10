@@ -27,25 +27,34 @@ var testedNames = []struct{ key, name string }{
 	{"postgres", "PostgreSQL"},
 }
 
-// notes returns the body of the GitHub release of d: a link to the upgrade guide, the versions
-// the release was tested with, a link to the release data, and the generated changelog unchanged.
-// Both files are linked rather than quoted, so the release body keeps no second copy of them. The
-// guide is linked on main, where a fix to it reaches every reader of the release; the data file
-// is linked at the tag, since a released record never changes.
+// notes returns the body of the GitHub release of d: how to upgrade, the versions the release
+// was tested with, a link to the release data, and the generated changelog unchanged. A minor
+// links its upgrade guide, which must exist in dir; a patch has no guide and says so. Both files
+// are linked rather than quoted, so the release body keeps no second copy of them. The guide is
+// linked on main, where a fix to it reaches every reader of the release; the data file is linked
+// at the tag, since a released record never changes.
 // The links point to repository repo, owner/name, which a release from a fork sets to the
 // fork.
 func notes(dir, repo string, d Data, changelog string) (string, error) {
-	if _, ok := parseVersion(d.Version); !ok {
+	v, ok := parseVersion(d.Version)
+	if !ok {
 		return "", errors.Errorf("invalid version [%s]", d.Version)
 	}
-	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(d.Upgrade.Guide))); err != nil {
-		return "", errors.Wrapf(err, "a minor needs its upgrade guide %s", d.Upgrade.Guide)
-	}
-
 	blobURL := "https://github.com/" + repo + "/blob/"
 	var b strings.Builder
-	fmt.Fprintf(&b, "## Upgrading\n\nRead the [upgrade guide](%smain/%s) before upgrading. What changed is listed below.\n\n",
-		blobURL, d.Upgrade.Guide)
+	switch {
+	case v.Patch > 0:
+		fmt.Fprintf(&b, "## Upgrading\n\nNo breaking changes. Upgrade from v%d.%d.x at any time, one node at a time. What changed is listed below.\n\n",
+			v.Major, v.Minor)
+	case d.Upgrade.Guide == "":
+		return "", errors.Errorf("%s is a minor and has no upgrade guide", v)
+	default:
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(d.Upgrade.Guide))); err != nil {
+			return "", errors.Wrapf(err, "a minor needs its upgrade guide %s", d.Upgrade.Guide)
+		}
+		fmt.Fprintf(&b, "## Upgrading\n\nRead the [upgrade guide](%smain/%s) before upgrading. What changed is listed below.\n\n",
+			blobURL, d.Upgrade.Guide)
+	}
 	b.WriteString("## Tested with\n\n")
 	var names, seps, versions []string
 	for _, t := range testedNames {

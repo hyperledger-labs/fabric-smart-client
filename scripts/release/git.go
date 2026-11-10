@@ -96,18 +96,36 @@ func nextMinor(tags []semver) (semver, error) {
 	return semver{Major: last.Major, Minor: last.Minor + 1}, nil
 }
 
-// previousRelease returns the highest of tags below v.
+// previousRelease returns the release v follows, which its changelog starts from. A patch
+// vX.Y.Z follows vX.Y.(Z-1). A minor follows the previous minor vX.(Y-1).0, not a patch of it,
+// which is on a release branch; the first minor of a major follows the highest minor below it.
+// The release v follows must be in tags, so that no version is skipped.
 func previousRelease(tags []semver, v semver) (semver, error) {
-	var prev *semver
-	for _, t := range tags {
-		if t.compare(v) < 0 && (prev == nil || t.compare(*prev) > 0) {
-			prev = &t
+	var want semver
+	switch {
+	case v.Patch > 0:
+		want = semver{v.Major, v.Minor, v.Patch - 1}
+	case v.Minor > 0:
+		want = semver{v.Major, v.Minor - 1, 0}
+	default:
+		var prev *semver
+		for _, t := range tags {
+			if t.Patch == 0 && t.compare(v) < 0 && (prev == nil || t.compare(*prev) > 0) {
+				prev = &t
+			}
 		}
+		if prev == nil {
+			return semver{}, errors.Errorf("no release before %s; fetch the tags first", v)
+		}
+		return *prev, nil
 	}
-	if prev == nil {
-		return semver{}, errors.Errorf("no release before %s; fetch the tags first", v)
+	if !slices.Contains(tags, want) {
+		if !slices.ContainsFunc(tags, func(t semver) bool { return t.compare(v) < 0 }) {
+			return semver{}, errors.Errorf("no release before %s; fetch the tags first", v)
+		}
+		return semver{}, errors.Errorf("no release %s before %s; fetch the tags first, or release %s", want, v, want)
 	}
-	return *prev, nil
+	return want, nil
 }
 
 // modules returns the tags that release v of the modules committed at HEAD in dir: the root

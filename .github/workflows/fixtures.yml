@@ -11,7 +11,7 @@ on:
     - cron: '41 2 * * *'
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [main, 'release-*']
     paths:
       - '.github/workflows/fixtures.yml'
       - 'platform/fabric/services/db/driver/sql/**'

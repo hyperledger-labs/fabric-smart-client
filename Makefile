@@ -384,7 +384,7 @@ endif
 # the checkout. VERSION, DRY_RUN, RELEASE_REPO, REMOTE and YES reach the script from the make
 # command line or the environment; scripts/release.sh describes them.
 .PHONY: release-prepare release-pr release-publish
-release-prepare: ## Generate the release files of the next minor on release/vX.Y.Z, staged
+release-prepare: ## Generate the release files of the next minor, or of VERSION, on release/vX.Y.Z, staged
 	@./scripts/release.sh prepare
 release-pr: ## Commit the release files, push the branch and open the release PR
 	@./scripts/release.sh pr

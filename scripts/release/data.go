@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -62,8 +64,11 @@ type Data struct {
 
 // Upgrade says how a deployment upgrades to the release and where the upgrade guide is.
 type Upgrade struct {
-	// Mode is stop-all: every node of a network stops before any runs the release.
-	Mode  string `json:"mode"`
+	// Mode is stop-all for a minor: every node of a network stops before any runs the release.
+	// It is rolling for a patch, which changes no schema or wire format: nodes upgrade one at a
+	// time from any release of the same minor.
+	Mode string `json:"mode"`
+	// Guide is the upgrade guide of a minor, relative to the repository root. A patch has none.
 	Guide string `json:"guide"`
 }
 
@@ -75,10 +80,6 @@ func guidePath(prev, v semver) string {
 // newData returns the release data of version v of the repository in dir, with the stores and
 // components of report r.
 func newData(dir string, v semver, r Report) (Data, error) {
-	// A patch has no upgrade guide of its own; its data and notes come with release branches.
-	if v.Patch != 0 {
-		return Data{}, errors.Errorf("%s: patch releases are not supported yet; release the next minor", v)
-	}
 	tags, err := releaseTags(dir)
 	if err != nil {
 		return Data{}, err
@@ -103,15 +104,53 @@ func newData(dir string, v semver, r Report) (Data, error) {
 	if err != nil {
 		return Data{}, err
 	}
+	upgrade := Upgrade{Mode: "stop-all", Guide: guidePath(prev, v)}
+	if v.Patch > 0 {
+		if err := sameSchema(dir, prev, v, r); err != nil {
+			return Data{}, err
+		}
+		upgrade = Upgrade{Mode: "rolling"}
+	}
 	return Data{
 		Version:     v.String(),
 		Modules:     mods,
-		Upgrade:     Upgrade{Mode: "stop-all", Guide: guidePath(prev, v)},
+		Upgrade:     upgrade,
 		Stores:      r.Stores,
 		Components:  r.Components,
 		DroppedNext: []string{},
 		TestedWith:  tested,
 	}, nil
+}
+
+// sameSchema fails unless report r has the stores and components of the release data of prev,
+// which patch v follows: a patch rolls out one node at a time, so it changes no schema step and
+// no wire format range. A prev without release data, cut before it existed, cannot show that.
+func sameSchema(dir string, prev, v semver, r Report) error {
+	raw, ok, err := showAt(dir, prev, path.Join(releasesDir, prev.String()+".json"))
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.Errorf("%s has no release data, so patch %s cannot be checked to roll out over it", prev, v)
+	}
+	var released Report
+	if err := json.Unmarshal(raw, &released); err != nil {
+		return errors.Wrapf(err, "failed parsing the release data of %s", prev)
+	}
+	// Compared as JSON, where a nil and an empty list are the same.
+	was, err := json.Marshal(released)
+	if err != nil {
+		return errors.Wrap(err, "failed marshalling the released stores")
+	}
+	now, err := json.Marshal(r)
+	if err != nil {
+		return errors.Wrap(err, "failed marshalling the report")
+	}
+	if !bytes.Equal(was, now) {
+		return errors.Errorf("%s changes the schema steps or component ranges of %s: a patch cannot; "+
+			"the change belongs in the next minor", v, prev)
+	}
+	return nil
 }
 
 var (

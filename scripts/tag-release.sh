@@ -30,11 +30,9 @@ fi
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 
-# A minor's release data is part of the tagged commit, so a check of the tag sees it. A patch
-# has no release data yet (scripts/release generates it for minors only), so it is tagged
-# without.
+# The release data is part of the tagged commit, so a check of the tag sees it.
 DATA="docs/upgrade/releases/${VERSION}.json"
-if [[ "$VERSION" =~ \.0$ ]] && ! git -C "$REPO_ROOT" cat-file -e "${HEAD}:${DATA}" 2>/dev/null; then
+if ! git -C "$REPO_ROOT" cat-file -e "${HEAD}:${DATA}" 2>/dev/null; then
     echo "Error: ${DATA} is not in the commit to tag; merge the release PR first" >&2
     exit 1
 fi

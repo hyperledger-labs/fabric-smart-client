@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'release-*']
     # Not for docs only, but always for a release: scripts/release.sh publish tags
     # a release only after this workflow passed on its PR. The last matching
     # pattern decides.
@@ -14,7 +14,7 @@ on:
       - '!.gitignore'
       - 'docs/upgrade/releases/v*'
   pull_request:
-    branches: [main]
+    branches: [main, 'release-*']
     # Not for docs only, but always for a release: scripts/release.sh publish tags
     # a release only after this workflow passed on its PR. The last matching
     # pattern decides.

@@ -138,16 +138,48 @@ func (f *releaseFixture) mustRelease(step string, env ...string) string {
 	return out
 }
 
-// merge squash-merges the pushed release branch into main of the target, as GitHub does.
-func (f *releaseFixture) merge() {
+// merge squash-merges the pushed release branch of v0.29.0 into main of the target.
+func (f *releaseFixture) merge() { f.mergeTo("v0.29.0", "main") }
+
+// mergeTo squash-merges the pushed release branch of version into branch base of the target,
+// as GitHub does.
+func (f *releaseFixture) mergeTo(version, base string) {
 	f.t.Helper()
 	work := filepath.Join(f.t.TempDir(), "merge")
-	run(f.t, f.dir, "clone", "-q", f.target, work)
+	run(f.t, f.dir, "clone", "-q", "-b", base, f.target, work)
 	run(f.t, work, "config", "user.email", "test@example.com")
 	run(f.t, work, "config", "user.name", "test")
-	run(f.t, work, "merge", "-q", "--squash", "origin/release/v0.29.0")
-	run(f.t, work, "commit", "-q", "-m", "build(release): v0.29.0 (#42)")
-	run(f.t, work, "push", "-q", "origin", "HEAD:main")
+	run(f.t, work, "merge", "-q", "--squash", "origin/release/"+version)
+	run(f.t, work, "commit", "-q", "-m", "build(release): "+version+" (#42)")
+	run(f.t, work, "push", "-q", "origin", "HEAD:"+base)
+}
+
+// releaseBranch creates release-0.28 on upstream from v0.28.0, with the release tooling of
+// main backported, as docs/dev/releasing.md says, and one commit of subject, as a backport adds
+// it.
+func (f *releaseFixture) releaseBranch(subject string) {
+	f.t.Helper()
+	f.bareReleaseBranch()
+	run(f.t, f.dir, "switch", "-q", "-c", "backport", "upstream/release-0.28")
+	writeFiles(f.t, f.dir, map[string]string{
+		releasesDir + "/v0.28.0.json": "{}\n",
+		".github/workflows/tests.yml": "branches: [main, 'release-*']\n",
+	})
+	run(f.t, f.dir, "add", "-A")
+	run(f.t, f.dir, "commit", "-q", "-m", "ci: backport the release tooling")
+	writeFiles(f.t, f.dir, map[string]string{"fix.txt": subject + "\n"})
+	run(f.t, f.dir, "add", "fix.txt")
+	run(f.t, f.dir, "commit", "-q", "-m", subject)
+	run(f.t, f.dir, "push", "-q", "upstream", "HEAD:refs/heads/release-0.28")
+	run(f.t, f.dir, "switch", "-q", "main")
+	run(f.t, f.dir, "branch", "-q", "-D", "backport")
+}
+
+// bareReleaseBranch creates release-0.28 on upstream at v0.28.0, nothing backported.
+func (f *releaseFixture) bareReleaseBranch() {
+	f.t.Helper()
+	run(f.t, f.dir, "push", "-q", "upstream", "v0.28.0^{commit}:refs/heads/release-0.28")
+	run(f.t, f.dir, "fetch", "-q", "upstream")
 }
 
 func (f *releaseFixture) upstreamTags() []string { return f.tagsOf(f.upstream) }
@@ -221,6 +253,58 @@ func TestReleaseScript(t *testing.T) {
 		base, err := git(f.target, "rev-parse", "main^")
 		require.NoError(t, err)
 		require.Equal(t, []string{base, base}, targets(f.logged()))
+	})
+
+	t.Run("prepare, pr and publish release a patch from its release branch", func(t *testing.T) {
+		t.Parallel()
+		f := newReleaseFixture(t)
+		f.releaseBranch("fix(view): a fix (backport #5)")
+
+		// A patch has no fixtures, so it needs no Docker, and no upgrade guide.
+		f.mustRelease("prepare", "VERSION=v0.28.1", "FAKE_NO_DOCKER=1")
+		staged, err := git(f.dir, "diff", "--cached", "--name-only")
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{releasesDir + "/v0.28.1.json", releasesDir + "/v0.28.1.md"}, strings.Fields(staged))
+		parent, err := git(f.dir, "log", "-1", "--format=%s", "HEAD")
+		require.NoError(t, err)
+		require.Equal(t, "fix(view): a fix (backport #5)", parent, "the release starts from the release branch")
+		require.NotContains(t, f.logged(), "make pull-images-database")
+
+		f.mustRelease("pr")
+		require.Contains(t, f.logged(), "gh pr create -R hyperledger-labs/fabric-smart-client --base release-0.28 --head release/v0.28.1")
+
+		f.mergeTo("v0.28.1", "release-0.28")
+		run(t, f.dir, "switch", "-q", "main")
+		out := f.mustRelease("publish")
+		require.Contains(t, out, `build(release): v0.28.1 (#42)`)
+		require.ElementsMatch(t, []string{"v0.28.0", "v0.28.1", "sub/v0.28.1"}, f.upstreamTags())
+		tagged, err := git(f.upstream, "rev-parse", "v0.28.1^{commit}")
+		require.NoError(t, err)
+		head, err := git(f.upstream, "rev-parse", "release-0.28")
+		require.NoError(t, err)
+		require.Equal(t, head, tagged)
+		require.Contains(t, f.logged(), "previous_tag_name=v0.28.0")
+		require.Contains(t, f.logged(), "gh release create v0.28.1")
+	})
+
+	t.Run("publish asks which release when two are untagged", func(t *testing.T) {
+		t.Parallel()
+		f := newReleaseFixture(t)
+		f.mustRelease("prepare")
+		f.mustRelease("pr")
+		f.merge()
+		run(t, f.dir, "switch", "-q", "main")
+		f.releaseBranch("fix: a fix (backport #5)")
+		f.mustRelease("prepare", "VERSION=v0.28.1")
+		f.mustRelease("pr")
+		f.mergeTo("v0.28.1", "release-0.28")
+		run(t, f.dir, "switch", "-q", "main")
+
+		out, err := f.release("publish")
+		require.Error(t, err)
+		require.Contains(t, out, "more than one untagged release: v0.28.1 v0.29.0; set VERSION")
+		f.mustRelease("publish", "VERSION=v0.28.1")
+		require.ElementsMatch(t, []string{"v0.28.0", "v0.28.1", "sub/v0.28.1"}, f.upstreamTags())
 	})
 
 	t.Run("pr refuses a staged file that is not part of the release", func(t *testing.T) {
@@ -502,7 +586,20 @@ func TestReleaseScriptRefuses(t *testing.T) {
 		}, step: "prepare", want: "the working tree is not clean"},
 		{name: "prepare without gh", step: "prepare", env: []string{"FAKE_NO_GH=1"}, want: "gh is not logged in"},
 		{name: "prepare without Docker", step: "prepare", env: []string{"FAKE_NO_DOCKER=1"}, want: "Docker is not running"},
-		{name: "prepare a patch", step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "a release is a minor"},
+		{name: "prepare an invalid version", step: "prepare", env: []string{"VERSION=v0.29"}, want: "a release is vX.Y.Z"},
+		{name: "prepare a patch without its release branch", step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "upstream has no branch release-0.28"},
+		{name: "prepare a patch with a feature", setup: func(f *releaseFixture) {
+			f.releaseBranch("feat(view): a feature (backport #5)")
+		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "a patch carries fixes only"},
+		{name: "prepare a patch with a breaking change", setup: func(f *releaseFixture) {
+			f.releaseBranch("fix(view)!: a breaking fix (backport #5)")
+		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "a patch carries fixes only"},
+		{name: "prepare a patch with a breaking change footer", setup: func(f *releaseFixture) {
+			f.releaseBranch("fix(view): a fix (backport #5)\n\nBREAKING CHANGE: it breaks")
+		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "fix(view): a fix (backport #5)"},
+		{name: "prepare a patch on a branch without the release tooling", setup: func(f *releaseFixture) {
+			f.bareReleaseBranch()
+		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "release-0.28 lacks the release tooling of main"},
 		{name: "prepare while another release PR is open", step: "prepare", env: []string{"FAKE_OTHER_RELEASE_PR=release/v0.30.0"}, want: "release PR release/v0.30.0 is open"},
 		{name: "prepare a tagged release", step: "prepare", env: []string{"VERSION=v0.28.0"}, want: "v0.28.0 is tagged already"},
 		{name: "prepare with no release before", setup: func(f *releaseFixture) {
@@ -511,7 +608,7 @@ func TestReleaseScriptRefuses(t *testing.T) {
 			run(f.t, f.dir, "commit", "-q", "-m", "guide")
 			run(f.t, f.dir, "push", "-q", "upstream", "HEAD:main")
 		}, step: "prepare", env: []string{"VERSION=v0.1.0"}, want: "no release before v0.1.0"},
-		{name: "pr off a release branch", step: "pr", want: "check out release/vX.Y.0 first"},
+		{name: "pr off a release branch", step: "pr", want: "check out release/vX.Y.Z first"},
 		{name: "pr with unstaged changes", setup: func(f *releaseFixture) {
 			f.mustRelease("prepare")
 			writeFiles(f.t, f.dir, map[string]string{"go.mod": "module y\n"})
@@ -522,7 +619,7 @@ func TestReleaseScriptRefuses(t *testing.T) {
 		{name: "publish on a dirty tree", setup: func(f *releaseFixture) {
 			writeFiles(f.t, f.dir, map[string]string{"go.mod": "module y\n"})
 		}, step: "publish", want: "the working tree is not clean"},
-		{name: "publish with nothing merged", step: "publish", want: "no release of hyperledger-labs/fabric-smart-client on upstream/main"},
+		{name: "publish with nothing merged", step: "publish", want: "no release of hyperledger-labs/fabric-smart-client on upstream"},
 		{name: "publish in a fork that has the main repository's releases on main", setup: func(f *releaseFixture) {
 			// The fork's main has the data file of v0.28.0, which is tagged only in the main
 			// repository, and the main repository's tags are fetched locally.
@@ -532,12 +629,12 @@ func TestReleaseScriptRefuses(t *testing.T) {
 			run(f.t, f.dir, "push", "-q", "upstream", "HEAD:main")
 			f.asFork()
 			run(f.t, f.dir, "push", "-q", "origin", "HEAD:main")
-		}, step: "publish", env: []string{"FAKE_RELEASED="}, want: "no release of someone/fabric-smart-client on origin/main"},
+		}, step: "publish", env: []string{"FAKE_RELEASED="}, want: "no release of someone/fabric-smart-client on origin"},
 		{name: "publish when every release is out", setup: func(f *releaseFixture) {
 			merged(f)
 			run(f.t, f.dir, "switch", "-q", "main")
 			f.mustRelease("publish")
-		}, step: "publish", env: []string{"FAKE_RELEASED=1"}, want: "no untagged release on upstream/main"},
+		}, step: "publish", env: []string{"FAKE_RELEASED=1"}, want: "no untagged release on upstream"},
 		{name: "publish a data file a release PR did not add", setup: func(f *releaseFixture) {
 			writeFiles(f.t, f.dir, map[string]string{releasesDir + "/v0.29.0.json": "{}\n"})
 			run(f.t, f.dir, "add", "-A")
@@ -550,6 +647,10 @@ func TestReleaseScriptRefuses(t *testing.T) {
 			run(f.t, f.dir, "commit", "-q", "-m", "build(release): two")
 			run(f.t, f.dir, "push", "-q", "upstream", "HEAD:main")
 		}, step: "publish", want: "more than one untagged release"},
+		{
+			name: "publish a version that is not untagged", setup: merged, step: "publish", env: []string{"VERSION=v0.30.0"},
+			want: "no release v0.30.0 on upstream",
+		},
 		{name: "publish before Tests ran on the release commit", setup: func(f *releaseFixture) {
 			merged(f)
 			run(f.t, f.dir, "switch", "-q", "main")

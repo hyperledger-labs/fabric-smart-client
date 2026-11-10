@@ -1,0 +1,18 @@
+# Mergify backports a fix merged to main onto a release branch when the PR has the
+# label backport/X.Y: it cherry-picks the squash commit onto release-X.Y and opens a
+# PR titled "<title> (backport #N)", assigned to the original author. A conflict is
+# committed as such, and the PR is labelled "conflicts". Mergify never merges the PR.
+#
+# Mergify cannot derive the branch from the label, so each supported release branch
+# has its own rule, at most two at a time. docs/dev/releasing.md, Backports, says
+# when to add and remove one. A rule looks like this:
+#
+#   - name: backport to release-0.31
+#     conditions:
+#       - base=main
+#       - label=backport/0.31
+#     actions:
+#       backport:
+#         branches: [release-0.31]
+#         assignees: ["{{ author }}"]
+pull_request_rules: []

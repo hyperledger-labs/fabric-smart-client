@@ -133,6 +133,8 @@ There is no PR template; this is the convention:
 2. **The issue link** — `Fixes #123`, in the body (see [above](#linking-a-pr-to-an-issue)).
 3. **How it was verified** — the commands you ran, or the test that now covers it.
 4. **Notes for reviewers** — optional: where to look first, what is deliberately out of scope.
+5. **Backport** — only for a fix that a supported minor needs: the release branch, and why
+   the next minor is not soon enough. See [Backports](releasing.md#backports).
 
 Keep it structured and short. A file-by-file walkthrough only duplicates the diff; omit
 it. The PR title should read like the final commit subject below.
