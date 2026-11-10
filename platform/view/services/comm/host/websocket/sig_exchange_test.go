@@ -31,7 +31,7 @@ import (
 func TestSignedSessionExchange(t *testing.T) {
 	t.Parallel()
 
-	tls := generateThreeNodesTLSFiles(t)
+	tls := generateThreeNodesTLSFiles(t, true)
 	aliceNode, bobNode := setupTwoNodesFromTLS(t, tls.alice, tls.bob, tls.caCert)
 
 	alice := newWebsocketSignedParty(t, "alice", aliceNode, tls.alice, bobNode, tls.bob)

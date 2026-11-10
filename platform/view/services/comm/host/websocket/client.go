@@ -12,7 +12,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
-	"net"
 	"slices"
 	"sync"
 
@@ -45,15 +44,6 @@ func (c *client) OpenStream(info commhost.StreamInfo, ctx context.Context) (comm
 	if tlsConfig != nil {
 		tlsConfig = tlsConfig.Clone()
 		tlsConfig.RootCAs = c.currentRootCAs()
-		if len(tlsConfig.ServerName) == 0 && len(info.RemotePeerAddress) != 0 {
-			// use info.RemotePeerAddress to get the host
-			host, _, err := net.SplitHostPort(info.RemotePeerAddress)
-			if err == nil {
-				tlsConfig.ServerName = host
-			} else {
-				tlsConfig.ServerName = info.RemotePeerAddress
-			}
-		}
 	}
 	return c.streamProvider.NewClientStream(info, ctx, c.nodeID, tlsConfig)
 }

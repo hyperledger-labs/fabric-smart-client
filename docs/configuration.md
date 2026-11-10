@@ -240,6 +240,11 @@ fsc:
           clientRootCAs:
             files:
               - /path/to/client/tls/ca.crt
+          # SNI name sent when dialling a peer. Defaults to the host of the dialled address; no
+          # SNI is sent when that is an IP address. The client verifies the chain of the
+          # server's certificate and the peer ID derived from it, never a host name, so the
+          # server's certificate needs no SANs.
+          serverNameOverride: ""
 
   # ------------------- KVS Configuration -------------------------
   # Internal key/value store used by the node to store information

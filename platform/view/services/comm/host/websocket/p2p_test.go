@@ -420,11 +420,39 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 	}
 }
 
+// Identity certificates without SANs still carry sessions. The client pins the server to the
+// peer ID it dialed, so the host name in the dialed address is not what authenticates the
+// server, and a certificate that names no host must not fail the handshake with "x509:
+// certificate is not valid for any names".
+func TestSessionWithIdentityCertificatesWithoutSANs(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	tlsFiles := generateThreeNodesTLSFiles(t, false)
+	aliceNode, bobNode := setupTwoNodesFromTLS(t, tlsFiles.alice, tlsFiles.bob, tlsFiles.caCert)
+	aliceNode.Start(ctx)
+	bobNode.Start(ctx)
+	defer aliceNode.Stop()
+	defer bobNode.Stop()
+
+	session, err := aliceNode.NewSession("alice-view", "ctx", bobNode.Address, []byte(bobNode.ID))
+	require.NoError(t, err)
+	require.NoError(t, session.Send(ctx, []byte("ping")))
+
+	masterSession, err := bobNode.MasterSession()
+	require.NoError(t, err)
+	select {
+	case msg := <-masterSession.Receive():
+		require.Equal(t, []byte("ping"), msg.Payload)
+	case <-time.After(10 * time.Second):
+		t.Fatal("bob received nothing")
+	}
+}
+
 func TestSessionInfoSecurityGuarantees(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	// Simpler: Alice, Bob and Charlie all share the same CA.
-	allTLSFiles := generateThreeNodesTLSFiles(t)
+	allTLSFiles := generateThreeNodesTLSFiles(t, true)
 	aliceNode, bobNode := setupTwoNodesFromTLS(t, allTLSFiles.alice, allTLSFiles.bob, allTLSFiles.caCert)
 	aliceNode.Start(ctx)
 	bobNode.Start(ctx)
@@ -501,7 +529,10 @@ type threeNodesTLSFiles struct {
 	charlie nodeTLSFiles
 }
 
-func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
+// generateThreeNodesTLSFiles issues three node certificates from one CA. withSANs adds
+// localhost and 127.0.0.1 as SANs; without them the certificates carry only a common name, as
+// Fabric MSP identity certificates often do.
+func generateThreeNodesTLSFiles(t *testing.T, withSANs bool) threeNodesTLSFiles {
 	t.Helper()
 	dir := t.TempDir()
 	caPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -532,8 +563,10 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 			NotAfter:     time.Now().Add(2 * time.Hour),
 			KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-			DNSNames:     []string{"localhost"},
-			IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		}
+		if withSANs {
+			certTemplate.DNSNames = []string{"localhost"}
+			certTemplate.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
 		}
 		certDER, err := x509.CreateCertificate(rand.Reader, certTemplate, caTemplate, &priv.PublicKey, caPriv)
 		require.NoError(t, err)

@@ -19,7 +19,7 @@ import (
 // ReadPreamble dials the websocket P2P endpoint of peerID at address, checks that the server's
 // verified TLS certificate belongs to peerID, reads the preamble from the upgrade response and
 // closes the websocket. It opens no sub-connection, so the peer starts no session. config must
-// be the node's client TLS configuration, with ServerName set.
+// be the node's client TLS configuration.
 //
 // The preamble is returned undecoded so that the caller can tell a peer it cannot reach from a
 // peer it reaches but would refuse; decode it with preamble.Accept. It is nil for a peer that
@@ -30,7 +30,7 @@ func ReadPreamble(ctx context.Context, peerID host.PeerID, address string, confi
 		return nil, errors.New("websocket p2p requires TLS")
 	}
 	u := url.URL{Scheme: schemes[true], Host: address, Path: "/p2p"}
-	conn, header, err := client.OpenWSClientConnWithHeader(ctx, u.String(), config, 0)
+	conn, header, err := client.OpenWSClientConnWithHeader(ctx, u.String(), verifyServer(config, peerID), 0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open websocket to [%s]", address)
 	}

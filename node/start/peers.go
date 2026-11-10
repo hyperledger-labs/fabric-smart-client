@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"strings"
 	"time"
 
@@ -163,13 +162,7 @@ func configuredPeers(cfg driver.ConfigService) ([]peer, readPreamble, error) {
 		peers = append(peers, peer{name: r.Name, id: pid, address: address})
 	}
 	dial := func(ctx context.Context, peerID, address string) ([]byte, error) {
-		c := tlsConfig.Clone()
-		if host, _, err := net.SplitHostPort(address); err == nil {
-			c.ServerName = host
-		} else {
-			c.ServerName = address
-		}
-		return ws.ReadPreamble(ctx, peerID, address, c)
+		return ws.ReadPreamble(ctx, peerID, address, tlsConfig)
 	}
 	return peers, dial, nil
 }
