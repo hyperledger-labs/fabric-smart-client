@@ -1,4 +1,4 @@
-# View Service over HTTP
+# View service over HTTP
 
 The view service is reachable on two transports: gRPC on the `fsc.grpc` listener and HTTP on
 the `fsc.web` listener. The HTTP binding carries the same messages as the gRPC service

@@ -1,12 +1,12 @@
-# View Runtime Security Model
+# View runtime security model
 
 ## Overview
 
-The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. Remote parties are a separate boundary: the organization is the unit of trust, and FSC nodes and peers of other organizations may be malicious. [Data Received from Peers](#data-received-from-peers) and the sections after it describe what a node checks in their input. This page covers both boundaries: what view code can do inside the process, what a node checks in input from remote parties, and how to deploy a node with that in mind.
+The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. Remote parties are a separate boundary: the organization is the unit of trust, and FSC nodes and peers of other organizations may be malicious. [Data received from peers](#data-received-from-peers) and the sections after it describe what a node checks in their input. This page covers both boundaries: what view code can do inside the process, what a node checks in input from remote parties, and how to deploy a node with that in mind.
 
-## Security Model
+## Security model
 
-### Trusted Computing Base (TCB)
+### Trusted computing base (TCB)
 
 **All view code registered at an FSC node is considered part of the Trusted Computing Base (TCB).** This means:
 
@@ -15,7 +15,7 @@ The Fabric Smart Client (FSC) view runtime operates under a **shared process sec
 - Malicious or compromised view code can affect the entire system
 - **Once a view is loaded, it has complete access to all system resources**
 
-### Lack of View Isolation
+### Lack of view isolation
 
 Unlike containerized or sandboxed execution environments, FSC views execute without isolation boundaries:
 
@@ -24,7 +24,7 @@ Unlike containerized or sandboxed execution environments, FSC views execute with
 - **Cross-View Contamination**: Modifications made by one view persist and affect all other views
 - **No Resource Limits**: Views are not restricted in CPU, memory, or I/O usage
 
-### Dependency Chain Trust
+### Dependency chain trust
 
 The security model extends beyond your own view code:
 
@@ -32,7 +32,7 @@ The security model extends beyond your own view code:
 - Compromised dependencies can exploit the same vulnerabilities as malicious view code
 - Supply chain attacks are a significant concern
 
-## Data Received from Peers
+## Data received from peers
 
 A Fabric node validates every transaction it receives from a remote peer before it signs,
 endorses or stores it. See [Data received from peers](../fabric/security.md#data-received-from-peers).
@@ -143,18 +143,18 @@ chose. A node limits what such a peer can start:
   is what the remote node claims, not proof that a check ran.
 
 What a responder does with an accepted message is the responder's responsibility: it must validate
-every payload, as [Responder Responsibilities](programming-model.md#responder-responsibilities)
+every payload, as [Responder responsibilities](programming-model.md#responder-responsibilities)
 describes.
 
-## Best Practices
+## Best practices
 
-### 1. Strict View Code Review
+### 1. Strict view code review
 
 - **Audit all view code** before deployment
 - Implement code review processes for all views
 - Never deploy views from untrusted sources
 
-### 2. Dependency Management
+### 2. Dependency management
 
 - **Audit all dependencies** and their transitive dependencies
 - Use dependency scanning tools (e.g., `go mod graph`, vulnerability scanners)
@@ -162,9 +162,9 @@ describes.
 - Regularly update dependencies to patch known vulnerabilities
 - Consider vendoring dependencies for reproducible builds
 
-### 3. Access Control
+### 3. Access control
 
 - Use separate FSC nodes for different trust domains
 - Never mix trusted and untrusted views on the same node
 - Every client on `fsc.view.remote.clients` may call every view unless a policy checker narrows it;
-  see [Remote View API Access Control](services/view-service.md#remote-view-api-access-control)
+  see [Remote view API access control](services/view-service.md#remote-view-api-access-control)

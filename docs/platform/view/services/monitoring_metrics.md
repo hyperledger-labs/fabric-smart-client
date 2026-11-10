@@ -1,4 +1,4 @@
-# Metrics Catalog
+# Metrics catalog
 
 This document catalogs the metric families defined by the Fabric Smart Client (FSC). For each family, it records the exported name, type, labels, and operational meaning. It focuses on the metrics that FSC itself declares and emits. It excludes the standard Go runtime, process, and Prometheus HTTP handler metrics that exporters expose independently of FSC.
 
@@ -23,9 +23,9 @@ The activation conditions are:
 
 Not every family is emitted by the FSC node itself. The caller-process families are `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`.
 
-## Scope and Conventions
+## Scope and conventions
 
-### Export Conditions
+### Export conditions
 
 FSC exports these metrics when the node runs with:
 
@@ -37,12 +37,12 @@ fsc:
 
 The exporter is exposed on `/metrics`, served on `fsc.metrics.address` when set and on the FSC web server otherwise. It requires a verified client certificate unless `fsc.metrics.clientAuthRequired` is `false` (see the [configuration reference](../../../configuration.md)). When the metrics provider is disabled, FSC still instantiates the metric objects, but they are backed by a no-op provider and no data is exported.
 
-### Metric Families vs. Time Series
+### Metric families vs. time series
 
 - A counter or gauge family exports one time series for each distinct label combination
 - A histogram family exports `*_bucket`, `*_sum`, and `*_count` series for each label combination
 
-### Naming Rules
+### Naming rules
 
 The full metric name is assembled from:
 
@@ -72,7 +72,7 @@ Only the labels registered with the metric family are part of the exported schem
 
 For trace-derived metrics, the namespace and subsystem are also fixed by `tracing.WithMetricsOpts(...)`. If a tracer is created without that option, the wrapper registers the metric family under the tracing package.
 
-### Node Export vs. Library Metrics
+### Node export vs. library metrics
 
 The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
@@ -86,7 +86,7 @@ The two caller-process families are exported only by the process that creates th
 
 When validating the catalog from an FSC node's `/metrics` endpoint, those two caller-process families are expected to be absent unless the node process itself is the tracer owner.
 
-### Operator Summary
+### Operator summary
 
 For node-level monitoring, the quickest way to interpret the FSC metrics surface is below. Unless `fsc.metrics.clientAuthRequired` is `false`, the scraper must present a client certificate.
 
@@ -99,9 +99,9 @@ For node-level monitoring, the quickest way to interpret the FSC metrics surface
 
 If a family is absent, check the matching runtime condition first: communication transport, ingress path, Fabric execution path, or caller-process ownership.
 
-`fsc_connection_state` reports the health of each client connection; see [Connection State](#connection-state) for what each value means and when to alert.
+`fsc_connection_state` reports the health of each client connection; see [Connection state](#connection-state) for what each value means and when to alert.
 
-## Explicit Metrics
+## Explicit metrics
 
 ### Operations
 
@@ -119,7 +119,7 @@ Primary implementation: `platform/view/services/metrics/operations/metrics.go`, 
 
 Alert on `fsc_tls_cert_not_after - time()` falling below the renewal margin. A failed reload leaves the value unchanged, so a renewed certificate that is refused still shows up as an approaching expiry. The gauge is set by `platform/common/services/grpc/certreloader.go`.
 
-### View Runtime
+### View runtime
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -130,7 +130,7 @@ The `contexts` gauge tracks the size of the manager's internal context registry.
 
 Primary implementation: `platform/view/services/view/metrics.go`, updated through the view manager in `platform/view/services/view/manager.go`.
 
-### Comm Service
+### Comm service
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -154,7 +154,7 @@ Operational notes:
 
 Primary implementation: `platform/view/services/comm/metrics.go`, with updates in `platform/view/services/comm/master.go` and `platform/view/services/comm/p2p.go`.
 
-### P2P Service
+### P2P service
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -170,7 +170,7 @@ Operational notes:
 
 Primary implementation: `platform/view/services/view/p2p/service.go`.
 
-### Libp2p Transport
+### libp2p transport
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -182,7 +182,7 @@ The `bytes_*` counters measure traffic volume. They count bytes, not messages.
 
 Primary implementation: `platform/view/services/comm/host/libp2p/metrics.go`, updated by `platform/view/services/comm/host/libp2p/bandwidthreporter.go`.
 
-### WebSocket Transport
+### WebSocket transport
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -201,7 +201,7 @@ Operational notes:
 
 Primary implementation: `platform/view/services/comm/host/websocket/ws/metrics.go`, updated by `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
 
-### View Service
+### View service
 
 The view service counts commands on every transport it is served on, gRPC (`fsc.grpc`) and HTTP (`fsc.web`) alike.
 
@@ -219,7 +219,7 @@ Operational notes:
 
 Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, updated in `platform/view/services/view/grpc/server/server.go`.
 
-### gRPC Connection Metrics
+### gRPC connection metrics
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -230,7 +230,7 @@ These counters are implemented by FSC's custom gRPC server stats handler. The ha
 
 Primary implementation: `platform/common/services/grpc/metrics.go`, with the custom stats handler in `platform/common/services/grpc/serverstatshandler.go`.
 
-### Connection State
+### Connection state
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -273,7 +273,7 @@ Operational notes:
 
 Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go`, `platform/fabric/core/generic/ordering/`, `platform/fabricx/core/finality/nlm.go`, `platform/fabricx/core/committer/queryservice/query.go` and `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
 
-### Database Pool
+### Database pool
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -289,7 +289,7 @@ The `data_source` label is `host:port/dbname` of the first host in the data sour
 
 Primary implementation: `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
 
-### Fabric Ordering
+### Fabric ordering
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -299,7 +299,7 @@ The CFT broadcaster increments this counter after the orderer returns `Status_SU
 
 Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updated in `platform/fabric/core/generic/ordering/cft.go` and `platform/fabric/core/generic/ordering/bft.go`.
 
-### Fabric Committer
+### Fabric committer
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
@@ -366,15 +366,15 @@ Operational notes:
 
 - `kind` is one of:
   - `invalid_tx`: a transaction received from a peer that failed `endorser.ValidateReceived`
-    (see [Security Model](../security-model.md#data-received-from-peers)).
+    (see [Security model](../security-model.md#data-received-from-peers)).
   - `binding_refused`: a bind that would have stored a known long-term identity, one with a
     resolver or a self-row, as another identity's ephemeral. The row is not written (see
-    [Security Model](../security-model.md#identity-bindings)).
+    [Security model](../security-model.md#identity-bindings)).
   - `binding_conflict`: an unproven bind of an ephemeral already bound to a different long-term
     identity. The existing row is kept.
   - `recipient_proof`: a recipient identity received in a recipient exchange without a valid
     proof of ownership. Nothing is bound (see
-    [Security Model](../security-model.md#recipient-proof-of-ownership)). It names the counterparty's
+    [Security model](../security-model.md#recipient-proof-of-ownership)). It names the counterparty's
     node identity as the peer, and no txID. The warn line gives one of these reasons:
     - `missing`: no proof. The peer has not been upgraded yet; expected in a burst while
       organizations upgrade.
@@ -394,7 +394,7 @@ Operational notes:
     view. The same refusal is counted as `fsc_view_services_view_p2p_rejections{reason="unauthorized"}`.
   - `store_conflict`: a write to a write-once store that differs from the record already stored
     under the same key. The stored record is kept (see
-    [Security Model](../security-model.md#write-once-stores)). It names the txID. `endorseView`
+    [Security model](../security-model.md#write-once-stores)). It names the txID. `endorseView`
     names the remote peer of the write that conflicted, which is not necessarily the party that
     wrote the stored record; the committer names no peer.
 - `binding_refused` and `binding_conflict` name the long-term identity of the bind as the peer, and
@@ -431,7 +431,7 @@ Operational notes:
 
 Primary implementation: `platform/common/core/generic/vault/metrics.go`, updated in `platform/common/core/generic/vault/vault.go`.
 
-## Trace-Derived Metrics
+## Trace-derived metrics
 
 FSC wraps the tracing provider so that every tracer can export two metric families:
 
@@ -440,7 +440,7 @@ FSC wraps the tracing provider so that every tracer can export two metric famili
 
 Unless otherwise stated, the duration is recorded in seconds and uses the default Prometheus histogram buckets.
 
-### View and API Tracers
+### View and API tracers
 
 | Metric Base | Labels | Description |
 | --- | --- | --- |
@@ -462,7 +462,7 @@ Primary implementation:
 - `platform/view/services/view/grpc/server/server.go`
 - `platform/view/services/view/grpc/server/view.go`
 
-### Comm and Transport Tracers
+### Comm and transport tracers
 
 | Metric Base | Labels | Description |
 | --- | --- | --- |
@@ -470,7 +470,7 @@ Primary implementation:
 
 Primary implementation: `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
 
-### Fabric Tracers
+### Fabric tracers
 
 | Metric Base | Labels | Description |
 | --- | --- | --- |
@@ -491,7 +491,7 @@ Primary implementation:
 - `platform/fabric/core/generic/committer/metrics.go`
 - `platform/fabric/core/generic/committer/committer.go`
 
-### Common Tracers
+### Common tracers
 
 | Metric Base | Labels | Description |
 | --- | --- | --- |
@@ -505,7 +505,7 @@ Primary implementation:
 - `platform/common/core/generic/committer/listenermgr.go`
 - `platform/common/core/generic/committer/finality.go`
 
-## Label Reference
+## Label reference
 
 The following labels are part of the current FSC metric surface.
 
@@ -524,7 +524,7 @@ The following labels are part of the current FSC metric surface.
 | `kind` | Security check that rejected input from a remote peer | `invalid_tx`, `binding_refused`, `binding_conflict`, `recipient_proof`, `unauthorized`, `store_conflict` |
 | `network` | Fabric network name | deployment-specific network name |
 | `peer` | Remote libp2p peer identifier | peer ID string |
-| `protocol` | Libp2p protocol identifier | protocol ID string |
+| `protocol` | libp2p protocol identifier | protocol ID string |
 | `reason` | Why the view service rejected a request, the P2P service refused a first message, or a transport refused a stream | `stale`, `replay`, `denied`, `busy` on `*_requests_rejected`; `busy`, `node_busy`, `draining`, `unknown_view`, `unauthorized`, `authorizer_error`, `no_common_version` on `fsc_view_services_view_p2p_rejections`; `version` on `*_rejected_streams` |
 | `side` | WebSocket connection side | `client`, `server` |
 | `status` | Committer handler outcome classification | `not_found`, `failure`, `successful` |

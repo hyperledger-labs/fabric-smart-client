@@ -82,7 +82,7 @@ endorsement as that party's: the endorsement check accepts an endorser bound to 
 
 The proof, carried in `RecipientData.Proof`, is X's signature over:
 
-```
+```text
 0x00 || tag || sessionID || contextID || signerNode || verifierNode || X
 ```
 

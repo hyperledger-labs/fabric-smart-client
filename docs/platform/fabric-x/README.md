@@ -1,4 +1,4 @@
-# Fabric-x Platform Driver
+# Fabric-x platform driver
 
 > NOTE: The Fabric-x driver is experimental: it may be incomplete or contain bugs, lacks security and performance hardening, and is not for production use.
 
@@ -8,7 +8,7 @@ The **Fabric Smart Client (FSC)** includes support for [Fabric-x](https://github
 
 The Fabric-x platform driver builds on the existing Fabric platform implementation and replaces only the components necessary for Fabric-x-specific functionality, such as the transaction processing component. 
 
-## Application Node
+## Application node
 
 To use the Fabric-x platform within an FSC application node, you need to install the Fabric-x [SDK](../../../platform/fabricx/sdk/dig/sdk.go):
 
@@ -47,7 +47,7 @@ Views use the same APIs on Fabric-x as on Fabric: the transaction, endorsement a
 - `ch.Committer().ProcessNamespace` has no effect.
 - The vault's query executor does not support range queries (`GetStateRange`).
 
-## Notification Service (Transaction Finality)
+## Notification service (transaction finality)
 
 The notification service delivers realtime transaction finality events to FSC application nodes. It maintains a persistent bidirectional gRPC stream to the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s `SidecarService` (`OpenNotificationStream`), which pushes notifications as transactions are committed, invalidated, or timed out. The connection to the committer is re-used and shared among all active listeners for a given network and channel.
 
@@ -74,7 +74,7 @@ The committer's manager is the notification-stream manager wrapped in a `finalit
 
 The notification service is configured under `fabric.<network>.notificationService`: its endpoints, their TLS, `requestTimeout` and the handler pool settings. See [notification service tuning](configuration.md#notification-service-tuning).
 
-## Query Service
+## Query service
 
 The query service provides synchronous access to ledger state by connecting to the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s `Query` service over gRPC. It is used for operations such as retrieving transaction status and channel configuration.
 
@@ -94,7 +94,7 @@ An organization can run several committers, and a node lists every one of them u
 
 A call made while every committer is down fails with the error of the last attempt.
 
-## Integration Tests
+## Integration tests
 
 The Fabric-x integration tests run a mock orderer and one committer per organization in containers. [Fabric-x committers in integration tests](../../dev/integration-tests/fabricx-committers.md) covers the committer containers, their settings and an example topology.
 
@@ -102,7 +102,7 @@ The Fabric-x integration tests run a mock orderer and one committer per organiza
 
 A node picks up channel configuration changes, such as a new organization or new orderer endpoints, by polling the query service; see [Channel configuration updates](channelconfig.md).
 
-## Additional Resources
+## Additional resources
 
 - Fabric-x Repository: https://github.com/hyperledger/fabric-x
 - Fabric-x Committer: https://github.com/hyperledger/fabric-x-committer

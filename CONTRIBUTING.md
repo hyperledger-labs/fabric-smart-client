@@ -6,12 +6,12 @@ We appreciate your contributions to the Fabric Smart Client project. Any help is
 - [Code Contributions](#code-contributions)
 - [Submitting an Issue](#submitting-an-issue)
 
-## Code Contributions
+## Code contributions
 
 Read these in order:
 
 1. [Contribution Workflow](docs/dev/workflow.md): how issues are claimed and how a pull request
-   gets merged. Pick an issue labelled `status: ready for dev` from the
+   gets merged. Pick an issue labeled `status: ready for dev` from the
    [open, unassigned issues](https://github.com/hyperledger-labs/fabric-smart-client/issues?q=is%3Aissue+is%3Aopen+no%3Aassignee+label%3A%22status%3A+ready+for+dev%22)
    and claim it by commenting `/assign`. Each issue has a skill level, and new contributors
    start with `skill: good first issue` (see the [Skill System](docs/dev/workflow.md#skill-system)).
@@ -25,9 +25,9 @@ Read these in order:
    pull request early, squash it into one commit before requesting review, then mark it
    ready for review.
 
-## Submitting an Issue
+## Submitting an issue
 
-### Bug Reports
+### Bug reports
 
 **Ensure you are using the latest release of the Fabric Smart Client.** The bug may already be fixed.
 
@@ -38,9 +38,9 @@ Read these in order:
 The template will guide you through providing a description, steps to reproduce, expected vs. actual behavior, and
 environment details. The more reproducible the report, the faster a fix can land.
 
-Security vulnerabilities should be disclosed responsibly. Please see [SECURITY.md](SECURITY.md)
+Security vulnerabilities should be disclosed responsibly. Please see [SECURITY.md](SECURITY.md).
 
-### Feature Requests
+### Feature requests
 
 **Note:** If you intend to implement a feature yourself, please submit the request _before_ writing any code and
 ask to be assigned. Features are for user-facing capabilities: new platforms, services, API methods, etc.
@@ -59,7 +59,7 @@ improvements, CI/CD changes, test coverage, or enhancements to existing features
 2. Verify the work has not already been proposed.
 3. Click **New Issue** and choose the **Task** template.
 
-### After Submitting
+### After submitting
 
 All three templates automatically apply `status: awaiting triage`. A maintainer will review the issue and prepare it for contributors.
 Once finalized, the issue will have `status: ready for dev` and can be claimed via `/assign`.

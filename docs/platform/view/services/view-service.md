@@ -1,10 +1,10 @@
-# View Service
+# View service
 
-The View Service is the core orchestration layer of the Fabric Smart Client (FSC) that manages the lifecycle of views, contexts, and inter-node communication protocols. It provides a high-level abstraction for executing business logic through views while handling session management, identity resolution, and distributed protocol coordination.
+The view service is the core orchestration layer of the Fabric Smart Client (FSC) that manages the lifecycle of views, contexts, and inter-node communication protocols. It provides a high-level abstraction for executing business logic through views while handling session management, identity resolution, and distributed protocol coordination.
 
 ## Overview
 
-The View Service enables developers to write business logic as "views" - self-contained units of work that can initiate protocols, respond to requests, and communicate with other FSC nodes. The service manages:
+The view service enables developers to write business logic as "views" - self-contained units of work that can initiate protocols, respond to requests, and communicate with other FSC nodes. The service manages:
 
 - **View Lifecycle**: Creation, execution, and cleanup of view instances
 - **Context Management**: Isolated execution environments for views with session and identity management
@@ -14,7 +14,7 @@ The View Service enables developers to write business logic as "views" - self-co
 
 ## Architecture
 
-### Core Components
+### Core components
 
 ```mermaid
 graph TB
@@ -40,7 +40,7 @@ graph TB
     Manager --> View
 ```
 
-#### View Manager
+#### View manager
 
 The `Manager` is the central orchestrator responsible for:
 
@@ -57,7 +57,7 @@ The `Manager` is the central orchestrator responsible for:
 - `RegisterFactory(id, factory)`: Registers a factory for creating views by ID
 - `RegisterResponder(responder, initiatedBy)`: Registers a responder view for a given initiator
 
-#### View Context
+#### View context
 
 The `Context` provides the execution environment for views, implementing the `view.Context` interface:
 
@@ -80,7 +80,7 @@ The `Context` provides the execution environment for views, implementing the `vi
 - `OnError(callback)`: Registers cleanup callbacks for error handling
 - `Dispose()`: Releases all resources (sessions, callbacks)
 
-#### Context Factory
+#### Context factory
 
 The `ContextFactory` creates view contexts with proper initialization:
 
@@ -94,7 +94,7 @@ The factory wires together:
 - Identity provider (for local identities)
 - Tracer (for observability)
 
-#### View Registry
+#### View registry
 
 The `Registry` manages view factories and responder mappings:
 
@@ -122,7 +122,7 @@ them.
 - Uses reflection to generate unique identifiers: `<package>/<type>`
 - Caches identifiers for performance
 
-#### Session Manager
+#### Session manager
 
 The `Sessions` component manages communication sessions within a context:
 
@@ -137,9 +137,9 @@ The `Sessions` component manages communication sessions within a context:
 - `GetFirstOpen(viewID, parties)`: Finds the first open session from a list of party identities
 - `Reset()`: Clears all sessions
 
-## View Lifecycle
+## View lifecycle
 
-### Initiator Flow
+### Initiator flow
 
 ```mermaid
 sequenceDiagram
@@ -185,7 +185,7 @@ sequenceDiagram
 7. **Completion**: View returns result
 8. **Cleanup**: Manager calls `context.Dispose()` and removes context from map
 
-### Responder Flow
+### Responder flow
 
 ```mermaid
 sequenceDiagram
@@ -244,9 +244,9 @@ sequenceDiagram
 
 Several responders can run in one context, for example when a node receives two sessions of the same protocol. Each responder runs on its own go context, so that one responder returning does not cancel another. The shared context, and every session registered in it, lives until the last responder releases it, either by returning or because its go context is done.
 
-## Context Types
+## Context types
 
-### Parent Context
+### Parent context
 
 The `Context` struct is the main implementation of `view.Context` and `ParentContext`. It provides:
 
@@ -256,7 +256,7 @@ The `Context` struct is the main implementation of `view.Context` and `ParentCon
 - Error callback registration
 - Cleanup and disposal
 
-### Child Context
+### Child context
 
 The `ChildContext` wraps a parent context to provide:
 
@@ -270,7 +270,7 @@ The `ChildContext` wraps a parent context to provide:
 - Temporarily acting as an initiator from a responder context
 - Isolating error handling for nested view executions
 
-### Wrapped Context
+### Wrapped context
 
 The `WrappedContext` wraps a parent context to provide a different `context.Context`:
 
@@ -278,9 +278,9 @@ The `WrappedContext` wraps a parent context to provide a different `context.Cont
 - Used for propagating cancellation, deadlines, and trace spans
 - Maintains the same view context semantics
 
-## Session Management
+## Session management
 
-### Session Lifecycle
+### Session lifecycle
 
 1. **Creation**: Sessions are created via `SessionFactory.NewSession` or `NewSessionWithID`
 2. **Caching**: Sessions are cached in the context's `Sessions` manager
@@ -288,7 +288,7 @@ The `WrappedContext` wraps a parent context to provide a different `context.Cont
 4. **Closure**: Sessions are closed when the context is disposed
 5. **Cleanup**: Session factory deletes each session by its ID and remote PKID
 
-### Session Scoping
+### Session scoping
 
 Sessions are scoped by:
 - **View ID**: The identifier of the calling view
@@ -296,7 +296,7 @@ Sessions are scoped by:
 
 This allows different views to have independent sessions to the same party.
 
-### Session Resolution
+### Session resolution
 
 When `GetSession(caller, party)` is called:
 
@@ -309,7 +309,7 @@ When `GetSession(caller, party)` is called:
 4. Create a new session to the resolved identity
 5. Cache and return the session
 
-## View Execution
+## View execution
 
 ### RunViewNow
 
@@ -333,7 +333,7 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (any, 
 7. **Error Handling**: On error, call `context.Cleanup()` to invoke error callbacks
 8. **Result Return**: Return the view's result
 
-### Run Options
+### Run options
 
 - `AsInitiator()`: Run as an initiator (sets `context.Initiator()`)
 - `AsResponder(session)`: Run as a responder with a specific session
@@ -342,16 +342,16 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (any, 
 - `WithContext(ctx)`: Use the Go context `ctx` and run in the parent view context (implies `WithSameContext()`)
 - `WithGoContext(ctx)`: Use the Go context `ctx` in a new child view context
 
-### Helper Functions
+### Helper functions
 
 - `Initiate(context, view)`: Shortcut for initiating a new protocol
 - `AsResponder(context, session, func)`: Temporarily act as a responder
 - `AsInitiatorCall(context, initiator, func)`: Temporarily act as an initiator
 - `RunCall(context, func)`: Execute a function as a view
 
-## Error Handling
+## Error handling
 
-### Error Callbacks
+### Error callbacks
 
 Contexts support registering error callbacks via `OnError(callback)`:
 
@@ -360,7 +360,7 @@ Contexts support registering error callbacks via `OnError(callback)`:
 - Callbacks are protected by panic recovery
 - Useful for resource cleanup (closing files, releasing locks, etc.)
 
-### Cleanup Process
+### Cleanup process
 
 When a view execution fails:
 
@@ -375,7 +375,7 @@ When a context is disposed:
 3. Closes each session instance the context holds, so a newer session with the same ID and party is not affected
 4. Removes the context from the manager's map
 
-### Panic Recovery
+### Panic recovery
 
 All view executions are wrapped in panic recovery:
 
@@ -384,9 +384,9 @@ All view executions are wrapped in panic recovery:
 - Error callbacks are still invoked
 - The error is returned to the caller
 
-## Service Provider
+## Service provider
 
-### Global Services
+### Global services
 
 The context has access to global services via `services.Provider`:
 
@@ -394,7 +394,7 @@ The context has access to global services via `services.Provider`:
 - Shared across all contexts
 - Retrieved via `context.GetService(type)`
 
-### Local Services
+### Local services
 
 Each context has a local `ServiceProvider`:
 
@@ -403,7 +403,7 @@ Each context has a local `ServiceProvider`:
 - Retrieved first before checking global services
 - Useful for context-specific dependencies (e.g., web streams)
 
-### Service Resolution
+### Service resolution
 
 When `GetService(type)` is called:
 
@@ -412,9 +412,9 @@ When `GetService(type)` is called:
 3. If not found, check global service provider
 4. Return error if not found in either
 
-## Remote View API Access Control
+## Remote view API access control
 
-The remote view API (gRPC and HTTP, see [View Service over HTTP](view-service-http.md)) passes
+The remote view API (gRPC and HTTP, see [View service over HTTP](view-service-http.md)) passes
 every command through one `server.PolicyChecker`, on unary and stream calls alike. The server
 calls it after validating the header and the binding to the client TLS certificate, and before
 the replay check, so a refused command is not remembered as accepted. The view SDK builds that
@@ -484,11 +484,11 @@ unchanged. A refused command ends with gRPC `Unavailable` (HTTP `503`, WebSocket
 and is counted as `requests_rejected` with reason `busy`. The bound is per node: one client can
 hold every slot. See [configuration](../../../configuration.md).
 
-## Integration with P2P Service
+## Integration with P2P service
 
-The View Service integrates with the P2P Service for handling incoming messages:
+The view service integrates with the P2P Service for handling incoming messages:
 
-### P2P Service Responsibilities
+### P2P service responsibilities
 
 1. **Message Reception**: Listens on the master session for incoming messages
 2. **Responder Lookup**: Queries the registry for the appropriate responder view
@@ -499,7 +499,7 @@ The View Service integrates with the P2P Service for handling incoming messages:
 
 The text sent is the raw error returned by the responder view (`err.Error()`), forwarded unmodified via `Session().SendError(context.WithoutCancel(viewCtx.Context()), ...)`. The runtime does not inspect or filter it — deciding what information is safe to disclose to a remote, potentially untrusted caller is the responder view's responsibility, not the P2P service's. See the [View API](../view-api.md#send-and-receive) for guidance on what responder views should and shouldn't return as errors.
 
-### Message Flow
+### Message flow
 
 ```mermaid
 sequenceDiagram
@@ -530,9 +530,9 @@ sequenceDiagram
     P2P->>Manager: release()
 ```
 
-## Best Practices
+## Best practices
 
-### View Development
+### View development
 
 1. **Keep Views Focused**: Each view should have a single, well-defined purpose
 2. **Use Sessions Wisely**: Cache sessions when possible, but be aware of their scope
@@ -540,21 +540,21 @@ sequenceDiagram
 4. **Avoid Long-Running Operations**: Views should complete in a reasonable time
 5. **Use Tracing**: Leverage the built-in tracing for observability
 
-### Context Management
+### Context management
 
 1. **Always Dispose**: Ensure contexts are disposed when no longer needed
 2. **Use Child Contexts**: For nested view executions or temporary role changes
 3. **Register Services Locally**: Use local services for context-specific dependencies
 4. **Avoid Context Leaks**: The manager tracks contexts; ensure they're deleted
 
-### Session Management
+### Session management
 
 1. **Reuse Sessions**: Let the context cache and reuse sessions
 2. **Close Explicitly**: Call `session.Close()` when done (or rely on context disposal)
 3. **Handle Session Errors**: Sessions can fail; handle errors appropriately
 4. **Understand Scoping**: Sessions are scoped by view and party
 
-### Error Handling
+### Error handling
 
 1. **Register Cleanup Callbacks**: Use `OnError` for resource cleanup
 2. **Handle Panics**: The framework recovers panics, but avoid them when possible
@@ -569,7 +569,7 @@ The remote view API is configured under `fsc.view.remote`:
 - `backends`: the transports it is served on, `grpc` (the `fsc.grpc` listener) and `web` (the HTTP binding on `fsc.web`).
 - `timeout`: execution timeout of views called remotely (default 2m).
 - `timeWindow`: how far a command's timestamp may be from the local clock (default 15m).
-- `clients`: identities, besides the node's own, allowed to call views (see [Remote View API Access Control](#remote-view-api-access-control)).
+- `clients`: identities, besides the node's own, allowed to call views (see [Remote view API access control](#remote-view-api-access-control)).
 - `maxMessageSize`: largest command the remote view API accepts.
 - `maxConcurrentRequests`: most commands run at once (see [Concurrent commands](#concurrent-commands)).
 
@@ -579,18 +579,18 @@ The [configuration reference](../../../configuration.md) describes each key.
 
 ### Metrics
 
-The View Service exports Prometheus metrics, among them:
+The view service exports Prometheus metrics, among them:
 
 - `fsc_view_services_view_contexts`: Current number of active contexts (gauge)
 - `fsc_shutdown_draining`: 1 while the node drains running views before it stops (gauge)
 - `fsc_view_services_view_p2p_rejections{reason}`: First P2P messages the node refused (counter)
 - `fsc_view_services_view_grpc_server_requests_rejected{reason}`: View API commands the server refused (counter)
 
-The full list, with labels and operational notes, is in the [Metrics Catalog](monitoring_metrics.md).
+The full list, with labels and operational notes, is in the [Metrics catalog](monitoring_metrics.md).
 
 ### Tracing
 
-The View Service integrates with OpenTelemetry for distributed tracing:
+The view service integrates with OpenTelemetry for distributed tracing:
 
 - Each view execution creates a new span
 - Spans include attributes: `view`, `initiator_view`, `success`
@@ -599,14 +599,14 @@ The View Service integrates with OpenTelemetry for distributed tracing:
 
 ### Logging
 
-The View Service uses structured logging:
+The view service uses structured logging:
 
 - Debug logs for view lifecycle events
 - Info logs for important state changes
 - Error logs for failures and panics
 - Context-aware logging with trace IDs
 
-## Code References
+## Code references
 
 | Component | File Path |
 | :--- | :--- |
@@ -623,10 +623,10 @@ The View Service uses structured logging:
 | Remote view service (gRPC) | `platform/view/services/view/grpc/server/` |
 | Remote view service (HTTP binding) | `platform/view/services/view/web/` |
 
-## Related Documentation
+## Related documentation
 
-- [View Service over HTTP](./view-service-http.md) - The view service's HTTP binding
+- [View service over HTTP](./view-service-http.md) - The view service's HTTP binding
 - [Communication Service](./comm/readme.md) - P2P communication layer
-- [Programming Model Guide](../programming-model.md) - How to write views
+- [Programming model guide](../programming-model.md) - How to write views
 - [View API](../view-api.md) - The contracts of views, contexts and sessions
 - [Configuration Guide](../../../configuration.md) - FSC configuration reference

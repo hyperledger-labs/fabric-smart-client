@@ -1,4 +1,4 @@
-# Mocks and Fakes
+# Mocks and fakes
 
 This document explains how test doubles are defined, generated, and maintained in FSC, and when to use each kind.
 

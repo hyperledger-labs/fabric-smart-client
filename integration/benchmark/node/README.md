@@ -1,8 +1,8 @@
-# Benchmarking Custom Views Tutorial
+# Benchmarking custom views tutorial
 
 This guide shows how to benchmark a custom `view.View` implementation using FSC's exported benchmark infrastructure from an external repository.
 
-## What You Implement
+## What you implement
 
 Your view must satisfy two interfaces from FSC:
 - [`view.View`](../../../platform/view/view/view.go) : the view logic itself
@@ -29,9 +29,9 @@ func (f *YourViewFactory) NewView(in []byte) (view.View, error) {
 }
 ```
 
-## File Structure
+## File structure
 
-```
+```text
 your-repo/
 ├── your_view.go                        # YourView + YourViewFactory
 ├── bench/
@@ -47,7 +47,7 @@ your-repo/
 - `node_bench_test.go` : benchmarks that run your view through a real FSC node (API and gRPC).
 - `remote/server/main.go` and `remote/client/main.go` : binaries for running benchmarks across two machines.
 
-## Define Your Workload
+## Define your workload
 
 Wrap your view in a [`node.Workload`](./bench_helpers.go) to plug into FSC's benchmark runners:
 
@@ -59,9 +59,9 @@ var yourWorkload = node.Workload{
 }
 ```
 
-## Benchmark Levels
+## Benchmark levels
 
-### 1. Standalone - Pure View Performance
+### 1. Standalone - pure view performance
 
 No FSC node, no gRPC. Directly benchmarks `Call()`.
 
@@ -86,7 +86,7 @@ func BenchmarkYourView(b *testing.B) {
 go test -bench=BenchmarkYourView -benchmem -count=5 -cpu=1,2,4,8 ./bench/
 ```
 
-### 2. Local Node - View API and gRPC
+### 2. Local node - View API and gRPC
 
 Spins up an FSC node in-process using [`node.GenerateConfig`](./benchmark.go) and [`node.SetupNode`](./benchmark.go).
 
@@ -141,7 +141,7 @@ go test -bench=BenchmarkYourViewAPI -benchmem -count=5 -cpu=1,2,4,8 ./bench/
 go test -bench=BenchmarkYourViewAPIGRPC -benchmem -count=5 -cpu=1,8,16 -numConn=1,2,4 ./bench/
 ```
 
-### 3. Remote - Two Machines
+### 3. Remote - two machines
 
 **Server** - register your factory and start the node:
 

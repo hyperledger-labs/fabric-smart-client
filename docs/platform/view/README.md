@@ -1,10 +1,10 @@
-# View Platform
+# View platform
 
 The View platform is the core runtime of the Fabric Smart Client. It provides the communication, orchestration, identity, and service model that higher-level platforms build on.
 
-## Start Here
+## Start here
 
-- [Programming Model Guide](programming-model.md): how to build an application around views, sessions and services
+- [Programming model guide](programming-model.md): how to build an application around views, sessions and services
 - [View API](view-api.md): the contracts of `view.View`, `view.Context`, `view.Session` and identities
 - [View platform configuration](configuration.md)
 - [View runtime security model](security-model.md)
@@ -33,7 +33,7 @@ The View platform is the core runtime of the Fabric Smart Client. It provides th
 - [Schema versioning](services/schema-versioning.md): adding versioned schema steps to a store
 - [Communication services](services/comm/readme.md)
 
-## Related Documentation
+## Related documentation
 
 - [Shared node configuration](../../configuration.md)
 - [Fabric platform](../fabric/README.md)

@@ -1,4 +1,4 @@
-# Communication (Comm) Service
+# Communication (comm) service
 
 The Communication (Comm) layer is the backbone of the Fabric Smart Client (FSC) P2P network. It provides a reliable, secure, and multiplexed communication channel between FSC nodes, allowing Views to exchange messages seamlessly across the network.
 
@@ -14,12 +14,12 @@ The Comm layer abstracts the underlying network transport and provides a session
 
 ### Components
 
-1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. A single dispatcher goroutine delivers incoming messages to the sessions (see [Delivery and Slow Consumers](#delivery-and-slow-consumers)).
+1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. A single dispatcher goroutine delivers incoming messages to the sessions (see [Delivery and slow consumers](#delivery-and-slow-consumers)).
 2.  **EndpointService**: The source of truth for peer identities and addresses. It manages resolvers that map PeerIDs to network endpoints and provides the public keys used for dynamic trust updates.
-3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket). The interface exposes `PeerID()`, which returns the local node's cryptographic peer identifier — the same value remote peers observe as `StreamInfo.RemotePeerID` and `SessionInfo.RemotePKID` when they connect to this node.
-4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `SendError`, `Receive`, `Close`) used by View developers. A session drops a stream as soon as reading from it fails, and closes when it is left without one (see [Reliability and Stability](#reliability-and-stability)).
+3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., libp2p, WebSocket). The interface exposes `PeerID()`, which returns the local node's cryptographic peer identifier — the same value remote peers observe as `StreamInfo.RemotePeerID` and `SessionInfo.RemotePKID` when they connect to this node.
+4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `SendError`, `Receive`, `Close`) used by View developers. A session drops a stream as soon as reading from it fails, and closes when it is left without one (see [Reliability and stability](#reliability-and-stability)).
 
-### Message Flow
+### Message flow
 
 1.  A View calls `context.GetSession(caller, party)`.
 2.  The Comm service queries the **EndpointService** to resolve the `party`'s network address and identity.
@@ -28,12 +28,12 @@ The Comm layer abstracts the underlying network transport and provides a session
 5.  Messages are wrapped in a `ViewPacket` (Protobuf) which includes session and context metadata.
 6.  On the receiving side, the `dispatchMessages` loop routes incoming packets to the correct `NetworkStreamSession` based on the `SessionID` and `PeerID`.
 
-## Transport Types
+## Transport types
 
 FSC supports different transport types, each suited for different deployment scenarios.
 
-### [Libp2p](./libp2p.md)
-A P2P stack based on the `libp2p` library, over TCP with Noise or TLS. Like websocket, it dials each peer at the P2P address from the endpoint resolver.
+### [libp2p](./libp2p.md)
+A P2P stack based on the `libp2p` library, over TCP with Noise or TLS. Like WebSocket, it dials each peer at the P2P address from the endpoint resolver.
 
 ### [WebSocket](websocket.md)
 A lightweight transport suitable for environments where standard HTTP/HTTPS ports are preferred. It uses standard HTTPS for handshakes and upgrades to WebSockets for communication.
@@ -43,7 +43,7 @@ A lightweight transport suitable for environments where standard HTTP/HTTPS port
 Security is integrated at every level of the Comm stack:
 
 -   **Node Identity**: All transport implementations use the node's main identity (configured via `fsc.identity.key.file` and `fsc.identity.cert.file`) for securing the transport layer.
--   **Transport Security**: All communication is encrypted and authenticated at the transport layer (e.g., mTLS for Websocket, Noise/TLS for Libp2p).
+-   **Transport Security**: All communication is encrypted and authenticated at the transport layer (e.g., mTLS for WebSocket, Noise/TLS for libp2p).
 -   **Identity Binding**: The identity asserted in the application layer is validated against the cryptographically verified identity from the transport layer. This ensures that the remote peer's identity is a verified source of truth.
 -   **Session Identity Exposure**: Each `NetworkStreamSession` populates `SessionInfo.RemotePKID` with the cryptographically verified remote peer ID and `SessionInfo.LocalPKID` with the local node's peer ID (obtained via `P2PHost.PeerID()`). Both fields are available to view code through `session.Info()`, enabling symmetric identity resolution and signing without out-of-band lookups.
 -   **Session Isolation**: All logical sessions are internally identified by a combination of the `SessionID` and the **authenticated** `PeerID` of the remote participant. This prevents attackers from injecting messages into sessions between other peers.
@@ -69,7 +69,7 @@ Every stream opens with a preamble (`platform/view/services/comm/preamble`), so 
 
 | Transport | Client to server | Server to client | Refusal |
 |-----------|------------------|------------------|---------|
-| WebSocket | `StreamMeta.preamble`, on every sub-connection | `Fsc-Preamble` header (base64) on the upgrade response | a server answers the sub-connection with an Err frame and keeps the websocket; a client closes the websocket it dialed |
+| WebSocket | `StreamMeta.preamble`, on every sub-connection | `Fsc-Preamble` header (base64) on the upgrade response | a server answers the sub-connection with an Err frame and keeps the WebSocket; a client closes the WebSocket it dialed |
 | libp2p | one length-prefixed frame in each direction when a `/fsc/view/2.0.0` stream opens, within 30 seconds or the dialer's context | same | the stream is reset |
 
 On WebSocket this is the multiplexed provider, which nodes use; the test-only `SimpleProvider` neither sends nor checks a preamble. The size limits are part of the format and never shrink, so a node never refuses a preamble that an older release accepts.
@@ -96,44 +96,44 @@ A first message, one that reaches the master session, either starts a responder 
 -   **No loops**: A first message with status `ERROR` or an empty caller is dropped without a reply and starts no responder. Error replies are such messages, so two nodes cannot answer each other's rejections. A late message from a responder whose initiator session is gone is usually dropped this way; if the initiator sent more than one message on that session, it carries the initiator's view as caller and gets an `unknown_view` reply, which is dropped in turn.
 -   **Bounded cost**: Rejections share the per-peer and node-wide bounds on pending rejections described above. An authorizer's `unauthorized` or `authorizer_error` reply is the exception: it is sent from the responder slot the message already holds, so it is bounded by the responder limits instead. A peer that stops reading holds its rejection slots until its stream resets, so with `fsc.p2p.maxResponders` set it can fill the node-wide bound, and other peers' over-limit messages are dropped instead of rejected until then; their responders are unaffected. A rejection is written only to a stream to the peer that already exists (on WebSocket, the sub-connection the message arrived on; on libp2p, any live stream to that peer). It never opens a connection and never registers a session, so it cannot disturb a responder that uses a session with the same ID. If no stream is left, the rejection is dropped.
 -   **Typed errors on the initiator**: `session.RejectionError` (`platform/view/services/comm/session`) turns an error reply into an error whose text is `received error from remote [<payload>]`, the same for every reply. For a payload that starts with a reason above it also wraps `session.ErrRejected` and the reason's sentinel, so code can test it with `errors.Is`: `ErrUnknownView`, `ErrBusy` (`busy` and `node_busy`), `ErrDraining`, `ErrUnauthorized` or `view.ErrNoCommonVersion`; `authorizer_error` wraps only `ErrRejected`. Any other error reply, such as one a responder sends with `SendError`, wraps nothing. The receive helpers in that package (`ReadMessageWithTimeout`, `ReadFirstMessage`, `ReadFirstMessageOrPanic` and the JSON session's `Receive`) return these errors. The reason is what the remote node claims: a responder can send the same text with `SendError`, so treat it as a hint for retrying or reporting, not as proof that a check ran. The view API carries a remote view's error as text, so a client of a view that failed this way matches the text.
--   **Redial after `draining`**: An initiator whose session gets a `draining: ` reply retires its cached connections to that peer (`host.RetiringHost`; on WebSocket, the multiplexed websocket). Sessions already open on them keep working, and the next session dials again, so a load balancer in front of the peer's replicas can route it to a replica that is not draining.
+-   **Redial after `draining`**: An initiator whose session gets a `draining: ` reply retires its cached connections to that peer (`host.RetiringHost`; on WebSocket, the multiplexed WebSocket). Sessions already open on them keep working, and the next session dials again, so a load balancer in front of the peer's replicas can route it to a replica that is not draining.
 -   **Observability**: Rejections are logged at debug level only, since the peer controls their rate; `fsc_view_services_view_p2p_rejections{reason}` counts them (see [Metrics](../monitoring_metrics.md#p2p-service)).
 
-## Trust and Access Control
+## Trust and access control
 
 The Communication layer enforces strict access control at the transport level. A remote node can only establish a connection if it is explicitly trusted by the local node.
 
-### Trust Management
+### Trust management
 FSC uses a **Certificate Authority (CA) model** and **Public Key Infrastructure (PKI)** to manage trust:
 - **Static Trust**: Initial trust is established through the root CA certificates configured in the node's `core.yaml`.
 - **Dynamic Trust**: The Comm layer integrates with the **EndpointService**. When the system resolves a peer's identity and retrieves its public key (e.g., from a network-wide resolver or a discovery service), that public key is automatically added to the node's trusted set for subsequent handshakes.
 
-### Connection Authorization
+### Connection authorization
 - **Mutual Authentication**: Both parties must present credentials (TLS certificates or Noise public keys) that are signed by a trusted CA or match a known public key in the `EndpointService`.
 - **Identity Enforcement**: The transport layer rejects connections from any node that cannot prove possession of the private key corresponding to its claimed identity.
 - **Revocation**: A change to a peer's trust applies to new handshakes. The WebSocket transport does not close established connections when a peer is removed (see [WebSocket](websocket.md)).
 
-## Performance and Flow Control
+## Performance and flow control
 
-### Concurrent Message Dispatching
-The `P2PNode` dispatches incoming messages with a single dispatcher goroutine (`DefaultDispatcherWorkers = 1`), which keeps each session's messages in arrival order. Delivery never blocks, so a single slow or stalled session does not block the entire node (see [Delivery and Slow Consumers](#delivery-and-slow-consumers)).
+### Concurrent message dispatching
+The `P2PNode` dispatches incoming messages with a single dispatcher goroutine (`DefaultDispatcherWorkers = 1`), which keeps each session's messages in arrival order. Delivery never blocks, so a single slow or stalled session does not block the entire node (see [Delivery and slow consumers](#delivery-and-slow-consumers)).
 
-### Atomic Stream Leasing
+### Atomic stream leasing
 The Comm layer uses an **atomic lease mechanism** to prevent race conditions between sending messages and closing streams. When a session attempts to use a cached stream, it must successfully "lease" the stream by atomically incrementing its reference counter (`refCtr`) using compare-and-swap operations. This ensures that:
 - A stream cannot be leased if it's already marked as closed or dead
 - Multiple sessions can safely share the same physical stream
-- On a host with per-session streams (websocket), the stream is closed when all leases are released (refCtr reaches 0). A host whose streams are shared by all sessions to a peer (libp2p, see [libp2p.md](libp2p.md)) keeps the stream open, because the remote may still reply on it for another session
+- On a host with per-session streams (WebSocket), the stream is closed when all leases are released (refCtr reaches 0). A host whose streams are shared by all sessions to a peer (libp2p, see [libp2p.md](libp2p.md)) keeps the stream open, because the remote may still reply on it for another session
 - The first message sent over a freshly created stream is delivered reliably even if concurrent operations attempt to close it
 
 This prevents the race condition where a message appears to send successfully but the stream is closed immediately after, causing the remote peer to receive an EOF and drop the message.
 
-### Delivery and Slow Consumers
+### Delivery and slow consumers
 A single dispatcher goroutine delivers incoming messages to every session, which keeps each session's messages in arrival order. It never waits for a session's consumer, so a consumer that stops reading cannot hold up the others.
 
 - **Internal Buffering**: Each session queues up to 2048 unread messages (two channels of 1024).
 - **Full Queue**: A message for a full session is dropped and counted in `dropped_messages`, and the session is closed, so the consumer never receives a message that follows a dropped one. The master session is never closed this way: closing it would stop the node accepting new sessions. A session leaves the registry when it closes. Messages for a session that closed on its own, after a full queue or the loss of its streams, are dropped for a minute instead of reaching the master session, so they do not start a new responder.
 
-## Reliability and Stability
+## Reliability and stability
 
 - **Race-Free State Management**: All shared metadata are protected by synchronized mutexes and atomic flags. Stream handlers use atomic operations for lifecycle management (`closed`, `dead`, `refCtr`) to prevent race conditions between concurrent send and close operations.
 - **Synchronized Stream Operations**: The `streamHandler.close()` method acquires the stream lock to synchronize with concurrent `send()` operations, preventing corruption of in-flight messages.
@@ -143,7 +143,7 @@ A single dispatcher goroutine delivers incoming messages to every session, which
 
 ## Usage
 
-### For View Developers
+### For view developers
 Views typically interact with the Comm layer indirectly through the `view.Context`:
 
 ```go
@@ -160,7 +160,7 @@ err = session.Send(context.Background(), []byte("Hello Peer"))
 msg := <-session.Receive()
 ```
 
-### Best Practices
+### Best practices
 1.  **Always Close Sessions**: Explicitly calling `session.Close()` frees its streams and its registry entry immediately.
 2.  **Handle Receive Timeouts**: Don't wait indefinitely on `session.Receive()`. Use a `select` block with a timeout or `context.Done()`.
 3.  **Monitor Session Closures**: Handle session closure errors gracefully in your View logic.
@@ -184,7 +184,7 @@ fsc:
     streamReaderBufferSize: 4096
 ```
 
-For transport-specific configuration options and detailed examples, see the [Libp2p](./libp2p.md) and [WebSocket](websocket.md) documentation.
+For transport-specific configuration options and detailed examples, see the [libp2p](./libp2p.md) and [WebSocket](websocket.md) documentation.
 
 ## Observability
 

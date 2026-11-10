@@ -1,4 +1,4 @@
-# Contribution Workflow
+# Contribution workflow
 
 The Fabric Smart Client project adopts the contribution workflow developed by the [Hiero community](https://github.com/hiero-ledger/hiero-sdk-python), presented at LFDT Maintainer Days ([recording](https://www.youtube.com/watch?v=I87WCpiXOOs)).
 
@@ -7,9 +7,9 @@ The process is designed to:
 - Give external contributors a clear path to claim and deliver work.
 - Keep issues and PRs moving without requiring constant manual intervention from maintainers.
 
-## Issue Lifecycle
+## Issue lifecycle
 
-### Issue Types
+### Issue types
 
 Every issue should have a type:
 
@@ -34,7 +34,7 @@ Maintainers may also apply a priority label — `priority: critical`, `priority:
 optional: an issue with no priority label is perfectly normal. It becomes required only
 when finalizing through `/finalize`, which refuses to run without exactly one.
 
-### Skill System
+### Skill system
 
 Every issue carries a skill-level label that determines who can claim it:
 
@@ -49,13 +49,13 @@ When you comment `/assign`, the bot verifies your prerequisite count. If the che
 
 A contributor who has already completed any issue at a given level or higher automatically satisfies prerequisites for lower levels.
 
-### Creating an Issue
+### Creating an issue
 
 Anyone may open an issue using the **Bug Report**, **Feature**, or **Task** template. New issues start untriaged.
 
 Maintainers and core contributors review new issues and apply `status: ready for dev` once the issue is well-defined, scoped, and accepted.
 
-#### Writing a Good Description
+#### Writing a good description
 
 The template's fields *are* the expected structure: keep the `### ` headings it
 generates and write your content underneath them.
@@ -79,13 +79,13 @@ Leave `Additional Information` empty when you have nothing to add — `_No respo
 `Optional.` are both treated as empty, so filler costs a reader time without telling
 them anything.
 
-#### Parent and Child Issues
+#### Parent and child issues
 
 For larger efforts, a **parent issue** may be opened to capture the overall goal, with individual **child issues** that are well scoped and actionable.
 Each child issue is the unit of assignment, `status: ready for dev` labeling, and PR linking.
 Note that dependencies between children can be expressed using the `Marked as blocked by` relationship.
 
-### Claiming an Issue
+### Claiming an issue
 
 Contributors must claim an issue **before** opening a PR:
 
@@ -99,7 +99,7 @@ Contributors must claim an issue **before** opening a PR:
 
 Maintainers may assign any contributor directly — this bypasses all bot eligibility checks.
 
-### Issue Inactivity
+### Issue inactivity
 
 Once assigned, the bot monitors activity (comments, linked PR events):
 
@@ -112,9 +112,9 @@ Issues carrying `status: blocked` are exempt from the above timeline. Instead, t
 
 The 7-day unassignment window is intentionally short to keep the queue moving. For issues of higher complexity, a maintainer may manually extend the window or re-assign as appropriate.
 
-## Pull Request (PR) Lifecycle
+## Pull request (PR) lifecycle
 
-### Linking a PR to an Issue
+### Linking a PR to an issue
 
 Every PR opened by a contributor must:
 1. Reference an open issue carrying `status: ready for dev`, using a closing keyword in the PR description (e.g. `Fixes #123`).
@@ -124,7 +124,7 @@ PRs by maintainers, core contributors, and `dependabot` are exempt from both req
 
 If either condition is not met for a contributor's PR, the bot posts a warning comment.
 
-### Writing a PR Description
+### Writing a PR description
 
 There is no PR template; this is the convention:
 
@@ -141,10 +141,10 @@ it. The PR title should read like the final commit subject below.
 
 ### Tests
 
-New functionality comes with tests, in the same PR. A change that adds or alters behaviour
+New functionality comes with tests, in the same PR. A change that adds or alters behavior
 is expected to add or extend an automated test that covers it:
 
-- new or changed behaviour inside a package → a unit test in that package
+- new or changed behavior inside a package → a unit test in that package
 - a new user-facing capability, or anything spanning nodes and the ledger → an integration
   test target, or a case added to an existing one
 - a bug fix → a test that fails before the fix and passes after it
@@ -158,7 +158,7 @@ coverage on every PR, so untested new code shows up as a coverage drop.
 The [Testing Guide](testing.md) covers the frameworks and conventions, and
 the [Development Guide](development.md#running-tests) covers the commands.
 
-### Commit Hygiene
+### Commit hygiene
 
 Every PR is merged as a **single squashed commit**, and the branch reaches that state in
 four steps:
@@ -184,11 +184,11 @@ review, but none of them belong in the merged message. Use the
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format already in
 use on `main`, appending `!` to the scope for a breaking change:
 
-```
+```text
 <type>(<scope>): <short imperative summary>
 ```
 
-```
+```text
 fix(fabricx): report the status of an already-final transaction
 test(integration): run libp2p in four targets instead of nine
 refactor(storage)!: replace squirrel with an internal SQL builder
@@ -259,14 +259,14 @@ commit plus fixups, but it composes the message out of the concatenated commit s
 so whoever merges has to rewrite it in the merge dialog. Squashing locally is preferred:
 you keep control of the message, and the branch is mergeable without an override.
 
-### Keeping the Guides Current
+### Keeping the guides current
 
 A change that leaves the documentation wrong is not finished: update it in the same PR.
 [Writing Documentation](documentation.md) says which page covers what, how pages are
 written, and what a reviewer asks for. Changes to the contribution, review or release
 process go in this document.
 
-### PR Labels
+### PR labels
 
 | Label                    | Meaning                                                                               |
 |--------------------------|---------------------------------------------------------------------------------------|
@@ -289,7 +289,7 @@ release notes by these labels:
 
 Do not set these labels by hand: the check overwrites them from the title.
 
-### PR Inactivity
+### PR inactivity
 
 | Threshold                                                   | Action                                                                     |
 |-------------------------------------------------------------|----------------------------------------------------------------------------|
@@ -300,7 +300,7 @@ Do not set these labels by hand: the check overwrites them from the title.
 
 When a PR is auto-closed, the linked issue is also reset: the assignee is removed and the label reverts to `status: ready for dev`. The contributor may re-claim the issue by commenting `/assign`.
 
-### PR Checks
+### PR checks
 
 When a PR opens, a bot checks the DCO sign-off, the GPG signatures, merge conflicts and the
 linked issue. `pr-title` checks that the title follows Conventional Commits and, once the
@@ -319,7 +319,7 @@ the `make` target that runs each locally, are listed in
 
 Maintainers and core contributors are exempt from all assignment and PR-linking rules described above. PRs from `dependabot` are also exempt. Maintainers may directly assign any contributor to any issue at any time, bypassing eligibility checks.
 
-### Maintainer and Core Contributor Commands
+### Maintainer and core contributor commands
 
 | Command     | Who can use                       | Effect                                                                                                                                                                  |
 |-------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

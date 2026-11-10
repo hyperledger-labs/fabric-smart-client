@@ -10,7 +10,7 @@ After the example:
 
 - [Migrating TLS configuration](#migrating-tls-configuration)
 - [Overriding configuration keys](#overriding-configuration-keys)
-- [HSM Support](#hsm-support)
+- [HSM support](#hsm-support)
 - [Persistence: sqlite/postgres](#persistence-sqlitepostgres), including [Query timeout](#query-timeout) and [Postgres errors](#postgres-errors)
 
 The platform pages explain settings that need more than a comment: [Fabric](platform/fabric/configuration.md), [Fabric-x](platform/fabric-x/configuration.md) and [View](platform/view/configuration.md).
@@ -1088,10 +1088,10 @@ CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web
 CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
 ```
 
-## HSM Support
+## HSM support
 
 In order to use a hardware HSM for x.509 identities, you have to build the application with
-`CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11 settings as describe above.
+`CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11 settings as described above.
 
 ## Persistence: sqlite/postgres
 
@@ -1105,7 +1105,7 @@ reasons to choose sql may include:
 
 The driver has been tested with the following sql drivers:
 
-- SQLite: (pure go): modernc.org/sqlite
+- SQLite (pure Go): modernc.org/sqlite
 - Postgres (pure Go): github.com/jackc/pgx/v5/stdlib
 
 In theory you can use any [sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in your application.
@@ -1154,7 +1154,7 @@ fsc:
 
 Unless `skipPragmas` is `true`, FSC adds these pragmas to the dataSource as `_pragma` parameters:
 
-```
+```text
 _pragma=busy_timeout(5000)
 _pragma=journal_mode(WAL)
 _pragma=synchronous(NORMAL)

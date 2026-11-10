@@ -1,4 +1,4 @@
-# Writing Documentation
+# Writing documentation
 
 FSC's documentation has two audiences: the people who use and develop FSC, and the coding
 agents that work in the repository. This page says where each kind of documentation lives,
@@ -31,7 +31,7 @@ people, and the agent page links to it.
 | Command-line tools | `docs/reference/` |
 | What an operator does when upgrading from one release to the next | `docs/upgrade/<from>-to-<to>.md` |
 | Setting up a development environment, building, running tests, CI | [`docs/dev/development.md`](development.md) |
-| How the code is organised and the conventions it follows | [`docs/dev/architecture.md`](architecture.md), [`docs/dev/conventions.md`](conventions.md) |
+| How the code is organized and the conventions it follows | [`docs/dev/architecture.md`](architecture.md), [`docs/dev/conventions.md`](conventions.md) |
 | Writing unit tests and fuzz targets | [`docs/dev/testing.md`](testing.md) |
 | Writing and running integration tests | [`docs/dev/integration-tests/`](integration-tests/README.md) |
 | Contribution process: issues, commits, pull requests, review | [`docs/dev/workflow.md`](workflow.md), [`CONTRIBUTING.md`](../../CONTRIBUTING.md) |
@@ -76,10 +76,10 @@ it.
 - **History is an input, not a subject.** Inspect commits, PRs and issues freely while
   investigating why the code looks the way it does; document the resulting design, not the
   investigation. Linking an issue for extra context is fine as long as the page still
-  explains the behaviour on its own.
+  explains the behavior on its own.
 - **Godoc** covers what an exported package, type or function represents, its
   responsibilities, guarantees, preconditions, concurrency and lifecycle requirements,
-  error behaviour, and semantics not obvious from the signature. It never says why the code
+  error behavior, and semantics not obvious from the signature. It never says why the code
   changed, what the old version did or which PR introduced it. Comments must stay useful
   with no git history available. Style: [Conventions → Godoc](conventions.md#godoc).
 - **Write for maintainers**: responsibilities and ownership, component relationships,
@@ -93,12 +93,12 @@ it.
 A change that leaves the documentation wrong is not finished. Update it in the same PR,
 in the same commit as the code:
 
-- Godoc when behaviour or semantics change.
+- Godoc when behavior or semantics change.
 - The page for people from the table above when architecture, configuration, metrics,
   commands, `make` targets, CI checks or test prerequisites change.
 - `AGENTS.md` or `docs/agents/` only when a rule agents must follow changes, after the page
   for people that explains it.
-- Documentation for behaviour that no longer exists is deleted. Historical wording is not
+- Documentation for behavior that no longer exists is deleted. Historical wording is not
   kept just because it was once accurate.
 
 Reviewers ask for the documentation update rather than filing a follow-up: the author has

@@ -1,4 +1,4 @@
-# Development Guide
+# Development guide
 
 This document provides guidelines and steps for setting up your local development environment for the **Fabric Smart Client (FSC)**.
 
@@ -29,7 +29,7 @@ git remote add upstream https://github.com/hyperledger-labs/fabric-smart-client.
 git fetch upstream
 ```
 
-## Setting Up Developer Tools
+## Setting up developer tools
 
 FSC provides several helper tools for building, testing, and monitoring.
 Install them using:
@@ -86,7 +86,6 @@ exception: `make` retags them to fixed local names (`fsc.itests/postgres:latest`
 resolves short image names differently from Docker and the peer configuration names the
 Fabric images.
 
-
 ### Fabric-x
 
 Install Fabric-x configuration tools and Docker images:
@@ -117,12 +116,12 @@ One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
 > Do *not* store the Fabric binaries inside your fabric-smart-client repository.
 > Doing so may cause integration tests to fail when installing chaincode.
 
-## Running Tests
+## Running tests
 
 FSC includes both unit tests and integration tests.
-Integration tests are powered by the NWO (Network Orchestrator), which programmatically creates DLT networks and FSC application nodes.
+Integration tests are powered by `nwo` (Network Orchestrator), which programmatically creates DLT networks and FSC application nodes.
 
-### Code Checks
+### Code checks
 
 `make checks` runs the linter and `go fix` across every module in the repository, and checks
 that no page for people links into `docs/agents/` (see
@@ -153,7 +152,7 @@ Run `make list-go-modules` to see which modules these targets cover.
 > gofmt -l $(git ls-files '*.go')
 > ```
 
-### Unit Tests
+### Unit tests
 
 Run all unit tests:
 ```bash
@@ -199,7 +198,7 @@ To reproduce the filtered local coverage used in CI:
 make coverage-local
 ```
 
-### Integration Tests
+### Integration tests
 
 [Integration Tests](integration-tests/README.md) lists the suites and what each covers. This
 section covers running them.
@@ -258,7 +257,7 @@ already in use`. Targets share these resources:
 
 CI runs each target as a job on its own runner, so this applies only locally.
 
-### What CI Gates
+### What CI gates
 
 CI gates every pull request on the following. It drives the linter through
 `golangci-lint-action` and `go fix` through its own workflow rather than through these
@@ -306,7 +305,7 @@ checkout, a second clone or a git worktree, can therefore surface
 findings against files outside the tree you are linting. The giveaway is a path that
 leaves your working directory:
 
-```
+```text
 ../other-worktree/node/start/profile/profile_test.go:119:1: ...
 ```
 
@@ -382,7 +381,7 @@ go test -race -coverprofile=cov.out ./platform/common/utils/dig
 go tool cover -func=cov.out
 ```
 
-## Dependency Management
+## Dependency management
 
 FSC is a multi-module repository. Use [`scripts/gomate.sh`](../../scripts/gomate.sh) to manage Go dependencies across all modules at once.
 
@@ -423,12 +422,12 @@ often needs matching non-dependency changes across modules, so they're updated b
 with `gomate.sh update` on a regular cadence instead of arriving as unreviewed weekly noise.
 
 Dependabot's `ignore` suppresses both the weekly version-update PRs and the
-auto-generated security-update PRs for these deps -- there's no config to scope it to
+auto-generated security-update PRs for these deps; there's no config to scope it to
 one or the other. A GHSA against any of them still shows up as a Dependabot alert (the
 repo's Security tab), it just won't arrive as a ready-made PR; treat that alert the
 same as a routine bump and patch it by hand.
 
-## Write Your Own Integration Test
+## Write your own integration test
 
 [Authoring Integration Tests](integration-tests/authoring.md) walks through a new suite: its
 directory and files, the topology, and registering its `make` target.

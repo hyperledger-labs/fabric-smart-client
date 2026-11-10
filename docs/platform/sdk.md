@@ -47,7 +47,7 @@ This project provides the following SDKs as a base:
   * Logging
   * Metrics
   * Event publisher/subscriber
-* **Fabric SDK:** Built on top of ViewSDK, it adds following functionality:
+* **Fabric SDK:** Built on top of ViewSDK, it adds the following functionality:
   * Config service for Fabric
   * Network provider for connection to the Fabric network
   * Finality handlers
@@ -59,7 +59,7 @@ This project provides the following SDKs as a base:
 
 If new functionality is needed for the purposes of an application, this can be added with the definition of a new SDK that builds on top of the SDK(s) that contain the services we depend on.
 
-Hence, by defining a new SDK, we achieve following goals:
+Hence, by defining a new SDK, we achieve the following goals:
 * Leverage services provided by other SDKs by combining them and using them as a base
 * Define new services that will be used by our views
 * Overwrite existing services and modify the behavior of the base SDKs

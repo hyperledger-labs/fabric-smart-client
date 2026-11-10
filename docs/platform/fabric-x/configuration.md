@@ -1,8 +1,8 @@
-# Fabric-x Platform Configuration
+# Fabric-x platform configuration
 
 A Fabric-x node uses the shared FSC `core.yaml`. Every key, including the Fabric-x ones, is listed in the [node configuration reference](../../configuration.md); this page explains the settings of the services that connect a node to the [Fabric-x committer](https://github.com/hyperledger/fabric-x-committer).
 
-## Fabric-x Services
+## Fabric-x services
 
 The Fabric-x services are configured per network:
 
@@ -139,7 +139,7 @@ Invalid timeouts are omitted, in which case the default above applies. Two zero 
 
 `handlerTimeout: 0`, `handlerWorkers: 0`, `handlerQueueSize: 0` and `sweepInterval: 0` have no such meaning and fall back to their defaults.
 
-## Related Documentation
+## Related documentation
 
 - [Fabric-x platform overview](README.md)
 - [Fabric platform configuration](../fabric/configuration.md)

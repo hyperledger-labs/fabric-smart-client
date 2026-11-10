@@ -1,7 +1,7 @@
 # Schema versioning
 
 This page is for developers who write a store. It describes how a store declares its schema steps
-so that FSC migrates it. [DB drivers](db-driver.md#schema-versions) describes how a driver runs
+so that FSC migrates it. [Database drivers](db-driver.md#schema-versions) describes how a driver runs
 the steps when it opens a store, and [Schema migrations](schema-migrations.md) how an operator
 runs them.
 

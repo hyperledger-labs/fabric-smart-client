@@ -1,4 +1,4 @@
-# Testing Guide
+# Testing guide
 
 This document outlines how to write and run tests in FSC. New functionality comes with
 tests in the same PR; the policy, and the few changes it exempts, is in
@@ -131,7 +131,16 @@ out into a `*_test_utils.go` file, as `platform/common/services/logging` does wi
 
 ### Storage fixtures
 
-`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and `TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. A release adds its fixture directory in its release PR with `testdata/generate.sh --local <release>`, and the tests pick it up; see [the fixture README](../../platform/fabric/services/db/driver/sql/testdata/README.md) and [Releasing](releasing.md). Never edit a fixture by hand. The `Storage fixtures` workflow also generates the latest release's fixture into a temporary directory and opens it through `FSC_FIXTURE_DIR`, so a change to `generate.go` must keep building against that release.
+`platform/fabric/services/db/driver/sql/testdata/<release>/` holds the SQLite file and the
+Postgres layout and rows that each release wrote, with checksums. `TestFixturesSQLite` and
+`TestPostgresFixtures` open them at HEAD, migrate every store and read the rows back. A
+release adds its fixture directory in its release PR with
+`testdata/generate.sh --local <release>`, and the tests pick it up; see
+[the fixture README](../../platform/fabric/services/db/driver/sql/testdata/README.md) and
+[Releasing](releasing.md). Never edit a fixture by hand. The `Storage fixtures` workflow
+also generates the latest release's fixture into a temporary directory and opens it
+through `FSC_FIXTURE_DIR`, so a change to `generate.go` must keep building against that
+release.
 
 ## Fuzzing
 
@@ -157,7 +166,7 @@ The fuzz targets live across several packages handling untrusted pre-auth bytes:
 - [`platform/view/services/comm/fuzz_test.go`](../../platform/view/services/comm/fuzz_test.go):
   `FuzzPKExtractorExtractPublicKey`.
 - [`platform/view/services/comm/host/websocket/ws/fuzz_test.go`](../../platform/view/services/comm/host/websocket/ws/fuzz_test.go):
-  `FuzzMultiplexedMessage`, one websocket message handled by a server connection's read loop.
+  `FuzzMultiplexedMessage`, one WebSocket message handled by a server connection's read loop.
 
 A plain `go test` (via `make unit-tests` and friends) only replays their in-code seed corpus
 (the `f.Add(...)` calls) as ordinary subtests; it does not mutate anything.
@@ -185,7 +194,7 @@ When a nightly run fails, download its `fuzz-crash-<target>` artifact from the w
 run's summary page and unzip it. It contains one file, named by content hash, holding the
 exact input that crashed the target:
 
-```
+```text
 go test fuzz v1
 []byte("...")
 ```

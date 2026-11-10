@@ -1,22 +1,22 @@
-# Libp2p Transport
+# libp2p transport
 
-The Libp2p transport is an optional communication stack for the Fabric Smart Client, distributed as its own Go module; the websocket transport is the primary implementation and lives in the root module. It uses the `libp2p` library for the connection, the security handshake and stream multiplexing.
+The libp2p transport is an optional communication stack for the Fabric Smart Client, distributed as its own Go module; the WebSocket transport is the primary implementation and lives in the root module. It uses the `libp2p` library for the connection, the security handshake and stream multiplexing.
 
 ## Overview
 
-A libp2p node finds no peers on its own. To open a session it dials the P2P address that the endpoint resolver gives for the party, as a websocket node does, and a responder replies on the connection the initiator opened. A node therefore needs no other node to be up to start, and every resolver entry for a party the node opens sessions to needs a `P2P` address.
+A libp2p node finds no peers on its own. To open a session it dials the P2P address that the endpoint resolver gives for the party, as a WebSocket node does, and a responder replies on the connection the initiator opened. A node therefore needs no other node to be up to start, and every resolver entry for a party the node opens sessions to needs a `P2P` address.
 
-### Key Characteristics
+### Key characteristics
 - **Addressing**: Peers are dialed at the address from the endpoint resolver; with no address the host uses one it already knows for the peer, such as from a live connection, and otherwise fails.
 - **Transport**: TCP. The host does not reuse its listen port for outgoing connections, so two nodes that dial each other at the same moment get two connections instead of one that neither can secure.
 - **Security**: Supports Noise and TLS security handshakes.
 - **Identity**: Peer IDs are derived from the node's cryptographic public key.
 
-## Internal Architecture
+## Internal architecture
 
-The Libp2p transport implementation is centered around the `libp2p.host` struct.
+The libp2p transport implementation is centered around the `libp2p.host` struct.
 
-### Component Diagram
+### Component diagram
 
 ```mermaid
 graph TD
@@ -30,7 +30,7 @@ graph TD
     end
 ```
 
-### Message Dispatching
+### Message dispatching
 
 When a new stream is opened to a node, libp2p triggers the registered stream handler:
 
@@ -40,28 +40,28 @@ When a new stream is opened to a node, libp2p triggers the registered stream han
 4.  **Peer Info Extraction**: The remote Peer ID and Multiaddress are extracted from the underlying connection.
 5.  **Handling**: The `P2PNode` receives the new stream and starts a `streamHandler` goroutine to read `ViewPacket` messages.
 
-## Security and Identity
+## Security and identity
 
-In Libp2p mode, the `PeerID` is the primary identifier. 
+In libp2p mode, the `PeerID` is the primary identifier. 
 
 -   **TLS Identity**: The transport uses the node's main identity key (configured via `fsc.identity.key.file`) for the security handshake.
--   **Handshake**: Libp2p performs its own security handshake (Noise or TLS).
+-   **Handshake**: libp2p performs its own security handshake (Noise or TLS).
 -   **Identity Binding**: The `PeerID` used by libp2p is cryptographically linked to the public key used during the handshake. The Comm layer uses `s.Conn().RemotePeer().String()` as the source of truth for the remote identity.
 
-## Performance and Hardening
+## Performance and hardening
 
 -   **Connection Manager**: Configured with a "low water mark" of 100 and a "high water mark" of 400 connections to prevent resource exhaustion.
 -   **Read Limits (OOM Protection)**: Incoming messages are limited by `fsc.p2p.maxRecvMsgSize` (default 10 MiB) to prevent remote memory exhaustion attacks. The system reads the varint-encoded length prefix and validates it before allocating the target buffer.
 -   **Stream Sharing**: The `StreamHash` for libp2p is the `RemotePeerID`, so all sessions to a peer share its streams. Sessions that need a stream to a peer while there is none wait for one new stream instead of opening one each, which keeps a burst of new sessions under libp2p's limit of inbound streams per protocol and peer (by default 64, raised with the memory available). Closing a session does not close a shared stream, because the remote may still reply on it for another session. A shared stream is removed when reading from it fails (for example, the peer goes away or the connection is trimmed) and closed when the node stops.
 
-## Trust and Access Control
+## Trust and access control
 
 In libp2p mode, nodes establish trust through the exchange of public keys:
 - **Noise Handshake**: All connections use the Noise protocol (or TLS) where both sides exchange public keys.
 - **Identity Verification**: The `PeerID` of the remote node is checked against the local node's trusted set (from static configuration or dynamic `EndpointService` resolutions).
 - **Public Key Invariant**: The connection is only accepted if the remote party can cryptographically prove possession of the private key corresponding to its identity.
 
-Libp2p is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../../configuration.md).
+libp2p is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../../configuration.md).
 
 ```yaml
 fsc:
@@ -93,7 +93,7 @@ fsc:
       file: ./path/to/key.pem
 ```
 
-## Code References
+## Code references
 
 | Feature | File Path |
 | :--- | :--- |

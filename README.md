@@ -41,7 +41,7 @@ Meeting notes are available [here](https://docs.google.com/document/d/13t5-9tfA-
 
 Releases follow [Semantic Versioning](https://semver.org/) and are listed on the [releases page](https://github.com/hyperledger-labs/fabric-smart-client/releases). FSC is pre-1.0, so a minor release can change APIs and storage formats; each minor release has an [upgrade guide](docs/README.md#upgrading).
 
-## Disclaimer and License
+## Disclaimer and license
 
 The Fabric Smart Client is provided as-is and has not been formally audited. Use at your own risk. The project is actively developed and APIs may change.
 

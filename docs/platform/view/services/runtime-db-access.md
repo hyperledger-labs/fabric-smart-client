@@ -1,4 +1,4 @@
-# Runtime DB Access
+# Runtime DB access
 
 ## Overview
 
@@ -22,7 +22,7 @@ Related documentation:
 - [Fabric platform](../../fabric/README.md)
 - [Fabric-x platform](../../fabric-x/README.md)
 
-## Runtime Access Paths
+## Runtime access paths
 
 The following table summarizes the most common runtime access paths:
 
@@ -34,7 +34,7 @@ The following table summarizes the most common runtime access paths:
 | Reading Fabric-x state | `queryservice.GetQueryService(...)` or the channel API | Read state through the platform abstraction rather than local SQL |
 | Inspecting a live node database | `sqlite3` or `psql` in read-only mode | Inspect persisted rows for debugging or troubleshooting |
 
-## Runtime Access Layers
+## Runtime access layers
 
 At runtime, persistence-backed data flows through the following layers:
 
@@ -56,9 +56,9 @@ These layers have different responsibilities:
 
 Persistence, store and driver are defined in [Database drivers](db-driver.md#project-terminology).
 
-## Access from a Running View
+## Access from a running view
 
-### General Rule
+### General rule
 
 Views and application services should prefer the runtime APIs exposed by FSC.
 Normal application logic should not be built around direct SQL access.
@@ -70,7 +70,7 @@ This reflects the runtime model:
 - Fabric and Fabric-x add their own abstractions on top of the underlying database
 - not all runtime state is guaranteed to be local SQL state
 
-### View Platform
+### View platform
 
 The base View platform wires four persistence-backed stores:
 
@@ -93,13 +93,13 @@ If an application needs direct access to a persistence-backed store from a view,
 2. Register that service in the application SDK or service registry
 3. Retrieve the service through `view.Context.GetService(...)`
 
-### Fabric Platform
+### Fabric platform
 
 The Fabric platform is the main place where runtime persisted state becomes an application-facing API.
 
 There are two common access levels.
 
-#### Simple Vault Access
+#### Simple vault access
 
 Use `state.GetVault(viewCtx)` when you need the application-facing state service:
 
@@ -121,7 +121,7 @@ func (v *MyView) Call(viewCtx view.Context) (any, error) {
 
 This is the simplest entry point for common Fabric state reads in views.
 
-#### Advanced Channel and Vault Access
+#### Advanced channel and vault access
 
 Use the channel API when you need lower-level control:
 
@@ -157,7 +157,7 @@ It also exposes:
 - envelope storage
 - transient data storage
 
-### Fabric-x Platform
+### Fabric-x platform
 
 Fabric-x behaves differently from Fabric.
 In practice:
@@ -179,9 +179,9 @@ Operationally:
 - Fabric usually exposes runtime state through a local vault-backed service
 - Fabric-x should be treated as a query-backed platform API, even if the node also persists some local data
 
-## Inspecting a Live Node Database
+## Inspecting a live node database
 
-### When Direct DB Access Makes Sense
+### When direct DB access makes sense
 
 Direct DB access is useful for:
 
@@ -192,7 +192,7 @@ Direct DB access is useful for:
 
 Direct inspection should be treated as **read-only**.
 
-### Locate the Active Persistence
+### Locate the active persistence
 
 Each logical store chooses a persistence by name.
 The persistence definitions live under `fsc.persistences`; `fsc.persistences.<name>.opts.dataSource`
@@ -241,7 +241,7 @@ fabric:
       persistence: default
 ```
 
-### Backend Types
+### Backend types
 
 The three supported backend types are `memory`, `sqlite`, and `postgres`. For detailed configuration options and behavior, see the [Database drivers](db-driver.md) and [Shared node configuration](../../../configuration.md) documentation.
 
@@ -250,7 +250,7 @@ At runtime:
 - **sqlite**: local file-based, easiest for local inspection with separate read/write handles
 - **postgres**: external database, best for shared/remote inspection with a single connection pool
 
-### Tables and Columns
+### Tables and columns
 
 Table names derive from the persistence's `tablePrefix` (default `fsc`), the store's parameters and a
 store-specific suffix. For a network `default` and a channel `testchannel`, the vault tables are
@@ -268,7 +268,7 @@ stores `pkey` as `BYTEA`; inspect it with `encode(pkey, 'escape')`.
 - Use `hex()` or `length()` functions when inspecting binary columns
 - Always use read-only access to avoid corrupting the database or invalidating caches
 
-## What Is Safe at Runtime
+## What is safe at runtime
 
 ### Safe
 
@@ -277,7 +277,7 @@ stores `pkey` as `BYTEA`; inspect it with `encode(pkey, 'escape')`.
 - comparing transaction status rows across nodes
 - validating that a configured persistence is being used
 
-### Unsafe or Unsupported
+### Unsafe or unsupported
 
 - modifying rows manually while the node is running
 - deleting rows from the KVS or vault tables

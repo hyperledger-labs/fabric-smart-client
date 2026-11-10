@@ -1,8 +1,8 @@
 # Rebasing
 
-Rebasing keeps your branch in-sync with the upstream main, meaning you are working on the latest version of the codebase. This means the methods you are using are up-to-date and you avoid merge-conflicts.
+Rebasing keeps your branch in sync with the upstream main, meaning you are working on the latest version of the codebase. This means the methods you are using are up-to-date and you avoid merge conflicts.
 
-## Step-by-Step Guide
+## Step-by-step guide
 
 ### 1. Add the original repo as a remote called "upstream"
 Only do this once per repository clone. [Fork and clone](development.md#fork-and-clone)
@@ -23,7 +23,7 @@ Each time you want to sync your fork's main with the upstream main changes:
   git push origin main
 ```
 
-You can also do this by visiting your repository `"https://github.com/YOUR_GITHUB_NAME/fabric-smart-client"` and clicking the sync fork button which is a few lines from the top near the right. Then pull these changes locally in Github Desktop.
+You can also do this by visiting your repository `"https://github.com/YOUR_GITHUB_NAME/fabric-smart-client"` and clicking the sync fork button which is a few lines from the top near the right. Then pull these changes locally in GitHub Desktop.
 
 ### 3. Sync your working branch
 
@@ -41,17 +41,17 @@ git rebase upstream/main -S
 > - Always include the `-S` flag  
 > - Do NOT merge `main` into your branch
 
-## Verify Sign Status
+## Verify sign status
 Verify after the rebase operation that your commits are still signed correctly —
 replace `3` with the number of commits on your branch:
 
 ```bash
 git log -n 3 --pretty=format:'%h %an %G? %s'
 ```
-You should see `G` (valid signature). If you experience signing issues, read [Signing Guide](signing.md).
+You should see `G` (valid signature). If you experience signing issues, read the [Signing Guide](signing.md).
 
 > [!NOTE]
-> If conflicts occur during rebase, see [Merge Conflict Guide](merge-conflicts.md) for detailed guidance.
+> If conflicts occur during rebase, see the [Merge Conflict Guide](merge-conflicts.md) for detailed guidance.
 
 > [!TIP]
 > **Regularly** rebase your branch to avoid merge conflicts.

@@ -1,4 +1,4 @@
-# Multiplexed WebSocket Provider Specification
+# Multiplexed WebSocket provider specification
 
 ## Overview
 
@@ -20,7 +20,7 @@ graph TD
     Provider[MultiplexedProvider]
     
     subgraph "Physical Layer"
-        PConn[Physical Websocket Conn]
+        PConn[Physical WebSocket Conn]
         ReadLoop[readIncoming Loop]
     end
     
@@ -38,7 +38,7 @@ graph TD
 
 ## Protocol
 
-### Multiplexed Message
+### Multiplexed message
 All messages sent over the physical WebSocket are JSON-encoded `MultiplexedMessage` structures.
 
 ```go
@@ -49,7 +49,7 @@ type MultiplexedMessage struct {
 }
 ```
 
-### Handshake & Stream Establishment
+### Handshake & stream establishment
 
 1.  **Physical Connection**: Established via standard HTTP/HTTPS upgrade to WebSocket. With TLS, the client keeps the connection only if the server's verified certificate belongs to the dialed `PeerID`, and caches it under the address and that `PeerID`.
 2.  **Logical Stream Creation (Client)**:
@@ -64,11 +64,11 @@ type MultiplexedMessage struct {
     -   The sub-connection is automatically closed when the handler function returns.
     -   If invalid, sends an error back and closes the physical connection (security violation).
 
-### Data Transfer
+### Data transfer
 -   **Write**: The `subConn` uses a `delimitedReader` accumulator to ensure that each application-level frame (including varint length) is sent as a **single, complete WebSocket binary message**. This prevents partial frames from being misinterpreted by the remote peer.
 -   **Read**: The `readIncoming` loop receives a `MultiplexedMessage`, looks up the `subConn` by `ID`, and delivers the `Msg` to the sub-connection's channel.
 
-### Connection Closure
+### Connection closure
 
 1.  **Sub-Connection Close**:
     -   Local: `subConn.Close()` is called. It cancels the stream context and sends a `MultiplexedMessage` with `Err: "EOF"` to the remote peer. Subsequent writes return `io.ErrClosedPipe`.
@@ -80,7 +80,7 @@ type MultiplexedMessage struct {
     -   Closes **all** active `subConn`s.
     -   Cancels the `Context` associated with each stream.
 
-## Error Handling
+## Error handling
 
 | Scenario | Action | Consequence |
 | :--- | :--- | :--- |
@@ -92,7 +92,7 @@ type MultiplexedMessage struct {
 | **Max SubConns Reached** | Send error frame. | Reject new stream, keep physical connection alive. |
 | **SubConn Read Timeout** | N/A | Handled by `Stream` layer logic via read deadlines. |
 
-## Concurrency Model
+## Concurrency model
 
 -   **Physical Write Lock**: A single mutex protects writes to the physical WebSocket (`writeMu`).
 -   **Clients Map Lock**: `MultiplexedProvider.mu` protects the map of active physical connections.
@@ -100,7 +100,7 @@ type MultiplexedMessage struct {
 -   **Asynchronous Handlers**: Server handlers are decoupled from the physical read loop via goroutines, ensuring a single slow stream doesn't block the entire physical connection.
 -   **Safe Delivery**: `deliver` never blocks the physical read loop. If a sub-connection's buffer is full, `deliver` returns false and the read loop closes that sub-connection.
 
-## Known Issues / Invariants
+## Known issues / invariants
 
 1.  **Race Condition (New Stream)**: A client may send data immediately after the `StreamMeta` packet. If the server is slow to process the `StreamMeta`, it must not drop the subsequent data packets or treat them as invalid new stream requests.
 2.  **Late Messages**: Messages for closed streams (zombies) must be safely dropped without killing the physical connection.

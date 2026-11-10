@@ -6,7 +6,7 @@ FSC offers two ways to monitor the performance of an application:
 * **Metrics** provide an overview of the overall system performance using aggregated results, e.g. total requests, requests per second, current state of a variable, average duration, percentile of duration
 * **Traces** analyze single requests by breaking down their lifecycles into smaller components
 
-For a complete list of the metric families FSC defines, see the [Metrics Catalog](./monitoring_metrics.md).
+For a complete list of the metric families FSC defines, see the [Metrics catalog](./monitoring_metrics.md).
 
 ## Metrics
 
@@ -29,7 +29,7 @@ type Histogram interface {
 
 For more information on their meaning and how they are used, refer to [this article](https://prometheus.io/docs/concepts/metric_types/).
 
-For the catalog of FSC metric families, including the exported names, labels, and operational meaning, see the [Metrics Catalog](./monitoring_metrics.md).
+For the catalog of FSC metric families, including the exported names, labels, and operational meaning, see the [Metrics catalog](./monitoring_metrics.md).
 
 ### Types of providers
 
@@ -63,7 +63,7 @@ func (p *SDK) Install() error {
 
 ### Adding metrics
 
-#### In a Service
+#### In a service
 To record metrics within a service:
 * Create a new struct `Metrics` that contains as properties all the metrics this specific service and its sub-components need. Avoid adding more fields to the struct.
 ```go
@@ -106,7 +106,7 @@ func NewMyService(... Deps, metricsProvider metrics.Provider) *MyService {
 }
 ```
 
-#### In a View
+#### In a view
 Views do not support proper dependency injection and instantiating a new Metrics struct can be inefficient for each view invocation. For this reason, avoid keeping metrics within the views and try to do it using the services that the view uses.
 
 However, if it is necessary, you can create a `Metrics` struct that contains all the metrics your application uses as shown above, and register it in your SDK, as explained [here](../../sdk.md#developing-new-sdks):
@@ -167,7 +167,7 @@ For every span started, it records the count and the duration of the operation. 
 The base unit of the traces are the spans. A span represents a unit of work. FSC code only starts spans; the remote agent (with the OTLP provider) links them into traces.
 
 1. For instance, in the case of a transfer, the transfer operation is conceptually a trace. The first span of this trace can be created on the end user that initiates the client (e.g. alice).
-2. When the request arrives to the recipient (e.g. bob), another span can be initiated when the corresponding view is invoked.
+2. When the request arrives at the recipient (e.g. bob), another span can be initiated when the corresponding view is invoked.
 3. This view calls other views and/or services, each of which can initiate new spans (or re-use the same span).
 4. Then bob asks his FSC peers for endorsements, and that can initiate new spans respectively.
 
@@ -179,7 +179,7 @@ The span context has to be transmitted in the following cases:
    1. calling a view
    2. calling a service
 2. During remote calls (cases 1, 2, 4 in the above example). These calls can be performed in the following ways:
-   1. calling a view using GRPC/REST (case 1, when alice calls the view on bob)
+   1. calling a view using gRPC/REST (case 1, when alice calls the view on bob)
    2. calling a RESTful API directly
    3. using sessions (case 4, when bob collects endorsements using the session factory)
 
@@ -189,11 +189,11 @@ OpenTelemetry gRPC and HTTP instrumentation), and a WebSocket session carries it
 session does not carry it. In case 1.ii the developer passes the context to every service call, and in case 2.ii
 the HTTP client has to inject it, for example with `otelhttp.NewTransport`.
 
-#### Add Events
+#### Add events
 
 **You will not need to add new spans, but only add events to the existing spans.**
 
-* The simplest way to add an event to an existing context is using the loggers methods.
+* The simplest way to add an event to an existing context is using the logger's methods.
 In the following cases, both events will be added, but the log line is written only if debug logging is enabled.
 ```go
 logger.DebugfContext(ctx, "here is a debug event")
@@ -209,9 +209,9 @@ span.AddEvent("here is an event")
 #### Add traces and spans
 
 It will not be necessary to add new traces or spans, so you can skip this part.
-However, if this is indeed necessary, below some implementation details on how to add traces in services and views.
+However, if this is indeed necessary, below are some implementation details on how to add traces in services and views.
 
-##### Add traces/spans in a Service
+##### Add traces/spans in a service
 
 To start new spans within a service:
 * Add the `trace.Tracer` as a field of your service struct
@@ -224,7 +224,7 @@ type MyService struct {
 	...
 }
 ```
-* Inject the `tracing.Provider` into your service constructor and instantiate a new tracer. As the name for the tracer, try to pick a noun that describes of the actor:
+* Inject the `tracing.Provider` into your service constructor and instantiate a new tracer. As the name for the tracer, try to pick a noun that describes the actor:
 ```go
 const (
 	currencyLabel tracing.LabelName = "currency"
@@ -271,10 +271,10 @@ func (s *MyService) Transfer(ctx context.Context, ... OtherParams) error {
 }
 ```
 
-##### Add traces/spans in a View
+##### Add traces/spans in a view
 In views, you can add events to the existing context as shown above. In most (or all) of the cases you will not need to create your own span, but use the existing one. 
 
-If you though want to create one, since views do not have a proper dependency injection mechanism and creating a new tracer would be inefficient for each view call, you can use the following method of `view.Context`:
+If you do want to create one, since views do not have a proper dependency injection mechanism and creating a new tracer would be inefficient for each view call, you can use the following method of `view.Context`:
 ```go
 type Context interface {
 	StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span)

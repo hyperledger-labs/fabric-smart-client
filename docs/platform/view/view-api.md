@@ -10,7 +10,7 @@ This document focuses on the public API and its runtime semantics. For the inter
 
 At the API level, a view-based FSC application is built from four concepts: view, context,
 session and identity. [Core concepts](../../core-concepts.md#design-key-ingredients) defines views,
-sessions and identities, and the [Programming Model Guide](programming-model.md#core-concepts) shows how an application uses
+sessions and identities, and the [Programming model guide](programming-model.md#core-concepts) shows how an application uses
 them. This page specifies their contracts.
 
 The typical lifecycle is:
@@ -72,7 +72,7 @@ type Context interface {
 }
 ```
 
-### Service Access
+### Service access
 
 `GetService(v)` retrieves a service by type from the runtime.
 
@@ -80,13 +80,13 @@ The runtime first checks services registered in the current view context and the
 
 This is the standard mechanism for accessing installed node services from a view, such as identity providers, stream services, Fabric services, persistence helpers, and application-specific services.
 
-### Execution Identity
+### Execution identity
 
 `Me()` returns the local identity bound to the current view context.
 
 `IsMe(id)` checks whether a given identity resolves to the local node. This is used when a protocol accepts multiple identities or aliases for the same node and needs to decide which branch to execute locally.
 
-### Initiator and Execution Role
+### Initiator and execution role
 
 `Initiator()` returns the initiator view associated with the current execution branch.
 
@@ -98,13 +98,13 @@ This matters because outbound sessions are scoped by the calling view identifier
 session, err := viewCtx.GetSession(viewCtx.Initiator(), party)
 ```
 
-### Context Identifier
+### Context identifier
 
 `ID()` returns the FSC context identifier for the current protocol branch.
 
 This identifier is used internally by FSC to correlate protocol execution, responder reuse, and session metadata. It is not the same as the Go `context.Context`.
 
-### Nested View Execution
+### Nested view execution
 
 `RunView(view, opts...)` executes another view from within the current view.
 
@@ -118,7 +118,7 @@ This is the main composition mechanism for larger protocols. Depending on the su
 
 Nested execution does not bypass the runtime. The same lifecycle rules, tracing, error cleanup, and session semantics still apply.
 
-### Session Access
+### Session access
 
 `GetSession(caller, party, boundToViews...)` returns a session to a remote party for the given caller view.
 
@@ -132,7 +132,7 @@ Additional views passed in `boundToViews` are registered as aliases for the same
 
 `Session()` returns the default responder session. This is only meaningful for responder-style execution. For an initiator context, it usually returns `nil`.
 
-### Go Context and Tracing
+### Go context and tracing
 
 `Context()` returns the underlying Go `context.Context` associated with the current execution.
 
@@ -148,7 +148,7 @@ type SpanStarter interface {
 
 This is used when a view needs to start a child span explicitly, for example around a receive loop or a long-running application-specific operation.
 
-### Error Cleanup
+### Error cleanup
 
 `OnError(callback)` registers a cleanup callback for the current execution branch.
 
@@ -156,7 +156,7 @@ This is an error-path cleanup mechanism. The runtime invokes these callbacks whe
 
 Use `OnError` for releasing temporary resources, rolling back in-memory state, or closing application-owned resources that should only be cleaned up on failure.
 
-## Mutable Context
+## Mutable context
 
 Some runtime paths expose the optional `view.MutableContext` interface:
 
@@ -171,7 +171,7 @@ This interface is used by the runtime to inject execution-local services into a 
 
 Application code should treat `MutableContext` as an optional capability. A `view.Context` does not guarantee that it also implements `MutableContext`.
 
-## RunView Options
+## RunView options
 
 `RunViewOption` customizes nested execution:
 
@@ -195,7 +195,7 @@ Important semantics:
 - `AsInitiator()` is only meaningful when the nested execution should behave as a new initiator branch, for example when a responder temporarily starts an outbound protocol.
 - In the standard child-context path, `AsInitiator()` rebinds the current default responder session under the nested initiator view. If the current context has no default responder session, the conversion fails.
 
-## Session Model
+## Session model
 
 The View API models node-to-node communication through `view.Session`:
 
@@ -209,7 +209,7 @@ type Session interface {
 }
 ```
 
-### Send and Receive
+### Send and receive
 
 `Send` transmits an application payload to the remote party using the provided context.
 
@@ -285,7 +285,7 @@ type Identity = identity.Identity
 
 It is an alias to the lower-level identity representation used by FSC. Views should treat it as an opaque identity value. The runtime, endpoint service, and communication layer are responsible for resolving it, comparing aliases, and binding it to authenticated peers.
 
-## Factories and Registration
+## Factories and registration
 
 The public `platform/view/view` package defines the contracts a view implements. Exposing those views through a node uses the runtime package `platform/view/services/view`.
 
@@ -317,7 +317,7 @@ Two identifier systems are involved:
 
 This distinction is important when reading logs and runtime documentation. A factory ID such as `create` is not the same thing as the internal identifier of the resulting view type.
 
-## Execution Roles
+## Execution roles
 
 At the API level, a view usually executes in one of two roles.
 
@@ -345,7 +345,7 @@ Views can temporarily switch role through nested execution options such as `AsRe
 
 ## Example
 
-The [Programming Model Guide](programming-model.md#initiator-and-responder-pattern) has a complete
+The [Programming model guide](programming-model.md#initiator-and-responder-pattern) has a complete
 ping/pong initiator and responder that use this API. An initiator resolves an identity, opens a
 session with `GetSession(viewCtx.Initiator(), party)`, sends with `Send`, and reads the reply from
 `Receive()`, checking `Message.Status` for `view.ERROR`. A responder reads from `Session()` and

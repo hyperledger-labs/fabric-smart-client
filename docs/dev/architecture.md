@@ -1,8 +1,8 @@
-# Architecture and Dependency Injection
+# Architecture and dependency injection
 
 ## Platform layers
 
-```
+```text
 platform/
 ├── view/      # Core: P2P comm, view execution, identity, storage, metrics/tracing
 ├── fabric/    # Fabric integration: chaincode, endorsement, vault, RWSet
@@ -12,13 +12,13 @@ platform/
 Each platform has an `sdk/dig/sdk.go` that wires services with
 [uber/dig](https://github.com/uber-go/dig). SDKs compose hierarchically:
 
-```
+```text
 BaseSDK → ViewSDK → FabricSDK → FabricXSDK → Application SDK
 ```
 
 A platform depends on the platforms below it, never on those built on it: no package under
 `platform/fabric/` imports `platform/fabricx/`, and a test in `platform/fabric/protos` checks
-it. Where Fabric code needs per-platform behaviour, the platform built on it registers it.
+it. Where Fabric code needs per-platform behavior, the platform built on it registers it.
 The transaction formats are an example: `platform/fabric/protos` defines the
 `TransactionEnvelope` and the Fabric format, and `platform/fabricx/protos` registers the
 Fabric-x format with `RegisterTransactionFormat` in an `init` function.

@@ -1,4 +1,4 @@
-# Authoring Integration Tests
+# Authoring integration tests
 
 Integration tests live in `integration/<platform>/<test-name>/` and use
 Ginkgo v2 + Gomega. [Integration Tests](README.md) explains how suites, `make` targets and
@@ -174,7 +174,7 @@ The FSC platform renews a node's certificate on disk:
 certificate, checks that the gauge of both listeners moves, that a new client still calls a
 view and that the initiator still reaches the responder over P2P, then writes a mismatched pair
 and checks the renewed one stays, and last writes the original pair back. Only the gRPC, web
-and metrics listeners reload: the websocket P2P transport keeps the pair it loaded at startup,
+and metrics listeners reload: the WebSocket P2P transport keeps the pair it loaded at startup,
 `fsc.identity`'s, so the P2P ping is a liveness check and does not use the renewed
 certificate. A client built before the renewal trusts the certificate the node served then, and
 a client built from a mismatched pair on disk cannot load it, so build each client for the check
@@ -195,7 +195,7 @@ a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
         Describe("My Life Cycle", Label(c), func() { /* ... */ })
     }
 
-A websocket-only suite leaves `fscTopology.P2PCommunicationType` at its default,
+A WebSocket-only suite leaves `fscTopology.P2PCommunicationType` at its default,
 `fsc.WebSocket`, and installs its SDK with `fscTopology.AddSDK(&SDK{})`.
 
 `nwo` does not link the libp2p host. A suite that also runs on libp2p takes the comm type
@@ -207,18 +207,18 @@ as a parameter, sets it on the topology, and installs `libp2psupport.SDK`
 
 The field decides the transport: nwo writes it to each node's `fsc.p2p.type` and
 generates the endpoints for it. `libp2psupport.SDK` only makes the libp2p host
-available; it picks the host from `fsc.p2p.type` and uses the default websocket host
+available; it picks the host from `fsc.p2p.type` and uses the default WebSocket host
 otherwise, so the same topology serves both comm types.
 
 A suite that runs one comm type writes the `Describe` once, as
-`Describe("My Life Cycle", Label(fsc.WebSocket), func() { /* ... */ })`. Label websocket-only variants
-(e.g. replication) the same way: `--label-filter` selects only labelled specs, so
-an unlabelled `Describe` is silently skipped when a filter is in play.
+`Describe("My Life Cycle", Label(fsc.WebSocket), func() { /* ... */ })`. Label WebSocket-only variants
+(e.g. replication) the same way: `--label-filter` selects only labeled specs, so
+an unlabeled `Describe` is silently skipped when a filter is in play.
 
 Label a `Describe` for the transport it *runs*, not the one it was handed. A suite
 that loads committed artifacts runs whatever those artifacts say, because
 `fsc.Platform.Load` is a no-op and never rewrites `core.yaml` — `integration/fsc/pingpong`
-keeps its loading specs in one libp2p-labelled `Describe` for exactly this reason.
+keeps its loading specs in one libp2p-labeled `Describe` for exactly this reason.
 A label that lies puts specs in the wrong CI job.
 
 ### Choosing the Fabric consensus
@@ -299,7 +299,7 @@ var _ = Describe("Feature", Ordered, func() {
 })
 ```
 
-- Name each `It` after the behaviour it checks: CI reports a failure as
+- Name each `It` after the behavior it checks: CI reports a failure as
   `<Describe> <It>`, so `It("succeeded")` says nothing about what broke.
 - Define the network topology in `<test>/topology.go` via `integration.Generate()`.
 - Put reusable test logic in `<test>/<test>.go`.
@@ -322,7 +322,7 @@ topology belongs in its own `Describe` regardless — the topology is fixed when
 `NewTestSuite` is called.
 
 Specs that could share a network but would collide on fixed data (the same asset ID, say)
-either parameterise that data or stay in separate `Describe`s.
+either parameterize that data or stay in separate `Describe`s.
 
 ## Focused runs (never commit)
 

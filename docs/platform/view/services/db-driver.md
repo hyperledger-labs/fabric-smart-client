@@ -1,4 +1,4 @@
-# DB Drivers
+# Database drivers
 
 This document explains FSC persistence, store, and driver concepts.
 If you are looking for the physical tables and columns created by those stores, see [Database layout](database-layout.md).
@@ -16,12 +16,12 @@ Multiple persistences can share the same underlying database, but still be diffe
 * Each persistence has a `type` that defines the underlying database type.
 Depending on the `type`, a persistence (except for `memory`) must define a different set of options (`opts`).
 We support the following types:
-  * `memory` (backed by an Sqlite database)
+  * `memory` (backed by an SQLite database)
   * `postgres` (backed by a Postgres database)
-  * `sqlite` (backed by an Sqlite database)
+  * `sqlite` (backed by an SQLite database)
 
 * The `dataSource` defines the concrete underlying DB.
-Two persistences that share the same `type` but not `dataSource`, have different underlying databases (although both of these database are of the same type).
+Two persistences that share the same `type` but not `dataSource`, have different underlying databases (although both of these databases are of the same type).
 
 * Further properties such as `tablePrefix` and `maxIdleConns` complete the persistence.
 Two persistences can share the same `type` and `dataSource` and differ in the rest of the options.
@@ -37,7 +37,7 @@ A store can also have references to other stores (e.g. foreign keys, joins).
 It has one implementation per persistence type, e.g.:
 * `memory`: no store of its own; the driver uses the SQLite stores (`sqlite.NewBindingStore` and so on) on an in-memory database
 * `postgres.BindingStore`: Postgres DB via remote connection to standalone running DB (e.g. container)
-* `sqlite.BindingStore`: Sqlite DB in the local filesystem
+* `sqlite.BindingStore`: SQLite DB in the local filesystem
 
 However, they all share one common interface such as the following:
 
@@ -60,11 +60,11 @@ The store interfaces are defined in `platform/common/driver/kvs.go`.
 ### Driver
 A driver is responsible for the instantiation of multiple (or usually all) stores.
 It has multiple implementations: one for each persistence type.
-* `memory.Driver`: Sqlite DB in memory
+* `memory.Driver`: SQLite DB in memory
 * `postgres.Driver`: Postgres DB via remote connection to standalone running DB (e.g. container)
-* `sqlite.Driver`: Sqlite DB in the local filesystem
+* `sqlite.Driver`: SQLite DB in the local filesystem
 
-Aside to the database-related implementations of the `Driver` interface (i.e. `memory.Driver`, `postgres.Driver`, `sqlite.Driver`), there is a `multiplexed.Driver` that reads the underlying configuration and instantiates the store using the correct driver.
+Aside from the database-related implementations of the `Driver` interface (i.e. `memory.Driver`, `postgres.Driver`, `sqlite.Driver`), there is a `multiplexed.Driver` that reads the underlying configuration and instantiates the store using the correct driver.
 
 During instantiation, the driver has access to the persistence `opts`.
 This way, it takes care of:
@@ -196,7 +196,7 @@ func NewSDK(registry services.Registry) *SDK {
 
 Registering a name again replaces its list, so an SDK built twice is reported once.
 
-## Extending the Driver on the same Project
+## Extending the driver on the same project
 
 If you want to add a new store (e.g. `TransactionStore`), you will need to:
 * extend the `Driver` interface with one more method that has the same inputs
@@ -209,7 +209,7 @@ type Driver interface {
 ```
 * implement it for all 4 drivers (DB specific and multiplexed)
 
-## Adding Drivers or Creating Drivers on new Projects
+## Adding drivers or creating drivers on new projects
 
 Within FSC, a new store is added as a method of the existing `Driver`. A project built on FSC that adds its own stores defines a new `Driver` interface instead, built on the same principles and containing only the new stores, and makes sure that:
 * every database the project supports implements the new `Driver`. A database the project's `core.yaml` does not use, such as `memory`, needs no implementation; supporting another database means implementing the `Driver` for it too.

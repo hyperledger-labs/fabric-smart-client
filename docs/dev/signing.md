@@ -1,4 +1,4 @@
-# Commit Signing Guidelines (DCO + GPG)
+# Commit signing guidelines (DCO + GPG)
 
 **Both a DCO sign-off and a GPG signature on every commit** are required for all pull requests to be merged successfully.
 
@@ -12,7 +12,7 @@ This guide makes it as easy as possible for you to set up your GPG key and DCO a
 > [!IMPORTANT]
 > To pass the DCO check and achieve the "Verified" status, **all commits** must be signed using **both** the `-S` and `-s` flags together.
 
-## Step-by-Step Guide
+## Step-by-step guide
 
 ### 1. Generate a GPG key
 
@@ -29,7 +29,7 @@ Choose:
 - Name, Email: Must match your GitHub email
 - Passphrase: Set a strong passphrase that you'll need to remember
 
-Learn more [GPG key set-up documentation on GitHub](https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key)
+Learn more in the [GPG key set-up documentation on GitHub](https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key)
 
 Once created, list your keys:
 
@@ -38,7 +38,7 @@ gpg --list-secret-keys --keyid-format LONG
 ```
 
 The output looks like this:
-```
+```text
 sec   ed25519/3AA5C34371566DD2 2026-10-20 [SC]
 ```
 
@@ -53,7 +53,7 @@ gpg --armor --export YOUR_KEY_ID
 ```
 
 Paste the output into GitHub:
-* [Add GPG key on Github](https://github.com/settings/gpg/new)
+* [Add GPG key on GitHub](https://github.com/settings/gpg/new)
 
 ### 3. Configure Git to use your GPG key
 
@@ -103,7 +103,7 @@ Legend:
 - E = signature cannot be checked (for example, the key is missing)
 - N = no signature
 
-## Fixing Unsigned Commits
+## Fixing unsigned commits
 
 If you accidentally forgot to sign commits, there are **two ways to fix them**:
 
@@ -141,9 +141,9 @@ git push --force-with-lease
 ```
 This is difficult and you may run into problems, for example, if you have merged from main.
 
-## Rebasing and Signing
+## Rebasing and signing
 
-Rebase operations will be required when your branch is behind the upstream main. We do not recommend merging from main, rebasing is strongly suggested.
+Rebase operations will be required when your branch is behind the upstream main. We do not recommend merging from main; rebasing is strongly suggested.
 
 When rebasing, you must use this command to ensure your commits remain DCO and GPG signed:
 

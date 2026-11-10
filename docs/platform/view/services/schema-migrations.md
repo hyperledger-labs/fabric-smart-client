@@ -1,6 +1,6 @@
 # Schema migrations
 
-Every FSC store records its schema version in `<prefix>_schema_versions` (see [Database layout](database-layout.md#schema-versions-table)) and runs its pending schema steps when it is opened. This page is for operators; [DB drivers](db-driver.md#schema-versions) describes the mechanism, and [Rolling upgrades](../../../upgrade/rolling-upgrade.md) the order of an upgrade across nodes.
+Every FSC store records its schema version in `<prefix>_schema_versions` (see [Database layout](database-layout.md#schema-versions-table)) and runs its pending schema steps when it is opened. This page is for operators; [Database drivers](db-driver.md#schema-versions) describes the mechanism, and [Rolling upgrades](../../../upgrade/rolling-upgrade.md) the order of an upgrade across nodes.
 
 ## First start after an upgrade
 

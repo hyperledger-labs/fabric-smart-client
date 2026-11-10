@@ -1,4 +1,4 @@
-# Database Layout
+# Database layout
 
 ## Overview
 
@@ -10,7 +10,7 @@ Unless otherwise noted, the examples and default names below refer to the standa
 - [Runtime DB access](runtime-db-access.md) explains how application code and operators access persisted data at runtime
 - this document explains what tables and columns exist in the underlying database
 
-## How FSC Storage Maps to Tables
+## How FSC storage maps to tables
 
 At a high level, FSC storage is organized in layers:
 
@@ -31,7 +31,7 @@ The important pieces are:
 
 For background on these concepts, see [Database drivers](db-driver.md).
 
-## Table Naming
+## Table naming
 
 A table name is `<prefix>_<params>_<suffix>`, or `<prefix>_<suffix>` for a store without parameters:
 
@@ -43,7 +43,7 @@ If no `tablePrefix` is set, FSC uses `fsc`. A prefix may contain only letters an
 long, and is lowercased. After escaping, the parameters may contain only letters and underscores, so a network or channel name
 with a digit (such as `channel1`) is rejected and the store fails to open.
 
-### Parameter Escaping
+### Parameter escaping
 
 When table names include parameters, FSC escapes special characters before composing the final name:
 
@@ -57,9 +57,9 @@ With the default prefix `fsc`:
 
 - `kvs` becomes `fsc_kvs`
 - parameter `default` plus suffix `bind` becomes `fsc_default_bind`
-- parameters `default`, `testchannel` plus suffix `vstate` becomes `fsc_default__testchannel_vstate`
+- parameters `default`, `testchannel` plus suffix `vstate` become `fsc_default__testchannel_vstate`
 
-## Logical Store Map
+## Logical store map
 
 The following table summarizes the main logical stores and their default physical table names in a generated node:
 
@@ -75,7 +75,7 @@ The following table summarizes the main logical stores and their default physica
 | Fabric | Vault status | `fabric.<network>.vault.persistence` | network, channel | `<prefix>_<params>_vstatus` |
 | Fabric | Vault state | `fabric.<network>.vault.persistence` | network, channel | `<prefix>_<params>_vstate` |
 
-## View Platform Tables
+## View platform tables
 
 ### KVS
 
@@ -159,7 +159,7 @@ Notes:
 - `id` is the primary key
 - `audit_info` is opaque from the point of view of direct DB inspection
 
-## Fabric Auxiliary Tables
+## Fabric auxiliary tables
 
 Fabric adds three persistence-backed auxiliary stores in addition to the local vault.  
 They all use the same physical table shape: a logical transaction key mapped to opaque payload bytes.
@@ -170,7 +170,7 @@ They all use the same physical table shape: a logical transaction key mapped to 
 | MetadataStore | `fsc_default_meta` | JSON-marshaled metadata bytes |
 | EndorseTxStore | `fsc_default_etx` | endorsed transaction: JSON, or a protobuf `TransactionEnvelope` once contract step 2 has run |
 
-### Shared Schema
+### Shared schema
 
 | Column | Meaning |
 | --- | --- |
@@ -183,7 +183,7 @@ Notes:
 - the logical key format is `network.channel.txid`
 - metadata rows are JSON-marshaled at the metadata service boundary
 
-## Fabric Vault Tables
+## Fabric vault tables
 
 The Fabric vault is the main local SQL-backed state store for Fabric applications.
 It uses two tables per network and channel:
@@ -196,7 +196,7 @@ For a network named `default` and a channel named `testchannel`, the generated t
 - `fsc_default__testchannel_vstatus`
 - `fsc_default__testchannel_vstate`
 
-### Transaction Status Table
+### Transaction status table
 
 Schema:
 
@@ -212,7 +212,7 @@ Notes:
 - `tx_id` is unique and indexed
 - FSC uses this table to track status transitions such as unknown, busy, valid, or invalid
 
-### Vault State Table
+### Vault state table
 
 Schema:
 
@@ -231,7 +231,7 @@ Notes:
 - metadata values are marshaled from a `map[string][]byte`: gob-encoded, or a protobuf `VaultMetadata` once contract step 2 has run; readers tell the two apart by the first byte
 - unlike the View KVS, the vault state table is the main persisted application state surface for many Fabric applications
 
-## Schema Versions Table
+## Schema versions table
 
 Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions` by default) with one row per store that implements `migrate.Versioned`, which includes every FSC store. The first migration of such a store creates the table.
 
@@ -243,7 +243,7 @@ Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions
 
 A store without a row has applied no step. A binary refuses to open a store whose `readable_by` is above the highest step it knows, and opens one whose `version` alone is above it: the steps it lacks keep the store readable for it. The table decides which SQL a node runs, so only the roles that run migrations should be able to write it. See [Schema versions](db-driver.md#schema-versions).
 
-## Schema Openers Table
+## Schema openers table
 
 Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers` by default), created together with the versions table. Every successful open of a versioned store upserts one row.
 
@@ -256,7 +256,7 @@ Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers` 
 
 The primary key is `(store, node, highest_step)`. Replicas of a node share its `fsc.id`, so a replica on another binary adds a row instead of overwriting one. FSC deletes rows only on `node migrate --forget-opener`. A contract step does not run while a row of its store names a `highest_step` below the step's version. See [Which binaries use a store](schema-migrations.md#which-binaries-use-a-store).
 
-## Backend Differences
+## Backend differences
 
 The logical layout is the same across supported SQL backends, but some physical SQL details differ.
 
