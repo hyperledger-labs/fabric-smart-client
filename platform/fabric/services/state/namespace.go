@@ -149,7 +149,7 @@ func (n *Namespace) AddInputByLinearID(id string, state any, opts ...AddInputOpt
 		// TODO: check hash
 	}
 
-	logger.Debugf("AddInputByLinearID [%ss,%s] [%s]", n.namespace(), id, base64.StdEncoding.EncodeToString(raw))
+	logger.Debugf("AddInputByLinearID [%s,%s] [%s]", n.namespace(), id, logging.SHA256Base64(raw))
 	err = n.codec.Unmarshal(raw, state)
 	if err != nil {
 		return errors.Wrapf(err, "failed unmarshalling state [%s, %s] [%s]", n.namespace(), id, string(raw))
@@ -213,7 +213,7 @@ func (n *Namespace) AddOutput(st any, opts ...AddOutputOption) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("AddOutput [%s,%s][%b] [%s]", n.namespace(), id, options.hashHiding, base64.StdEncoding.EncodeToString(raw))
+	logger.Debugf("AddOutput [%s,%s][%t] [%s]", n.namespace(), id, options.hashHiding, logging.SHA256Base64(raw))
 
 	switch {
 	case options.hashHiding:
@@ -273,7 +273,7 @@ func (n *Namespace) GetOutputAt(index int, state any) error {
 		// TODO: check hash
 	}
 
-	logger.Debugf("GetOutputAt [%s,%d] [%s]", n.namespace(), index, string(raw))
+	logger.Debugf("GetOutputAt [%s,%d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	err = n.codec.Unmarshal(raw, state)
 	if err != nil {
 		return errors.Wrapf(err, "failed unmarshalling state [%s, %d] [%s]", n.namespace(), index, string(raw))
@@ -326,7 +326,7 @@ func (n *Namespace) GetInputAt(index int, state any) error {
 		// TODO: check hash
 	}
 
-	logger.Debugf("GetInputAt [%s,%d] [%s]", n.namespace(), index, string(raw))
+	logger.Debugf("GetInputAt [%s,%d] [%s]", n.namespace(), index, logging.SHA256Base64(raw))
 	err = n.codec.Unmarshal(raw, state)
 	if err != nil {
 		return errors.Wrapf(err, "failed unmarshalling state [%s, %d] [%s]", n.namespace(), index, string(raw))
@@ -466,7 +466,8 @@ func (n *Namespace) GetService(v any) (any, error) {
 }
 
 func (n *Namespace) getStateID(s any) (string, error) {
-	logger.Debugf("getStateID %v...", s)
+	// The state value can hold business data. The type is enough to see which branch runs.
+	logger.Debugf("getStateID [%T]", s)
 	defer logger.Debugf("getStateID...done")
 	var key string
 	var err error
