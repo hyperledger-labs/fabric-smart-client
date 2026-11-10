@@ -8,12 +8,16 @@ package state
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 const errNS = "assetns"
@@ -86,6 +90,28 @@ func TestNamespaceIndexOutOfRange(t *testing.T) {
 	}
 }
 
+// TestLogsOmitRawStateValues checks that debug output names a hash of the
+// state, not the state itself.
+func TestLogsOmitRawStateValues(t *testing.T) { //nolint:paralleltest // swaps the package logger
+	logs := recordLogs(t)
+	tx, rwset, _ := newTestStateTransaction(errNS)
+	house := &House{Address: "secret-value", LinearID: "id-1", Owner: []byte("owner")}
+	require.NoError(t, tx.AddOutput(house))
+
+	var got House
+	require.NoError(t, tx.GetOutputAt(0, &got))
+	require.NoError(t, rwset.AddReadAt(errNS, house.LinearID, nil))
+	require.NoError(t, tx.GetInputAt(0, &got))
+
+	secret := []byte("secret-value")
+	require.NoError(t, tx.setFieldMapping(errNS, "id-1", map[string][]byte{"field": secret}))
+
+	joined := strings.Join(logs.Messages(), "\n")
+	require.NotContains(t, joined, "secret-value")
+	require.NotContains(t, joined, hex.EncodeToString(secret))
+	require.Contains(t, joined, logging.SHA256Base64(secret).String())
+}
+
 // TestNamespaceGetOutputAtLastValidIndex is the boundary companion to the
 // out-of-range cases: count-1 must succeed.
 func TestNamespaceGetOutputAtLastValidIndex(t *testing.T) {
@@ -110,6 +136,7 @@ func TestNamespaceGetOutputAtUnmarshalMismatch(t *testing.T) {
 	err := tx.GetOutputAt(0, &House{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed unmarshalling state")
+	require.NotContains(t, err.Error(), "not-json")
 }
 
 func TestNamespaceGetOutputAtMappingError(t *testing.T) {
@@ -133,6 +160,7 @@ func TestNamespaceGetInputAtUnmarshalMismatch(t *testing.T) {
 	err := tx.GetInputAt(0, &House{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed unmarshalling state")
+	require.NotContains(t, err.Error(), "not-json")
 }
 
 // TestNamespaceGetInputAtFallsBackToCertifiedInput covers the recovery path: when
@@ -215,6 +243,7 @@ func TestNamespaceAddInputByLinearIDUnmarshalMismatch(t *testing.T) {
 	err := tx.AddInputByLinearID("id-1", &House{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed unmarshalling state")
+	require.NotContains(t, err.Error(), "not-json")
 }
 
 // TestNamespaceAddInputByLinearIDOptionError checks an option that fails aborts

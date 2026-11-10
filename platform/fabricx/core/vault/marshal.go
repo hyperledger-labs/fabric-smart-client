@@ -7,12 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -41,10 +39,6 @@ func NewMarshaller() *Marshaller {
 // marshalling fails. Taking nsInfo as a parameter keeps the marshaller stateless and race-free.
 func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driver.Namespace]driver.RawVersion) ([]byte, error) {
 	logger.Debugf("Marshal rws into fabricx proto [txID=%v]", txID)
-	if logger.IsEnabledFor(zap.DebugLevel) {
-		str, _ := json.MarshalIndent(rws, "", "\t")
-		logger.Debugf("Marshal vault.ReadWriteSet %s", string(str))
-	}
 
 	type namespaceType struct {
 		ns           driver.Namespace
@@ -93,7 +87,7 @@ func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driv
 
 		for key, val := range keyMap {
 			namespace.writeSet[key] = &applicationpb.Write{Key: []byte(key), Value: val}
-			logger.Debugf("blind write [%s:%s][%x]", namespace.ns, key, val)
+			logger.Debugf("blind write [%s:%s][%s]", namespace.ns, key, logging.SHA256Base64(val))
 		}
 	}
 
@@ -115,7 +109,7 @@ func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driv
 			// let's check if our read is a read-write or read-only
 			if w, exists := namespace.writeSet[key]; exists {
 				namespace.readWriteSet[key] = &applicationpb.ReadWrite{Key: []byte(key), Version: vPtr, Value: w.GetValue()}
-				logger.Debugf("blind write was a read write [%s:%s][%x][%v]", namespace.ns, key, w.GetValue(), printVer(vPtr))
+				logger.Debugf("blind write was a read write [%s:%s][%s][%v]", namespace.ns, key, logging.SHA256Base64(w.GetValue()), printVer(vPtr))
 				delete(namespace.writeSet, key)
 			} else {
 				namespace.readSet[key] = &applicationpb.Read{Key: []byte(key), Version: vPtr}
@@ -143,6 +137,7 @@ func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driv
 			readWrites = append(readWrites, namespace.readWriteSet[key])
 		}
 
+		logger.Debugf("Marshal [%s] namespace [%s] reads=%d writes=%d read-writes=%d", txID, namespace.ns, len(readsOnly), len(blindWrites), len(readWrites))
 		namespaces = append(namespaces, &applicationpb.TxNamespace{
 			NsId:        namespace.ns,
 			NsVersion:   UnmarshalVersion(namespace.nsVersion),
@@ -153,10 +148,6 @@ func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driv
 	}
 
 	txIn := &applicationpb.Tx{Namespaces: namespaces}
-	if logger.IsEnabledFor(zap.DebugLevel) {
-		str, _ := json.MarshalIndent(txIn, "", "\t")
-		logger.Debugf("Unmarshalled fabricx tx: %s", string(str))
-	}
 
 	return proto.Marshal(txIn)
 }
@@ -225,10 +216,7 @@ func (*Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespace
 		return nil, errors.Wrapf(err, "unmarshal tx from [len=%d][%s]", len(raw), logging.SHA256Base64(raw))
 	}
 
-	if logger.IsEnabledFor(zap.DebugLevel) {
-		str, _ := json.MarshalIndent(&txIn, "", "\t")
-		logger.Debugf("Unmarshalled fabricx tx: %s", string(str))
-	}
+	logger.Debugf("Unmarshalled fabricx tx namespaces=%d", len(txIn.GetNamespaces()))
 
 	// An empty filter means "every namespace"; otherwise only the listed ones are kept.
 	var wanted map[driver.Namespace]struct{}

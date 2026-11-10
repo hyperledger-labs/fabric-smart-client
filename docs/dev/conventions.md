@@ -41,6 +41,9 @@ documentation short, precise, and behavior-focused.
 ## Logging & monitoring
 
 - Structured logging via `platform/common/services/logging`.
+- Raw state values, payloads, private keys and credentials are never logged at any
+  level, in log lines or in error messages. Log a hash (`logging.SHA256Base64`), a
+  length, or an identifier instead.
 - OpenTelemetry for traces and metrics; OTLP setup lives in
   `platform/view/services/tracing`.
 - Jaeger (tracing) and Prometheus (metrics) are the typical backends.

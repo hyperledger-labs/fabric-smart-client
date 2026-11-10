@@ -9,6 +9,7 @@ package state
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -1032,9 +1033,8 @@ func (m *mockDriverChannel) MetadataService() fdriver.MetadataService           
 func (*mockDriverChannel) ChannelKey() (*fdriver.ChannelKey, error) { return nil, nil }
 func (*mockDriverChannel) Close() error                             { return nil }
 
-func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
-	t.Parallel()
-
+func TestRWSetProcessorProcessKnownTransaction(t *testing.T) { //nolint:paralleltest // swaps the package logger
+	logs := recordLogs(t)
 	rws := newTestRWSet()
 	key, err := rwset.CreateCompositeKey("asset", []string{"1"})
 	require.NoError(t, err)
@@ -1045,7 +1045,7 @@ func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
 
 	ms := &mockDriverMetadataService{
 		exists:       true,
-		transientMap: fdriver.TransientMap{k: []byte("mapping")},
+		transientMap: fdriver.TransientMap{k: []byte("secret-mapping")},
 	}
 	ch := fabric.NewChannel(nil, nil, &mockDriverChannel{name: "ch", metadata: ms})
 	p := NewRWSetProcessor(&mockNetworkForRWSetProcessor{ch: ch})
@@ -1059,7 +1059,8 @@ func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
 
 	meta, err := rws.GetStateMetadata("assetns", key)
 	require.NoError(t, err)
-	require.Equal(t, []byte("mapping"), meta[k])
+	require.Equal(t, []byte("secret-mapping"), meta[k])
+	require.NotContains(t, strings.Join(logs.Messages(), "\n"), "secret-mapping")
 }
 
 func TestRWSetProcessorProcessUnknownTransaction(t *testing.T) {

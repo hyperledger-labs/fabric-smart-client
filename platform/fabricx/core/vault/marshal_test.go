@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package vault_test
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -18,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	commonvault "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
 )
 
@@ -104,6 +107,25 @@ func TestMarshal_Deterministic(t *testing.T) {
 func withUnknownField[M proto.Message](m M) M {
 	m.ProtoReflect().SetUnknown(protowire.AppendVarint(protowire.AppendTag(nil, 99, protowire.VarintType), 1))
 	return m
+}
+
+func TestMarshal_DoesNotLogRawValues(t *testing.T) { //nolint:paralleltest // swaps the package logger
+	logs := vault.RecordLogs(t)
+	secret := []byte("secret-value")
+	rws := commonvault.EmptyRWSet()
+	require.NoError(t, rws.WriteSet.Add("ns", "blind", secret))
+	require.NoError(t, rws.WriteSet.Add("ns", "rw", append([]byte(nil), secret...)))
+	rws.ReadSet.Add("ns", "rw", vault.MarshalVersion(1))
+	rws.ReadSet.Add("ns", "read", vault.MarshalVersion(2))
+
+	_, err := vault.NewMarshaller().Marshal("tx1", &rws, map[string][]byte{"ns": vault.MarshalVersion(1)})
+	require.NoError(t, err)
+
+	joined := strings.Join(logs.Messages(), "\n")
+	require.NotContains(t, joined, "secret-value")
+	require.NotContains(t, joined, hex.EncodeToString(secret))
+	require.Contains(t, joined, logging.SHA256Base64(secret).String())
+	require.Contains(t, joined, "reads=1 writes=1 read-writes=1")
 }
 
 func TestRWSetFromBytes_RejectsUnknownFields(t *testing.T) {

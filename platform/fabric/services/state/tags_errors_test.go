@@ -411,6 +411,7 @@ func TestUnmarshalTagsHashMismatch(t *testing.T) {
 	err = n.unmarshalTags(nil, hashed, map[string][]byte{"PrivateProperties": []byte("tampered")})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed checking hash")
+	require.NotContains(t, err.Error(), "tampered")
 }
 
 // TestMarshalUnmarshalTagsRoundTrip is the success counterpart: a matching

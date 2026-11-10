@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 type Identity struct {
@@ -132,7 +133,7 @@ func (c *Idemix) DeserializeAgainstNymEID(raw []byte, checkValidity bool, nymEID
 func (c *Idemix) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 	ai, err := DeserializeAuditInfo(raw)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed deserializing audit info [%s]", string(raw))
+		return nil, errors.Wrapf(err, "failed deserializing audit info [%s]", logging.SHA256Base64(raw))
 	}
 	ai.Csp = c.Csp
 	ai.IssuerPublicKey = c.IssuerPublicKey

@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 
@@ -71,7 +72,7 @@ func (r *RWSetProcessor) Process(_ fabric.Request, tx fabric.ProcessTransaction,
 		}
 		meta[k] = transientMap[k]
 
-		logger.Debugf("Set metadata for key [%s][%v]", key, string(meta[k]))
+		logger.Debugf("Set metadata for key [%s][%s]", key, logging.SHA256Base64(meta[k]))
 		err = rws.SetStateMetadata(ns, key, meta)
 		if err != nil {
 			return err

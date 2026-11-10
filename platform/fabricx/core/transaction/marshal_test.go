@@ -8,6 +8,7 @@ package transaction
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -146,9 +148,12 @@ func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
 // proposal responses are merged, the merged tx is marshaled, and the envelope
 // is created and signed successfully. The SignatureHeader.Creator in the resulting
 // envelope must use the cert-ID (cached identity) format.
-func TestCreateSCEnvelopeSuccess(t *testing.T) {
-	t.Parallel()
-	rawTx := mustRawTx(t, sampleTx("ns1", "key1", "value1"))
+func TestCreateSCEnvelopeSuccess(t *testing.T) { //nolint:paralleltest // swaps the package logger
+	l, logs := logging.NewTestLogger(t)
+	old := logger
+	logger = l
+	t.Cleanup(func() { logger = old })
+	rawTx := mustRawTx(t, sampleTx("ns1", "key1", "secret-value"))
 
 	resp1 := &peer.ProposalResponse{
 		Payload: rawTx,
@@ -193,6 +198,9 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	env, err := tx.createSCEnvelope()
 	require.NoError(t, err)
 	require.NotNil(t, env)
+	joined := strings.Join(logs.Messages(), "\n")
+	require.NotContains(t, joined, "secret-value")
+	require.NotContains(t, joined, logging.Base64([]byte("secret-value")).String())
 
 	require.Equal(t, 1, fakeFNS.SignerServiceCallCount())
 	require.Equal(t, 1, fakeSignerService.GetSignerCallCount())

@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 )
@@ -32,7 +33,7 @@ func (n *Namespace) setFieldMapping(namespace, key string, mapping map[string][]
 		return nil
 	}
 	for k, v := range mapping {
-		logger.Debugf("setting field mapping for [%s:%s], entry [%s:%s]", namespace, key, k, string(v))
+		logger.Debugf("setting field mapping for [%s:%s], entry [%s:%s]", namespace, key, k, logging.SHA256Base64(v))
 	}
 
 	raw, err := json.Marshal(mapping)
@@ -47,7 +48,7 @@ func (n *Namespace) setFieldMapping(namespace, key string, mapping map[string][]
 	if err != nil {
 		return errors.Wrap(err, "failed setting contract")
 	}
-	logger.Debugf("setting field mapping for [%s:%s][%s], done", namespace, key, string(raw))
+	logger.Debugf("setting field mapping for [%s:%s][%s], done", namespace, key, logging.SHA256Base64(raw))
 
 	return nil
 }
@@ -91,9 +92,9 @@ func (n *Namespace) getFieldMapping(namespace, key string, flag bool) (map[strin
 		return nil, errors.Wrap(err, "failed unmarshalling mapping")
 	}
 	for k, v := range mapping {
-		logger.Debugf("getting field mapping for [%s:%s], entry [%s:%s]", namespace, key, k, string(v))
+		logger.Debugf("getting field mapping for [%s:%s], entry [%s:%s]", namespace, key, k, logging.SHA256Base64(v))
 	}
-	logger.Debugf("getting field mapping for [%s:%s], got [%s][%v]", namespace, key, string(raw), mapping)
+	logger.Debugf("getting field mapping for [%s:%s], got [%s]", namespace, key, logging.SHA256Base64(raw))
 
 	return mapping, nil
 }
@@ -138,8 +139,7 @@ func (*Namespace) marshalTags(_ *fabric.RWSet, source any) (any, map[string][]by
 					hash := sha256.New()
 					hash.Write(field.Bytes())
 					h := hash.Sum(nil)
-					logger.Debugf("computing hash [%s] in place of [%s:%s]",
-						base64.StdEncoding.EncodeToString(h), t.Field(i).Name, string(field.Bytes()))
+					logger.Debugf("computing hash [%s] for field [%s]", base64.StdEncoding.EncodeToString(h), t.Field(i).Name)
 					field.Set(reflect.ValueOf(h))
 				default:
 					// Anything else would be silently left unhashed, emitting the value
@@ -184,13 +184,11 @@ func (*Namespace) unmarshalTags(_ *fabric.RWSet, source any, mapping map[string]
 					hash.Write(original)
 					h := hash.Sum(nil)
 
-					logger.Debugf("recomputing hash [%s] in place of [%s:%s]",
-						base64.StdEncoding.EncodeToString(h), t.Field(i).Name, string(original))
+					logger.Debugf("recomputing hash [%s] for field [%s]", base64.StdEncoding.EncodeToString(h), t.Field(i).Name)
 
 					if !bytes.Equal(h, field.Bytes()) {
-						return errors.Errorf("failed checking hash, it does not match [%s][%s, %s!=%s]",
+						return errors.Errorf("failed checking hash, it does not match [%s][%s!=%s]",
 							t.Field(i).Name,
-							string(original),
 							base64.StdEncoding.EncodeToString(h),
 							base64.StdEncoding.EncodeToString(field.Bytes()))
 					}
