@@ -67,7 +67,9 @@ type proxyKey struct {
 // is the notification-stream manager, resolver also answers for the transactions pending
 // on it each time its stream fails or cannot be opened, and once a new stream has
 // re-requested them, so one that became final during the outage is settled, with
-// resolver's message, without waiting for the committer's timeout.
+// resolver's message, without waiting for the committer's timeout. The provider shares
+// one such manager per channel, so this applies to every listener registered on it, also
+// to those registered on inner directly.
 func NewResolvingListenerManager(inner ListenerManager, resolver TxStatusResolver) *ResolvingListenerManager {
 	if nlm, ok := inner.(*notificationListenerManager); ok {
 		nlm.resolver.Store(&resolver)

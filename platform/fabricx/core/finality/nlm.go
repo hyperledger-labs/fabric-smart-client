@@ -331,12 +331,7 @@ func (n *notificationListenerManager) stream(ctx context.Context) error {
 func (n *notificationListenerManager) attach(streamCtx context.Context) []*committerpb.NotificationRequest {
 	n.handlersMu.Lock()
 	n.streamCtx.Store(&streamCtx)
-	txIDs := make([]string, 0, len(n.handlers))
-	for txID, entry := range n.handlers {
-		if entry.status == nil {
-			txIDs = append(txIDs, txID)
-		}
-	}
+	txIDs := n.pendingTxIDs()
 	n.handlersMu.Unlock()
 
 	var reqs []*committerpb.NotificationRequest
@@ -344,6 +339,18 @@ func (n *notificationListenerManager) attach(streamCtx context.Context) []*commi
 		reqs = append(reqs, n.newRequest(batch...))
 	}
 	return reqs
+}
+
+// pendingTxIDs returns the txIDs still waiting for an answer: an entry holding a
+// remembered status already has one. The caller holds handlersMu.
+func (n *notificationListenerManager) pendingTxIDs() []string {
+	txIDs := make([]string, 0, len(n.handlers))
+	for txID, entry := range n.handlers {
+		if entry.status == nil {
+			txIDs = append(txIDs, txID)
+		}
+	}
+	return txIDs
 }
 
 // newRequest subscribes to txIDs. Its Timeout tells the committer to reply once it
@@ -498,12 +505,12 @@ func (n *notificationListenerManager) track(endpoint string) {
 	n.conn.Set(s)
 }
 
-func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
-	res := make(map[string]int)
+func parseResponse(resp *committerpb.NotificationResponse) map[string]txStatus {
+	res := make(map[string]txStatus)
 
 	// first parse all timeouts
 	for _, txID := range resp.GetTimeoutTxIds() {
-		res[txID] = fdriver.Unknown
+		res[txID] = txStatus{code: fdriver.Unknown}
 	}
 
 	// The committer never reports on a txID it rejected (over its per-request or
@@ -512,7 +519,7 @@ func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 	if rejected := resp.GetRejectedTxIds(); rejected != nil {
 		logger.Warnf("committer rejected %d finality subscription(s): %s", len(rejected.GetTxIds()), rejected.GetReason())
 		for _, txID := range rejected.GetTxIds() {
-			res[txID] = fdriver.Unknown
+			res[txID] = txStatus{code: fdriver.Unknown}
 		}
 	}
 
@@ -534,7 +541,7 @@ func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 			s = fdriver.Invalid
 		}
 
-		res[txID] = s
+		res[txID] = txStatus{code: s}
 	}
 
 	return res
@@ -657,12 +664,7 @@ func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
 //
 // Takes no context; callbacks run under the pool's context.
 func (n *notificationListenerManager) dispatch(q chan handlerCall, resp *committerpb.NotificationResponse) {
-	parsed := parseResponse(resp)
-	statuses := make(map[string]txStatus, len(parsed))
-	for txID, code := range parsed {
-		statuses[txID] = txStatus{code: code}
-	}
-	n.settle(q, statuses)
+	n.settle(q, parseResponse(resp))
 }
 
 // settle settles the listeners of each txID in statuses with its status and message, as
@@ -783,19 +785,14 @@ func (n *notificationListenerManager) resolvePending(ctx context.Context) map[st
 		return nil
 	}
 	n.handlersMu.RLock()
-	txIDs := make([]string, 0, len(n.handlers))
-	for txID, entry := range n.handlers {
-		if entry.status == nil {
-			txIDs = append(txIDs, txID)
-		}
-	}
+	txIDs := n.pendingTxIDs()
 	n.handlersMu.RUnlock()
 
 	statuses := map[string]txStatus{}
 	for batch := range slices.Chunk(txIDs, maxTxIDsPerRequest) {
 		res, err := (*r).Statuses(ctx, batch...)
 		if err != nil {
-			logger.Debugf("could not resolve %d pending txID(s): %v", len(batch), err)
+			logger.Warnf("could not resolve %d pending finality txID(s) from the query service, retrying on the next reconnect attempt: %v", len(batch), err)
 			continue
 		}
 		for _, st := range res {
