@@ -189,13 +189,16 @@ func NewWebServer(configProvider driver.ConfigService) (WebServer, error) {
 	return web.NewServer(web.Options{ListenAddress: addr, TLS: tlsOpts}), nil
 }
 
-// mountHealth serves /healthz and /readyz on the web listener, with readiness taken from
-// gates, then from a store running schema steps (reason "migrating"), then from connStates. They skip the client-certificate check of the view endpoints, but not the
-// listener's TLS handshake. They are mounted by the SDK rather than by a WebServerConstructor,
-// so a replaced listener serves them too; a disabled listener is a no-op server.
-func mountHealth(ws WebServer, connStates *connstate.Metrics, gates ...web.ReadinessGate) {
+// mountHealth serves /healthz and /readyz on the web listener. Readiness is taken, in this
+// order, from drain (reason "draining", nil when the node cannot drain), from a store running
+// schema steps (reason "migrating"), from the gates SDKs provide (see ReadinessGateEntry), and
+// then from connStates. The probes skip the client-certificate check of the view endpoints, but
+// not the listener's TLS handshake. They are mounted by the SDK rather than by a
+// WebServerConstructor, so a replaced listener serves them too; a disabled listener is a no-op
+// server.
+func mountHealth(ws WebServer, connStates *connstate.Metrics, drain web.ReadinessGate, gates ...web.ReadinessGate) {
 	ws.RegisterHandler("/healthz", http.HandlerFunc(web.Healthz), false)
-	ws.RegisterHandler("/readyz", web.Readyz(connStates, append(gates, migratingGate{})...), false)
+	ws.RegisterHandler("/readyz", web.Readyz(connStates, append([]web.ReadinessGate{drain, migratingGate{}}, gates...)...), false)
 }
 
 // OperationsServer is the listener the operations endpoints (/metrics, /logspec) are served
@@ -558,6 +561,21 @@ func RemoteViewTimeout(configProvider driver.ConfigService) time.Duration {
 type PolicyCheckerEntry struct {
 	dig.Out
 	Checker server.PolicyChecker `group:"fsc-view-policy-checkers"`
+}
+
+// ReadinessGateEntry provides a web.ReadinessGate into the dig value group "fsc-readiness-gates",
+// the extension point for an application's own readiness. An SDK provides one during Install;
+// SDKs nested in each other share one container, so every entry is reached. None is provided by
+// default.
+//
+// GET /readyz answers 503 with the reason of the first gate that is not ready, after the drain
+// and migration gates and before connection state; an entry whose Gate is nil is skipped. dig does not preserve
+// the order of a group, so gates must not depend on each other's order. NotReady runs on every
+// probe, may be called concurrently and must not block. /healthz and the gRPC health service
+// ignore the group.
+type ReadinessGateEntry struct {
+	dig.Out
+	Gate web.ReadinessGate `group:"fsc-readiness-gates"`
 }
 
 // policyCheckers accepts a command only if every checker in it does. It runs them in slice

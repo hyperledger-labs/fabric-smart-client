@@ -107,12 +107,12 @@ func (g gate) NotReady() (string, bool) { return g.reason, g.notReady }
 
 func TestReadyz_GateNotReady(t *testing.T) {
 	t.Parallel()
-	// A gate that is not ready wins over connections that are.
+	// A gate that is not ready wins over connections that are; a nil gate is skipped.
 	m := connstate.NewMetrics(&disabled.Provider{})
 	m.Tracker("net", "ch", connstate.ComponentDelivery, "peer0:7051").Set(connstate.Connected)
 
 	rec := httptest.NewRecorder()
-	server.Readyz(m, gate{}, gate{reason: "draining", notReady: true}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	server.Readyz(m, nil, gate{}, gate{reason: "draining", notReady: true}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	assert.JSONEq(t, `{"status":"not ready","reason":"draining"}`, rec.Body.String())
 }

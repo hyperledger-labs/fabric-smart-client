@@ -32,6 +32,7 @@ import (
 	viewmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	p2pmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
+	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -292,6 +293,8 @@ type sdkDeps struct {
 	drain      drainState
 	webServer  WebServer
 	comm       *comm.Service
+	// readinessGates are provided as ReadinessGateEntry values, as an SDK does from its Install.
+	readinessGates []web.ReadinessGate
 }
 
 func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2p.CommLayer, deps ...sdkDeps) *fakeViewService {
@@ -333,6 +336,9 @@ func wireSDKDeps(t *testing.T, c *baseContainer, tp TracerProviders, commMock p2
 	}
 	if d.drain != nil {
 		require.NoError(t, c.Provide(func() drainState { return d.drain }))
+	}
+	for _, g := range d.readinessGates {
+		require.NoError(t, c.Provide(func() ReadinessGateEntry { return ReadinessGateEntry{Gate: g} }))
 	}
 
 	return viewSvc

@@ -297,7 +297,7 @@ func TestMountHealth(t *testing.T) {
 
 	ws, err := NewWebServer(providerFrom(t, "fsc:\n  web:\n    enabled: true\n    address: 127.0.0.1:0\n"))
 	require.NoError(t, err)
-	mountHealth(ws, cs)
+	mountHealth(ws, cs, nil)
 	require.NoError(t, ws.Start())
 	t.Cleanup(func() { _ = ws.Stop() })
 	addr := ws.(*web.Server).Addr()
@@ -312,8 +312,58 @@ func TestMountHealth(t *testing.T) {
 	}
 
 	replaced := &recordingWebServer{}
-	mountHealth(replaced, cs)
+	mountHealth(replaced, cs, nil)
 	require.Equal(t, map[string]bool{"/healthz": false, "/readyz": false}, replaced.secure)
+}
+
+// flipGate is a readiness gate that is not ready until ready is set.
+type flipGate struct {
+	reason string
+	ready  atomic.Bool
+}
+
+func (g *flipGate) NotReady() (string, bool) { return g.reason, !g.ready.Load() }
+
+func notReadyGate(reason string) *flipGate { return &flipGate{reason: reason} }
+
+// /readyz reports drain first, then the gates SDKs provide, then connection state; a nil gate is
+// skipped. Not parallel: the migrating gate sits between drain and the SDK gates, and a parallel
+// test opening a SQLite store would make it report first.
+func TestMountHealthReadinessGates(t *testing.T) { //nolint:paralleltest // reads package-level migration state
+	readyGate := &flipGate{reason: "app"}
+	readyGate.ready.Store(true)
+	for _, tc := range []struct { //nolint:paralleltest // see above
+		name  string
+		drain web.ReadinessGate
+		gates []web.ReadinessGate
+		want  string // "" is ready
+	}{
+		{name: "no gates"},
+		{name: "app gate not ready", gates: []web.ReadinessGate{notReadyGate("app")}, want: "app"},
+		{name: "drain wins", drain: notReadyGate("draining"), gates: []web.ReadinessGate{notReadyGate("app")}, want: "draining"},
+		{name: "app gate ready", gates: []web.ReadinessGate{readyGate}},
+		{name: "nil gate", gates: []web.ReadinessGate{nil}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws := newHandlerServer()
+			mountHealth(ws, connstate.NewMetrics(&disabled.Provider{}), tc.drain, tc.gates...)
+			require.Equal(t, tc.want, ws.readyReason(t))
+		})
+	}
+}
+
+// A gate provided into the "fsc-readiness-gates" group before Start, as an SDK does from its
+// Install, holds /readyz at 503 with its reason until it is ready. Not parallel, for the reason
+// given at TestMountHealthReadinessGates.
+func TestSDK_ReadinessGateEntry(t *testing.T) { //nolint:paralleltest // reads package-level migration state
+	gate := notReadyGate("tms not loaded")
+	ws := newHandlerServer()
+	s := startSDK(t, sdkDeps{webServer: ws, readinessGates: []web.ReadinessGate{gate}})
+	t.Cleanup(func() { _ = s.Stop() })
+
+	require.Equal(t, "tms not loaded", ws.readyReason(t))
+	gate.ready.Store(true)
+	require.Empty(t, ws.readyReason(t))
 }
 
 func TestCheckTLSConfigRejectsNegativeWebMaxRecvMsgSize(t *testing.T) {

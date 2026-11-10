@@ -354,7 +354,9 @@ fsc:
   #                   before it stops (see fsc.shutdown), and 503 with reason "migrating"
   #                   while a store runs schema steps or waits for another node's migration,
   #                   such as a vault converted on the first start after an upgrade (see
-  #                   docs/platform/view/services/schema-migrations.md). Otherwise 200 when every component
+  #                   docs/platform/view/services/schema-migrations.md). Then 503 with the
+  #                   reason of the first readiness gate an SDK provides that is not ready
+  #                   (see viewsdk.ReadinessGateEntry). Otherwise 200 when every component
   #                   that reports connection state (fsc_connection_state) has been connected
   #                   since startup and none is stopped; reconnecting is still ready. Otherwise
   #                   503, with a JSON list of the unready components (network, channel,
