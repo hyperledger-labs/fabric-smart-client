@@ -239,6 +239,41 @@ func TestCachedStoreSetStatusesBusyRereadsBacked(t *testing.T) {
 	require.Equal(t, before+1, backed.getCalls.Load())
 }
 
+// Replicas of a node share the backing store, and another replica may commit a pending
+// transaction at any time, so a Busy or Unknown status is reread from the backing store
+// on every call. A final status, Valid or Invalid, is served from the cache.
+func TestCachedStoreGetTxStatusCachesOnlyFinalStatuses(t *testing.T) {
+	t.Parallel()
+	name := map[driver.TxStatusCode]string{driver.Unknown: "unknown", driver.Valid: "valid", driver.Invalid: "invalid", driver.Busy: "busy"}
+	for _, pending := range []driver.TxStatusCode{driver.Busy, driver.Unknown} {
+		for _, final := range []driver.TxStatusCode{driver.Valid, driver.Invalid} {
+			t.Run(name[pending]+" to "+name[final], func(t *testing.T) {
+				t.Parallel()
+				backed := newMockVaultStore()
+				backed.statuses["tx1"] = &driver.TxStatus{TxID: "tx1", Code: pending}
+				s := newCachedTestStore(backed)
+
+				got, err := s.GetTxStatus(t.Context(), "tx1")
+				require.NoError(t, err)
+				require.Equal(t, pending, got.Code)
+
+				// Another replica commits the transaction.
+				backed.statuses["tx1"] = &driver.TxStatus{TxID: "tx1", Code: final, Message: "committed"}
+				got, err = s.GetTxStatus(t.Context(), "tx1")
+				require.NoError(t, err)
+				require.Equal(t, final, got.Code)
+				require.Equal(t, "committed", got.Message)
+
+				before := backed.getCalls.Load()
+				got, err = s.GetTxStatus(t.Context(), "tx1")
+				require.NoError(t, err)
+				require.Equal(t, final, got.Code)
+				require.Equal(t, before, backed.getCalls.Load(), "a final status is served from the cache")
+			})
+		}
+	}
+}
+
 func TestCachedStoreSetStatusesPropagatesError(t *testing.T) {
 	t.Parallel()
 	backed := newMockVaultStore()

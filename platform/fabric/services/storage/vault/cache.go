@@ -31,6 +31,10 @@ type notCachedStore struct {
 	driver.VaultStore
 }
 
+// NewCachedVault returns backed with an in-memory cache of up to cacheSize final
+// transaction statuses, Valid or Invalid. Any other status is read from backed on every
+// call, so a replica sees a transaction another replica sharing backed has committed. A
+// cacheSize of zero or less returns backed without a cache.
 func NewCachedVault(backed fdbdriver.VaultStore, cacheSize int) CachedVaultStore {
 	if cacheSize <= 0 {
 		logger.Debugf("txID store without cache selected")
@@ -78,7 +82,11 @@ func (s *cachedStore) forceGet(ctx context.Context, txID driver.TxID) (*driver.T
 	}
 
 	logger.Debugf("Force get returned value [%v] from backed: %v", *txStatus, err)
-	s.cache.Put(txID, &entry{Code: txStatus.Code, Message: txStatus.Message})
+	// Only a final status is cached. Another replica sharing the backed store may commit a
+	// Busy or Unknown transaction at any time, and only a reread sees it.
+	if txStatus.Code == driver.Valid || txStatus.Code == driver.Invalid {
+		s.cache.Put(txID, &entry{Code: txStatus.Code, Message: txStatus.Message})
+	}
 	return txStatus, nil
 }
 
