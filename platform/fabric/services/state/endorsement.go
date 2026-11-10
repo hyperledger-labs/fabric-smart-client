@@ -14,6 +14,9 @@ import (
 // NewCollectEndorsementsView returns a view that does the following:
 // 1. It contacts each passed party sequentially and sends the marshalled version of the passed transaction.
 // 2. It waits for a response containing either the endorsement of the transaction or an error.
+//
+// The errors a caller can match with errors.Is, such as session.ErrDraining when a party
+// drains, are those of [endorser.NewCollectEndorsementsView].
 func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) view.View {
 	return endorser.NewCollectEndorsementsView(tx.tx, parties...)
 }
