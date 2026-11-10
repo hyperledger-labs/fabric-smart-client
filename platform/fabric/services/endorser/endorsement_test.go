@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -941,6 +944,61 @@ func TestCollectEndorsementsView_ReturnsWhenContextEnds(t *testing.T) {
 	_, err := f.view.Call(f.ctx)
 	require.ErrorIs(t, err, context.Canceled)
 	require.Less(t, time.Since(start), time.Second, "the view waited for its timer instead of the context")
+}
+
+// A caller that spreads endorsements over several endorsers tells "the endorser is
+// unavailable, try the next one" from any other failure with errors.Is. A party that fails
+// before its reply verifies adds nothing to the transaction.
+func TestCollectEndorsementsView_ErrorTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejection", func(t *testing.T) {
+		t.Parallel()
+		for reason, want := range map[string]error{
+			session.ReasonDraining:    session.ErrDraining,
+			session.ReasonBusy:        session.ErrBusy,
+			session.ReasonNodeBusy:    session.ErrBusy,
+			session.ReasonUnknownView: session.ErrUnknownView,
+		} {
+			f := newCollectFixture(t)
+			f.msgCh <- &view.Message{Status: view.ERROR, Payload: []byte(reason + ": no new work")}
+			_, err := f.view.Call(f.ctx)
+			require.ErrorIs(t, err, want, reason)
+			require.ErrorIs(t, err, session.ErrRejected, reason)
+			require.EqualError(t, err, "received error from remote ["+reason+": no new work]")
+			require.Zero(t, f.tx.AppendProposalResponseCallCount(), reason)
+		}
+	})
+
+	t.Run("error reply that is not a rejection", func(t *testing.T) {
+		t.Parallel()
+		f := newCollectFixture(t)
+		f.msgCh <- &view.Message{Status: view.ERROR, Payload: []byte("failed endorsing: bad input")}
+		_, err := f.view.Call(f.ctx)
+		require.EqualError(t, err, "failed endorsing: bad input")
+		require.NotErrorIs(t, err, session.ErrRejected)
+	})
+
+	t.Run("session closed", func(t *testing.T) {
+		t.Parallel()
+		f := newCollectFixture(t)
+		close(f.msgCh)
+		_, err := f.view.Call(f.ctx)
+		require.ErrorIs(t, err, comm.ErrSessionClosed)
+		require.Regexp(t, "^session to party .+ closed: session closed$", err.Error())
+	})
+
+	t.Run("no reply before the timeout", func(t *testing.T) {
+		t.Parallel()
+		// The fixture is built in the bubble, whose clock passes the view's one-minute wait
+		// as soon as everything blocks.
+		synctest.Test(t, func(t *testing.T) {
+			f := newCollectFixture(t)
+			_, err := f.view.Call(f.ctx)
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			require.Regexp(t, "^Timeout from party .+: context deadline exceeded$", err.Error())
+		})
+	})
 }
 
 // TestEndorsement_HijackerEndorsementRefused shows that a proven binding of a

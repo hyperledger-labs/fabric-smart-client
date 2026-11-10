@@ -50,8 +50,13 @@ the next one. It matches, with `errors.Is`:
 | The transaction could not be sent, for example to a node that is down | the send's error, such as a dial error wrapping `syscall.ECONNREFUSED` |
 
 An error reply that is not a rejection, and an endorsement that does not verify, wrap none of
-these. A failed attempt adds nothing to the transaction, so the caller can pass it to another
-party.
+these.
+
+The view adds each endorsement to the transaction as soon as it verifies, this node's own
+included, and a failure does not remove the ones added before it. A party that fails before its
+reply verifies, which includes every failure in the table above, adds nothing, so a caller that
+asks one party at a time can pass the same transaction to another party. An endorsement already
+on the transaction is not added a second time.
 
 ### The transaction envelope
 

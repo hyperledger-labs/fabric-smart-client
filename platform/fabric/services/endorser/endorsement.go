@@ -224,8 +224,9 @@ func (c *collectEndorsementsView) SetVerifierProviders(p []fabric.VerifierProvid
 //   - the send's error, such as a dial error, when tx could not be sent.
 //
 // Any other failure, such as an error reply that is not a rejection or an endorsement that
-// does not verify, wraps none of these. A failure leaves tx without the failed party's
-// endorsement, so tx can be passed to another party.
+// does not verify, wraps none of these. Each endorsement is added to tx as soon as it
+// verifies, and a failure does not remove those added before it; a party that fails before
+// its reply verifies adds nothing.
 func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) *collectEndorsementsView {
 	return &collectEndorsementsView{tx: tx, parties: parties}
 }
