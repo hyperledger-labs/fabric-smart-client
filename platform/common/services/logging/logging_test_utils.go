@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
+	"go.uber.org/zap"
 )
 
 // Test helpers for packages that need to assert on log output. They live in a
@@ -22,9 +23,13 @@ type (
 )
 
 // NewTestLogger returns a Logger that records what is written to it, so tests
-// can assert on log output.
+// can assert on log output. It supports every Logger method, including the
+// *Context ones, and its entries, like those of loggers derived with Named or
+// With, report the caller of the log method.
 func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
 	tb.Helper()
 	l, r := floggingtest.NewTestLogger(tb, options...)
-	return &logger{fabricLogger: l}, r
+	// l.Zap() carries the caller skip of the FabricLogger floggingtest built;
+	// remove it, since newLogger adds its own.
+	return newLogger(l.Zap().WithOptions(zap.AddCallerSkip(-1))), r
 }

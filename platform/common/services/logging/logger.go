@@ -51,22 +51,28 @@ type fabricLogger interface {
 type logger struct {
 	fabricLogger
 	otelLogger
+
+	// base is the zap logger both halves wrap, before they add their caller skip. Named and
+	// With derive from it, so a derived logger reports the same caller as its parent.
+	base *zap.Logger
 }
 
+// newLogger wraps zapLogger; each half adds the caller skip of its own forwarding method.
 func newLogger(zapLogger *zap.Logger) *logger {
 	return &logger{
 		fabricLogger: flogging.NewFabricLogger(zapLogger),
 		// One frame to skip: the ctxFieldLogger.*Context method that forwards to zap.
 		otelLogger: NewOtelLogger(zapLogger.WithOptions(zap.AddCallerSkip(1))),
+		base:       zapLogger,
 	}
 }
 
 func (l *logger) Named(name string) Logger {
-	return newLogger(l.Zap().Named(name))
+	return newLogger(l.base.Named(name))
 }
 
 func (l *logger) With(args ...any) Logger {
-	return newLogger(l.Zap().Sugar().With(args...).Desugar())
+	return newLogger(l.base.Sugar().With(args...).Desugar())
 }
 
 // MustGetLogger returns the same logger as GetLogger, panicking instead of
