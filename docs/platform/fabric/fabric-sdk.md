@@ -2,11 +2,11 @@
 
 This is the `Fabric SDK` stack:
 
-![img.png](../../imgs/fabric-sdk.png)
+![Fabric SDK stack](../../imgs/fabric-sdk.png)
 
 It consists of the following layers:
 - `Services` (light-blue boxes): Services offer access to Fabric-specific functionality, such as transaction endorsement, state-based endorsement, and the execution of Chaincode.
-- `Fabric API`: This API follows the same abstraction paradigm as the `View API` but provides Fabric-specific functionality to enable `FSC nodes` to communicate with Fabric. Even though this API is specific for Fabric, it allows to abstract away certain details when dealing with a specific Fabric version.
+- `Fabric API`: This API follows the same abstraction paradigm as the `View API` but provides Fabric-specific functionality to enable `FSC nodes` to communicate with Fabric. Even though this API is specific for Fabric, it abstracts away certain details when dealing with a specific Fabric version.
 - `Driver API`: This API translates the `Fabric API` to a concrete driver implementation.
 - `Driver Implementations`: The Fabric SDK comes with a driver implementation for Fabric V2+.
 
@@ -15,7 +15,7 @@ It consists of the following layers:
 The endorser views (`platform/fabric/services/endorser`) and the state views
 (`platform/fabric/services/state`) exchange transactions, endorsement responses and finality
 requests with other nodes. Their formats are versioned per session through the `fabric`
-component (Fabric networks) and the `fabricx` component (Fabric-x networks); this release
+component (Fabric networks) and the `fabricx` component (Fabric-x networks); FSC
 supports versions 1 and 2 of both, and a session uses the highest version both nodes support
 (see [Format negotiation](../view/services/comm/readme.md#format-negotiation)). The messages are
 defined in `platform/fabric/protos/fabric.proto` (package `fsc.fabric.v1`) and
@@ -112,7 +112,3 @@ in either case. Decode a loaded transaction with the network's transaction manag
 (`fabric.TransactionManager.NewTransactionFromBytes`), which accepts both forms, never with
 `json.Unmarshal`. See
 [Schema migrations](../view/services/schema-migrations.md#contract-steps) for the steps.
-
-## Configuration
-
-Start with the [Fabric platform configuration](configuration.md) page and then use the shared [example configuration](../../configuration.md) as the concrete `core.yaml` reference.

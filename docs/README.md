@@ -1,6 +1,12 @@
 # Fabric Smart Client Documentation
 
-Welcome to the Fabric Smart Client (FSC) documentation.
+## Getting started
+
+To write your first FSC application:
+1. Read [Core concepts](core-concepts.md) for what FSC is and how a business process maps to views.
+2. Follow the [Programming model guide](platform/view/programming-model.md): how an application creates a node, installs SDKs, and registers initiator and responder views.
+3. Add the ledger you target: the [Fabric platform](platform/fabric/README.md) or the [Fabric-x platform](platform/fabric-x/README.md).
+4. Configure your node with [`core.yaml`](configuration.md).
 
 ## Core Concepts
 
@@ -17,16 +23,16 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 
 ## Development
 
+- [Contributor guide](../CONTRIBUTING.md)
 - [Development guide](dev/development.md): setup, building, running tests, CI
 - [Architecture and dependency injection](dev/architecture.md)
 - [Code conventions](dev/conventions.md)
 - [Contribution workflow](dev/workflow.md)
-- [Releasing](dev/releasing.md)
-- [Contributor guide](../CONTRIBUTING.md)
 - [Commit signing (DCO + GPG)](dev/signing.md)
 - [Rebasing onto upstream main](dev/rebasing.md)
 - [Resolving merge conflicts](dev/merge-conflicts.md)
 - [Writing documentation](dev/documentation.md): where each page lives and how it is written
+- [Releasing](dev/releasing.md) (maintainers)
 
 ## Testing
 
@@ -35,15 +41,15 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 - [Integration tests](dev/integration-tests/README.md): the suites, their targets, and running them
 - [Authoring integration tests](dev/integration-tests/authoring.md)
 - [Fault-recovery tests](dev/integration-tests/fault-recovery.md)
+- [Benchmark examples](../integration/benchmark/README.md)
 
 Coding agents start from [`AGENTS.md`](../AGENTS.md).
 
-## Guides and Tutorials
+## Reference
 
 - [Go API reference (pkg.go.dev)](https://pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client)
 - [FSC CLI reference](reference/fsc-cli.md)
 - [Node CLI reference](reference/node-cli.md)
-- [Benchmark examples](../integration/benchmark/README.md)
 
 ## Upgrading
 

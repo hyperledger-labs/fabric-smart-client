@@ -237,6 +237,8 @@ type Message struct {
     Status       int32
     Payload      []byte
     Ctx          context.Context
+    Protocol     string
+    Versions     []byte
 }
 ```
 
@@ -253,6 +255,8 @@ The metadata are part of the API contract:
 - `FromEndpoint`: Remote endpoint identifier.
 - `FromPKID`: Public key identifier verified by the transport.
 - `Ctx`: Go context propagated with the message, used for tracing and cancellation-aware receive handling.
+- `Protocol`: Stable protocol name `<component>/<name>` that the session's initiator states; empty if its view declares none or the message comes from a responder.
+- `Versions`: Encoded version of each component's formats that the session's initiator chose, stated on every message the initiator sends; `nil` on a responder's messages.
 
 `Message.Caller` is the remote view identifier. It is not the same as the remote node identity.
 
@@ -387,6 +391,8 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
             return nil, errors.New("expected pong")
         }
         return "OK", nil
+    case <-viewCtx.Context().Done():
+        return nil, viewCtx.Context().Err()
     case <-time.After(time.Minute):
         return nil, errors.New("responder didn't pong in time")
     }
@@ -413,6 +419,8 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
             return nil, err
         }
         return "OK", nil
+    case <-viewCtx.Context().Done():
+        return nil, viewCtx.Context().Err()
     case <-time.After(5 * time.Second):
         return nil, errors.New("time out reached")
     }

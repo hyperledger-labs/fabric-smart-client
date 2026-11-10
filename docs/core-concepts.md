@@ -5,9 +5,9 @@ FSC simplifies the development of Fabric-based distributed applications by putti
 **hiding the unnecessary burden** of dealing with Fabric(x).
 
 A business process is a collection of related and structured activities carried by business parties
-in which a specific sequence of steps serves a particular business goal In other words, a business process
+in which a specific sequence of steps serves a particular business goal. In other words, a business process
 is an interactive protocol among business parties each of which has its own business view (or simply view)
-of the process. A **view** is then the sequence of steps that a business party must execute to serve a particular business goal
+of the process. A **view** is then the sequence of steps that a business party must execute to serve a particular business goal.
 FSC aims to offer a comfortable environment to build such interactive protocols backed by the Hyperledger Fabric(x).
 
 ## Fabric and its Hidden Gems
@@ -49,7 +49,7 @@ and the directions we want to follow:
   about the process that should be used to assemble the RWSet.
   In particular:
   - It does not say that all endorsers of a given chaincode should run the same business logic.
-  - Nor it says that the RWSet should be produced by Fabric Endorsers.
+  - Nor does it say that the RWSet should be produced by Fabric Endorsers.
 
   Indeed, the execution phase can be implemented in other ways. For example, the clients could assemble the RWSet
   directly and then ask the endorsers to **approve** the transaction.
@@ -66,30 +66,30 @@ FSC is founded on the following key ingredients to build interactive protocols:
 - **View** A distributed application consists of multiple interactive protocols. An interactive protocol represents
   a computation jointly carried on by multiple parties in a distributed fashion. Those parties communicate by
   establishing communication channels or sessions. The view of each party in an interactive protocol is what we call
-  **View** We call **initiator** the party that starts the interactive protocol. The initiator does that by executing the
+  **View**. We call **initiator** the party that starts the interactive protocol. The initiator does that by executing the
   view representing her in that interactive protocol. When a view opens a communication session to another party,
   this party executes, in response, the view representing her role in the interaction.
   Therefore, views are unit of computation that can be used to agree on the content of a transaction, to disseminate data,
   to perform key agreement, to deliver a transaction to an ordering service, and so on.
-- **Identity** Each party has at least one **identity** To keep this concept as general as possible,
+- **Identity** Each party has at least one **identity**. To keep this concept as general as possible,
   we defined an identity as a container of a lower level identity. A lower level identity can be anything meaningful
   enough to represent the intuitive concept of a digital identity. For example, it can be an X509 certificate,
   an ECDSA public-key, an Idemix identity, and so on. An identity can be used to produce digital signatures,
-  to identify the party that a view want to open a communication session to, and so on.
+  to identify the party that a view wants to open a communication session to, and so on.
 - **Session** One of the main goals of the Fabric Smart Client is to help developers designing distributed applications.
   The core of any distributed application is its communication layer. Therefore, FSC provides a communication
-  abstraction that we call **Session** A session is a bidirectional communication channel, with a unique identifier,
+  abstraction that we call **Session**. A session is a bidirectional communication channel, with a unique identifier,
   between two parties identified by their identities. Let us now describe the lifecycle of a session with an example.
-  Alice and Bob are two parties who know each other and who wants to interact to accomplish a given task.
+  Alice and Bob are two parties who know each other and who want to interact to accomplish a given task.
   Alice is the initiator and starts the interactive protocol by executing the view representing her in the protocol.
   At some point, Alice needs to send a message to Bob. To do that, Alice opens a session to Bob. Notice that, we are
   assuming that Alice knows already Bob’s identity. When Alice’s message reaches Bob, Bob responds by executing the
-  view representing him in protocol. Bob gets Alice’s message by first obtaining the session Alice’s opened.
+  view representing him in protocol. Bob gets Alice’s message by first obtaining the session Alice opened.
   Bob can use the very same session to respond to Alice and the ping-pong can continue until Alice and Bob reach their goal.
 
 ## FSC is the Perfect Companion for Fabric
 
-We call **FSC Node** a network node that runs the FSC stack. FSC nodes form an **FSC network**
+We call **FSC Node** a network node that runs the FSC stack. FSC nodes form an **FSC network**.
 This network lives alongside one or more Fabric networks.
 FSC nodes can connect to each other in a peer-to-peer fashion.
 Moreover, each FSC node connects to one or more **trusted** Fabric peers to learn about the status of the Fabric network
@@ -100,13 +100,13 @@ Here is a pictorial representation of these networks.
 
 Then, a network node running FSC is a **Business Party** at the Application/Business Layer.
 Business Parties run Views to orchestrate a Business Process and achieve a Business Goal.
-Each FSC node exposes a GRPC service that allows the owner/administrator of the node to **initiate** business processes.
-A business process is started by an **initiator view**
+Each FSC node exposes a gRPC service that allows the owner/administrator of the node to **initiate** business processes.
+A business process is started by an **initiator view**.
 
 ## The Fabric Smart Client Stack
 
 The Fabric Smart Client consists of **platforms** to support different DLT backends. Each platform exposes a coherent set of API to address specific tasks. A platform SDK bundles the platform specific features and implementations.
-Currently, FSC comes with the following SDKs:
+FSC comes with the following SDKs:
 
 ![stack.png](imgs/stack.png)
 
@@ -130,9 +130,10 @@ Currently, FSC comes with the following SDKs:
     the node is interested about or helped to assemble. An FSC node does not need to store the entire ledger but
     only what is relevant. This storage space allows the FSC nodes to keep temporary version of the transactions
     they are assembling before they get submitted for ordering.
-  - The [`Fabric-x platform`](platform/fabric-x/README.md) builds on top of the Fabric platform to communicate with Fabric-x.
+- The [`Fabric-x platform`](platform/fabric-x/README.md) builds on top of the Fabric platform and offers the same API and services to allow FSC nodes to communicate
+  with Fabric-x. It replaces only the Fabric-x specific components, such as transaction processing and finality.
 
-For the developers, more information about how SDKs are handles can be found [here](platform/sdk.md).
+For the developers, more information about how SDKs are handled can be found [here](platform/sdk.md).
 
 ## Transaction Lifecycle or How to orchestrate a business process
 
@@ -147,7 +148,7 @@ This means preparing the RWSet, and collecting endorsements. Moreover, the endor
   signing keys compatible with the endorsement policy of the chaincode the transaction targets.
 
 Let us explore the above two possibilities in the following Sections.
-If you want to jump ahead, find some examples [`here`](../integration/).
+To write these flows as views, see the [Programming Model Guide](platform/view/programming-model.md).
 
 ### A Chaincode Mediated Example
 
@@ -174,7 +175,7 @@ Step by step:
 ### An Approvers Mediated Example
 
 In this example, we still have Alice and Bob, with their FSC nodes, but we also have the `Approvers`.
-An `approver` is a network node running the FSC nodes that is equipped with a Fabric identity
+An `approver` is a network node running the FSC stack that is equipped with a Fabric identity
 that can be used to endorse the chaincode Alice and Bob use to track their data.
 Notice that, an approver is not a Fabric peer.
 
@@ -200,7 +201,4 @@ Indeed, the Approvers are Business Parties that play the role of `Fabric Endorse
 
 ## The core.yaml file for FSC nodes
 
-Every Fabric Smart Client node requires a `core.yaml` to provide configuration details. 
-It will contain multiple sections depending on the sdks being used. 
-There will be a main section which configures the core part of an Fabric Smart Client node and then specific sdk sections.
-An example with details on the various keys for a Fabric Smart Client node using the Fabric sdk is provided in [Example Configuration](./configuration.md)
+Every FSC node reads its configuration from a `core.yaml` file, with one section for the node itself and one for each installed platform SDK. See [Configuration](configuration.md) for every key.

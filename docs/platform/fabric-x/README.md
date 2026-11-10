@@ -41,6 +41,14 @@ func main() {
 
 Start with the [Fabric-x platform configuration](configuration.md) page for the documented `notificationService` and `queryService` settings, then layer those on top of the shared FSC [node configuration](../../configuration.md).
 
+## Use Fabric-x from a view
+
+Views use the same APIs on Fabric-x as on Fabric: the transaction, endorsement and finality views of [`platform/fabric/services/state`](../../../platform/fabric/services/state) and [`platform/fabric/services/endorser`](../../../platform/fabric/services/endorser), and `fabric.GetDefaultChannel` and `fabric.GetChannel` to reach a channel. Start with [Use Fabric from a view](../fabric/README.md#use-fabric-from-a-view) and install `fabricx.NewSDK` instead of the Fabric SDK. The Fabric-x IOU example, [`integration/fabricx/common/iou`](../../../integration/fabricx/common/iou), runs the views of the Fabric IOU example unchanged. What differs:
+
+- Finality comes from the committer's [notification service](#notification-service-transaction-finality), and the query service answers status lookups.
+- `ch.ACLProvider().CheckACL` checks a signed proposal against the channel's policies; on Fabric it returns `driver.ErrNotImplemented`.
+- `ch.Committer().ProcessNamespace` has no effect.
+
 ## Notification Service (Transaction Finality)
 
 The notification service delivers realtime transaction finality events to FSC application nodes. It maintains a persistent bidirectional gRPC stream to the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s `SidecarService` (`OpenNotificationStream`), which pushes notifications as transactions are committed, invalidated, or timed out. The connection to the committer is re-used and shared among all active listeners for a given network and channel.
@@ -138,10 +146,6 @@ tls:
       - "/path/to/ca.pem"
   serverNameOverride: "committer.example.com"
 ```
-
-### Usage from a View
-Refer to the [Simple integration test fixtures](../../../integration/fabricx/common/simple) for reference.
-
 
 ## Query Service
 
