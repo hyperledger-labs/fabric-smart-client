@@ -965,7 +965,7 @@ func TestCollectEndorsementsView_ErrorTypes(t *testing.T) {
 			_, err := f.view.Call(f.ctx)
 			require.ErrorIs(t, err, want, reason)
 			require.ErrorIs(t, err, session.ErrRejected, reason)
-			require.EqualError(t, err, "received error from remote ["+reason+": no new work]")
+			require.EqualError(t, err, reason+": no new work")
 			require.Zero(t, f.tx.AppendProposalResponseCallCount(), reason)
 		}
 	})
@@ -985,7 +985,7 @@ func TestCollectEndorsementsView_ErrorTypes(t *testing.T) {
 		close(f.msgCh)
 		_, err := f.view.Call(f.ctx)
 		require.ErrorIs(t, err, comm.ErrSessionClosed)
-		require.Regexp(t, "^session to party .+ closed: session closed$", err.Error())
+		require.Regexp(t, "^session to party .+ closed$", err.Error())
 	})
 
 	t.Run("no reply before the timeout", func(t *testing.T) {
@@ -996,7 +996,7 @@ func TestCollectEndorsementsView_ErrorTypes(t *testing.T) {
 			f := newCollectFixture(t)
 			_, err := f.view.Call(f.ctx)
 			require.ErrorIs(t, err, context.DeadlineExceeded)
-			require.Regexp(t, "^Timeout from party .+: context deadline exceeded$", err.Error())
+			require.Regexp(t, "^Timeout from party .+$", err.Error())
 		})
 	})
 }

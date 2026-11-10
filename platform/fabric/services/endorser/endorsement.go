@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -114,7 +115,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		case m, ok := <-ch:
 			timeout.Stop()
 			if !ok {
-				return nil, errors.Wrapf(comm.ErrSessionClosed, "session to party %s closed", party)
+				return nil, &textError{msg: fmt.Sprintf("session to party %s closed", party), err: comm.ErrSessionClosed}
 			}
 			msg = m
 		case <-viewCtx.Context().Done():
@@ -122,7 +123,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 			return nil, errors.Wrapf(viewCtx.Context().Err(), "stopped waiting for party %s", party)
 		case <-timeout.C:
 			timeout.Stop()
-			return nil, errors.Wrapf(context.DeadlineExceeded, "Timeout from party %s", party)
+			return nil, &textError{msg: fmt.Sprintf("Timeout from party %s", party), err: context.DeadlineExceeded}
 		}
 		logger.DebugfContext(viewCtx.Context(), "Received transaction from party")
 		if msg.Status == view.ERROR {
@@ -194,15 +195,23 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 	return c.tx, nil
 }
 
-// replyError returns the error for msg, an error reply from a party. A rejection, such as a
-// draining or busy node, is session.RejectionError's error, which a caller can match with
-// errors.Is; any other reply is its payload text.
+// replyError returns the error for msg, an error reply from a party. Its text is the payload.
+// For a rejection, such as a draining or busy node, it wraps session.ErrRejected and the
+// reason's sentinel, as session.RejectionError does; any other reply wraps nothing.
 func replyError(msg *view.Message) error {
-	if err := session.RejectionError(msg); errors.Is(err, session.ErrRejected) {
-		return err
-	}
-	return errors.New(string(msg.Payload))
+	return &textError{msg: string(msg.Payload), err: session.RejectionError(msg)}
 }
+
+// textError is an error whose text is msg and that wraps err, so that errors.Is matches err
+// while the text stays msg.
+type textError struct {
+	msg string
+	err error
+}
+
+func (e *textError) Error() string { return e.msg }
+
+func (e *textError) Unwrap() error { return e.err }
 
 // SetVerifierProviders sets additional providers used to verify the collected endorsements.
 // They apply to the collection only; Transaction.HasBeenEndorsedBy consults the providers
