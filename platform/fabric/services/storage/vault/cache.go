@@ -31,10 +31,10 @@ type notCachedStore struct {
 	driver.VaultStore
 }
 
-// NewCachedVault returns backed with an in-memory cache of up to cacheSize final
-// transaction statuses, Valid or Invalid. Any other status is read from backed on every
-// call, so a replica sees a transaction another replica sharing backed has committed. A
-// cacheSize of zero or less returns backed without a cache.
+// NewCachedVault returns backed with an in-memory cache of up to cacheSize Valid
+// transaction statuses. Any other status is read from backed on every call, so a replica
+// sees a transaction another replica sharing backed has committed, including one it
+// discarded. A cacheSize of zero or less returns backed without a cache.
 func NewCachedVault(backed fdbdriver.VaultStore, cacheSize int) CachedVaultStore {
 	if cacheSize <= 0 {
 		logger.Debugf("txID store without cache selected")
@@ -82,9 +82,10 @@ func (s *cachedStore) forceGet(ctx context.Context, txID driver.TxID) (*driver.T
 	}
 
 	logger.Debugf("Force get returned value [%v] from backed: %v", *txStatus, err)
-	// Only a final status is cached. Another replica sharing the backed store may commit a
-	// Busy or Unknown transaction at any time, and only a reread sees it.
-	if txStatus.Code == driver.Valid || txStatus.Code == driver.Invalid {
+	// Only a Valid status is cached: no replica changes it. Another replica sharing the backed
+	// store may commit a transaction at any time, even one this replica discarded, and only a
+	// reread sees it.
+	if txStatus.Code == driver.Valid {
 		s.cache.Put(txID, &entry{Code: txStatus.Code, Message: txStatus.Message})
 	}
 	return txStatus, nil
@@ -108,8 +109,9 @@ func (s *cachedStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 		return err
 	}
 
-	if code == driver.Busy {
-		// The backed store keeps a Valid status, so the cache must reread it.
+	if code != driver.Valid {
+		// Only Valid is cached, see forceGet. A Busy code also leaves a Valid status in the
+		// backed store, which the next read caches again.
 		s.cache.Delete(txIDs...)
 		return nil
 	}

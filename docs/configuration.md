@@ -937,8 +937,8 @@ fabric:
       persistence: mypostgres
       txidstore:
         cache:
-          # Number of final transaction statuses (valid or invalid) each replica keeps in
-          # memory; a pending status is always read from the vault. 0 disables the cache.
+          # Number of valid transaction statuses each replica keeps in memory; any other
+          # status is always read from the vault. 0 disables the cache.
           # If not specified or set to <0 it defaults to 100.
           size: 200
 

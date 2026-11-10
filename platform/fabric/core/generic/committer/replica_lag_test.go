@@ -69,3 +69,43 @@ func TestIsFinalSeesCommitByAnotherReplica(t *testing.T) {
 	defer cancel()
 	require.NoError(t, c.IsFinal(ctx, "tx1"))
 }
+
+// A replica that discarded a transaction reports it Valid once another replica commits it:
+// a block that marks a discarded transaction valid overrides the discard, so an Invalid
+// status in one replica's cache may be stale.
+func TestStatusSeesCommitOfTxAnotherReplicaDiscarded(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	store, err := fvault.OpenSqliteVault("node", t.TempDir())
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+	newReplicaVault := func() *vault.Vault {
+		return vault.NewVault(fvault.NewCachedVault(store, 100), &disabled.Provider{}, noop.NewTracerProvider())
+	}
+	discarding, other := newReplicaVault(), newReplicaVault()
+	c := &Committer{
+		logger:          logger,
+		ChannelConfig:   &fake.ChannelConfig{},
+		Vault:           discarding,
+		EnvelopeService: &fake.EnvelopeService{},
+	}
+
+	rws, err := discarding.NewRWSet(ctx, "tx1")
+	require.NoError(t, err)
+	rws.Done()
+	require.NoError(t, c.DiscardTx(ctx, "tx1", "discarded locally"))
+	vc, _, err := c.Status(ctx, "tx1")
+	require.NoError(t, err)
+	require.Equal(t, fdriver.Invalid, vc)
+
+	// The block marks the transaction valid, and the other replica commits it first.
+	rws, err = other.NewRWSet(ctx, "tx1")
+	require.NoError(t, err)
+	rws.Done()
+	require.NoError(t, other.CommitTX(ctx, "tx1", 7, 0))
+
+	vc, _, err = c.Status(ctx, "tx1")
+	require.NoError(t, err)
+	require.Equal(t, fdriver.Valid, vc)
+}
