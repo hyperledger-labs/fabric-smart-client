@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
@@ -66,10 +67,11 @@ func (l *countingListener) OnStatus(_ context.Context, _ driver.TxID, status int
 }
 
 // switchResolver answers every txID with code, which a test may change while
-// listeners are pending.
-type switchResolver struct{ code atomic.Int32 }
+// listeners are pending. calls counts Statuses invocations.
+type switchResolver struct{ code, calls atomic.Int32 }
 
 func (r *switchResolver) Statuses(_ context.Context, txIDs ...driver.TxID) ([]driver.TxValidationStatus[fdriver.ValidationCode], error) {
+	r.calls.Add(1)
 	out := make([]driver.TxValidationStatus[fdriver.ValidationCode], len(txIDs))
 	for i, id := range txIDs {
 		out[i] = driver.TxValidationStatus[fdriver.ValidationCode]{TxID: id, ValidationCode: fdriver.ValidationCode(r.code.Load())}
@@ -263,35 +265,38 @@ func TestReconnect_RetriesFailingClientFactory(t *testing.T) {
 	require.Equal(t, int32(3), calls.Load(), "the stream opens on the first call that returns a client")
 }
 
-// The committer answers a tx that committed while the stream was down with a timeout,
-// since it only reports statuses that arrive after the subscription. The resolving
-// wrapper turns that Unknown into the real outcome from the query service, exactly once.
+// A tx that commits while the stream is down is settled from the query service, and the
+// listener is told exactly once: the committer's answers on the new stream, a timeout for
+// the re-request and a late commit, reach nobody. The test runs in a synctest bubble, so
+// each step happens after everything the previous one started has settled.
 func TestReconnect_ResolvedTxNotifiedOnce(t *testing.T) {
 	t.Parallel()
-	nlm, _ := setupTest(t)
-	fn := newFakeNotifier()
-	s1, _ := startReconnecting(t, nlm, fn)
+	synctest.Test(t, func(t *testing.T) {
+		nlm, _ := setupTest(t)
+		fn := newFakeNotifier()
+		s1 := runInBubble(t, nlm, fn)
 
-	resolver := &switchResolver{}
-	resolver.code.Store(int32(fdriver.Unknown))
-	rlm := NewResolvingListenerManager(nlm, resolver)
-	l := &countingListener{}
-	require.NoError(t, rlm.AddFinalityListener("tx1", l))
-	s1.requested(t, "tx1")
+		resolver := &switchResolver{}
+		resolver.code.Store(int32(fdriver.Unknown))
+		rlm := NewResolvingListenerManager(nlm, resolver)
+		l := &countingListener{}
+		require.NoError(t, rlm.AddFinalityListener("tx1", l))
+		<-s1.requests
 
-	s1.fail()
-	resolver.code.Store(int32(fdriver.Valid)) // committed during the gap
-	s2 := fn.next(t)
-	s2.requested(t, "tx1")
-	s2.respond(t, &committerpb.NotificationResponse{TimeoutTxIds: []string{"tx1"}})
+		s1.fail()
+		synctest.Wait()
+		resolver.code.Store(int32(fdriver.Valid)) // committed during the gap
+		s2 := <-fn.opened
+		<-s2.requests
+		synctest.Wait()
+		require.Equal(t, int32(1), l.calls.Load())
+		require.Equal(t, int32(fdriver.Valid), l.status.Load())
 
-	require.Eventually(t, func() bool { return l.calls.Load() == 1 }, timeout, tick)
-	require.Equal(t, int32(fdriver.Valid), l.status.Load())
-
-	// A late duplicate on the stream reaches nobody: the entry is gone.
-	s2.respond(t, committed("tx1"))
-	time.Sleep(shortWait)
-	require.Equal(t, int32(1), l.calls.Load())
+		s2.respond(t, &committerpb.NotificationResponse{TimeoutTxIds: []string{"tx1"}})
+		s2.respond(t, committed("tx1"))
+		synctest.Wait()
+		require.Equal(t, int32(1), l.calls.Load())
+	})
 }
 
 func TestReconnect_TTLStillExpires(t *testing.T) {
@@ -381,4 +386,100 @@ func TestRejectedSubscriptionSettlesUnknown(t *testing.T) {
 
 	require.Eventually(t, func() bool { return l.calls.Load() == 1 }, timeout, tick)
 	require.Equal(t, int32(fdriver.Unknown), l.status.Load())
+}
+
+// runInBubble serves nlm over fn with run(), inside the caller's synctest bubble, and returns
+// the first stream once it is attached. The manager is stopped when the test ends, so the
+// bubble can finish.
+func runInBubble(t *testing.T, nlm *notificationListenerManager, fn *fakeNotifier) *fakeStream {
+	t.Helper()
+	nlm.newNotifyClient = staticClient(fn)
+	nlm.handlerTimeout = time.Second
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- nlm.run(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+	s := <-fn.opened
+	// Wait until the stream is also attached, so that registrations from here on are sent
+	// on it rather than re-requested, and resolved, with the stream's pending txIDs.
+	synctest.Wait()
+	return s
+}
+
+// A transaction that commits while the notification stream is down is not reported on the
+// next stream: the committer reports only statuses that arrive after a subscription, and
+// answers the re-request only once requestTimeout passes. The manager resolves the
+// transaction from the query service instead, whether or not the stream is back. The test
+// runs in a synctest bubble, so the clock advances only when every goroutine is blocked,
+// and the listener must be settled well before requestTimeout.
+func TestReconnect_ResolvesTxCommittedDuringOutage(t *testing.T) {
+	t.Parallel()
+	for _, reconnect := range []bool{true, false} {
+		name := "stream stays down"
+		if reconnect {
+			name = "stream reconnects"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				nlm, _ := setupTest(t)
+				fn := newFakeNotifier()
+				s1 := runInBubble(t, nlm, fn)
+				resolver := &switchResolver{}
+				resolver.code.Store(int32(fdriver.Unknown))
+				rlm := NewResolvingListenerManager(nlm, resolver)
+
+				l := &countingListener{}
+				require.NoError(t, rlm.AddFinalityListener("tx1", l))
+				require.Equal(t, []string{"tx1"}, (<-s1.requests).GetTxStatusRequest().GetTxIds())
+
+				if !reconnect {
+					fn.setOpenErr(errors.New("committer down"))
+				}
+				s1.fail()
+				// The failure is resolved at once, while the transaction is still pending;
+				// it commits after that, during the outage, so only a later resolve finds it.
+				synctest.Wait()
+				require.Zero(t, l.calls.Load())
+				resolver.code.Store(int32(fdriver.Valid))
+				if reconnect {
+					s2 := <-fn.opened
+					// Re-requested; the committer stays silent, as it does until requestTimeout.
+					require.Equal(t, []string{"tx1"}, (<-s2.requests).GetTxStatusRequest().GetTxIds())
+				}
+
+				time.Sleep(testRequestTimeout / 10)
+				synctest.Wait()
+				require.Equal(t, int32(1), l.calls.Load(), "the listener is settled from the query service")
+				require.Equal(t, int32(fdriver.Valid), l.status.Load())
+			})
+		})
+	}
+}
+
+// While the stream is up, pending transactions are left to the committer's notifications:
+// the manager does not query their status.
+func TestReconnect_DoesNotResolveWhileStreamIsUp(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		nlm, _ := setupTest(t)
+		fn := newFakeNotifier()
+		s1 := runInBubble(t, nlm, fn)
+		resolver := &switchResolver{}
+		resolver.code.Store(int32(fdriver.Unknown))
+		rlm := NewResolvingListenerManager(nlm, resolver)
+
+		l := &countingListener{}
+		require.NoError(t, rlm.AddFinalityListener("tx1", l))
+		<-s1.requests
+		require.Equal(t, int32(1), resolver.calls.Load(), "registration resolves once")
+
+		time.Sleep(testRequestTimeout / 10)
+		synctest.Wait()
+		require.Equal(t, int32(1), resolver.calls.Load(), "no query while the stream is up")
+		require.Zero(t, l.calls.Load())
+	})
 }

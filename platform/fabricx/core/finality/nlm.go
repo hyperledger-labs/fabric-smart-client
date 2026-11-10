@@ -100,6 +100,13 @@ type notificationListenerManager struct {
 	// a new entry. AddFinalityListener rejects registrations from then on.
 	stopped bool
 
+	// resolver, when set, is asked for the status of the pending txIDs each time a stream
+	// fails and once a new stream has re-requested them, since the committer does not
+	// report a transaction that became final before its subscription. resolveSignal,
+	// made by serve, wakes runResolver for that.
+	resolver      atomic.Pointer[TxStatusResolver]
+	resolveSignal chan struct{}
+
 	// newConn returns the tracker of one endpoint; conn is the tracker of connEndpoint,
 	// the endpoint of the current stream. A nil conn reports nothing. Only the goroutine
 	// running run touches them.
@@ -153,6 +160,7 @@ func (n *notificationListenerManager) run(ctx context.Context) error {
 			delay := backoff.NextDelay()
 			logger.Warnf("Notification stream failed, reconnecting in %s: %v", delay, err)
 			n.conn.Set(connstate.Reconnecting)
+			n.requestResolve()
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -172,6 +180,8 @@ func (n *notificationListenerManager) serve(ctx context.Context, connect func(co
 	// The queue belongs to this serve call, not the manager, so no callback can outlive
 	// the call that produced it.
 	q := make(chan handlerCall, n.handlerQueueSize)
+	resolved := make(chan map[string]int)
+	n.resolveSignal = make(chan struct{}, 1)
 
 	// Never cancelled, only deadline-bounded by callHandler: serve often returns
 	// *because* ctx was cancelled, and queued callbacks must not get a dead context.
@@ -191,7 +201,11 @@ func (n *notificationListenerManager) serve(ctx context.Context, connect func(co
 	}
 
 	g.Go(func() error { return connect(gCtx) })
-	g.Go(func() error { return n.runDispatcher(gCtx, q) })
+	g.Go(func() error { return n.runDispatcher(gCtx, q, resolved) })
+	// Not in g either: a query blocks for up to the resolver's own timeout, whatever gCtx
+	// says, and serve must not wait that long to stop. The resolver returns once the query
+	// does, and never hands its result to a dispatcher that has stopped.
+	go n.runResolver(gCtx, resolved)
 
 	err := g.Wait()
 	logger.Debugf("Notification listener manager stopped.")
@@ -272,6 +286,11 @@ func (n *notificationListenerManager) stream(ctx context.Context) error {
 				return err
 			}
 		}
+		// A txID that became final before this stream subscribed to it is never reported
+		// on it, so the re-requested ones are also resolved.
+		if len(pending) > 0 {
+			n.requestResolve()
+		}
 		var req *committerpb.NotificationRequest
 		for {
 			select {
@@ -337,7 +356,7 @@ func (n *notificationListenerManager) newRequest(txIDs ...string) *committerpb.N
 // impossible rather than merely guarded: dispatch and sweepExpired both settle by
 // deleting an entry, and handlersMu alone would not stop one taking a listener the
 // other already holds. It is also what lets handOff trust cap-len.
-func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan handlerCall) error {
+func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan handlerCall, resolved <-chan map[string]int) error {
 	sweepEvery := n.sweepInterval
 	if sweepEvery <= 0 {
 		sweepEvery = config.DefaultSweepInterval
@@ -353,6 +372,8 @@ func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan
 			n.sweepExpired(q)
 		case resp := <-n.responseQueue:
 			n.dispatch(q, resp)
+		case statuses := <-resolved:
+			n.settle(q, statuses)
 		}
 	}
 }
@@ -628,10 +649,16 @@ func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
 //
 // Takes no context; callbacks run under the pool's context.
 func (n *notificationListenerManager) dispatch(q chan handlerCall, resp *committerpb.NotificationResponse) {
+	n.settle(q, parseResponse(resp))
+}
+
+// settle settles the listeners of each txID in statuses with its status, as dispatch
+// describes. It runs on the dispatcher goroutine.
+func (n *notificationListenerManager) settle(q chan handlerCall, statuses map[string]int) {
 	deferred, total := 0, 0
 
 	n.handlersMu.Lock()
-	for txID, status := range parseResponse(resp) {
+	for txID, status := range statuses {
 		entry, ok := n.handlers[txID]
 		if !ok {
 			continue
@@ -700,4 +727,68 @@ func (n *notificationListenerManager) sweepExpired(q chan handlerCall) {
 
 	logger.Debugf("Settling %d due finality listener entr(ies)", total)
 	n.logDeferred(deferred, total)
+}
+
+// requestResolve wakes runResolver, unless a wake-up is already pending.
+func (n *notificationListenerManager) requestResolve() {
+	select {
+	case n.resolveSignal <- struct{}{}:
+	default:
+	}
+}
+
+// runResolver resolves the pending txIDs each time requestResolve wakes it, and hands the
+// final ones to the dispatcher on resolved, until ctx ends. It runs on its own goroutine:
+// a query blocks for up to the resolver's own timeout, and neither the dispatcher nor the
+// reconnect loop should wait for it.
+func (n *notificationListenerManager) runResolver(ctx context.Context, resolved chan<- map[string]int) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-n.resolveSignal:
+		}
+		statuses := n.resolvePending(ctx)
+		if len(statuses) == 0 {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case resolved <- statuses:
+		}
+	}
+}
+
+// resolvePending returns the txIDs still waiting for an answer that the resolver reports
+// Valid or Invalid, with their status. It returns nothing without a resolver, and skips a
+// batch the resolver fails on: the stream or the next attempt still answers for it.
+func (n *notificationListenerManager) resolvePending(ctx context.Context) map[string]int {
+	r := n.resolver.Load()
+	if r == nil {
+		return nil
+	}
+	n.handlersMu.RLock()
+	txIDs := make([]string, 0, len(n.handlers))
+	for txID, entry := range n.handlers {
+		if entry.status == nil {
+			txIDs = append(txIDs, txID)
+		}
+	}
+	n.handlersMu.RUnlock()
+
+	statuses := map[string]int{}
+	for batch := range slices.Chunk(txIDs, maxTxIDsPerRequest) {
+		res, err := (*r).Statuses(ctx, batch...)
+		if err != nil {
+			logger.Debugf("could not resolve %d pending txID(s): %v", len(batch), err)
+			continue
+		}
+		for _, st := range res {
+			if st.ValidationCode == fdriver.Valid || st.ValidationCode == fdriver.Invalid {
+				statuses[st.TxID] = st.ValidationCode
+			}
+		}
+	}
+	return statuses
 }

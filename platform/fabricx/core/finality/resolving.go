@@ -63,8 +63,14 @@ type proxyKey struct {
 }
 
 // NewResolvingListenerManager wraps inner so that an already-final transaction is answered
-// from resolver instead of from a subscription the committer will not honour.
+// from resolver instead of from a subscription the committer will not honour. When inner
+// is the notification-stream manager, resolver also answers for the transactions pending
+// on it while its stream is down and once a new stream has re-requested them, so one that
+// became final during the outage is settled without waiting for the committer's timeout.
 func NewResolvingListenerManager(inner ListenerManager, resolver TxStatusResolver) *ResolvingListenerManager {
+	if nlm, ok := inner.(*notificationListenerManager); ok {
+		nlm.resolver.Store(&resolver)
+	}
 	return &ResolvingListenerManager{
 		inner:    inner,
 		resolver: resolver,
