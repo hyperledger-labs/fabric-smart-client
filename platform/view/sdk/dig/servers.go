@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -47,7 +46,8 @@ const (
 )
 
 // WebServer is the fsc.web listener. Components mount HTTP handlers on it; secure handlers
-// require a verified client certificate. The SDK starts and stops it with the node.
+// require a verified client certificate. The SDK starts and stops it with the node: Start
+// returns once the listener serves, or with the error that prevents it.
 type WebServer interface {
 	RegisterHandler(s string, handler http.Handler, secure bool)
 	Start() error
@@ -55,7 +55,8 @@ type WebServer interface {
 }
 
 // GRPCServer is the fsc.grpc listener. Components register gRPC services on it before the
-// SDK starts it with the node; Stop returns once in-flight handlers have returned.
+// SDK starts it with the node. Start serves until Stop and returns an error if it stops
+// serving otherwise; Stop returns once in-flight handlers have returned.
 type GRPCServer interface {
 	grpc.ServiceRegistrar
 	Start() error
@@ -191,7 +192,8 @@ func NewWebServer(configProvider driver.ConfigService) (WebServer, error) {
 
 // mountHealth serves /healthz and /readyz on the web listener. Readiness is taken, in this
 // order, from drain (reason "draining", nil when the node cannot drain), from a store running
-// schema steps (reason "migrating"), from the gates SDKs provide (see ReadinessGateEntry), and
+// schema steps (reason "migrating"), from gates, which the SDK passes as its own gRPC gate
+// (reason "grpc server stopped") followed by those SDKs provide (see ReadinessGateEntry), and
 // then from connStates. The probes skip the client-certificate check of the view endpoints, but
 // not the listener's TLS handshake. They are mounted by the SDK rather than by a
 // WebServerConstructor, so a replaced listener serves them too; a disabled listener is a no-op
@@ -401,67 +403,20 @@ func NewServerConfig(configProvider driver.ConfigService) (commongrpc.ServerConf
 	return serverConfig, nil
 }
 
-// Serve starts the gRPC server, web server and operations system, and stops them, then
-// kvss, when ctx is done. It returns immediately; each server runs in its own goroutine. A nil
-// server is skipped. The SDK does not use Serve: it stops the servers from SDK.Stop, after the
-// other SDKs have stopped, so that none of them finds the KVS closed.
-func Serve(grpcServer GRPCServer, webServer WebServer, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) {
-	_, stop := startServe(grpcServer, webServer, ops, operationsSystem, kvss)
-	context.AfterFunc(ctx, stop)
-}
+// startServe starts the web server, the metrics server when the operations endpoints have
+// a listener of their own, and the operations system, in that order; each Start returns once
+// it serves. On the first error it calls stop and returns the error, wrapped with the
+// server's name. Then it serves the gRPC server, if any, in a goroutine. An error from it
+// before stop is called is logged and makes grpcGate report the node not ready.
+//
+// stop stops every server, started or not, and returns once their in-flight handlers have
+// returned, within the bound of each server's Stop, so the caller can then release what the
+// handlers use. stop runs once; later calls return at once.
+func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer, operationsSystem *operations.System, grpcGate *grpcStoppedGate) (stop func(), err error) {
+	var stopping atomic.Bool
+	stop = sync.OnceFunc(func() {
+		stopping.Store(true)
 
-// startServe starts the GRPC server, web server, metrics server and operations system in
-// their own goroutines and returns the func that stops them and then stops kvss. The web and
-// gRPC servers' Stop return only once their in-flight handlers have returned, within a bound,
-// so the KVS is not closed under a request still using it. stop runs once; later calls return
-// at once.
-// The returned *sync.WaitGroup tracks the start goroutines of the web server, metrics
-// server and operations system: the first two finish once their listener is bound, the
-// last once the operations system has stopped.
-func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS) (*sync.WaitGroup, func()) {
-	var wg sync.WaitGroup
-
-	// Not tracked by wg: Serve returns only once every handler has, so joining it would
-	// defeat the bound GRPCServer.Stop puts on that wait.
-	if grpcServer != nil {
-		go func() {
-			logger.Info("Starting GRPC server...")
-			if err := grpcServer.Start(); err != nil {
-				logger.Fatalf("grpc server stopped with err [%s]", err)
-			}
-		}()
-	}
-
-	wg.Go(func() {
-		logger.Info("Starting WEB server...")
-		if err := webServer.Start(); err != nil {
-			logger.Fatalf("Failed starting WEB server: %v", err)
-		}
-	})
-
-	wg.Go(func() {
-		// Only started when it is a listener of our own; otherwise the web server above
-		// already serves these endpoints.
-		if ops.Own == nil {
-			return
-		}
-		logger.Info("Starting metrics server...")
-		if err := ops.Own.Start(); err != nil {
-			logger.Fatalf("Failed starting metrics server: %v", err)
-		}
-	})
-
-	wg.Go(func() {
-		if operationsSystem == nil {
-			return
-		}
-		logger.Info("Starting operations system...")
-		if err := operationsSystem.Start(); err != nil {
-			logger.Fatalf("Failed starting operations system: %v", err)
-		}
-	})
-
-	return &wg, sync.OnceFunc(func() {
 		logger.Info("web server stopping...")
 		if err := webServer.Stop(); err != nil {
 			logger.Errorf("failed stopping web server [%s]", err)
@@ -488,21 +443,50 @@ func startServe(grpcServer GRPCServer, webServer WebServer, ops OperationsServer
 				logger.Errorf("failed stopping operations system [%s]", err)
 			}
 		}
-
-		// Every server has stopped and the web and gRPC Stop calls above have waited, within
-		// their bound, for in-flight handlers, which can touch the KVS. Join the start
-		// goroutines too before tearing down the storage; this has to come after
-		// operationsSystem.Stop(), which is what unblocks the operations system's own Start
-		// goroutine.
-		wg.Wait()
-
-		if kvss != nil {
-			logger.Info("kvs stopping...")
-			kvss.Stop()
-			logger.Info("kvs stopping...done")
-		}
 	})
+
+	logger.Info("starting web server...")
+	if err := webServer.Start(); err != nil {
+		stop()
+		return nil, errors.Wrap(err, "failed starting web server")
+	}
+	// Started only when it is a listener of our own; otherwise the web server serves these
+	// endpoints.
+	if ops.Own != nil {
+		logger.Info("starting metrics server...")
+		if err := ops.Own.Start(); err != nil {
+			stop()
+			return nil, errors.Wrap(err, "failed starting metrics server")
+		}
+	}
+	if operationsSystem != nil {
+		logger.Info("starting operations system...")
+		if err := operationsSystem.Start(); err != nil {
+			stop()
+			return nil, errors.Wrap(err, "failed starting operations system")
+		}
+	}
+
+	if grpcServer != nil {
+		go func() {
+			logger.Info("starting grpc server...")
+			// Serve returns an error when Stop comes first; only an error before stop counts.
+			if err := grpcServer.Start(); err != nil && !stopping.Load() {
+				logger.Errorf("grpc server stopped serving, the node reports not ready: %s", err)
+				grpcGate.fail()
+			}
+		}()
+	}
+	return stop, nil
 }
+
+// grpcStoppedGate reports the node not ready with reason "grpc server stopped" once the gRPC
+// server stopped serving on an error while the node runs. Its zero value is ready.
+type grpcStoppedGate struct{ failed atomic.Bool }
+
+func (g *grpcStoppedGate) fail() { g.failed.Store(true) }
+
+func (g *grpcStoppedGate) NotReady() (string, bool) { return "grpc server stopped", g.failed.Load() }
 
 // certReloaderOwner is implemented by listeners that serve their TLS certificate through a
 // [commongrpc.CertReloader]; both default listeners do.

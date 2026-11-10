@@ -353,13 +353,18 @@ fsc:
   # client without a certificate is rejected before it reaches them.
   #   GET /healthz -> 200 while the process serves HTTP. It never checks external
   #                   components, so a peer or orderer outage does not fail liveness.
-  #   GET /readyz  -> 503 {"status":"not ready","reason":"draining"} while the node drains
-  #                   before it stops (see fsc.shutdown), and 503 with reason "migrating"
-  #                   while a store runs schema steps or waits for another node's migration,
-  #                   such as a vault converted on the first start after an upgrade (see
-  #                   docs/platform/view/services/schema-migrations.md). Then 503 with the
-  #                   reason of the first readiness gate an SDK provides that is not ready
-  #                   (see viewsdk.ReadinessGateEntry). Otherwise 200 when every component
+  #   GET /readyz  -> 503 {"status":"not ready","reason":"<reason>"} with the reason of the
+  #                   first of these that holds:
+  #                   - "draining" while the node drains before it stops (see fsc.shutdown);
+  #                   - "migrating" while a store runs schema steps or waits for another
+  #                     node's migration, such as a vault converted on the first start after
+  #                     an upgrade (see docs/platform/view/services/schema-migrations.md);
+  #                   - "grpc server stopped" once fsc.grpc stopped serving on an error while
+  #                     the node runs. The node keeps running without fsc.grpc and /healthz
+  #                     stays 200, so alert on it or restart the node;
+  #                   - the reason of the first readiness gate an SDK provides that is not
+  #                     ready (see viewsdk.ReadinessGateEntry).
+  #                   Otherwise 200 when every component
   #                   that reports connection state (fsc_connection_state) has been connected
   #                   since startup and none is stopped; reconnecting is still ready. Otherwise
   #                   503, with a JSON list of the unready components (network, channel,

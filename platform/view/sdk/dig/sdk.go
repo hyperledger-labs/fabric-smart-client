@@ -279,16 +279,21 @@ func (p *SDK) Start(ctx context.Context) error {
 		ReadinessGates   []web.ReadinessGate `group:"fsc-readiness-gates"`
 	},
 	) (err error) {
-		// The gRPC listener bound its address when it was built. Until Serve takes it over,
-		// a failure here must release it, or a node that never serves keeps the port.
-		if in.GRPCServer != nil {
-			defer func() {
-				if err != nil {
-					in.GRPCServer.Stop()
-				}
-			}()
-		}
+		// A failure releases what a node that never serves would otherwise keep: the gRPC
+		// listener, bound when it was built, the P2P host (below) and the KVS.
+		defer func() {
+			if err == nil {
+				return
+			}
+			if in.GRPCServer != nil {
+				in.GRPCServer.Stop()
+			}
+			if in.KVS != nil {
+				in.KVS.Stop()
+			}
+		}()
 		viewService := in.ViewService
+		grpcGate := &grpcStoppedGate{}
 		var drain web.ReadinessGate
 		if in.Drain != nil {
 			gate := drainGate{Service: in.ViewService, state: in.Drain}
@@ -298,7 +303,7 @@ func (p *SDK) Start(ctx context.Context) error {
 			}
 		}
 		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, RemoteViewTimeout(in.ConfigService))
-		mountHealth(in.WebServer, in.ConnStates, drain, in.ReadinessGates...)
+		mountHealth(in.WebServer, in.ConnStates, drain, append([]web.ReadinessGate{grpcGate}, in.ReadinessGates...)...)
 		reportCertExpiry(in.MetricsProvider, in.GRPCServer, in.WebServer, in.OperationsServer.Own)
 		if err := mountBackends(in.Remote, in.Backends, viewService); err != nil {
 			return err
@@ -307,9 +312,12 @@ func (p *SDK) Start(ctx context.Context) error {
 		// cancelled with the node context can still send their replies.
 		commCtx, stopComm := context.WithCancel(context.WithoutCancel(ctx))
 		in.CommService.Start(commCtx)
-		defer func() {
+		defer func() { //nolint:contextcheck // Stop takes no context; commCtx is cancelled first
 			if err != nil {
+				// The P2P service's start binds the host; cancelling commCtx alone does not
+				// close it when the cancel wins the race to the comm service's start.
 				stopComm()
+				in.CommService.Stop()
 			}
 		}()
 
@@ -317,7 +325,10 @@ func (p *SDK) Start(ctx context.Context) error {
 			return err
 		}
 
-		_, stopServers := startServe(in.GRPCServer, in.WebServer, in.OperationsServer, in.System, nil)
+		stopServers, err := startServe(in.GRPCServer, in.WebServer, in.OperationsServer, in.System, grpcGate)
+		if err != nil {
+			return err
+		}
 		p.stop = func() { //nolint:contextcheck // Stop runs after the node context is cancelled, so it has none to pass
 			stopServers()
 			logger.Info("comm service stopping...")

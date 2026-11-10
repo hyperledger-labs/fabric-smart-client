@@ -189,3 +189,19 @@ func (*Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common.
 	}
 	return commonEnv, nil
 }
+
+// defaultConnectionPoolSize is the pool size used when the configuration service reports one
+// that is not positive; it matches the default of ordering.connectionPoolSize.
+const defaultConnectionPoolSize = 10
+
+// connectionPoolSize returns configService.OrdererConnectionPoolSize, or
+// defaultConnectionPoolSize, with a warning, when that is not positive. The configuration
+// service of the generic driver rejects such a value when it loads.
+func connectionPoolSize(configService driver.ConfigService) int {
+	n := configService.OrdererConnectionPoolSize()
+	if n > 0 {
+		return n
+	}
+	logger.Warnf("invalid ordering.connectionPoolSize [%d], using %d", n, defaultConnectionPoolSize)
+	return defaultConnectionPoolSize
+}

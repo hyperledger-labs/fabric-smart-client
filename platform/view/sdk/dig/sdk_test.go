@@ -24,6 +24,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -417,9 +419,9 @@ func TestSDK_PostStart_ParentError(t *testing.T) {
 	require.ErrorIs(t, err, parentErr)
 }
 
-// A Start that fails after the gRPC listener was built stops it, so its address is not left
-// bound by a node that never serves.
-func TestSDK_Start_FailureStopsGRPCServer(t *testing.T) {
+// A Start that fails after the gRPC listener was built stops it and the KVS, so a node that
+// never serves keeps neither its address nor its files.
+func TestSDK_Start_FailureReleasesResources(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name    string
@@ -439,6 +441,11 @@ func TestSDK_Start_FailureStopsGRPCServer(t *testing.T) {
 			name:    "p2p fails",
 			p2pErr:  errors.New("p2p-master-session-failure"),
 			wantErr: "failed getting master session",
+		},
+		{
+			name:    "web server fails to start",
+			deps:    sdkDeps{webServer: &fakeServer{startErr: errors.New("address already in use")}},
+			wantErr: "failed starting web server",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -462,13 +469,17 @@ func TestSDK_Start_FailureStopsGRPCServer(t *testing.T) {
 
 			gs := &fakeGRPCServer{}
 			tc.deps.grpcServer = gs
+			kvsInst, err := newKVS(cfg, newMuxDriver(cfg, mem.NewNamedDriver(sqlite.NewDbProvider())))
+			require.NoError(t, err)
+			tc.deps.kvs = kvsInst
 			if tc.deps.backends != nil {
 				tc.deps.backends = append(tc.deps.backends, newGRPCBackend(gs))
 			}
 			wireSDKDeps(t, c, tp, commMock, tc.deps)
 
 			require.ErrorContains(t, s.Start(t.Context()), tc.wantErr)
-			require.Equal(t, 1, gs.stopped, "the gRPC listener is stopped")
+			require.Positive(t, gs.stopped, "the gRPC listener is stopped")
+			require.Error(t, kvsInst.Put(context.Background(), "k", "v"), "the KVS is closed")
 		})
 	}
 }

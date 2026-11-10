@@ -19,63 +19,131 @@ import (
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// fakeServer is a minimal Server implementation whose Start blocks until
-// Stop is called, so tests can observe whether Serve/serve waits for the
-// server goroutine to actually finish before returning.
+// fakeServer is a WebServer whose Start returns startErr and which records Start and Stop.
 type fakeServer struct {
-	stopCh    chan struct{}
-	closeOnce sync.Once
+	startErr  error
+	startedFl atomic.Bool
 	stoppedFl atomic.Bool
 }
 
-func newFakeServer() *fakeServer {
-	return &fakeServer{
-		stopCh: make(chan struct{}),
-	}
-}
+func newFakeServer() *fakeServer { return &fakeServer{} }
 
 func (*fakeServer) RegisterHandler(_ string, _ http.Handler, _ bool) {}
 
 func (f *fakeServer) Start() error {
-	<-f.stopCh
-	return nil
+	f.startedFl.Store(true)
+	return f.startErr
 }
 
 func (f *fakeServer) Stop() error {
-	f.closeOnce.Do(func() {
-		f.stoppedFl.Store(true)
-		close(f.stopCh)
-	})
+	f.stoppedFl.Store(true)
 	return nil
 }
 
-func (f *fakeServer) stopped() bool {
-	return f.stoppedFl.Load()
+func (f *fakeServer) started() bool { return f.startedFl.Load() }
+func (f *fakeServer) stopped() bool { return f.stoppedFl.Load() }
+
+// servingGRPCServer is a GRPCServer whose Start returns serveErr when it is sent, or, once
+// Stop is called, grpc.ErrServerStopped, as a grpc.Server stopped before Serve does.
+type servingGRPCServer struct {
+	fakeGRPCServer
+	serveErr  chan error
+	stopOnce  sync.Once
+	stopCh    chan struct{}
+	stoppedFl atomic.Bool
 }
 
-func TestServe_WaitsForServersOnShutdown(t *testing.T) { //nolint:paralleltest // relies on server-goroutine shutdown timing; must run serially
-	ws := newFakeServer() // Start blocks until Stop
-	// Zero OperationsServer: the endpoints share the web listener, so startServe starts none.
-	wg, stop := startServe(nil, ws, OperationsServer{}, nil, nil)
-	stop()
-	done := make(chan struct{})
-	go func() { wg.Wait(); close(done) }()
+func newServingGRPCServer() *servingGRPCServer {
+	return &servingGRPCServer{serveErr: make(chan error), stopCh: make(chan struct{})}
+}
+
+func (g *servingGRPCServer) Start() error {
 	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Serve did not join server goroutines on shutdown")
+	case err := <-g.serveErr:
+		return err
+	case <-g.stopCh:
+		return grpc.ErrServerStopped
 	}
+}
+
+func (g *servingGRPCServer) Stop() {
+	g.stopOnce.Do(func() {
+		g.stoppedFl.Store(true)
+		close(g.stopCh)
+	})
+}
+
+func TestStartServe_StartFailureReturnsError(t *testing.T) {
+	t.Parallel()
+	boom := errors.New("address already in use")
+
+	t.Run("web server", func(t *testing.T) {
+		t.Parallel()
+		ws, own, gs := &fakeServer{startErr: boom}, newFakeServer(), newServingGRPCServer()
+		stop, err := startServe(gs, ws, OperationsServer{Own: own}, nil, &grpcStoppedGate{})
+		require.ErrorIs(t, err, boom)
+		require.ErrorContains(t, err, "failed starting web server")
+		require.Nil(t, stop)
+		require.False(t, own.started(), "nothing after the failed server starts")
+		require.True(t, ws.stopped())
+		require.True(t, own.stopped())
+		require.True(t, gs.stoppedFl.Load(), "the gRPC listener is released")
+	})
+
+	t.Run("metrics server", func(t *testing.T) {
+		t.Parallel()
+		ws, own := newFakeServer(), &fakeServer{startErr: boom}
+		_, err := startServe(nil, ws, OperationsServer{Own: own}, nil, &grpcStoppedGate{})
+		require.ErrorIs(t, err, boom)
+		require.ErrorContains(t, err, "failed starting metrics server")
+		require.True(t, ws.stopped(), "the web server that started is stopped")
+	})
+}
+
+func TestStartServe_StopsEveryServer(t *testing.T) {
+	t.Parallel()
+	ws, own, gs := newFakeServer(), newFakeServer(), newServingGRPCServer()
+	opsSystem, err := operations.NewOperationSystem(ws, NewOperationsLogger(&operations.Options{}), &disabled.Provider{}, &operations.Options{Version: "1.0.0"})
+	require.NoError(t, err)
+	gate := &grpcStoppedGate{}
+
+	stop, err := startServe(gs, ws, OperationsServer{WebServer: ws, Own: own}, opsSystem, gate)
+	require.NoError(t, err)
+	require.True(t, ws.started())
+	require.True(t, own.started())
+	stop()
+	stop() // a second call returns at once
+
 	require.True(t, ws.stopped())
+	require.True(t, own.stopped())
+	require.True(t, gs.stoppedFl.Load())
+	require.Never(t, func() bool { _, notReady := gate.NotReady(); return notReady }, 200*time.Millisecond, 10*time.Millisecond,
+		"a gRPC server stopped by stop is not a failure, whatever Start returns")
+}
+
+// A gRPC server whose Serve fails while the node runs leaves the process running and makes
+// the node report not ready.
+func TestStartServe_GRPCFailureReportsNotReady(t *testing.T) {
+	t.Parallel()
+	gs, gate := newServingGRPCServer(), &grpcStoppedGate{}
+	stop, err := startServe(gs, newFakeServer(), OperationsServer{}, nil, gate)
+	require.NoError(t, err)
+	defer stop()
+
+	gs.serveErr <- errors.New("accept: too many open files")
+	require.Eventually(t, func() bool { _, notReady := gate.NotReady(); return notReady }, 5*time.Second, 10*time.Millisecond)
+	reason, _ := gate.NotReady()
+	require.Equal(t, "grpc server stopped", reason)
 }
 
 func TestCheckTLSConfig(t *testing.T) {
@@ -350,6 +418,24 @@ func TestMountHealthReadinessGates(t *testing.T) { //nolint:paralleltest // read
 			require.Equal(t, tc.want, ws.readyReason(t))
 		})
 	}
+}
+
+// A node whose gRPC server stopped serving reports "grpc server stopped", and "draining" once
+// it also drains: draining comes first, so a deliberate shutdown is not reported as a gRPC
+// failure. Not parallel, for the reason given at TestMountHealthReadinessGates.
+func TestSDK_ReadinessGRPCStoppedAfterDraining(t *testing.T) { //nolint:paralleltest // reads package-level migration state
+	d := &fakeDrain{}
+	gs := newServingGRPCServer()
+	ws := newHandlerServer()
+	s := startSDK(t, sdkDeps{drain: d, grpcServer: gs, webServer: ws})
+	t.Cleanup(func() { _ = s.Stop() })
+	require.Empty(t, ws.readyReason(t))
+
+	gs.serveErr <- errors.New("accept: too many open files")
+	require.Eventually(t, func() bool { return ws.readyReason(t) == "grpc server stopped" }, 5*time.Second, 10*time.Millisecond)
+
+	d.drain()
+	require.Equal(t, "draining", ws.readyReason(t))
 }
 
 // A gate provided into the "fsc-readiness-gates" group before Start, as an SDK does from its
@@ -675,65 +761,4 @@ func TestNewViewServiceServer(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, srv)
 	})
-}
-
-func TestServe_FullLifecycle(t *testing.T) { //nolint:paralleltest // relies on server lifecycle and goroutines
-
-	ws := newFakeServer()
-	ownOps := newFakeServer()
-	ops := OperationsServer{
-		WebServer: ws,
-		Own:       ownOps,
-	}
-
-	opsSystem, err := operations.NewOperationSystem(ws, NewOperationsLogger(&operations.Options{}), &disabled.Provider{}, &operations.Options{Version: "1.0.0"})
-	require.NoError(t, err)
-
-	p := providerFrom(t, "")
-	namedDriver := mem.NewNamedDriver(sqlite.NewDbProvider())
-	muxDriver := newMuxDriver(p, namedDriver)
-	kvsInst, err := newKVS(p, muxDriver)
-	require.NoError(t, err)
-
-	wg, stop := startServe(nil, ws, ops, opsSystem, kvsInst)
-	stop()
-	stop() // a second call returns at once
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("startServe did not join all server goroutines in time")
-	}
-
-	require.True(t, ws.stopped())
-	require.True(t, ownOps.stopped())
-
-	// Serve is the exported entrypoint that wraps startServe. Exercise it with its
-	// own server and context, and assert it stops the server and returns after
-	// cancellation rather than blocking.
-	serveCtx, serveCancel := context.WithCancel(context.Background())
-	serveWS := newFakeServer()
-	served := make(chan struct{})
-	go func() {
-		Serve(nil, serveWS, OperationsServer{}, nil, nil, serveCtx)
-		close(served)
-	}()
-	serveCancel()
-	select {
-	case <-served:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Serve did not return after context cancellation")
-	}
-	select {
-	case <-serveWS.stopCh:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Serve did not stop server after context cancellation")
-	}
-	require.True(t, serveWS.stopped())
 }

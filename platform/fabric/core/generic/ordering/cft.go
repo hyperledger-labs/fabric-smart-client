@@ -40,7 +40,7 @@ type CFTBroadcaster struct {
 }
 
 func NewCFTBroadcaster(configService driver.ConfigService, clientFactory Services, metrics *metrics.Metrics) *CFTBroadcaster {
-	poolSize := configService.OrdererConnectionPoolSize()
+	poolSize := connectionPoolSize(configService)
 	return &CFTBroadcaster{
 		NetworkID:     configService.NetworkName(),
 		ConfigService: configService,

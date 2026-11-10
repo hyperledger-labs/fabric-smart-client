@@ -182,6 +182,14 @@ func TestCFTBroadcaster_NewCFTBroadcaster(t *testing.T) {
 			require.Equal(t, tt.poolSize, cap(b.connections))
 		})
 	}
+
+	t.Run("pool size that is not positive uses the default", func(t *testing.T) {
+		t.Parallel()
+		for _, size := range []int{0, -1} {
+			b := NewCFTBroadcaster(&fake.ConfigService{PoolSizeValue: size}, &fakeCFTServices{}, newTestMetrics())
+			require.Equal(t, defaultConnectionPoolSize, cap(b.connections), "pool size %d", size)
+		}
+	})
 }
 
 // TestCFTBroadcaster_Broadcast_Success tests successful broadcast scenarios

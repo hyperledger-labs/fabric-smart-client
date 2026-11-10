@@ -358,49 +358,16 @@ func TestBFTBroadcaster_GetConnectionHonorsContextCancellation(t *testing.T) {
 	}
 }
 
-// TestBFTBroadcaster_NewBFTBroadcaster tests the constructor
 func TestBFTBroadcaster_NewBFTBroadcaster(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name        string
-		poolSize    int
-		shouldPanic bool
-	}{
-		{
-			name:        "valid pool size",
-			poolSize:    4,
-			shouldPanic: false,
-		},
-		{
-			name:        "zero pool size panics",
-			poolSize:    0,
-			shouldPanic: true,
-		},
-		{
-			name:        "negative pool size panics",
-			poolSize:    -1,
-			shouldPanic: true,
-		},
-	}
+	b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: 4}, fakeServices{}, newTestMetrics())
+	require.Equal(t, 4, b.poolSize)
+	require.Empty(t, b.states)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			cfg := &fake.ConfigService{PoolSizeValue: tt.poolSize}
-
-			if tt.shouldPanic {
-				require.Panics(t, func() {
-					NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
-				})
-			} else {
-				b := NewBFTBroadcaster(cfg, fakeServices{}, newTestMetrics())
-				require.NotNil(t, b)
-				require.Equal(t, tt.poolSize, b.poolSize)
-				require.NotNil(t, b.states)
-				require.Empty(t, b.states)
-			}
-		})
+	for _, size := range []int{0, -1} {
+		b := NewBFTBroadcaster(&fake.ConfigService{PoolSizeValue: size}, fakeServices{}, newTestMetrics())
+		require.Equal(t, defaultConnectionPoolSize, b.poolSize, "pool size %d", size)
 	}
 }
 
