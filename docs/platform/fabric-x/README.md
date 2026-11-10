@@ -1,7 +1,5 @@
 # Fabric-x platform driver
 
-> NOTE: The Fabric-x driver is experimental: it may be incomplete or contain bugs, lacks security and performance hardening, and is not for production use.
-
 ## Overview
 
 The **Fabric Smart Client (FSC)** includes support for [Fabric-x](https://github.com/hyperledger/fabric-x), available under [`platform/fabricx`](../../../platform/fabricx).
