@@ -39,6 +39,14 @@ type handlerCall struct {
 	handler fabric.FinalityListener
 	txID    string
 	status  int
+	message string
+}
+
+// txStatus is a status with the message that came with it. The committer's
+// notifications carry none; the query service's answers may.
+type txStatus struct {
+	code    int
+	message string
 }
 
 // handlerEntry holds the listeners waiting on one transaction, together with the
@@ -48,10 +56,10 @@ type handlerEntry struct {
 	listeners []fabric.FinalityListener
 	expiresAt time.Time
 
-	// status is the committer's answer, remembered because the queue was full when it
-	// arrived. Its presence makes the entry due on the next sweep whatever expiresAt
-	// says. A pointer because Unknown is itself a valid status: nil means "never heard".
-	status *int
+	// status is the answer, remembered because the queue was full when it arrived. Its
+	// presence makes the entry due on the next sweep whatever expiresAt says. A pointer
+	// because Unknown is itself a valid status: nil means "never heard".
+	status *txStatus
 }
 
 type notificationListenerManager struct {
@@ -99,6 +107,13 @@ type notificationListenerManager struct {
 	// stopped is set, under handlersMu, before serve returns, once nothing will settle
 	// a new entry. AddFinalityListener rejects registrations from then on.
 	stopped bool
+
+	// resolver, when set, is asked for the status of the pending txIDs each time a stream
+	// fails or cannot be opened, and once a new stream has re-requested them, since the
+	// committer does not report a transaction that became final before its subscription.
+	// resolveSignal, made by serve, wakes runResolver for that.
+	resolver      atomic.Pointer[TxStatusResolver]
+	resolveSignal chan struct{}
 
 	// newConn returns the tracker of one endpoint; conn is the tracker of connEndpoint,
 	// the endpoint of the current stream. A nil conn reports nothing. Only the goroutine
@@ -153,6 +168,7 @@ func (n *notificationListenerManager) run(ctx context.Context) error {
 			delay := backoff.NextDelay()
 			logger.Warnf("Notification stream failed, reconnecting in %s: %v", delay, err)
 			n.conn.Set(connstate.Reconnecting)
+			n.requestResolve()
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -172,6 +188,8 @@ func (n *notificationListenerManager) serve(ctx context.Context, connect func(co
 	// The queue belongs to this serve call, not the manager, so no callback can outlive
 	// the call that produced it.
 	q := make(chan handlerCall, n.handlerQueueSize)
+	resolved := make(chan map[string]txStatus)
+	n.resolveSignal = make(chan struct{}, 1)
 
 	// Never cancelled, only deadline-bounded by callHandler: serve often returns
 	// *because* ctx was cancelled, and queued callbacks must not get a dead context.
@@ -191,7 +209,11 @@ func (n *notificationListenerManager) serve(ctx context.Context, connect func(co
 	}
 
 	g.Go(func() error { return connect(gCtx) })
-	g.Go(func() error { return n.runDispatcher(gCtx, q) })
+	g.Go(func() error { return n.runDispatcher(gCtx, q, resolved) })
+	// Not in g either: a query blocks for up to the resolver's own timeout, whatever gCtx
+	// says, and serve must not wait that long to stop. The resolver returns once the query
+	// does, and never hands its result to a dispatcher that has stopped.
+	go n.runResolver(gCtx, resolved)
 
 	err := g.Wait()
 	logger.Debugf("Notification listener manager stopped.")
@@ -272,6 +294,11 @@ func (n *notificationListenerManager) stream(ctx context.Context) error {
 				return err
 			}
 		}
+		// A txID that became final before this stream subscribed to it is never reported
+		// on it, so the re-requested ones are also resolved.
+		if len(pending) > 0 {
+			n.requestResolve()
+		}
 		var req *committerpb.NotificationRequest
 		for {
 			select {
@@ -304,12 +331,7 @@ func (n *notificationListenerManager) stream(ctx context.Context) error {
 func (n *notificationListenerManager) attach(streamCtx context.Context) []*committerpb.NotificationRequest {
 	n.handlersMu.Lock()
 	n.streamCtx.Store(&streamCtx)
-	txIDs := make([]string, 0, len(n.handlers))
-	for txID, entry := range n.handlers {
-		if entry.status == nil {
-			txIDs = append(txIDs, txID)
-		}
-	}
+	txIDs := n.pendingTxIDs()
 	n.handlersMu.Unlock()
 
 	var reqs []*committerpb.NotificationRequest
@@ -317,6 +339,18 @@ func (n *notificationListenerManager) attach(streamCtx context.Context) []*commi
 		reqs = append(reqs, n.newRequest(batch...))
 	}
 	return reqs
+}
+
+// pendingTxIDs returns the txIDs still waiting for an answer: an entry holding a
+// remembered status already has one. The caller holds handlersMu.
+func (n *notificationListenerManager) pendingTxIDs() []string {
+	txIDs := make([]string, 0, len(n.handlers))
+	for txID, entry := range n.handlers {
+		if entry.status == nil {
+			txIDs = append(txIDs, txID)
+		}
+	}
+	return txIDs
 }
 
 // newRequest subscribes to txIDs. Its Timeout tells the committer to reply once it
@@ -337,7 +371,7 @@ func (n *notificationListenerManager) newRequest(txIDs ...string) *committerpb.N
 // impossible rather than merely guarded: dispatch and sweepExpired both settle by
 // deleting an entry, and handlersMu alone would not stop one taking a listener the
 // other already holds. It is also what lets handOff trust cap-len.
-func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan handlerCall) error {
+func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan handlerCall, resolved <-chan map[string]txStatus) error {
 	sweepEvery := n.sweepInterval
 	if sweepEvery <= 0 {
 		sweepEvery = config.DefaultSweepInterval
@@ -353,6 +387,8 @@ func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan
 			n.sweepExpired(q)
 		case resp := <-n.responseQueue:
 			n.dispatch(q, resp)
+		case statuses := <-resolved:
+			n.settle(q, statuses)
 		}
 	}
 }
@@ -366,12 +402,12 @@ func (n *notificationListenerManager) runDispatcher(gCtx context.Context, q chan
 // All-or-nothing keeps the caller to one decision; a partial hand-off would have to
 // remember which listeners already ran. An entry with more listeners than the queue's
 // whole capacity never fits here, and is settled at teardown where sends block.
-func handOff(q chan handlerCall, txID string, listeners []fabric.FinalityListener, status int) bool {
+func handOff(q chan handlerCall, txID string, listeners []fabric.FinalityListener, status txStatus) bool {
 	if cap(q)-len(q) < len(listeners) {
 		return false
 	}
 	for _, h := range listeners {
-		q <- handlerCall{handler: h, txID: txID, status: status}
+		q <- handlerCall{handler: h, txID: txID, status: status.code, message: status.message}
 	}
 	return true
 }
@@ -402,12 +438,12 @@ func (n *notificationListenerManager) settleAllAndClear(q chan handlerCall, stat
 
 	n.handlersMu.Lock()
 	for txID, entry := range n.handlers {
-		settleWith := status
+		settleWith := txStatus{code: status}
 		if entry.status != nil {
 			settleWith = *entry.status
 		}
 		for _, h := range entry.listeners {
-			calls = append(calls, handlerCall{handler: h, txID: txID, status: settleWith})
+			calls = append(calls, handlerCall{handler: h, txID: txID, status: settleWith.code, message: settleWith.message})
 		}
 	}
 	clear(n.handlers)
@@ -446,7 +482,7 @@ func (n *notificationListenerManager) callHandler(ctx context.Context, c handler
 	})
 	defer stop()
 
-	c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
+	c.handler.OnStatus(timeoutCtx, c.txID, c.status, c.message)
 }
 
 // track moves state reporting to endpoint before a stream is opened on it. As in the
@@ -469,12 +505,12 @@ func (n *notificationListenerManager) track(endpoint string) {
 	n.conn.Set(s)
 }
 
-func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
-	res := make(map[string]int)
+func parseResponse(resp *committerpb.NotificationResponse) map[string]txStatus {
+	res := make(map[string]txStatus)
 
 	// first parse all timeouts
 	for _, txID := range resp.GetTimeoutTxIds() {
-		res[txID] = fdriver.Unknown
+		res[txID] = txStatus{code: fdriver.Unknown}
 	}
 
 	// The committer never reports on a txID it rejected (over its per-request or
@@ -483,7 +519,7 @@ func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 	if rejected := resp.GetRejectedTxIds(); rejected != nil {
 		logger.Warnf("committer rejected %d finality subscription(s): %s", len(rejected.GetTxIds()), rejected.GetReason())
 		for _, txID := range rejected.GetTxIds() {
-			res[txID] = fdriver.Unknown
+			res[txID] = txStatus{code: fdriver.Unknown}
 		}
 	}
 
@@ -505,7 +541,7 @@ func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 			s = fdriver.Invalid
 		}
 
-		res[txID] = s
+		res[txID] = txStatus{code: s}
 	}
 
 	return res
@@ -628,10 +664,16 @@ func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
 //
 // Takes no context; callbacks run under the pool's context.
 func (n *notificationListenerManager) dispatch(q chan handlerCall, resp *committerpb.NotificationResponse) {
+	n.settle(q, parseResponse(resp))
+}
+
+// settle settles the listeners of each txID in statuses with its status and message, as
+// dispatch describes. It runs on the dispatcher goroutine.
+func (n *notificationListenerManager) settle(q chan handlerCall, statuses map[string]txStatus) {
 	deferred, total := 0, 0
 
 	n.handlersMu.Lock()
-	for txID, status := range parseResponse(resp) {
+	for txID, status := range statuses {
 		entry, ok := n.handlers[txID]
 		if !ok {
 			continue
@@ -676,7 +718,7 @@ func (n *notificationListenerManager) sweepExpired(q chan handlerCall) {
 		// A remembered status means the answer did arrive and only the hand-off
 		// failed; report that rather than Unknown, and do so whatever the deadline
 		// says. Otherwise the deadline decides, and only while local expiry is on.
-		status := fdriver.Unknown
+		status := txStatus{code: fdriver.Unknown}
 		switch {
 		case entry.status != nil:
 			status = *entry.status
@@ -700,4 +742,64 @@ func (n *notificationListenerManager) sweepExpired(q chan handlerCall) {
 
 	logger.Debugf("Settling %d due finality listener entr(ies)", total)
 	n.logDeferred(deferred, total)
+}
+
+// requestResolve wakes runResolver, unless a wake-up is already pending.
+func (n *notificationListenerManager) requestResolve() {
+	select {
+	case n.resolveSignal <- struct{}{}:
+	default:
+	}
+}
+
+// runResolver resolves the pending txIDs each time requestResolve wakes it, and hands the
+// final ones to the dispatcher on resolved, until ctx ends. It runs on its own goroutine:
+// a query blocks for up to the resolver's own timeout, and neither the dispatcher nor the
+// reconnect loop should wait for it.
+func (n *notificationListenerManager) runResolver(ctx context.Context, resolved chan<- map[string]txStatus) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-n.resolveSignal:
+		}
+		statuses := n.resolvePending(ctx)
+		if len(statuses) == 0 {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case resolved <- statuses:
+		}
+	}
+}
+
+// resolvePending returns the txIDs still waiting for an answer that the resolver reports
+// Valid or Invalid, with their status and the resolver's message. It returns nothing
+// without a resolver, and skips a batch the resolver fails on: the stream or the next
+// attempt still answers for it.
+func (n *notificationListenerManager) resolvePending(ctx context.Context) map[string]txStatus {
+	r := n.resolver.Load()
+	if r == nil {
+		return nil
+	}
+	n.handlersMu.RLock()
+	txIDs := n.pendingTxIDs()
+	n.handlersMu.RUnlock()
+
+	statuses := map[string]txStatus{}
+	for batch := range slices.Chunk(txIDs, maxTxIDsPerRequest) {
+		res, err := (*r).Statuses(ctx, batch...)
+		if err != nil {
+			logger.Warnf("could not resolve %d pending finality txID(s) from the query service, retrying on the next reconnect attempt: %v", len(batch), err)
+			continue
+		}
+		for _, st := range res {
+			if st.ValidationCode == fdriver.Valid || st.ValidationCode == fdriver.Invalid {
+				statuses[st.TxID] = txStatus{code: st.ValidationCode, message: st.Message}
+			}
+		}
+	}
+	return statuses
 }

@@ -842,7 +842,7 @@ func TestHandlerPool(t *testing.T) {
 		// tx_committed was answered but could not be handed off; tx_silent never heard back.
 		seedHandlers(nlm, "tx_committed", listener)
 		seedHandlers(nlm, "tx_silent", listener)
-		answered := fdriver.Valid
+		answered := txStatus{code: fdriver.Valid}
 		nlm.handlersMu.Lock()
 		nlm.handlers["tx_committed"].status = &answered
 		nlm.handlersMu.Unlock()
@@ -859,6 +859,33 @@ func TestHandlerPool(t *testing.T) {
 			"the listener whose answer already arrived must be settled with it, not Unknown")
 		require.Equal(t, int32(1), unknown.Load(),
 			"the listener nothing was heard for must still be settled Unknown")
+	})
+
+	t.Run("Deferred_Status_Keeps_Its_Message", func(t *testing.T) {
+		// An answer the queue had no room for is delivered on a later sweep, with the
+		// message that came with it.
+		t.Parallel()
+
+		nlm, _ := setupTest(t)
+		var got []string
+		listener := &funcListener{fn: func(_ context.Context, _ string, _ int, message string) {
+			got = append(got, message)
+		}}
+		seedHandlers(nlm, "tx1", listener)
+
+		full := make(chan handlerCall)
+		nlm.settle(full, map[string]txStatus{"tx1": {code: fdriver.Valid, message: "COMMITTED"}})
+		nlm.handlersMu.RLock()
+		require.Equal(t, &txStatus{code: fdriver.Valid, message: "COMMITTED"}, nlm.handlers["tx1"].status)
+		nlm.handlersMu.RUnlock()
+
+		q := make(chan handlerCall, 1)
+		nlm.sweepExpired(q)
+		close(q)
+		for c := range q {
+			nlm.callHandler(t.Context(), c)
+		}
+		require.Equal(t, []string{"COMMITTED"}, got)
 	})
 
 	t.Run("Saturated_Queue_Settles_Every_Listener_Exactly_Once", func(t *testing.T) {
@@ -946,7 +973,7 @@ func TestHandOff(t *testing.T) {
 		q := make(chan handlerCall, 4)
 		q <- handlerCall{} // one slot already taken
 
-		require.True(t, handOff(q, "tx", listeners(3), fdriver.Valid))
+		require.True(t, handOff(q, "tx", listeners(3), txStatus{code: fdriver.Valid}))
 		require.Len(t, q, 4, "all three listeners should have been queued")
 	})
 
@@ -960,7 +987,7 @@ func TestHandOff(t *testing.T) {
 		q <- handlerCall{}
 		q <- handlerCall{} // two free slots, entry needs three
 
-		require.False(t, handOff(q, "tx", listeners(3), fdriver.Valid))
+		require.False(t, handOff(q, "tx", listeners(3), txStatus{code: fdriver.Valid}))
 		require.Len(t, q, 2, "a rejected entry must leave nothing behind in the queue")
 	})
 
@@ -973,7 +1000,7 @@ func TestHandOff(t *testing.T) {
 		q <- handlerCall{}
 
 		done := make(chan bool, 1)
-		go func() { done <- handOff(q, "tx", listeners(1), fdriver.Valid) }()
+		go func() { done <- handOff(q, "tx", listeners(1), txStatus{code: fdriver.Valid}) }()
 
 		select {
 		case queued := <-done:
