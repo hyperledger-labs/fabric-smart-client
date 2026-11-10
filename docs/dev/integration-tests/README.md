@@ -31,7 +31,7 @@ network definition (see [Registering the target](authoring.md#registering-the-ta
 | `fabric/faultrecovery` | `fabric-faultrecovery`, `-crash`, `-postgres-outage`, `-replication`, `-partition`, `-bft` | see [Fault-Recovery Tests](fault-recovery.md) |
 | `fabric/iou` | `fabric-iou`, `fabric-iou-libp2p` | the IOU life cycle, with replicas, on websocket and on libp2p, and with a lender that supports only version 1 of the `fabric` formats |
 | `fabric/iouhsm` | `fabric-iouhsm` | the IOU life cycle with keys in an HSM (built with `-tags pkcs11`) |
-| `fabric/mixedversion` | `fabric-mixedversion` (nightly) | nodes of the previous FSC release next to nodes of the current tree: endorsement across releases, a node upgraded and rolled back replica by replica on a shared database, and a responder behind a load balancer upgraded and rolled back replica by replica while transactions run; see [Nodes of another release](authoring.md#nodes-of-another-release) |
+| `fabric/mixedversion` | `fabric-mixedversion` (nightly) | nodes of the previous FSC release next to nodes of the current tree: endorsement across releases, a node upgraded and rolled back replica by replica on a shared database, a responder behind a load balancer upgraded and rolled back replica by replica while transactions run, and the contract steps the previous release lacks run with `node migrate --contract`; see [Nodes of another release](authoring.md#nodes-of-another-release) |
 | `fabric/mixednets` | `fabric-mixednets` | a Fabric and a Fabric-x network side by side: a responder endorses a transaction for its non-default platform |
 | `fabric/runtimeconfig` | `fabric-runtimeconfig` | IOU reconfiguration while the node runs |
 | `fabric/twonets` | `fabric-twonets` | two Fabric networks: `alpha` on raft without TLS, `beta` on SmartBFT with TLS |
@@ -75,7 +75,12 @@ targets, as the fault-recovery suites do.
 Targets in `NIGHTLY_INTEGRATION_TARGETS` are left out of that list and run on a schedule
 instead. `fabric-mixedversion` builds a second set of node binaries, at the previous
 release, so the `Mixed versions` workflow runs it nightly, on demand, and on pull requests
-that change the suite or the release build.
+that change the suite, the release build, or code two releases share: the SQL stores of the
+view and Fabric platforms and their schema steps, the stream preamble, and the protobuf
+messages of `platform/fabric/protos` and `platform/fabricx/protos`. A failed nightly
+run opens the issue `Mixed versions nightly run failed`, labelled `testing` and `ci`, or
+comments on it if it is open; the next successful nightly run closes it. A run started by
+hand with the `report` input opens, comments on and closes the issue the same way.
 
 ## Code the suites share
 

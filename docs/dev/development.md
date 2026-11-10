@@ -282,9 +282,11 @@ which gates only on findings new to the branch.
 
 Scheduled workflows run what is too slow for every pull request: the fuzz targets, the
 storage fixtures of the latest release, and the `fabric-mixedversion` suite, which runs nodes
-of the latest release next to nodes of the current tree (see
-[Integration Tests](integration-tests/README.md#in-ci)). Start one by hand from the Actions
-tab when a change affects them.
+of the latest release next to nodes of the current tree. `fabric-mixedversion` also runs on
+pull requests that change the code two releases share, such as schema steps or stored and
+wire formats, and a failed nightly run of it opens or comments on the issue `Mixed versions
+nightly run failed` (see [Integration Tests](integration-tests/README.md#in-ci)). Start one by
+hand from the Actions tab when a change affects them.
 
 If your pull request only touches unit-tested code, `make checks` plus a targeted
 `make unit-tests` is usually the fastest high-signal validation pass before pushing.
