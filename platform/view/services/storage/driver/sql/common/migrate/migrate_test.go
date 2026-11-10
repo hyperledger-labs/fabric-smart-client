@@ -24,6 +24,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
@@ -975,71 +976,122 @@ func TestMigrateReportsReadableBy(t *testing.T) {
 	require.Equal(t, int64(2), checked.readableBy.Load())
 }
 
-// TestPostgresMigratorDiesMidStep checks that a migrator that dies in the middle of a
-// step releases the lock and rolls the step back, so that a waiting migrator runs it once.
+// TestPostgresMigratorDiesMidStep checks that when the backend of a migrator ends in the
+// middle of a step, Postgres rolls the step back and releases its locks: a waiting
+// migrator runs an expand step once, and an older binary that waited for a contract
+// step opens the store and blocks the contract step for the next migrator.
 func TestPostgresMigratorDiesMidStep(t *testing.T) { //nolint:paralleltest // replaces package-level state
 	b := postgresBackend(t)
 	migrate.SetLockIntervals(t, 10*time.Millisecond, 50*time.Millisecond)
 	logs := migrate.RecordLogs(t)
 
-	t.Run("ExpandStep", func(t *testing.T) {
+	t.Run("ExpandStep", func(t *testing.T) { //nolint:paralleltest // uses the lock intervals and logger the parent replaced
 		dbA, dbB, admin := b.open(t), b.open(t), b.open(t)
 		ctx := t.Context()
-
-		var calls atomic.Int32
-		running, release := make(chan struct{}), make(chan struct{})
-		var releaseOnce sync.Once
-		unblock := func() { releaseOnce.Do(func() { close(release) }) }
-		t.Cleanup(unblock)
-
+		d := newDyingStep(t)
 		s := &store{name: "dies_s", steps: []migrate.Step{
 			{Version: 1, Name: "create", SQL: []string{"CREATE TABLE dies_s (id INT)"}},
 			{Version: 2, Name: "insert", Go: func(ctx context.Context, q migrate.Execer) error {
 				if _, err := q.ExecContext(ctx, "INSERT INTO dies_s (id) VALUES (1)"); err != nil {
 					return err
 				}
-				if calls.Add(1) == 1 { // only the first run blocks
-					close(running)
-					<-release
-				}
-				return nil
+				return d.block(ctx, q)
 			}},
 		}}
 
 		doneA := make(chan error, 1)
 		go func() { doneA <- migrate.Migrate(ctx, dbA, b.dialect, "dies", s) }()
-		<-running
-		pid := advisoryHolderPID(t, admin, "dies_schema_versions")
-
+		<-d.running
 		doneB := make(chan error, 1)
 		go func() { doneB <- migrate.Migrate(ctx, dbB, b.dialect, "dies", s) }()
-		require.Eventually(t, func() bool {
-			return len(logs.EntriesContaining(fmt.Sprintf("held by pid %d (", pid))) > 0
-		}, 5*time.Second, 10*time.Millisecond)
+		d.kill(t, admin, logs)
 
-		_, err := admin.ExecContext(ctx, "SELECT pg_terminate_backend($1)", pid)
-		require.NoError(t, err)
 		require.NoError(t, <-doneB)
-
+		require.EqualValues(t, 2, d.calls.Load(), "the waiting migrator ran the step")
 		var rows int
 		require.NoError(t, admin.QueryRowContext(ctx, "SELECT count(*) FROM dies_s").Scan(&rows))
 		require.Equal(t, 1, rows)
 		requireVersion(t, admin, "dies_schema_versions", "dies_s", 2)
+		d.unblock() // the dead step returns, and its Migrate fails
+		require.Error(t, <-doneA)
+	})
 
-		unblock() // the dead step returns, and its Migrate fails
+	// The older opener waits for the dead step's lock on the openers table and gets
+	// it before the waiting migrator gets the migration lock, so it records its row.
+	t.Run("ContractStep", func(t *testing.T) { //nolint:paralleltest // uses the lock intervals and logger the parent replaced
+		dbA, dbB, dbOld, admin := b.open(t), b.open(t), b.open(t), b.open(t)
+		ctx := t.Context()
+		previous := newStore("diec_s", 1)
+		require.NoError(t, migrate.Migrate(ctx, admin, b.dialect, "diec", previous, migrate.WithNode("old")))
+		_, err := admin.ExecContext(ctx, "DELETE FROM diec_schema_openers")
+		require.NoError(t, err)
+		d := newDyingStep(t)
+		next := newStore("diec_s", 2)
+		next.steps[1].Contract = true
+		next.steps[1].Go = d.block
+
+		doneA := make(chan error, 1)
+		go func() { doneA <- migrate.Migrate(ctx, dbA, b.dialect, "diec", next, migrate.WithContract()) }()
+		<-d.running
+		opened := make(chan error, 1)
+		go func() { opened <- migrate.Migrate(ctx, dbOld, b.dialect, "diec", previous, migrate.WithNode("old")) }()
+		require.Eventually(t, func() bool {
+			var n int
+			err := admin.QueryRowContext(ctx, "SELECT count(*) FROM pg_locks WHERE relation = 'diec_schema_openers'::regclass AND NOT granted").Scan(&n)
+			return err == nil && n > 0
+		}, 5*time.Second, 10*time.Millisecond, "the older opener waits for the openers table")
+		doneB := make(chan error, 1)
+		go func() { doneB <- migrate.Migrate(ctx, dbB, b.dialect, "diec", next, migrate.WithContract()) }()
+		d.kill(t, admin, logs)
+
+		require.NoError(t, <-opened)
+		require.ErrorIs(t, <-doneB, migrate.ErrOlderOpener)
+		require.EqualValues(t, 1, d.calls.Load(), "the contract step ran again")
+		requireRow(t, admin, "diec_schema_versions", "diec_s", 1, 0)
+		requireNoTable(t, admin, b.dialect, "diec_s_t2")
+		requireOpener(t, admin, "diec_schema_openers", "diec_s", "old", 1)
+		d.unblock()
 		require.Error(t, <-doneA)
 	})
 }
 
-// advisoryHolderPID returns the backend pid that holds the migration lock of table.
-func advisoryHolderPID(t *testing.T, db *sql.DB, table string) int {
+// dyingStep is the Go part of a step whose first run blocks until unblock, so the
+// test can end that migrator's backend. Later runs return at once.
+type dyingStep struct {
+	calls            atomic.Int32
+	pid              int // backend pid of the first run, set before running closes
+	running, release chan struct{}
+	once             sync.Once
+}
+
+func newDyingStep(t *testing.T) *dyingStep {
 	t.Helper()
-	key := migrate.LockKey(table)
-	var pid int
-	require.NoError(t, db.QueryRowContext(t.Context(), `SELECT l.pid FROM pg_locks l
-		WHERE l.locktype = 'advisory' AND l.granted AND l.objsubid = 1
-		  AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
-		  AND l.classid::bigint = $1 AND l.objid::bigint = $2`,
-		int64(uint64(key)>>32), int64(uint32(key))).Scan(&pid)) //nolint:gosec // splitting the key into its two unsigned halves
-	return pid
+	d := &dyingStep{running: make(chan struct{}), release: make(chan struct{})}
+	t.Cleanup(d.unblock)
+	return d
+}
+
+func (d *dyingStep) block(ctx context.Context, q migrate.Execer) error {
+	if d.calls.Add(1) > 1 {
+		return nil
+	}
+	if err := q.QueryRowContext(ctx, "SELECT pg_backend_pid()").Scan(&d.pid); err != nil {
+		return err
+	}
+	close(d.running)
+	<-d.release
+	return nil
+}
+
+func (d *dyingStep) unblock() { d.once.Do(func() { close(d.release) }) }
+
+// kill waits until another migrator logs that it waits for the first run's
+// backend, then ends that backend.
+func (d *dyingStep) kill(t *testing.T, admin *sql.DB, logs *logging.Recorder) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return len(logs.EntriesContaining(fmt.Sprintf("held by pid %d (", d.pid))) > 0
+	}, 5*time.Second, 10*time.Millisecond)
+	_, err := admin.ExecContext(t.Context(), "SELECT pg_terminate_backend($1)", d.pid)
+	require.NoError(t, err)
 }
