@@ -31,7 +31,7 @@ network definition (see [Registering the target](authoring.md#registering-the-ta
 | `fabric/faultrecovery` | `fabric-faultrecovery`, `-crash`, `-postgres-outage`, `-replication`, `-partition`, `-bft` | see [Fault-Recovery Tests](fault-recovery.md) |
 | `fabric/iou` | `fabric-iou`, `fabric-iou-libp2p` | the IOU life cycle, with replicas, on websocket and on libp2p, and with a lender that supports only version 1 of the `fabric` formats |
 | `fabric/iouhsm` | `fabric-iouhsm` | the IOU life cycle with keys in an HSM (built with `-tags pkcs11`) |
-| `fabric/mixedversion` | `fabric-mixedversion` (nightly) | nodes of the previous FSC release next to nodes of the current tree: endorsement across releases, and a node upgraded and rolled back replica by replica on a shared database; see [Nodes of another release](authoring.md#nodes-of-another-release) |
+| `fabric/mixedversion` | `fabric-mixedversion` (nightly) | nodes of the previous FSC release next to nodes of the current tree: endorsement across releases, a node upgraded and rolled back replica by replica on a shared database, and a responder behind a load balancer upgraded and rolled back replica by replica while transactions run; see [Nodes of another release](authoring.md#nodes-of-another-release) |
 | `fabric/mixednets` | `fabric-mixednets` | a Fabric and a Fabric-x network side by side: a responder endorses a transaction for its non-default platform |
 | `fabric/runtimeconfig` | `fabric-runtimeconfig` | IOU reconfiguration while the node runs |
 | `fabric/twonets` | `fabric-twonets` | two Fabric networks: `alpha` on raft without TLS, `beta` on SmartBFT with TLS |

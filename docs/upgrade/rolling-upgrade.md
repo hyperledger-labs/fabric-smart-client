@@ -31,6 +31,6 @@ Until a contract step has run, a node rolls back by starting the previous binary
 
 ## How FSC tests this
 
-The `fabric-mixedversion` integration suite runs nodes of the previous release next to nodes of the current tree. It checks that a node of one release endorses the transactions of the other, and that a node keeps reading and updating its stores while its replicas are upgraded and rolled back one at a time on a shared database. A release is marked `rolling` only after this suite has run against its previous release. See [Integration Tests](../dev/integration-tests/README.md).
+The `fabric-mixedversion` integration suite runs nodes of the previous release next to nodes of the current tree. It checks that a node of one release endorses the transactions of the other, that a node keeps reading and updating its stores while its replicas are upgraded and rolled back one at a time on a shared database, and that transactions keep committing while a responder's replicas behind a load balancer are upgraded and rolled back one at a time, with at most one failed transaction per restart and none of the failed ones committed. A release is marked `rolling` only after this suite has run against its previous release. See [Integration Tests](../dev/integration-tests/README.md).
 
 The release guides are listed under [Upgrading](../README.md#upgrading).
