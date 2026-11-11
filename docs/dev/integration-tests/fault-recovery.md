@@ -43,8 +43,8 @@ discovers all the others through gossip.
 Every organization with a peer in a Fabric-x network runs a committer, named `CommitterName(org)`
 (`Org2_committer_0`), in a container of its own with its own database, and each FSC node
 uses its own organization's committer. All committers read from one mock orderer in a
-separate container; the [Fabric-x guide](../../platform/fabric-x/README.md#integration-tests)
-covers the topology options.
+separate container; [Fabric-x committers in integration tests](fabricx-committers.md) covers
+the topology options.
 
 `fabricx.FxPlatform(ii).StopCommitter(names...)` and `StartCommitter(names...)` stop and
 restart the services of the named committers, every committer when no name is given, so a spec can take one
