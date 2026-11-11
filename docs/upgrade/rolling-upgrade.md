@@ -17,10 +17,12 @@ the network before any node runs it, as its upgrade guide describes.
 ## Supported skew
 
 A node works with nodes of its own release and of the release before it, over
-P2P, the view API and a shared database. Keep every node on the latest release
-or the one before it. Nodes further apart are not supported. No check at startup
-refuses them; they fail at the first session or store they have no common
-version for.
+P2P, the view API and a shared database.
+
+> [!WARNING]
+> Keep every node on the latest release or the one before it. Nodes
+> further apart are not supported. No check at startup refuses them; they fail
+> at the first session or store they have no common version for.
 
 Two nodes agree per session on the format version of each FSC component they
 both support (see

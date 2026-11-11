@@ -28,9 +28,13 @@ func (s *OrderStore) Steps() []migrate.Step {
 ```
 
 Write step 1 with `IF NOT EXISTS` so that it accepts a database created by the
-store's earlier `CreateSchema`. Never edit, reorder or remove a released step: a
-database that applied it does not run it again. A step must leave the store
-readable by binaries that lack it, unless it is a contract step.
+store's earlier `CreateSchema`. A step must leave the store readable by binaries
+that lack it, unless it is a contract step.
+
+> [!IMPORTANT]
+> Never edit, reorder or remove a released step: a database that
+> applied it does not run it again. Do not mark a step as a contract step after
+> its release either: `Step.Hash` covers the flag.
 
 ## Contract steps
 
@@ -59,8 +63,7 @@ ships the step serves the store both before and after it and must not depend on
 the step having run. A new store runs every step at startup. `StoreName` must be
 the store's primary table: a store without a version row whose table exists
 counts as existing. The step runs in one transaction, which on a large table
-holds its locks for the whole rewrite. Do not mark a step as a contract step
-after its release: `Step.Hash` covers the flag.
+holds its locks for the whole rewrite.
 
 `Step.Hash` is a SHA-256 over a step's version, name, SQL and `Contract` flag.
 The `migrate/migratetest` package checks a store's steps against a golden file

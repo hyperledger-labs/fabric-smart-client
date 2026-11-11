@@ -19,8 +19,9 @@ per-request latency into histograms after the warmup period. Benchmark execution
 is deadline-driven rather than iteration-driven, ensuring consistent measurement
 intervals across runs.
 
-Note that TLS is enabled by default but the client sets
-`InsecureSkipVerify=true`.
+> [!WARNING]
+> TLS is enabled by default, but the client sets
+> `InsecureSkipVerify=true`.
 
 This is an example output of the benchmark showing the number of executed
 requests, the TPS, and the p5, p95, p99 latencies.

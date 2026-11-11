@@ -27,13 +27,15 @@ go test -run TestMyTest ./platform/view/...                  # one test
 TEST_PKGS=./platform/common/utils/... make unit-tests-root   # one package tree
 ```
 
-Never run the whole integration suite to check a change — it is slow and needs
-Fabric binaries plus Docker. Pick one target, and let CI run the rest:
-
-```bash
-make integration-tests-fabric-iou
-GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
-```
+> [!TIP]
+> Never run the whole integration suite to check a change — it is slow
+> and needs Fabric binaries plus Docker. Pick one target, and let CI run the
+> rest:
+>
+> ```bash
+> make integration-tests-fabric-iou
+> GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
+> ```
 
 The [Development Guide](development.md#running-tests) is the source of truth for
 test commands: the remaining targets, the Postgres and coverage variants, and

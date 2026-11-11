@@ -307,11 +307,13 @@ as `BYTEA`; inspect it with `encode(pkey, 'escape')`.
 
 ### Unsafe or unsupported
 
-- modifying rows manually while the node is running
-- deleting rows from the KVS or vault tables
-- assuming that external DB writes will invalidate FSC caches
-- assuming that Fabric-x runtime state is always available in a local SQL
-  database
+> [!CAUTION]
+>
+> - modifying rows manually while the node is running
+> - deleting rows from the KVS or vault tables
+> - assuming that external DB writes will invalidate FSC caches
+> - assuming that Fabric-x runtime state is always available in a local SQL
+>   database
 
 This matters because:
 

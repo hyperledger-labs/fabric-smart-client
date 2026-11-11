@@ -75,9 +75,10 @@ callback once the committer reports an outcome.
 | `listenerTTL`                   | `2m`     | Local backstop: how long a listener may wait without hearing anything at all — a silent stream, or one that is down and reconnecting — before FSC settles it locally with `Unknown`. Keep it comfortably above `requestTimeout`; the committer's timeout is documented non-strict, so a late notification can still arrive after it passes. `listenerTTL: 0` disables the local backstop entirely.                                                                                                                                                          |
 | `sweepInterval`                 | `30s`    | How often expired listeners are collected and listeners that could not be queued are retried. A listener's worst-case lifetime is `listenerTTL + sweepInterval`.                                                                                                                                                                                                                                                                                                                                                                                            |
 
-Note that `Unknown` does not mean the transaction failed — only that there is no
-outcome yet for it within the configured bounds. A caller that needs certainty
-should query the transaction status directly.
+> [!IMPORTANT]
+> `Unknown` does not mean the transaction failed — only that there
+> is no outcome yet for it within the configured bounds. A caller that needs
+> certainty should query the transaction status directly.
 
 > [!WARNING]
 > **`OnStatus` must return promptly.** At most `handlerWorkers`

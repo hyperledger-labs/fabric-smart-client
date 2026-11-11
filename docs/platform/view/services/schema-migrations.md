@@ -197,17 +197,20 @@ node's rows in the same run:
 ./mynode node migrate --contract --forget-opener node1 --forget-opener node2
 ```
 
-`--forget-opener` deletes every row of that `fsc.id`, including those of
-binaries that know the step; they are recorded again at their next open. Forget
-a node only when none of its replicas runs an older binary: a replica that keeps
-running on the store is not refused until it opens the store again, and then
-reads a store it no longer understands until it does. A binary that opens the
-store while the step runs waits for it, then refuses the store and leaves no
-opener row. On Postgres the step locks the openers table of the whole table
-prefix, so every open of a store with that prefix, by any binary, waits until
-the step commits, and a node role's `lock_timeout` or `statement_timeout` can
-fail it; on SQLite an open waits at most for the connection's `busy_timeout`.
-Keep contract steps short, or run them while no replica restarts.
+> [!CAUTION]
+> `--forget-opener` deletes every row of that `fsc.id`, including
+> those of binaries that know the step; they are recorded again at their next
+> open. Forget a node only when none of its replicas runs an older binary: a
+> replica that keeps running on the store is not refused until it opens the
+> store again, and then reads a store it no longer understands until it does.
+
+A binary that opens the store while the step runs waits for it, then refuses the
+store and leaves no opener row. On Postgres the step locks the openers table of
+the whole table prefix, so every open of a store with that prefix, by any
+binary, waits until the step commits, and a node role's `lock_timeout` or
+`statement_timeout` can fail it; on SQLite an open waits at most for the
+connection's `busy_timeout`. Keep contract steps short, or run them while no
+replica restarts.
 
 A binary of v0.27 or earlier records no opener row, so the command cannot see
 it. Startup does not run a contract step on a store such a binary created, but

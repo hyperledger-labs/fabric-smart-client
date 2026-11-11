@@ -50,9 +50,11 @@ for CI, or a patch release, and how fixes reach a release branch.
   `v0.28-to-v0.29.md`) is the only part of a minor written by hand; the release
   notes link to it. A patch has no upgrade guide: its notes say that it has no
   breaking changes.
-- The Go module proxy keeps the first content it sees for a version. Never move,
-  delete or re-push a tag after pushing it; if a release is broken, cut the next
-  version.
+
+> [!CAUTION]
+> The Go module proxy keeps the first content it sees for a version.
+> Never move, delete or re-push a tag after pushing it; if a release is broken,
+> cut the next version.
 
 Three `make` targets cut a release: `make release-prepare`, `make release-pr`
 and `make release-publish`. `scripts/release.sh` holds their logic. Every step
@@ -152,11 +154,14 @@ patch.
 
 5. **Get the PR reviewed and merge it.** Another maintainer approves it. `main`
    accepts only a PR that is up to date with it, so a merge to `main` while the
-   release PR is open forces an update. Do not use **Update branch** then: run
-   `make release-prepare` and `make release-pr` again, which rebuild the release
-   on the new `main` and update the same PR. If you update the branch anyway and
-   the merged PR had a changelog entry, `Release check` fails because the
-   release notes miss it.
+   release PR is open forces an update.
+
+   > [!WARNING]
+   > Do not use **Update branch** then: run `make release-prepare`
+   > and `make release-pr` again, which rebuild the release on the new `main`
+   > and update the same PR. If you update the branch anyway and the merged PR
+   > had a changelog entry, `Release check` fails because the release notes miss
+   > it.
 
 6. **Publish the release.** `Tests` runs again on the release commit once it
    lands on `main`, which takes about an hour, and `make release-publish`
@@ -358,8 +363,11 @@ git branch -D release/v0.29.0
 ```
 
 These commands touch only the release files, staged or not, and put back the
-backport rules. Do not use `git reset --hard` unless the tree holds nothing else
-you want to keep.
+backport rules.
+
+> [!CAUTION]
+> Do not use `git reset --hard` unless the tree holds nothing else
+> you want to keep.
 
 **After `make release-pr`, before the merge.** The release PR is open and its
 branch is on `upstream`. To fix the release, change what is wrong on `main` in a

@@ -228,9 +228,11 @@ host otherwise, so the same topology serves both comm types.
 
 A suite that runs one comm type writes the `Describe` once, as
 `Describe("My Life Cycle", Label(fsc.WebSocket), func() { /* ... */ })`. Label
-WebSocket-only variants (e.g. replication) the same way: `--label-filter`
-selects only labeled specs, so an unlabeled `Describe` is silently skipped when
-a filter is in play.
+WebSocket-only variants (e.g. replication) the same way.
+
+> [!WARNING]
+> `--label-filter` selects only labeled specs, so an unlabeled
+> `Describe` is silently skipped when a filter is in play.
 
 Label a `Describe` for the transport it _runs_, not the one it was handed. A
 suite that loads committed artifacts runs whatever those artifacts say, because

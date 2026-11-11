@@ -282,8 +282,11 @@ git rebase -i --autosquash -S upstream/main
 git push --force-with-lease
 ```
 
-`--autosquash` alone is not reliable without `-i` — on some git versions it
-silently does nothing, leaving the fixups unsquashed and force-pushed as-is.
+> [!WARNING]
+> `--autosquash` alone is not reliable without `-i` — on some git
+> versions it silently does nothing, leaving the fixups unsquashed and
+> force-pushed as-is.
+
 `-i` opens your editor on the rebase todo list, already reordered with the
 fixups placed after their targets and marked `fixup`; save and close it as-is
 unless you want to change something.

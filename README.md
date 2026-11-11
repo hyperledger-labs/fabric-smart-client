@@ -74,8 +74,10 @@ minor release has an [upgrade guide](docs/README.md#upgrading).
 
 ## Disclaimer and license
 
-The Fabric Smart Client is provided as-is and has not been formally audited. Use
-at your own risk. The project is actively developed and APIs may change.
+> [!IMPORTANT]
+> The Fabric Smart Client is provided as-is and has not been
+> formally audited. Use at your own risk. The project is actively developed and
+> APIs may change.
 
 This project is licensed under the **Apache License, Version 2.0 (Apache-2.0)**.
 Documentation is available under the **Creative Commons Attribution 4.0
