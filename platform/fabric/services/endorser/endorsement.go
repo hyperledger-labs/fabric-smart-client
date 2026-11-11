@@ -90,7 +90,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed getting session")
 		}
-		txRaw, err = WireBytes(viewCtx.Context(), s, c.tx, txRaw)
+		txRaw, err = WireBytes(c.tx, txRaw)
 		if err != nil {
 			return nil, errors.WithMessage(err, "failed encoding transaction")
 		}
@@ -293,14 +293,10 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.WithMessagef(err, "failed storing tx env [%s]", s.tx.ID())
 	}
 
-	// Send the proposal responses back, in the encoding the session negotiated.
+	// Send the proposal responses back, as protobuf if the transaction was an envelope.
 	sess := viewCtx.Session()
-	asProto, err := sendsEnvelope(viewCtx.Context(), sess, s.tx)
-	if err != nil {
-		return nil, err
-	}
 	var raw []byte
-	if asProto {
+	if sendsEnvelope(s.tx) {
 		raw, err = proto.Marshal(&protos.EndorsementResponse{ProposalResponses: responses})
 	} else {
 		raw, err = json.Marshal(responses)

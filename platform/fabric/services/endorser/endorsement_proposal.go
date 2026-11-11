@@ -32,8 +32,9 @@ type EndorsementsOnProposalTransaction interface {
 	FabricNetworkService() *fabric.NetworkService
 }
 
-// Response is the JSON object endorsementsOnProposalResponderView answers with at version 1
-// of the component of the transaction; from version 2 it answers with an EndorsementResponse.
+// Response is the JSON object endorsementsOnProposalResponderView answers with for a
+// transaction whose driver registers no transaction format; for any other it answers with an
+// EndorsementResponse. Receivers read both.
 type Response struct {
 	ProposalResponses [][]byte
 }
@@ -188,13 +189,11 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 		answerChan <- &answer{err: err, party: party}
 		return
 	}
-	asEnvelope, err := sendsEnvelope(viewCtx.Context(), s.Session(), c.tx)
-	if err == nil && asEnvelope {
-		raw, err = envelope()
-	}
-	if err != nil {
-		answerChan <- &answer{err: errors.WithMessage(err, "failed encoding transaction"), party: party}
-		return
+	if sendsEnvelope(c.tx) {
+		if raw, err = envelope(); err != nil {
+			answerChan <- &answer{err: errors.WithMessage(err, "failed encoding transaction"), party: party}
+			return
+		}
 	}
 
 	// Wait to receive a Transaction back
@@ -249,14 +248,10 @@ func (s *endorsementsOnProposalResponderView) Call(viewCtx view.Context) (any, e
 	}
 	logger.Debugf("number of endorse proposal response produced [%d], send them back", len(prs))
 
-	// Send the proposal responses back, in the encoding the session negotiated.
+	// Send the proposal responses back, as protobuf if the transaction was an envelope.
 	session := viewCtx.Session()
-	asProto, err := sendsEnvelope(viewCtx.Context(), session, s.tx)
-	if err != nil {
-		return nil, err
-	}
 	var raw []byte
-	if asProto {
+	if sendsEnvelope(s.tx) {
 		raw, err = proto.Marshal(&protos.EndorsementResponse{ProposalResponses: prs})
 	} else {
 		raw, err = json.Marshal(&Response{ProposalResponses: prs})

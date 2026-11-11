@@ -32,16 +32,6 @@ var _ = Describe("EndToEnd", func() {
 		})
 	}
 
-	// A lender that supports only version 1 of the fabric formats, as a node of an older
-	// release does, receives transactions and answers endorsements in JSON, while the other
-	// nodes exchange protobuf envelopes at version 2.
-	Describe("IOU Life Cycle with a lender at fabric format version 1", Label(fsc.WebSocket), func() {
-		s := suiteFor(&iou.Opts{CommType: fsc.WebSocket, ReplicationOpts: integration.NoReplication, LegacyLender: true})
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("nodes at fabric format versions 1 and 2 still commit", s.TestMixedFormatVersions)
-	})
-
 	// The replicas variant varies replication, not the transport, so it runs on websocket only.
 	// It still carries the label: a --label-filter selects only labelled specs, so an unlabelled
 	// Describe would be skipped. The replicas also cover the storage options of nwo: the
@@ -105,20 +95,6 @@ func (s *TestSuite) TestSucceeded() {
 		gomega.Not(gomega.BeNil()),
 		gomega.Not(gomega.BeEmpty()),
 	))
-}
-
-func (s *TestSuite) TestMixedFormatVersions() {
-	gomega.Expect(iou.SessionVersion(s.II, "borrower", "lender", "fabric")).To(gomega.Equal(1))
-	gomega.Expect(iou.SessionVersion(s.II, "borrower", "approver1", "fabric")).To(gomega.Equal(2))
-
-	iou.InitApprover(s.II, "approver1")
-	iou.InitApprover(s.II, "approver2")
-	iouState := iou.CreateIOU(s.II, "", 10, "approver1")
-	iou.CheckState(s.II, "borrower", iouState, 10)
-	iou.CheckState(s.II, "lender", iouState, 10)
-	iou.UpdateIOU(s.II, iouState, 5, "approver2")
-	iou.CheckState(s.II, "borrower", iouState, 5)
-	iou.CheckState(s.II, "lender", iouState, 5)
 }
 
 func (s *TestSuite) TestSucceededWithReplicas() {

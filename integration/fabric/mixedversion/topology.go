@@ -9,12 +9,14 @@ package mixedversion
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/mixedversion/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
@@ -71,4 +73,16 @@ func newTopology(replicatedApprover bool) []api.Topology {
 	fscTopology.AddSDK(&sdk.SDK{})
 
 	return []api.Topology{fabricTopology, fscTopology}
+}
+
+// PingPongTopology returns the FSC nodes initiator and responder on WebSocket, without a
+// Fabric network, which run the protocol of package pingpong: initiator's view "init" pings
+// responder. Its views exist at v0.27.0, so either node can run a release that old.
+func PingPongTopology() []api.Topology {
+	t := fsc.NewTopology()
+	t.P2PCommunicationType = fsc.WebSocket
+	t.AddNodeByName("initiator").RegisterViewFactory("init", &pingpong.InitiatorViewFactory{})
+	t.AddNodeByName("responder").RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})
+	t.AddSDK(&viewsdk.SDK{})
+	return []api.Topology{t}
 }

@@ -89,6 +89,7 @@ func TestService(t *testing.T) {
 		FromEndpoint: "endpoint1",
 		FromPKID:     []byte("pkid1"),
 		Ctx:          ctx,
+		Versions:     stated(t),
 	}
 
 	vm.ExistResponderForCallerFunc = func(caller string) (view.View, view.Identity, error) {
@@ -143,7 +144,7 @@ func TestService_CallerIsVerifiedPeerID(t *testing.T) {
 	require.NoError(t, p2p.NewService(vm, vm, cl, es, p2p.NewDefaultRunner(), nil).Start(t.Context()))
 
 	for _, from := range []string{victimAddr, "127.0.0.1:54321"} {
-		ch <- &view.Message{ContextID: "ctx", SessionID: from, Caller: "caller", FromEndpoint: from, FromPKID: []byte("attacker_id"), Ctx: t.Context()}
+		ch <- &view.Message{ContextID: "ctx", SessionID: from, Caller: "caller", FromEndpoint: from, FromPKID: []byte("attacker_id"), Versions: stated(t), Ctx: t.Context()}
 		select {
 		case <-vm.HandleResponderCalled:
 		case <-time.After(5 * time.Second):
@@ -230,6 +231,7 @@ func TestService_PanicIsReturnedToRemoteCaller(t *testing.T) {
 		FromEndpoint: "endpoint1",
 		FromPKID:     []byte("pkid1"),
 		Ctx:          ctx,
+		Versions:     stated(t),
 	}
 
 	select {
@@ -277,6 +279,7 @@ func TestService_HandleResponderError(t *testing.T) {
 		ContextID: "ctx1",
 		Caller:    "caller",
 		Ctx:       ctx,
+		Versions:  stated(t),
 	}
 	ch <- msg
 
@@ -308,7 +311,7 @@ func TestService_ClosesSessionWithoutContext(t *testing.T) {
 	ctx := t.Context()
 	require.NoError(t, service.Start(ctx))
 
-	ch <- &view.Message{ContextID: "ctx1", SessionID: "sess1", Caller: "caller", FromPKID: []byte("pkid1"), Ctx: ctx}
+	ch <- &view.Message{ContextID: "ctx1", SessionID: "sess1", Caller: "caller", FromPKID: []byte("pkid1"), Versions: stated(t), Ctx: ctx}
 
 	require.Eventually(t, func() bool { return responderSession.CloseCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
 	require.Zero(t, sess.CloseCallCount(), "the master session stays open")
@@ -400,6 +403,7 @@ func TestService_Start_DrainsHandlersOnShutdown(t *testing.T) { //nolint:paralle
 		FromEndpoint: "endpoint1",
 		FromPKID:     []byte("pkid1"),
 		Ctx:          context.Background(), // never cancelled - see doc comment above
+		Versions:     stated(t),
 	}
 
 	// Wait until the handler is confirmed in-flight (blocked inside RunView).
@@ -519,6 +523,7 @@ func (lt *limitTest) send(id, sessionID, peer string) {
 		FromEndpoint: peer,
 		FromPKID:     []byte(peer),
 		Ctx:          context.Background(),
+		Versions:     stated(lt.t),
 	}
 }
 
@@ -817,6 +822,9 @@ func (rt *rejectTest) sendMsg(msg *view.Message) {
 	}
 	if msg.FromPKID == nil {
 		msg.FromPKID = []byte("peer")
+	}
+	if msg.Versions == nil {
+		msg.Versions = stated(rt.t)
 	}
 	rt.ch <- msg
 }

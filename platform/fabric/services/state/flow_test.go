@@ -703,7 +703,7 @@ func TestSendTransactionViewCallBranches(t *testing.T) {
 		_, err := NewSendTransactionView(tx, view.Identity("bob")).Call(ctx)
 		require.NoError(t, err)
 		require.Len(t, ms.sent, 1)
-		require.Equal(t, []byte("tx-bytes"), ms.sent[0])
+		require.Equal(t, testTxEnvelope(t), ms.sent[0])
 	})
 
 	t.Run("skip me", func(t *testing.T) {
@@ -775,7 +775,7 @@ func TestSendTransactionBackViewCallBranches(t *testing.T) {
 		_, err := NewSendTransactionBackView(tx).Call(ctx)
 		require.NoError(t, err)
 		require.Len(t, ms.sent, 1)
-		require.Equal(t, []byte("tx-bytes"), ms.sent[0])
+		require.Equal(t, testTxEnvelope(t), ms.sent[0])
 	})
 
 	t.Run("bytes error", func(t *testing.T) {
@@ -1118,4 +1118,12 @@ func TestSendTransactionViewsSendEnvelopeAtV2(t *testing.T) {
 			require.Equal(t, [][]byte{want}, s.sent)
 		})
 	}
+}
+
+// testTxEnvelope is the envelope a sender sends for testTxRaw.
+func testTxEnvelope(t *testing.T) []byte {
+	t.Helper()
+	env, err := protos.EnvelopeFromJSONFor(testTxRaw, "generic")
+	require.NoError(t, err)
+	return env
 }

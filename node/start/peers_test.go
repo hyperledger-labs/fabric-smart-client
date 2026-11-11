@@ -49,6 +49,7 @@ func TestCheckPeers(t *testing.T) {
 	overlap := encoded(t, func(p *preamble.Preamble) {
 		p.Ranges[1] = &preamble.ComponentRange{Component: "fabric", Min: 2, Max: 3}
 	})
+	withoutView := encoded(t, func(p *preamble.Preamble) { p.Ranges = p.Ranges[1:] })
 	withoutFabricx := encoded(t, func(p *preamble.Preamble) { p.Ranges = p.Ranges[:2] })
 
 	for name, tc := range map[string]struct {
@@ -56,10 +57,11 @@ func TestCheckPeers(t *testing.T) {
 		code  int
 		out   string
 	}{
-		"overlapping":         {map[string][]byte{"a": same, "b": overlap}, 0, "fabric: local [1,2] peer [2,3]: uses 2"},
-		"no preamble":         {map[string][]byte{"a": nil}, 0, "no preamble, it runs an FSC release without version ranges\n  view: local [1,1], not announced by the peer, so [1,1]: uses 1\n  fabric: local [1,2], not announced by the peer, so [1,1]: uses 1"},
-		"not announced":       {map[string][]byte{"a": withoutFabricx}, 0, "fabricx: local [1,2], not announced by the peer, so [1,1]: uses 1"},
-		"disjoint":            {map[string][]byte{"a": same, "b": disjoint}, ExitIncompatible, "fabric: local [1,2] peer [3,4]: no overlap"},
+		"overlapping":         {map[string][]byte{"a": same, "b": overlap}, 0, "fabric: local [2,2] peer [2,3]: uses 2"},
+		"no preamble":         {map[string][]byte{"a": nil}, ExitIncompatible, "no preamble, it runs an FSC release without version ranges\n  view: local [1,1], not announced by the peer, so [1,1]: uses 1\n  fabric: local [2,2], not announced by the peer, so [1,1]: no overlap"},
+		"not announced, at 1": {map[string][]byte{"a": withoutView}, 0, "view: local [1,1], not announced by the peer, so [1,1]: uses 1"},
+		"not announced":       {map[string][]byte{"a": withoutFabricx}, ExitIncompatible, "fabricx: local [2,2], not announced by the peer, so [1,1]: no overlap"},
+		"disjoint":            {map[string][]byte{"a": same, "b": disjoint}, ExitIncompatible, "fabric: local [2,2] peer [3,4]: no overlap"},
 		"other epoch":         {map[string][]byte{"a": otherEpoch}, ExitIncompatible, "peer framing epoch 2, local 1"},
 		"unreachable":         {map[string][]byte{"a": same, "down": nil}, ExitFailed, "peer [down] at [down:1]: unreachable"},
 		"down and disjoint":   {map[string][]byte{"down": nil, "b": disjoint}, ExitFailed, "unreachable"},

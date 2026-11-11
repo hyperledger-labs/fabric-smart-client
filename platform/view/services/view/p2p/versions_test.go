@@ -31,7 +31,7 @@ func TestService_UnsupportedVersionIsRejected(t *testing.T) {
 	require.Zero(t, rt.cl.NewResponderSessionCallCount())
 	require.Eventually(t, func() bool { return rt.counter.count("reason=no_common_version") == 1 }, 5*time.Second, 5*time.Millisecond)
 
-	rt.sendMsg(&view.Message{ContextID: "ctx2", SessionID: "sess2", Caller: "hosted", Versions: versions(t, map[string]uint32{"view": 1, "unknown": 9})})
+	rt.sendMsg(&view.Message{ContextID: "ctx2", SessionID: "sess2", Caller: "hosted", Versions: versions(t, map[string]uint32{"view": 1, "fabric": 2, "fabricx": 2, "unknown": 9})})
 	rt.wait(rt.runner.entered, "the responder to run")
 	require.Equal(t, 1, rt.cl.ReplyErrorCallCount())
 }
@@ -41,6 +41,17 @@ func versions(t *testing.T, m map[string]uint32) []byte {
 	raw, err := preamble.EncodeVersions(m)
 	require.NoError(t, err)
 	return raw
+}
+
+// stated returns the versions an initiator of this release states to a peer of this release:
+// the highest of each component.
+func stated(t *testing.T) []byte {
+	t.Helper()
+	m := map[string]uint32{}
+	for _, c := range preamble.Components() {
+		m[c.Name] = c.Range.Max
+	}
+	return versions(t, m)
 }
 
 // TestService_NoCommonVersionIsRejected checks that a first message stating 0, no common
@@ -84,8 +95,17 @@ func TestService_UnstatedVersionIsVersionOne(t *testing.T) { //nolint:parallelte
 	require.Equal(t, "no_common_version: fabric 1 not in [2, 2]", string(payload))
 	require.Zero(t, rt.cl.NewResponderSessionCallCount())
 
+	// An initiator that states some components but not fabric, such as one older than a
+	// component, is rejected the same way.
+	partial := unstated("partial")
+	partial.Versions = versions(t, map[string]uint32{"view": 1})
+	rt.ch <- partial
+	require.Eventually(t, func() bool { return rt.cl.ReplyErrorCallCount() == 2 }, 5*time.Second, 5*time.Millisecond)
+	_, _, payload = rt.cl.ReplyErrorArgsForCall(1)
+	require.Equal(t, "no_common_version: fabric 1 not in [2, 2]", string(payload))
+
 	setFabric(preamble.Range{Min: 1, Max: 2})
 	rt.ch <- unstated("old2")
 	rt.wait(rt.runner.entered, "the responder to run")
-	require.Equal(t, 1, rt.cl.ReplyErrorCallCount())
+	require.Equal(t, 2, rt.cl.ReplyErrorCallCount())
 }

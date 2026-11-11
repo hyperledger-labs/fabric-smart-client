@@ -24,25 +24,29 @@ The endorser views (`platform/fabric/services/endorser`) and the state views
 (`platform/fabric/services/state`) exchange transactions, endorsement responses
 and finality requests with other nodes. Their formats are versioned per session
 through the `fabric` component (Fabric networks) and the `fabricx` component
-(Fabric-x networks); FSC supports versions 1 and 2 of both, and a session uses
-the highest version both nodes support (see
-[Format negotiation](../view/services/comm/readme.md#format-negotiation)). The
-messages are defined in `platform/fabric/protos/fabric.proto` (package
-`fsc.fabric.v1`) and `platform/fabricx/protos/fabricx.proto` (package
-`fsc.fabricx.v1`); they only gain fields, and `make buf-breaking` checks this.
+(Fabric-x networks); FSC supports version 2 of both, so a session with a node of
+a release that supports only version 1 is refused (see
+[Format negotiation](../view/services/comm/readme.md#format-negotiation)). A
+node sends the version 2 forms on every session, also one that is not an FSC
+network session, such as an in-process one, and reads both. The messages are
+defined in `platform/fabric/protos/fabric.proto` (package `fsc.fabric.v1`) and
+`platform/fabricx/protos/fabricx.proto` (package `fsc.fabricx.v1`); they only
+gain fields, and `make buf-breaking` checks this.
 
-| Message                                                                                                                                  | Version 1                                                                                                   | Version 2                      |
+| Message                                                                                                                                  | Version 1, read only                                                                                        | Version 2, sent and read       |
 | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Transaction, as `endorser.NewCollectEndorsementsView`, `NewParallelCollectEndorsementsOnProposalView` and the `state` send views send it | JSON of `Transaction.Bytes`                                                                                 | protobuf `TransactionEnvelope` |
 | Endorsement response                                                                                                                     | JSON array of marshaled `ProposalResponse`s, or a JSON `endorser.Response` for an endorsement on a proposal | protobuf `EndorsementResponse` |
 
 A sender converts the transaction's JSON with `endorser.WireBytes` just before
 it sends it, so hashing, storing and decoding on each node keep working on the
-JSON. A receiver reads both forms whatever version the session uses, telling
-them apart by the first byte: `{` is JSON and `0x0a` is an envelope (the tag of
-its `platform` field, which is never empty); any other first byte is an error.
-An endorsement response that starts with `[`, `{` or `n` is JSON, anything else
-is an `EndorsementResponse`.
+JSON, and a responder answers with an `EndorsementResponse`. A receiver reads
+both forms, telling them apart by the first byte: `{` is JSON and `0x0a` is an
+envelope (the tag of its `platform` field, which is never empty); any other
+first byte is an error. An endorsement response that starts with `[`, `{` or `n`
+is JSON, anything else is an `EndorsementResponse`. A transaction on a network
+whose driver registers no transaction format has no envelope: it is sent, and
+answered, as JSON.
 
 ### Collecting endorsements
 
@@ -105,9 +109,8 @@ The conversion is exact or fails. `protos.EnvelopeFromJSON` refuses JSON it
 cannot carry without loss: a field the transaction JSON does not have, trailing
 data, a Fabric transaction type other than endorser transaction, and a
 transaction without a txID. A transaction type that adds JSON fields of its own
-to FSC's therefore fails to send at version 2; at version 1 it is sent as JSON.
-The proposal (`TProposal`) is not carried: the receiver rebuilds it from the
-signed proposal.
+to FSC's therefore fails to send. The proposal (`TProposal`) is not carried: the
+receiver rebuilds it from the signed proposal.
 
 ### Finality requests
 

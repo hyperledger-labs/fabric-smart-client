@@ -37,32 +37,41 @@ import (
 // release tag.
 var previousRelease = os.Getenv("FSC_PREVIOUS_RELEASE")
 
-// The specs need the views of this suite at the previous release, because the nodes of that
-// release run its copy of them. A release older than the suite fails every spec here,
-// rather than with a build error once a node starts, and never passes as skipped.
-var _ = BeforeEach(func() {
+// requirePreviousRelease checks that the previous release has the views of this suite,
+// because the nodes of that release run its copy of them. A release older than the suite fails
+// every spec that calls it, rather than with a build error once a node starts, and never passes
+// as skipped.
+func requirePreviousRelease() {
 	Expect(previousRelease).NotTo(BeEmpty(), "set FSC_PREVIOUS_RELEASE")
 	ok, err := fsc.ReleaseHasPackage(previousRelease, "fabric/mixedversion/views")
 	Expect(err).NotTo(HaveOccurred())
 	Expect(ok).To(BeTrue(), "FSC release "+previousRelease+" predates the mixed-version suite")
-})
+}
 
 // newSuite returns a suite on topology whose nodes in previous run the previous release;
 // the others run the current tree.
 func newSuite(topology func() []api.Topology, previous ...string) *integration.TestSuite {
+	return newSuiteAt(topology, previousRelease, previous...)
+}
+
+// newSuiteAt returns a suite on topology whose nodes in ids run release; the others run the
+// current tree.
+func newSuiteAt(topology func() []api.Topology, release string, ids ...string) *integration.TestSuite {
 	return integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		ii, err := integration.Generate(integration.MixedVersionPort.StartPortForNode(), integration.WithRaceDetection, topology()...)
 		if err != nil {
 			return nil, err
 		}
-		for _, id := range previous {
-			ii.FscPlatform.SetRelease(id, previousRelease)
+		for _, id := range ids {
+			ii.FscPlatform.SetRelease(id, release)
 		}
 		return ii, nil
 	})
 }
 
 var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
+	BeforeEach(requirePreviousRelease)
+
 	Describe("an approver on the previous release", func() {
 		s := newSuite(mixedversion.Topology, "approver")
 		BeforeEach(s.Setup)

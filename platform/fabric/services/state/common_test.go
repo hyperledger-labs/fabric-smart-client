@@ -209,6 +209,10 @@ func (*testRWSet) Equals(_ any, _ ...cdriver.Namespace) error {
 	return nil
 }
 
+// testTxRaw is the JSON a testDriverTransaction marshals to: a Fabric transaction, which its
+// senders convert to an envelope.
+var testTxRaw = []byte(`{"Type":3,"Raw":"eyJUVHhJRCI6InR4MSIsIlRDaGFubmVsIjoiY2gxIn0="}`)
+
 type testDriverTransaction struct {
 	id               string
 	network          string
@@ -238,7 +242,7 @@ func newTestDriverTransaction(rwset fdriver.RWSet) *testDriverTransaction {
 		chaincodeVersion: "v1",
 		transient:        fdriver.TransientMap{},
 		rwset:            rwset,
-		bytesRaw:         []byte("tx-bytes"),
+		bytesRaw:         testTxRaw,
 		proposalResponse: []byte("proposal-response"),
 	}
 }
