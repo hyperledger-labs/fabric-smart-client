@@ -38,14 +38,13 @@ import (
 var previousRelease = os.Getenv("FSC_PREVIOUS_RELEASE")
 
 // The specs need the views of this suite at the previous release, because the nodes of that
-// release run its copy of them; a release older than the suite is skipped.
+// release run its copy of them. A release older than the suite fails every spec here,
+// rather than with a build error once a node starts, and never passes as skipped.
 var _ = BeforeEach(func() {
 	Expect(previousRelease).NotTo(BeEmpty(), "set FSC_PREVIOUS_RELEASE")
 	ok, err := fsc.ReleaseHasPackage(previousRelease, "fabric/mixedversion/views")
 	Expect(err).NotTo(HaveOccurred())
-	if !ok {
-		Skip("FSC release " + previousRelease + " predates the mixed-version suite")
-	}
+	Expect(ok).To(BeTrue(), "FSC release "+previousRelease+" predates the mixed-version suite")
 })
 
 // newSuite returns a suite on topology whose nodes in previous run the previous release;

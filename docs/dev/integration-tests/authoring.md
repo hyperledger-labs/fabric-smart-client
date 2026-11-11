@@ -72,10 +72,10 @@ detector or coverage; a version needs the Go module proxy or network access. The
 `main` imports the packages of every view and SDK the topology registers for the node, so
 those packages must exist, with the same API, at `release`. A suite that runs nodes of the
 previous release therefore keeps its views in a package of its own that changes only
-compatibly, and skips when `fsc.ReleaseHasPackage` reports that the release predates the
-package. `integration/fabric/mixedversion` runs at `FSC_PREVIOUS_RELEASE`, which the
-`Makefile` sets to the latest release tag; set it to a checkout to run the suite against
-local changes.
+compatibly, and fails with a clear message when `fsc.ReleaseHasPackage` reports that the
+release predates the package. `integration/fabric/mixedversion` runs at
+`FSC_PREVIOUS_RELEASE`, which the `Makefile` sets to the latest release tag; set it to a
+checkout to run the suite against local changes.
 
 ## Network topology options
 
