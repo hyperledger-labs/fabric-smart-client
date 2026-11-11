@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. Remote parties are a separate boundary: the organization is the unit of trust, and FSC nodes and peers of other organizations may be malicious. [Data received from peers](#data-received-from-peers) and the sections after it describe what a node checks in their input. This page covers both boundaries: what view code can do inside the process, what a node checks in input from remote parties, and how to deploy a node with that in mind.
+The Fabric Smart Client (FSC) view runtime operates under a **shared process security model** where all registered views execute within the same process space without isolation. Remote parties are a separate boundary: the organization is the unit of trust, and FSC nodes and peers of other organizations may be malicious. This page covers both boundaries: what view code can do inside the process, the write-once stores, identity bindings and P2P sessions that protect a node from remote parties, and how to deploy a node with that in mind. The checks the Fabric platform applies to transactions and identities received from peers are in [Fabric security](../fabric/security.md).
 
 ## Security model
 

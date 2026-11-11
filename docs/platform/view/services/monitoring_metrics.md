@@ -366,7 +366,7 @@ Operational notes:
 
 - `kind` is one of:
   - `invalid_tx`: a transaction received from a peer that failed `endorser.ValidateReceived`
-    (see [Security model](../security-model.md#data-received-from-peers)).
+    (see [Fabric security](../../fabric/security.md#data-received-from-peers)).
   - `binding_refused`: a bind that would have stored a known long-term identity, one with a
     resolver or a self-row, as another identity's ephemeral. The row is not written (see
     [Security model](../security-model.md#identity-bindings)).
@@ -374,7 +374,7 @@ Operational notes:
     identity. The existing row is kept.
   - `recipient_proof`: a recipient identity received in a recipient exchange without a valid
     proof of ownership. Nothing is bound (see
-    [Security model](../security-model.md#recipient-proof-of-ownership)). It names the counterparty's
+    [Fabric security](../../fabric/security.md#recipient-proof-of-ownership)). It names the counterparty's
     node identity as the peer, and no txID. The warn line gives one of these reasons:
     - `missing`: no proof. The peer has not been upgraded yet; expected in a burst while
       organizations upgrade.
