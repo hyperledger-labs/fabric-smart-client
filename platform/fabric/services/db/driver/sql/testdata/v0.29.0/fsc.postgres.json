@@ -1,0 +1,447 @@
+{
+  "fsc_default_aud": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "audit_info",
+        "type": "bytea",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (id)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "735a73674976764b58757669386a7235542f6456387775394632315a35654848527545624374336d476e6f3d",
+        "61756469742d696e666f"
+      ]
+    ]
+  },
+  "fsc_default_bind": {
+    "columns": [
+      {
+        "name": "ephemeral_hash",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "long_term_id",
+        "type": "bytea",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (ephemeral_hash)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "4d6c4a514f74624f307562517945617163586b614e76746832316661552b517564667779666f774e30356f3d",
+        "6c6f6e672d7465726d"
+      ],
+      [
+        "67304643584b2f7436644a4c425a6d752f66337638634653627464624279462b755a7634774c644a6934453d",
+        "6c6f6e672d7465726d"
+      ]
+    ]
+  },
+  "fsc_default_env": {
+    "columns": [
+      {
+        "name": "key",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "data",
+        "type": "bytea",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (key)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "656e762d6b6579",
+        "656e76"
+      ]
+    ]
+  },
+  "fsc_default_etx": {
+    "columns": [
+      {
+        "name": "key",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "data",
+        "type": "bytea",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (key)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "6574782d6b6579",
+        "657478"
+      ]
+    ]
+  },
+  "fsc_default_meta": {
+    "columns": [
+      {
+        "name": "key",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "data",
+        "type": "bytea",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (key)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "6d6574612d6b6579",
+        "6d657461"
+      ]
+    ]
+  },
+  "fsc_default_sign": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (id)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "2f397a45756875674b646b66746b587173565977454f35377a3678764d684d6d394f71796d4741625738343d"
+      ]
+    ]
+  },
+  "fsc_kvs": {
+    "columns": [
+      {
+        "name": "ns",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "pkey",
+        "type": "bytea",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "val",
+        "type": "bytea",
+        "notNull": true,
+        "default": "'\\x'::bytea"
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (ns, pkey)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "6e732d61",
+        "6b31",
+        "6b76732d6e732d61"
+      ],
+      [
+        "6e732d62",
+        "6b31",
+        "6b76732d6e732d62"
+      ]
+    ]
+  },
+  "fsc_net__ch_vstate": {
+    "columns": [
+      {
+        "name": "ns",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "pkey",
+        "type": "bytea",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "val",
+        "type": "bytea",
+        "notNull": false,
+        "default": null
+      },
+      {
+        "name": "kversion",
+        "type": "bytea",
+        "notNull": false,
+        "default": null
+      },
+      {
+        "name": "metadata",
+        "type": "bytea",
+        "notNull": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (ns, pkey)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "6e73",
+        "00546f6b656e00616c69636500",
+        "76616c2d00546f6b656e00616c69636500",
+        "7631",
+        ""
+      ],
+      [
+        "6e73",
+        "656e64f48fbfbf",
+        "76616c2d656e64f48fbfbf",
+        "7631",
+        ""
+      ],
+      [
+        "6e73",
+        "706c61696e",
+        "76616c2d706c61696e",
+        "7631",
+        ""
+      ]
+    ]
+  },
+  "fsc_net__ch_vstatus": {
+    "columns": [
+      {
+        "name": "pos",
+        "type": "integer",
+        "notNull": true,
+        "default": "nextval('fsc_net__ch_vstatus_pos_seq'::regclass)"
+      },
+      {
+        "name": "tx_id",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "code",
+        "type": "integer",
+        "notNull": true,
+        "default": "0"
+      },
+      {
+        "name": "message",
+        "type": "text",
+        "notNull": true,
+        "default": "''::text"
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (pos)",
+      "UNIQUE (tx_id)"
+    ],
+    "indexes": [
+      "CREATE INDEX tx_id_fsc_net__ch_vstatus ON public.fsc_net__ch_vstatus USING btree (tx_id)"
+    ],
+    "rows": [
+      [
+        "31",
+        "747831",
+        "31",
+        ""
+      ]
+    ]
+  },
+  "fsc_schema_openers": {
+    "columns": [
+      {
+        "name": "store",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "node",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "highest_step",
+        "type": "integer",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "opened_at",
+        "type": "timestamp without time zone",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (store, node, highest_step)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "6673635f64656661756c745f617564",
+        "",
+        "31",
+        "323032362d31312d31312031323a34353a34322e363437393633"
+      ],
+      [
+        "6673635f64656661756c745f62696e64",
+        "",
+        "31",
+        "323032362d31312d31312031323a34353a34322e363335373432"
+      ],
+      [
+        "6673635f64656661756c745f656e76",
+        "",
+        "31",
+        "323032362d31312d31312031323a34353a34322e363637393738"
+      ],
+      [
+        "6673635f64656661756c745f657478",
+        "",
+        "32",
+        "323032362d31312d31312031323a34353a34322e3635373138"
+      ],
+      [
+        "6673635f64656661756c745f6d657461",
+        "",
+        "31",
+        "323032362d31312d31312031323a34353a34322e363632383032"
+      ],
+      [
+        "6673635f64656661756c745f7369676e",
+        "",
+        "31",
+        "323032362d31312d31312031323a34353a34322e363431393331"
+      ],
+      [
+        "6673635f6b7673",
+        "",
+        "31",
+        "323032362d31312d31312031323a34353a34322e363238323234"
+      ],
+      [
+        "6673635f6e65745f5f63685f767374617465",
+        "",
+        "32",
+        "323032362d31312d31312031323a34353a34322e363739323733"
+      ]
+    ]
+  },
+  "fsc_schema_versions": {
+    "columns": [
+      {
+        "name": "store",
+        "type": "text",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "version",
+        "type": "integer",
+        "notNull": true,
+        "default": null
+      },
+      {
+        "name": "readable_by",
+        "type": "integer",
+        "notNull": true,
+        "default": null
+      }
+    ],
+    "constraints": [
+      "PRIMARY KEY (store)"
+    ],
+    "indexes": null,
+    "rows": [
+      [
+        "6673635f64656661756c745f617564",
+        "31",
+        "30"
+      ],
+      [
+        "6673635f64656661756c745f62696e64",
+        "31",
+        "30"
+      ],
+      [
+        "6673635f64656661756c745f656e76",
+        "31",
+        "30"
+      ],
+      [
+        "6673635f64656661756c745f657478",
+        "32",
+        "32"
+      ],
+      [
+        "6673635f64656661756c745f6d657461",
+        "31",
+        "30"
+      ],
+      [
+        "6673635f64656661756c745f7369676e",
+        "31",
+        "30"
+      ],
+      [
+        "6673635f6b7673",
+        "31",
+        "30"
+      ],
+      [
+        "6673635f6e65745f5f63685f767374617465",
+        "32",
+        "32"
+      ]
+    ]
+  }
+}

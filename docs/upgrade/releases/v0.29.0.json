@@ -1,0 +1,256 @@
+{
+  "version": "v0.29.0",
+  "modules": [
+    "integration/v0.29.0",
+    "platform/fabric/services/state/cc/query/v0.29.0",
+    "platform/view/services/comm/host/libp2p/v0.29.0",
+    "v0.29.0"
+  ],
+  "upgrade": {
+    "mode": "stop-all",
+    "guide": "docs/upgrade/v0.28-to-v0.29.md"
+  },
+  "stores": [
+    {
+      "type": "auditinfo",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "740b9804a0100e42eae724538d7014a36d425913f891363c890fe55b99937e84",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "auditinfo",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "740b9804a0100e42eae724538d7014a36d425913f891363c890fe55b99937e84",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "binding",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "cfe19bee5408012c966b031a39dd2365fc49ed0d456329d733cb6d0755877422",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "binding",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "cfe19bee5408012c966b031a39dd2365fc49ed0d456329d733cb6d0755877422",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "endorsetx",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "edf820117950de17877894b57545b22cf6d4b9f43a7b22c352335cf8b893df99",
+          "contract": false
+        },
+        {
+          "version": 2,
+          "name": "transactions as envelopes",
+          "hash": "6a241e6fc6664e226a15a90ccfc0f6d37ad750210cca1029db546a0fbc27fa55",
+          "contract": true
+        }
+      ]
+    },
+    {
+      "type": "endorsetx",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "edf820117950de17877894b57545b22cf6d4b9f43a7b22c352335cf8b893df99",
+          "contract": false
+        },
+        {
+          "version": 2,
+          "name": "transactions as envelopes",
+          "hash": "6a241e6fc6664e226a15a90ccfc0f6d37ad750210cca1029db546a0fbc27fa55",
+          "contract": true
+        }
+      ]
+    },
+    {
+      "type": "envelope",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "a114c67eb74b7a69e1883a00d9ff8584b7a18f90877c9dfc28b43bbd8179db86",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "envelope",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "a114c67eb74b7a69e1883a00d9ff8584b7a18f90877c9dfc28b43bbd8179db86",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "kvs",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "47a23a7a55b1b7bcded4e8b5e77d070eaa52023141386ebaba855cf062133e1f",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "kvs",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "47a23a7a55b1b7bcded4e8b5e77d070eaa52023141386ebaba855cf062133e1f",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "metadata",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "d2fa5d16827f5de82e781669bf07dfc0aa865e8fac37e04a676b684dcca05de8",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "metadata",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "d2fa5d16827f5de82e781669bf07dfc0aa865e8fac37e04a676b684dcca05de8",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "signerinfo",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "66e94f44eb4d78bcd3287e00a80dec770e500b1f3f9fd7848c0f38010185b5c5",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "signerinfo",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create table",
+          "hash": "66e94f44eb4d78bcd3287e00a80dec770e500b1f3f9fd7848c0f38010185b5c5",
+          "contract": false
+        }
+      ]
+    },
+    {
+      "type": "vault",
+      "dialect": "postgres",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create tables",
+          "hash": "a9dffb69b50ed21446649dd2993ce6b59f7669eeda90aeebbc92a941a21965c3",
+          "contract": false
+        },
+        {
+          "version": 2,
+          "name": "metadata as protobuf",
+          "hash": "c3e4dcf1483ab734577fef6270f1e512e6e083c25d7f355a15ceb9e53cb7637c",
+          "contract": true
+        }
+      ]
+    },
+    {
+      "type": "vault",
+      "dialect": "sqlite",
+      "steps": [
+        {
+          "version": 1,
+          "name": "create tables",
+          "hash": "c2426fbe607b3491f1fe3dff98df3532f63b45e88c7431df9b707354203dfd61",
+          "contract": false
+        },
+        {
+          "version": 2,
+          "name": "metadata as protobuf",
+          "hash": "c3e4dcf1483ab734577fef6270f1e512e6e083c25d7f355a15ceb9e53cb7637c",
+          "contract": true
+        }
+      ]
+    }
+  ],
+  "components": [
+    {
+      "name": "view",
+      "min": 1,
+      "max": 1
+    },
+    {
+      "name": "fabric",
+      "min": 1,
+      "max": 2
+    },
+    {
+      "name": "fabricx",
+      "min": 1,
+      "max": 2
+    }
+  ],
+  "dropped_next": [],
+  "tested_with": {
+    "fabric": "3.1.4",
+    "fabric_x_committer": "1.0.7",
+    "fabric_x_tools": "v1.0.3",
+    "go": "1.27.3",
+    "postgres": "16.2"
+  }
+}
