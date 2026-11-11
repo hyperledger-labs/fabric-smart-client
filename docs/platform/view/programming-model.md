@@ -22,7 +22,7 @@ This model lets you write business protocols directly as Go code instead of push
 
 A view is the unit of application logic in FSC.
 
-A view implements a [`Call()`](../../../platform/view/view/view.go#L13) method with the general shape:
+A view implements a [`Call()`](../../../platform/view/view/view.go) method with the general shape:
 
 ```go
 type MyView struct{}
@@ -116,6 +116,7 @@ import (
 
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
@@ -125,28 +126,23 @@ func main() {
 	}
 
 	node.Execute(func() error {
-		// Get the view registry
-		registry := view.GetRegistry(node)
-		
-		// Register an initiator view factory
-		if err := registry.RegisterFactory("myInitiator", &MyInitiatorViewFactory{}); err != nil {
+		registry := viewregistry.GetRegistry(node)
+
+		// Clients start the Initiator view under the name "init".
+		if err := registry.RegisterFactory("init", &InitiatorViewFactory{}); err != nil {
 			return err
 		}
-		
-		// Register a responder for the initiator
-		initiatorID := registry.GetIdentifier(&MyInitiator{})
-		if err := registry.RegisterResponder(&MyResponder{}, initiatorID); err != nil {
-			return err
-		}
-		
-		return nil
+		// Sessions opened by another node's Initiator view start a Responder view here.
+		return registry.RegisterResponder(&Responder{}, &Initiator{})
 	})
 }
 ```
 
-The node runtime is provided by [`node.New()`](../../../node/node.go#L45) and started through [`Node.Execute()`](../../../node/node.go#L72).
+`Initiator`, `Responder` and `InitiatorViewFactory` are the views of the sections below. The node
+runtime is provided by [`node.New()`](../../../node/node.go), and [`Node.Execute()`](../../../node/node.go)
+runs the command line; the callback runs once the node has started.
 
-If the application also needs Fabric capabilities, it installs the Fabric SDK in the same startup flow, as described in [Fabric SDK architecture](../fabric/fabric-sdk.md). For Fabric-X capabilities, see [Fabric-X](../fabric-x/README.md).
+If the application also needs Fabric capabilities, it installs the Fabric SDK in the same startup flow, as [Use Fabric from a view](../fabric/README.md#use-fabric-from-a-view) shows. For Fabric-x, see [Use Fabric-x from a view](../fabric-x/README.md#use-fabric-x-from-a-view).
 
 For node startup configuration, see [View platform configuration](configuration.md) and [Shared node configuration](../../configuration.md).
 
@@ -169,14 +165,16 @@ An initiator view typically:
 Simplified from [`integration/fsc/stoprestart/initiator.go`](../../../integration/fsc/stoprestart/initiator.go), the pattern is:
 
 ```go
-type Initiator struct{}
+type Initiator struct {
+	party string // label of the party to ping, such as "bob"
+}
 
-func (*Initiator) Call(viewCtx view.Context) (any, error) {
+func (i *Initiator) Call(viewCtx view.Context) (any, error) {
 	identityProvider, err := id.GetProvider(viewCtx)
 	if err != nil {
 		return nil, err
 	}
-	responder := identityProvider.Identity("bob")
+	responder := identityProvider.Identity(i.party)
 
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	if err != nil {
@@ -187,10 +185,17 @@ func (*Initiator) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	msg := <-session.Receive()
-	return string(msg.Payload), nil
+	// Wait at most a minute for the reply, and stop at once if the view context ends.
+	reply, err := commsession.ReadMessageWithContext(viewCtx.Context(), session, time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	return string(reply), nil
 }
 ```
+
+`commsession` is `platform/view/services/comm/session`. `ReadMessageWithContext` returns an error
+reply from the responder as an error.
 
 For a more complete example with error handling, timeouts, and message validation, see the [stoprestart integration test](../../../integration/fsc/stoprestart/initiator.go).
 
@@ -216,14 +221,17 @@ The responder pattern is:
 type Responder struct{}
 
 func (*Responder) Call(viewCtx view.Context) (any, error) {
-	session := viewCtx.Session()
-	msg := <-session.Receive()
-	if string(msg.Payload) != "ping" {
+	// Wait for the first message, at most 30 seconds or until the view context ends.
+	session, payload, err := commsession.ReadFirstMessage(viewCtx)
+	if err != nil {
+		return nil, err
+	}
+	if string(payload) != "ping" {
 		// Tell the initiator, which otherwise waits for a reply that never comes.
 		if err := session.SendError(viewCtx.Context(), []byte("expected ping")); err != nil {
 			return nil, err
 		}
-		return nil, errors.Errorf("expected ping, got %s", msg.Payload)
+		return nil, errors.Errorf("expected ping, got %s", payload)
 	}
 
 	if err := session.Send(viewCtx.Context(), []byte("pong")); err != nil {
@@ -239,118 +247,15 @@ The responder does not create the session. It consumes the session associated wi
 
 A message payload is input from the remote party. The transport authenticates who sent it, as
 `Session().Info().Caller`, but not what the payload claims. A responder that acts on a claim in
-the payload, such as an identity the caller says it owns, must check that claim against `Caller`.
-For identities, that means binding a remote identity in the endpoint service only after the
-caller has proved it controls the identity. The FSC recipient views do this with a signed proof.
-Applications with their own recipient exchange can reuse the same proof:
-`state.SignRecipientProof` and `state.VerifyRecipientProof`
-(`platform/fabric/services/state/proof.go`) sign and check it, and `endpoint.Service.BindProven`
-binds the verified identity to the caller's node identity. See
-[Security Model](security-model.md#recipient-proof-of-ownership).
+the payload, such as an identity the caller says it owns, must check that claim against `Caller`
+(see [Binding identities a caller claims](#binding-identities-a-caller-claims)).
+
+By default, any node that the transport authenticates can start any registered responder. To
+limit a responder to the nodes it expects, register it with an authorizer (see
+[Authorizing responders](#authorizing-responders)). A responder registered under a
+[protocol name](#protocol-names) stays reachable when its Go types are renamed.
 
 For more details on initiator/responder dispatch and responder registration, see [View service](services/view-service.md).
-
-### Authorizing responders
-
-By default, any node that the transport authenticates can start any registered responder. A
-responder registered with an authorizer runs only for the nodes the authorizer accepts:
-
-```go
-import (
-	"context"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-)
-
-// allowed holds the canonical node identities that may start the responder.
-var allowed map[string]bool
-
-err := view.GetRegistry(sp).RegisterResponderWithOptions(
-	&Responder{}, &Initiator{},
-	view.WithAuthorizer(view.AuthorizerFunc(func(ctx context.Context, caller viewapi.Identity) error {
-		if !allowed[string(id.CanonicalIdentity(caller))] {
-			return errors.Wrapf(view.ErrDenied, "node [%s]", caller)
-		}
-		return nil
-	})),
-)
-```
-
-`caller` is the FSC node identity the transport authenticated, the same identity the responder
-later sees as `Session().Info().Caller`. The P2P service calls the authorizer for every first
-message of the protocol, before it creates the view context or session, with a context that times
-out after 5 seconds. The authorizer must return once that context is done: the P2P service does not
-abandon a call that ignores it. An error wrapping `view.ErrDenied` refuses the caller with the reply
-`unauthorized: caller may not start this view`; any other error, a timeout, a panic, or a sender
-whose identity the node cannot resolve gives `authorizer_error: authorizer failed`. The
-authorizer's own error text never reaches the caller. A running check holds a responder slot of the caller,
-counted against both `fsc.p2p.maxRespondersPerPeer` and `fsc.p2p.maxResponders`, so keep it fast.
-
-The authorizer decides who may start the responder. It does not check the payload: the responder
-must still validate every message it receives, as described above.
-
-Each initiator of a responder has its own authorizer, so a responder registered for several
-initiators needs an authorizer on each of them: an initiator registered without one lets any node
-start the responder. A later registration for the same initiator
-without `WithAuthorizer`, for example a default registration by a library, keeps the authorizer;
-one with `WithAuthorizer` replaces it.
-
-### Protocol names
-
-A peer finds a responder by the Go type path of the initiator view (`view.GetIdentifier`), so
-moving or renaming an initiator type breaks peers that run the previous release. A protocol with
-a stable name does not depend on the type path. The initiator view declares the name by
-implementing `view.ProtocolView`, and the responder registers for it with `WithProtocol`:
-
-```go
-// Protocol implements view.ProtocolView.
-func (*Initiator) Protocol() (component, name string) { return "iou", "create" }
-
-err := view.GetRegistry(sp).RegisterResponderWithOptions(
-	&Responder{}, &Initiator{}, view.WithProtocol("iou", "create"),
-)
-```
-
-A session opened with `GetSession(caller, party)` states the name `caller` declares on its
-messages. FSC's bundled views (endorsement, finality, recipient exchange) pass
-`viewCtx.Initiator()` as caller, so they open sessions under the application's protocol. The
-responder node looks the name up first, then the type path, so an initiator that declares no
-name, or one of an older release, still reaches a responder registered for its type. Both parts
-of the name match `[a-z0-9-]+`. Names and type paths are kept apart: a type path that happens to
-look like a name is never found as one. A name belongs to one initiator: registering it for another
-initiator fails. A later registration for the same initiator without `WithProtocol` keeps the name
-and its authorizer; one with another name releases the old name.
-
-### Versions of a protocol's formats
-
-Nodes of different releases use, per session, the highest version of each component's formats
-that both support (see [Format negotiation](services/comm/readme.md#format-negotiation)). An
-application that changes the format of its own messages registers a component with the range it
-supports, when its SDK is built or in `main`, before the node starts:
-
-```go
-preamble.RegisterComponent("iou", 1, 2) // platform/view/services/comm/preamble
-```
-
-Registering before the node starts lets `node version` and `node peers --check`, which start no
-node, report the component too. A name registered twice, including one of FSC's (`view`, `fabric`,
-`fabricx`), panics.
-
-A view reads the version of its session before it encodes a message, and the receiving side reads
-it before it decodes:
-
-```go
-v, err := viewapi.SessionVersion(viewCtx.Context(), session, "iou")
-if err != nil {
-	return nil, err // no version both nodes support
-}
-```
-
-The version holds for the whole session. A session that is not an FSC network session, such as an
-in-process one or an application's wrapper that hides the FSC session, uses version 1.
 
 ## View Factories and Registration
 
@@ -362,7 +267,7 @@ A simple factory pattern looks like this:
 type InitiatorViewFactory struct{}
 
 func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
-	return &Initiator{in: in}, nil
+	return &Initiator{party: string(in)}, nil
 }
 ```
 
@@ -374,7 +279,81 @@ Factories are useful when:
 
 Responder views are registered against the initiator type so the runtime knows which responder to launch when a session arrives.
 
-Conceptually, registration happens during node startup inside the callback passed to [`Execute()`](../../../node/node.go#L72).
+Conceptually, registration happens during node startup inside the callback passed to [`Execute()`](../../../node/node.go).
+
+## Build, run and call your node
+
+An FSC application is a Go module that depends on FSC:
+
+```bash
+go get github.com/hyperledger-labs/fabric-smart-client@v0.28.0
+```
+
+Use the latest release tag. These pages describe `main`, which can contain changes that are not released yet.
+
+Put the `main.go` of [Application Structure](#application-structure) in the module, with the views it registers, and build it:
+
+```bash
+go build -o mynode .
+```
+
+Each node needs a `core.yaml`, its identity and TLS material, and the addresses of the nodes it
+talks to. The `Initiator` above needs a second node, `bob`, that runs the `Responder` and is listed
+under `fsc.endpoint.resolvers`. `fsccli artifactsgen gen` generates all of this from a topology
+file, with one directory per node under `fsc/nodes/` (see the
+[FSC CLI reference](../../reference/fsc-cli.md#artifactsgen)).
+
+The binary is a command-line tool. `node start` starts the node and keeps it running until it
+receives `SIGINT` or `SIGTERM`. The node reads its `core.yaml` from the directory that
+`FSCNODE_CFG_PATH` names; without it, from the current directory, then from
+`/etc/hyperledger-labs/fabric-smart-client-node`:
+
+```bash
+FSCNODE_CFG_PATH=/etc/mynode ./mynode node start
+```
+
+The other commands and the exit codes are in the [Node CLI reference](../../reference/node-cli.md),
+and every `core.yaml` key is in [Shared node configuration](../../configuration.md).
+
+A client starts a view by the name it was registered under with `RegisterFactory`, through the
+remote view API. The node serves that API only when `fsc.view.remote.enabled` is `true`, on the
+transports `fsc.view.remote.backends` lists, and it accepts only commands signed by the node's own
+identity or by one listed in `fsc.view.remote.clients` (see [Remote view API access control](services/view-service.md#remote-view-api-access-control)).
+The Go client in `platform/view/services/view/client` calls the `init` view of the node above:
+
+```go
+caPEM, err := os.ReadFile("tls/ca.crt") // the CA of the node's TLS certificate
+if err != nil {
+	return nil, err
+}
+signer, err := client.NewX509SigningIdentity("client/cert.pem", "client/key.pem")
+if err != nil {
+	return nil, err
+}
+tracerProvider, err := tracing.NewProviderFromConfig(tracing.NoOp)
+if err != nil {
+	return nil, err
+}
+c, err := client.NewClient(&client.Config{
+	ConnectionConfig: &grpc.ConnectionConfig{
+		Address: "localhost:20000", // fsc.grpc.address
+		TLS:     grpc.SecureOptions{UseTLS: true, ServerRootCAs: [][]byte{caPEM}},
+	},
+}, signer, tracerProvider)
+if err != nil {
+	return nil, err
+}
+ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+defer cancel()
+res, err := c.CallViewWithContext(ctx, "init", []byte("bob"))
+```
+
+If the node requires client certificates (`clientAuthRequired`), also set `Certificate`, `Key`
+and `RequireClientCert` in `grpc.SecureOptions`.
+
+`grpc` is `platform/common/services/grpc` and `tracing` is `platform/view/services/tracing`.
+[View service over HTTP](services/view-service-http.md) describes the HTTP transport of the same
+client, and `fsccli view` calls a view from the shell (see the [FSC CLI reference](../../reference/fsc-cli.md#view)).
 
 ## Running Child Views
 
@@ -488,12 +467,12 @@ case <-time.After(1 * time.Minute):
 }
 ```
 
-`session.ReadMessageWithContext(viewCtx.Context(), session, timeout)` in
-`platform/view/services/comm/session` does the same and returns the payload; `ReadFirstMessage`
-ends with the view context too.
+`commsession.ReadMessageWithContext(viewCtx.Context(), session, timeout)` from
+`platform/view/services/comm/session` does the same and returns the payload.
+`commsession.ReadFirstMessage` also stops when the view context ends.
 
 For complete examples, see:
-- [pingpong](../../../integration/fsc/pingpong) - Simple ping/pong protocol with timeout and validation
+- [`integration/fsc/pingpong`](../../../integration/fsc/pingpong/): source of a ping/pong protocol with timeout and validation
 - [signedpingpong](../../../integration/fsc/signedpingpong) - Symmetric message signing using `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID`
 - [stoprestart](../../../integration/fsc/stoprestart) - Session handling across a responder restart
 - [IOU](../../../integration/fabric/common/iou) - Complex Fabric integration with state management and endorsement collection
@@ -540,10 +519,128 @@ A practical way to build an FSC application is:
 6. register views during node startup
 7. test the protocol end to end with integration tests
 
+## Advanced topics
+
+These sections cover the details of responder authorization, protocol names, format versions
+and claimed identities.
+
+### Authorizing responders
+
+By default, any node that the transport authenticates can start any registered responder. A
+responder registered with an authorizer runs only for the nodes the authorizer accepts:
+
+```go
+import (
+	"context"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewapi "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
+
+// allowed holds the canonical node identities that may start the responder.
+var allowed map[string]bool
+
+err := view.GetRegistry(sp).RegisterResponderWithOptions(
+	&Responder{}, &Initiator{},
+	view.WithAuthorizer(view.AuthorizerFunc(func(ctx context.Context, caller viewapi.Identity) error {
+		if !allowed[string(id.CanonicalIdentity(caller))] {
+			return errors.Wrapf(view.ErrDenied, "node [%s]", caller)
+		}
+		return nil
+	})),
+)
+```
+
+`caller` is the FSC node identity the transport authenticated, the same identity the responder
+later sees as `Session().Info().Caller`. The P2P service calls the authorizer for every first
+message of the protocol, before it creates the view context or session, with a context that times
+out after 5 seconds. The authorizer must return once that context is done: the P2P service does not
+abandon a call that ignores it. An error wrapping `view.ErrDenied` refuses the caller with the reply
+`unauthorized: caller may not start this view`; any other error, a timeout, a panic, or a sender
+whose identity the node cannot resolve gives `authorizer_error: authorizer failed`. The
+authorizer's own error text never reaches the caller. A running check holds a responder slot of the caller,
+counted against both `fsc.p2p.maxRespondersPerPeer` and `fsc.p2p.maxResponders`, so keep it fast.
+
+The authorizer decides who may start the responder. It does not check the payload: the responder
+must still validate every message it receives, as [Responder Responsibilities](#responder-responsibilities) describes.
+
+Each initiator of a responder has its own authorizer, so a responder registered for several
+initiators needs an authorizer on each of them: an initiator registered without one lets any node
+start the responder. A later registration for the same initiator
+without `WithAuthorizer`, for example a default registration by a library, keeps the authorizer;
+one with `WithAuthorizer` replaces it.
+
+### Protocol names
+
+A peer finds a responder by the Go type path of the initiator view (`view.GetIdentifier`), so
+moving or renaming an initiator type breaks peers that run the previous release. A protocol with
+a stable name does not depend on the type path. The initiator view declares the name by
+implementing `view.ProtocolView`, and the responder registers for it with `WithProtocol`:
+
+```go
+// Protocol implements view.ProtocolView.
+func (*Initiator) Protocol() (component, name string) { return "iou", "create" }
+
+err := view.GetRegistry(sp).RegisterResponderWithOptions(
+	&Responder{}, &Initiator{}, view.WithProtocol("iou", "create"),
+)
+```
+
+A session opened with `GetSession(caller, party)` states the name `caller` declares on its
+messages. FSC's bundled views (endorsement, finality, recipient exchange) pass
+`viewCtx.Initiator()` as caller, so they open sessions under the application's protocol. The
+responder node looks the name up first, then the type path, so an initiator that declares no
+name, or one of an older release, still reaches a responder registered for its type. Both parts
+of the name match `[a-z0-9-]+`. Names and type paths are kept apart: a type path that happens to
+look like a name is never found as one. A name belongs to one initiator: registering it for another
+initiator fails. A later registration for the same initiator without `WithProtocol` keeps the name
+and its authorizer; one with another name releases the old name.
+
+### Versions of a protocol's formats
+
+Nodes of different releases use, per session, the highest version of each component's formats
+that both support (see [Format negotiation](services/comm/readme.md#format-negotiation)). An
+application that changes the format of its own messages registers a component with the range it
+supports, when its SDK is built or in `main`, before the node starts:
+
+```go
+preamble.RegisterComponent("iou", 1, 2) // platform/view/services/comm/preamble
+```
+
+Registering before the node starts lets `node version` and `node peers --check`, which start no
+node, report the component too. A name registered twice, including one of FSC's (`view`, `fabric`,
+`fabricx`), panics.
+
+A view reads the version of its session before it encodes a message, and the receiving side reads
+it before it decodes:
+
+```go
+v, err := viewapi.SessionVersion(viewCtx.Context(), session, "iou")
+if err != nil {
+	return nil, err // no version both nodes support
+}
+```
+
+The version holds for the whole session. A session that is not an FSC network session, such as an
+in-process one or an application's wrapper that hides the FSC session, uses version 1.
+
+### Binding identities a caller claims
+
+A responder binds a remote identity in the endpoint service only after the
+caller has proved it controls the identity. The FSC recipient views do this with a signed proof.
+Applications with their own recipient exchange can reuse the same proof:
+`state.SignRecipientProof` and `state.VerifyRecipientProof`
+(`platform/fabric/services/state/proof.go`) sign and check it, and `endpoint.Service.BindProven`
+binds the verified identity to the caller's node identity. See
+[Security Model](security-model.md#recipient-proof-of-ownership).
+
 ## Related Documentation
 
 - [View SDK architecture](view-sdk.md)
 - [View service](services/view-service.md)
 - [View platform configuration](configuration.md)
+- [Fabric platform](../fabric/README.md) and [Fabric-x platform](../fabric-x/README.md)
 - [Fabric SDK architecture](../fabric/fabric-sdk.md)
 - [Core concepts](../../core-concepts.md)

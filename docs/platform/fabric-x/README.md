@@ -31,8 +31,8 @@ func main() {
 	}
 	node.Execute(func() error {
 		registry := view.GetRegistry(node)
-		// register your views ...
-		return nil
+		// register your views, for example:
+		return registry.RegisterFactory("init", &MyInitiatorViewFactory{})
 	})
 }
 ```
@@ -40,6 +40,15 @@ func main() {
 ### Configuration
 
 Start with the [Fabric-x platform configuration](configuration.md) page for the documented `notificationService` and `queryService` settings, then layer those on top of the shared FSC [node configuration](../../configuration.md).
+
+## Use Fabric-x from a view
+
+Views use the same APIs on Fabric-x as on Fabric: the transaction, endorsement and finality views of [`platform/fabric/services/state`](../../../platform/fabric/services/state) and [`platform/fabric/services/endorser`](../../../platform/fabric/services/endorser), and `fabric.GetDefaultChannel` and `fabric.GetChannel` to reach a channel. Start with [Use Fabric from a view](../fabric/README.md#use-fabric-from-a-view) and install `fabricx.NewSDK` instead of the Fabric SDK. The Fabric-x IOU example, [`integration/fabricx/common/iou`](../../../integration/fabricx/common/iou), runs the views of the Fabric IOU example unchanged. Notable differences:
+
+- Finality comes from the committer's [notification service](#notification-service-transaction-finality), and the query service answers status lookups.
+- `ch.ACLProvider().CheckACL` checks a signed proposal against the channel's policies; on Fabric it returns `driver.ErrNotImplemented`.
+- `ch.Committer().ProcessNamespace` has no effect.
+- The vault's query executor does not support range queries (`GetStateRange`).
 
 ## Notification Service (Transaction Finality)
 
@@ -138,10 +147,6 @@ tls:
       - "/path/to/ca.pem"
   serverNameOverride: "committer.example.com"
 ```
-
-### Usage from a View
-Refer to the [Simple integration test fixtures](../../../integration/fabricx/common/simple) for reference.
-
 
 ## Query Service
 
