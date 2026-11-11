@@ -115,9 +115,10 @@ type Driver interface {
 }
 ```
 
-**Note:** Although these methods have different names and return different
-stores, their signatures have the same input parameters for the sake of
-uniformity, code re-use, and maintainability.
+> [!NOTE]
+> Although these methods have different names and return different stores, their
+> signatures have the same input parameters for the sake of uniformity, code
+> re-use, and maintainability.
 
 ## Config
 

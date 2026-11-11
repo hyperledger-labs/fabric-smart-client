@@ -52,11 +52,11 @@ Security vulnerabilities should be disclosed responsibly. Please see
 
 ### Feature requests
 
-**Note:** If you intend to implement a feature yourself, please submit the
-request _before_ writing any code and ask to be assigned. Features are for
-user-facing capabilities: new platforms, services, API methods, etc.
-Improvements to tooling, CI, or the contribution process are [Tasks](#tasks)
-instead.
+> [!NOTE]
+> If you intend to implement a feature yourself, please submit the request
+> _before_ writing any code and ask to be assigned. Features are for user-facing
+> capabilities: new platforms, services, API methods, etc. Improvements to
+> tooling, CI, or the contribution process are [Tasks](#tasks) instead.
 
 1. Visit the
    [Issues page](https://github.com/hyperledger-labs/fabric-smart-client/issues).

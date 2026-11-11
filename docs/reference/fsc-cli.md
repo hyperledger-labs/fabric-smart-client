@@ -344,8 +344,9 @@ echo '{"id":"asset123","owner":"Alice"}' | fsccli view \
 
 **4. Using configuration file:**
 
-> **Important:** Replace the example paths below with actual paths to your
-> certificate and key files. The paths must point to existing files.
+> [!IMPORTANT]
+> Replace the example paths below with actual paths to your certificate and key
+> files. The paths must point to existing files.
 
 Create `view-config.yaml`:
 
@@ -441,9 +442,9 @@ The CLI automatically detects base64 encoding and decodes it.
 
 HSM (Hardware Security Module) related utilities.
 
-> **Note:** The HSM utilities need a build with PKCS#11 support
-> (`-tags pkcs11`). Without that tag, `fsccli hsm` only prints a help text
-> saying so.
+> [!NOTE]
+> The HSM utilities need a build with PKCS#11 support (`-tags pkcs11`). Without
+> that tag, `fsccli hsm` only prints a help text saying so.
 
 **Usage:**
 

@@ -63,9 +63,10 @@ configuration key `fabric.mynetwork.name`. The environment variable
 `CORE_FSC_PERSISTENCES_MY__DB_OPTS_DATASOURCE` maps to the configuration key
 `fsc.persistences.my_db.opts.datasource`.
 
-_Note:_ If the configuration key already exists with a specific type (e.g.,
-integer or boolean), the environment variable value will be automatically
-converted to that type.
+> [!NOTE]
+> If the configuration key already exists with a specific type (e.g., integer or
+> boolean), the environment variable value will be automatically converted to
+> that type.
 
 ## Examples
 

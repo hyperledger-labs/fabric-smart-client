@@ -324,9 +324,10 @@ Views that observe their context (`ctx.Done()`) return promptly once it is
 cancelled. A view that ignores it can still find storage closed if it outlives
 the wait.
 
-**Note:** The node listens for both signals with Go's `signal.Notify`. A second
-SIGINT or SIGTERM during the shutdown skips the rest of the drain. On Windows,
-Ctrl+C and Ctrl+Break arrive as `os.Interrupt` and trigger the same shutdown.
+> [!NOTE]
+> The node listens for both signals with Go's `signal.Notify`. A second SIGINT
+> or SIGTERM during the shutdown skips the rest of the drain. On Windows, Ctrl+C
+> and Ctrl+Break arrive as `os.Interrupt` and trigger the same shutdown.
 
 ## Exit codes
 

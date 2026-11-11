@@ -136,6 +136,13 @@ rules a tool cannot check.
   name of each one, and an emoji never carries meaning the text does not also
   say.
 - Write Markdown, not HTML. GitHub alerts (`> [!NOTE]`) are Markdown.
+- Set off a note or a warning as a GitHub alert, never as a paragraph that
+  starts with a label such as `**Note:**`. Pick the alert by what the reader
+  risks: `[!NOTE]` for information worth knowing while skimming, `[!TIP]` for
+  an easier or better way, `[!IMPORTANT]` for what the reader needs to succeed,
+  `[!WARNING]` for a problem that needs attention right away, and `[!CAUTION]`
+  for an action that can lose data or break a deployment. Use alerts
+  sparingly; a page full of them stops drawing attention to any.
 - An alert's marker stands alone on the first line of the blockquote, and its
   text starts on the next line. With text on the marker line, GitHub renders a
   plain quote. The lint checks this with a rule of its own,
