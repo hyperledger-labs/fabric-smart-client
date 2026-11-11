@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/singleflight"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -498,7 +497,7 @@ func (s *streamHandler) handleIncoming() {
 			}
 
 			streamHash := s.stream.Hash()
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
+			if logger.IsEnabledFor(logging.DebugLevel) {
 				logger.Debugf("error reading message from stream [%s]: [%s][%s]", streamHash, err, debug.Stack())
 			}
 

@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
@@ -637,7 +636,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 					return errors.Wrapf(err, "stopped waiting for finality of [%s], last known status [%s]", txID, driver.StatusName(vd))
 				}
 			}
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
+			if logger.IsEnabledFor(logging.DebugLevel) {
 				c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 			}
 			err := c.FabricFinality.IsFinal(ctx, txID)

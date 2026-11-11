@@ -7,522 +7,151 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
 	"net"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-// observedLogger returns a logger that records everything written to it,
-// including payload entries, which sit below debug.
-func observedLogger() (*zap.Logger, *observer.ObservedLogs) {
-	core, logs := observer.New(DefaultPayloadLevel)
-
-	return zap.New(core), logs
-}
-
-// fakeServerStream is a grpc.ServerStream that records what passed through it.
+// fakeServerStream is a grpc.ServerStream that only carries a context.
 type fakeServerStream struct {
-	ctx      context.Context
-	sent     []any
-	recvErr  error
-	sendErr  error
-	recvFill func(msg any)
+	grpc.ServerStream
+	ctx context.Context
 }
 
-func (*fakeServerStream) SetHeader(metadata.MD) error  { return nil }
-func (*fakeServerStream) SendHeader(metadata.MD) error { return nil }
-func (*fakeServerStream) SetTrailer(metadata.MD)       {}
+func (f *fakeServerStream) Context() context.Context { return f.ctx }
 
-func (f *fakeServerStream) Context() context.Context {
-	if f.ctx != nil {
-		return f.ctx
-	}
-
-	return context.Background()
-}
-
-func (f *fakeServerStream) SendMsg(m any) error {
-	f.sent = append(f.sent, m)
-
-	return f.sendErr
-}
-
-func (f *fakeServerStream) RecvMsg(m any) error {
-	// A real stream does not populate m when the receive fails.
-	if f.recvErr != nil {
-		return f.recvErr
-	}
-	if f.recvFill != nil {
-		f.recvFill(m)
-	}
-
-	return nil
-}
-
-// TestLevelerFunc checks the adapter forwards to the wrapped function for both
-// the level and payload-level methods.
-func TestLevelerFunc(t *testing.T) {
-	t.Parallel()
-
-	var gotMethod string
-	f := LevelerFunc(func(_ context.Context, fullMethod string) zapcore.Level {
-		gotMethod = fullMethod
-
-		return zapcore.WarnLevel
-	})
-
-	require.Equal(t, zapcore.WarnLevel, f.Level(t.Context(), "/svc/Method"))
-	require.Equal(t, "/svc/Method", gotMethod)
-
-	require.Equal(t, zapcore.WarnLevel, f.PayloadLevel(t.Context(), "/other/Method"))
-	require.Equal(t, "/other/Method", gotMethod)
-}
-
-// TestApplyOptionsDefaults checks the levels used when no options are given.
-func TestApplyOptionsDefaults(t *testing.T) {
-	t.Parallel()
-
-	o := applyOptions()
-
-	require.Equal(t, zapcore.DebugLevel, o.Level(t.Context(), "/svc/Method"))
-	require.Equal(t, DefaultPayloadLevel, o.PayloadLevel(t.Context(), "/svc/Method"))
-}
-
-// TestApplyOptionsOverrides checks each option replaces only its own leveler.
-func TestApplyOptionsOverrides(t *testing.T) {
-	t.Parallel()
-
-	t.Run("WithLeveler", func(t *testing.T) {
-		t.Parallel()
-
-		o := applyOptions(
-			WithLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.ErrorLevel })),
-		)
-		assert.Equal(t, zapcore.ErrorLevel, o.Level(t.Context(), "/svc/Method"))
-		assert.Equal(t, DefaultPayloadLevel, o.PayloadLevel(t.Context(), "/svc/Method"),
-			"payload leveler keeps its default")
-	})
-
-	t.Run("WithPayloadLeveler", func(t *testing.T) {
-		t.Parallel()
-
-		o := applyOptions(
-			WithPayloadLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.InfoLevel })),
-		)
-		assert.Equal(t, zapcore.DebugLevel, o.Level(t.Context(), "/svc/Method"),
-			"leveler keeps its default")
-		assert.Equal(t, zapcore.InfoLevel, o.PayloadLevel(t.Context(), "/svc/Method"))
-	})
-}
-
-// TestWithFields checks the fields round-trip through the context.
-func TestWithFields(t *testing.T) {
-	t.Parallel()
-
-	fields := []zapcore.Field{zap.String("k", "v")}
-	ctx := WithFields(t.Context(), fields)
-
-	stored, ok := ctx.Value(fieldKey).([]zapcore.Field)
-	require.True(t, ok)
-	require.Equal(t, fields, stored)
-}
-
-// TestGetFieldsMethodParsing checks the service and method are only derived
-// from a well-formed full method name.
-func TestGetFieldsMethodParsing(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name   string
-		method string
-		expect map[string]string
-	}{
-		{"well formed", "/the.Service/TheMethod", map[string]string{
-			"grpc.service": "the.Service",
-			"grpc.method":  "TheMethod",
-		}},
-		{"no leading slash", "the.Service.TheMethod", nil},
-		{"too many parts", "/a/b/c", nil},
-		{"empty", "", nil},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			fields := fieldMap(getFields(t.Context(), tc.method))
-
-			if tc.expect == nil {
-				require.NotContains(t, fields, "grpc.service")
-				require.NotContains(t, fields, "grpc.method")
-
-				return
-			}
-			for k, v := range tc.expect {
-				assert.Equal(t, v, fields[k])
-			}
-		})
-	}
-}
-
-// TestGetFieldsDeadline checks a context deadline is reported, and absent when
-// the context has none.
-func TestGetFieldsDeadline(t *testing.T) {
-	t.Parallel()
-
-	require.NotContains(t, fieldMap(getFields(t.Context(), "/svc/M")), "grpc.request_deadline")
-
-	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
-	defer cancel()
-
-	require.Contains(t, fieldMap(getFields(ctx, "/svc/M")), "grpc.request_deadline")
-}
-
-// TestGetFieldsPeer covers the peer address and, when the connection carries
-// TLS with a client certificate, its subject.
-func TestGetFieldsPeer(t *testing.T) {
-	t.Parallel()
-
-	addr := &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 7051}
-
-	t.Run("address only", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := peer.NewContext(t.Context(), &peer.Peer{Addr: addr})
-		fields := fieldMap(getFields(ctx, "/svc/M"))
-
-		require.Equal(t, addr.String(), fields["grpc.peer_address"])
-		require.NotContains(t, fields, "grpc.peer_subject")
-	})
-
-	t.Run("tls without certificates", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := peer.NewContext(t.Context(), &peer.Peer{
-			Addr:     addr,
-			AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{}},
-		})
-
-		require.NotContains(t, fieldMap(getFields(ctx, "/svc/M")), "grpc.peer_subject")
-	})
-
-	t.Run("tls with a client certificate", func(t *testing.T) {
-		t.Parallel()
-
-		cert := &x509.Certificate{Subject: pkix.Name{CommonName: "a-client"}}
-		ctx := peer.NewContext(t.Context(), &peer.Peer{
-			Addr: addr,
-			AuthInfo: credentials.TLSInfo{
-				State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}},
-			},
-		})
-
-		require.Equal(t, cert.Subject.String(), fieldMap(getFields(ctx, "/svc/M"))["grpc.peer_subject"])
-	})
-}
-
-// TestUnaryServerInterceptor covers the successful path: the handler's response
-// is returned, the request and response payloads are logged, and the call is
-// recorded as completed with an OK code.
+// TestUnaryServerInterceptor checks the handler's result is returned and one Debug line
+// records the call.
 func TestUnaryServerInterceptor(t *testing.T) {
 	t.Parallel()
-
-	logger, logs := observedLogger()
-	interceptor := UnaryServerInterceptor(logger)
-
-	var handlerCtx context.Context
-	resp, err := interceptor(
-		t.Context(),
-		"the-request",
-		&grpc.UnaryServerInfo{FullMethod: "/the.Service/TheMethod"},
-		func(ctx context.Context, _ any) (any, error) {
-			handlerCtx = ctx
-
-			return "the-response", nil
-		},
-	)
-
-	require.NoError(t, err)
-	require.Equal(t, "the-response", resp)
-
-	stored, ok := handlerCtx.Value(fieldKey).([]zapcore.Field)
-	require.True(t, ok, "the handler's context carries the fields")
-	require.NotEmpty(t, stored)
-
-	messages := logMessages(logs)
-	require.Contains(t, messages, "received unary request")
-	require.Contains(t, messages, "sending unary response")
-	require.Contains(t, messages, "unary call completed")
-
-	completed := entryNamed(t, logs, "unary call completed")
-	require.Equal(t, codes.OK.String(), completed.ContextMap()["grpc.code"])
-}
-
-// TestUnaryServerInterceptorHandlerError checks a handler failure propagates,
-// the response payload is not logged, and the status code is recorded.
-func TestUnaryServerInterceptorHandlerError(t *testing.T) {
-	t.Parallel()
-
-	logger, logs := observedLogger()
-	interceptor := UnaryServerInterceptor(logger)
-
+	logger, r := logging.NewTestLogger(t)
 	handlerErr := status.Error(codes.PermissionDenied, "nope")
-	resp, err := interceptor(
-		t.Context(),
-		"the-request",
-		&grpc.UnaryServerInfo{FullMethod: "/the.Service/TheMethod"},
-		func(context.Context, any) (any, error) { return nil, handlerErr },
-	)
 
-	require.ErrorIs(t, err, handlerErr)
-	require.Nil(t, resp)
+	for _, tc := range []struct {
+		name string
+		resp any
+		err  error
+		code codes.Code
+	}{
+		{"ok", "the-response", nil, codes.OK},
+		{"handler error", nil, handlerErr, codes.PermissionDenied},
+	} {
+		r.Reset()
+		resp, err := UnaryServerInterceptor(logger)(
+			t.Context(),
+			"the-request",
+			&grpc.UnaryServerInfo{FullMethod: "/the.Service/TheMethod"},
+			func(context.Context, any) (any, error) { return tc.resp, tc.err },
+		)
 
-	messages := logMessages(logs)
-	require.Contains(t, messages, "received unary request")
-	require.NotContains(t, messages, "sending unary response", "no response is logged when the handler fails")
-
-	completed := entryNamed(t, logs, "unary call completed")
-	require.Equal(t, codes.PermissionDenied.String(), completed.ContextMap()["grpc.code"])
+		assert.Equal(t, tc.resp, resp, tc.name)
+		assert.Equal(t, tc.err, err, tc.name) //nolint:testifylint // the handler's error is returned as is
+		entries := r.Entries()
+		require.Len(t, entries, 1, tc.name)
+		assert.Contains(t, entries[0], " DEBU ", tc.name)
+		assert.Contains(t, entries[0], "unary call completed", tc.name)
+		assert.Contains(t, entries[0], "grpc.service=the.Service grpc.method=TheMethod", tc.name)
+		assert.Contains(t, entries[0], "grpc.code="+tc.code.String(), tc.name)
+		assert.Contains(t, entries[0], "grpc.call_duration=", tc.name)
+	}
+	assert.Contains(t, r.Entries()[0], `error="rpc error: code = PermissionDenied desc = nope"`)
 }
 
-// TestUnaryServerInterceptorLevels checks the configured levels are honoured:
-// raising the level above what the logger records suppresses the entries.
-func TestUnaryServerInterceptorLevels(t *testing.T) {
-	t.Parallel()
-
-	core, logs := observer.New(zapcore.ErrorLevel)
-	interceptor := UnaryServerInterceptor(
-		zap.New(core),
-		WithLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.DebugLevel })),
-		WithPayloadLeveler(LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.DebugLevel })),
-	)
-
-	_, err := interceptor(
-		t.Context(),
-		"req",
-		&grpc.UnaryServerInfo{FullMethod: "/svc/M"},
-		func(context.Context, any) (any, error) { return "resp", nil },
-	)
-
-	require.NoError(t, err)
-	require.Zero(t, logs.Len(), "entries below the logger's level are dropped")
-}
-
-// TestStreamServerInterceptor covers the successful path and checks the handler
-// receives a stream whose context carries the fields.
+// TestStreamServerInterceptor checks the handler gets the original stream, and one Debug
+// line records the call; a non-status error is reported as Unknown.
 func TestStreamServerInterceptor(t *testing.T) {
 	t.Parallel()
-
-	logger, logs := observedLogger()
-	interceptor := StreamServerInterceptor(logger)
-
+	logger, r := logging.NewTestLogger(t)
 	stream := &fakeServerStream{ctx: t.Context()}
+	handlerErr := errors.New("stream failed")
 
-	var handlerStream grpc.ServerStream
-	err := interceptor(
+	var got grpc.ServerStream
+	err := StreamServerInterceptor(logger)(
 		"the-service",
 		stream,
 		&grpc.StreamServerInfo{FullMethod: "/the.Service/TheMethod"},
 		func(_ any, s grpc.ServerStream) error {
-			handlerStream = s
-
-			return nil
+			got = s
+			return handlerErr
 		},
-	)
-
-	require.NoError(t, err)
-	require.NotNil(t, handlerStream)
-
-	stored, ok := handlerStream.Context().Value(fieldKey).([]zapcore.Field)
-	require.True(t, ok, "the wrapped stream's context carries the fields")
-	require.NotEmpty(t, stored)
-
-	completed := entryNamed(t, logs, "streaming call completed")
-	require.Equal(t, codes.OK.String(), completed.ContextMap()["grpc.code"])
-}
-
-// TestStreamServerInterceptorHandlerError checks a handler failure propagates
-// and its status code is recorded.
-func TestStreamServerInterceptorHandlerError(t *testing.T) {
-	t.Parallel()
-
-	logger, logs := observedLogger()
-	interceptor := StreamServerInterceptor(logger)
-
-	handlerErr := errors.New("stream failed")
-	err := interceptor(
-		"the-service",
-		&fakeServerStream{ctx: t.Context()},
-		&grpc.StreamServerInfo{FullMethod: "/the.Service/TheMethod"},
-		func(any, grpc.ServerStream) error { return handlerErr },
 	)
 
 	require.ErrorIs(t, err, handlerErr)
-
-	completed := entryNamed(t, logs, "streaming call completed")
-	require.Equal(t, codes.Unknown.String(), completed.ContextMap()["grpc.code"],
-		"a non-status error is reported as Unknown")
+	assert.Same(t, stream, got)
+	entries := r.Entries()
+	require.Len(t, entries, 1)
+	assert.Contains(t, entries[0], " DEBU ")
+	assert.Contains(t, entries[0], "streaming call completed")
+	assert.Contains(t, entries[0], "grpc.service=the.Service grpc.method=TheMethod")
+	assert.Contains(t, entries[0], "grpc.code=Unknown")
+	assert.Contains(t, entries[0], `error="stream failed"`)
 }
 
-// TestServerStreamContext checks the wrapper returns the context it was built
-// with rather than the underlying stream's.
-func TestServerStreamContext(t *testing.T) {
-	t.Parallel()
+// TestInterceptorsNothingAtInfo checks that nothing is logged when Debug is off.
+func TestInterceptorsNothingAtInfo(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
+	var buf bytes.Buffer
+	require.NoError(t, logging.Init(logging.Config{LogSpec: "info", Writer: &buf}))
+	t.Cleanup(func() { require.NoError(t, logging.Init(logging.Config{Writer: os.Stderr})) })
+	logger := logging.MustGetLogger()
 
-	type ctxKey struct{}
-	wrapped := context.WithValue(t.Context(), ctxKey{}, "value")
+	_, err := UnaryServerInterceptor(logger)(t.Context(), "req", &grpc.UnaryServerInfo{FullMethod: "/svc/M"},
+		func(context.Context, any) (any, error) { return "resp", nil })
+	require.NoError(t, err)
+	err = StreamServerInterceptor(logger)("svc", &fakeServerStream{ctx: t.Context()}, &grpc.StreamServerInfo{FullMethod: "/svc/M"},
+		func(any, grpc.ServerStream) error { return nil })
+	require.NoError(t, err)
 
-	ss := &serverStream{
-		ServerStream: &fakeServerStream{ctx: t.Context()},
-		context:      wrapped,
-	}
-
-	require.Equal(t, "value", ss.Context().Value(ctxKey{}))
+	assert.Empty(t, buf.String())
 }
 
-// TestServerStreamSendMsg checks the message is logged and forwarded, and that
-// an error from the underlying stream propagates.
-func TestServerStreamSendMsg(t *testing.T) {
+// TestCallFields covers the optional fields: a malformed method name, a deadline, and the
+// peer address and TLS client certificate subject.
+func TestCallFields(t *testing.T) {
 	t.Parallel()
-
-	logger, logs := observedLogger()
-	inner := &fakeServerStream{}
-	ss := &serverStream{
-		ServerStream:  inner,
-		context:       t.Context(),
-		payloadLogger: logger.Named("payload"),
-		payloadLevel:  DefaultPayloadLevel,
-	}
-
-	require.NoError(t, ss.SendMsg("a-message"))
-	require.Equal(t, []any{"a-message"}, inner.sent)
-	require.Contains(t, logMessages(logs), "sending stream message")
-
-	t.Run("a failed send is not logged", func(t *testing.T) {
-		t.Parallel()
-
-		logger, logs := observedLogger()
-		inner := &fakeServerStream{sendErr: errors.New("send failed")}
-		ss := &serverStream{
-			ServerStream:  inner,
-			context:       t.Context(),
-			payloadLogger: logger.Named("payload"),
-			payloadLevel:  DefaultPayloadLevel,
+	fields := func(ctx context.Context, method string) map[any]any {
+		kv := callFields(ctx, method, time.Now(), nil)
+		m := map[any]any{}
+		for i := 0; i < len(kv); i += 2 {
+			m[kv[i]] = kv[i+1]
 		}
+		return m
+	}
 
-		require.ErrorIs(t, ss.SendMsg("another"), inner.sendErr)
-		assert.NotContains(t, logMessages(logs), "sending stream message",
-			"nothing is logged for a message that may never have been sent")
+	plain := fields(t.Context(), "the.Service.TheMethod")
+	assert.NotContains(t, plain, "grpc.service", "a method name without two slashes is not split")
+	assert.NotContains(t, plain, "grpc.request_deadline")
+	assert.NotContains(t, plain, "grpc.peer_address")
+	assert.NotContains(t, plain, "error")
+	assert.Equal(t, "OK", plain["grpc.code"])
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	defer cancel()
+	assert.Contains(t, fields(ctx, "/s/m"), "grpc.request_deadline")
+
+	addr := &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 7051}
+	cert := &x509.Certificate{Subject: pkix.Name{CommonName: "a-client"}}
+	ctx = peer.NewContext(t.Context(), &peer.Peer{
+		Addr:     addr,
+		AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}}},
 	})
-}
-
-// TestServerStreamRecvMsg checks the message is logged after it is received,
-// so what gets logged is what the underlying stream filled in.
-func TestServerStreamRecvMsg(t *testing.T) {
-	t.Parallel()
-
-	logger, logs := observedLogger()
-	inner := &fakeServerStream{
-		recvFill: func(msg any) {
-			if s, ok := msg.(*string); ok {
-				*s = "filled-by-stream"
-			}
-		},
-	}
-	ss := &serverStream{
-		ServerStream:  inner,
-		context:       t.Context(),
-		payloadLogger: logger.Named("payload"),
-		payloadLevel:  DefaultPayloadLevel,
-	}
-
-	var msg string
-	require.NoError(t, ss.RecvMsg(&msg))
-	require.Equal(t, "filled-by-stream", msg)
-	require.Contains(t, logMessages(logs), "received stream message")
-
-	t.Run("a failed receive is not logged", func(t *testing.T) {
-		t.Parallel()
-
-		logger, logs := observedLogger()
-		inner := &fakeServerStream{recvErr: errors.New("recv failed")}
-		ss := &serverStream{
-			ServerStream:  inner,
-			context:       t.Context(),
-			payloadLogger: logger.Named("payload"),
-			payloadLevel:  DefaultPayloadLevel,
-		}
-
-		var msg string
-		require.ErrorIs(t, ss.RecvMsg(&msg), inner.recvErr)
-		assert.Empty(t, msg, "a failed receive leaves the message unpopulated")
-		assert.NotContains(t, logMessages(logs), "received stream message",
-			"nothing is logged when there is no message to log")
-	})
-}
-
-// TestServerStreamPayloadLevelSuppressed checks messages still pass through
-// when the payload level is above what the logger records.
-func TestServerStreamPayloadLevelSuppressed(t *testing.T) {
-	t.Parallel()
-
-	core, logs := observer.New(zapcore.ErrorLevel)
-	inner := &fakeServerStream{}
-	ss := &serverStream{
-		ServerStream:  inner,
-		context:       t.Context(),
-		payloadLogger: zap.New(core).Named("payload"),
-		payloadLevel:  zapcore.DebugLevel,
-	}
-
-	require.NoError(t, ss.SendMsg("a-message"))
-	require.Equal(t, []any{"a-message"}, inner.sent, "the message is still sent")
-	require.Zero(t, logs.Len())
-}
-
-// fieldMap reduces fields to a name/value map for assertions.
-func fieldMap(fields []zapcore.Field) map[string]any {
-	enc := zapcore.NewMapObjectEncoder()
-	for _, f := range fields {
-		f.AddTo(enc)
-	}
-
-	return enc.Fields
-}
-
-// logMessages returns the message of every recorded entry.
-func logMessages(logs *observer.ObservedLogs) []string {
-	messages := make([]string, 0, logs.Len())
-	for _, e := range logs.All() {
-		messages = append(messages, e.Message)
-	}
-
-	return messages
-}
-
-// entryNamed returns the single entry with the given message.
-func entryNamed(t *testing.T, logs *observer.ObservedLogs, message string) observer.LoggedEntry {
-	t.Helper()
-
-	found := logs.FilterMessage(message).All()
-	require.Len(t, found, 1, "expected exactly one %q entry", message)
-
-	return found[0]
+	withPeer := fields(ctx, "/s/m")
+	assert.Equal(t, addr.String(), withPeer["grpc.peer_address"])
+	assert.Equal(t, cert.Subject.String(), withPeer["grpc.peer_subject"])
 }

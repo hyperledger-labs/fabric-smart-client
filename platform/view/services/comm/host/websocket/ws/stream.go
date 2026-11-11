@@ -13,7 +13,6 @@ import (
 	"time"
 
 	gwebsocket "github.com/gorilla/websocket"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -133,7 +132,7 @@ func (s *stream) readMessages(ctx context.Context) {
 				s.deliver(streamEOF)
 				return
 			}
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
+			if logger.IsEnabledFor(logging.DebugLevel) {
 				logger.Debugf("Read message of length [%d] on [%s]", len(msg), s.Hash())
 			}
 			s.deliver(result{value: msg, err: err})

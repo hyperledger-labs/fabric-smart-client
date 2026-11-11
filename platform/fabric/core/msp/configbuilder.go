@@ -100,7 +100,7 @@ func getPemMaterialFromDir(dir string) ([][]byte, error) {
 
 		f, err := os.Stat(fullName)
 		if err != nil {
-			mspLogger.Warningf("Failed to stat %s: %s", fullName, err)
+			mspLogger.Warnf("Failed to stat %s: %s", fullName, err)
 			continue
 		}
 		if f.IsDir() {
@@ -111,7 +111,7 @@ func getPemMaterialFromDir(dir string) ([][]byte, error) {
 
 		item, err := readPemFile(fullName)
 		if err != nil {
-			mspLogger.Warningf("Failed reading file %s: %s", fullName, err)
+			mspLogger.Warnf("Failed reading file %s: %s", fullName, err)
 			continue
 		}
 

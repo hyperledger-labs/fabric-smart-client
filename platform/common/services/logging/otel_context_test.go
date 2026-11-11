@@ -70,7 +70,7 @@ func TestContextMethods_EnabledLevelAttachesFields(t *testing.T) { //nolint:para
 		t.Run(m.name, func(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 			t.Cleanup(resetContextLogFields)
 			key := ctxKey{"enabled"}
-			Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.enabled"}}})
+			require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.enabled"}}}))
 
 			logger, observed := levelObservedLogger(zapcore.DebugLevel)
 			m.call(logger, context.WithValue(t.Context(), key, "some-value"))
@@ -93,7 +93,7 @@ func TestContextMethods_DisabledLevelSkipsExtraction(t *testing.T) { //nolint:pa
 		t.Run(m.name, func(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 			t.Cleanup(resetContextLogFields)
 			key := ctxKey{"disabled"}
-			Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.disabled"}}})
+			require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.disabled"}}}))
 
 			logger, observed := levelObservedLogger(m.level + 1)
 			m.call(logger, context.WithValue(t.Context(), key, "some-value"))
@@ -109,7 +109,7 @@ func TestContextMethods_NoRegisteredFields(t *testing.T) { //nolint:paralleltest
 	for _, m := range contextMethods() { //nolint:paralleltest // mutates the shared global context-field registry
 		t.Run(m.name, func(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 			t.Cleanup(resetContextLogFields)
-			Init(Config{})
+			require.NoError(t, Init(Config{}))
 
 			logger, observed := levelObservedLogger(zapcore.DebugLevel)
 			m.call(logger, t.Context())
@@ -126,7 +126,7 @@ func TestContextMethods_NoRegisteredFields(t *testing.T) { //nolint:paralleltest
 func TestAppendContextLogFields_LeavesCallerSliceUnchanged(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"append"}
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.append"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.append"}}}))
 
 	original := []any{"k", "v"}
 	ctx := context.WithValue(t.Context(), key, "some-value")
@@ -142,18 +142,9 @@ func TestAppendContextLogFields_LeavesCallerSliceUnchanged(t *testing.T) { //nol
 // is empty: the caller's slice is handed straight back.
 func TestAppendContextLogFields_NoRegisteredFields(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
-	Init(Config{})
+	require.NoError(t, Init(Config{}))
 
 	original := []any{"k", "v"}
 	assert.Equal(t, original, appendContextLogFields(t.Context(), original))
 	assert.Equal(t, original, appendContextLogFields(nil, original)) //nolint:staticcheck // nil context is the case under test
-}
-
-// TestContextLogFieldArgs_NoRegisteredFields covers the early return when nothing is
-// registered, which the existing nil-context and absent-key tests do not reach.
-func TestContextLogFieldArgs_NoRegisteredFields(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
-	t.Cleanup(resetContextLogFields)
-	Init(Config{})
-
-	assert.Nil(t, contextLogFieldArgs(t.Context()))
 }

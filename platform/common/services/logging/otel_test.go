@@ -8,6 +8,7 @@ package logging
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -36,12 +37,12 @@ func recordingSpanCtx(t *testing.T) (ctx context.Context, ended func() tracetest
 
 func otelTestLogger(t *testing.T, lvl zapcore.Level, sanitize bool) (Logger, *observer.ObservedLogs) {
 	t.Helper()
-	t.Cleanup(func() { Init(Config{}) })
+	t.Cleanup(func() { require.NoError(t, Init(Config{Writer: os.Stderr})) })
 	// Build the logger before Init. Package-level loggers are created the same way,
 	// and sanitize is read when the span event is recorded.
 	core, observed := observer.New(lvl)
 	logger := newLogger(zap.New(core).Named("my.logger"))
-	Init(Config{OtelSanitize: sanitize})
+	require.NoError(t, Init(Config{OtelSanitize: sanitize}))
 	return logger, observed
 }
 
@@ -104,7 +105,7 @@ func TestSpanEvent_SanitizedWhenConfigured(t *testing.T) { //nolint:paralleltest
 
 	span := ended()
 	require.Len(t, span.Events, 1)
-	require.Equal(t, FilterPrintableWithMarker("ok\x00bad"), span.Events[0].Name)
+	require.Equal(t, filterPrintableWithMarker("ok\x00bad"), span.Events[0].Name)
 	require.NotContains(t, span.Events[0].Name, "\x00")
 }
 
@@ -119,14 +120,14 @@ func TestSpanEvent_UnsanitizedWhenDisabledAfterCreate(t *testing.T) { //nolint:p
 }
 
 func TestSpanEvent_SanitizeFollowsLaterChanges(t *testing.T) { //nolint:paralleltest // mutates the shared global config
-	t.Cleanup(func() { Init(Config{}) })
+	t.Cleanup(func() { require.NoError(t, Init(Config{Writer: os.Stderr})) })
 	core, _ := observer.New(zapcore.InfoLevel)
 	logger := newLogger(zap.New(core))
 	ctx, ended := recordingSpanCtx(t)
 
-	Init(Config{OtelSanitize: true})
+	require.NoError(t, Init(Config{OtelSanitize: true}))
 	logger.InfowContext(ctx, "a\x00b")
-	Init(Config{OtelSanitize: false})
+	require.NoError(t, Init(Config{OtelSanitize: false}))
 	logger.InfowContext(ctx, "a\x00b")
 
 	span := ended()

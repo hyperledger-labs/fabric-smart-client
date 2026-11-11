@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -708,7 +707,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		return nil, errors.Wrapf(err, "unmarshalling tx [txID=%s]", txID)
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		jsonTx, _ := json.Marshal(&tx)
 		logger.Debugf("endorse tx [%s]", string(jsonTx))
 	}

@@ -7,86 +7,88 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
+	"cmp"
 	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
+// Config configures the logging of the process; see [Init].
 type Config struct {
-	// Format is the log record format specifier for the Logging instance. If the
-	// spec is the string "json", log records will be formatted as JSON. Any
-	// other string will be provided to the FormatEncoder. Please see
-	// fabenc.ParseFormat for details on the supported verbs.
-	//
-	// If Format is not provided, a default format that provides basic information will
-	// be used.
+	// Format is the log line format, logging.format in core.yaml. "json" writes JSON
+	// lines; any other value is a pattern of verbs such as %{time} and %{message}, as
+	// in Fabric. Empty means Fabric's default pattern.
 	Format string
-	// LogSpec determines the log levels that are enabled for the logging system. The
-	// spec must be in a format that can be processed by ActivateSpec.
-	//
-	// If LogSpec is not provided, loggers will be enabled at the INFO level.
+	// LogSpec sets the level of each logger, logging.spec in core.yaml, in the form
+	// [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]. Empty
+	// means the FABRIC_LOGGING_SPEC environment variable, or info if that is unset.
 	LogSpec string
-	// Writer is the sink for encoded and formatted log records.
-	//
-	// If a Writer is not provided, os.Stderr will be used as the log sink.
+	// Writer receives the formatted log lines. Nil keeps the current writer, which is
+	// os.Stderr until a call to Init sets another one.
 	Writer io.Writer
 
-	// OtelSanitize when set to true ensures that the strings representing events are first sanitized.
-	// Sanitization means that any non-printable character is removed.
-	// This protects the traces from undesired behaviours like missing tracing.
+	// OtelSanitize, logging.otel.sanitize in core.yaml, removes non-printable characters
+	// from the messages recorded as span events, and prefixes such a message with
+	// "[nonprintable] ". Non-printable characters can break a tracing backend.
 	OtelSanitize bool
 
-	// ContextLogFields lists context keys to extract as zap fields on every context-aware
-	// log call (e.g. InfowContext, ErrorfContext). Merged into the global registry; see
-	// RegisterContextLogField.
+	// ContextLogFields lists context keys to add as fields to every line written by a
+	// context-aware method; see [RegisterContextLogField].
 	ContextLogFields []ContextLogField
 }
 
-// ContextLogField maps a context key to the zap field name used when the value is found
-// in the context and added to a log line.
+// ContextLogField maps a context key to the field name its value is logged under.
 type ContextLogField struct {
-	// Key is looked up via ctx.Value(Key).
+	// Key is looked up with ctx.Value(Key).
 	Key any
-	// Name is the zap field name the value is logged under.
+	// Name is the field name the value is logged under.
 	Name string
 }
 
-var (
-	config      = Config{}
-	configMutex = sync.RWMutex{}
-)
+var otelSanitizeEnabled atomic.Bool
 
-// Init (re-)initializes the logging system. Like the rest of Config, it is idempotent:
-// calling it again fully replaces the previous Format/LogSpec/OtelSanitize/Writer, and
-// merges ContextLogFields into the global registry with later calls overwriting the key
-// registered under a given Name. This differs from RegisterContextLogField, which panics
-// on a duplicate Name: Init models "(re-)apply this whole configuration", where a repeated
-// Name is expected on every call after the first, whereas RegisterContextLogField models a
-// one-off, imperative registration, where a duplicate Name is almost always a bug.
-func Init(c Config) {
-	flogging.Init(flogging.Config{
-		Format:  c.Format,
-		LogSpec: c.LogSpec,
-		Writer:  c.Writer,
-	})
+// Init (re)configures logging for the whole process, including loggers created before
+// the call. Format, LogSpec and OtelSanitize replace the earlier settings, and an empty
+// Format or LogSpec means its default, not the earlier value: to change only the writer,
+// pass the whole configuration again. A nil Writer keeps the current writer.
+// ContextLogFields are added to the registered ones, a field with a name already
+// registered replacing its key.
+//
+// Init fails if Format or LogSpec is invalid, and then changes nothing.
+func Init(c Config) error {
+	spec, specSource := c.LogSpec, "logging.spec"
+	if spec == "" {
+		spec, specSource = cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), "info"), "FABRIC_LOGGING_SPEC"
+	}
+	// ActivateSpec validates before it changes anything; checking on a scratch copy
+	// first means an invalid spec doesn't leave a new format behind.
+	if err := (&flogging.LoggerLevels{}).ActivateSpec(spec); err != nil {
+		return errors.Wrapf(err, "invalid %s", specSource)
+	}
+	if err := flogging.Global.SetFormat(c.Format); err != nil {
+		return errors.Wrapf(err, "invalid logging.format [%s]", c.Format)
+	}
+	if err := flogging.Global.ActivateSpec(spec); err != nil {
+		return errors.Wrapf(err, "invalid %s", specSource)
+	}
+	if c.Writer != nil {
+		flogging.Global.SetWriter(c.Writer)
+	}
 
-	// set local configurations
-	configMutex.Lock()
-	config.OtelSanitize = c.OtelSanitize
-	configMutex.Unlock()
+	otelSanitizeEnabled.Store(c.OtelSanitize)
 
 	for _, f := range c.ContextLogFields {
 		doRegisterContextLogField(f.Name, f.Key, true)
 	}
+	return nil
 }
 
-func OtelSanitize() bool {
-	configMutex.RLock()
-	defer configMutex.RUnlock()
-	return config.OtelSanitize
-}
+func otelSanitize() bool { return otelSanitizeEnabled.Load() }
 
 var (
 	replacersMutex sync.RWMutex
@@ -95,29 +97,21 @@ var (
 	}
 )
 
-// RegisterReplacer registers a new replacer for the logger name
+// RegisterReplacer makes [GetLogger] replace s with replaceWith in the names of loggers
+// created after the call. It panics if s is already registered.
 func RegisterReplacer(s, replaceWith string) {
 	replacersMutex.Lock()
 	defer replacersMutex.Unlock()
 
-	_, ok := replacers[s]
-	if ok {
+	if _, ok := replacers[s]; ok {
 		panic("replacer already exists")
 	}
-
 	replacers[s] = replaceWith
-}
-
-// Replacers returns the current replacers
-func Replacers() map[string]string {
-	replacersMutex.RLock()
-	defer replacersMutex.RUnlock()
-	return replacers
 }
 
 var (
 	// ctxFieldsMutex guards registration (rare, startup-time) writes to ctxFieldNames and
-	// ctxLogFields below. The hot read path, ContextLogFields, never takes it: it loads the
+	// ctxLogFields below. The hot read path, contextLogFields, never takes it: it loads the
 	// immutable snapshot published in ctxFieldsSnap instead, so every context-aware log call
 	// avoids both lock contention and a per-call copy of the registry.
 	ctxFieldsMutex sync.Mutex
@@ -126,9 +120,9 @@ var (
 	ctxFieldsSnap  atomic.Pointer[[]ContextLogField]
 )
 
-// RegisterContextLogField registers a context key to extract as a zap field, under the
-// given field name, on every context-aware log call. Panics if name is already
-// registered.
+// RegisterContextLogField makes every context-aware log call look up key in its context
+// and, if present, log the value under name. It panics if name is already registered;
+// [Init] instead replaces the key of a registered name.
 func RegisterContextLogField(name string, key any) {
 	doRegisterContextLogField(name, key, false)
 }
@@ -154,20 +148,17 @@ func doRegisterContextLogField(name string, key any, overwrite bool) {
 	ctxFieldsSnap.Store(&fields)
 }
 
-// ContextLogFields returns the current context log field registrations, in
-// registration order. The returned slice is an immutable snapshot and must not be
-// mutated by the caller.
-func ContextLogFields() []ContextLogField {
+// contextLogFields returns the registered context log fields, in registration order. The
+// slice is an immutable snapshot and must not be changed.
+func contextLogFields() []ContextLogField {
 	if p := ctxFieldsSnap.Load(); p != nil {
 		return *p
 	}
 	return nil
 }
 
-// resetContextLogFields clears the global context-log-field registry. Test-only: lets
-// each test start from an empty registry (e.g. via t.Cleanup) instead of relying on
-// globally-unique field names to avoid colliding with registrations left behind by
-// other tests.
+// resetContextLogFields clears the context log field registry, so each test can start
+// from an empty one.
 //
 //lint:ignore U1000 used for testing
 func resetContextLogFields() {

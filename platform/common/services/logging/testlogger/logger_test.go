@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package testlogger_test
 
 import (
-	"strings"
+	"bytes"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,55 +16,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-func TestMustGetLogger_WithParams(t *testing.T) {
-	t.Parallel()
-	const expectedSuffix = "fsc.platform.common.services.logging.testlogger_test.some.thing"
-	l := logging.MustGetLogger("some", "thing")
-	require.True(t, strings.HasSuffix(l.Zap().Name(), expectedSuffix))
-}
+// TestMustGetLogger checks a logger is named after the package of the caller of
+// MustGetLogger, here an external test package, with its params appended. The %{module}
+// verb prints the logger name.
+func TestMustGetLogger(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
+	var buf bytes.Buffer
+	require.NoError(t, logging.Init(logging.Config{Format: "%{module}", LogSpec: "info", Writer: &buf}))
+	t.Cleanup(func() { require.NoError(t, logging.Init(logging.Config{Writer: os.Stderr})) })
 
-func TestMustGetLogger_WithOutParams(t *testing.T) {
-	t.Parallel()
-	const expectedSuffix = "fsc.platform.common.services.logging.testlogger_test"
-	l := logging.MustGetLogger()
-	require.True(t, strings.HasSuffix(l.Zap().Name(), expectedSuffix))
-}
+	logging.MustGetLogger().Info("x")
+	logging.MustGetLogger("some", "thing").Info("x")
 
-func level1() (string, error) {
-	return level2()
-}
-
-func level2() (string, error) {
-	return level3()
-}
-
-func level3() (string, error) {
-	return level4()
-}
-
-func level4() (string, error) {
-	return logging.GetPackageName()
-}
-
-func TestGetPackageName(t *testing.T) {
-	t.Parallel()
-	const expectedPkg = "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging/testlogger_test"
-	pkg, err := level1()
-	require.NoError(t, err)
-	require.Equal(t, expectedPkg, pkg)
-}
-
-type VersionInfoHandler struct{}
-
-func (*VersionInfoHandler) sendResponseLikeMethod() (string, error) {
-	return level2()
-}
-
-func TestGetPackageName_FromStructMethod(t *testing.T) {
-	t.Parallel()
-	const expectedPkg = "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging/testlogger_test"
-	handler := &VersionInfoHandler{}
-	pkg, err := handler.sendResponseLikeMethod()
-	require.NoError(t, err)
-	require.Equal(t, expectedPkg, pkg)
+	require.Equal(t,
+		"fsc.platform.common.services.logging.testlogger_test\n"+
+			"fsc.platform.common.services.logging.testlogger_test.some.thing\n",
+		buf.String())
 }

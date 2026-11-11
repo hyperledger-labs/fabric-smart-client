@@ -12,9 +12,8 @@ import (
 	"slices"
 	"sync"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -47,7 +46,7 @@ func (s *Sessions) Get(viewID string, party view.Identity) view.Session {
 	defer s.mu.RUnlock()
 	key := lookupKey(viewID, party)
 	session := s.s[key]
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		logger.Debugf("Sessions.Get [%s] found [%t]", key, session != nil)
 	}
 	return session
@@ -82,7 +81,7 @@ func (s *Sessions) Put(viewID string, party view.Identity, session view.Session)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := lookupKey(viewID, party)
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		logger.Debugf("Sessions.Put [%s] found [%t]", key, session != nil)
 	}
 	s.s[key] = session

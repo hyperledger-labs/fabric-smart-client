@@ -206,7 +206,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 	for _, d := range p.drivers {
 		nw, err := d.New(network, network == p.config.defaultName)
 		if err != nil {
-			logger.Warningf("failed to create network [%s]: %s", network, err)
+			logger.Warnf("failed to create network [%s]: %s", network, err)
 			continue
 		}
 		if nw != nil {

@@ -25,7 +25,7 @@ import (
 // TestLargeMessages verifies that the system can handle messages up to the 10MB limit.
 func TestLargeMessages(t *testing.T) {
 	t.Parallel()
-	logging.Init(logging.Config{LogSpec: "error"})
+	require.NoError(t, logging.Init(logging.Config{LogSpec: "error"}))
 	h := &mockHost{}
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func runLargeMessageTest(t *testing.T, p *P2PNode, size int) {
 // TestDroppedMessagesMetricValidation verifies that the DroppedMessages metric
 // correctly tracks messages lost due to buffer saturation.
 func TestDroppedMessagesMetricValidation(t *testing.T) { //nolint:paralleltest
-	logging.Init(logging.Config{LogSpec: "error"})
+	require.NoError(t, logging.Init(logging.Config{LogSpec: "error"}))
 
 	// Create a node with a custom metrics provider to inspect the counter
 	metricsProvider := &mockMetricsProvider{counter: &mockCounter{}}
@@ -143,7 +143,7 @@ func TestDroppedMessagesMetricValidation(t *testing.T) { //nolint:paralleltest
 // TestConcurrentSendAndClose ensures no panics occur when closing a session
 // while multiple goroutines are actively sending.
 func TestConcurrentSendAndClose(t *testing.T) { //nolint:paralleltest
-	logging.Init(logging.Config{LogSpec: "error"})
+	require.NoError(t, logging.Init(logging.Config{LogSpec: "error"}))
 	h := &mockHost{}
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestConcurrentSendAndClose(t *testing.T) { //nolint:paralleltest
 // TestRecipientOversizedRejection verifies that the recipient immediately closes
 // the connection when receiving a length prefix exceeding the 10MB limit.
 func TestRecipientOversizedRejection(t *testing.T) { //nolint:paralleltest
-	logging.Init(logging.Config{LogSpec: "error"})
+	require.NoError(t, logging.Init(logging.Config{LogSpec: "error"}))
 	h := &mockHost{}
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)

@@ -23,7 +23,6 @@ import (
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	"github.com/multiformats/go-multiaddr"
-	"go.uber.org/zap/zapcore"
 
 	fscutils "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -90,7 +89,7 @@ func newLibP2PHost(config libp2pConfig, priv crypto.PrivKey, metrics *metrics) (
 		libp2p.BandwidthReporter(newReporter(metrics)),
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		if err := libp2plogging.SetLogLevel("basichost", "debug"); err != nil {
 			logger.Errorf("failed setting libp2p log level [%s]", err)
 		}
@@ -175,7 +174,7 @@ func (h *host) NewStream(ctx context.Context, info commhost.StreamInfo) (commhos
 		addr := info.RemotePeerAddress
 		if !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
 			logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
+			if logger.IsEnabledFor(logging.DebugLevel) {
 				current := ps.Addrs(ID)
 				for _, m := range current {
 					logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)

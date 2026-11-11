@@ -380,10 +380,12 @@ func testSetup(_ *testing.T) {
 		"error",
 	)
 
-	logging.Init(logging.Config{
+	if err := logging.Init(logging.Config{
 		LogSpec: logSpec,
 		Writer:  os.Stdout,
-	})
+	}); err != nil {
+		panic(err)
+	}
 }
 
 // testClientRun creates a new client, sends ping messages, and asserts in the test goroutine.

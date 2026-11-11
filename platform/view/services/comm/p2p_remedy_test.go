@@ -67,9 +67,9 @@ func (*mockHost) StreamHash(_ host.StreamInfo) host.StreamHash {
 }
 
 func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
-	logging.Init(logging.Config{
+	require.NoError(t, logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
-	})
+	}))
 
 	smallBuffer := 2
 	h := &mockHost{}
@@ -144,9 +144,9 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 }
 
 func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
-	logging.Init(logging.Config{
+	require.NoError(t, logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
-	})
+	}))
 
 	h := &mockHost{}
 	p, err := NewNode(context.Background(), h, &disabled.Provider{})
@@ -233,9 +233,9 @@ func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 }
 
 func TestStreamLeak(t *testing.T) { //nolint:paralleltest
-	logging.Init(logging.Config{
+	require.NoError(t, logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
-	})
+	}))
 
 	h := &mockHost{}
 	p, err := NewNode(context.Background(), h, &disabled.Provider{})

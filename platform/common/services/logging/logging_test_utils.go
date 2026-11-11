@@ -17,19 +17,20 @@ import (
 // *_test_utils.go file rather than a _test.go one because other packages import
 // them; see docs/dev/testing.md.
 
-type (
-	Recorder = floggingtest.Recorder
-	Option   = floggingtest.Option
-)
+// Recorder holds what a logger from [NewTestLogger] wrote.
+type Recorder = floggingtest.Recorder
 
-// NewTestLogger returns a Logger that records what is written to it, so tests
-// can assert on log output. It supports every Logger method, including the
-// *Context ones, and its entries, like those of loggers derived with Named or
-// With, report the caller of the log method.
-func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
+// NewTestLogger returns a Logger that records what is written to it at every level, so
+// tests can assert on log output. Its entries, like those of loggers derived with Named
+// or With, report the caller of the log method.
+func NewTestLogger(tb testing.TB) (Logger, *Recorder) {
 	tb.Helper()
-	l, r := floggingtest.NewTestLogger(tb, options...)
-	// l.Zap() carries the caller skip of the FabricLogger floggingtest built;
-	// remove it, since newLogger adds its own.
-	return newLogger(l.Zap().WithOptions(zap.AddCallerSkip(-1))), r
+	var zl *zap.Logger
+	// The option sees the zap logger floggingtest built, before it is wrapped in a
+	// FabricLogger and its caller skip.
+	_, r := floggingtest.NewTestLogger(tb, func(_ *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
+		zl = l
+		return l
+	})
+	return newLogger(zl.WithOptions(zap.AddCaller())), r
 }

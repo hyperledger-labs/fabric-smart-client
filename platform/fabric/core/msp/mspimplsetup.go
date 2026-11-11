@@ -460,7 +460,7 @@ func (msp *bccspmsp) setupOUs(conf *m.FabricMSPConfig) error {
 		found := false
 		for _, id := range msp.ouIdentifiers[ou.OrganizationalUnitIdentifier] {
 			if bytes.Equal(id, certifiersIdentifier) {
-				mspLogger.Warningf("Duplicate found in ou identifiers [%s, %v]", ou.OrganizationalUnitIdentifier, id)
+				mspLogger.Warnf("Duplicate found in ou identifiers [%s, %v]", ou.OrganizationalUnitIdentifier, id)
 				found = true
 				break
 			}

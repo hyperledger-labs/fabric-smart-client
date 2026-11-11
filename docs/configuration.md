@@ -26,8 +26,13 @@ The platform pages explain settings that need more than a comment:
 ---
 # ------------------- Logging section ---------------------------
 logging:
-  # format is same as fabric [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]
+  # format is "json", or a pattern of %{color}, %{id}, %{level}, %{message}, %{module},
+  # %{shortfunc} and %{time} verbs, as in Fabric
   format: '%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} %{level:.4s}%{color:reset} %{message}'
+  # spec is [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]. A logger
+  # name is the package path with dots for slashes, with github.com.hyperledger-labs.fabric-smart-client
+  # shortened to fsc; a spec entry applies to that name and to the names below it, by whole
+  # dot-separated segments. An invalid spec or format stops the node at startup.
   spec: grpc=error:debug
   otel:
     # sanitize makes sure that the strings sent to open telemetry as events via the logger as printable.

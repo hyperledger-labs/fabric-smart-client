@@ -37,9 +37,11 @@ func TestMain(m *testing.M) {
 	if len(spec) == 0 {
 		spec = "error"
 	}
-	logging.Init(logging.Config{
+	if err := logging.Init(logging.Config{
 		LogSpec: spec,
-	})
+	}); err != nil {
+		panic(err)
+	}
 	os.Exit(m.Run())
 }
 

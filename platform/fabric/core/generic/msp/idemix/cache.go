@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -110,7 +108,7 @@ func (c *IdentityCache) fetchIdentityFromCache(opts *driver.IdentityOptions) (vi
 
 	var start time.Time
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		start = time.Now()
 	}
 

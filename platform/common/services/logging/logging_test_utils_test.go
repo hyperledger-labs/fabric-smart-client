@@ -47,16 +47,6 @@ func TestNewTestLogger_StructuredContextFields(t *testing.T) {
 	require.True(t, strings.HasSuffix(entries[0], "hello k=v"), entries[0])
 }
 
-func TestNewTestLogger_PanicContextMethods(t *testing.T) {
-	t.Parallel()
-	l, r := NewTestLogger(t)
-
-	require.Panics(t, func() { l.PanicfContext(t.Context(), "hello %s", "world") })
-	require.Panics(t, func() { l.PanicwContext(t.Context(), "hello", "k", "v") })
-
-	require.Equal(t, []string{"hello world", "hello"}, r.Messages())
-}
-
 // TestNewTestLogger_Caller checks that entries report the function that called the log
 // method, for plain and *Context calls, on the logger and on loggers derived from it. The
 // recorder's format prints that function's short name as "<name> ->".

@@ -48,7 +48,9 @@ func TestMain(m *testing.M) {
 		log.SetOutput(io.Discard)
 		gologshim.SetDefaultHandler(slog.DiscardHandler)
 	}
-	logging.Init(logging.Config{LogSpec: spec})
+	if err := logging.Init(logging.Config{LogSpec: spec}); err != nil {
+		panic(err)
+	}
 	os.Exit(m.Run())
 }
 

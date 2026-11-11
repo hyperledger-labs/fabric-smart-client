@@ -40,7 +40,7 @@ func findField(fields []zapcore.Field, name string) (zapcore.Field, bool) {
 func TestContextLogFields_ExtractedIntoLogLine(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"present"}
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.present"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.present"}}}))
 
 	logger, observed := newObservedLogger()
 	ctx := context.WithValue(t.Context(), key, "some-value")
@@ -61,7 +61,7 @@ type ContextKeyType string
 func TestContextLogFields_NamedStringKeyType_ExtractedIntoLogLine(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
 	key := ContextKeyType("request-id")
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.request-id"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.request-id"}}}))
 
 	logger, observed := newObservedLogger()
 	ctx := context.WithValue(t.Context(), key, "abc-123")
@@ -78,7 +78,7 @@ func TestContextLogFields_NamedStringKeyType_ExtractedIntoLogLine(t *testing.T) 
 func TestContextLogFields_AbsentKeyNoField(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"absent"}
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.absent"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.absent"}}}))
 
 	logger, observed := newObservedLogger()
 
@@ -90,26 +90,28 @@ func TestContextLogFields_AbsentKeyNoField(t *testing.T) { //nolint:paralleltest
 	require.False(t, ok, "did not expect field %q in %+v", "test.absent", entries[0].Context)
 }
 
-func TestContextLogFieldArgs_NilContextNoPanic(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+func TestContextMethods_NilContextNoPanic(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"nilctx"}
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.nilctx"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.nilctx"}}}))
 
+	logger, observed := newObservedLogger()
 	var nilCtx context.Context
 	require.NotPanics(t, func() {
-		args := contextLogFieldArgs(nilCtx)
-		require.Nil(t, args)
+		logger.InfowContext(nilCtx, "hello")
+		logger.InfofContext(nilCtx, "hello")
 	})
+	require.Len(t, observed.All(), 2)
 }
 
 func TestContextLogFields_OnlyPresentKeysAdded(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
 	presentKey := ctxKey{"multi.present"}
 	absentKey := ctxKey{"multi.absent"}
-	Init(Config{ContextLogFields: []ContextLogField{
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{
 		{Key: presentKey, Name: "test.multi.present"},
 		{Key: absentKey, Name: "test.multi.absent"},
-	}})
+	}}))
 
 	logger, observed := newObservedLogger()
 	ctx := context.WithValue(t.Context(), presentKey, "value")
@@ -135,7 +137,7 @@ func TestContextLogFields_SurviveWithAndNamed(t *testing.T) { //nolint:parallelt
 	base := newLogger(zl)
 	derived := base.Named("child").With("k", "v")
 
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.survive"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.survive"}}}))
 
 	ctx := context.WithValue(t.Context(), key, "still-works")
 	derived.InfowContext(ctx, "hello")
@@ -218,10 +220,14 @@ func TestInit_ContextLogFields_Idempotent(t *testing.T) { //nolint:paralleltest 
 	firstKey := ctxKey{"idempotent.first"}
 	secondKey := ctxKey{"idempotent.second"}
 
+	// Unlike RegisterContextLogField, Init replaces the key of a name already registered.
+	var err1, err2 error
 	require.NotPanics(t, func() {
-		Init(Config{ContextLogFields: []ContextLogField{{Key: firstKey, Name: "test.idempotent"}}})
-		Init(Config{ContextLogFields: []ContextLogField{{Key: secondKey, Name: "test.idempotent"}}})
+		err1 = Init(Config{ContextLogFields: []ContextLogField{{Key: firstKey, Name: "test.idempotent"}}})
+		err2 = Init(Config{ContextLogFields: []ContextLogField{{Key: secondKey, Name: "test.idempotent"}}})
 	})
+	require.NoError(t, err1)
+	require.NoError(t, err2)
 
 	logger, observed := newObservedLogger()
 	ctx := context.WithValue(t.Context(), secondKey, "second-value")
@@ -240,7 +246,7 @@ func TestContextLogFields_SurviveMultipleContextWrapping(t *testing.T) { //nolin
 	// top by unrelated code between where the value was set and where the log call happens.
 	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"wrapped"}
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.wrapped"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.wrapped"}}}))
 
 	logger, observed := newObservedLogger()
 
@@ -264,7 +270,7 @@ func TestContextLogFields_SurviveMultipleContextWrapping(t *testing.T) { //nolin
 func TestContextLogFields_CallerAccuracy(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"caller"}
-	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.caller"}}})
+	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.caller"}}}))
 
 	logger, observed := newObservedLogger()
 	ctx := context.WithValue(t.Context(), key, "value")

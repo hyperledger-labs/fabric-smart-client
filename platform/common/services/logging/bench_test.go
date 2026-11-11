@@ -183,9 +183,8 @@ func BenchmarkInfowContext_Enabled_With30Fields(b *testing.B) {
 	}
 }
 
-// Baseline: raw zap.SugaredLogger with no ctxFieldLogger decorator at all, to isolate the
-// decorator's own overhead (context-field extraction plus the span-event mirror) from the
-// cost of the zap call underneath it.
+// Baseline: a raw zap.SugaredLogger, to isolate the overhead of Logger (level check,
+// context-field extraction and span event) from the cost of the zap call underneath it.
 func BenchmarkInfow_RawZap_NoDecorator(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
 	sugared := zap.New(core).Sugar()
