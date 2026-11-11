@@ -11,8 +11,8 @@
 #
 #   prepare  generate the release files on release/vX.Y.Z, staged
 #   pr       commit them, push the branch, open or update the release PR
-#   publish  check the merged release commit, tag it, push the tags and create the
-#            GitHub release
+#   publish  check the merged release commit, tag it, push the tags, create the
+#            GitHub release and, for a minor, the backport labels
 #
 # Settings, all optional:
 #   RELEASE_REPO  the GitHub repository to release in, owner/name; by default the
@@ -39,6 +39,7 @@ REPO_URL=${RELEASE_REPO_URL:-github\.com[:/]${REPO}(\.git)?$}
 # come from there.
 MAIN_URL=${RELEASE_MAIN_URL:-https://github.com/${MAIN_REPO}.git}
 RELEASES=docs/upgrade/releases
+MERGIFY=.mergify.yml
 FIXTURES=platform/fabric/services/db/driver/sql/testdata
 SEMVER='^v[0-9]+\.[0-9]+\.[0-9]+$'
 
@@ -193,11 +194,13 @@ prepare() {
     confirm "Prepare $version (after $previous) on release/$version from $REMOTE/$b?"
 
     git switch -q -C "release/$version" "$REMOTE/$b"
-    say "release data and notes"
+    say "release data, backport rules and notes"
     report
     go run ./scripts/release data --version "$version" --report "$TMP/report.json" > "$RELEASES/$version.json"
+    # A minor changes the supported minors, and so the backport rules; a patch leaves them.
+    [[ "$b" != main ]] || go run ./scripts/release mergify > "$MERGIFY"
     notes "$version" "$RELEASES/$version.md" "$(git rev-parse HEAD)"
-    git add "$RELEASES/$version.json" "$RELEASES/$version.md"
+    git add "$RELEASES/$version.json" "$RELEASES/$version.md" "$MERGIFY"
     if [[ "$b" == main ]]; then
         say "storage fixtures"
         make pull-images-database >/dev/null
@@ -220,9 +223,10 @@ pr() {
     b=$(base "$version")
     [[ -z "$(git status --porcelain | grep -v '^[AM] ')" ]] ||
         die "the tree has changes that are not staged; the release PR adds only what make release-prepare staged"
-    # The release files: the data and the notes, and for a minor its storage fixtures.
+    # The release files: the data and the notes, and for a minor its storage fixtures and
+    # backport rules.
     local other files="${RELEASES}/${version}\.(json|md)"
-    [[ "$b" != main ]] || files+="|${FIXTURES}/${version}/.+"
+    [[ "$b" != main ]] || files+="|${FIXTURES}/${version}/.+|\.mergify\.yml"
     other=$(git diff --cached --name-only | grep -v -E "^(${files})$" || true)
     [[ -z "$other" ]] || die "staged files that are not part of the release: $other"
     if git diff --cached --quiet; then
@@ -303,7 +307,7 @@ publish() {
         [[ "$base" == "$(git rev-parse HEAD)" ]] && say "dry run: tagging needs the release commit" ||
             ./scripts/tag-release.sh --dry "$version"
         echo "dry run, would run: ./scripts/tag-release.sh --push=$REMOTE $version"
-        release "$version" "$RELEASES/$version.md"
+        release "$version" "$RELEASES/$version.md" "$MERGIFY"
         return
     fi
     check_clean
@@ -315,13 +319,15 @@ publish() {
         # the latest release with a data file on $REMOTE and a tag in this repository.
         # A patch can be such a release after a newer minor, so VERSION picks it.
         version=${VERSION:-$(released | tail -n1)}
-        released | grep -qxF -- "$version" || die "no release ${VERSION:-of $REPO} on $REMOTE; merge the release PR first"
+        # Not grep -q: it would stop reading, and pipefail would fail released.
+        released | grep -xF -- "$version" >/dev/null || die "no release ${VERSION:-of $REPO} on $REMOTE; merge the release PR first"
         gh release view "$version" -R "$REPO" >/dev/null 2>&1 &&
             die "no untagged release on $REMOTE; merge the release PR first, or set VERSION to a release whose tags are pushed but which has no GitHub release"
         say "$version is tagged but has no GitHub release"
         confirm "Create the GitHub release of $version?"
         git show "$version:$RELEASES/$version.md" > "$TMP/notes.md"
-        release "$version" "$TMP/notes.md"
+        [[ "$version" != *.0 ]] || git show "$version:$MERGIFY" > "$TMP/mergify.yml"
+        release "$version" "$TMP/notes.md" "$TMP/mergify.yml"
         return
     fi
 
@@ -356,18 +362,44 @@ publish() {
             git tag -d $(git tag --list "$version" "*/$version") >/dev/null
         fi
     fi
-    release "$version" "$RELEASES/$version.md"
+    release "$version" "$RELEASES/$version.md" "$MERGIFY"
     echo "The checkout is on the release commit, detached; switch back with: git switch main"
 }
 
-# release creates the GitHub release $1 with notes $2. A patch is never marked Latest: a
-# newer minor may be out.
+# release creates, for a minor, the backport labels of Mergify configuration $3, and then the
+# GitHub release $1 with notes $2: a run stopped before the GitHub release is run again. A
+# patch is never marked Latest: a newer minor may be out.
 release() {
     local latest=true
     [[ "$1" =~ \.0$ ]] || latest=false
+    [[ "$latest" == false ]] || backport_labels "$1" "$3"
     write gh release create "$1" -R "$REPO" --verify-tag --title "$1" --notes-file "$2" --latest="$latest"
     [[ "$REPO" == "$MAIN_REPO" ]] && echo "Announce the release in #fabric-smart-client on the LFDT Discord."
     return 0
+}
+
+# backport_labels creates the label backport/X.Y of every rule in Mergify configuration $2
+# of minor $1 and deletes every other backport/X.Y label, so only a supported minor can be
+# picked. A label exists before its release branch; Mergify fails a backport to a branch that
+# does not exist. An older minor than the latest released one changes no label.
+backport_labels() {
+    local want have create="" drop="" l
+    if [[ "$( (echo "$1"; released | grep '\.0$') | sort -V | tail -n1)" != "$1" ]]; then
+        say "a minor newer than $1 is released; the backport labels stay"
+        return 0
+    fi
+    want=$(sed -n 's|^ *- label=\(backport/[0-9]*\.[0-9]*\)$|\1|p' "$2")
+    have=$(gh label list -R "$REPO" --search backport/ --limit 100 --json name \
+        --jq '.[].name | select(test("^backport/[0-9]+\\.[0-9]+$"))')
+    for l in $want; do grep -qxF -- "$l" <<<"$have" || create+=" $l"; done
+    for l in $have; do grep -qxF -- "$l" <<<"$want" || drop+=" $l"; done
+    [[ -n "$create$drop" ]] || return 0
+    confirm "In $REPO, create the labels:${create:- none}; delete:${drop:- none}?"
+    for l in $create; do
+        write gh label create "$l" -R "$REPO" \
+            --description "Backport to release-${l#backport/} once merged to main"
+    done
+    for l in $drop; do write gh label delete "$l" -R "$REPO" --yes; done
 }
 
 # tests_passed fails unless the Tests workflow passed on commit $1 itself: tests.yml runs on

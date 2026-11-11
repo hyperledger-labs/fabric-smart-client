@@ -445,3 +445,55 @@ func TestRefnodeReportsEveryGoldenStore(t *testing.T) {
 		}
 	}
 }
+
+// TestMergify checks the backport rules of each release: the two highest minors from v0.29.0
+// on, whatever the patches.
+func TestMergify(t *testing.T) {
+	t.Parallel()
+	dir := releaseRepo(t)
+	rules := func() []string {
+		t.Helper()
+		out, err := mergify(dir)
+		require.NoError(t, err)
+		var got []string
+		for line := range strings.Lines(out) {
+			if b, ok := strings.CutPrefix(strings.TrimSpace(line), "branches: "); ok {
+				got = append(got, b)
+			}
+		}
+		return got
+	}
+	require.Empty(t, rules(), "v0.28.0 was cut before patch releases")
+	for _, tc := range []struct {
+		version string
+		want    []string
+	}{
+		{"v0.29.0", []string{"[release-0.29]"}},
+		{"v0.29.1", []string{"[release-0.29]"}},
+		{"v0.30.0", []string{"[release-0.30]", "[release-0.29]"}},
+		{"v0.31.0", []string{"[release-0.31]", "[release-0.30]"}},
+	} {
+		writeFiles(t, dir, map[string]string{releasesDir + "/" + tc.version + ".json": "{}\n"})
+		require.Equal(t, tc.want, rules(), tc.version)
+	}
+	out, err := mergify(dir)
+	require.NoError(t, err)
+	golden(t, "mergify-v0.31.0.yml", []byte(out))
+}
+
+func TestCheckMergify(t *testing.T) {
+	t.Parallel()
+	dir := releaseRepo(t)
+	require.ErrorContains(t, checkMergify(dir), "failed reading .mergify.yml")
+	want, err := mergify(dir)
+	require.NoError(t, err)
+	writeFiles(t, dir, map[string]string{mergifyFile: want})
+	require.NoError(t, checkMergify(dir))
+
+	// A new minor's release data needs its rule.
+	writeFiles(t, dir, map[string]string{releasesDir + "/v0.29.0.json": "{}\n"})
+	require.ErrorContains(t, checkMergify(dir), "came without its rule")
+
+	writeFiles(t, dir, map[string]string{mergifyFile: want + "  - name: a hand-written rule\n"})
+	require.ErrorContains(t, checkMergify(dir), "it was edited")
+}

@@ -2,7 +2,8 @@ name: Release check
 
 # Fails when a release data file in docs/upgrade/releases differs from what
 # `scripts/release data` generates from the PR's tree, or a released one differs
-# from the file at its tag (`scripts/release check`), and when the notes of an
+# from the file at its tag, or .mergify.yml differs from the backport rules
+# `scripts/release mergify` generates (`scripts/release check`), and when the notes of an
 # untagged release differ from what `scripts/release notes` generates with the
 # changelog GitHub generates now for the PR's base. Only the notes a PR changes are
 # checked: a release merged to main stays untagged until make release-publish, and
@@ -13,6 +14,7 @@ on:
     branches: [main, 'release-*']
     paths:
       - '.github/workflows/release-check.yml'
+      - '.mergify.yml'
       - 'docs/upgrade/releases/**'
       - 'scripts/release.sh'
       - 'scripts/release/**'
@@ -40,7 +42,7 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - name: Check the release data
+      - name: Check the release data and the backport rules
         run: |
           go run ./scripts/release/refnode version --json > "$RUNNER_TEMP/report.json"
           go run ./scripts/release check --report "$RUNNER_TEMP/report.json"

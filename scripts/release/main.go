@@ -4,7 +4,8 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Command release writes the release data file and the release notes of the next FSC release.
+// Command release writes the release data file, the release notes and the backport rules of
+// the next FSC release.
 // Run it from the repository root; docs/upgrade/releases/README.md shows how to preview a
 // release.
 //
@@ -12,6 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 //	release previous --version vX.Y.Z
 //	release data --version vX.Y.Z --report report.json
 //	release notes --data vX.Y.Z.json --changelog changelog.md [--repo owner/name]
+//	release mergify
 //	release check --report report.json
 package main
 
@@ -36,6 +38,7 @@ const usage = `usage:
   release previous --version vX.Y.Z
   release data --version vX.Y.Z --report report.json
   release notes --data vX.Y.Z.json --changelog changelog.md [--repo owner/name]
+  release mergify
   release check --report report.json
 `
 
@@ -133,6 +136,8 @@ func runCommand(dir, cmd string, args []string) (string, error) {
 			return "", errors.Wrap(err, "failed reading the changelog")
 		}
 		return notes(dir, *repo, d, string(c))
+	case "mergify":
+		return mergify(dir)
 	case "check":
 		if err := required("report"); err != nil {
 			return "", err
@@ -141,7 +146,7 @@ func runCommand(dir, cmd string, args []string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return "", check(dir, r)
+		return "", errors.Join(check(dir, r), checkMergify(dir))
 	default:
 		return "", errors.Errorf("unknown command [%s]\n%s", cmd, usage)
 	}

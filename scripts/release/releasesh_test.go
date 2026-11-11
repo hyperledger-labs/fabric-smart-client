@@ -33,6 +33,9 @@ case "$*" in
   *"refnode version"*) echo '{}' ;;
   *"scripts/release data"*) echo '{"version":"v0.29.0"}' ;;
   *"scripts/release notes"*) echo "notes ${FAKE_NOTES:-1}" ;;
+  # The rule of release-0.29 once v0.29.0 has its data; before, no rule, as committed.
+  *"scripts/release mergify"*)
+    if [[ -f docs/upgrade/releases/v0.29.0.json ]]; then printf 'pull_request_rules:\n  - label=backport/0.29\n'; else echo 'pull_request_rules: []'; fi ;;
 esac`,
 	// gh: generate-notes, the release PR lookups, the Tests run and the release.
 	"gh": `echo "gh $*" >> "$FAKE_LOG"
@@ -41,6 +44,7 @@ case "$*" in
   "pr list"*"--search"*) echo "${FAKE_OTHER_RELEASE_PR:-}" ;;
   "pr list"*) echo "${FAKE_OPEN_PR:-}" ;;
   "release view"*) [[ -n "${FAKE_RELEASED:-}" ]] ;;
+  "label list"*) echo "${FAKE_LABELS:-}" ;;
   "run list"*"--event push"*) echo "${FAKE_TESTS-success}" ;;
 esac`,
 	"docker": `[[ -z "${FAKE_NO_DOCKER:-}" ]]`,
@@ -72,6 +76,7 @@ func newReleaseFixture(t *testing.T) *releaseFixture {
 		"scripts/tag-release.sh":         readScript(t, "tag-release.sh"),
 		"Makefile":                       "release-pr:\n",
 		".github/workflows/tests.yml":    "branches: [main, 'release-*']\n",
+		".mergify.yml":                   "pull_request_rules: []\n",
 	}
 	src := newRepo(t, files)
 	require.NoError(t, os.Chmod(filepath.Join(src, fixturesDir, "generate.sh"), 0o700))  //nolint:gosec // an executable script
@@ -220,7 +225,7 @@ func TestReleaseScript(t *testing.T) {
 		staged, err := git(f.dir, "diff", "--cached", "--name-only")
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{
-			releasesDir + "/v0.29.0.json", releasesDir + "/v0.29.0.md", fixturesDir + "/v0.29.0/SHA256SUMS",
+			releasesDir + "/v0.29.0.json", releasesDir + "/v0.29.0.md", fixturesDir + "/v0.29.0/SHA256SUMS", ".mergify.yml",
 		}, strings.Fields(staged))
 		branch, err := git(f.dir, "branch", "--show-current")
 		require.NoError(t, err)
@@ -234,17 +239,38 @@ func TestReleaseScript(t *testing.T) {
 		require.Contains(t, msg, "Signed-off-by: test <test@example.com>")
 
 		f.merge()
-		out = f.mustRelease("publish")
+		// The labels follow the released rules: backport/0.29 is created, the label of a
+		// minor without a rule is deleted, and a label with a rule stays.
+		out = f.mustRelease("publish", "FAKE_LABELS=backport/0.27\nbackport/0.29")
 		require.Contains(t, out, `build(release): v0.29.0 (#42)`)
 		require.ElementsMatch(t, []string{"v0.28.0", "v0.29.0", "sub/v0.29.0"}, f.upstreamTags())
 		require.Contains(t, f.logged(), "gh release create v0.29.0")
 		require.Contains(t, f.logged(), "--latest=true")
+		require.Contains(t, f.logged(), "gh label delete backport/0.27")
+		require.NotContains(t, f.logged(), "gh label create")
+
+		// Run again with the tags pushed and no GitHub release, publish takes the rules from
+		// the tag, and creates the missing label.
+		run(t, f.dir, "switch", "-q", "main")
+		f.mustRelease("publish")
+		require.Contains(t, f.logged(), "gh label create backport/0.29 -R hyperledger-labs/fabric-smart-client")
 
 		// prepare and publish ask GitHub for the changelog of the same base: the commit
 		// the release PR is based on, which is the parent of the squash commit.
 		base, err := git(f.target, "rev-parse", "main^")
 		require.NoError(t, err)
 		require.Equal(t, []string{base, base}, targets(f.logged()))
+
+		// Once a newer minor is released, a run for v0.29.0 leaves the labels of the newer one.
+		run(t, f.dir, "pull", "-q", "upstream", "main")
+		writeFiles(t, f.dir, map[string]string{releasesDir + "/v0.30.0.json": "{}\n"})
+		run(t, f.dir, "add", "-A")
+		run(t, f.dir, "commit", "-q", "-m", "build(release): v0.30.0 (#43)")
+		run(t, f.dir, "push", "-q", "upstream", "HEAD:main")
+		require.NoError(t, os.Truncate(f.log, 0))
+		out = f.mustRelease("publish", "VERSION=v0.29.0", "FAKE_LABELS=backport/0.30")
+		require.Contains(t, out, "a minor newer than v0.29.0 is released; the backport labels stay")
+		require.NotContains(t, f.logged(), "gh label")
 	})
 
 	t.Run("prepare, pr and publish release a patch from its release branch", func(t *testing.T) {
@@ -279,6 +305,7 @@ func TestReleaseScript(t *testing.T) {
 		// A patch is never GitHub's latest release: a newer minor may be out.
 		require.Contains(t, f.logged(), "gh release create v0.28.1")
 		require.Contains(t, f.logged(), "--latest=false")
+		require.NotContains(t, f.logged(), "gh label", "a patch leaves the backport labels")
 	})
 
 	t.Run("publish asks which release when two are untagged", func(t *testing.T) {
@@ -299,6 +326,19 @@ func TestReleaseScript(t *testing.T) {
 		require.Contains(t, out, "more than one untagged release: v0.28.1 v0.29.0; set VERSION")
 		f.mustRelease("publish", "VERSION=v0.28.1")
 		require.ElementsMatch(t, []string{"v0.28.0", "v0.28.1", "sub/v0.28.1"}, f.upstreamTags())
+	})
+
+	t.Run("the cleanup of docs/dev/releasing.md lets prepare run again", func(t *testing.T) {
+		t.Parallel()
+		f := newReleaseFixture(t)
+		f.mustRelease("prepare")
+		files := []string{releasesDir + "/v0.29.0.json", releasesDir + "/v0.29.0.md", fixturesDir + "/v0.29.0"}
+		run(t, f.dir, append([]string{"rm", "-r", "-f", "-q", "--cached", "--ignore-unmatch"}, files...)...)
+		for _, p := range files {
+			require.NoError(t, os.RemoveAll(filepath.Join(f.dir, p)))
+		}
+		run(t, f.dir, "restore", "--staged", "--worktree", ".mergify.yml")
+		f.mustRelease("prepare")
 	})
 
 	t.Run("pr refuses a staged file that is not part of the release", func(t *testing.T) {
