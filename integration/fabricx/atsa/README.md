@@ -24,9 +24,6 @@ historically did not. Both are now supported below the view layer:
    fabricx SDK) that trusts the vault's committed read — served by the committer QueryService —
    instead of chaincode endorsement.
 
-See `docs/superpowers/specs/2026-07-22-fabricx-hashhiding-certification-design.md` for the full
-design.
-
 ## Running
 
 Fabric-x suites shell out to `configtxgen`/`fxconfig` from `$FAB_BINS/fabric-x`, where

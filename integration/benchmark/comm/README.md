@@ -27,6 +27,7 @@ Units:
 ## Running
 
 ```bash
+go install golang.org/x/perf/cmd/benchstat@latest   # benchstat is not part of make install-tools
 cd integration
 go test -run '^$' -bench . -benchtime 2s -count 10 ./benchmark/comm/ | tee comm.txt
 benchstat -col /transport comm.txt   # websocket vs libp2p side by side

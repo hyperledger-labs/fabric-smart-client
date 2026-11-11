@@ -185,7 +185,9 @@ func (f *IssueView) Call(viewCtx view.Context) (any, error) {
 	tx.SetNamespace("asset_transfer")
 
 	f.Asset.Owner = assetOwner
-	me := fabric.GetIdentityProvider(viewCtx).DefaultIdentity()
+	fns, err := fabric.GetDefaultFNS(viewCtx)
+	assert.NoError(err)
+	me := fns.IdentityProvider().DefaultIdentity()
 
 	// Specifies the command this transaction wants to execute.
 	// In particular, the issuer wants to create a new asset owned by a given recipient.
@@ -196,7 +198,7 @@ func (f *IssueView) Call(viewCtx view.Context) (any, error) {
 	assert.NoError(tx.AddOutput(f.Asset), "failed adding output")
 
 	// The issuer is ready to collect all the required signatures.
-	// Namely from the issuer itself, the lender, and the approver. In this order.
+	// Namely from the issuer itself, the asset owner, and the approver. In this order.
 	// All signatures are required.
 	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, f.Asset.Owner, f.Approver))
 	assert.NoError(err, "failed collecting endorsement")
@@ -212,6 +214,6 @@ func (f *IssueView) Call(viewCtx view.Context) (any, error) {
 
 ### Agree to Sell an Asset 
 
-### Agree to Spend an Asset
+### Agree to Buy an Asset
 
 ### Transfer an Asset

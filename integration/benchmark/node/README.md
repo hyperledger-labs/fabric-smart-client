@@ -5,8 +5,8 @@ This guide shows how to benchmark a custom `view.View` implementation using FSC'
 ## What You Implement
 
 Your view must satisfy two interfaces from FSC:
-- [`view.View`](/platform/view/view/view.go) : the view logic itself
-- [`viewregistry.Factory`](/platform/view/services/view/registry.go) : creates new instances of your view
+- [`view.View`](../../../platform/view/view/view.go) : the view logic itself
+- [`viewregistry.Factory`](../../../platform/view/services/view/registry.go) : creates new instances of your view
 
 ```go
 // your_view.go
@@ -49,7 +49,7 @@ your-repo/
 
 ## Define Your Workload
 
-Wrap your view in a [`node.Workload`](/integration/benchmark/node/bench_helpers.go) to plug into FSC's benchmark runners:
+Wrap your view in a [`node.Workload`](./bench_helpers.go) to plug into FSC's benchmark runners:
 
 ```go
 var yourWorkload = node.Workload{
@@ -88,13 +88,13 @@ go test -bench=BenchmarkYourView -benchmem -count=5 -cpu=1,2,4,8 ./bench/
 
 ### 2. Local Node - View API and gRPC
 
-Spins up an FSC node in-process using [`node.GenerateConfig`](/integration/benchmark/node/benchmark.go) and [`node.SetupNode`](/integration/benchmark/node/benchmark.go).
+Spins up an FSC node in-process using [`node.GenerateConfig`](./benchmark.go) and [`node.SetupNode`](./benchmark.go).
 
-[`RunAPIBenchmark`](/integration/benchmark/node/bench_helpers.go) produces two sub-benchmarks:
+[`RunAPIBenchmark`](./bench_helpers.go) produces two sub-benchmarks:
 - **f=0** : creates one view instance per goroutine and reuses it. Measures pure view execution cost.
 - **f=1** : creates a new view via the factory on every call. Measures view execution + factory overhead.
 
-[`RunAPIGRPCBenchmark`](/integration/benchmark/node/bench_helpers.go) adds the full gRPC stack on top and tests across multiple connection counts.
+[`RunAPIGRPCBenchmark`](./bench_helpers.go) adds the full gRPC stack on top and tests across multiple connection counts.
 
 ```go
 // node_bench_test.go
@@ -167,7 +167,7 @@ func main() {
 }
 ```
 
-**Client** - populate config and call [`RunRemoteBenchmarkSuite`](/integration/benchmark/node/bench_remote.go):
+**Client** - populate config and call [`RunRemoteBenchmarkSuite`](./bench_remote.go):
 
 ```go
 // remote/client/main.go
@@ -190,8 +190,8 @@ func main() {
 #### Reference
 
 FSC's own remote benchmarks use the same infrastructure:
-- [Server](/integration/benchmark/node/remote/server/main.go)
-- [Client](/integration/benchmark/node/remote/client/main.go)
+- [Server](./remote/server/main.go)
+- [Client](./remote/client/main.go)
 
 #### Deployment
 
@@ -216,10 +216,10 @@ go run ./bench/remote/client/ \
 | Level | What it measures | How to run |
 |---|---|---|
 | Standalone | Pure `Call()` | `go test -bench` |
-| API f=0 | ViewManager + reused view | [`node.RunAPIBenchmark`](/integration/benchmark/node/bench_helpers.go) |
-| API f=1 | ViewManager + factory per call | [`node.RunAPIBenchmark`](/integration/benchmark/node/bench_helpers.go) |
-| gRPC (local) | Full FSC gRPC stack | [`node.RunAPIGRPCBenchmark`](/integration/benchmark/node/bench_helpers.go) |
-| gRPC (remote) | Full stack + real network | [`node.RunRemoteBenchmarkSuite`](/integration/benchmark/node/bench_remote.go) |
+| API f=0 | ViewManager + reused view | [`node.RunAPIBenchmark`](./bench_helpers.go) |
+| API f=1 | ViewManager + factory per call | [`node.RunAPIBenchmark`](./bench_helpers.go) |
+| gRPC (local) | Full FSC gRPC stack | [`node.RunAPIGRPCBenchmark`](./bench_helpers.go) |
+| gRPC (remote) | Full stack + real network | [`node.RunRemoteBenchmarkSuite`](./bench_remote.go) |
 
 
 

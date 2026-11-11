@@ -9,7 +9,7 @@ The Channel Configuration Monitor Service is a service under `platform/fabricx/c
 In Hyperledger Fabric networks, channel configuration can change over time (e.g., new organizations joining, orderer endpoints being updated). Currently, there is no automated mechanism to detect and apply these configuration changes. This service addresses this gap by:
 
 1. Periodically checking for new configuration transactions using the query service
-2. Detecting configuration version changes
+2. Detecting configuration changes (version or config sequence)
 3. Updating the membership service with new MSP configurations
 4. Updating the ordering service with new orderer endpoints
 
@@ -24,7 +24,7 @@ In Hyperledger Fabric networks, channel configuration can change over time (e.g.
 │  - Polling Loop (configurable interval)                      │
 │  - Configuration Version Tracking (in-memory)                │
 │  - Error Handling with Exponential Backoff                   │
-│  - Lifecycle Management (Start/Stop API)                     │
+│  - Lifecycle tied to the channel                             │
 └─────────────────────────────────────────────────────────────┘
            │                    │                    │
            ▼                    ▼                    ▼
@@ -39,12 +39,12 @@ In Hyperledger Fabric networks, channel configuration can change over time (e.g.
 ### 1. Polling Interval
 - **Decision**: Configurable interval with 1-minute default
 - **Rationale**: Balances responsiveness with network overhead
-- **Configuration**: `fabric.<network>.channels.<channel>.configmonitor.pollInterval`
+- **Configuration**: `fabric.<network>.configMonitor.pollInterval`
 
 ### 2. State Persistence
 - **Decision**: In-memory only (resets on restart)
 - **Rationale**: Simplifies implementation; on restart, the service will check current config and update if needed
-- **Implementation**: Track last processed config version in memory
+- **Implementation**: Track last processed config version and config sequence in memory
 
 ### 3. Error Handling
 - **Decision**: Retry with exponential backoff, log errors, continue monitoring
@@ -55,22 +55,21 @@ In Hyperledger Fabric networks, channel configuration can change over time (e.g.
   - Max retries per cycle: 5
 
 ### 4. Lifecycle Management
-- **Decision**: Explicit Start/Stop API calls
-- **Rationale**: Provides fine-grained control over when monitoring occurs
-- **Usage**: Caller controls when to start/stop monitoring
+- **Decision**: The Fabric-x channel provider starts the monitor when it opens a channel and stops it when the channel is closed
+- **Usage**: No caller action is needed
 
 ### 5. Channel Scope
 - **Decision**: One service instance per channel
-- **Rationale**: Simplifies implementation and allows per-channel configuration
-- **Implication**: Multiple channels require multiple monitor instances
+- **Rationale**: Simplifies implementation
+- **Implication**: Each channel gets its own monitor instance; all of them share the network's `configMonitor` settings
 
 ## Configuration
 
 ### Configuration Structure
 
-The Channel Configuration Monitor is configured per channel within the FabricX network configuration. All configuration parameters are optional and have sensible defaults.
+The Channel Configuration Monitor is configured per network, under `fabric.<network>.configMonitor`, and the settings apply to every channel of that network. All configuration parameters are optional and have sensible defaults.
 
-**Note:** This configuration applies **only to FabricX** networks, not standard Fabric networks.
+**Note:** This configuration applies **only to Fabric-x** networks, not standard Fabric networks.
 
 ```yaml
 fabric:
@@ -192,14 +191,14 @@ If validation fails, the node will fail to start with a descriptive error messag
 
 #### 1. Monitoring Loop
 ```
-1. Wait for poll interval
+1. On start, check immediately; afterwards, wait for the poll interval
 2. Query for latest config transaction (GetConfigTransaction)
-3. Compare version with last processed version
-4. If new version detected:
+3. Compare the version and the envelope's config sequence with the last processed ones
+4. If either is newer:
    a. Update membership service with envelope
    b. Extract orderer config from membership service
    c. Update ordering service with orderer config
-   d. Update last processed version
+   d. Update last processed version and sequence
 5. On error:
    a. Log error
    b. Apply exponential backoff
@@ -211,12 +210,12 @@ If validation fails, the node will fail to start with a descriptive error messag
 #### 2. Configuration Update Process
 ```
 1. Call QueryService.GetConfigTransaction()
-2. Extract version from ConfigTransactionInfo
-3. If version > lastVersion:
+2. Extract version from ConfigTransactionInfo and config sequence from the envelope
+3. If version > lastVersion or sequence > lastSequence:
    a. Call MembershipService.Update(envelope)
    b. Call MembershipService.OrdererConfig(configService)
    c. Call OrderingService.Configure(consensusType, orderers)
-   d. Update lastVersion
+   d. Update lastVersion and lastSequence
 ```
 
 ### Error Scenarios
@@ -231,7 +230,7 @@ If validation fails, the node will fail to start with a descriptive error messag
 
 ### Dependencies
 
-- **Query Service** (`platform/fabricx/core/vault/queryservice`): For retrieving configuration transactions
+- **Query Service** (`platform/fabricx/core/committer/queryservice`): For retrieving configuration transactions
 - **Membership Service** (`platform/fabricx/core/membership`): For updating MSP configurations and extracting orderer config
 - **Ordering Service**: For updating orderer endpoints
 - **Config Service**: For reading configuration parameters

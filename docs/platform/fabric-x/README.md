@@ -52,7 +52,7 @@ Register through the channel's committer — `ch.Committer()`, the same API ever
 - `AddFinalityListener(txID, listener)`: registers a `FinalityListener` whose `OnStatus` callback fires once when the transaction reaches finality. Only the first listener for a given txID triggers a subscription request to the committer; subsequent listeners for the same txID piggyback on it. After dispatch, all listeners for the txID are automatically removed. Registering the same listener instance twice for one txID is a no-op.
 - `RemoveFinalityListener(txID, listener)`: unregisters a listener before delivery. Safe to call for unknown txIDs, unregistered listeners, and listeners already delivered to.
 
-The `OnStatus` callback receives one of: `fdriver.Valid` (committed), `fdriver.Invalid` (rejected), or `fdriver.Unknown` (undetermined / timeout).
+The `OnStatus` callback receives one of the validation codes of [`platform/fabric/driver`](../../../platform/fabric/driver/committer.go): `driver.Valid` (committed), `driver.Invalid` (rejected), or `driver.Unknown` (undetermined / timeout).
 
 The committer's manager is the notification-stream manager wrapped in a `finality.ResolvingListenerManager`, which asks the query service before subscribing. That is what makes registering for an *already final* transaction report its status instead of `Unknown`: the notification stream reports each transaction once, so a subscription created after that point would never be answered. `finality.GetListenerManager(sp, network, channel)` returns the unwrapped manager and does not do this.
 
@@ -86,8 +86,9 @@ fabric:
           connectionTimeout: 5s
           tls:
             enabled: true
-            rootCerts:
-              - "/path/to/ca.pem"
+            rootCAs:
+              files:
+                - "/path/to/ca.pem"
 ```
 
 #### TLS Modes
@@ -106,21 +107,25 @@ endpoints:
   - address: "committer.example.com:9090"
     tls:
       enabled: true
-      rootCerts:
-        - "/path/to/ca.pem"
+      rootCAs:
+        files:
+          - "/path/to/ca.pem"
 ```
 
-**Mutual TLS (mTLS)** — both sides authenticate each other. Requires `clientCert` and `clientKey` in addition to `rootCerts`:
+**Mutual TLS (mTLS)** — both sides authenticate each other. Requires `clientCert` and `clientKey` in addition to `rootCAs`:
 
 ```yaml
 endpoints:
   - address: "committer.example.com:9090"
     tls:
       enabled: true
-      rootCerts:
-        - "/path/to/ca.pem"
-      clientCert: "/path/to/client.pem"
-      clientKey: "/path/to/client-key.pem"
+      rootCAs:
+        files:
+          - "/path/to/ca.pem"
+      clientCert:
+        file: "/path/to/client.pem"
+      clientKey:
+        file: "/path/to/client-key.pem"
 ```
 
 The `serverNameOverride` field can be set to override the TLS server name used for hostname verification, which is useful when connecting by IP address:
@@ -128,13 +133,14 @@ The `serverNameOverride` field can be set to override the TLS server name used f
 ```yaml
 tls:
   enabled: true
-  rootCerts:
-    - "/path/to/ca.pem"
+  rootCAs:
+    files:
+      - "/path/to/ca.pem"
   serverNameOverride: "committer.example.com"
 ```
 
 ### Usage from a View
-Refer to the [Simple integration test fixtures](/integration/fabricx/common/simple) for reference.
+Refer to the [Simple integration test fixtures](../../../integration/fabricx/common/simple) for reference.
 
 
 ## Query Service
@@ -155,8 +161,9 @@ fabric:
           connectionTimeout: 5s
           tls:
             enabled: true
-            rootCerts:
-              - "/path/to/ca.pem"
+            rootCAs:
+              files:
+                - "/path/to/ca.pem"
 ```
 
 For mTLS, add `clientCert` and `clientKey` under the `tls` block — see the [Notification Service TLS Modes](#tls-modes) section above for the full set of options, which apply identically here.
@@ -259,33 +266,34 @@ In this setup:
 
 ```go
 import (
-	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 )
 
-type Topology() []*api.Topology {
+func Topology() []api.Topology {
 	fxTopo := nwofabricx.NewDefaultTopology()
 	fxTopo.AddOrganizationsByName("Org1", "Org2")
 	// set the namespace creation policy to Org1
 	fxTopo.SetNamespaceApproverOrgs("Org1")
-	// define a namespace named "iou" with Org1 as endorser/approver
+	// define a namespace named "iou" with Org1 as endorser
 	fxTopo.AddNamespace("iou", topology.Unanimity("Org1"))
-	
+
 	fscTopo := fsc.NewTopology()
-	// register fabricx SDK
-	fscTopo.AddSDK(fabricx.SDK{})
-	// create alice and promote her as endorser
 	fscTopo.AddNodeByName("alice").
-		AddOptions(fabric.WithOrganization("Org1")).
-		AddOptions(scv2.WithApproverRole()).
-		// register your views ...
-	
-	fscTopo := fsc.NewTopology()
+		AddOptions(fabric.WithOrganization("Org1")) // Org1 endorses the iou namespace
+	// register alice's views with RegisterResponder and RegisterViewFactory ...
 	fscTopo.AddNodeByName("bob").
-		AddOptions(fabric.WithOrganization("Org2")).
-		// register your views ...
-	
-	return []api.Topology{fxTop, fscTopo}
+		AddOptions(fabric.WithOrganization("Org2"))
+	// register bob's views ...
+
+	// register the Fabric-x SDK on every node
+	fscTopo.AddSDK(&fabricx.SDK{})
+
+	return []api.Topology{fxTopo, fscTopo}
 }
 ```
 

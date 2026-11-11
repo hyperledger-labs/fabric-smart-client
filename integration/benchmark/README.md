@@ -4,7 +4,7 @@ Performance benchmarks for the Fabric Smart Client framework, measuring throughp
 
 ## Overview
 
-This package contains micro-benchmarks organized into three categories:
+This package contains micro-benchmarks organized into four categories, described in [Benchmark Architecture](#benchmark-architecture).
 
 ## Benchmark Architecture
 

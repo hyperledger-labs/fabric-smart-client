@@ -445,7 +445,7 @@ Unless otherwise stated, the duration is recorded in seconds and uses the defaul
 | Metric Base | Labels | Description |
 | --- | --- | --- |
 | `fsc_view_services_view_calls` | `success`, `view`, `initiator_view` | Local view execution spans created by the view runtime around each view invocation started by the FSC view manager. |
-| `fsc_view_services_view_grpc_server_view_service` | `success` | View gRPC service tracer declared by the gRPC server package. No span start was found on the current `ProcessCommand` or `StreamCommand` implementation paths. |
+| `fsc_view_services_view_grpc_server_view_service` | `success` | View gRPC service tracer declared by the gRPC server package. It never starts a span, so this family is never emitted. |
 | `fsc_view_services_view_client_client` | none | Outbound view service invocation tracer, over gRPC or HTTP. This family is emitted by the caller process, not by the remote FSC node that handles the request. |
 | `fsc_view_services_view_client_node_view_client` | `fid` | Local client tracer used when a node invokes a view through the in-process local client helper. |
 
@@ -537,8 +537,8 @@ The following labels are part of the current FSC metric surface.
 
 The following families have implementation caveats:
 
-- `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
-- `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.
+- `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared but never starts a span, so these families are never emitted.
+- `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared but never incremented, so it stays at zero.
 - `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
 - `fsc_view_services_view_client_client_*`: these are caller-process metrics. The standard integration harness creates its external view clients with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
 - `fsc_view_services_view_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.

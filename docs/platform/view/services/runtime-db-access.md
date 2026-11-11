@@ -30,7 +30,7 @@ The following table summarizes the most common runtime access paths:
 | --- | --- | --- |
 | Writing a view that depends on persisted data | `view.Context.GetService(...)` | Access an application service that is backed by persistence |
 | Reading Fabric state from a view | `state.GetVault(viewCtx)` | Read application state from a view |
-| Working with lower-level Fabric vault functions | `fabric.GetDefaultChannel(viewCtx).Vault()` | Perform lower-level vault, query, or RWSet work |
+| Working with lower-level Fabric vault functions | `fabric.GetDefaultChannel(viewCtx)`, then `ch.Vault()` on the returned channel | Perform lower-level vault, query, or RWSet work |
 | Reading Fabric-x state | `queryservice.GetQueryService(...)` or the channel API | Read state through the platform abstraction rather than local SQL |
 | Inspecting a live node database | `sqlite3` or `psql` in read-only mode | Inspect persisted rows for debugging or troubleshooting |
 
@@ -298,7 +298,7 @@ So the effective table names are of the form:
 - `<prefix>_<escaped network+channel params>_vstate`
 - `<prefix>_<escaped network+channel params>_vstatus`
 
-For a network named `default` and a channel named `testchannel`, the generated SQLite tables are:
+For a network named `default` and a channel named `testchannel`, the generated tables (on SQLite and Postgres alike) are:
 
 - `fsc_default__testchannel_vstate`
 - `fsc_default__testchannel_vstatus`

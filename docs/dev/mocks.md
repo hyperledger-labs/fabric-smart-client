@@ -67,9 +67,8 @@ signer.SignReturns([]byte("sig"), nil)
 
 // ... call production code that uses signer ...
 
-Expect(signer.SignCallCount()).To(Equal(1))
-_, payload := signer.SignArgsForCall(0)
-Expect(payload).To(Equal(expectedPayload))
+require.Equal(t, 1, signer.SignCallCount())
+assert.Equal(t, expectedPayload, signer.SignArgsForCall(0))
 ```
 
 ## Fakes — handwritten test doubles

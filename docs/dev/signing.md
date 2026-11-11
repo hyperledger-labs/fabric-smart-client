@@ -1,6 +1,6 @@
 # Commit Signing Guidelines (DCO + GPG)
 
-**Both DCO sign-off and GPG signature signed commits** are required for all pull requests to be merged successfully.
+**Both a DCO sign-off and a GPG signature on every commit** are required for all pull requests to be merged successfully.
 
 This guide makes it as easy as possible for you to set up your GPG key and DCO and GPG sign your commits.
 
@@ -29,7 +29,7 @@ Choose:
 - Name, Email: Must match your GitHub email
 - Passphrase: Set a strong passphrase that you'll need to remember
 
-Learn more [GPG key set-up documentation on Github](https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key)
+Learn more [GPG key set-up documentation on GitHub](https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key)
 
 Once created, list your keys:
 
@@ -94,10 +94,14 @@ git log -n 3 --pretty=format:'%h %an %G? %s'
 ```
 Legend:
 
-- G = Good (valid signature - you want to see `G`)
-- B = Bad (invalid signature)
-- U = Unknown (not signed)
-- E = Signed (but not verifiable locally)
+- G = good signature (you want to see `G`)
+- B = bad signature
+- U = good signature with unknown validity
+- X = good signature that has expired
+- Y = good signature made by an expired key
+- R = good signature made by a revoked key
+- E = signature cannot be checked (for example, the key is missing)
+- N = no signature
 
 ## Fixing Unsigned Commits
 
@@ -122,11 +126,17 @@ git commit -S -s -m "chore: your commit message"
 
 ### 2. Retroactively signing commits
 
-Alternatively, you can **amend commits retroactively**:
+Alternatively, you can **amend commits retroactively**. To re-sign the last commit only:
 
 ```bash
-git commit --amend -S -s
-git rebase -i HEAD~n            # For multiple commits
+git commit --amend --no-edit -S -s
+```
+
+To re-sign every commit on your branch, replay them onto upstream main and amend each one. This also moves the branch onto the latest upstream main, so it can stop on conflicts (see [Resolving merge conflicts](merge-conflicts.md)):
+
+```bash
+git fetch upstream
+git rebase --exec 'git commit --amend --no-edit -n -s -S' upstream/main
 git push --force-with-lease
 ```
 This is difficult and you may run into problems, for example, if you have merged from main.
@@ -138,7 +148,8 @@ Rebase operations will be required when your branch is behind the upstream main.
 When rebasing, you must use this command to ensure your commits remain DCO and GPG signed:
 
 ```bash
-git rebase main -S
+git fetch upstream
+git rebase upstream/main -S
 ```
 
 > [!NOTE]

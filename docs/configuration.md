@@ -30,7 +30,7 @@ fsc:
     cert:
       file: /path/to/cert.pem
     key:
-      file: /path/to/key.pwm
+      file: /path/to/key.pem
 
   # ------------------- Shared server-side TLS defaults -------------------
   # Every listener this node owns (fsc.grpc, fsc.web, and fsc.metrics when it has its own
@@ -776,7 +776,7 @@ fabric:
         # The default value is the empty string that means that the peer can be used for the supported operations.
         usage: 
 
-    # Fabric-x query and notification services (FabricX only).
+    # Fabric-x query and notification services (Fabric-x only).
     #
     # Each endpoint's tls: block is the same client template as orderers and peers above, and
     # inherits from this network's tls block field by field. It replaces a block that spelled
@@ -850,7 +850,7 @@ fabric:
       # listenerTTL + sweepInterval. Default: 30s.
       sweepInterval: 30s
 
-     # Channel Configuration Monitor settings (FabricX only)
+     # Channel Configuration Monitor settings (Fabric-x only)
      # Applies to all channels in this network
     configMonitor:
        # How often to check for configuration updates
@@ -1035,7 +1035,7 @@ Any value that is not a (grand-)child of a list can be overridden with an enviro
 and traversing the path in the yaml with underscores. This means that a key like fsc.endpoint.resolvers[0].name cannot be changed via environment variables. Examples:
 
 ```sh
-CORE_LOGGING_LEVEL=debug
+CORE_LOGGING_SPEC=debug
 CORE_FSC_P2P_LISTENADDRESS=/ip4/0.0.0.0/tcp/9001
 CORE_FSC_IDENTITY_KEY_FILE=/my/private.key
 CORE_FSC_PERSISTENCES_MYSQLITE_OPTS_DATASOURCE=/mydb.sqlite

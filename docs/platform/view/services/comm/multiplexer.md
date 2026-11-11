@@ -9,8 +9,8 @@ The `MultiplexedProvider` allows multiple logical P2P streams to share a single 
 ### Components
 
 1.  **MultiplexedProvider**: Manages the lifecycle of physical connections (`multiplexedClientConn` / `multiplexedServerConn`). It maintains a registry of active client connections keyed by remote address and peer ID, so a connection whose server certificate was verified for one peer never carries a stream for another.
-2.  **Physical Connection** (`multiplexedBaseConn`): Wraps a standard `websocket.Conn` with 1MB read/write buffers. It runs a read loop (`readIncoming`) that demultiplexes incoming messages.
-3.  **Sub-Connection** (`subConn`): Represents a logical stream. It has a unique `ID` scoped to the physical connection and a 10,240-slot message buffer to prevent head-of-line blocking.
+2.  **Physical Connection** (`multiplexedBaseConn`): Wraps a standard `websocket.Conn` (the server side upgrades with 1024-byte read and write buffers; the client side uses the gorilla dialer defaults). It runs a read loop (`readIncoming`) that demultiplexes incoming messages.
+3.  **Sub-Connection** (`subConn`): Represents a logical stream. It has a unique `ID` scoped to the physical connection and a 100-slot message buffer, so one slow stream does not block the others on the same physical connection.
 4.  **Stream Wrapper** (`websocket.stream`): Implements `host.P2PStream`. It handles context cancellation, returns `io.ErrClosedPipe` on closed writes, and ensures atomic framing (via `delimitedReader`).
 
 ### Diagram
@@ -98,7 +98,7 @@ type MultiplexedMessage struct {
 -   **Clients Map Lock**: `MultiplexedProvider.mu` protects the map of active physical connections.
 -   **SubConns Map Lock**: `multiplexedBaseConn.mu` (RWMutex) protects the registry of logical streams.
 -   **Asynchronous Handlers**: Server handlers are decoupled from the physical read loop via goroutines, ensuring a single slow stream doesn't block the entire physical connection.
--   **Safe Delivery**: `deliver` operations have a 5-second timeout to prevent "zombie" streams from hanging the physical read loop during backpressure.
+-   **Safe Delivery**: `deliver` never blocks the physical read loop. If a sub-connection's buffer is full, `deliver` returns false and the read loop closes that sub-connection.
 
 ## Known Issues / Invariants
 

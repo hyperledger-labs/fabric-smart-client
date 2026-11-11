@@ -38,7 +38,7 @@ network definition (see [Registering the target](authoring.md#registering-the-ta
 | `fabricx/atsa` | `fabricx-atsa` | asset transfer on Fabric-x |
 | `fabricx/configupdate` | `fabricx-configupdate` | channel configuration updates, and a refused configuration |
 | `fabricx/deployment` | `fabricx-deployment` | a namespace endorsement policy, enforced before and after an update |
-| `fabricx/faultrecovery` | `fabricx-faultrecovery`, `-crash`, `-replication`, `-partition` | see [Fault-Recovery Tests](fault-recovery.md) |
+| `fabricx/faultrecovery` | `fabricx-faultrecovery`, `-crash`, `-replication`, `-partition`, `-committer-failover` | see [Fault-Recovery Tests](fault-recovery.md) |
 | `fabricx/iou` | `fabricx-iou` | the IOU life cycle on Fabric-x |
 | `fabricx/multiendorsement` | `fabricx-multiendorsement` | endorsements from several approvers merged into one transaction |
 | `fabricx/simple` | `fabricx-simple` | creating and querying objects, rejecting duplicates and negative values |

@@ -8,10 +8,15 @@ CI jobs relate and how to run them; tests that inject faults are covered in
 ## Adding a new test
 
 1. Create the directory `integration/<platform>/<test-name>/`.
-2. Define the topology in `topology.go` (via `integration.Generate()`).
-3. Implement the test logic in `<test-name>.go`.
+2. Define the topology, a function returning `[]api.Topology`, in `topology.go`. A topology
+   that other suites share lives in `integration/<platform>/common/<name>/topology.go`
+   instead, and the suite directory has none (`fabric/iou` uses the one in
+   `integration/fabric/common/iou`).
+3. Implement the test logic in `<test-name>_test.go`; it passes the topology to
+   `integration.Generate` or `integration.GenerateAt`.
 4. Add the Ginkgo suite entry point in `<test-name>_suite_test.go`, with
-   `var _ = AfterSuite(integration.CleanupBuildArtifacts)` — see below.
+   `var _ = AfterSuite(integration.CleanupBuildArtifacts)` and the suite's `StartPort()`
+   helper — see below.
 5. Register the target in the `Makefile` — see below.
 
 A suite directory holds only its own `_test.go` files plus code no other suite
@@ -277,7 +282,10 @@ The remaining options are `WithCtor(ctor)` (which also turns on init),
 
 - `integration.Infrastructure` — network lifecycle management.
 - `integration.TestSuite` — base suite with setup/teardown.
-- `StartPort()` — dynamic port allocation to avoid collisions.
+- `StartPort()` — the first port of the suite's network. It is not part of `integration`:
+  each suite defines it in `<test-name>_suite_test.go` as
+  `integration.<Range>.StartPortForNode()`, on a `TestPortRange` of its own declared in
+  `integration/ports.go`, so suites do not collide.
 
 ## Integration test structure
 
