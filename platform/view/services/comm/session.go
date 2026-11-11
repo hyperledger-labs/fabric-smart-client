@@ -81,6 +81,9 @@ type NetworkStreamSession struct {
 	// peer is the preamble negotiate chose from, nil if the peer sent none; it names the peer's
 	// range when a component has no common version.
 	peer *preamble.Preamble
+	// refusal is the error of the first local component without a common version, which every
+	// message of an initiator session fails with; nil if every component has one.
+	refusal error
 }
 
 // SetProtocol sets the protocol name "<component>/<name>" the session's messages state, so that
@@ -112,8 +115,7 @@ func (n *NetworkStreamSession) Version(ctx context.Context, component string) (u
 		// The initiator runs a release without this component, or without negotiation.
 		v = preamble.DefaultRange.Max
 	case v == 0 && n.initiator:
-		r := preamble.PeerRange(peer, component)
-		return 0, false, errors.Wrapf(view.ErrNoCommonVersion, "component [%s]: local [%d, %d], peer [%d, %d]", component, local.Min, local.Max, r.Min, r.Max)
+		return 0, false, noCommonVersion(component, local, peer)
 	case v == 0:
 		return 0, false, errors.Wrapf(view.ErrNoCommonVersion, "component [%s]: the initiator supports no version in local [%d, %d]", component, local.Min, local.Max)
 	}
@@ -142,6 +144,9 @@ func (n *NetworkStreamSession) negotiate(ctx context.Context) (map[string]uint32
 		v, ok := preamble.Highest(c.Range, preamble.PeerRange(peer, c.Name))
 		if !ok {
 			v = 0 // states that the nodes support no common version
+			if n.refusal == nil {
+				n.refusal = noCommonVersion(c.Name, c.Range, peer)
+			}
 		}
 		versions[c.Name] = v
 	}
@@ -149,10 +154,19 @@ func (n *NetworkStreamSession) negotiate(ctx context.Context) (map[string]uint32
 	return versions, peer, nil
 }
 
+// noCommonVersion returns the error of an initiator session for component, which has no
+// version in both local, this node's range, and the range in peer, the peer's preamble.
+func noCommonVersion(component string, local preamble.Range, peer *preamble.Preamble) error {
+	r := preamble.PeerRange(peer, component)
+	return errors.Wrapf(view.ErrNoCommonVersion, "component [%s]: local [%d, %d], peer [%d, %d]", component, local.Min, local.Max, r.Min, r.Max)
+}
+
 // stated returns the versions and protocol a message states: on an initiator session, every
 // message states them, so that the responder learns them from whichever message reaches it
 // first, even one that arrives before the responder registered the session; on a responder
-// session, none.
+// session, none. On an initiator session with a component that has no common version, it fails
+// as Version does for that component, so that no message is sent: a responder of a release
+// that checks versions would reject the session, and one of an older release would not check.
 func (n *NetworkStreamSession) stated(ctx context.Context) ([]byte, string, error) {
 	if !n.initiator {
 		return nil, "", nil
@@ -161,12 +175,15 @@ func (n *NetworkStreamSession) stated(ctx context.Context) ([]byte, string, erro
 	if err != nil {
 		return nil, "", err
 	}
+	n.versionMu.Lock()
+	defer n.versionMu.Unlock()
+	if n.refusal != nil {
+		return nil, "", n.refusal
+	}
 	raw, err := preamble.EncodeVersions(versions)
 	if err != nil {
 		return nil, "", err
 	}
-	n.versionMu.Lock()
-	defer n.versionMu.Unlock()
 	return raw, n.protocol, nil
 }
 

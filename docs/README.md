@@ -69,3 +69,4 @@ see [Rolling upgrades](upgrade/rolling-upgrade.md).
 - [Upgrading from v0.26 to v0.27](upgrade/v0.26-to-v0.27.md)
 - [Upgrading from v0.27 to v0.28](upgrade/v0.27-to-v0.28.md)
 - [Upgrading from v0.28 to v0.29](upgrade/v0.28-to-v0.29.md)
+- [Upgrading from v0.29 to v0.30](upgrade/v0.29-to-v0.30.md)

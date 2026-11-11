@@ -47,7 +47,7 @@ every organization involved to upgrade in the same window.
    ```
 
    `node peers --check` reports a peer of a release without version ranges as
-   `no preamble` and exits 0.
+   `no preamble`, and exits 11 if the new binary has no common version with it.
 
 3. **Replace the binaries one node, and one replica, at a time.** A node stopped
    with SIGTERM lets its running views finish before it exits (see

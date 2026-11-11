@@ -49,7 +49,7 @@ func TestCheckPeers(t *testing.T) {
 	overlap := encoded(t, func(p *preamble.Preamble) {
 		p.Ranges[1] = &preamble.ComponentRange{Component: "fabric", Min: 2, Max: 3}
 	})
-	fewer := encoded(t, func(p *preamble.Preamble) { p.Ranges = p.Ranges[:1] })
+	withoutFabricx := encoded(t, func(p *preamble.Preamble) { p.Ranges = p.Ranges[:2] })
 
 	for name, tc := range map[string]struct {
 		peers map[string][]byte // nil value: no preamble; missing from replies: unreachable
@@ -57,8 +57,8 @@ func TestCheckPeers(t *testing.T) {
 		out   string
 	}{
 		"overlapping":         {map[string][]byte{"a": same, "b": overlap}, 0, "fabric: local [1,2] peer [2,3]: uses 2"},
-		"no preamble":         {map[string][]byte{"a": nil}, 0, "no preamble"},
-		"component not known": {map[string][]byte{"a": fewer}, 0, "fabricx: local [1,2], not announced by the peer"},
+		"no preamble":         {map[string][]byte{"a": nil}, 0, "no preamble, it runs an FSC release without version ranges\n  view: local [1,1], not announced by the peer, so [1,1]: uses 1\n  fabric: local [1,2], not announced by the peer, so [1,1]: uses 1"},
+		"not announced":       {map[string][]byte{"a": withoutFabricx}, 0, "fabricx: local [1,2], not announced by the peer, so [1,1]: uses 1"},
 		"disjoint":            {map[string][]byte{"a": same, "b": disjoint}, ExitIncompatible, "fabric: local [1,2] peer [3,4]: no overlap"},
 		"other epoch":         {map[string][]byte{"a": otherEpoch}, ExitIncompatible, "peer framing epoch 2, local 1"},
 		"unreachable":         {map[string][]byte{"a": same, "down": nil}, ExitFailed, "peer [down] at [down:1]: unreachable"},
@@ -87,6 +87,19 @@ func TestCheckPeers(t *testing.T) {
 			require.Contains(t, out.String(), tc.out)
 		})
 	}
+}
+
+// TestCheckPeersCountsUnannouncedAsVersionOne checks that a peer without a preamble, which
+// supports version 1 of every component, is incompatible with a binary whose range excludes 1.
+// It changes the process-wide components, so it runs alone and restores them.
+func TestCheckPeersCountsUnannouncedAsVersionOne(t *testing.T) { //nolint:paralleltest
+	t.Cleanup(func() { require.NoError(t, preamble.SetComponents(preamble.FSCComponents)) })
+	require.NoError(t, preamble.SetComponents([]preamble.Component{{Name: "view", Range: preamble.Range{Min: 1, Max: 1}}, {Name: "fabric", Range: preamble.Range{Min: 2, Max: 2}}}))
+	noPreamble := func(context.Context, string, string) ([]byte, error) { return nil, nil }
+
+	var out bytes.Buffer
+	require.Equal(t, ExitIncompatible, checkPeers(t.Context(), &out, []peer{{name: "old", id: "old", address: "old:1"}}, noPreamble), out.String())
+	require.Contains(t, out.String(), "fabric: local [2,2], not announced by the peer, so [1,1]: no overlap")
 }
 
 type configuredNode struct {

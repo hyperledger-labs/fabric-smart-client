@@ -179,14 +179,13 @@ func pkID(raw []byte) (string, error) {
 
 // checkPeers reads each peer's preamble with dial, writes one line per peer and component to
 // w, and returns the exit code: ExitFailed if a peer could not be reached, otherwise
-// ExitIncompatible if one is incompatible, otherwise 0. A peer of a release without preambles,
-// or a component that only one side announces, is reported but not counted as incompatible:
-// the node accepts such peers.
+// ExitIncompatible if one is incompatible, otherwise 0. A component the peer does not announce,
+// or every component of a peer of a release without preambles, counts as version 1, as in a
+// session (see compareRange).
 func checkPeers(ctx context.Context, w io.Writer, peers []peer, dial readPreamble) int {
 	if len(peers) == 0 {
 		_, _ = fmt.Fprintln(w, "no peers configured in fsc.endpoint.resolvers")
 	}
-	local := preamble.Local()
 	unreachable, incompatible := false, false
 	for _, p := range peers {
 		peerCtx, cancel := context.WithTimeout(ctx, peerTimeout)
@@ -202,19 +201,19 @@ func checkPeers(ctx context.Context, w io.Writer, peers []peer, dial readPreambl
 			_, _ = fmt.Fprintf(w, "peer [%s] at [%s]: unreachable: %v\n", p.name, p.address, err)
 			continue
 		}
+		var remote *preamble.Preamble
 		if raw == nil {
 			_, _ = fmt.Fprintf(w, "peer [%s] at [%s]: no preamble, it runs an FSC release without version ranges\n", p.name, p.address)
-			continue
+		} else {
+			if remote, err = preamble.Accept(raw); err != nil {
+				incompatible = true
+				_, _ = fmt.Fprintf(w, "peer [%s] at [%s]: incompatible: %v\n", p.name, p.address, err)
+				continue
+			}
+			_, _ = fmt.Fprintf(w, "peer [%s] at [%s]: FSC [%s] framing epoch %d\n", p.name, p.address, remote.GetFscVersion(), remote.GetFramingEpoch())
 		}
-		remote, err := preamble.Accept(raw)
-		if err != nil {
-			incompatible = true
-			_, _ = fmt.Fprintf(w, "peer [%s] at [%s]: incompatible: %v\n", p.name, p.address, err)
-			continue
-		}
-		_, _ = fmt.Fprintf(w, "peer [%s] at [%s]: FSC [%s] framing epoch %d\n", p.name, p.address, remote.GetFscVersion(), remote.GetFramingEpoch())
-		for _, l := range local.GetRanges() {
-			line, ok := compareRange(l, remote.GetRanges())
+		for _, c := range preamble.Components() {
+			line, ok := compareRange(c, remote)
 			incompatible = incompatible || !ok
 			_, _ = fmt.Fprintf(w, "  %s\n", line)
 		}
@@ -229,20 +228,22 @@ func checkPeers(ctx context.Context, w io.Writer, peers []peer, dial readPreambl
 	}
 }
 
-// compareRange describes how the local range l compares with the peer's range of the same
-// component, and reports false if both exist and do not overlap. Two overlapping ranges use the
-// highest version in both.
-func compareRange(l *preamble.ComponentRange, remote []*preamble.ComponentRange) (string, bool) {
-	for _, r := range remote {
-		if r.GetComponent() != l.GetComponent() {
-			continue
+// compareRange describes how c, a local component, compares with its range in remote, the
+// peer's preamble, and reports false if they do not overlap. Two overlapping ranges use the
+// highest version in both. A component remote does not announce, or every component of a nil
+// remote, has preamble.DefaultRange.
+func compareRange(c preamble.Component, remote *preamble.Preamble) (string, bool) {
+	r, announced := preamble.DefaultRange, ", not announced by the peer, so"
+	for _, pr := range remote.GetRanges() {
+		if pr.GetComponent() == c.Name {
+			r, announced = preamble.Range{Min: pr.GetMin(), Max: pr.GetMax()}, " peer"
+			break
 		}
-		lo, hi := max(l.GetMin(), r.GetMin()), min(l.GetMax(), r.GetMax())
-		desc := fmt.Sprintf("%s: local [%d,%d] peer [%d,%d]", l.GetComponent(), l.GetMin(), l.GetMax(), r.GetMin(), r.GetMax())
-		if lo > hi {
-			return desc + ": no overlap", false
-		}
-		return fmt.Sprintf("%s: uses %d", desc, hi), true
 	}
-	return fmt.Sprintf("%s: local [%d,%d], not announced by the peer", l.GetComponent(), l.GetMin(), l.GetMax()), true
+	desc := fmt.Sprintf("%s: local [%d,%d]%s [%d,%d]", c.Name, c.Range.Min, c.Range.Max, announced, r.Min, r.Max)
+	v, ok := preamble.Highest(c.Range, r)
+	if !ok {
+		return desc + ": no overlap", false
+	}
+	return fmt.Sprintf("%s: uses %d", desc, v), true
 }

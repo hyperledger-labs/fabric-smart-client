@@ -61,3 +61,31 @@ func TestService_NoCommonVersionIsRejected(t *testing.T) {
 	require.ElementsMatch(t, []string{"no_common_version: view 0 not in [1, 1]", "no_common_version: invalid versions"}, payloads)
 	require.Zero(t, rt.cl.NewResponderSessionCallCount())
 }
+
+// TestService_UnstatedVersionIsVersionOne checks that a first message stating no versions, as
+// an initiator older than v0.28 sends, counts as version 1 of every component: a responder
+// whose range excludes 1 rejects it, one whose range includes 1 runs it. It changes the
+// process-wide components, so it runs alone and restores them.
+func TestService_UnstatedVersionIsVersionOne(t *testing.T) { //nolint:paralleltest
+	t.Cleanup(func() { require.NoError(t, preamble.SetComponents(preamble.FSCComponents)) })
+	setFabric := func(r preamble.Range) {
+		require.NoError(t, preamble.SetComponents([]preamble.Component{{Name: "view", Range: preamble.Range{Min: 1, Max: 1}}, {Name: "fabric", Range: r}}))
+	}
+	setFabric(preamble.Range{Min: 2, Max: 2})
+	rt := newRejectTest(t, 1)
+
+	unstated := func(id string) *view.Message {
+		return &view.Message{ContextID: id, SessionID: id, Caller: "hosted", FromPKID: []byte("peer"), Ctx: t.Context()}
+	}
+	rt.ch <- unstated("old")
+
+	require.Eventually(t, func() bool { return rt.cl.ReplyErrorCallCount() == 1 }, 5*time.Second, 5*time.Millisecond)
+	_, _, payload := rt.cl.ReplyErrorArgsForCall(0)
+	require.Equal(t, "no_common_version: fabric 1 not in [2, 2]", string(payload))
+	require.Zero(t, rt.cl.NewResponderSessionCallCount())
+
+	setFabric(preamble.Range{Min: 1, Max: 2})
+	rt.ch <- unstated("old2")
+	rt.wait(rt.runner.entered, "the responder to run")
+	require.Equal(t, 1, rt.cl.ReplyErrorCallCount())
+}

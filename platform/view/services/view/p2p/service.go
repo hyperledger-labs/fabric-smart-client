@@ -305,8 +305,10 @@ type peerLoad struct{ responders, rejections int }
 // A responder is found by the message's protocol name, then by its caller view. A message for
 // which neither has a responder on this node is rejected as unknown_view. One that states a
 // component version outside this node's range is rejected as no_common_version, before any
-// limit or authorizer applies; the initiator chose the versions from this node's preamble, so
-// this happens only if the node's ranges changed or the initiator misbehaves. A late
+// limit or authorizer applies, and so is one that does not state a component whose version 1
+// this node does not support (see unsupportedVersion), as from an initiator older than version
+// negotiation. An initiator that negotiates chose the versions from this node's preamble, so it
+// is rejected only if the node's ranges changed or the initiator misbehaves. A late
 // message from a responder whose initiator session on this node is gone usually has an empty
 // caller and is dropped; it carries the initiator's view as caller, and is rejected, only if the
 // initiator sent more than one message on that session.
@@ -409,17 +411,23 @@ func (s *Service) dispatch(ctx context.Context, msg *view.Message) {
 }
 
 // unsupportedVersion returns the rejection detail for raw, the versions a first message states:
-// for the first local component whose stated version is outside this node's range, naming the
+// for the first local component whose version is outside this node's range, naming the
 // component, the version (0 when the initiator found no common one) and the range, or for raw
-// that does not decode. It returns "" if this node supports every one. A component this node
-// does not have is not checked: the responder cannot use it, so its version does not matter.
+// that does not decode. It returns "" if this node supports every one. A component raw does
+// not state counts as version 1 (preamble.DefaultRange), as on the session: its initiator runs
+// a release older than the component, or than version negotiation. A component this node does
+// not have is not checked: the responder cannot use it, so its version does not matter.
 func unsupportedVersion(raw []byte) string {
 	versions, err := preamble.DecodeVersions(raw)
 	if err != nil {
 		return "invalid versions"
 	}
 	for _, c := range preamble.Components() {
-		if v, ok := versions[c.Name]; ok && !c.Range.Contains(v) {
+		v, ok := versions[c.Name]
+		if !ok {
+			v = preamble.DefaultRange.Max
+		}
+		if !c.Range.Contains(v) {
 			return fmt.Sprintf("%s %d not in [%d, %d]", c.Name, v, c.Range.Min, c.Range.Max)
 		}
 	}
