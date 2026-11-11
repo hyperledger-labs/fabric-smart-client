@@ -2,7 +2,7 @@
 
 **Fabric Smart Client (FSC)** is a client-side framework for Hyperledger Fabric
 and Fabric-x that models distributed business processes as interactive protocols
-of composable *views*, so developers write business logic instead of low-level
+of composable _views_, so developers write business logic instead of low-level
 blockchain plumbing.
 
 Go project (root module `github.com/hyperledger-labs/fabric-smart-client`),
@@ -42,19 +42,19 @@ First-time setup, Fabric binaries, and Docker images are in
 FSC is a multi-module repository. `go build ./...` / `go test ./...` from the
 root only sees the root module — the other four are invisible to it.
 
-| Module | Path | Notes |
-|--------|------|-------|
-| root | `.` | the framework itself |
-| integration | `integration/` | test harness (`nwo`) + integration suites; `replace`s root, `cc/query`, `libp2p` |
-| libp2p host | `platform/view/services/comm/host/libp2p/` | optional comm driver; `replace`s root |
-| chaincode query | `platform/fabric/services/state/cc/query/` | chaincode, does not depend on root |
-| tools | `tools/` | dev-tool pins (`module tools`); not released |
+| Module          | Path                                       | Notes                                                                            |
+| --------------- | ------------------------------------------ | -------------------------------------------------------------------------------- |
+| root            | `.`                                        | the framework itself                                                             |
+| integration     | `integration/`                             | test harness (`nwo`) + integration suites; `replace`s root, `cc/query`, `libp2p` |
+| libp2p host     | `platform/view/services/comm/host/libp2p/` | optional comm driver; `replace`s root                                            |
+| chaincode query | `platform/fabric/services/state/cc/query/` | chaincode, does not depend on root                                               |
+| tools           | `tools/`                                   | dev-tool pins (`module tools`); not released                                     |
 
-- **Dependency changes**: run `make tidy` (`scripts/gomate.sh tidy` — tidies *every*
+- **Dependency changes**: run `make tidy` (`scripts/gomate.sh tidy` — tidies _every_
   module), not `go mod tidy` in one place. To bump a dep everywhere:
   `./scripts/gomate.sh update github.com/some/dep@v1.2.3`.
 - A dependency used only by code under `integration/` or the libp2p host
-  belongs in *that* module's `go.mod`, not the root one.
+  belongs in _that_ module's `go.mod`, not the root one.
 - **Releases** are cut by a maintainer with `make release-prepare`, `make release-pr` and
   `make release-publish` (`scripts/release.sh`), which tag every module with the same version;
   a change in a submodule is consumable downstream only after the next release. The steps are
@@ -65,18 +65,18 @@ root only sees the root module — the other four are invisible to it.
 
 Read these on demand — don't load them up front.
 
-| Topic | For people | Agent checklist |
-|-------|-----------|-----------------|
-| View/session programming model (views, sessions, initiator/responder) | [`docs/platform/view/programming-model.md`](docs/platform/view/programming-model.md) | |
-| Platform layout, SDK composition, `dig` DI, multi-network | [`docs/dev/architecture.md`](docs/dev/architecture.md) | [`docs/agents/architecture.md`](docs/agents/architecture.md) |
-| Code organization, errors, logging, storage, identity, security | [`docs/dev/conventions.md`](docs/dev/conventions.md) | [`docs/agents/conventions.md`](docs/agents/conventions.md) |
-| Unit tests, mocks, fixtures, fuzzing (e.g. `assert` vs `require`) | [`docs/dev/testing.md`](docs/dev/testing.md) | [`docs/agents/testing.md`](docs/agents/testing.md) |
-| Integration suites, authoring, fault-recovery tests | [`docs/dev/integration-tests/`](docs/dev/integration-tests/README.md) | [`docs/agents/integration-tests.md`](docs/agents/integration-tests.md) |
-| Node configuration (`core.yaml`) | [`docs/configuration.md`](docs/configuration.md) | |
-| Architecture overview & concepts | [`docs/core-concepts.md`](docs/core-concepts.md) | |
-| Contribution workflow | [`docs/dev/workflow.md`](docs/dev/workflow.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) | |
-| Cutting a release | [`docs/dev/releasing.md`](docs/dev/releasing.md) | |
-| Where documentation goes and how it is written | [`docs/dev/documentation.md`](docs/dev/documentation.md) | |
+| Topic                                                                 | For people                                                                           | Agent checklist                                                        |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| View/session programming model (views, sessions, initiator/responder) | [`docs/platform/view/programming-model.md`](docs/platform/view/programming-model.md) |                                                                        |
+| Platform layout, SDK composition, `dig` DI, multi-network             | [`docs/dev/architecture.md`](docs/dev/architecture.md)                               | [`docs/agents/architecture.md`](docs/agents/architecture.md)           |
+| Code organization, errors, logging, storage, identity, security       | [`docs/dev/conventions.md`](docs/dev/conventions.md)                                 | [`docs/agents/conventions.md`](docs/agents/conventions.md)             |
+| Unit tests, mocks, fixtures, fuzzing (e.g. `assert` vs `require`)     | [`docs/dev/testing.md`](docs/dev/testing.md)                                         | [`docs/agents/testing.md`](docs/agents/testing.md)                     |
+| Integration suites, authoring, fault-recovery tests                   | [`docs/dev/integration-tests/`](docs/dev/integration-tests/README.md)                | [`docs/agents/integration-tests.md`](docs/agents/integration-tests.md) |
+| Node configuration (`core.yaml`)                                      | [`docs/configuration.md`](docs/configuration.md)                                     |                                                                        |
+| Architecture overview & concepts                                      | [`docs/core-concepts.md`](docs/core-concepts.md)                                     |                                                                        |
+| Contribution workflow                                                 | [`docs/dev/workflow.md`](docs/dev/workflow.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) |                                                                        |
+| Cutting a release                                                     | [`docs/dev/releasing.md`](docs/dev/releasing.md)                                     |                                                                        |
+| Where documentation goes and how it is written                        | [`docs/dev/documentation.md`](docs/dev/documentation.md)                             |                                                                        |
 
 ## Documentation
 
@@ -111,6 +111,6 @@ writing any documentation. The rules that matter most:
 
 ## Related projects
 
-- **Panurus** (token layer built *on* FSC, formerly Token SDK): <https://github.com/LFDT-Panurus/panurus>
+- **Panurus** (token layer built _on_ FSC, formerly Token SDK): <https://github.com/LFDT-Panurus/panurus>
 - **Fabric-x Committer** (what the `fabricx` platform submits to): <https://github.com/hyperledger/fabric-x-committer>
 - Community: LFDT Discord `#fabric-smart-client`

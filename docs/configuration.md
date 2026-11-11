@@ -131,7 +131,7 @@ fsc:
         files:
         - /path/to/client/tls/ca.crt
 
-    # GRPC Server keepalive parameters. 
+    # GRPC Server keepalive parameters.
     # This section can be omitted.
     keepalive:
       # MaxConnectionIdle: send GOAWAY and gracefully close if connection is idle this long (no RPCs).
@@ -217,7 +217,7 @@ fsc:
           # Grace period - connections younger than this will not be pruned. Default: 60s
           # Format: duration in seconds
           gracePeriod: 60
-      
+
       # ------------------- websocket specific options -------------------------
       # Only needed when type == websocket
       websocket:
@@ -529,7 +529,7 @@ fsc:
     #   enabled: false
     # clientAuthRequired: false
 
-    
+
   # ------------------- FSC Node endpoint resolvers -------------------------
   # The endpoint section tells how to reach other FSC node in the network.
   # Each entry needs a name and an identity; domain, addresses and aliases are optional.
@@ -792,7 +792,7 @@ fabric:
         # `usage` allows the developer to specify the function for which this peer should be used.
         # The available functions are: delivery, discovery, finality, and query.
         # The default value is the empty string that means that the peer can be used for the supported operations.
-        usage: 
+        usage:
 
     # Fabric-x query and notification services (Fabric-x only).
     #
@@ -941,10 +941,10 @@ fabric:
           # random delay below this value, doubling the bound on each further failure
           # up to 1m.
           sleepAfterFailure: 10s
-        # section about the discovery service  
+        # section about the discovery service
         discovery:
           timeout: 10s
-        # section about the chaincode this node should be aware of  
+        # section about the chaincode this node should be aware of
         chaincodes:
             # chaincode id
           - name: mychaincode
@@ -1001,29 +1001,29 @@ Two checks reject them, and the error depends on where the key sits:
 
 - A key **inside** a `tls:` block fails the strict decode of that block, naming the key and
   the block: `invalid TLS configuration under [fabric.mynet.tls]: ... has invalid keys:
-  rootcertfile`. Look the key up below for its replacement.
+rootcertfile`. Look the key up below for its replacement.
 - A key **outside** every `tls:` block is caught by an explicit check that names the
   replacement for you: `configuration key [...] has been removed; use [...] instead`.
 
-| Rejected key | Use instead |
-| --- | --- |
-| `fsc.p2p.opts.websocket.tls.serverRootCAs.files` | `fsc.p2p.opts.websocket.tls.rootCAs.files` |
-| `fsc.metrics.prometheus.tls` | `fsc.metrics.clientAuthRequired` |
-| `fabric.<net>.tls.clientAuthRequired` | `fabric.<net>.tls.clientAuthEnabled` |
-| `fabric.<net>.tls.serverHostOverride` | `fabric.<net>.tls.serverNameOverride` |
-| `fabric.<net>.tls.rootCert.file` | `fabric.<net>.tls.rootCAs.files` |
-| `fabric.<net>.tls.rootCertFile` | `fabric.<net>.tls.rootCAs.files` |
-| `fabric.<net>.tls.cert`, `.key`, `.clientRootCAs` | none; a network dials, it does not listen |
-| `fabric.<net>.ordering.tlsEnabled` | `fabric.<net>.tls.enabled` |
-| `fabric.<net>.ordering.tlsClientAuthRequired` | `fabric.<net>.tls.clientAuthEnabled` |
-| `orderers[].tlsEnabled`, `peers[].tlsEnabled` | `…[].tls.enabled` |
-| `orderers[].tlsDisabled`, `peers[].tlsDisabled` | `…[].tls.enabled: false` |
-| `orderers[].tlsClientSideAuth`, `peers[].tlsClientSideAuth` | `…[].tls.clientAuthEnabled` |
-| `orderers[].tlsRootCertFile`, `peers[].tlsRootCertFile` | `…[].tls.rootCAs.files` |
-| `orderers[].serverNameOverride`, `peers[].serverNameOverride` | `…[].tls.serverNameOverride` |
-| `orderers[].tlsRootCertBytes`, `peers[].tlsRootCertBytes` | none; set the CA files with `…[].tls.rootCAs.files` |
-| Fabric-x `tls.clientKey`, `.clientCert` (flat strings) | `tls.clientKey.file`, `tls.clientCert.file` |
-| Fabric-x `tls.rootCerts` (flat list) | `tls.rootCAs.files` |
+| Rejected key                                                  | Use instead                                         |
+| ------------------------------------------------------------- | --------------------------------------------------- |
+| `fsc.p2p.opts.websocket.tls.serverRootCAs.files`              | `fsc.p2p.opts.websocket.tls.rootCAs.files`          |
+| `fsc.metrics.prometheus.tls`                                  | `fsc.metrics.clientAuthRequired`                    |
+| `fabric.<net>.tls.clientAuthRequired`                         | `fabric.<net>.tls.clientAuthEnabled`                |
+| `fabric.<net>.tls.serverHostOverride`                         | `fabric.<net>.tls.serverNameOverride`               |
+| `fabric.<net>.tls.rootCert.file`                              | `fabric.<net>.tls.rootCAs.files`                    |
+| `fabric.<net>.tls.rootCertFile`                               | `fabric.<net>.tls.rootCAs.files`                    |
+| `fabric.<net>.tls.cert`, `.key`, `.clientRootCAs`             | none; a network dials, it does not listen           |
+| `fabric.<net>.ordering.tlsEnabled`                            | `fabric.<net>.tls.enabled`                          |
+| `fabric.<net>.ordering.tlsClientAuthRequired`                 | `fabric.<net>.tls.clientAuthEnabled`                |
+| `orderers[].tlsEnabled`, `peers[].tlsEnabled`                 | `…[].tls.enabled`                                   |
+| `orderers[].tlsDisabled`, `peers[].tlsDisabled`               | `…[].tls.enabled: false`                            |
+| `orderers[].tlsClientSideAuth`, `peers[].tlsClientSideAuth`   | `…[].tls.clientAuthEnabled`                         |
+| `orderers[].tlsRootCertFile`, `peers[].tlsRootCertFile`       | `…[].tls.rootCAs.files`                             |
+| `orderers[].serverNameOverride`, `peers[].serverNameOverride` | `…[].tls.serverNameOverride`                        |
+| `orderers[].tlsRootCertBytes`, `peers[].tlsRootCertBytes`     | none; set the CA files with `…[].tls.rootCAs.files` |
+| Fabric-x `tls.clientKey`, `.clientCert` (flat strings)        | `tls.clientKey.file`, `tls.clientCert.file`         |
+| Fabric-x `tls.rootCerts` (flat list)                          | `tls.rootCAs.files`                                 |
 
 Two of these keys differ in meaning, not only in spelling, from the key to use instead:
 
@@ -1041,11 +1041,11 @@ Two of these keys differ in meaning, not only in spelling, from the key to use i
 These keys sit outside every `tls:` block and fail startup with the same
 `configuration key [...] has been removed; use [...] instead` error.
 
-| Removed | Replacement |
-| --- | --- |
-| `fsc.web.viewTimeout` | `fsc.view.remote.timeout`, which bounds remote view calls on `fsc.grpc` and `fsc.web` alike |
-| `fsc.grpc.authentication.timeWindow` | `fsc.view.remote.timeWindow` |
-| `fsc.client.certs` | `fsc.view.remote.clients` |
+| Removed                              | Replacement                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `fsc.web.viewTimeout`                | `fsc.view.remote.timeout`, which bounds remote view calls on `fsc.grpc` and `fsc.web` alike |
+| `fsc.grpc.authentication.timeWindow` | `fsc.view.remote.timeWindow`                                                                |
+| `fsc.client.certs`                   | `fsc.view.remote.clients`                                                                   |
 
 Two further checks stop a configuration that would otherwise silently serve no view API:
 `fsc.grpc.enabled: true` without `fsc.view.remote` (nothing else uses the gRPC listener), and
@@ -1116,7 +1116,7 @@ and `platform/view/services/storage/driver/sql/postgres/sql_test.go`.
 Each example below is a persistence block under `fsc.persistences`, selected by a store through its
 `persistence` key (for example `fsc.kvs.persistence: default`).
 
-### Config example for sqlite:
+### Config example for sqlite
 
 Simple:
 
@@ -1129,10 +1129,9 @@ fsc:
         dataSource: /some/path/fsc.sqlite
 ```
 
-
 The parent directory of the data source file is created when the database is opened. FSC opens two connection pools on the
 file: a write pool with exactly one connection, and a read pool for concurrent reads (see
-https://kerkour.com/sqlite-for-servers for why SQLite works well this way). `maxOpenConns`, `maxIdleConns` and `maxIdleTime`
+<https://kerkour.com/sqlite-for-servers> for why SQLite works well this way). `maxOpenConns`, `maxIdleConns` and `maxIdleTime`
 apply to the read pool only.
 
 Advanced, more customized settings:
@@ -1206,15 +1205,15 @@ fsc:
 ```
 
 `ssl_mode` follows the standard PostgreSQL/libpq semantics
-(https://www.postgresql.org/docs/current/libpq-ssl.html):
+(<https://www.postgresql.org/docs/current/libpq-ssl.html>):
 
-| ssl_mode      | Encrypted | Verifies CA | Verifies hostname | Notes |
-|---------------|-----------|-------------|-------------------|-------|
-| `disable`     | no        | no          | no                | The `dataSource` is used unchanged; no other tls option has any effect. |
-| `allow`       | maybe     | no          | no                | Tries a plaintext connection first, falls back to TLS. |
-| `prefer`      | maybe     | no          | no                | Tries TLS first, falls back to a plaintext connection. |
-| `require`     | yes       | no          | no                | Encrypts but does not validate the server certificate. |
-| `verify-ca`   | yes       | yes         | no                | Validates the certificate chain against `root_cert_path`. |
+| ssl_mode      | Encrypted | Verifies CA | Verifies hostname | Notes                                                                                                |
+| ------------- | --------- | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `disable`     | no        | no          | no                | The `dataSource` is used unchanged; no other tls option has any effect.                              |
+| `allow`       | maybe     | no          | no                | Tries a plaintext connection first, falls back to TLS.                                               |
+| `prefer`      | maybe     | no          | no                | Tries TLS first, falls back to a plaintext connection.                                               |
+| `require`     | yes       | no          | no                | Encrypts but does not validate the server certificate.                                               |
+| `verify-ca`   | yes       | yes         | no                | Validates the certificate chain against `root_cert_path`.                                            |
 | `verify-full` | yes       | yes         | yes               | Validates the chain and that the hostname matches. **This is the default when `ssl_mode` is empty.** |
 
 > [!NOTE]
@@ -1324,7 +1323,7 @@ ALTER TABLE <prefix>_vstate ALTER COLUMN pkey TYPE BYTEA USING
   decode(replace(replace(encode(convert_to(pkey, 'UTF8'), 'hex'), '3f303f', '00'), '3f313f', 'f48fbfbf'), 'hex');
 ```
 
-For more info about managing connections, see https://go.dev/doc/database/manage-connections. Fabric Smart Client
+For more info about managing connections, see <https://go.dev/doc/database/manage-connections>. Fabric Smart Client
 opens one connection pool per distinct `dataSource` (on Postgres, per distinct `dataSource` and `tls` block), shared by
 every store and persistence that uses it, including the Fabric vault. The pool settings of the first store opened on a pool
 apply to all of them. On Postgres, the sum of `maxOpenConns` over the distinct data sources, across all replicas, should not

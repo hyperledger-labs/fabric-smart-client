@@ -24,19 +24,19 @@ graph TB
     Context[View Context]
     Sessions[Session Manager]
     P2P[P2P Service]
-    
+
     Manager --> Registry
     Manager --> ContextFactory
     Manager --> Context
     Context --> Sessions
     Context --> P2P
-    
+
     subgraph "View Execution"
         View[View Instance]
         RunView[RunViewNow]
         View --> RunView
     end
-    
+
     Manager --> View
 ```
 
@@ -51,6 +51,7 @@ The `Manager` is the central orchestrator responsible for:
 - **Metrics**: Tracking active contexts and view executions
 
 **Key Methods:**
+
 - `InitiateView(ctx, view)`: Starts a new protocol with the given view as initiator
 - `InitiateContext(ctx, view)`: Creates a context for a view without executing it
 - `NewResponderContext(ctx, contextID, session, me, remote)`: Creates or joins a context for responding to a remote request, and returns the func that releases it
@@ -62,6 +63,7 @@ The `Manager` is the central orchestrator responsible for:
 The `Context` provides the execution environment for views, implementing the `view.Context` interface:
 
 **Identity & Session Management:**
+
 - `Me()`: Returns the local identity bound to this context
 - `IsMe(id)`: Checks if an identity is local to this node
 - `Session()`: Returns the default session (for responders)
@@ -69,14 +71,17 @@ The `Context` provides the execution environment for views, implementing the `vi
 - `GetSessionByID(id, party)`: Gets a session by explicit ID
 
 **Service Access:**
+
 - `GetService(type)`: Retrieves services (local context-scoped or global)
 - `PutService(service)`: Registers a service in the local context scope
 
 **View Execution:**
+
 - `RunView(view, opts...)`: Executes a view within this context
 - `Initiator()`: Returns the initiator view (if this is an initiator context)
 
 **Lifecycle:**
+
 - `OnError(callback)`: Registers cleanup callbacks for error handling
 - `Dispose()`: Releases all resources (sessions, callbacks)
 
@@ -88,6 +93,7 @@ The `ContextFactory` creates view contexts with proper initialization:
 - `NewForResponder(ctx, contextID, me, session, remote)`: Creates a context for a responder view
 
 The factory wires together:
+
 - Service provider (global services)
 - Session factory (for creating communication sessions)
 - Endpoint service (for identity resolution)
@@ -99,10 +105,12 @@ The factory wires together:
 The `Registry` manages view factories and responder mappings:
 
 **Factory Registration:**
+
 - `RegisterFactory(id, factory)`: Maps a view ID to a factory
 - `NewView(id, input)`: Creates a view instance using the registered factory
 
 **Responder Registration:**
+
 - `RegisterResponder(responder, initiatedBy)`: Maps an initiator to a responder view
 - `RegisterResponderWithIdentity(responder, id, initiatedBy)`: Maps with a specific identity
 - `RegisterResponderWithOptions(responder, initiatedBy, opts...)`: Maps with `WithIdentity`,
@@ -119,6 +127,7 @@ responder and identity, and its authorizer and protocol name only if the new reg
 them.
 
 **View Identification:**
+
 - Uses reflection to generate unique identifiers: `<package>/<type>`
 - Caches identifiers for performance
 
@@ -132,6 +141,7 @@ The `Sessions` component manages communication sessions within a context:
 - **Default Session**: Responder contexts have a default session from the initiator
 
 **Key Operations:**
+
 - `Put(viewID, party, session)`: Caches a session
 - `Get(viewID, party)`: Retrieves a cached session
 - `GetFirstOpen(viewID, parties)`: Finds the first open session from a list of party identities
@@ -157,17 +167,17 @@ sequenceDiagram
     Context-->>Manager: Context
     Manager->>Context: RunView(view)
     Context->>View: Call(context)
-    
+
     View->>Context: GetSession(caller, party)
     Context->>Session: NewSession(...)
     Session-->>Context: Session
-    
+
     View->>Session: Send(message)
     Session->>Remote: Network Message
-    
+
     Remote-->>Session: Response
     Session-->>View: Receive()
-    
+
     View-->>Context: Result
     Context-->>Manager: Result
     Manager->>Context: Dispose()
@@ -213,18 +223,18 @@ sequenceDiagram
         ContextFactory->>Context: Create Context
         Manager->>Context: Register
     end
-    
+
     P2P->>Context: RunView(responder)
     Context->>Responder: Call(context)
-    
+
     Responder->>Context: Session()
     Context-->>Responder: Default Session
-    
+
     Responder->>Context: Send/Receive
-    
+
     Responder-->>Context: Result
     Context-->>P2P: Complete
-    
+
     P2P->>Manager: release()
     alt Last Responder
         Manager->>Context: Dispose()
@@ -266,6 +276,7 @@ The `ChildContext` wraps a parent context to provide:
 - **Delegation**: Delegates most operations to the parent
 
 **Use Cases:**
+
 - Running a view with a different session
 - Temporarily acting as an initiator from a responder context
 - Isolating error handling for nested view executions
@@ -291,6 +302,7 @@ The `WrappedContext` wraps a parent context to provide a different `context.Cont
 ### Session scoping
 
 Sessions are scoped by:
+
 - **View ID**: The identifier of the calling view
 - **Party ID**: The identity of the remote party
 
@@ -514,19 +526,19 @@ sequenceDiagram
     Comm->>P2P: Message
     P2P->>Manager: ResponderForCaller(protocol, caller)
     Manager-->>P2P: Responder View, identity, authorizer
-    
+
     P2P->>Manager: NewResponderContext(...)
     Manager-->>P2P: Context (new or joined), release
-    
+
     P2P->>Context: RunView(responder)
     Context->>Responder: Call(context)
     Responder-->>Context: Result
     Context-->>P2P: Complete
-    
+
     alt Error
         P2P->>Context: Session().SendError(ctx, err)
     end
-    
+
     P2P->>Manager: release()
 ```
 
@@ -608,20 +620,20 @@ The view service uses structured logging:
 
 ## Code references
 
-| Component | File Path |
-| :--- | :--- |
-| View Manager | `platform/view/services/view/manager.go` |
-| View Context | `platform/view/services/view/context.go` |
-| Context Factory | `platform/view/services/view/context.go` |
-| Child Context | `platform/view/services/view/child.go` |
-| View Registry | `platform/view/services/view/registry.go` |
-| Session Manager | `platform/view/services/view/sessions.go` |
-| View Execution | `platform/view/services/view/view.go` |
-| Service Provider | `platform/view/services/view/sp.go` |
-| P2P Service | `platform/view/services/view/p2p/service.go` |
-| Error Definitions | `platform/view/services/view/errors.go` |
-| Remote view service (gRPC) | `platform/view/services/view/grpc/server/` |
-| Remote view service (HTTP binding) | `platform/view/services/view/web/` |
+| Component                          | File Path                                    |
+| :--------------------------------- | :------------------------------------------- |
+| View Manager                       | `platform/view/services/view/manager.go`     |
+| View Context                       | `platform/view/services/view/context.go`     |
+| Context Factory                    | `platform/view/services/view/context.go`     |
+| Child Context                      | `platform/view/services/view/child.go`       |
+| View Registry                      | `platform/view/services/view/registry.go`    |
+| Session Manager                    | `platform/view/services/view/sessions.go`    |
+| View Execution                     | `platform/view/services/view/view.go`        |
+| Service Provider                   | `platform/view/services/view/sp.go`          |
+| P2P Service                        | `platform/view/services/view/p2p/service.go` |
+| Error Definitions                  | `platform/view/services/view/errors.go`      |
+| Remote view service (gRPC)         | `platform/view/services/view/grpc/server/`   |
+| Remote view service (HTTP binding) | `platform/view/services/view/web/`           |
 
 ## Related documentation
 

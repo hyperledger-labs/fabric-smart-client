@@ -5,15 +5,18 @@ Rebasing keeps your branch in sync with the upstream main, meaning you are worki
 ## Step-by-step guide
 
 ### 1. Add the original repo as a remote called "upstream"
+
 Only do this once per repository clone. [Fork and clone](development.md#fork-and-clone)
 already does it.
 
 If not already done:
+
 ```bash
 git remote add upstream https://github.com/hyperledger-labs/fabric-smart-client.git
 ```
 
 ### 2. Sync your main on your fork
+
 Each time you want to sync your fork's main with the upstream main changes:
 
 ```bash
@@ -28,7 +31,7 @@ You can also do this by visiting your repository `"https://github.com/YOUR_GITHU
 ### 3. Sync your working branch
 
 Your fork’s `main` branch is now up-to-date, but **your working branch is not**.
-To bring your branch in sync with the latest changes, apply a **rebase**. 
+To bring your branch in sync with the latest changes, apply a **rebase**.
 This keeps history clean and ensures your commits remain eligible for review.
 
 To rebase:
@@ -37,17 +40,21 @@ To rebase:
 git checkout mybranch
 git rebase upstream/main -S
 ```
+
 > [!IMPORTANT]
-> - Always include the `-S` flag  
+>
+> - Always include the `-S` flag
 > - Do NOT merge `main` into your branch
 
 ## Verify sign status
+
 Verify after the rebase operation that your commits are still signed correctly —
 replace `3` with the number of commits on your branch:
 
 ```bash
 git log -n 3 --pretty=format:'%h %an %G? %s'
 ```
+
 You should see `G` (valid signature). If you experience signing issues, read the [Signing Guide](signing.md).
 
 > [!NOTE]

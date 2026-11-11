@@ -28,10 +28,10 @@ transports.
 
 ## Endpoints
 
-| Method | Path | Messages |
-| --- | --- | --- |
-| `POST` | `/v1/ViewService/ProcessCommand` | request body `SignedCommand`, response body `SignedCommandResponse` |
-| `GET` (WebSocket) | `/v1/ViewService/StreamCommand` | text frames, see [Streams](#streams) |
+| Method            | Path                             | Messages                                                            |
+| ----------------- | -------------------------------- | ------------------------------------------------------------------- |
+| `POST`            | `/v1/ViewService/ProcessCommand` | request body `SignedCommand`, response body `SignedCommandResponse` |
+| `GET` (WebSocket) | `/v1/ViewService/StreamCommand`  | text frames, see [Streams](#streams)                                |
 
 The paths are `protos.ProcessCommandHTTPPath` and `protos.StreamCommandHTTPPath`. Bodies and
 frames are protojson; `bytes` fields are base64 strings. Both ends ignore unknown fields, as gRPC
@@ -47,14 +47,14 @@ error or a view timeout, are reported in its `CommandResponse.err`, as on gRPC.
 
 Other statuses mean no command reached the view service:
 
-| Status | Cause |
-| --- | --- |
-| `400` | the body is not a protojson `SignedCommand` |
-| `405` | a method other than `POST` |
-| `409` | the node's shutdown cancelled the view (gRPC `Aborted`); it may have had effects, so check its outcome rather than retrying ([shutdown.md](shutdown.md)) |
-| `413` | the body is larger than `fsc.web.maxRecvMsgSize` (100 MiB when unset) |
-| `500` | the view service returned an error instead of a response; the body does not carry it |
-| `503` | the node drains before it stops, or already runs `fsc.view.remote.maxConcurrentRequests` commands (gRPC `Unavailable`); the command did not run, so retry later or on another replica ([shutdown.md](shutdown.md)). The body tells them apart: `node is draining` or `node is busy: too many concurrent view requests` |
+| Status | Cause                                                                                                                                                                                                                                                                                                                  |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | the body is not a protojson `SignedCommand`                                                                                                                                                                                                                                                                            |
+| `405`  | a method other than `POST`                                                                                                                                                                                                                                                                                             |
+| `409`  | the node's shutdown cancelled the view (gRPC `Aborted`); it may have had effects, so check its outcome rather than retrying ([shutdown.md](shutdown.md))                                                                                                                                                               |
+| `413`  | the body is larger than `fsc.web.maxRecvMsgSize` (100 MiB when unset)                                                                                                                                                                                                                                                  |
+| `500`  | the view service returned an error instead of a response; the body does not carry it                                                                                                                                                                                                                                   |
+| `503`  | the node drains before it stops, or already runs `fsc.view.remote.maxConcurrentRequests` commands (gRPC `Unavailable`); the command did not run, so retry later or on another replica ([shutdown.md](shutdown.md)). The body tells them apart: `node is draining` or `node is busy: too many concurrent view requests` |
 
 ## Streams
 

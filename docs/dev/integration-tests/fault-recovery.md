@@ -14,20 +14,20 @@ test can take one down while the rest of the network keeps running. Each call
 returns once the component is gone or ready again, so no `time.Sleep` is needed
 around it.
 
-| Call | Effect |
-|---|---|
-| `StopFSCNode(id)` / `StartFSCNode(id)` | SIGTERM the node and wait for exit / start it again and wait for readiness |
-| `KillFSCNode(id)` | SIGKILL the node, as a crash would; restart with `StartFSCNode` |
-| `PauseFSCNode(id)` / `ResumeFSCNode(id)` | SIGSTOP / SIGCONT the node: it keeps its process and connections but falls behind, e.g. a replica while another commits |
-| `MigrateFSCNode(id, flags...)` | run `node migrate` with flags such as `--check`, `--contract` or `--forget-opener` for a stopped node or replica |
-| `StopPeer(name)` / `StartPeer(name)` | the same as `StopFSCNode` / `StartFSCNode` for a Fabric peer, e.g. `Org1_peer_0` |
-| `StopOrderer(name)` / `StartOrderer(name)` | the same for a Fabric orderer, e.g. `orderer` |
-| `StopPostgres(dbName)` / `StartPostgres(dbName)` | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive |
-| `fabricx.FxPlatform(ii).StopCommitter(names...)` / `StartCommitter(names...)` | stop / restart the services of the named Fabric-x committers, every committer with no name; see [Fabric-x committer](#fabric-x-committer) |
-| `common.Proxy` `Partition()` / `Heal()` / `SetLatency(d)` | cut, restore or slow a link through a fault proxy; see [Partitions and latency](#partitions-and-latency) |
-| `common.Proxy` `CloseConnections()` | close both sides of every connection the proxy forwards and keep accepting new ones, as a load balancer does on an idle timeout or a restart; see [Replicated nodes](#replicated-nodes) |
-| `EventuallyConnectionState(node, conn, want, timeout)` | poll the node's `/metrics` until every `fsc_connection_state` series that `conn` (an `fsc.Connection`) selects is `want`; see [Connection state](#connection-state) |
-| `WebClient(node).Ready()` | `nil` once the node's `GET /readyz` answers 200 |
+| Call                                                                          | Effect                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `StopFSCNode(id)` / `StartFSCNode(id)`                                        | SIGTERM the node and wait for exit / start it again and wait for readiness                                                                                                              |
+| `KillFSCNode(id)`                                                             | SIGKILL the node, as a crash would; restart with `StartFSCNode`                                                                                                                         |
+| `PauseFSCNode(id)` / `ResumeFSCNode(id)`                                      | SIGSTOP / SIGCONT the node: it keeps its process and connections but falls behind, e.g. a replica while another commits                                                                 |
+| `MigrateFSCNode(id, flags...)`                                                | run `node migrate` with flags such as `--check`, `--contract` or `--forget-opener` for a stopped node or replica                                                                        |
+| `StopPeer(name)` / `StartPeer(name)`                                          | the same as `StopFSCNode` / `StartFSCNode` for a Fabric peer, e.g. `Org1_peer_0`                                                                                                        |
+| `StopOrderer(name)` / `StartOrderer(name)`                                    | the same for a Fabric orderer, e.g. `orderer`                                                                                                                                           |
+| `StopPostgres(dbName)` / `StartPostgres(dbName)`                              | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive                                                              |
+| `fabricx.FxPlatform(ii).StopCommitter(names...)` / `StartCommitter(names...)` | stop / restart the services of the named Fabric-x committers, every committer with no name; see [Fabric-x committer](#fabric-x-committer)                                               |
+| `common.Proxy` `Partition()` / `Heal()` / `SetLatency(d)`                     | cut, restore or slow a link through a fault proxy; see [Partitions and latency](#partitions-and-latency)                                                                                |
+| `common.Proxy` `CloseConnections()`                                           | close both sides of every connection the proxy forwards and keep accepting new ones, as a load balancer does on an idle timeout or a restart; see [Replicated nodes](#replicated-nodes) |
+| `EventuallyConnectionState(node, conn, want, timeout)`                        | poll the node's `/metrics` until every `fsc_connection_state` series that `conn` (an `fsc.Connection`) selects is `want`; see [Connection state](#connection-state)                     |
+| `WebClient(node).Ready()`                                                     | `nil` once the node's `GET /readyz` answers 200                                                                                                                                         |
 
 The calls without a receiver are methods of `*integration.Infrastructure`.
 
@@ -70,19 +70,19 @@ Fault scenarios go in `integration/fabric/faultrecovery` and
 `integration/fabricx/faultrecovery`. Each suite is split by `Describe` label into several
 targets, which CI runs as parallel jobs:
 
-| Target | Label | Network |
-|---|---|---|
-| `fabric-faultrecovery` | none of the others | the main network |
-| `fabric-faultrecovery-crash` | `crash` | the main network |
-| `fabric-faultrecovery-postgres-outage` | `postgres-outage` | the main network, with a shortened commit retry budget |
-| `fabric-faultrecovery-replication` | `replication` | replicated nodes, see [Replicated nodes](#replicated-nodes) |
-| `fabric-faultrecovery-partition` | `partition` | the main network behind fault proxies |
-| `fabric-faultrecovery-bft` | `bft` | four SmartBFT orderers (`BFTTopology`) |
-| `fabricx-faultrecovery` | none of the others | the main network |
-| `fabricx-faultrecovery-crash` | `crash` | the main network |
-| `fabricx-faultrecovery-replication` | `replication` | replicated nodes |
-| `fabricx-faultrecovery-partition` | `partition` | the main network behind a fault proxy |
-| `fabricx-faultrecovery-committer-failover` | `committer-failover` | Org2 runs two committers (`CommitterFailoverTopology`) |
+| Target                                     | Label                | Network                                                     |
+| ------------------------------------------ | -------------------- | ----------------------------------------------------------- |
+| `fabric-faultrecovery`                     | none of the others   | the main network                                            |
+| `fabric-faultrecovery-crash`               | `crash`              | the main network                                            |
+| `fabric-faultrecovery-postgres-outage`     | `postgres-outage`    | the main network, with a shortened commit retry budget      |
+| `fabric-faultrecovery-replication`         | `replication`        | replicated nodes, see [Replicated nodes](#replicated-nodes) |
+| `fabric-faultrecovery-partition`           | `partition`          | the main network behind fault proxies                       |
+| `fabric-faultrecovery-bft`                 | `bft`                | four SmartBFT orderers (`BFTTopology`)                      |
+| `fabricx-faultrecovery`                    | none of the others   | the main network                                            |
+| `fabricx-faultrecovery-crash`              | `crash`              | the main network                                            |
+| `fabricx-faultrecovery-replication`        | `replication`        | replicated nodes                                            |
+| `fabricx-faultrecovery-partition`          | `partition`          | the main network behind a fault proxy                       |
+| `fabricx-faultrecovery-committer-failover` | `committer-failover` | Org2 runs two committers (`CommitterFailoverTopology`)      |
 
 Both suites run the FSC nodes alice and bob on Postgres, and charlie, a second responder in
 Org2, on SQLite, the default persistence. The Fabric suite adds three raft orderers, named
@@ -101,10 +101,10 @@ a vault per network, so an outage on one network must leave the others working. 
 whose nodes join two networks check this rather than the fault-recovery suites, which run
 one network each:
 
-| Spec | Suite | Fault |
-|---|---|---|
-| "keeps committing on alpha while beta's peers are down" | `fabric-twonets` | `StopPeer` on every peer of `beta` |
-| "keeps committing on Fabric while the Fabric-x committer is down" | `fabric-mixednets` | `StopCommitter` on `fx` |
+| Spec                                                              | Suite              | Fault                              |
+| ----------------------------------------------------------------- | ------------------ | ---------------------------------- |
+| "keeps committing on alpha while beta's peers are down"           | `fabric-twonets`   | `StopPeer` on every peer of `beta` |
+| "keeps committing on Fabric while the Fabric-x committer is down" | `fabric-mixednets` | `StopCommitter` on `fx`            |
 
 Each spec selects the broken network's connection with the `Network` field of
 `fsc.Connection`, expects it `Reconnecting` while the other network's stays `Connected` and
@@ -140,14 +140,14 @@ What the two suites share lives in `integration/fabric/common/faultrecovery`: th
 their views, the specs both suites run, and the helpers that drive them. A view or helper
 both suites need goes there.
 
-| Spec group | What it registers |
-|---|---|
-| `CrashSpecs(s, responder)` | the crash and catch-up specs, with `responder` as the node that crashes. They kill the responder after it endorsed, again while it catches up, and under load, and kill alice after she broadcast a transaction and before she saw it final. Each name ends in `(<responder>)` and carries the `crash` label; both suites call it for bob and for charlie, so a node on SQLite is crashed as well as one on Postgres. |
-| `ClientSpecs(s)` | how alice's gRPC and web view clients behave across a restart of her node, and a call bob's responder is blocked in, canceled through each client: the call fails with the cancellation and bob frees the responder's view context |
-| `ViewSpecs(s)` | called once per suite: a view with two responders, bob and charlie, while charlie is down; it must fail within `SessionCloseTimeout`, and bob must release his half |
-| `DependencySpecs(s, dbPrefix)` | take down bob's Postgres database, `DBName(dbPrefix, "bob")`, and bring it back |
-| `HostileSpecs(s)` | a bob that changes the transaction before endorsing it; alice must reject the endorsement |
-| `FailoverSpecs(s, conn)` | on `ReplicatedFSCTopology`: kill the replica of bob that holds alice's connection through bob's load balancer, or have the load balancer drop the connection with both replicas up; `conn` is the connection a restarted replica must report `Connected` again before the next spec |
+| Spec group                     | What it registers                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CrashSpecs(s, responder)`     | the crash and catch-up specs, with `responder` as the node that crashes. They kill the responder after it endorsed, again while it catches up, and under load, and kill alice after she broadcast a transaction and before she saw it final. Each name ends in `(<responder>)` and carries the `crash` label; both suites call it for bob and for charlie, so a node on SQLite is crashed as well as one on Postgres. |
+| `ClientSpecs(s)`               | how alice's gRPC and web view clients behave across a restart of her node, and a call bob's responder is blocked in, canceled through each client: the call fails with the cancellation and bob frees the responder's view context                                                                                                                                                                                    |
+| `ViewSpecs(s)`                 | called once per suite: a view with two responders, bob and charlie, while charlie is down; it must fail within `SessionCloseTimeout`, and bob must release his half                                                                                                                                                                                                                                                   |
+| `DependencySpecs(s, dbPrefix)` | take down bob's Postgres database, `DBName(dbPrefix, "bob")`, and bring it back                                                                                                                                                                                                                                                                                                                                       |
+| `HostileSpecs(s)`              | a bob that changes the transaction before endorsing it; alice must reject the endorsement                                                                                                                                                                                                                                                                                                                             |
+| `FailoverSpecs(s, conn)`       | on `ReplicatedFSCTopology`: kill the replica of bob that holds alice's connection through bob's load balancer, or have the load balancer drop the connection with both replicas up; `conn` is the connection a restarted replica must report `Connected` again before the next spec                                                                                                                                   |
 
 The `crash` specs run on the main network in a target of their own,
 `fabric-faultrecovery-crash` and `fabricx-faultrecovery-crash`, which the default targets
@@ -155,24 +155,24 @@ exclude, so neither target outlasts CI's per-job limit.
 
 ## Helpers
 
-| Helper | What it does |
-|---|---|
-| `SubmitAndWaitFinal(ii, n)` | runs `n` two-party transactions and waits until each is final on both nodes |
-| `SubmitAndWaitFinalFrom` | the same from one of alice's replicas |
-| `WaitFinal` / `WaitFinalOn` | the waiting alone, on both nodes / on one node or replica |
-| `Endorse` / `Order` | split one transaction in two, so a spec can stop or kill a node after it has endorsed and before the transaction is ordered |
-| `EndorseFrom` / `TryEndorseFrom` | alice collects from other responders, in turn; `TryEndorseFrom` returns the endorse view's error, so a spec can expect it to fail |
-| `Broadcast` | runs alice's `broadcast` view, which orders a transaction without waiting for finality, so a spec can kill alice in between |
-| `TrySubmitTo` | `TrySubmit` with given responders; the load spec runs workers that loop it, stops them before the kill, so each loses at most the call in flight, and restarts them once the responder endorses again |
-| `OrderEventually` | retries `Order` while the orderers reject broadcasts, for example during a raft leader election |
-| `EndorseEventually` | retries `Endorse` while alice's connection to bob fails over to another replica |
-| `EndorseLiar` | runs alice's `endorseLiar` view against a bob that changes the transaction before endorsing it, and returns how alice rejected the endorsement |
-| `Echo` | runs a two-party view that touches no ledger; with `block` set, bob's responder receives the message and never replies, so a spec can kill bob mid-view |
-| `EchoTo` / `BlockedEcho` / `BlockedEchoWithContext` | echo to a given responder; `BlockedEcho` starts a blocking echo and returns once the responder blocks on a given node or replica; `BlockedEchoWithContext` ends its call with a context the spec controls |
-| `AwaitEcho` | bob's responder waits for a second message that never comes, so a spec can kill alice mid-view |
-| `MetricSum` | reads a counter or gauge from a node's metrics, such as `ViewContexts` or `Sessions` |
-| `Query` / `ExpectSettled` | a node's status for a transaction and the value it wrote / wait until a node reads a transaction as valid with a given value and reports it final |
-| `SetCommitRetries` / `SetFinalityWaitTimeout` | Fabric suite: shorten a node's commit retry budget before the network starts / how long `IsFinal` waits for a transaction that is not final; call them in the generator of a `Describe` of its own, since they apply to every spec that shares that generator |
+| Helper                                              | What it does                                                                                                                                                                                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SubmitAndWaitFinal(ii, n)`                         | runs `n` two-party transactions and waits until each is final on both nodes                                                                                                                                                                                   |
+| `SubmitAndWaitFinalFrom`                            | the same from one of alice's replicas                                                                                                                                                                                                                         |
+| `WaitFinal` / `WaitFinalOn`                         | the waiting alone, on both nodes / on one node or replica                                                                                                                                                                                                     |
+| `Endorse` / `Order`                                 | split one transaction in two, so a spec can stop or kill a node after it has endorsed and before the transaction is ordered                                                                                                                                   |
+| `EndorseFrom` / `TryEndorseFrom`                    | alice collects from other responders, in turn; `TryEndorseFrom` returns the endorse view's error, so a spec can expect it to fail                                                                                                                             |
+| `Broadcast`                                         | runs alice's `broadcast` view, which orders a transaction without waiting for finality, so a spec can kill alice in between                                                                                                                                   |
+| `TrySubmitTo`                                       | `TrySubmit` with given responders; the load spec runs workers that loop it, stops them before the kill, so each loses at most the call in flight, and restarts them once the responder endorses again                                                         |
+| `OrderEventually`                                   | retries `Order` while the orderers reject broadcasts, for example during a raft leader election                                                                                                                                                               |
+| `EndorseEventually`                                 | retries `Endorse` while alice's connection to bob fails over to another replica                                                                                                                                                                               |
+| `EndorseLiar`                                       | runs alice's `endorseLiar` view against a bob that changes the transaction before endorsing it, and returns how alice rejected the endorsement                                                                                                                |
+| `Echo`                                              | runs a two-party view that touches no ledger; with `block` set, bob's responder receives the message and never replies, so a spec can kill bob mid-view                                                                                                       |
+| `EchoTo` / `BlockedEcho` / `BlockedEchoWithContext` | echo to a given responder; `BlockedEcho` starts a blocking echo and returns once the responder blocks on a given node or replica; `BlockedEchoWithContext` ends its call with a context the spec controls                                                     |
+| `AwaitEcho`                                         | bob's responder waits for a second message that never comes, so a spec can kill alice mid-view                                                                                                                                                                |
+| `MetricSum`                                         | reads a counter or gauge from a node's metrics, such as `ViewContexts` or `Sessions`                                                                                                                                                                          |
+| `Query` / `ExpectSettled`                           | a node's status for a transaction and the value it wrote / wait until a node reads a transaction as valid with a given value and reports it final                                                                                                             |
+| `SetCommitRetries` / `SetFinalityWaitTimeout`       | Fabric suite: shorten a node's commit retry budget before the network starts / how long `IsFinal` waits for a transaction that is not final; call them in the generator of a `Describe` of its own, since they apply to every spec that shares that generator |
 
 On Fabric-x a node's vault is the committer's query service, so `Query` answers the same on
 every node and does not show whether a restarted node has recovered.

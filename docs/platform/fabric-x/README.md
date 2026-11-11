@@ -4,7 +4,7 @@
 
 The **Fabric Smart Client (FSC)** includes support for [Fabric-x](https://github.com/hyperledger/fabric-x), available under [`platform/fabricx`](../../../platform/fabricx).
 
-The Fabric-x platform driver builds on the existing Fabric platform implementation and replaces only the components necessary for Fabric-x-specific functionality, such as the transaction processing component. 
+The Fabric-x platform driver builds on the existing Fabric platform implementation and replaces only the components necessary for Fabric-x-specific functionality, such as the transaction processing component.
 
 ## Application node
 
@@ -58,7 +58,7 @@ Register through the channel's committer — `ch.Committer()`, the same API ever
 
 The `OnStatus` callback receives one of the validation codes of [`platform/fabric/driver`](../../../platform/fabric/driver/committer.go): `driver.Valid` (committed), `driver.Invalid` (rejected), or `driver.Unknown` (undetermined / timeout).
 
-The committer's manager is the notification-stream manager wrapped in a `finality.ResolvingListenerManager`, which asks the query service before subscribing. That is what makes registering for an *already final* transaction report its status instead of `Unknown`: the notification stream reports each transaction once, so a subscription created after that point would never be answered. `finality.GetListenerManager(sp, network, channel)` returns the unwrapped manager and does not do this.
+The committer's manager is the notification-stream manager wrapped in a `finality.ResolvingListenerManager`, which asks the query service before subscribing. That is what makes registering for an _already final_ transaction report its status instead of `Unknown`: the notification stream reports each transaction once, so a subscription created after that point would never be answered. `finality.GetListenerManager(sp, network, channel)` returns the unwrapped manager and does not do this.
 
 > [!WARNING]
 > `OnStatus` implementations MUST observe `ctx.Done()` and return promptly, handing slow work
@@ -89,10 +89,10 @@ The query service is configured under `fabric.<network>.queryService`, with the 
 
 An organization can run several committers, and a node lists every one of them under `notificationService.endpoints` and `queryService.endpoints`. The node dials every endpoint and uses the first one that is not failing, so when its committer goes down it moves to another without a restart:
 
-| Path | Moves |
-|---|---|
-| Queries (transaction status, channel configuration) | after a call fails with `Unavailable`, retried once on another endpoint |
-| Notification stream (finality) | when the stream reconnects |
+| Path                                                                                           | Moves                                                                   |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Queries (transaction status, channel configuration)                                            | after a call fails with `Unavailable`, retried once on another endpoint |
+| Notification stream (finality)                                                                 | when the stream reconnects                                              |
 | Ledger API (`GetBlockByNumber`, `GetBlockNumberByTxID`, `GetTransactionByID`, `GetLedgerInfo`) | after a call fails with `Unavailable`, retried once on another endpoint |
 
 A call made while every committer is down fails with the error of the last attempt.
@@ -107,5 +107,5 @@ A node picks up channel configuration changes, such as a new organization or new
 
 ## Additional resources
 
-- Fabric-x Repository: https://github.com/hyperledger/fabric-x
-- Fabric-x Committer: https://github.com/hyperledger/fabric-x-committer
+- Fabric-x Repository: <https://github.com/hyperledger/fabric-x>
+- Fabric-x Committer: <https://github.com/hyperledger/fabric-x-committer>

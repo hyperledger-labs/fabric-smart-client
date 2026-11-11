@@ -2,7 +2,8 @@
 
 This document provides guidelines and steps for setting up your local development environment for the **Fabric Smart Client (FSC)**.
 
-For general development best practices, see the following guidelines:  
+For general development best practices, see the following guidelines:
+
 - [Fabric-x Committer Development Guidelines](https://github.com/hyperledger/fabric-x-committer/blob/main/guidelines.md)
 - [Panurus Development Guidelines](https://github.com/LFDT-Panurus/panurus/blob/main/docs/development/development.md)
 
@@ -57,7 +58,7 @@ make install-fabric-bins pull-images-fabric
 > [!IMPORTANT]
 > `FABRIC_BINARY_BASE` defaults to `$(PWD)/../fabric`, which assumes you are in your
 > primary checkout. Run this from a git worktree and it resolves to a sibling of the
-> *worktree*: a second Fabric install in the wrong place, with no warning. From a
+> _worktree_: a second Fabric install in the wrong place, with no warning. From a
 > worktree, either run the target from the primary checkout or pass the base explicitly:
 >
 > ```bash
@@ -119,7 +120,7 @@ One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
 `make install-fabricx-tools` puts its tools.
 
 > [!NOTE]
-> Do *not* store the Fabric binaries inside your fabric-smart-client repository.
+> Do _not_ store the Fabric binaries inside your fabric-smart-client repository.
 > Doing so may cause integration tests to fail when installing chaincode.
 
 ## Running tests
@@ -137,16 +138,16 @@ that no page for people links into `docs/agents/` (see
 make checks
 ```
 
-| Target               | What it does                                                          |
-|----------------------|-----------------------------------------------------------------------|
-| `make lint`          | `golangci-lint run` in every module                                   |
-| `make lint-auto-fix` | the same, with `--fix` to apply what `golangci-lint` can fix itself   |
-| `make lint-fmt`      | `golangci-lint fmt`, applying the formatter configuration CI enforces  |
-| `make go-fix`        | reports the modernizations `go fix` suggests, without applying them    |
-| `make go-fix-apply`  | applies those modernizations, in every module                          |
+| Target               | What it does                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `make lint`          | `golangci-lint run` in every module                                                          |
+| `make lint-auto-fix` | the same, with `--fix` to apply what `golangci-lint` can fix itself                          |
+| `make lint-fmt`      | `golangci-lint fmt`, applying the formatter configuration CI enforces                        |
+| `make go-fix`        | reports the modernizations `go fix` suggests, without applying them                          |
+| `make go-fix-apply`  | applies those modernizations, in every module                                                |
 | `make docs-links`    | fails if a Markdown page other than `AGENTS.md` and `docs/agents/` links into `docs/agents/` |
-| `make docs-lint`     | runs markdownlint-cli2 in Docker on every tracked `.md` file; not part of `make checks` |
-| `make docs-lint-fix` | applies the fixes markdownlint can make itself; it does not wrap lines |
+| `make docs-lint`     | runs markdownlint-cli2 in Docker on every tracked `.md` file; not part of `make checks`      |
+| `make docs-lint-fix` | applies the fixes markdownlint can make itself; it does not wrap lines                       |
 
 Run `make list-go-modules` to see which modules these targets cover.
 
@@ -163,6 +164,7 @@ Run `make list-go-modules` to see which modules these targets cover.
 ### Unit tests
 
 Run all unit tests:
+
 ```bash
 make unit-tests
 make unit-tests-postgres
@@ -212,6 +214,7 @@ make coverage-local
 section covers running them.
 
 List all available integration tests:
+
 ```bash
 make list-integration-tests
 ```
@@ -223,6 +226,7 @@ make integration-tests
 ```
 
 Run a specific integration test (e.g., Fabric IOU test):
+
 ```bash
 make integration-tests-fabric-iou
 ```
@@ -234,12 +238,14 @@ make integration-tests-fabric-iou
 > the `Ran N of M Specs` line; `N == 0` means the filter matched nothing.
 
 Enable profiling for deeper analysis:
+
 ```bash
 export FSCNODE_PROFILER=true
 make integration-tests-fabric-iou
 ```
 
 Enable coverage profiling:
+
 ```bash
 mkdir -p covdata
 GOCOVERDIR=covdata make integration-tests
@@ -271,17 +277,17 @@ CI gates every pull request on the following. It drives the linter through
 `golangci-lint-action` and `go fix` through its own workflow rather than through these
 targets, so the right-hand column is the local equivalent, not the literal CI command:
 
-| CI check                     | Local equivalent                  |
-|------------------------------|-----------------------------------|
-| `golangci-lint`, per module  | `make lint`                       |
-| `go fix -diff`               | `make go-fix`                     |
-| `go mod tidy` leaves no diff | `make tidy`                       |
-| unit tests                   | `make unit-tests`                 |
-| PostgreSQL unit tests        | `make unit-tests-postgres`        |
-| integration suites           | `make integration-tests-<target>` |
-| `govulncheck`, per module    | `make govulncheck`                |
-| `buf breaking`, on proto changes | `make buf-breaking`           |
-| no page for people links into `docs/agents/` | `make docs-links` |
+| CI check                                     | Local equivalent                  |
+| -------------------------------------------- | --------------------------------- |
+| `golangci-lint`, per module                  | `make lint`                       |
+| `go fix -diff`                               | `make go-fix`                     |
+| `go mod tidy` leaves no diff                 | `make tidy`                       |
+| unit tests                                   | `make unit-tests`                 |
+| PostgreSQL unit tests                        | `make unit-tests-postgres`        |
+| integration suites                           | `make integration-tests-<target>` |
+| `govulncheck`, per module                    | `make govulncheck`                |
+| `buf breaking`, on proto changes             | `make buf-breaking`               |
+| no page for people links into `docs/agents/` | `make docs-links`                 |
 
 `make buf-breaking` needs the tool from `make install-tools` and the release tags
 (`git fetch --tags`); set `BUF_AGAINST=<tag>` to compare against another release.
@@ -418,7 +424,7 @@ Omit the argument to update all direct dependencies to their latest versions:
 ```
 
 Updating all dependencies at once can introduce breaking changes; review the result.
-Note that `gomate.sh tidy` can also be invoked via `make tidy`. 
+Note that `gomate.sh tidy` can also be invoked via `make tidy`.
 After updating, run `make tidy` and `make checks` to verify the result.
 
 ### Fabric and IBM crypto dependencies

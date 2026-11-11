@@ -3,6 +3,7 @@
 We appreciate your contributions to the Fabric Smart Client project. Any help is welcome and there is still much to do.
 
 **Jump To:**
+
 - [Code Contributions](#code-contributions)
 - [Submitting an Issue](#submitting-an-issue)
 

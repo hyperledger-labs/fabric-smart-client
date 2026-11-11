@@ -48,10 +48,10 @@ with a digit (such as `channel1`) is rejected and the store fails to open.
 When table names include parameters, FSC escapes special characters before composing the final name:
 
 | Character | Escaped form |
-| --- | --- |
-| `_` | `__` |
-| `-` | `_d` |
-| `.` | `_f` |
+| --------- | ------------ |
+| `_`       | `__`         |
+| `-`       | `_d`         |
+| `.`       | `_f`         |
 
 With the default prefix `fsc`:
 
@@ -63,17 +63,17 @@ With the default prefix `fsc`:
 
 The following table summarizes the main logical stores and their default physical table names in a generated node:
 
-| Platform | Logical store | Config key | Default params | Default table name or pattern |
-| --- | --- | --- | --- | --- |
-| View | KVS | `fsc.kvs.persistence` | none | `fsc_kvs` |
-| View | BindingStore | `fsc.binding.persistence` | `default` | `fsc_default_bind` |
-| View | SignerInfoStore | `fsc.signerinfo.persistence` | `default` | `fsc_default_sign` |
-| View | AuditInfoStore | `fsc.auditinfo.persistence` | `default` | `fsc_default_aud` |
-| Fabric | EnvelopeStore | `fsc.envelope.persistence` | `default` | `fsc_default_env` |
-| Fabric | MetadataStore | `fsc.metadata.persistence` | `default` | `fsc_default_meta` |
-| Fabric | EndorseTxStore | `fsc.endorsetx.persistence` | `default` | `fsc_default_etx` |
-| Fabric | Vault status | `fabric.<network>.vault.persistence` | network, channel | `<prefix>_<params>_vstatus` |
-| Fabric | Vault state | `fabric.<network>.vault.persistence` | network, channel | `<prefix>_<params>_vstate` |
+| Platform | Logical store   | Config key                           | Default params   | Default table name or pattern |
+| -------- | --------------- | ------------------------------------ | ---------------- | ----------------------------- |
+| View     | KVS             | `fsc.kvs.persistence`                | none             | `fsc_kvs`                     |
+| View     | BindingStore    | `fsc.binding.persistence`            | `default`        | `fsc_default_bind`            |
+| View     | SignerInfoStore | `fsc.signerinfo.persistence`         | `default`        | `fsc_default_sign`            |
+| View     | AuditInfoStore  | `fsc.auditinfo.persistence`          | `default`        | `fsc_default_aud`             |
+| Fabric   | EnvelopeStore   | `fsc.envelope.persistence`           | `default`        | `fsc_default_env`             |
+| Fabric   | MetadataStore   | `fsc.metadata.persistence`           | `default`        | `fsc_default_meta`            |
+| Fabric   | EndorseTxStore  | `fsc.endorsetx.persistence`          | `default`        | `fsc_default_etx`             |
+| Fabric   | Vault status    | `fabric.<network>.vault.persistence` | network, channel | `<prefix>_<params>_vstatus`   |
+| Fabric   | Vault state     | `fabric.<network>.vault.persistence` | network, channel | `<prefix>_<params>_vstate`    |
 
 ## View platform tables
 
@@ -87,11 +87,11 @@ Default table:
 
 Schema:
 
-| Column | Meaning |
-| --- | --- |
-| `ns` | logical namespace |
-| `pkey` | persisted key bytes |
-| `val` | persisted value bytes |
+| Column | Meaning               |
+| ------ | --------------------- |
+| `ns`   | logical namespace     |
+| `pkey` | persisted key bytes   |
+| `val`  | persisted value bytes |
 
 Notes:
 
@@ -110,15 +110,15 @@ Default table:
 
 Schema:
 
-| Column | Meaning |
-| --- | --- |
+| Column           | Meaning                                       |
+| ---------------- | --------------------------------------------- |
 | `ephemeral_hash` | unique ID derived from the ephemeral identity |
-| `long_term_id` | serialized long-term identity bytes |
+| `long_term_id`   | serialized long-term identity bytes           |
 
 Notes:
 
 - `ephemeral_hash` is the primary key
-- both columns belong to FSC identity-binding semantics 
+- both columns belong to FSC identity-binding semantics
 
 ### SignerInfoStore
 
@@ -130,9 +130,9 @@ Default table:
 
 Schema:
 
-| Column | Meaning |
-| --- | --- |
-| `id` | signer unique ID returned by `view.Identity.UniqueID()` |
+| Column | Meaning                                                 |
+| ------ | ------------------------------------------------------- |
+| `id`   | signer unique ID returned by `view.Identity.UniqueID()` |
 
 Notes:
 
@@ -149,10 +149,10 @@ Default table:
 
 Schema:
 
-| Column | Meaning |
-| --- | --- |
-| `id` | identity-derived unique ID returned by `view.Identity.UniqueID()` |
-| `audit_info` | audit bytes for that identity |
+| Column       | Meaning                                                           |
+| ------------ | ----------------------------------------------------------------- |
+| `id`         | identity-derived unique ID returned by `view.Identity.UniqueID()` |
+| `audit_info` | audit bytes for that identity                                     |
 
 Notes:
 
@@ -161,21 +161,21 @@ Notes:
 
 ## Fabric auxiliary tables
 
-Fabric adds three persistence-backed auxiliary stores in addition to the local vault.  
+Fabric adds three persistence-backed auxiliary stores in addition to the local vault.
 They all use the same physical table shape: a logical transaction key mapped to opaque payload bytes.
 
-| Store | Default table | Payload |
-| --- | --- | --- |
-| EnvelopeStore | `fsc_default_env` | Fabric envelope bytes |
-| MetadataStore | `fsc_default_meta` | JSON-marshaled metadata bytes |
-| EndorseTxStore | `fsc_default_etx` | endorsed transaction: JSON, or a protobuf `TransactionEnvelope` once contract step 2 has run |
+| Store          | Default table      | Payload                                                                                      |
+| -------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| EnvelopeStore  | `fsc_default_env`  | Fabric envelope bytes                                                                        |
+| MetadataStore  | `fsc_default_meta` | JSON-marshaled metadata bytes                                                                |
+| EndorseTxStore | `fsc_default_etx`  | endorsed transaction: JSON, or a protobuf `TransactionEnvelope` once contract step 2 has run |
 
 ### Shared schema
 
-| Column | Meaning |
-| --- | --- |
-| `key` | logical transaction key |
-| `data` | opaque payload bytes |
+| Column | Meaning                 |
+| ------ | ----------------------- |
+| `key`  | logical transaction key |
+| `data` | opaque payload bytes    |
 
 Notes:
 
@@ -200,12 +200,12 @@ For a network named `default` and a channel named `testchannel`, the generated t
 
 Schema:
 
-| Column | Meaning |
-| --- | --- |
-| `pos` | auto-generated row identifier |
-| `tx_id` | transaction ID |
-| `code` | transaction status code |
-| `message` | status or error message |
+| Column    | Meaning                       |
+| --------- | ----------------------------- |
+| `pos`     | auto-generated row identifier |
+| `tx_id`   | transaction ID                |
+| `code`    | transaction status code       |
+| `message` | status or error message       |
 
 Notes:
 
@@ -216,13 +216,13 @@ Notes:
 
 Schema:
 
-| Column | Meaning |
-| --- | --- |
-| `ns` | namespace |
-| `pkey` | persisted state key |
-| `val` | raw value bytes |
+| Column     | Meaning                   |
+| ---------- | ------------------------- |
+| `ns`       | namespace                 |
+| `pkey`     | persisted state key       |
+| `val`      | raw value bytes           |
 | `kversion` | version bytes for the key |
-| `metadata` | encoded metadata bytes |
+| `metadata` | encoded metadata bytes    |
 
 Notes:
 
@@ -235,11 +235,11 @@ Notes:
 
 Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions` by default) with one row per store that implements `migrate.Versioned`, which includes every FSC store. The first migration of such a store creates the table.
 
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `store` | `TEXT PRIMARY KEY` | the store's primary table name, e.g. `fsc_kvs` |
-| `version` | `INT NOT NULL` | the highest step applied |
-| `readable_by` | `INT NOT NULL` | the lowest step version a binary must know to read the store: the highest contract step applied, `0` if none |
+| Column        | Type               | Meaning                                                                                                      |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `store`       | `TEXT PRIMARY KEY` | the store's primary table name, e.g. `fsc_kvs`                                                               |
+| `version`     | `INT NOT NULL`     | the highest step applied                                                                                     |
+| `readable_by` | `INT NOT NULL`     | the lowest step version a binary must know to read the store: the highest contract step applied, `0` if none |
 
 A store without a row has applied no step. A binary refuses to open a store whose `readable_by` is above the highest step it knows, and opens one whose `version` alone is above it: the steps it lacks keep the store readable for it. The table decides which SQL a node runs, so only the roles that run migrations should be able to write it. See [Schema versions](db-driver.md#schema-versions).
 
@@ -247,12 +247,12 @@ A store without a row has applied no step. A binary refuses to open a store whos
 
 Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers` by default), created together with the versions table. Every successful open of a versioned store upserts one row.
 
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `store` | `TEXT NOT NULL` | the store, as in the versions table |
-| `node` | `TEXT NOT NULL` | the opening node's `fsc.id` |
-| `highest_step` | `INT NOT NULL` | the highest step the opening binary knows |
-| `opened_at` | `TIMESTAMP NOT NULL` | the database's time, in UTC, of the last such open |
+| Column         | Type                 | Meaning                                            |
+| -------------- | -------------------- | -------------------------------------------------- |
+| `store`        | `TEXT NOT NULL`      | the store, as in the versions table                |
+| `node`         | `TEXT NOT NULL`      | the opening node's `fsc.id`                        |
+| `highest_step` | `INT NOT NULL`       | the highest step the opening binary knows          |
+| `opened_at`    | `TIMESTAMP NOT NULL` | the database's time, in UTC, of the last such open |
 
 The primary key is `(store, node, highest_step)`. Replicas of a node share its `fsc.id`, so a replica on another binary adds a row instead of overwriting one. FSC deletes rows only on `node migrate --forget-opener`. A contract step does not run while a row of its store names a `highest_step` below the step's version. See [Which binaries use a store](schema-migrations.md#which-binaries-use-a-store).
 
@@ -260,11 +260,11 @@ The primary key is `(store, node, highest_step)`. Replicas of a node share its `
 
 The logical layout is the same across supported SQL backends, but some physical SQL details differ.
 
-| Area | SQLite | Postgres |
-| --- | --- | --- |
-| Vault `pos` column | `INTEGER PRIMARY KEY` | `SERIAL PRIMARY KEY` |
-| Vault byte columns | `val`, `kversion`, and `metadata` default to empty byte values | stored as `BYTEA` without SQLite-style empty defaults |
-| Vault `pkey` column | `TEXT`, keys stored verbatim | `BYTEA`, keys stored verbatim (inspect with `encode(pkey, 'escape')`) |
+| Area                | SQLite                                                         | Postgres                                                              |
+| ------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Vault `pos` column  | `INTEGER PRIMARY KEY`                                          | `SERIAL PRIMARY KEY`                                                  |
+| Vault byte columns  | `val`, `kversion`, and `metadata` default to empty byte values | stored as `BYTEA` without SQLite-style empty defaults                 |
+| Vault `pkey` column | `TEXT`, keys stored verbatim                                   | `BYTEA`, keys stored verbatim (inspect with `encode(pkey, 'escape')`) |
 
 These differences do not change the logical meaning of the data, but they matter when directly inspecting tables or writing backend-specific SQL.
 

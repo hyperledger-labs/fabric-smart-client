@@ -9,7 +9,7 @@ Read the [Testing Guide](../dev/testing.md) first, and the
   sessions on the same machine count: targets share Docker container names, ports and
   `out/` directories.
 - Before reporting a focused run as passing, run it with `-v` and read `Ran N of M
-  Specs`; a filter that matches nothing still prints `ok`.
+Specs`; a filter that matches nothing still prints `ok`.
 - A new unit test calls `t.Parallel()`, or carries `//nolint:paralleltest // <state>`
   naming the process-wide state it touches. A package whose tests you made parallel
   passes `go test -race -count=3 -shuffle=on`.

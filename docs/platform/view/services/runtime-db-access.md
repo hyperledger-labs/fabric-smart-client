@@ -26,13 +26,13 @@ Related documentation:
 
 The following table summarizes the most common runtime access paths:
 
-| Situation | Recommended entry point | Typical use case |
-| --- | --- | --- |
-| Writing a view that depends on persisted data | `view.Context.GetService(...)` | Access an application service that is backed by persistence |
-| Reading Fabric state from a view | `state.GetVault(viewCtx)` | Read application state from a view |
-| Working with lower-level Fabric vault functions | `fabric.GetDefaultChannel(viewCtx)`, then `ch.Vault()` on the returned channel | Perform lower-level vault, query, or RWSet work |
-| Reading Fabric-x state | `queryservice.GetQueryService(...)` or the channel API | Read state through the platform abstraction rather than local SQL |
-| Inspecting a live node database | `sqlite3` or `psql` in read-only mode | Inspect persisted rows for debugging or troubleshooting |
+| Situation                                       | Recommended entry point                                                        | Typical use case                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Writing a view that depends on persisted data   | `view.Context.GetService(...)`                                                 | Access an application service that is backed by persistence       |
+| Reading Fabric state from a view                | `state.GetVault(viewCtx)`                                                      | Read application state from a view                                |
+| Working with lower-level Fabric vault functions | `fabric.GetDefaultChannel(viewCtx)`, then `ch.Vault()` on the returned channel | Perform lower-level vault, query, or RWSet work                   |
+| Reading Fabric-x state                          | `queryservice.GetQueryService(...)` or the channel API                         | Read state through the platform abstraction rather than local SQL |
+| Inspecting a live node database                 | `sqlite3` or `psql` in read-only mode                                          | Inspect persisted rows for debugging or troubleshooting           |
 
 ## Runtime access layers
 
@@ -246,6 +246,7 @@ fabric:
 The three supported backend types are `memory`, `sqlite`, and `postgres`. For detailed configuration options and behavior, see the [Database drivers](db-driver.md) and [Shared node configuration](../../../configuration.md) documentation.
 
 At runtime:
+
 - **memory**: in-memory SQLite, useful for tests but not inspectable after process exit
 - **sqlite**: local file-based, easiest for local inspection with separate read/write handles
 - **postgres**: external database, best for shared/remote inspection with a single connection pool

@@ -3,7 +3,7 @@
 This package exercises the gRPC View API implementation `platform/view/services/view/grpc`.
 
 It contains a gRPC client/server benchmark designed to measure throughput (TPS) and tail latency (p99).
-The benchmark supports multiple workload views ranging from no-op calls to CPU-intensive cryptographic operations (e.g., ECDSA signing), and enables systematic comparison, and deployment modes (local vs remote). 
+The benchmark supports multiple workload views ranging from no-op calls to CPU-intensive cryptographic operations (e.g., ECDSA signing), and enables systematic comparison, and deployment modes (local vs remote).
 The benchmark workload views are defined in the `integration/benchmark/views` package.
 Benchmarks are executed with configurable warmup and measurement phases to ensure that results reflect steady-state behavior rather than cold-start effects.
 
@@ -32,15 +32,14 @@ go run ./server/main.go
 
 The server generates the crypto material folder in `out/testdata`.
 
-The benchmarks can be run as follows: 
+The benchmarks can be run as follows:
 
 ```bash
 # get the testdata folder from the server and place it next to our benchmark client
 rsync -av --exclude='.git' --exclude='env/' user@myserver.com:/home/user/fabric-smart-client/integration/benchmark/node/remote /home/user/fabric-smart-client/integration/benchmark/node/remote
 
-# update the connection file and change server address from 127.0.0.1:8099 to your server address, for example, `myserver.com:8099` 
+# update the connection file and change server address from 127.0.0.1:8099 to your server address, for example, `myserver.com:8099`
 vim /home/user/fabric-smart-client/integration/benchmark/node/remote/out/testdata/fsc/nodes/test-node.0/client-config.yaml
 
 go run ./client/main.go -benchtime=10s -count=5 -workloads=noop,cpu,sign -cpu=1,8,16,32,48,64,96,128,256,376,512,640,768,1024 -numConn=1,2,4,8 2>&1 | tee results.txt
 ```
-

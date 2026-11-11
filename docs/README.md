@@ -3,6 +3,7 @@
 ## Getting started
 
 To write your first FSC application:
+
 1. Read [Core concepts](core-concepts.md) for what FSC is and how a business process maps to views.
 2. Follow the [Programming model guide](platform/view/programming-model.md): how an application creates a node, installs SDKs, and registers initiator and responder views.
 3. Add the ledger you target: the [Fabric platform](platform/fabric/README.md) or the [Fabric-x platform](platform/fabric-x/README.md).

@@ -105,26 +105,26 @@ If a family is absent, check the matching runtime condition first: communication
 
 ### Operations
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
+| Metric                                             | Type  | Labels    | Description                                                                                |
+| -------------------------------------------------- | ----- | --------- | ------------------------------------------------------------------------------------------ |
 | `fsc_view_services_metrics_operations_fsc_version` | gauge | `version` | FSC version information. The gauge is set to `1` at startup for the active version string. |
 
 Primary implementation: `platform/view/services/metrics/operations/metrics.go`, initialized by `platform/view/services/metrics/operations/system.go`.
 
 ### Listener TLS
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
+| Metric                   | Type  | Labels     | Description                                                                                                                                                                                                                                        |
+| ------------------------ | ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fsc_tls_cert_not_after` | gauge | `listener` | Expiry, in Unix seconds, of the TLS certificate the listener currently serves. It is set at startup and after every successful reload (`reloadInterval`, see [configuration.md](../../../configuration.md)). A listener without TLS has no series. |
 
 Alert on `fsc_tls_cert_not_after - time()` falling below the renewal margin. A failed reload leaves the value unchanged, so a renewed certificate that is refused still shows up as an approaching expiry. The gauge is set by `platform/common/services/grpc/certreloader.go`.
 
 ### View runtime
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_view_services_view_contexts` | gauge | none | Number of active view contexts currently tracked by the view manager. |
-| `fsc_shutdown_draining` | gauge | none | `1` while the node drains running views before it stops, `0` otherwise ([shutdown.md](shutdown.md)). |
+| Metric                            | Type  | Labels | Description                                                                                          |
+| --------------------------------- | ----- | ------ | ---------------------------------------------------------------------------------------------------- |
+| `fsc_view_services_view_contexts` | gauge | none   | Number of active view contexts currently tracked by the view manager.                                |
+| `fsc_shutdown_draining`           | gauge | none   | `1` while the node drains running views before it stops, `0` otherwise ([shutdown.md](shutdown.md)). |
 
 The `contexts` gauge tracks the size of the manager's internal context registry. It increases when initiator or responder contexts are created or registered, and decreases when they are deleted.
 
@@ -132,16 +132,16 @@ Primary implementation: `platform/view/services/view/metrics.go`, updated throug
 
 ### Comm service
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_view_services_comm_sessions` | gauge | none | Number of active session entries in the comm layer's session registry. |
-| `fsc_view_services_comm_stream_hashes` | gauge | none | Number of distinct stream-hash keys currently stored in the stream cache. |
-| `fsc_view_services_comm_active_streams` | gauge | none | Number of registered active stream handlers. |
-| `fsc_view_services_comm_opened_streams` | counter | none | Number of newly opened outbound streams. |
-| `fsc_view_services_comm_closed_streams` | counter | none | Number of stream-handler closes. |
-| `fsc_view_services_comm_stream_handlers` | gauge | none | Number of running stream handler goroutines. |
-| `fsc_view_services_comm_dropped_messages` | counter | none | Number of messages dropped because dispatch or enqueue could not complete safely. |
-| `fsc_view_services_comm_stream_read_errors` | counter | none | Number of streams dropped because reading a message failed while the node was running. A clean EOF from the remote and streams closed locally are not counted. |
+| Metric                                      | Type    | Labels | Description                                                                                                                                                    |
+| ------------------------------------------- | ------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsc_view_services_comm_sessions`           | gauge   | none   | Number of active session entries in the comm layer's session registry.                                                                                         |
+| `fsc_view_services_comm_stream_hashes`      | gauge   | none   | Number of distinct stream-hash keys currently stored in the stream cache.                                                                                      |
+| `fsc_view_services_comm_active_streams`     | gauge   | none   | Number of registered active stream handlers.                                                                                                                   |
+| `fsc_view_services_comm_opened_streams`     | counter | none   | Number of newly opened outbound streams.                                                                                                                       |
+| `fsc_view_services_comm_closed_streams`     | counter | none   | Number of stream-handler closes.                                                                                                                               |
+| `fsc_view_services_comm_stream_handlers`    | gauge   | none   | Number of running stream handler goroutines.                                                                                                                   |
+| `fsc_view_services_comm_dropped_messages`   | counter | none   | Number of messages dropped because dispatch or enqueue could not complete safely.                                                                              |
+| `fsc_view_services_comm_stream_read_errors` | counter | none   | Number of streams dropped because reading a message failed while the node was running. A clean EOF from the remote and streams closed locally are not counted. |
 
 Operational notes:
 
@@ -156,8 +156,8 @@ Primary implementation: `platform/view/services/comm/metrics.go`, with updates i
 
 ### P2P service
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
+| Metric                                  | Type    | Labels   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `fsc_view_services_view_p2p_rejections` | counter | `reason` | Number of error replies to first P2P messages the node does not serve: `busy` when the sending peer already runs `fsc.p2p.maxRespondersPerPeer` responders, `node_busy` when the sending peer is under its own limit but the node already runs `fsc.p2p.maxResponders` responders across all peers (a peer at its own limit gets `busy`), `draining` when the node drains before it stops, `unknown_view` when no responder is registered for the protocol name or the caller view, `unauthorized` when the responder's authorizer refused the sender, `authorizer_error` when the authorizer failed or timed out, or the responder has an authorizer and the sender's identity could not be resolved, `no_common_version` when the message states a component version outside the node's range. |
 
 Operational notes:
@@ -172,11 +172,11 @@ Primary implementation: `platform/view/services/view/p2p/service.go`.
 
 ### libp2p transport
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_view_services_comm_host_libp2p_bytes_sent` | counter | `peer`, `protocol` | Total bytes sent on libp2p streams, partitioned by remote peer and protocol ID. |
-| `fsc_view_services_comm_host_libp2p_bytes_received` | counter | `peer`, `protocol` | Total bytes received on libp2p streams, partitioned by remote peer and protocol ID. |
-| `fsc_view_services_comm_host_libp2p_rejected_streams` | counter | `reason` | Number of streams reset because of the peer's preamble: `version` when it is malformed, too large or its framing epoch differs (see [Stream preamble](comm/readme.md#stream-preamble)). |
+| Metric                                                | Type    | Labels             | Description                                                                                                                                                                             |
+| ----------------------------------------------------- | ------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsc_view_services_comm_host_libp2p_bytes_sent`       | counter | `peer`, `protocol` | Total bytes sent on libp2p streams, partitioned by remote peer and protocol ID.                                                                                                         |
+| `fsc_view_services_comm_host_libp2p_bytes_received`   | counter | `peer`, `protocol` | Total bytes received on libp2p streams, partitioned by remote peer and protocol ID.                                                                                                     |
+| `fsc_view_services_comm_host_libp2p_rejected_streams` | counter | `reason`           | Number of streams reset because of the peer's preamble: `version` when it is malformed, too large or its framing epoch differs (see [Stream preamble](comm/readme.md#stream-preamble)). |
 
 The `bytes_*` counters measure traffic volume. They count bytes, not messages.
 
@@ -184,13 +184,13 @@ Primary implementation: `platform/view/services/comm/host/libp2p/metrics.go`, up
 
 ### WebSocket transport
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_view_services_comm_host_websocket_ws_opened_subconns` | counter | `side` | Number of opened logical sub-connections in the WebSocket multiplexer. |
-| `fsc_view_services_comm_host_websocket_ws_closed_subconns` | counter | `side` | Number of closed logical sub-connections in the WebSocket multiplexer. |
-| `fsc_view_services_comm_host_websocket_ws_opened_websockets` | counter | `side` | Number of accepted or opened WebSocket connections. |
-| `fsc_view_services_comm_host_websocket_ws_active_subconns` | gauge | none | Number of currently active logical sub-connections across all tracked WebSocket clients. |
-| `fsc_view_services_comm_host_websocket_ws_rejected_streams` | counter | `reason` | Number of sub-connections a server refused because of the client's preamble: `version` when the preamble is malformed or its framing epoch differs (see [Stream preamble](comm/readme.md#stream-preamble)). |
+| Metric                                                       | Type    | Labels   | Description                                                                                                                                                                                                 |
+| ------------------------------------------------------------ | ------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsc_view_services_comm_host_websocket_ws_opened_subconns`   | counter | `side`   | Number of opened logical sub-connections in the WebSocket multiplexer.                                                                                                                                      |
+| `fsc_view_services_comm_host_websocket_ws_closed_subconns`   | counter | `side`   | Number of closed logical sub-connections in the WebSocket multiplexer.                                                                                                                                      |
+| `fsc_view_services_comm_host_websocket_ws_opened_websockets` | counter | `side`   | Number of accepted or opened WebSocket connections.                                                                                                                                                         |
+| `fsc_view_services_comm_host_websocket_ws_active_subconns`   | gauge   | none     | Number of currently active logical sub-connections across all tracked WebSocket clients.                                                                                                                    |
+| `fsc_view_services_comm_host_websocket_ws_rejected_streams`  | counter | `reason` | Number of sub-connections a server refused because of the client's preamble: `version` when the preamble is malformed or its framing epoch differs (see [Stream preamble](comm/readme.md#stream-preamble)). |
 
 Operational notes:
 
@@ -205,11 +205,11 @@ Primary implementation: `platform/view/services/comm/host/websocket/ws/metrics.g
 
 The view service counts commands on every transport it is served on, gRPC (`fsc.grpc`) and HTTP (`fsc.web`) alike.
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_view_services_view_grpc_server_requests_received` | counter | `command` | Number of unary view-service requests that passed the initial validation and reached the processor dispatch stage. |
-| `fsc_view_services_view_grpc_server_requests_completed` | counter | `command`, `success` | Number of unary view-service requests that completed processing. |
-| `fsc_view_services_view_grpc_server_requests_rejected` | counter | `reason` | Number of view-service requests rejected because their timestamp is outside the command time window (`stale`), the command was already accepted (`replay`), a policy checker refused its authenticated caller (`denied`), or the node already runs `fsc.view.remote.maxConcurrentRequests` commands (`busy`). |
+| Metric                                                  | Type    | Labels               | Description                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsc_view_services_view_grpc_server_requests_received`  | counter | `command`            | Number of unary view-service requests that passed the initial validation and reached the processor dispatch stage.                                                                                                                                                                                            |
+| `fsc_view_services_view_grpc_server_requests_completed` | counter | `command`, `success` | Number of unary view-service requests that completed processing.                                                                                                                                                                                                                                              |
+| `fsc_view_services_view_grpc_server_requests_rejected`  | counter | `reason`             | Number of view-service requests rejected because their timestamp is outside the command time window (`stale`), the command was already accepted (`replay`), a policy checker refused its authenticated caller (`denied`), or the node already runs `fsc.view.remote.maxConcurrentRequests` commands (`busy`). |
 
 Operational notes:
 
@@ -221,10 +221,10 @@ Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, up
 
 ### gRPC connection metrics
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_common_services_grpc_conn_opened` | counter | none | Number of gRPC connections opened. |
-| `fsc_common_services_grpc_conn_closed` | counter | none | Number of gRPC connections closed. |
+| Metric                                 | Type    | Labels | Description                        |
+| -------------------------------------- | ------- | ------ | ---------------------------------- |
+| `fsc_common_services_grpc_conn_opened` | counter | none   | Number of gRPC connections opened. |
+| `fsc_common_services_grpc_conn_closed` | counter | none   | Number of gRPC connections closed. |
 
 These counters are implemented by FSC's custom gRPC server stats handler. The handler itself is tested, but the default runtime wires the gRPC server through OpenTelemetry's server handler. See [Known gaps](#known-gaps).
 
@@ -232,31 +232,31 @@ Primary implementation: `platform/common/services/grpc/metrics.go`, with the cus
 
 ### Connection state
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_connection_state` | gauge | `network`, `channel`, `component`, `endpoint` | Current state of a client connection, encoded as below. |
-| `fsc_connection_reconnects` | counter | `network`, `channel`, `component`, `endpoint` | Number of reconnect attempts. |
-| `fsc_connection_last_connected_timestamp_seconds` | gauge | `network`, `channel`, `component`, `endpoint` | Unix time of the last transition to `connected`. |
+| Metric                                            | Type    | Labels                                        | Description                                             |
+| ------------------------------------------------- | ------- | --------------------------------------------- | ------------------------------------------------------- |
+| `fsc_connection_state`                            | gauge   | `network`, `channel`, `component`, `endpoint` | Current state of a client connection, encoded as below. |
+| `fsc_connection_reconnects`                       | counter | `network`, `channel`, `component`, `endpoint` | Number of reconnect attempts.                           |
+| `fsc_connection_last_connected_timestamp_seconds` | gauge   | `network`, `channel`, `component`, `endpoint` | Unix time of the last transition to `connected`.        |
 
 `fsc_connection_state` values:
 
-| Value | State | Meaning |
-| --- | --- | --- |
-| `0` | disconnected | No connection is open. A clean shutdown ends in this state. |
-| `1` | connecting | The first connection attempt is in progress. |
-| `2` | connected | The connection is established. |
-| `3` | reconnecting | A lost connection is being re-established. |
-| `4` | stopped | The component gave up retrying. Recovery requires operator action. |
+| Value | State        | Meaning                                                            |
+| ----- | ------------ | ------------------------------------------------------------------ |
+| `0`   | disconnected | No connection is open. A clean shutdown ends in this state.        |
+| `1`   | connecting   | The first connection attempt is in progress.                       |
+| `2`   | connected    | The connection is established.                                     |
+| `3`   | reconnecting | A lost connection is being re-established.                         |
+| `4`   | stopped      | The component gave up retrying. Recovery requires operator action. |
 
 Components that report connection state:
 
-| `component` | `network` / `channel` | `endpoint` | Reported states |
-| --- | --- | --- | --- |
-| `delivery` | Fabric network and channel | Peer the channel's block stream is attached to, from `fabric.<network>.peers`: the peers with `usage: delivery`, or the peers without a `usage` if none has it | `connecting` on the first connection attempt, `reconnecting` on every later attempt, `connected` once the Deliver stream is open. `stopped` when the committer rejects a block, which stops the channel's block stream (see `commit_failures` below). `disconnected` on a clean shutdown. |
-| `orderer` | Fabric network, empty channel | Orderer a broadcast stream is open to, from `fabric.<network>.orderers` or the channel configuration | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state. |
-| `fabricx_notification` | Fabric-x network and channel | Notification service endpoint the channel's finality listener manager is connected to, from `fabric.<network>.notificationService.endpoints` | `connecting` on the first stream attempt, `connected` once a notification stream opens, `reconnecting` while the manager backs off before the next attempt, `disconnected` once the node's context ends. |
-| `fabricx_query` | Fabric-x network and channel; empty channel for queries made by the ledger | Query service endpoint, from `fabric.<network>.queryService.endpoints` | `connected` after each query the service answers, including with an error, `reconnecting` after a query that fails with `Unavailable`. A query that times out does not change the state. The series is created by the first answered query. |
-| `database` | empty | `host:port/dbname` of a Postgres data source, from `fsc.persistences.<name>.opts.dataSource` (see `data_source` below) | `connected` after a successful liveness ping, `reconnecting` after a failed one. Never `disconnected`: pools are never closed, so each pool is pinged every 10 s until the process exits. SQLite reports no state. |
+| `component`            | `network` / `channel`                                                      | `endpoint`                                                                                                                                                     | Reported states                                                                                                                                                                                                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `delivery`             | Fabric network and channel                                                 | Peer the channel's block stream is attached to, from `fabric.<network>.peers`: the peers with `usage: delivery`, or the peers without a `usage` if none has it | `connecting` on the first connection attempt, `reconnecting` on every later attempt, `connected` once the Deliver stream is open. `stopped` when the committer rejects a block, which stops the channel's block stream (see `commit_failures` below). `disconnected` on a clean shutdown. |
+| `orderer`              | Fabric network, empty channel                                              | Orderer a broadcast stream is open to, from `fabric.<network>.orderers` or the channel configuration                                                           | `connected` when a stream is opened and after each envelope the orderer accepts. `reconnecting` when a broken stream is discarded, including a BFT send that times out or is cancelled. A rejected envelope does not change the state.                                                    |
+| `fabricx_notification` | Fabric-x network and channel                                               | Notification service endpoint the channel's finality listener manager is connected to, from `fabric.<network>.notificationService.endpoints`                   | `connecting` on the first stream attempt, `connected` once a notification stream opens, `reconnecting` while the manager backs off before the next attempt, `disconnected` once the node's context ends.                                                                                  |
+| `fabricx_query`        | Fabric-x network and channel; empty channel for queries made by the ledger | Query service endpoint, from `fabric.<network>.queryService.endpoints`                                                                                         | `connected` after each query the service answers, including with an error, `reconnecting` after a query that fails with `Unavailable`. A query that times out does not change the state. The series is created by the first answered query.                                               |
+| `database`             | empty                                                                      | `host:port/dbname` of a Postgres data source, from `fsc.persistences.<name>.opts.dataSource` (see `data_source` below)                                         | `connected` after a successful liveness ping, `reconnecting` after a failed one. Never `disconnected`: pools are never closed, so each pool is pinged every 10 s until the process exits. SQLite reports no state.                                                                        |
 
 Operational notes:
 
@@ -275,13 +275,13 @@ Primary implementation: `platform/view/services/metrics/connstate/connstate.go`,
 
 ### Database pool
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_database_open_connections` | gauge | `data_source` | Number of established connections, in use and idle. |
-| `fsc_database_in_use` | gauge | `data_source` | Number of connections in use. |
-| `fsc_database_idle` | gauge | `data_source` | Number of idle connections. |
-| `fsc_database_wait_count` | gauge | `data_source` | Total number of times a caller waited for a connection. |
-| `fsc_database_wait_duration_seconds` | gauge | `data_source` | Total time callers waited for a connection. |
+| Metric                               | Type  | Labels        | Description                                             |
+| ------------------------------------ | ----- | ------------- | ------------------------------------------------------- |
+| `fsc_database_open_connections`      | gauge | `data_source` | Number of established connections, in use and idle.     |
+| `fsc_database_in_use`                | gauge | `data_source` | Number of connections in use.                           |
+| `fsc_database_idle`                  | gauge | `data_source` | Number of idle connections.                             |
+| `fsc_database_wait_count`            | gauge | `data_source` | Total number of times a caller waited for a connection. |
+| `fsc_database_wait_duration_seconds` | gauge | `data_source` | Total time callers waited for a connection.             |
 
 The values are `sql.DBStats` of each Postgres connection pool, sampled every 10 s. `wait_count` and `wait_duration_seconds` only grow; alert on their rate. The liveness ping keeps one connection open, so `open_connections` stays at 1 or more. When `maxOpenConns` is set and every connection is in use, the ping is skipped and the state stays `connected`.
 
@@ -291,8 +291,8 @@ Primary implementation: `platform/view/services/storage/driver/sql/postgres/dbme
 
 ### Fabric ordering
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
+| Metric                                                  | Type    | Labels    | Description                                                                     |
+| ------------------------------------------------------- | ------- | --------- | ------------------------------------------------------------------------------- |
 | `fsc_fabric_core_generic_ordering_ordered_transactions` | counter | `network` | Number of transactions that were successfully accepted by the ordering service. |
 
 The CFT broadcaster increments this counter after the orderer returns `Status_SUCCESS`. The BFT broadcaster increments it once per envelope, after enough orderers return `Status_SUCCESS` to meet the threshold.
@@ -301,17 +301,17 @@ Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updat
 
 ### Fabric committer
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_fabric_core_generic_committer_notify_status` | histogram | none | Duration of publishing transaction status change events. |
-| `fsc_fabric_core_generic_committer_notify_finality` | histogram | none | Duration of notifying local finality listeners. |
-| `fsc_fabric_core_generic_committer_post_finality` | histogram | none | Duration of posting a finality event into the finality manager. |
-| `fsc_fabric_core_generic_committer_handler` | histogram | `status` | Duration of the committer's per-transaction handler execution. |
-| `fsc_fabric_core_generic_committer_block_commit` | histogram | none | End-to-end duration of committing the transactions in a block. |
-| `fsc_fabric_core_generic_committer_event_queue` | histogram | none | Time spent enqueueing a finality event into the committer's internal event channel. |
-| `fsc_fabric_core_generic_committer_event_queue_length` | gauge | none | Current number of pending events in the committer's event queue. |
-| `fsc_fabric_core_generic_committer_commit_retries` | counter | `network`, `channel` | Number of block commit attempts retried after a transient failure. |
-| `fsc_fabric_core_generic_committer_commit_failures` | counter | `network`, `channel`, `class` | Number of block commit failures returned to the caller, which stop that channel's block stream. A commit stopped by a shutdown is not counted. |
+| Metric                                                 | Type      | Labels                        | Description                                                                                                                                    |
+| ------------------------------------------------------ | --------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsc_fabric_core_generic_committer_notify_status`      | histogram | none                          | Duration of publishing transaction status change events.                                                                                       |
+| `fsc_fabric_core_generic_committer_notify_finality`    | histogram | none                          | Duration of notifying local finality listeners.                                                                                                |
+| `fsc_fabric_core_generic_committer_post_finality`      | histogram | none                          | Duration of posting a finality event into the finality manager.                                                                                |
+| `fsc_fabric_core_generic_committer_handler`            | histogram | `status`                      | Duration of the committer's per-transaction handler execution.                                                                                 |
+| `fsc_fabric_core_generic_committer_block_commit`       | histogram | none                          | End-to-end duration of committing the transactions in a block.                                                                                 |
+| `fsc_fabric_core_generic_committer_event_queue`        | histogram | none                          | Time spent enqueueing a finality event into the committer's internal event channel.                                                            |
+| `fsc_fabric_core_generic_committer_event_queue_length` | gauge     | none                          | Current number of pending events in the committer's event queue.                                                                               |
+| `fsc_fabric_core_generic_committer_commit_retries`     | counter   | `network`, `channel`          | Number of block commit attempts retried after a transient failure.                                                                             |
+| `fsc_fabric_core_generic_committer_commit_failures`    | counter   | `network`, `channel`, `class` | Number of block commit failures returned to the caller, which stop that channel's block stream. A commit stopped by a shutdown is not counted. |
 
 Operational notes:
 
@@ -358,8 +358,8 @@ Primary implementation: `platform/fabric/core/generic/committer/metrics.go`, upd
 
 ### Security
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
+| Metric                                  | Type    | Labels | Description                                                               |
+| --------------------------------------- | ------- | ------ | ------------------------------------------------------------------------- |
 | `fsc_view_services_security_rejections` | counter | `kind` | Number of inputs from remote peers rejected by a security check, by kind. |
 
 Operational notes:
@@ -419,10 +419,10 @@ Primary implementation: `platform/view/services/security/rejections.go`, updated
 
 ### Vault
 
-| Metric | Type | Labels | Description |
-| --- | --- | --- | --- |
-| `fsc_common_core_generic_vault_commit` | histogram | none | Average per-transaction commit duration inside a vault batch commit. |
-| `fsc_common_core_generic_vault_batched_commit` | histogram | none | Total wall-clock time experienced by a `CommitTX` caller, including batching overhead. |
+| Metric                                         | Type      | Labels | Description                                                                            |
+| ---------------------------------------------- | --------- | ------ | -------------------------------------------------------------------------------------- |
+| `fsc_common_core_generic_vault_commit`         | histogram | none   | Average per-transaction commit duration inside a vault batch commit.                   |
+| `fsc_common_core_generic_vault_batched_commit` | histogram | none   | Total wall-clock time experienced by a `CommitTX` caller, including batching overhead. |
 
 Operational notes:
 
@@ -442,12 +442,12 @@ Unless otherwise stated, the duration is recorded in seconds and uses the defaul
 
 ### View and API tracers
 
-| Metric Base | Labels | Description |
-| --- | --- | --- |
-| `fsc_view_services_view_calls` | `success`, `view`, `initiator_view` | Local view execution spans created by the view runtime around each view invocation started by the FSC view manager. |
-| `fsc_view_services_view_grpc_server_view_service` | `success` | View gRPC service tracer declared by the gRPC server package. It never starts a span, so this family is never emitted. |
-| `fsc_view_services_view_client_client` | none | Outbound view service invocation tracer, over gRPC or HTTP. This family is emitted by the caller process, not by the remote FSC node that handles the request. |
-| `fsc_view_services_view_client_node_view_client` | `fid` | Local client tracer used when a node invokes a view through the in-process local client helper. |
+| Metric Base                                       | Labels                              | Description                                                                                                                                                    |
+| ------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsc_view_services_view_calls`                    | `success`, `view`, `initiator_view` | Local view execution spans created by the view runtime around each view invocation started by the FSC view manager.                                            |
+| `fsc_view_services_view_grpc_server_view_service` | `success`                           | View gRPC service tracer declared by the gRPC server package. It never starts a span, so this family is never emitted.                                         |
+| `fsc_view_services_view_client_client`            | none                                | Outbound view service invocation tracer, over gRPC or HTTP. This family is emitted by the caller process, not by the remote FSC node that handles the request. |
+| `fsc_view_services_view_client_node_view_client`  | `fid`                               | Local client tracer used when a node invokes a view through the in-process local client helper.                                                                |
 
 Each metric base above exports:
 
@@ -464,19 +464,19 @@ Primary implementation:
 
 ### Comm and transport tracers
 
-| Metric Base | Labels | Description |
-| --- | --- | --- |
+| Metric Base                                               | Labels       | Description                                                        |
+| --------------------------------------------------------- | ------------ | ------------------------------------------------------------------ |
 | `fsc_view_services_comm_host_websocket_ws_multiplexed_ws` | `context_id` | WebSocket multiplexer tracer for inbound view invocation handling. |
 
 Primary implementation: `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
 
 ### Fabric tracers
 
-| Metric Base | Labels | Description |
-| --- | --- | --- |
-| `fsc_fabric_core_generic_delivery_delivery` | `type` | Delivery service tracer for received messages from Fabric deliver. |
-| `fsc_fabric_core_generic_committer_commits` | none | Committer tracer for `commit_block` and `commit_tx` spans. |
-| `fsc_fabric_core_generic_committer_committer` | none | Committer tracer used for operations such as waiting for finality and reloading config transactions. |
+| Metric Base                                   | Labels | Description                                                                                          |
+| --------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| `fsc_fabric_core_generic_delivery_delivery`   | `type` | Delivery service tracer for received messages from Fabric deliver.                                   |
+| `fsc_fabric_core_generic_committer_commits`   | none   | Committer tracer for `commit_block` and `commit_tx` spans.                                           |
+| `fsc_fabric_core_generic_committer_committer` | none   | Committer tracer used for operations such as waiting for finality and reloading config transactions. |
 
 The delivery tracer uses the label `type`, with the values:
 
@@ -493,11 +493,11 @@ Primary implementation:
 
 ### Common tracers
 
-| Metric Base | Labels | Description |
-| --- | --- | --- |
-| `fsc_common_core_generic_vault_vault` | none | Vault tracer for batch commit operations. |
-| `fsc_common_core_generic_committer_finality_listener_manager` | none | Finality listener manager tracer for listener dispatch. |
-| `fsc_common_core_generic_committer_finality_manager` | none | Finality manager tracer for status polling and event posting logic. |
+| Metric Base                                                   | Labels | Description                                                         |
+| ------------------------------------------------------------- | ------ | ------------------------------------------------------------------- |
+| `fsc_common_core_generic_vault_vault`                         | none   | Vault tracer for batch commit operations.                           |
+| `fsc_common_core_generic_committer_finality_listener_manager` | none   | Finality listener manager tracer for listener dispatch.             |
+| `fsc_common_core_generic_committer_finality_manager`          | none   | Finality manager tracer for status polling and event posting logic. |
 
 Primary implementation:
 
@@ -509,29 +509,29 @@ Primary implementation:
 
 The following labels are part of the current FSC metric surface.
 
-| Label | Meaning | Typical Values |
-| --- | --- | --- |
-| `channel` | Fabric channel name | deployment-specific channel name |
-| `class` | Committer commit-failure class that stopped the channel's block stream | `degrade`, `fatal` |
-| `command` | gRPC command payload type handled by the view service | `*protos.Command_CallView` |
-| `component` | FSC component that owns a client connection | `orderer`, `delivery`, `fabricx_notification`, `fabricx_query`, `database` |
-| `context_id` | FSC context identifier used by the WebSocket multiplexer tracer | FSC context UUID or caller-provided context ID |
-| `data_source` | Postgres data source of a connection pool, without credentials | `host:port/dbname` |
-| `endpoint` | Remote address of a client connection | `host:port`; `host:port/dbname` for `database` |
-| `fid` | View factory identifier used by the local view client tracer | application-defined factory ID |
-| `listener` | FSC listener serving a TLS certificate | `grpc`, `web`; `metrics` when `fsc.metrics.address` gives the operations endpoints a listener of their own |
-| `initiator_view` | Initiator view identifier associated with a child view execution | fully qualified view identifier or empty |
-| `kind` | Security check that rejected input from a remote peer | `invalid_tx`, `binding_refused`, `binding_conflict`, `recipient_proof`, `unauthorized`, `store_conflict` |
-| `network` | Fabric network name | deployment-specific network name |
-| `peer` | Remote libp2p peer identifier | peer ID string |
-| `protocol` | libp2p protocol identifier | protocol ID string |
-| `reason` | Why the view service rejected a request, the P2P service refused a first message, or a transport refused a stream | `stale`, `replay`, `denied`, `busy` on `*_requests_rejected`; `busy`, `node_busy`, `draining`, `unknown_view`, `unauthorized`, `authorizer_error`, `no_common_version` on `fsc_view_services_view_p2p_rejections`; `version` on `*_rejected_streams` |
-| `side` | WebSocket connection side | `client`, `server` |
-| `status` | Committer handler outcome classification | `not_found`, `failure`, `successful` |
-| `success` | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, and `fsc_view_services_view_grpc_server_view_service_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it |
-| `type` | Delivery message type classification | `unknown`, `block`, `status`, `other` |
-| `version` | FSC version string | node version |
-| `view` | Fully qualified FSC view identifier | Go package and type-based identifier |
+| Label            | Meaning                                                                                                                                                                 | Typical Values                                                                                                                                                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channel`        | Fabric channel name                                                                                                                                                     | deployment-specific channel name                                                                                                                                                                                                                     |
+| `class`          | Committer commit-failure class that stopped the channel's block stream                                                                                                  | `degrade`, `fatal`                                                                                                                                                                                                                                   |
+| `command`        | gRPC command payload type handled by the view service                                                                                                                   | `*protos.Command_CallView`                                                                                                                                                                                                                           |
+| `component`      | FSC component that owns a client connection                                                                                                                             | `orderer`, `delivery`, `fabricx_notification`, `fabricx_query`, `database`                                                                                                                                                                           |
+| `context_id`     | FSC context identifier used by the WebSocket multiplexer tracer                                                                                                         | FSC context UUID or caller-provided context ID                                                                                                                                                                                                       |
+| `data_source`    | Postgres data source of a connection pool, without credentials                                                                                                          | `host:port/dbname`                                                                                                                                                                                                                                   |
+| `endpoint`       | Remote address of a client connection                                                                                                                                   | `host:port`; `host:port/dbname` for `database`                                                                                                                                                                                                       |
+| `fid`            | View factory identifier used by the local view client tracer                                                                                                            | application-defined factory ID                                                                                                                                                                                                                       |
+| `listener`       | FSC listener serving a TLS certificate                                                                                                                                  | `grpc`, `web`; `metrics` when `fsc.metrics.address` gives the operations endpoints a listener of their own                                                                                                                                           |
+| `initiator_view` | Initiator view identifier associated with a child view execution                                                                                                        | fully qualified view identifier or empty                                                                                                                                                                                                             |
+| `kind`           | Security check that rejected input from a remote peer                                                                                                                   | `invalid_tx`, `binding_refused`, `binding_conflict`, `recipient_proof`, `unauthorized`, `store_conflict`                                                                                                                                             |
+| `network`        | Fabric network name                                                                                                                                                     | deployment-specific network name                                                                                                                                                                                                                     |
+| `peer`           | Remote libp2p peer identifier                                                                                                                                           | peer ID string                                                                                                                                                                                                                                       |
+| `protocol`       | libp2p protocol identifier                                                                                                                                              | protocol ID string                                                                                                                                                                                                                                   |
+| `reason`         | Why the view service rejected a request, the P2P service refused a first message, or a transport refused a stream                                                       | `stale`, `replay`, `denied`, `busy` on `*_requests_rejected`; `busy`, `node_busy`, `draining`, `unknown_view`, `unauthorized`, `authorizer_error`, `no_common_version` on `fsc_view_services_view_p2p_rejections`; `version` on `*_rejected_streams` |
+| `side`           | WebSocket connection side                                                                                                                                               | `client`, `server`                                                                                                                                                                                                                                   |
+| `status`         | Committer handler outcome classification                                                                                                                                | `not_found`, `failure`, `successful`                                                                                                                                                                                                                 |
+| `success`        | Success flag used by `fsc_view_services_view_calls_*`, `fsc_view_services_view_grpc_server_requests_completed`, and `fsc_view_services_view_grpc_server_view_service_*` | `true`, `false`, or an empty value where the current implementation declares the label but does not populate it                                                                                                                                      |
+| `type`           | Delivery message type classification                                                                                                                                    | `unknown`, `block`, `status`, `other`                                                                                                                                                                                                                |
+| `version`        | FSC version string                                                                                                                                                      | node version                                                                                                                                                                                                                                         |
+| `view`           | Fully qualified FSC view identifier                                                                                                                                     | Go package and type-based identifier                                                                                                                                                                                                                 |
 
 ## Known gaps
 
@@ -542,4 +542,3 @@ The following families have implementation caveats:
 - `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
 - `fsc_view_services_view_client_client_*`: these are caller-process metrics. The standard integration harness creates its external view clients with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
 - `fsc_view_services_view_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.
-

@@ -8,11 +8,13 @@ A merge conflict happens when your branch and the branch you rebase onto both ch
 ## Step-by-step guide
 
 ### 1. See which files are conflicted
+
 ```bash
 git status
 ```
 
 ### 2. Understand the conflict markers
+
 You will see sections like:
 
 ```text
@@ -28,6 +30,7 @@ your branch’s code
 Have a vision of what you'd like the final code to look like, given what is currently on main and what you'd like to propose.
 
 > [!WARNING]
+>
 > - Do not blindly accept both changes
 > - Do not blindly accept incoming
 > - Do not blindly accept existing
@@ -35,6 +38,7 @@ Have a vision of what you'd like the final code to look like, given what is curr
 Merge conflicts require human interpretation.
 
 Sometimes you'll be:
+
 - Accepting both incoming and current
 - Accepting only incoming
 - Accepting only current
@@ -42,7 +46,8 @@ Sometimes you'll be:
 
 Generally, you want to keep all changes that were merged to main, but additionally, layer on your changes.
 
-### 4. Resolve conflicts in VS Code (recommended):
+### 4. Resolve conflicts in VS Code (recommended)
+
 Once you understand you have a merge conflict and have a vision of the final document, we recommend using VS Code.
 
 VS Code makes solving merge conflicts easier with a 3-pane interface for resolving conflicts:
@@ -71,11 +76,13 @@ You want to accept or reject content from the top left and top right panes, and 
 4. Save the lower pane file once there are no more merge conflicts to resolve in this file.
 
 5. Click the add button next to the file to resolve conflicts or:
+
    ```bash
    git add <file>
    ```
 
 6. Continue the rebase:
+
    ```bash
    git rebase --continue
    ```
@@ -88,12 +95,15 @@ You want to accept or reject content from the top left and top right panes, and 
    Once the rebase operation completes, your commits will be layered on top of main. It means your commit history will look “different” and you may even see changes to commits from other authors — this is expected, since rebase rewrites history.
 
 8. Push changes. If you already have an open Pull Request, you will need to update it with a **force push**. Before pushing, double-check that your commits are both DCO signed and GPG verified:
+
    ```bash
    git log -n 10 --pretty=format:'%h %an %G? %s'
    ```
+
    Ensure you see: `G` = Good (valid signature)
 
    Then:
+
    ```bash
    git push --force-with-lease
    ```
@@ -103,15 +113,18 @@ You want to accept or reject content from the top left and top right panes, and 
 
 ## Common issues
 
-#### 1. Message: *“No changes – did you forget to use git add?”*
+### 1. Message: _“No changes – did you forget to use git add?”_
+
 - **What it means:** You resolved the conflicts but forgot to stage the files.
 - **Solution:** Run `git add <file>` and try again.
 
-#### 2. Message: *“Are you sure you want to continue with conflicts?”*
+### 2. Message: _“Are you sure you want to continue with conflicts?”_
+
 - **What it means:** Some conflicts are still unresolved or the files were not saved properly.
 - **Solution:** Double-check your files in VS Code, make sure they are saved, and resolve any remaining conflict markers.
 
 ### If you need to stop
+
 ```bash
 git rebase --abort
 ```
@@ -120,6 +133,7 @@ git rebase --abort
 > At each conflict: resolve → save → stage → continue. Repeat until all conflicts are gone.
 
 ### What not to do
+
 1. ❌ Do not run git merge main
    → This creates messy merge commits. Always rebase instead.
 
@@ -134,7 +148,8 @@ At each conflict instance, you'll have to repeat: fix the conflict, stage the fi
 ## Recovery tips
 
 Undo the last rebase commit, but keep changes staged (while still in rebase):
-  If you are in the middle of a rebase and realize the last step went wrong, you can undo it while keeping changes staged:
+If you are in the middle of a rebase and realize the last step went wrong, you can undo it while keeping changes staged:
+
 ```bash
 git reset --soft HEAD~n
 ```
@@ -143,26 +158,30 @@ git reset --soft HEAD~n
 > The number after HEAD~ refers to how many commits you want to go back.
 
 For example:
+
 - HEAD~1 → go back 1 commit
 - HEAD~3 → go back 3 commits
 - HEAD~5 → go back 5 commits
 
 ### If you are completely stuck
+
 Sometimes a rebase can get too messy to fix conflict by conflict. In that case, it’s often easier to start fresh:
 
 1. Abort the rebase to stop where you are:
-```bash
-git rebase --abort
-```
+
+   ```bash
+   git rebase --abort
+   ```
 
 2. Reset your fork's main to the upstream main and layer your commits on top of that:
-```bash
-git checkout main
-git reset --hard upstream/main
-git push origin main --force-with-lease
-git checkout mybranch
-git rebase upstream/main -S
-```
+
+   ```bash
+   git checkout main
+   git reset --hard upstream/main
+   git push origin main --force-with-lease
+   git checkout mybranch
+   git rebase upstream/main -S
+   ```
 
 > [!WARNING]
 > Use git stash only if you really want to save some local changes that aren’t yet committed. In most cases, if the rebase is failing, it’s safer to abort or reset rather than reapplying a stash of broken work.

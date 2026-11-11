@@ -14,7 +14,7 @@ package main
 import (
     "fmt"
     "log"
-    
+
     fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
     sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 )
@@ -32,6 +32,7 @@ func main() {
 ```
 
 Build your node:
+
 ```bash
 go build -o mynode .
 ```
@@ -43,6 +44,7 @@ go build -o mynode .
 Start the FSC node.
 
 **Usage:**
+
 ```bash
 ./mynode node start
 ```
@@ -50,6 +52,7 @@ Start the FSC node.
 **Description:**
 
 Starts the FSC node that:
+
 - Loads configuration from `core.yaml`
 - Initializes the View SDK
 - Handles graceful shutdown on signals
@@ -57,6 +60,7 @@ Starts the FSC node that:
 **Configuration Required:**
 
 The node requires a `core.yaml` file in:
+
 - Current directory, OR
 - Directory specified by `FSCNODE_CFG_PATH` environment variable
 
@@ -65,33 +69,38 @@ See [Configuration Guide](../configuration.md) for complete configuration option
 **Examples:**
 
 1. **Start with default configuration:**
-```bash
-# Looks for ./core.yaml
-./mynode node start
-```
+
+   ```bash
+   # Looks for ./core.yaml
+   ./mynode node start
+   ```
 
 2. **Start with custom configuration path:**
-```bash
-export FSCNODE_CFG_PATH=/etc/fsc
-./mynode node start
-```
+
+   ```bash
+   export FSCNODE_CFG_PATH=/etc/fsc
+   ./mynode node start
+   ```
 
 3. **Start with profiling enabled:**
-```bash
-export FSCNODE_PROFILER=true
-./mynode node start
-```
+
+   ```bash
+   export FSCNODE_PROFILER=true
+   ./mynode node start
+   ```
 
 4. **Start in background:**
-```bash
-nohup ./mynode node start > node.log 2>&1 &
-```
+
+   ```bash
+   nohup ./mynode node start > node.log 2>&1 &
+   ```
 
 ### `node migrate`
 
 Prepare the schema of every store the node uses and exit.
 
 **Usage:**
+
 ```bash
 ./mynode node migrate             # run the pending schema steps up to the first contract step
 ./mynode node migrate --check     # run nothing; exit 10 and list the pending steps if there are any
@@ -103,14 +112,14 @@ The command reads the same configuration as `node start` and installs every SDK,
 
 Without `--contract` the command, like a starting node, stops before a contract step and does not count it as pending. With `--contract` it runs contract steps. `--check --contract` counts them as pending, marks them `(contract)`, and exits 12 if a binary that lacks one opens the store. `--forget-opener <fsc.id>`, repeatable, deletes that node's rows from each store's openers table before any step runs; it cannot be combined with `--check`. See [Contract steps](../platform/view/services/schema-migrations.md#contract-steps).
 
-| Exit code | Meaning |
-|---|---|
-| `0` | every store is current (or, without `--check`, has been migrated) |
-| `10` | `--check`: steps are pending; each pending store and its steps are listed |
-| `11` | a store's schema is newer than this binary (`migrate.ErrSchemaTooNew`) |
-| `12` | `--contract`, also with `--check`: a store is opened by a binary that lacks a pending contract step (`migrate.ErrOlderOpener`); the nodes are listed |
-| `1` | the command could not run or could not check or migrate a store: configuration, connection, lock or step failure |
-| `2` | invalid arguments; no store was opened |
+| Exit code | Meaning                                                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`       | every store is current (or, without `--check`, has been migrated)                                                                                    |
+| `10`      | `--check`: steps are pending; each pending store and its steps are listed                                                                            |
+| `11`      | a store's schema is newer than this binary (`migrate.ErrSchemaTooNew`)                                                                               |
+| `12`      | `--contract`, also with `--check`: a store is opened by a binary that lacks a pending contract step (`migrate.ErrOlderOpener`); the nodes are listed |
+| `1`       | the command could not run or could not check or migrate a store: configuration, connection, lock or step failure                                     |
+| `2`       | invalid arguments; no store was opened                                                                                                               |
 
 When stores fail for different reasons, the code is the first of `1`, `11`, `12`, `10` that applies. An unknown flag or argument exits 2, and `--help` connects to nothing.
 
@@ -119,6 +128,7 @@ When stores fail for different reasons, the code is the first of `1`, `11`, `12`
 Check, before a rollout, that this binary can still talk to the node's peers.
 
 **Usage:**
+
 ```bash
 ./mynode node peers --check
 ```
@@ -127,12 +137,12 @@ The command reads the node's configuration, as `node start` does, but installs n
 
 For each peer it prints the peer's FSC version and framing epoch and, per component, both ranges and the version they use, the highest one in both ranges. A peer of a release without preambles, or a component only this binary announces, is reported but does not fail the check, since the node accepts such peers. Run the new binary with the node's configuration and key material. Only `fsc.p2p.type: websocket` is supported; with libp2p the command exits 1.
 
-| Exit code | Meaning |
-|---|---|
-| `0` | every peer is compatible |
-| `11` | a peer's framing epoch differs, or a component's ranges do not overlap |
-| `1` | a peer could not be reached, or the command could not run: configuration, identity or transport |
-| `2` | invalid arguments, including a missing `--check`; nothing was dialed |
+| Exit code | Meaning                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| `0`       | every peer is compatible                                                                        |
+| `11`      | a peer's framing epoch differs, or a component's ranges do not overlap                          |
+| `1`       | a peer could not be reached, or the command could not run: configuration, identity or transport |
+| `2`       | invalid arguments, including a missing `--check`; nothing was dialed                            |
 
 When peers fail for different reasons, `1` wins over `11`.
 
@@ -141,11 +151,13 @@ When peers fail for different reasons, `1` wins over `11`.
 Display version information.
 
 **Usage:**
+
 ```bash
 ./mynode version
 ```
 
 **Output:**
+
 ```text
 node:
  Go version: go1.27.3
@@ -171,6 +183,7 @@ With `--json` it prints one JSON object for release tooling:
 ```
 
 **Description:**
+
 - Shows program name, the Go version used to build, and the OS and architecture
 - `FSC version` is the Fabric Smart Client module the binary was built with; with a `replace`
   in `go.mod` it is the replacement's version, or `(devel)` for a local directory
@@ -206,6 +219,7 @@ All environment variables use the `FSCNODE_` prefix.
 **Default:** `./` (current directory)
 
 **Example:**
+
 ```bash
 export FSCNODE_CFG_PATH=/etc/fsc
 ./mynode node start
@@ -220,12 +234,14 @@ export FSCNODE_CFG_PATH=/etc/fsc
 **Default:** `false`
 
 **Example:**
+
 ```bash
 export FSCNODE_PROFILER=true
 ./mynode node start
 ```
 
 When enabled, the following profiling data files are written to the configuration directory:
+
 - `cpu.pprof` - CPU profiling data
 - `mem-heap.pprof` - Memory heap profiling
 - `mem-allocs.pprof` - Memory allocations profiling
@@ -233,6 +249,7 @@ When enabled, the following profiling data files are written to the configuratio
 - `block.pprof` - Blocking profiling
 
 These files can be analyzed using Go's pprof tool, for example:
+
 ```bash
 go tool pprof cpu.pprof
 ```
@@ -241,12 +258,13 @@ go tool pprof cpu.pprof
 
 The FSC node handles these signals for graceful shutdown:
 
-| Signal | Behavior |
-|--------|----------|
+| Signal            | Behavior          |
+| ----------------- | ----------------- |
 | `SIGINT` (Ctrl+C) | Graceful shutdown |
-| `SIGTERM` | Graceful shutdown |
+| `SIGTERM`         | Graceful shutdown |
 
 **Graceful shutdown:**
+
 1. Stop the servers one after another (web, metrics, gRPC). Each stops accepting new requests and waits for its in-flight ones:
    - web and metrics: requests get 5s to finish, then their contexts are cancelled and the server waits up to 10s more for its handlers to return
    - gRPC: requests are cancelled at once, and the server waits up to 10s for its handlers to return
@@ -259,8 +277,8 @@ Views that observe their context (`ctx.Done()`) return promptly once it is cance
 
 ## Exit codes
 
-| Code | Meaning |
-|------|---------|
-| `0` | Clean shutdown |
-| `1` | Error during startup or operation |
+| Code                  | Meaning                                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `0`                   | Clean shutdown                                                                                                               |
+| `1`                   | Error during startup or operation                                                                                            |
 | `2`, `10`, `11`, `12` | `node migrate` and `node peers --check`; see [`node migrate`](#node-migrate) and [`node peers --check`](#node-peers---check) |

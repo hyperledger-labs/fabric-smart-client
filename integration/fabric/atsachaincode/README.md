@@ -3,10 +3,11 @@
 This tutorial teaches how to drive a Fabric chaincode from FSC views and test it with the integration infrastructure. It belongs to the [Fabric platform](../../../docs/platform/fabric/README.md) guide.
 
 The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html)
-is a tutorial that demonstrates how an asset can be represented and traded between organizations 
+is a tutorial that demonstrates how an asset can be represented and traded between organizations
 in a Hyperledger Fabric blockchain channel.
 
 In the next sections, we will learn:
+
 - The design of the solution used in the sample `Secured asset transfer in Fabric`.
 - How to write business views that invoke chaincodes.
 - How to write an integration test using the Fabric Smart Client's integration infrastructure.
@@ -16,24 +17,28 @@ In the next sections, we will learn:
 ### Business objects
 
 In the `Secured asset transfer in Fabric`, an asset is represented by the following data structure:
+
 ```go
-type Asset struct {   
+type Asset struct {
   ObjectType             string
-  ID                     string  
-  OwnerOrg               string   
+  ID                     string
+  OwnerOrg               string
   PublicDescription      string
 }
 ```
+
 An asset:
+
 - Is owned by a single organization (`OwnerOrg` field). State-Based Endorsement is used to model ownership;
 - Comes equipped with some private information that is stored in the `implicit collection` of the owning organization;
 
 An asset can be transferred if and only if an agreement between the current owner and the next owner is achieved.
 An agreement to sell or buy is represented by the following data structure:
+
 ```go
-type Agreement struct {   
-  ID      string   
-  Price   int   
+type Agreement struct {
+  ID      string
+  Price   int
   TradeID string
 }
 ```
@@ -41,15 +46,16 @@ type Agreement struct {
 ### Network topology
 
 For simplicity, let's consider two organizations: `Org1` and `Org2`.
-Each organization has at least one Fabric peer. 
+Each organization has at least one Fabric peer.
 There are also two clients: Alice who belongs to `Org1`, and Bob who belongs to `Org2`.
 Each of them runs a Fabric Smart Client node equipped with the proper Fabric identity.
 Alice's (resp. Bob's) FSC node connects to the Fabric peer in `Org1` (resp. `Org2`).
 
 Therefore, we have a vanilla Fabric network with:
+
 - Two Organizations (`Org1` and `Org2`);
 - Single channel;
-- A Chaincode (`asset_transfer`) that coordinates the business operations and can be endorsed by any organization; 
+- A Chaincode (`asset_transfer`) that coordinates the business operations and can be endorsed by any organization;
   The chaincode implicitly defines a namespace into the ledger that stores the states.
   The chaincode is available [`here`](chaincode/asset_transfer.go)
 - Support for State-Based Endorsement (SBE, for short) and Implicit collections enabled.
@@ -57,40 +63,42 @@ Therefore, we have a vanilla Fabric network with:
 ### Business operations
 
 The chaincode, installed on the peers of all organizations, handles the following business operations:
-- `Issue`: Any organization can issue assets because the chaincode endorsement says that any organization can endorse. 
-  The issuer passes to the chaincode the asset private information via transient. 
-  The chaincode creates a new instance of the asset, filling all fields, and puts it in the RWS. 
-  Then, the chaincode sets the SBE policy to assign ownership to the calling organization. 
-  Finally, the chaincode stores the asset private information in the implicit collection of the 
+
+- `Issue`: Any organization can issue assets because the chaincode endorsement says that any organization can endorse.
+  The issuer passes to the chaincode the asset private information via transient.
+  The chaincode creates a new instance of the asset, filling all fields, and puts it in the RWS.
+  Then, the chaincode sets the SBE policy to assign ownership to the calling organization.
+  Finally, the chaincode stores the asset private information in the implicit collection of the
   issuer’s organization that is owning the asset.
-- `Agree to sell and buy`: Before transferring an Asset, an agreement between the owning organization 
-  (`AgreeToSell`) and the recipient organization (`AgreeToBuy`) must be stored on the ledger. 
-  Organizations store their agreements in their implicit collections.  The endorsement policy 
+- `Agree to sell and buy`: Before transferring an Asset, an agreement between the owning organization
+  (`AgreeToSell`) and the recipient organization (`AgreeToBuy`) must be stored on the ledger.
+  Organizations store their agreements in their implicit collections. The endorsement policy
   of the implicit collections can be thought of as the owner of the agreement.
-  A `Hash` appears on the ledger for each agreement and this hash is available to the entire network. 
+  A `Hash` appears on the ledger for each agreement and this hash is available to the entire network.
   A transfer can happen only if there is a matching agreement to sell and buy.
-  The chaincode performs access control and then stores the agreement on the implicit collection 
+  The chaincode performs access control and then stores the agreement on the implicit collection
   of the calling organization.
-- `Transfer`: The asset owner passes to the chaincode the asset private information via transient. 
-  The chaincode first checks that the asset private information is compatible with the hash stored in owner’s 
-  organization implicit collection. If there is a match between the `AgreeToSell` and the `AgreeToBuy` 
-  (The match is performed by comparing the hashes. Notice that hashes are available to all peers in the network), 
-  the chaincode writes the private information in the next owner’s organization implicit collection 
-  (This requires an endorsement from the next owner’s organization). Finally, the chaincode changes 
+- `Transfer`: The asset owner passes to the chaincode the asset private information via transient.
+  The chaincode first checks that the asset private information is compatible with the hash stored in owner’s
+  organization implicit collection. If there is a match between the `AgreeToSell` and the `AgreeToBuy`
+  (The match is performed by comparing the hashes. Notice that hashes are available to all peers in the network),
+  the chaincode writes the private information in the next owner’s organization implicit collection
+  (This requires an endorsement from the next owner’s organization). Finally, the chaincode changes
   the asset's owner to the new receiving organization and stores the asset in the RWS.
-  
+
 ## Writing an integration test with the Fabric Smart Client
 
-Normally, to run the `Secured asset transfer in Fabric` sample, one would have to deploy the Fabric network, 
-invoke the chaincode, and so on, by using a bunch of scripts. 
+Normally, to run the `Secured asset transfer in Fabric` sample, one would have to deploy the Fabric network,
+invoke the chaincode, and so on, by using a bunch of scripts.
 This is not the most convenient way to test programmatically an application.
 
 FSC provides an `Integration Test Infrastructure` that allows the developer to:
+
 - Describe the topology of the networks used (Fabric and FSC networks);
 - Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
-Let us go step by step. 
+Let us go step by step.
 
 ### Describe the topology of the networks used
 
@@ -164,8 +172,8 @@ func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 }
 ```
 
-It is pretty straight-forward the meaning of each step. However, let us dedicate some time to the FSC topology. 
-One limitation of golang is that it cannot load code at runtime. This means that all views 
+It is pretty straight-forward the meaning of each step. However, let us dedicate some time to the FSC topology.
+One limitation of golang is that it cannot load code at runtime. This means that all views
 that a node might use must be burned inside the FSC node executable.
 This is the reason we specify the view factories at topology definition time. At network bootstrapping time,
 the Integration Test Infrastructure synthesizes the `main` file for each FSC node and builds it.
@@ -182,6 +190,7 @@ s := &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, er
 // Create and start the networks
 s.Setup()
 ```
+
 (The above code is adapted from this [`test file`](atsa_test.go), which imports this package as `atsa` and calls `s.Setup` from a
 `BeforeEach`. `StartPort` is defined in the suite's [`atsa_suite_test.go`](atsa_suite_test.go).)
 
@@ -189,18 +198,21 @@ s.Setup()
 
 In order to exchange an asset, this asset must be created first.
 Because the endorsement policy says that any organization can endorse the chaincode,
-we can have Alice issuing directly an asset. 
-To do so, Alice must contact her FSC node and ask the node to create a new instance of the `CreateAsset` view, on input 
+we can have Alice issuing directly an asset.
+To do so, Alice must contact her FSC node and ask the node to create a new instance of the `CreateAsset` view, on input
 the asset to be created, and run it.
 Now, recall that each FSC node exposes a gRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
-to this gRPC service and send the proper command. The Integration Test Infrastructure 
+to this gRPC service and send the proper command. The Integration Test Infrastructure
 takes care of this.
 
 To get the View Service client for Alice, we can do the following:
+
 ```go
 alice := s.II.Client("alice")
 ```
+
 At this point, we are ready to invoke the `CreateAsset` view, like this:
+
 ```go
 ap := &views.AssetProperties{
   ObjectType: "asset_properties",
@@ -216,6 +228,7 @@ _, err := alice.CallView("CreateAsset", common.JSONMarshall(&views.CreateAsset{
 }))
 Expect(err).NotTo(HaveOccurred())
 ```
+
 It is as simple as that.
 
 But, what does the `CreateAsset` view do exactly?

@@ -5,6 +5,7 @@ This is the `Fabric SDK` stack:
 ![Fabric SDK stack](../../imgs/fabric-sdk.png)
 
 It consists of the following layers:
+
 - `Services` (light-blue boxes): Services offer access to Fabric-specific functionality, such as transaction endorsement, state-based endorsement, and the execution of Chaincode.
 - `Fabric API`: This API follows the same abstraction paradigm as the `View API` but provides Fabric-specific functionality to enable `FSC nodes` to communicate with Fabric. Even though this API is specific for Fabric, it abstracts away certain details when dealing with a specific Fabric version.
 - `Driver API`: This API translates the `Fabric API` to a concrete driver implementation.
@@ -22,10 +23,10 @@ defined in `platform/fabric/protos/fabric.proto` (package `fsc.fabric.v1`) and
 `platform/fabricx/protos/fabricx.proto` (package `fsc.fabricx.v1`); they only gain fields, and
 `make buf-breaking` checks this.
 
-| Message | Version 1 | Version 2 |
-|---|---|---|
-| Transaction, as `endorser.NewCollectEndorsementsView`, `NewParallelCollectEndorsementsOnProposalView` and the `state` send views send it | JSON of `Transaction.Bytes` | protobuf `TransactionEnvelope` |
-| Endorsement response | JSON array of marshaled `ProposalResponse`s, or a JSON `endorser.Response` for an endorsement on a proposal | protobuf `EndorsementResponse` |
+| Message                                                                                                                                  | Version 1                                                                                                   | Version 2                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Transaction, as `endorser.NewCollectEndorsementsView`, `NewParallelCollectEndorsementsOnProposalView` and the `state` send views send it | JSON of `Transaction.Bytes`                                                                                 | protobuf `TransactionEnvelope` |
+| Endorsement response                                                                                                                     | JSON array of marshaled `ProposalResponse`s, or a JSON `endorser.Response` for an endorsement on a proposal | protobuf `EndorsementResponse` |
 
 A sender converts the transaction's JSON with `endorser.WireBytes` just before it sends it, so
 hashing, storing and decoding on each node keep working on the JSON. A receiver reads both
@@ -41,13 +42,13 @@ party in turn for its endorsement and stops at the first one that fails. Its err
 caller whether the party was unavailable, so that an application with several endorsers can try
 the next one. It matches, with `errors.Is`:
 
-| Failure | Error |
-|---|---|
+| Failure                                                                                                  | Error                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | The party rejected the session, for example because it drains, is busy, or has no responder for the view | the rejection's sentinel, such as `session.ErrDraining`, `session.ErrBusy` or `session.ErrUnknownView`, and `session.ErrRejected` (see [Error replies a node sends unasked](../view/services/comm/readme.md#error-replies-a-node-sends-unasked)) |
-| The session closed before the party answered | `comm.ErrSessionClosed` |
-| The party did not answer within a minute | `context.DeadlineExceeded` |
-| The view's context ended first | the context's error |
-| The transaction could not be sent, for example to a node that is down | the send's error, such as a dial error wrapping `syscall.ECONNREFUSED` |
+| The session closed before the party answered                                                             | `comm.ErrSessionClosed`                                                                                                                                                                                                                          |
+| The party did not answer within a minute                                                                 | `context.DeadlineExceeded`                                                                                                                                                                                                                       |
+| The view's context ended first                                                                           | the context's error                                                                                                                                                                                                                              |
+| The transaction could not be sent, for example to a node that is down                                    | the send's error, such as a dial error wrapping `syscall.ECONNREFUSED`                                                                                                                                                                           |
 
 An error reply that is not a rejection, and an endorsement that does not verify, wrap none of
 these.

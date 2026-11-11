@@ -43,12 +43,12 @@ monitor.
 The monitor is configured per network under `fabric.<network>.configMonitor`, listed with every
 other key in the [node configuration reference](../../configuration.md). Every key is optional:
 
-| Key | Default | Validation |
-|-----|---------|------------|
-| `pollInterval` | `1m` | must be positive |
-| `maxRetries` | `5` | must be non-negative; `0` disables retries |
-| `initialRetryDelay` | `1s` | must be positive and not exceed `maxRetryDelay` |
-| `maxRetryDelay` | `5m` | must be positive |
+| Key                 | Default | Validation                                      |
+| ------------------- | ------- | ----------------------------------------------- |
+| `pollInterval`      | `1m`    | must be positive                                |
+| `maxRetries`        | `5`     | must be non-negative; `0` disables retries      |
+| `initialRetryDelay` | `1s`    | must be positive and not exceed `maxRetryDelay` |
+| `maxRetryDelay`     | `5m`    | must be positive                                |
 
 A value that fails validation stops the channel from opening with an error that names the key,
 such as `pollInterval must be positive`.

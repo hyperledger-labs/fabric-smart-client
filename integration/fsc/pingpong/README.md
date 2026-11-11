@@ -4,6 +4,7 @@ This tutorial teaches the basics of FSC views: two nodes that exchange messages 
 
 The goal of this section is to familiarize ourselves with the Fabric Smart Client basic concepts.
 At the end of this document, we will gain the following knowledge:
+
 - What it means for a party to establish a communication channel
 - What it means to deploy FSC nodes
 - Set up your first FSC environment
@@ -143,6 +144,7 @@ func (p *Initiator) rounds() int {
 ```
 
 Let us go through the main steps:
+
 - **Retrieve responder identity**: The initiator should send a ping to the responder.
   The first step is therefore to retrieve the responder's identity.
   This can be done by using the identity service.
@@ -235,6 +237,7 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
 ```
 
 These are the main steps carried out by the responder:
+
 - **Retrieve the session opened by the initiator**: The responder expects to
   be invoked upon the reception of a message transmitted using a session.
   The responder can access his endpoint of this session via the context.
@@ -253,6 +256,7 @@ These are the main steps carried out by the responder:
 
 In the previous section, we have seen an example of a ping-pong between two parties: an `initiator`, Alice, and a `responder`, Bob.
 A few questions remained unanswered there though. Namely:
+
 - How does Alice decide to start the interactive protocol?
 - How does Bob know which view to execute when a message from Alice comes?
 
@@ -261,6 +265,7 @@ to instantiate a given view, to execute it, and return the generated output.
 
 To do so, we use factories to create new instances of the view to be executed.
 Here is the View Factory for the initiator's View.
+
 ```go
 package pingpong
 
@@ -285,6 +290,7 @@ func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
   return initiator, nil
 }
 ```
+
 The optional input, if any, is unmarshaled into `Initiator.Params`, so a caller can, for
 example, run the protocol for a specific number of rounds by passing `{"rounds": 5}` as input.
 
@@ -298,6 +304,7 @@ invoke the view, and so on, by using a bunch of scripts.
 This is not the most convenient way to test programmatically an application.
 
 FSC provides an `Integration Test Infrastructure` that allows the developer to:
+
 - Describe the topology of the networks (FSC network, in this case);
 - Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
@@ -341,20 +348,20 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 }
 ```
 
-Before we describe the meaning of the above piece of code, let us stress the following point that is crucial 
+Before we describe the meaning of the above piece of code, let us stress the following point that is crucial
 to keep in mind.
 One limitation of Go is that it cannot load code at runtime. This means that all views
 that a node might use must be burned inside the FSC node executable (We will solve this problem
 by adding support for YAEGI, [`Issue 19`](https://github.com/hyperledger-labs/fabric-smart-client/issues/19)).
 
-Now, let us go step by step and explain the meaning of the above code. Our goal is to describe 
+Now, let us go step by step and explain the meaning of the above code. Our goal is to describe
 the nodes in the network we want to bootstrap. Each node will have its own definition.
-We have two nodes here, the `initiator`, Alice, and the `responder`, Bob. 
+We have two nodes here, the `initiator`, Alice, and the `responder`, Bob.
 
-- **Create an empty FSC network topology**: We start by creating an empty topology to which FSC node 
+- **Create an empty FSC network topology**: We start by creating an empty topology to which FSC node
   definitions will be added. `commType` selects the P2P transport (`fsc.WebSocket` or `fsc.LibP2P`),
   and `replicationOpts` lets a test run several replicas of a node.
-- **Add the FSC nodes (Executable's Package Path)**: One way to add an FSC node to the topology 
+- **Add the FSC nodes (Executable's Package Path)**: One way to add an FSC node to the topology
   is to use the `AddNodeByName` method.
   This method creates and returns an empty description of an FSC node and assigns it a name.
   When the node description is ready, it can be populated in multiple ways.
@@ -362,6 +369,7 @@ We have two nodes here, the `initiator`, Alice, and the `responder`, Bob.
   Indeed, the method `SetExecutable` allows the developer to specify the package path that contains the main go file.
   Here is the content of the initiator's main file, trimmed to the `init` view
   (the real [`cmd/initiator/main.go`](./cmd/initiator/main.go) registers more factories):
+
 ```go
 package main
 
@@ -390,11 +398,13 @@ func main() {
 	})
 }
 ```
+
 - **Add an FSC node without a main file (Executable Synthesizer)**: Instead of `SetExecutable`,
   a node definition can be populated directly with view factories and responders, using
   `RegisterViewFactory` and `RegisterResponder`. For example, `topology.AddNodeByName("responder").RegisterResponder(&Responder{}, &Initiator{})`.
   Then, at network bootstrap, the integration infrastructure synthesizes the node's `main` file on the fly.
   For such a responder, the output of the synthesis looks like this:
+
 ```go
 package main
 
@@ -414,7 +424,8 @@ func main() {
 	})
 }
 ```
-  SDKs added with `AddSDK` show up as `n.InstallSDK(...)` calls before `n.Execute`.
+
+SDKs added with `AddSDK` show up as `n.InstallSDK(...)` calls before `n.Execute`.
 
 ### Bootstrap these networks
 
@@ -436,20 +447,22 @@ Finally, the FSC nodes will be executed in their own process.
 `Generate` writes this material to a fresh temporary directory. The suite also keeps a checked-in
 copy for the `ping pong` example [`here`](./testdata/fsc), which its "loaded artifacts" specs and the
 node-based specs start from.
-There, you will find the following folders 
+There, you will find the following folders
+
 - `crypto` that contains all the crypto material (we use a customized version
-of Fabric's `cryptogen`), and 
+  of Fabric's `cryptogen`), and
 - `nodes` that contains the FSC nodes' configurations.
 
 ### Initiate interactive protocols to complete given business tasks
 
-Now, it is time for Alice to initiate the ping pong. To do so, Alice must contact her 
+Now, it is time for Alice to initiate the ping pong. To do so, Alice must contact her
 FSC node and ask the node to create a new instance of the `init` view, and run it.
 Now, recall that each FSC node exposes a gRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
 to this gRPC service and send the proper command. The Integration Test Infrastructure
 takes care of this.
 
 To get the View Service client for Alice, we can do the following:
+
 ```go
 alice := ii.Client("initiator")
 ```
@@ -519,24 +532,25 @@ Let us describe what is happening in the above BDD test:
 - **Initiate a view and check the output**:
   With the View Service client in hand, the test developers can initiate a view on the given node
   and get the result.
-  
+
 ## Deeper dive
 
 There are still questions to answer. Here are some:
+
 - How do I configure an FSC node?
 - How does an FSC node know where the other nodes are and who they are (their PKs)?
 - Where is information stored?
 
-The above questions can be answered by looking at an FSC node's configuration file. 
+The above questions can be answered by looking at an FSC node's configuration file.
 
 ### FSC node's configuration file
 
-Let's start from the configuration file. 
+Let's start from the configuration file.
 Here is the annotated configuration file used for the `initiator`, Alice, in the node-based and
 "loaded artifacts" specs, without its unused `fsc.p2p.opts` section.
 You can find it [`here`](testdata/fsc/nodes/initiator.0/core.yaml) too.
 
-````yaml
+```yaml
 ---
 # Logging section
 logging:
@@ -591,7 +605,7 @@ fsc:
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     cache:
-        # Sets the maximum number of cached items 
+        # Sets the maximum number of cached items
         size: 200
   # HTML Server configuration for REST calls
   web:
@@ -617,7 +631,7 @@ fsc:
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:
-    resolvers: 
+    resolvers:
     - name: responder
       domain: fsc.example.com
       identity:
@@ -626,4 +640,4 @@ fsc:
         P2P: 127.0.0.1:21004
       aliases:
         - bob
-````
+```

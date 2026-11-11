@@ -204,9 +204,11 @@ go test fuzz v1
    keeping its filename (create the directory if it doesn't exist).
 2. Reproduce it as a regular test: `go test` replays every file under
    `testdata/fuzz/<target>/` whenever `-run` matches, no `-fuzz` flag needed.
+
    ```bash
    go test -run=<target> ./<target-package-path> -v
    ```
+
    This panics locally with the full stack trace.
 3. Fix the root cause. A parser should return an error on malformed input, not panic.
 4. Re-run the same command to confirm it now passes.

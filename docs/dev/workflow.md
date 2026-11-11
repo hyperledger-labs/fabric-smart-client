@@ -3,6 +3,7 @@
 The Fabric Smart Client project adopts the contribution workflow developed by the [Hiero community](https://github.com/hiero-ledger/hiero-sdk-python), presented at LFDT Maintainer Days ([recording](https://www.youtube.com/watch?v=I87WCpiXOOs)).
 
 The process is designed to:
+
 - Reduce duplicate work and assignment conflicts.
 - Give external contributors a clear path to claim and deliver work.
 - Keep issues and PRs moving without requiring constant manual intervention from maintainers.
@@ -14,7 +15,7 @@ The process is designed to:
 Every issue should have a type:
 
 | Type      | Meaning                                       |
-|-----------|-----------------------------------------------|
+| --------- | --------------------------------------------- |
 | `Bug`     | Something is broken                           |
 | `Feature` | New user-facing capability                    |
 | `Task`    | Maintenance, improvement, or operational work |
@@ -22,7 +23,7 @@ Every issue should have a type:
 And one of the following status labels:
 
 | Label                     | Meaning                                                            |
-|---------------------------|--------------------------------------------------------------------|
+| ------------------------- | ------------------------------------------------------------------ |
 | `status: awaiting triage` | New issue that needs to be reviewed and categorized by maintainers |
 | `status: ready for dev`   | Fully defined and ready for a contributor to pick up               |
 | `status: in progress`     | A contributor is actively working on this issue                    |
@@ -39,7 +40,7 @@ when finalizing through `/finalize`, which refuses to run without exactly one.
 Every issue carries a skill-level label that determines who can claim it:
 
 | Label                     | Prerequisite                                           |
-|---------------------------|--------------------------------------------------------|
+| ------------------------- | ------------------------------------------------------ |
 | `skill: good first issue` | None — open to all (max 5 completions per contributor) |
 | `skill: beginner`         | 2 completed `skill: good first issue` issues           |
 | `skill: intermediate`     | 3 completed `skill: beginner` issues                   |
@@ -57,23 +58,23 @@ Maintainers and core contributors review new issues and apply `status: ready for
 
 #### Writing a good description
 
-The template's fields *are* the expected structure: keep the `### ` headings it
+The template's fields _are_ the expected structure: keep the `###` headings it
 generates and write your content underneath them.
 
 > [!IMPORTANT]
-> `/finalize` rebuilds the issue body by parsing `### ` headings, and it discards
+> `/finalize` rebuilds the issue body by parsing `###` headings, and it discards
 > anything written **above the first one**. Do not open with a preamble, and do not
-> demote the headings to `##` or `####` — only `### ` is recognized.
+> demote the headings to `##` or `####` — only `###` is recognized.
 
 Keep each section brief and concrete: contributors read these to decide whether they
 can pick the issue up, and maintainers to decide whether it is ready. Relevant file
 paths, package names, and symbol names are worth more than narrative.
 
-| Type      | What the description has to establish                                                       |
-|-----------|---------------------------------------------------------------------------------------------|
+| Type      | What the description has to establish                                                          |
+| --------- | ---------------------------------------------------------------------------------------------- |
 | `Bug`     | What you observed vs. what you expected, numbered steps that reproduce it, and the environment |
-| `Feature` | The problem first, then the proposed API or behavior; alternatives if you weighed any        |
-| `Task`    | The current state, the target state, and the implementation steps as a checklist             |
+| `Feature` | The problem first, then the proposed API or behavior; alternatives if you weighed any          |
+| `Task`    | The current state, the target state, and the implementation steps as a checklist               |
 
 Leave `Additional Information` empty when you have nothing to add — `_No response_` and
 `Optional.` are both treated as empty, so filler costs a reader time without telling
@@ -91,9 +92,9 @@ Contributors must claim an issue **before** opening a PR:
 
 1. Comment `/assign` on the issue.
 2. The bot checks:
-    - The issue carries `status: ready for dev`.
-    - The issue has a skill-level label and the contributor meets the prerequisite (see [Skill System](#skill-system)).
-    - The contributor has **no more than two open assigned issues** (limit across all issues in the repository).
+   - The issue carries `status: ready for dev`.
+   - The issue has a skill-level label and the contributor meets the prerequisite (see [Skill System](#skill-system)).
+   - The contributor has **no more than two open assigned issues** (limit across all issues in the repository).
 3. If all conditions are met, the bot assigns the contributor and confirms in a comment.
 4. To release an issue voluntarily, comment `/unassign`.
 
@@ -103,10 +104,10 @@ Maintainers may assign any contributor directly — this bypasses all bot eligib
 
 Once assigned, the bot monitors activity (comments, linked PR events):
 
-| Threshold                                | Action                                                                                               |
-|------------------------------------------|------------------------------------------------------------------------------------------------------|
-| 5 days of no activity                    | Bot posts a reminder tagging the assignee                                                            |
-| 7 days of no activity                    | Bot unassigns the contributor with an explanatory comment; issue becomes available for re-assignment |
+| Threshold             | Action                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| 5 days of no activity | Bot posts a reminder tagging the assignee                                                            |
+| 7 days of no activity | Bot unassigns the contributor with an explanatory comment; issue becomes available for re-assignment |
 
 Issues carrying `status: blocked` are exempt from the above timeline. Instead, the bot posts a check-in comment every 30 days asking whether the issue is still blocked. The label is applied by maintainers when progress is gated on an external factor (e.g. a dependency or upstream fix).
 
@@ -117,6 +118,7 @@ The 7-day unassignment window is intentionally short to keep the queue moving. F
 ### Linking a PR to an issue
 
 Every PR opened by a contributor must:
+
 1. Reference an open issue carrying `status: ready for dev`, using a closing keyword in the PR description (e.g. `Fixes #123`).
 2. Have the PR author **assigned to the linked issue**.
 
@@ -128,7 +130,7 @@ If either condition is not met for a contributor's PR, the bot posts a warning c
 
 There is no PR template; this is the convention:
 
-1. **What and why** — a short paragraph. The diff already shows *what* changed, so the
+1. **What and why** — a short paragraph. The diff already shows _what_ changed, so the
    description carries the reasoning and whatever is not deducible from the code.
 2. **The issue link** — `Fixes #123`, in the body (see [above](#linking-a-pr-to-an-issue)).
 3. **How it was verified** — the commands you ran, or the test that now covers it.
@@ -151,7 +153,7 @@ is expected to add or extend an automated test that covers it:
 
 Changes with nothing to assert are exempt: documentation, comments, renames, dependency
 bumps, and CI or build changes that the pipeline exercises itself. A change that genuinely
-cannot be tested is fine too — say so in the PR description under *How it was verified*.
+cannot be tested is fine too — say so in the PR description under _How it was verified_.
 
 Reviewers ask for the missing test rather than merging on a promise, and CI reports
 coverage on every PR, so untested new code shows up as a coverage drop.
@@ -254,7 +256,7 @@ targets and marked `fixup`; save and close it as-is unless you want to change so
 > `Signed-off-by` trailer lives in the message and survives, but verify both afterwards —
 > see [Verify Sign Status](rebasing.md#verify-sign-status).
 
-GitHub's *Squash and merge* button can also collapse a branch that carries only a base
+GitHub's _Squash and merge_ button can also collapse a branch that carries only a base
 commit plus fixups, but it composes the message out of the concatenated commit subjects,
 so whoever merges has to rewrite it in the merge dialog. Squashing locally is preferred:
 you keep control of the message, and the branch is mergeable without an override.
@@ -269,7 +271,7 @@ process go in this document.
 ### PR labels
 
 | Label                    | Meaning                                                                               |
-|--------------------------|---------------------------------------------------------------------------------------|
+| ------------------------ | ------------------------------------------------------------------------------------- |
 | `status: needs review`   | The pull request is ready for maintainer review                                       |
 | `status: needs revision` | The pull request requires changes from the author before it can be reviewed or merged |
 
@@ -277,22 +279,22 @@ The `pr-title` check sets one changelog label from the type in the PR title and
 replaces it when the title changes. `.github/release.yml` groups the generated
 release notes by these labels:
 
-| PR title                                    | Label            | Release notes section          |
-|---------------------------------------------|------------------|--------------------------------|
-| any type with `!` (`feat!:`, `fix(view)!:`) | `breaking`       | Breaking changes               |
-| `feat`                                      | `feature`        | Features                       |
-| `fix`                                       | `fix`            | Bug fixes                      |
-| `perf`                                      | `perf`           | Performance                    |
-| `chore(deps)`, `build(deps)`                | `dependencies`   | Dependencies                   |
-| `test`, `ci`, `build`, `style`              | `skip-changelog` | not listed                     |
-| `refactor`, `docs`, `chore`, `revert`       | none             | Other changes                  |
+| PR title                                    | Label            | Release notes section |
+| ------------------------------------------- | ---------------- | --------------------- |
+| any type with `!` (`feat!:`, `fix(view)!:`) | `breaking`       | Breaking changes      |
+| `feat`                                      | `feature`        | Features              |
+| `fix`                                       | `fix`            | Bug fixes             |
+| `perf`                                      | `perf`           | Performance           |
+| `chore(deps)`, `build(deps)`                | `dependencies`   | Dependencies          |
+| `test`, `ci`, `build`, `style`              | `skip-changelog` | not listed            |
+| `refactor`, `docs`, `chore`, `revert`       | none             | Other changes         |
 
 Do not set these labels by hand: the check overwrites them from the title.
 
 ### PR inactivity
 
 | Threshold                                                   | Action                                                                     |
-|-------------------------------------------------------------|----------------------------------------------------------------------------|
+| ----------------------------------------------------------- | -------------------------------------------------------------------------- |
 | PR labeled `status: needs review`                           | Skipped — the bot does not flag PRs that are waiting for maintainer review |
 | PR labeled `status: blocked`                                | Exempt from close/warn; bot posts a check-in comment every 30 days instead |
 | 5 days of no activity (commits, review responses, comments) | Bot posts a reminder tagging the author                                    |
@@ -312,7 +314,7 @@ the `make` target that runs each locally, are listed in
 ## Roles
 
 | Role                 | Definition                                          |
-|----------------------|-----------------------------------------------------|
+| -------------------- | --------------------------------------------------- |
 | **Maintainer**       | Has `admin` or `write` permission on the repository |
 | **Core contributor** | Has `triage` permission on the repository           |
 | **Contributor**      | Everyone else                                       |
@@ -321,8 +323,8 @@ Maintainers and core contributors are exempt from all assignment and PR-linking 
 
 ### Maintainer and core contributor commands
 
-| Command     | Who can use                       | Effect                                                                                                                                                                  |
-|-------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Command     | Who can use                       | Effect                                                                                                                                                                                                                                                                            |
+| ----------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/finalize` | Maintainers and core contributors | Validates that the issue carries `status: awaiting triage`, exactly one `skill:` label, exactly one `priority:` label, and a recognized type; rebuilds the body in the expected format, leaving the title unchanged; and transitions the status label to `status: ready for dev`. |
 
 ## References

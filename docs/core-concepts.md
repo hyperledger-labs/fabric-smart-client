@@ -13,6 +13,7 @@ FSC provides the building blocks for such interactive protocols on top of Fabric
 
 A Fabric network consists of a set of network nodes. As Fabric is permissioned, all network nodes have an identity.
 These nodes take up one of three roles:
+
 - **Clients** submit transaction proposals for execution (or simulation), help orchestrate the execution phase, and,
   finally, broadcast transactions for ordering.
 - **Peers** execute transaction proposals and validate transactions. All peers maintain the blockchain ledger, an
@@ -43,7 +44,8 @@ interactive protocols used by Fabric nodes. It can be split into three phases:
 
 Notice that, each phase is essentially an interactive protocol, executed by given parties, used to achieve a specific goal.
 Two properties of this protocol shape the design of FSC:
-- **Each party should be able to run its own business logic** The *endorsement policy* does not say anything
+
+- **Each party should be able to run its own business logic** The _endorsement policy_ does not say anything
   about the process that should be used to assemble the RWSet.
   In particular:
   - It does not say that all endorsers of a given chaincode should run the same business logic.
@@ -51,6 +53,7 @@ Two properties of this protocol shape the design of FSC:
 
   Indeed, the execution phase can be implemented in other ways. For example, the clients could assemble the RWSet
   directly and then ask the endorsers to **approve** the transaction.
+
 - **Free players** Fabric nodes have a precise role in the network. In other words, Fabric nodes are not interchangeable.
   This means that a client cannot endorse the transaction, an endorser cannot submit transactions to the ordering service,
   and so on. Indeed, an endorser is just a network node that possesses a signing secret key accepted by some endorsement policy.
@@ -59,6 +62,7 @@ Two properties of this protocol shape the design of FSC:
 ## Design key ingredients
 
 FSC is founded on the following key ingredients to build interactive protocols:
+
 - **View** A distributed application consists of multiple interactive protocols. An interactive protocol represents
   a computation jointly carried on by multiple parties in a distributed fashion. Those parties communicate by
   establishing communication channels or sessions. The view of each party in an interactive protocol is what we call
@@ -109,9 +113,9 @@ FSC comes with the following SDKs:
 ![stack.png](imgs/stack.png)
 
 - The [`View platform`](platform/view/README.md) is the core of the FSC. It offers API and services to allow FSC nodes:
-    - To connect to each other in a peer to peer fashion.
-    - To manage and execute business views.
-    - To handle node identities.
+  - To connect to each other in a peer to peer fashion.
+  - To manage and execute business views.
+  - To handle node identities.
 - The [`Fabric platform`](platform/fabric/README.md) builds on top of the `View` platform and offers API and services to allow FSC nodes to communicate
   with Fabric. It contains the following components:
   - **Chaincode API**: These are APIs that allow the developer to invoke any chaincode and assemble Fabric transactions
@@ -129,17 +133,17 @@ FSC comes with the following SDKs:
 - The [`Fabric-x platform`](platform/fabric-x/README.md) builds on top of the Fabric platform and offers the same API and services to allow FSC nodes to communicate
   with Fabric-x. It replaces only the Fabric-x specific components, such as transaction processing and finality.
 
-For the developers, more information about how SDKs are handled can be found [here](platform/sdk.md).
+Developers can read [how SDKs are handled](platform/sdk.md).
 
 ## Transaction lifecycle or how to orchestrate a business process
 
 There are two ways to orchestrate transactions using the Fabric Smart Client:
 
 - The first possibility is to have the business parties agreeing on an input on which to invoke a certain function
-of a given chaincode. Once the parties agree on the input, one of them can start the endorsement process
+  of a given chaincode. Once the parties agree on the input, one of them can start the endorsement process
   while the others wait for the confirmation that Fabric committed the transaction.
 - The other possibility is to have the business parties assemble directly a Fabric transaction.
-This means preparing the RWSet, and collecting endorsements. Moreover, the endorsements can be produced
+  This means preparing the RWSet, and collecting endorsements. Moreover, the endorsements can be produced
   directly by other Fabric Smart Client nodes, that we call `Approvers`, equipped with
   signing keys compatible with the endorsement policy of the chaincode the transaction targets.
 
@@ -160,6 +164,7 @@ Here is the pictorial representation of the business process Alice and Bob execu
 ![chaincode_based_example.png](imgs/chaincode_based_example.png)
 
 Step by step:
+
 - Alice initiates the business process by preparing a draft of the input `D` with her leg.
 - Alice asks Bob to inspect `D`, and to add his leg to form `D’`.
 - Bob sends back `D'` and Alice can further inspect Bob's leg for additional validations.
@@ -185,6 +190,7 @@ Here is the pictorial representation of the business process Alice and Bob execu
 ![approvers_based_example.png](imgs/approvers_based_example.png)
 
 Step by step:
+
 - Alice initiates the business process by preparing a transaction `Tx` with her leg.
 - Alice asks Bob to inspect `Tx`, and to add his leg to form `Tx’`, and to sign it.
 - Bob sends back `Tx'` and Alice can further inspect Bob's leg for additional validations.

@@ -5,6 +5,7 @@ This guide shows how to benchmark a custom `view.View` implementation using FSC'
 ## What you implement
 
 Your view must satisfy two interfaces from FSC:
+
 - [`view.View`](../../../platform/view/view/view.go) : the view logic itself
 - [`viewregistry.Factory`](../../../platform/view/services/view/registry.go) : creates new instances of your view
 
@@ -91,6 +92,7 @@ go test -bench=BenchmarkYourView -benchmem -count=5 -cpu=1,2,4,8 ./bench/
 Spins up an FSC node in-process using [`node.GenerateConfig`](./benchmark.go) and [`node.SetupNode`](./benchmark.go).
 
 [`RunAPIBenchmark`](./bench_helpers.go) produces two sub-benchmarks:
+
 - **f=0** : creates one view instance per goroutine and reuses it. Measures pure view execution cost.
 - **f=1** : creates a new view via the factory on every call. Measures view execution + factory overhead.
 
@@ -190,6 +192,7 @@ func main() {
 #### Reference
 
 FSC's own remote benchmarks use the same infrastructure:
+
 - [Server](./remote/server/main.go)
 - [Client](./remote/client/main.go)
 
@@ -210,19 +213,12 @@ go run ./bench/remote/client/ \
   -benchtime=10s -count=5 -cpu=1,8,16,32 -numConn=1,2,4 2>&1 | tee results.txt
 ```
 
-
 ## Summary
 
-| Level | What it measures | How to run |
-|---|---|---|
-| Standalone | Pure `Call()` | `go test -bench` |
-| API f=0 | ViewManager + reused view | [`node.RunAPIBenchmark`](./bench_helpers.go) |
-| API f=1 | ViewManager + factory per call | [`node.RunAPIBenchmark`](./bench_helpers.go) |
-| gRPC (local) | Full FSC gRPC stack | [`node.RunAPIGRPCBenchmark`](./bench_helpers.go) |
-| gRPC (remote) | Full stack + real network | [`node.RunRemoteBenchmarkSuite`](./bench_remote.go) |
-
-
-
-
-
-
+| Level         | What it measures               | How to run                                          |
+| ------------- | ------------------------------ | --------------------------------------------------- |
+| Standalone    | Pure `Call()`                  | `go test -bench`                                    |
+| API f=0       | ViewManager + reused view      | [`node.RunAPIBenchmark`](./bench_helpers.go)        |
+| API f=1       | ViewManager + factory per call | [`node.RunAPIBenchmark`](./bench_helpers.go)        |
+| gRPC (local)  | Full FSC gRPC stack            | [`node.RunAPIGRPCBenchmark`](./bench_helpers.go)    |
+| gRPC (remote) | Full stack + real network      | [`node.RunRemoteBenchmarkSuite`](./bench_remote.go) |

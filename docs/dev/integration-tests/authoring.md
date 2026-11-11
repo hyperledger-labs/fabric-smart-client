@@ -115,12 +115,12 @@ from `integration/nwo/fabric`. `WithTablePrefix` and `WithPostgresTLS` fail unle
 earlier option defined the persistence they name. `WithStorePersistence` accepts any name,
 so a misspelled one fails only when the node starts:
 
-| Option | Effect |
-|---|---|
-| `WithPostgresPersistence(name, cfg)` | defines another Postgres persistence, on the database of `cfg` |
-| `WithStorePersistence(key, name)` | moves one store there; `key` is `fsc_<store>` (`fsc_kvs`, `fsc_binding`, …) or `fabric_vault` |
-| `WithTablePrefix(name, prefix)` | renders `tablePrefix`, so the persistence's tables are named `<prefix>_…` |
-| `WithPostgresTLS(name)` | starts the database with a generated CA and server certificate, and the node connects with `ssl_mode: verify-full` |
+| Option                               | Effect                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `WithPostgresPersistence(name, cfg)` | defines another Postgres persistence, on the database of `cfg`                                                     |
+| `WithStorePersistence(key, name)`    | moves one store there; `key` is `fsc_<store>` (`fsc_kvs`, `fsc_binding`, …) or `fabric_vault`                      |
+| `WithTablePrefix(name, prefix)`      | renders `tablePrefix`, so the persistence's tables are named `<prefix>_…`                                          |
+| `WithPostgresTLS(name)`              | starts the database with a generated CA and server certificate, and the node connects with `ssl_mode: verify-full` |
 
 ```go
 NodeOptions: map[string][]node.Option{
@@ -164,11 +164,11 @@ expiry of the certificate each listener serves, which `fsc.ParseTLSCertNotAfter`
 
 The FSC platform renews a node's certificate on disk:
 
-| Call | Effect |
-|---|---|
-| `NodeTLSPair(peer)` | reads the certificate and key the node's listeners serve |
+| Call                               | Effect                                                                                                                                                                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NodeTLSPair(peer)`                | reads the certificate and key the node's listeners serve                                                                                                                                                              |
 | `RenewNodeTLSPair(peer, notAfter)` | returns a new pair, with a new key, signed by the TLS CA of the node's organization; it keeps the subject and names of the current certificate, so every client that verifies the node today verifies the renewed one |
-| `WriteNodeTLSPair(peer, pair)` | overwrites the node's certificate and key |
+| `WriteNodeTLSPair(peer, pair)`     | overwrites the node's certificate and key                                                                                                                                                                             |
 
 `fsc/pingpong`'s "serves a renewed TLS certificate without a restart" renews the initiator's
 certificate, checks that the gauge of both listeners moves, that a new client still calls a
@@ -191,9 +191,11 @@ one more network bootstrap, and one per spec unless the `Describe` is `Ordered`
 Label each `Describe` with its comm type so a suite can be run one transport at
 a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
 
-    for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
-        Describe("My Life Cycle", Label(c), func() { /* ... */ })
-    }
+```go
+for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
+	Describe("My Life Cycle", Label(c), func() { /* ... */ })
+}
+```
 
 A WebSocket-only suite leaves `fscTopology.P2PCommunicationType` at its default,
 `fsc.WebSocket`, and installs its SDK with `fscTopology.AddSDK(&SDK{})`.
@@ -202,8 +204,10 @@ A WebSocket-only suite leaves `fscTopology.P2PCommunicationType` at its default,
 as a parameter, sets it on the topology, and installs `libp2psupport.SDK`
 (`integration/nwo/fsc/support/libp2p`) on its nodes:
 
-    fscTopology.P2PCommunicationType = commType
-    fscTopology.AddSDKWithExtensions(&SDK{}, &libp2psupport.SDK{})
+```go
+fscTopology.P2PCommunicationType = commType
+fscTopology.AddSDKWithExtensions(&SDK{}, &libp2psupport.SDK{})
+```
 
 The field decides the transport: nwo writes it to each node's `fsc.p2p.type` and
 generates the endpoints for it. `libp2psupport.SDK` only makes the libp2p host
@@ -215,7 +219,7 @@ A suite that runs one comm type writes the `Describe` once, as
 (e.g. replication) the same way: `--label-filter` selects only labeled specs, so
 an unlabeled `Describe` is silently skipped when a filter is in play.
 
-Label a `Describe` for the transport it *runs*, not the one it was handed. A suite
+Label a `Describe` for the transport it _runs_, not the one it was handed. A suite
 that loads committed artifacts runs whatever those artifacts say, because
 `fsc.Platform.Load` is a no-op and never rewrites `core.yaml` — `integration/fsc/pingpong`
 keeps its loading specs in one libp2p-labeled `Describe` for exactly this reason.
@@ -317,7 +321,7 @@ group. Reach for `BeforeEach` only when a spec genuinely needs a pristine one: i
 node and does not restart it, changes node configuration, or writes state a later spec
 would read. The faultrecovery suites show the shared form for specs that stop and restart
 nodes (`faultrecovery.ShareNetwork`, see
-[Fault-Recovery Tests](fault-recovery.md#sharing-one-network)). A spec that needs a *different*
+[Fault-Recovery Tests](fault-recovery.md#sharing-one-network)). A spec that needs a _different_
 topology belongs in its own `Describe` regardless — the topology is fixed when
 `NewTestSuite` is called.
 

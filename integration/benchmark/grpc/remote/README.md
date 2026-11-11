@@ -3,7 +3,7 @@
 This package exercises the gRPC server implementation in `platform/common/services/grpc`.
 
 It contains a gRPC client/server benchmark designed to measure throughput (TPS) and tail latency (p99).
-The benchmark supports multiple workloads ranging from echo calls to CPU-intensive cryptographic operations (e.g., ECDSA signing), and enables systematic comparison, and deployment modes (local vs remote). 
+The benchmark supports multiple workloads ranging from echo calls to CPU-intensive cryptographic operations (e.g., ECDSA signing), and enables systematic comparison, and deployment modes (local vs remote).
 The benchmark workloads are in the `integration/benchmark/grpc/remote/workload` package.
 Benchmarks are executed with configurable warmup and measurement phases to ensure that results reflect steady-state behavior rather than cold-start effects.
 
@@ -30,9 +30,8 @@ The server can be started as follows, from `integration/benchmark/grpc/remote`:
 go run ./server/
 ```
 
-The benchmarks can be run as follows, from the same directory: 
+The benchmarks can be run as follows, from the same directory:
 
 ```bash
 go run ./client/ -addr=myserver.com:8099 -benchtime=10s -count=5 -workloads=cpu,ecdsa,echo -cpu=1,8,16,32,48,64,96,128,256,376,512,640,768,1024 -numConn=1,2,4,8 2>&1 | tee results.txt
 ```
-

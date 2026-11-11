@@ -29,11 +29,11 @@ Please include as much of the following as you have:
 
 ## What to expect
 
-| Step | Timeline |
-|------|----------|
-| Acknowledgement that we received your report | within **14 days**, usually much sooner |
-| Assessment — accepted, rejected, or needs more detail | in the private channel, after acknowledgement |
-| Fix, release, and public advisory | coordinated with you before anything is published |
+| Step                                                  | Timeline                                          |
+| ----------------------------------------------------- | ------------------------------------------------- |
+| Acknowledgement that we received your report          | within **14 days**, usually much sooner           |
+| Assessment — accepted, rejected, or needs more detail | in the private channel, after acknowledgement     |
+| Fix, release, and public advisory                     | coordinated with you before anything is published |
 
 Confirmed vulnerabilities are fixed on `main`, released in a tagged version, and published
 as a

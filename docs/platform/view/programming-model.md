@@ -474,6 +474,7 @@ case <-time.After(1 * time.Minute):
 `commsession.ReadFirstMessage` also stops when the view context ends.
 
 For complete examples, see:
+
 - [`integration/fsc/pingpong`](../../../integration/fsc/pingpong/): source of a ping/pong protocol with timeout and validation
 - [signedpingpong](../../../integration/fsc/signedpingpong) - Symmetric message signing using `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID`
 - [stoprestart](../../../integration/fsc/stoprestart) - Session handling across a responder restart

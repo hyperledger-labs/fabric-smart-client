@@ -22,22 +22,22 @@ people, and the agent page links to it.
 
 ## Where documentation goes
 
-| Topic | Location |
-|---|---|
-| What FSC is and how its parts fit together | [`docs/core-concepts.md`](../core-concepts.md) |
-| A platform: its services, programming model, drivers and configuration | `docs/platform/<platform>/` (`view`, `fabric`, `fabric-x`) |
-| Configuration keys | [`docs/configuration.md`](../configuration.md) and the platform's `configuration.md`; the reference tests require it, see [Conventions → Configuration](conventions.md#configuration) |
-| Metrics | [`docs/platform/view/services/monitoring_metrics.md`](../platform/view/services/monitoring_metrics.md) |
-| Command-line tools | `docs/reference/` |
-| What an operator does when upgrading from one release to the next | `docs/upgrade/<from>-to-<to>.md` |
-| Setting up a development environment, building, running tests, CI | [`docs/dev/development.md`](development.md) |
-| How the code is organized and the conventions it follows | [`docs/dev/architecture.md`](architecture.md), [`docs/dev/conventions.md`](conventions.md) |
-| Writing unit tests and fuzz targets | [`docs/dev/testing.md`](testing.md) |
-| Writing and running integration tests | [`docs/dev/integration-tests/`](integration-tests/README.md) |
-| Contribution process: issues, commits, pull requests, review | [`docs/dev/workflow.md`](workflow.md), [`CONTRIBUTING.md`](../../CONTRIBUTING.md) |
-| Cutting a release, release branches and backports | [`docs/dev/releasing.md`](releasing.md) |
-| The contract of an exported package, type or function | its Godoc comment |
-| An example or a test suite | a `README.md` next to its code, linking to the guide it belongs to |
+| Topic                                                                  | Location                                                                                                                                                                              |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What FSC is and how its parts fit together                             | [`docs/core-concepts.md`](../core-concepts.md)                                                                                                                                        |
+| A platform: its services, programming model, drivers and configuration | `docs/platform/<platform>/` (`view`, `fabric`, `fabric-x`)                                                                                                                            |
+| Configuration keys                                                     | [`docs/configuration.md`](../configuration.md) and the platform's `configuration.md`; the reference tests require it, see [Conventions → Configuration](conventions.md#configuration) |
+| Metrics                                                                | [`docs/platform/view/services/monitoring_metrics.md`](../platform/view/services/monitoring_metrics.md)                                                                                |
+| Command-line tools                                                     | `docs/reference/`                                                                                                                                                                     |
+| What an operator does when upgrading from one release to the next      | `docs/upgrade/<from>-to-<to>.md`                                                                                                                                                      |
+| Setting up a development environment, building, running tests, CI      | [`docs/dev/development.md`](development.md)                                                                                                                                           |
+| How the code is organized and the conventions it follows               | [`docs/dev/architecture.md`](architecture.md), [`docs/dev/conventions.md`](conventions.md)                                                                                            |
+| Writing unit tests and fuzz targets                                    | [`docs/dev/testing.md`](testing.md)                                                                                                                                                   |
+| Writing and running integration tests                                  | [`docs/dev/integration-tests/`](integration-tests/README.md)                                                                                                                          |
+| Contribution process: issues, commits, pull requests, review           | [`docs/dev/workflow.md`](workflow.md), [`CONTRIBUTING.md`](../../CONTRIBUTING.md)                                                                                                     |
+| Cutting a release, release branches and backports                      | [`docs/dev/releasing.md`](releasing.md)                                                                                                                                               |
+| The contract of an exported package, type or function                  | its Godoc comment                                                                                                                                                                     |
+| An example or a test suite                                             | a `README.md` next to its code, linking to the guide it belongs to                                                                                                                    |
 
 New pages are linked from [`docs/README.md`](../README.md) or from the section page they
 belong to, so a reader can reach every page from the index.
@@ -70,9 +70,9 @@ it.
 - **Explain why the current design exists**, in terms of today's requirements
   (correctness, concurrency, ordering, lifecycle, security, performance, resource
   ownership, API guarantees, compatibility, failure handling), and only when that
-  rationale helps understand or maintain the code. Prefer *"The client uses X to
-  coordinate concurrent requests and preserve ordering."* over *"We previously used Y, but
-  changed it to X."*
+  rationale helps understand or maintain the code. Prefer _"The client uses X to
+  coordinate concurrent requests and preserve ordering."_ over _"We previously used Y, but
+  changed it to X."_
 - **History is an input, not a subject.** Inspect commits, PRs and issues freely while
   investigating why the code looks the way it does; document the resulting design, not the
   investigation. Linking an issue for extra context is fine as long as the page still

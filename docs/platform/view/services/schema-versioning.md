@@ -33,12 +33,12 @@ Dropping a column, changing a type or moving data into a new form breaks binarie
 1. An expand step adds the new form, and the store code of the same release writes both forms and reads the new one, falling back to the old one. Binaries of the previous release keep working.
 2. A contract step, in a later release, copies rows that are still only in the old form and then drops it. Set `Contract: true`:
 
-```go
-{Version: 3, Name: "drop orders.amount_text", Contract: true, SQL: []string{
-	"UPDATE " + s.table + " SET amount = CAST(amount_text AS BIGINT) WHERE amount IS NULL",
-	"ALTER TABLE " + s.table + " DROP COLUMN amount_text",
-}},
-```
+   ```go
+   {Version: 3, Name: "drop orders.amount_text", Contract: true, SQL: []string{
+   	"UPDATE " + s.table + " SET amount = CAST(amount_text AS BIGINT) WHERE amount IS NULL",
+   	"ALTER TABLE " + s.table + " DROP COLUMN amount_text",
+   }},
+   ```
 
 Backfill before dropping: until the operator runs the step, replicas of the previous release may have kept writing the old form. On a store that existed before, a node does not run a contract step at startup, only `node migrate --contract` does (see [Contract steps](schema-migrations.md#contract-steps)), so the release that ships the step serves the store both before and after it and must not depend on the step having run. A new store runs every step at startup. `StoreName` must be the store's primary table: a store without a version row whose table exists counts as existing. The step runs in one transaction, which on a large table holds its locks for the whole rewrite. Do not mark a step as a contract step after its release: `Step.Hash` covers the flag.
 

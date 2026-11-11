@@ -16,10 +16,12 @@ Two nodes agree per session on the format version of each FSC component they bot
 
 1. **Back up every database the node uses.** A rollback past a contract step, or past a layout conversion of step 1, needs the backup (see [Schema migrations](../platform/view/services/schema-migrations.md#first-start-after-an-upgrade)).
 2. **Check with the new binary first.** Run it with the node's `core.yaml` and key material while the node still runs the old one (see [Before rolling out a new binary](../platform/view/services/schema-migrations.md#before-rolling-out-a-new-binary)):
+
    ```bash
    ./mynode node migrate --check
    ./mynode node peers --check
    ```
+
    `node peers --check` reports a peer of a release without version ranges as `no preamble` and exits 0.
 3. **Replace the binaries one node, and one replica, at a time.** A node stopped with SIGTERM lets its running views finish before it exits (see [Graceful shutdown](../platform/view/services/shutdown.md)). The new binary migrates its stores at first start. On a database the previous release wrote, it holds contract steps back, so replicas still on the previous release keep working against the same stores. On libp2p, the replicas of a node share one peer ID and its streams, so a session one replica negotiated can reach another: upgrade the replicas of a libp2p node together, or drain the old ones first, unless the release guide says otherwise.
 4. **Do not create stores while a replica of the previous release shares the database.** A store the new binary opens for the first time, such as the vault of a channel the node joins or a store under a new table prefix, runs its contract steps at once. A replica of the previous release then fails on what the new binary writes there. Join channels and add stores once every replica runs the new release.

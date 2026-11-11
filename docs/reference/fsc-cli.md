@@ -14,14 +14,11 @@ make install-fsccli
 # go install places the binary in $GOBIN (default: $(go env GOPATH)/bin)
 ```
 
-
 ## Usage
 
 ```bash
 fsccli [command] [flags]
 ```
-
-
 
 ## Commands
 
@@ -30,11 +27,13 @@ fsccli [command] [flags]
 Display version information for the FSC CLI.
 
 **Usage:**
+
 ```bash
 fsccli version
 ```
 
 **Output:**
+
 ```text
 fsccli:
  Go version: go1.25.0
@@ -42,16 +41,17 @@ fsccli:
 ```
 
 **Description:**
+
 - Shows the CLI program name
 - Displays Go version used to build the binary
 - Shows operating system and architecture
-
 
 ### `artifactsgen`
 
 Generate network artifacts from topology files.
 
 **Usage:**
+
 ```bash
 fsccli artifactsgen gen [flags]
 ```
@@ -63,6 +63,7 @@ fsccli artifactsgen gen [flags]
 Generate artifacts from a topology configuration file.
 
 **Flags:**
+
 - `-t, --topology <file>` - **(Required)** Path to topology file in YAML format
 - `-o, --output <dir>` - Output directory for generated artifacts (default: `./out/testdata`)
 - `-p, --port <number>` - Starting port number for host services (default: `20000`)
@@ -70,19 +71,20 @@ Generate artifacts from a topology configuration file.
 **Examples:**
 
 1. **Generate artifacts with default output:**
-```bash
-fsccli artifactsgen gen \
-  --topology ./topology.yaml
-```
+
+   ```bash
+   fsccli artifactsgen gen \
+     --topology ./topology.yaml
+   ```
 
 2. **Generate artifacts with custom output directory:**
-```bash
-fsccli artifactsgen gen \
-  --topology ./network-topology.yaml \
-  --output ./generated-artifacts \
-  --port 30000
-```
 
+   ```bash
+   fsccli artifactsgen gen \
+     --topology ./network-topology.yaml \
+     --output ./generated-artifacts \
+     --port 30000
+   ```
 
 **Topology File Format:**
 
@@ -93,14 +95,16 @@ topologies:
   - type: fabric
     name: default
     # Fabric network configuration...
-  
+
   - type: fsc
     name: fsc-network
     # FSC network configuration...
 ```
+
 **For more topology examples, see the integration tests in [`integration/`](../../integration/) directory.**
 
 **Supported Topology Types:**
+
 - `fabric` - Hyperledger Fabric network topology
 - `fabricx` - Hyperledger Fabric-x network topology
 - `fsc` - Fabric Smart Client network topology
@@ -108,17 +112,18 @@ topologies:
 **Output:**
 
 Generated artifacts include:
+
 - Cryptographic material (certificates, keys)
 - Configuration files
 - Connection profiles
 - Network topology artifacts
-
 
 ### `cryptogen`
 
 Generate cryptographic material for network participants.
 
 **Usage:**
+
 ```bash
 fsccli cryptogen [command] [flags]
 ```
@@ -130,22 +135,25 @@ fsccli cryptogen [command] [flags]
 Generate cryptographic material from a configuration template.
 
 **Flags:**
+
 - `-c, --config <file>` - **(Required)** Path to configuration template file
 - `-o, --output <dir>` - Output directory for crypto material (default: `crypto-config`)
 
 **Examples:**
 
 1. **Generate crypto material:**
-```bash
-fsccli cryptogen generate \
-  --config ./crypto-config.yaml \
-  --output ./crypto-material
-```
+
+   ```bash
+   fsccli cryptogen generate \
+     --config ./crypto-config.yaml \
+     --output ./crypto-material
+   ```
 
 2. **Using default output directory:**
-```bash
-fsccli cryptogen generate --config ./crypto-config.yaml
-```
+
+   ```bash
+   fsccli cryptogen generate --config ./crypto-config.yaml
+   ```
 
 **Configuration File Format:**
 
@@ -174,11 +182,13 @@ PeerOrgs:
 Display the default configuration template.
 
 **Usage:**
+
 ```bash
 fsccli cryptogen showtemplate
 ```
 
 **Example:**
+
 ```bash
 # View default template
 fsccli cryptogen showtemplate
@@ -191,12 +201,12 @@ fsccli cryptogen showtemplate > my-crypto-config.yaml
 
 Displays a complete example configuration template that can be customized for your network.
 
-
 ### `view`
 
 Invoke a view on a running FSC node.
 
 **Usage:**
+
 ```bash
 fsccli view [flags]
 ```
@@ -204,31 +214,36 @@ fsccli view [flags]
 #### Flags
 
 **Required:**
+
 - `-f, --function <name>` - Name of the view function to invoke
 - `-e, --endpoint <host:port>` - FSC node endpoint (or use config file)
 
 **Input Options:**
+
 - `-i, --input <data>` - Input data (base64 encoded or plain text)
 - `-s, --stdin` - Read input from standard input
 
 **Configuration:**
+
 - `-c, --configFile <file>` - Load configuration from file
 
 **TLS Configuration:**
+
 - `-a, --peerTLSCA <file>` - TLS CA certificate for peer verification
 - `-t, --tlsCert <file>` - Client TLS certificate (optional, for mutual TLS)
 - `-k, --tlsKey <file>` - Client TLS key (optional, for mutual TLS)
 
 **Authentication:**
+
 - `-r, --userCert <file>` - User certificate for message authentication
 - `-u, --userKey <file>` - User key for message signing
-
 
 ### `validate`
 
 Validate an FSC configuration before starting a node.
 
 **Usage:**
+
 ```bash
 fsccli validate config --path <config-dir>
 ```
@@ -240,17 +255,19 @@ fsccli validate config --path <config-dir>
 Run preflight validation on an FSC configuration directory.
 
 **Flags:**
+
 - `-p, --path <dir>` - Path to the FSC configuration directory (default `./`)
 
 **Examples:**
 
 1. **Validate a local FSC node configuration:**
-```bash
-fsccli validate config --path ./testdata/fsc/nodes/default
-```
 
+   ```bash
+   fsccli validate config --path ./testdata/fsc/nodes/default
+   ```
 
 **Validation Coverage:**
+
 - node configuration loading
 - Fabric network configuration (when present)
 - gRPC server configuration (when enabled)
@@ -274,6 +291,7 @@ A configuration that is valid but leaves the operations endpoints rejecting ever
 #### Examples
 
 **1. Invoke view with inline input:**
+
 ```bash
 fsccli view \
   --endpoint localhost:9000 \
@@ -285,6 +303,7 @@ fsccli view \
 ```
 
 **2. Invoke view with base64 encoded input:**
+
 ```bash
 # Encode input
 INPUT=$(echo -n '{"id":"asset123"}' | base64)
@@ -299,6 +318,7 @@ fsccli view \
 ```
 
 **3. Invoke view with stdin input:**
+
 ```bash
 echo '{"id":"asset123","owner":"Alice"}' | fsccli view \
   --endpoint localhost:9000 \
@@ -314,6 +334,7 @@ echo '{"id":"asset123","owner":"Alice"}' | fsccli view \
 > **Important:** Replace the example paths below with actual paths to your certificate and key files. The paths must point to existing files.
 
 Create `view-config.yaml`:
+
 ```yaml
 version: 1
 address: localhost:9000
@@ -329,6 +350,7 @@ signerconfig:
 ```
 
 Invoke view:
+
 ```bash
 fsccli view \
   --configFile ./view-config.yaml \
@@ -337,11 +359,13 @@ fsccli view \
 ```
 
 **Where to find certificates:**
+
 - Generated artifacts: `./out/testdata/fsc/nodes/<node-name>/crypto/`
 - Integration test data: `./integration/<test-name>/testdata/`
 - Your own PKI infrastructure
 
 **Example with real paths from integration tests:**
+
 ```yaml
 version: 1
 address: localhost:9000
@@ -353,6 +377,7 @@ signerconfig:
 ```
 
 **5. Invoke view without input:**
+
 ```bash
 fsccli view \
   --endpoint localhost:9000 \
@@ -385,17 +410,18 @@ signerconfig:
 The `--input` flag accepts data in two formats:
 
 1. **Plain text:** Passed as-is to the view
+
    ```bash
    --input "hello world"
    ```
 
 2. **Base64 encoded:** Automatically decoded before passing to view
+
    ```bash
    --input "aGVsbG8gd29ybGQ="  # Decodes to "hello world"
    ```
 
 The CLI automatically detects base64 encoding and decodes it.
-
 
 ### `hsm`
 
@@ -404,6 +430,7 @@ HSM (Hardware Security Module) related utilities.
 > **Note:** The HSM utilities need a build with PKCS#11 support (`-tags pkcs11`). Without that tag, `fsccli hsm` only prints a help text saying so.
 
 **Usage:**
+
 ```bash
 fsccli hsm [command]
 ```
@@ -415,16 +442,19 @@ fsccli hsm [command]
 Display available HSM slots and tokens.
 
 **Usage:**
+
 ```bash
 fsccli hsm show-slots
 ```
 
 **Example:**
+
 ```bash
 fsccli hsm show-slots
 ```
 
 **Output:**
+
 ```text
 Tokens found:
 ForFSC
@@ -434,6 +464,7 @@ TestToken
 **Description:**
 
 This command:
+
 1. Automatically detects PKCS#11 library location
 2. Reads HSM configuration from environment variables
 3. Lists all available tokens in the HSM
@@ -441,21 +472,22 @@ This command:
 **Environment Variables:**
 
 The command uses these environment variables (if set):
+
 - `PKCS11_LIB` - Path to PKCS#11 library
 - `PKCS11_PIN` - HSM PIN
 - `PKCS11_LABEL` - Token label
 
 **Common HSM Libraries:**
+
 - **SoftHSM:** `/usr/lib/softhsm/libsofthsm2.so`
 - **Thales/Gemalto:** `/opt/nfast/toolkits/pkcs11/libcknfast.so`
 - **AWS CloudHSM:** `/opt/cloudhsm/lib/libcloudhsm_pkcs11.so`
-
 
 ## Exit codes
 
 The FSC CLI uses standard exit codes:
 
-| Code | Meaning |
-|------|---------|
-| `0` | Success |
-| `1` | General error (invalid arguments, command failed, etc.) |
+| Code | Meaning                                                 |
+| ---- | ------------------------------------------------------- |
+| `0`  | Success                                                 |
+| `1`  | General error (invalid arguments, command failed, etc.) |

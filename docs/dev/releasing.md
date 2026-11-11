@@ -8,7 +8,7 @@ fixes reach a release branch.
 
 - A minor `vX.Y.0` is cut from `main`, which develops the next minor. There are no
   pre-releases.
-- A patch `vX.Y.Z` is cut from the *release branch* `release-X.Y`, which starts at the
+- A patch `vX.Y.Z` is cut from the _release branch_ `release-X.Y`, which starts at the
   `vX.Y.0` tag when the first fix for that minor needs a backport, and not before. A patch
   carries fixes and dependency updates only: no feature, breaking change, schema step or wire
   format change. Nodes upgrade to it one at a time, from any release of the same minor.
@@ -22,10 +22,10 @@ fixes reach a release branch.
   the same version: `v0.28.0`, `integration/v0.28.0`, and so on. `scripts/tag-release.sh`
   finds the modules in the commit it tags. The submodules `replace` the root module with a
   relative path, so no `go.mod` changes before tagging. The tags are lightweight.
-- A *release PR*, titled `build(release): vX.Y.Z`, adds everything the release records, so
-  the tag contains it. These are the *release files*:
-  - `docs/upgrade/releases/vX.Y.Z.json`, the *release data*, and
-    `docs/upgrade/releases/vX.Y.Z.md`, the *release notes*, which become the body of the GitHub
+- A _release PR_, titled `build(release): vX.Y.Z`, adds everything the release records, so
+  the tag contains it. These are the _release files_:
+  - `docs/upgrade/releases/vX.Y.Z.json`, the _release data_, and
+    `docs/upgrade/releases/vX.Y.Z.md`, the _release notes_, which become the body of the GitHub
     release. `scripts/release` generates both; what each holds is in
     [the release data README](../upgrade/releases/README.md).
   - For a minor, the storage fixtures in `platform/fabric/services/db/driver/sql/testdata/vX.Y.0/`,
@@ -35,9 +35,9 @@ fixes reach a release branch.
     changes no schema, so it has no fixtures.
   - For a minor, `.mergify.yml`, the backport rules of the two supported minors, which
     `scripts/release mergify` generates from the release data in the tree. A patch leaves it.
-- The release PR starts from a commit of `main`, or of `release-X.Y` for a patch, its *base
-  commit*. It is squash-merged, so it lands on that branch as one commit,
-  `build(release): vX.Y.Z (#n)`, the *release commit*. The release commit is what gets tagged.
+- The release PR starts from a commit of `main`, or of `release-X.Y` for a patch, its _base
+  commit_. It is squash-merged, so it lands on that branch as one commit,
+  `build(release): vX.Y.Z (#n)`, the _release commit_. The release commit is what gets tagged.
   A patch's release files stay on its release branch and its tag; `main` does not get them.
 - The upgrade guide `docs/upgrade/vX.Y-to-vX.Z.md` (for `v0.29.0`, `v0.28-to-v0.29.md`) is the
   only part of a minor written by hand; the release notes link to it. A patch has no upgrade
@@ -201,7 +201,7 @@ One release PR can be open at a time, a minor's or a patch's.
 
 ## Backports
 
-A fix reaches a supported minor as a *backport*: a cherry-pick of its squash commit onto
+A fix reaches a supported minor as a _backport_: a cherry-pick of its squash commit onto
 `release-X.Y`, merged there through a PR of its own.
 
 **Rules and labels.** Mergify reads the backport rules from `.mergify.yml` on `main`, one per
@@ -398,13 +398,13 @@ repository never goes to a fork, and a fork's release never goes to the main rep
 The steps take these settings, all optional, as environment variables or on the `make` command
 line:
 
-| Setting | Meaning | Default |
-|---|---|---|
-| `VERSION` | the version `make release-prepare` prepares, `vX.Y.0` or a patch `vX.Y.Z`; `make release-publish` takes it when several releases are untagged | the next minor after the latest release tag |
-| `DRY_RUN=1` | do every local step and check, and print what would be written to GitHub; see [Trying a release first](#trying-a-release-first) | off |
-| `RELEASE_REPO` | the repository to release in, `owner/name`; see [Releasing from a fork](#releasing-from-a-fork) | `hyperledger-labs/fabric-smart-client` |
-| `REMOTE` | the git remote of `RELEASE_REPO` | `upstream`, or `origin` for a fork |
-| `YES=1` | answer every question with yes, including the tag push of `make release-publish` | off |
+| Setting        | Meaning                                                                                                                                       | Default                                     |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `VERSION`      | the version `make release-prepare` prepares, `vX.Y.0` or a patch `vX.Y.Z`; `make release-publish` takes it when several releases are untagged | the next minor after the latest release tag |
+| `DRY_RUN=1`    | do every local step and check, and print what would be written to GitHub; see [Trying a release first](#trying-a-release-first)               | off                                         |
+| `RELEASE_REPO` | the repository to release in, `owner/name`; see [Releasing from a fork](#releasing-from-a-fork)                                               | `hyperledger-labs/fabric-smart-client`      |
+| `REMOTE`       | the git remote of `RELEASE_REPO`                                                                                                              | `upstream`, or `origin` for a fork          |
+| `YES=1`        | answer every question with yes, including the tag push of `make release-publish`                                                              | off                                         |
 
 ## Without the scripts
 
