@@ -29,6 +29,12 @@ git remote add upstream https://github.com/hyperledger-labs/fabric-smart-client.
 git fetch upstream
 ```
 
+Do each change on its own branch, started from upstream `main`:
+
+```bash
+git switch -c my-change upstream/main
+```
+
 ## Setting up developer tools
 
 FSC provides several helper tools for building, testing, and monitoring.
