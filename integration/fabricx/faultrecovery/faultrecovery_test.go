@@ -203,12 +203,22 @@ var _ = Describe("Fault Recovery with Fabric-x", Ordered, ContinueOnFailure, Lab
 // faultrecovery.ShareNetwork. A Fabric-x node keeps no ledger state, so faultrecovery.Query
 // and the finality of a tx already final answer from the committer's query service on
 // every replica. What a replica holds of its own is its notification stream and its
-// database connection, which expectStreamedFinality and the connection states check.
+// database connection, which expectStreamedFinality and the connection states check. Each
+// replica of bob reaches the committer's notification service through a proxy of its own,
+// so a spec can cut the stream of one replica.
 var _ = Describe("Fault Recovery with Fabric-x and replicas", Ordered, ContinueOnFailure, Label(fsc.WebSocket, replication), func() {
+	var notificationProxies faultrecovery.ReplicaProxies
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return newInfrastructure(fxfaultrecovery.ReplicatedTopology(dbPrefix)...)
+		ii, err := newInfrastructure(fxfaultrecovery.ReplicatedTopology(dbPrefix)...)
+		if err != nil {
+			return nil, err
+		}
+		notificationProxies.Close()
+		notificationProxies = fxfaultrecovery.SetReplicaNotificationProxies(ii)
+		return ii, nil
 	})
 	faultrecovery.ShareNetwork(s)
+	AfterAll(func() { notificationProxies.Close() })
 
 	It("commits through the load balancer", func() {
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 10)).To(HaveLen(10))
@@ -217,7 +227,10 @@ var _ = Describe("Fault Recovery with Fabric-x and replicas", Ordered, ContinueO
 		expectStreamedFinality(s.II)
 	})
 
-	faultrecovery.FailoverSpecs(s, notification)
+	faultrecovery.FailoverSpecs(s, notification, faultrecovery.DeliveryCut{
+		Proxies: func() faultrecovery.ReplicaProxies { return notificationProxies },
+		Detect:  fxfaultrecovery.KeepaliveTime + fxfaultrecovery.KeepaliveTimeout + 10*time.Second,
+	})
 
 	It("settles txs ordered while Postgres is down on every replica", func() {
 		db := faultrecovery.DBName(dbPrefix, "bob")

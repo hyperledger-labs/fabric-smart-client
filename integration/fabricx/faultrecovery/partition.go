@@ -17,10 +17,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	fabricnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
+	fxnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )
 
-// KeepaliveTime and KeepaliveTimeout are the gRPC client keepalive SetFaultProxies gives
-// bob's notification service. KeepaliveTime is the 60 s minimum ping interval the
+// KeepaliveTime and KeepaliveTimeout are the gRPC client keepalive SetFaultProxies and
+// SetReplicaNotificationProxies give bob's notification service. KeepaliveTime is the 60 s minimum ping interval the
 // committer's sidecar enforces; a node that pings more often is disconnected. A silent
 // partition of the notification stream is therefore detected within their sum.
 const (
@@ -49,26 +50,57 @@ func (p *FaultProxies) Close() {
 // starts; the proxies forward until Close.
 func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	n := nwofabricx.FxPlatform(ii).Network
-	// Bob is in Org2 and uses Org2's committer.
-	committer := n.Peer("Org2", Org2Committer)
-	gomega.Expect(committer).NotTo(gomega.BeNil(), "no committer peer for bob")
-	notification := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committer, fabricnetwork.ListenPort))
-
+	notification := bobNotificationAddress(n)
 	p := &FaultProxies{
 		Notification: faultrecovery.StartProxy(notification),
 	}
-	// The notification and query services may list the same address, so the notification
-	// service is rewritten through its own key rather than by address.
-	faultrecovery.RewriteCore(ii, "bob", func(core map[string]any) {
+	faultrecovery.RewriteCore(ii, "bob", proxyNotification(n, notification, p.Notification.Addr()))
+	return p
+}
+
+// SetReplicaNotificationProxies starts, for each replica of bob, a proxy in front of the
+// committer's notification service, points the replica's core.yaml at its own proxy, and
+// enables its gRPC client keepalive (see KeepaliveTime), so that partitioning a proxy cuts
+// the notification stream of that replica alone and the replica detects it. The query
+// service stays direct. It returns the proxies by replica unique name. Call it after the
+// network is generated and before it starts; the proxies forward until Close.
+func SetReplicaNotificationProxies(ii *integration.Infrastructure) faultrecovery.ReplicaProxies {
+	n := nwofabricx.FxPlatform(ii).Network
+	notification := bobNotificationAddress(n)
+	proxies := faultrecovery.ReplicaProxies{}
+	for _, r := range ii.FscPlatform.Peers {
+		if r.Name != "bob" {
+			continue
+		}
+		proxy := faultrecovery.StartProxy(notification)
+		proxies[r.UniqueName] = []*common.Proxy{proxy}
+		faultrecovery.RewriteReplicaCore(ii, r, proxyNotification(n, notification, proxy.Addr()))
+	}
+	return proxies
+}
+
+// bobNotificationAddress returns the address of the notification service of Org2's
+// committer, which bob, in Org2, uses.
+func bobNotificationAddress(n *fxnetwork.Network) string {
+	committer := n.Peer("Org2", Org2Committer)
+	gomega.ExpectWithOffset(1, committer).NotTo(gomega.BeNil(), "no committer peer for bob")
+	return fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committer, fabricnetwork.ListenPort))
+}
+
+// proxyNotification returns a core.yaml patch that points bob's notification service at
+// proxy instead of notification and enables its gRPC client keepalive. The notification and
+// query services may list the same address, so the notification service is rewritten
+// through its own key rather than by address.
+func proxyNotification(n *fxnetwork.Network, notification, proxy string) func(core map[string]any) {
+	return func(core map[string]any) {
 		fabric, ok := core["fabric"].(map[string]any)[n.Topology().Name()].(map[string]any)
 		gomega.Expect(ok).To(gomega.BeTrue(), "core.yaml of bob has no fabric.%s", n.Topology().Name())
-		setEndpoint(fabric, "notificationService", notification, p.Notification.Addr())
+		setEndpoint(fabric, "notificationService", notification, proxy)
 		fabric["notificationService"].(map[string]any)["keepalive"] = map[string]any{
 			"time":    KeepaliveTime.String(),
 			"timeout": KeepaliveTimeout.String(),
 		}
-	})
-	return p
+	}
 }
 
 // setEndpoint replaces the address of the one endpoint of service, which must be old,

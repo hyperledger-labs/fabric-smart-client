@@ -231,16 +231,25 @@ var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault",
 // Bob's two replicas sit behind a load balancer; alice has two replicas without one. The
 // specs share one network and must leave every replica running, see
 // faultrecovery.ShareNetwork. The nodes run fabricfaultrecovery.ContractProbeSDK, which
-// adds a store only to replicas configured for it.
+// adds a store only to replicas configured for it. Each replica of bob reaches its peers
+// through proxies of its own, so a spec can cut the delivery of one replica.
 var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnFailure, Label(fsc.WebSocket, replication), func() {
+	var deliveryProxies faultrecovery.ReplicaProxies
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(
+		ii, err := integration.Generate(
 			integration.FabricFaultRecoveryPort.StartPortForNode(),
 			integration.WithRaceDetection,
 			fabricfaultrecovery.ReplicatedTopology(dbPrefix, &fabricfaultrecovery.ContractProbeSDK{})...,
 		)
+		if err != nil {
+			return nil, err
+		}
+		deliveryProxies.Close()
+		deliveryProxies = fabricfaultrecovery.SetReplicaDeliveryProxies(ii)
+		return ii, nil
 	})
 	faultrecovery.ShareNetwork(s)
+	AfterAll(func() { deliveryProxies.Close() })
 
 	It("commits through the load balancer", func() {
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 10)).To(HaveLen(10))
@@ -263,7 +272,10 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		faultrecovery.ExpectSettled(s.II, endorser.ID(), tx.TxID, 1)
 	})
 
-	faultrecovery.FailoverSpecs(s, delivery)
+	faultrecovery.FailoverSpecs(s, delivery, faultrecovery.DeliveryCut{
+		Proxies: func() faultrecovery.ReplicaProxies { return deliveryProxies },
+		Detect:  fabricfaultrecovery.KeepaliveTime + fabricfaultrecovery.KeepaliveTimeout + 10*time.Second,
+	})
 
 	// Both replicas migrate the shared database at once; the migration lock lets one run
 	// step 1 while the other waits (TestPostgresMigrate covers that each step runs once).
@@ -530,28 +542,11 @@ func bobSum(ii *integration.Infrastructure, name string) float64 {
 	return sum
 }
 
-// expectDelivery waits until the delivery of node, a node name or a replica ID, holds
-// want on one peer and has given up every other peer it used, and returns that peer's
-// address. A node's delivery reports each peer it has used as a series of its own, so
-// the peer in use is the one series that is not disconnected.
+// expectDelivery waits until the delivery of node holds want on one peer and has given up
+// every other peer it used, and returns that peer's address; see
+// faultrecovery.ExpectConnectionInUse.
 func expectDelivery(ii *integration.Infrastructure, node string, want connstate.State, timeout time.Duration) string {
-	var endpoint string
-	EventuallyWithOffset(1, func(g Gomega) {
-		families, err := ii.WebClient(node).Metrics()
-		g.Expect(err).NotTo(HaveOccurred())
-		live := map[string]connstate.State{}
-		for c, st := range fsc.ParseConnectionState(families, delivery) {
-			if st != connstate.Disconnected {
-				live[c.Endpoint] = st
-			}
-		}
-		g.Expect(live).To(HaveLen(1))
-		for e, st := range live {
-			g.Expect(st).To(Equal(want))
-			endpoint = e
-		}
-	}, timeout, 500*time.Millisecond).Should(Succeed(), "delivery of [%s] never held state %d on one peer", node, want)
-	return endpoint
+	return faultrecovery.ExpectConnectionInUse(ii, node, delivery, want, timeout)
 }
 
 // Its own Describe, so the shortened commit retry budget applies to these specs only. The
