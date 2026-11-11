@@ -16,6 +16,13 @@ Read [Code Conventions](../dev/conventions.md) first. Before calling a change fi
   removed.
 - A proto change only adds fields; run `make buf-breaking`.
 - `make checks` passes.
+- Changed Markdown passes `make docs-lint`. Wrap new and edited paragraphs at 80
+  columns yourself, since `make docs-lint-fix` does not wrap. Never write "here" as
+  link text. Before running `docs-lint-fix`, indent a code block that sits between
+  ordered list items into its item, or the fix renumbers every item `1.`
+  ([Markdown style](../dev/documentation.md#markdown-style)). Formatters that reflow
+  prose, such as prettier, join an alert marker (`> [!NOTE]`) with its text; run
+  `make docs-lint-fix` after them.
 - The documentation is updated in the same commit, in the place
   [Writing Documentation](../dev/documentation.md#where-documentation-goes) names. Never
   put an explanation only in `AGENTS.md` or `docs/agents/`.

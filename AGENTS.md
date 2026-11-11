@@ -12,6 +12,7 @@ built with `make`. `CLAUDE.md` is a symlink to this file.
 
 ```bash
 make checks         # golangci-lint + `go fix` in every module; apply fixes with `make go-fix-apply`
+make docs-lint      # markdownlint on every tracked .md (Docker, not in make checks); make docs-lint-fix applies safe fixes
 make lint           # golangci-lint (use make lint-auto-fix to autofix)
 make tidy           # go mod tidy across all modules
 make generate-protos     # regenerate protobuf files
@@ -94,6 +95,9 @@ writing any documentation. The rules that matter most:
 - Godoc covers an exported identifier's contract, never why the code changed; style in
   [`docs/dev/conventions.md`](docs/dev/conventions.md#godoc).
 - Update the documentation in the same commit as the code; delete what no longer holds.
+- Markdown follows [Markdown style](docs/dev/documentation.md#markdown-style): 80 columns,
+  one `#` title, no skipped heading levels, descriptive link text, alt text on images;
+  `make docs-lint` checks it.
 
 ## Conventions in one line
 

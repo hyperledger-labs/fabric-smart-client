@@ -145,6 +145,8 @@ make checks
 | `make go-fix`        | reports the modernizations `go fix` suggests, without applying them    |
 | `make go-fix-apply`  | applies those modernizations, in every module                          |
 | `make docs-links`    | fails if a Markdown page other than `AGENTS.md` and `docs/agents/` links into `docs/agents/` |
+| `make docs-lint`     | runs markdownlint-cli2 in Docker on every tracked `.md` file; not part of `make checks` |
+| `make docs-lint-fix` | applies the fixes markdownlint can make itself; it does not wrap lines |
 
 Run `make list-go-modules` to see which modules these targets cover.
 

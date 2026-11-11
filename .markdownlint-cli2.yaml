@@ -1,0 +1,39 @@
+# Markdown style of FSC, enforced by `make docs-lint`. The rules and the reasons
+# behind each setting are in docs/dev/documentation.md, Markdown style.
+config:
+  default: true
+  # Google: ATX headings, `-` bullets, fenced code with backticks.
+  heading-style: { style: atx }
+  ul-style: { style: dash }
+  code-block-style: { style: fenced }
+  code-fence-style: { style: backtick }
+  emphasis-style: { style: underscore }
+  strong-style: { style: asterisk }
+  hr-style: { style: "---" }
+  # Google: 80 columns; tables, code blocks and headings are exempt. Lines whose
+  # overflow has no spaces (a long URL) are exempt too.
+  line-length:
+    line_length: 80
+    code_blocks: false
+    tables: false
+    headings: false
+  # Google: line breaks with a trailing backslash, never trailing spaces.
+  no-trailing-spaces: { br_spaces: 0 }
+  # Go code blocks are indented with tabs, as gofmt writes them.
+  no-hard-tabs: { code_blocks: false }
+  # Upgrade guides repeat the same subsection names under each component.
+  no-duplicate-heading: { siblings_only: true }
+  # Two GitHub alerts in a row (`> [!NOTE]`, `> [!TIP]`) need a blank line
+  # between them.
+  no-blanks-blockquote: false
+
+# GitHub alerts render only with the marker alone on its line.
+customRules:
+  - "./scripts/markdownlint/alert-marker.cjs"
+
+# Generated files and test fixtures are not edited by hand. CLAUDE.md is a
+# symlink to AGENTS.md.
+ignores:
+  - "CLAUDE.md"
+  - "docs/upgrade/releases/v*.md"
+  - "**/testdata/**"

@@ -47,7 +47,7 @@ belong to, so a reader can reach every page from the index.
 The upgrade guide of a minor release, `docs/upgrade/v<from>-to-v<to>.md`, says what an
 operator or a developer has to do to upgrade from the previous minor. It starts with opening
 paragraphs between its title and its first heading: what the release changes, and whether
-organizations upgrade together. It ends with a `# Checklist` section that lists every step for
+organizations upgrade together. It ends with a `## Checklist` section that lists every step for
 operators and for developers. The release notes link to the guide on `main` instead of quoting
 it (see [`docs/upgrade/releases/`](../upgrade/releases/README.md)), so a fix to the guide after
 the release reaches everyone who follows the link. A guide therefore stays in the repository
@@ -87,6 +87,88 @@ it.
   resource management, extension points, and assumptions that must remain true. Don't
   narrate obvious code.
 - **Style**: precise, concise, technical, factual, present tense; no narrative.
+
+## Markdown style
+
+Markdown files follow the [Google Markdown style guide][google-style] and
+GitHub's [tips for accessible Markdown][gh-a11y]. `make docs-lint` checks every
+tracked `.md` file with [markdownlint-cli2][markdownlint] and the rules in
+`.markdownlint-cli2.yaml`; on every pull request, CI runs the same check with
+the markdownlint-cli2 GitHub Action. The
+lint skips the generated release bodies in `docs/upgrade/releases/` and the
+files under `testdata/`. Review covers the rules a tool cannot check.
+
+[google-style]: https://google.github.io/styleguide/docguide/style.html
+[gh-a11y]: https://github.blog/developer-skills/github/5-tips-for-making-your-github-profile-page-accessible/
+[markdownlint]: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+### Structure
+
+- A page starts with one `#` title on its first line. Sections use `##`, then
+  `###`, and a heading never skips a level: screen reader users move through
+  a page by its headings, so the headings must form an outline.
+- Headings use `#` (ATX style), have no trailing punctuation, and are unique
+  among their siblings.
+- Lists are Markdown lists, with `-` for bullets and one space after the
+  marker. A nested item, paragraph or code block that belongs to an item is
+  indented to the item's text: 2 spaces under `-`, 3 under `1.`. Without the
+  indentation the list ends, and a screen reader announces two lists.
+- Number a short list that rarely changes `1.`, `2.`, `3.`. A long list that
+  changes often can number every item `1.`.
+
+### Text
+
+- Lines are at most 80 characters. Tables, code blocks, headings and a line
+  that only runs over because of a long URL are exempt. Wrap a paragraph again
+  after editing it; most editors can do this (VS Code with the Rewrap
+  extension, `gq` in Vim).
+- Write plain language: short sentences, common words, the active voice.
+- Use `_emphasis_` and `**strong**`, sparingly.
+- A line break inside a paragraph is a trailing `\`, never trailing spaces.
+- Use few emoji, and never several in a row. A screen reader reads out the
+  full name of each one, and an emoji never carries meaning the text does not
+  also say.
+- Write Markdown, not HTML. GitHub alerts (`> [!NOTE]`) are Markdown.
+- An alert's marker stands alone on the first line of the blockquote, and its
+  text starts on the next line. With text on the marker line, GitHub renders a
+  plain quote. The lint checks this with a rule of its own,
+  `scripts/markdownlint/alert-marker.cjs`, and `make docs-lint-fix` moves the
+  text to the next line.
+
+### Code
+
+- Code blocks are fenced with backticks and name their language (`go`,
+  `bash`, `yaml`; `text` for output). Indented code blocks are not used.
+- File names, paths, identifiers, commands and configuration keys in running
+  text are inline code.
+
+### Links and images
+
+- Link text says where the link goes: "see [Rolling upgrades](...)", never
+  "here", "click here", "link" or "more". A screen reader can list the links
+  of a page out of context, and "here" tells the listener nothing.
+- Link to another page in the repository by its relative path
+  (`../dev/testing.md`), not by a github.com URL. Google recommends paths from
+  the repository root instead; relative paths also work in forks, on release
+  branches and in editors, which is why FSC uses them. A link to a heading
+  points at an anchor that exists.
+- A long URL, or one used several times, is a reference link, defined at the
+  end of its section.
+- A URL is never bare: write `[text](url)`, or `<url>` when the URL itself is
+  the point.
+- Use an image only when showing is clearer than describing. Its alt text
+  describes what the image shows and repeats any text in it.
+
+### Checking a page
+
+Run `make docs-lint` before committing a change to Markdown; `make checks`
+does not run it. It runs in Docker, like the integration tests, so no Node
+toolchain is needed.
+`make docs-lint-fix` applies the fixes markdownlint can make itself; it does
+not wrap lines. It renumbers an ordered list that a code block at column 0
+splits into several lists, so indent the code block into its item first. The
+markdownlint extension for VS Code reads `.markdownlint-cli2.yaml` and shows
+the same findings while you edit.
 
 ## When documentation is updated
 

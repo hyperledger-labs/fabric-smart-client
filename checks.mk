@@ -15,6 +15,26 @@ docs-links: ## Check that no page for people links into docs/agents/
 	fi
 
 #########################
+# Docs lint
+#########################
+
+# markdownlint-cli2 checks the Markdown style of docs/dev/documentation.md with the
+# rules in .markdownlint-cli2.yaml. It runs in Docker, so the check needs no Node
+# toolchain. The files come from git, which skips untracked scratch files. Not part
+# of `checks`: CI runs the same version through markdownlint-cli2-action in
+# .github/workflows/git.yml; keep the two in step.
+MARKDOWNLINT_IMAGE ?= davidanson/markdownlint-cli2:v0.24.0@sha256:70ead7c0352d22d04bbe612cd96b54ec591538d8f4626cafe391bb2ecf3639ca
+MARKDOWNLINT = docker run --rm -u $$(id -u):$$(id -g) -v "$(CURDIR)":/workdir $(MARKDOWNLINT_IMAGE)
+
+.PHONY: docs-lint
+docs-lint: ## Check the Markdown style of every tracked .md file
+	@$(MARKDOWNLINT) $$(git ls-files '*.md')
+
+.PHONY: docs-lint-fix
+docs-lint-fix: ## Apply the Markdown fixes markdownlint can make itself
+	@$(MARKDOWNLINT) --fix $$(git ls-files '*.md')
+
+#########################
 # Lint
 #########################
 
