@@ -204,18 +204,19 @@ One release PR can be open at a time, a minor's or a patch's.
 A fix reaches a supported minor as a *backport*: a cherry-pick of its squash commit onto
 `release-X.Y`, merged there through a PR of its own.
 
-**Asking for one.** A fix qualifies if it repairs a bug, a security issue or a dependency of
-a supported minor, and changes no API, schema step or wire format. The PR to `main` says, under
-"Backport", which release branch needs it and why the next minor is not soon enough. A
-maintainer adds the label `backport/X.Y`, before or after the merge; Mergify acts on it once the
-PR is merged.
-
 **Rules and labels.** Mergify reads the backport rules from `.mergify.yml` on `main`, one per
-supported minor. The release PR of a minor brings the rules, and `make release-publish` creates
-the minor's label and deletes the label of the minor that left support. A rule and its label
-exist from the release of their minor on, before the release branch. Add the label only once
-`release-X.Y` exists: Mergify fails a backport to a branch that does not exist. The branch of a
-minor that left support stays, so its tags stay reachable.
+supported minor. The rules and the labels come with the release of a minor, with nothing to do
+by hand: its release PR brings the rules, and `make release-publish` creates the minor's label
+`backport/X.Y` and deletes the label of the minor that left support. A rule and its label exist
+from the release of their minor on, before the release branch. The branch of a minor that left
+support stays, so its tags stay reachable.
+
+**Asking for one.** A fix qualifies if it repairs a bug, a security issue or a dependency of a
+supported minor, and changes no API, schema step or wire format. The PR to `main` says, under
+"Backport", which release branch needs it and why the next minor is not soon enough. A
+maintainer who agrees adds the label `backport/X.Y` to the PR, before or after the merge, once
+`release-X.Y` exists (Mergify fails a backport to a branch that does not exist). Mergify acts on
+it once the PR is merged. Adding the label to the PR is the one label step done by hand.
 
 **What Mergify does.** When a PR with the label merges to `main`, Mergify cherry-picks its
 commit onto `release-X.Y` and opens a PR titled `<title of #n> (backport #n)`, assigned to the
