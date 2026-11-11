@@ -650,7 +650,8 @@ fabric:
         # Path to idemix credentials
         path: /path/to/myanonymous/idemix
         # Optional, idemix only. Number of pseudonyms generated in advance for this MSP. A value
-        # larger than 0 overrides mspCacheSize; 0 or absent uses mspCacheSize.
+        # larger than 0 overrides mspCacheSize; 0 or absent uses mspCacheSize. An idemix-folder
+        # entry ignores it, and its MSPs always use mspCacheSize.
         cacheSize: 3
 
       # The folder types load one MSP per subdirectory of path: each subdirectory is an MSP
