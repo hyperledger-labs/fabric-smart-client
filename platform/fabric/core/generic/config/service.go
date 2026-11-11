@@ -9,6 +9,7 @@ package config
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,11 +63,14 @@ type Service struct {
 	prefix string
 
 	configuredOrderers int
-	orderers           []*ConnectionConfig
-	peerMapping        map[driver.PeerFunctionType][]*ConnectionConfig
-	channels           map[string]*Channel
-	defaultChannel     string
-	vaultPersistence   sdriver.PersistenceName
+	// orderersMu guards orderers. SetConfigOrderers replaces the slice rather than writing
+	// into it, so a slice Orderers returned stays valid while the caller ranges over it.
+	orderersMu       sync.RWMutex
+	orderers         []*ConnectionConfig
+	peerMapping      map[driver.PeerFunctionType][]*ConnectionConfig
+	channels         map[string]*Channel
+	defaultChannel   string
+	vaultPersistence sdriver.PersistenceName
 
 	// mu guards failures, the time each endpoint address was last passed to ReportFailure.
 	mu       sync.Mutex
@@ -200,7 +204,11 @@ func (s *Service) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
 	return c
 }
 
+// Orderers returns the configured orderers followed by those from the channel config. The
+// returned slice is never modified; a later SetConfigOrderers does not affect it.
 func (s *Service) Orderers() []*ConnectionConfig {
+	s.orderersMu.RLock()
+	defer s.orderersMu.RUnlock()
 	return s.orderers
 }
 
@@ -345,8 +353,13 @@ func (s *Service) OrdererConnectionPoolSize() int {
 	return defaultOrderingConnectionPoolSize
 }
 
+// SetConfigOrderers replaces the orderers learned from the channel config, keeping those
+// configured for the network in front of them. It is safe to call concurrently with Orderers
+// and PickOrderer.
 func (s *Service) SetConfigOrderers(orderers []*ConnectionConfig) error {
-	s.orderers = append(s.orderers[:s.configuredOrderers], orderers...)
+	s.orderersMu.Lock()
+	defer s.orderersMu.Unlock()
+	s.orderers = slices.Concat(s.orderers[:s.configuredOrderers], orderers)
 	logger.Debugf("New Orderers [%d]", len(s.orderers))
 
 	return nil
@@ -355,7 +368,7 @@ func (s *Service) SetConfigOrderers(orderers []*ConnectionConfig) error {
 // PickOrderer returns a random orderer, skipping those in failure cooldown (see
 // ReportFailure). It returns nil if no orderer is configured.
 func (s *Service) PickOrderer() *ConnectionConfig {
-	return s.pick(s.orderers)
+	return s.pick(s.Orderers())
 }
 
 // PickPeer returns a random peer serving ft, or any peer if none is configured for ft,
