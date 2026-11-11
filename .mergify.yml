@@ -6,4 +6,12 @@
 # PR titled "<title> (backport #N)", assigned to the original author. A conflict is
 # committed as such, and the PR is labelled "conflicts". Mergify never merges the PR.
 # Mergify cannot derive the branch from the label, so each supported minor has a rule.
-pull_request_rules: []
+pull_request_rules:
+  - name: backport to release-0.29
+    conditions:
+      - base=main
+      - label=backport/0.29
+    actions:
+      backport:
+        branches: [release-0.29]
+        assignees: ["{{ author }}"]
