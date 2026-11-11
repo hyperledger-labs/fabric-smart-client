@@ -1,20 +1,22 @@
-# Secured Asset Transfer in Fabric
+# Secured asset transfer in Fabric
+
+This tutorial teaches how to drive a Fabric chaincode from FSC views and test it with the integration infrastructure. It belongs to the [Fabric platform](../../../docs/platform/fabric/README.md) guide.
 
 The [Secured asset transfer in Fabric](https://hyperledger-fabric.readthedocs.io/en/latest/secured_asset_transfer/secured_private_asset_transfer_tutorial.html)
 is a tutorial that demonstrates how an asset can be represented and traded between organizations 
 in a Hyperledger Fabric blockchain channel.
 
-In the next Sections, we will learn:
+In the next sections, we will learn:
 - The design of the solution used in the sample `Secured asset transfer in Fabric`.
 - How to write business views that invoke chaincodes.
 - How to write an integration test using the Fabric Smart Client's integration infrastructure.
 
 ## Design
 
-### Business Objects
+### Business objects
 
 In the `Secured asset transfer in Fabric`, an asset is represented by the following data structure:
-```
+```go
 type Asset struct {   
   ObjectType             string
   ID                     string  
@@ -28,7 +30,7 @@ An asset:
 
 An asset can be transferred if and only if an agreement between the current owner and the next owner is achieved.
 An agreement to sell or buy is represented by the following data structure:
-```
+```go
 type Agreement struct {   
   ID      string   
   Price   int   
@@ -36,12 +38,12 @@ type Agreement struct {
 }
 ```
 
-### Network Topology
+### Network topology
 
 For simplicity, let's consider two organizations: `Org1` and `Org2`.
 Each organization has at least one Fabric peer. 
 There are also two clients: Alice who belongs to `Org1`, and Bob who belongs to `Org2`.
-Each of them run a Fabric Smart Client node equipped with the proper Fabric identity.
+Each of them runs a Fabric Smart Client node equipped with the proper Fabric identity.
 Alice's (resp. Bob's) FSC node connects to the Fabric peer in `Org1` (resp. `Org2`).
 
 Therefore, we have a vanilla Fabric network with:
@@ -52,7 +54,7 @@ Therefore, we have a vanilla Fabric network with:
   The chaincode is available [`here`](chaincode/asset_transfer.go)
 - Support for State-Based Endorsement (SBE, for short) and Implicit collections enabled.
 
-### Business Operations
+### Business operations
 
 The chaincode, installed on the peers of all organizations, handles the following business operations:
 - `Issue`: Any organization can issue assets because the chaincode endorsement says that any organization can endorse. 
@@ -64,7 +66,7 @@ The chaincode, installed on the peers of all organizations, handles the followin
 - `Agree to sell and buy`: Before transferring an Asset, an agreement between the owning organization 
   (`AgreeToSell`) and the recipient organization (`AgreeToBuy`) must be stored on the ledger. 
   Organizations store their agreements in their implicit collections.  The endorsement policy 
-  of the implicit collections can be thought as the owner of the agreement.
+  of the implicit collections can be thought of as the owner of the agreement.
   A `Hash` appears on the ledger for each agreement and this hash is available to the entire network. 
   A transfer can happen only if there is a matching agreement to sell and buy.
   The chaincode performs access control and then stores the agreement on the implicit collection 
@@ -75,15 +77,15 @@ The chaincode, installed on the peers of all organizations, handles the followin
   (The match is performed by comparing the hashes. Notice that hashes are available to all peers in the network), 
   the chaincode writes the private information in the next owner’s organization implicit collection 
   (This requires an endorsement from the next owner’s organization). Finally, the chaincode changes 
-  the asset's owner to new receiving organization and stores the asset in the RWS.
+  the asset's owner to the new receiving organization and stores the asset in the RWS.
   
-## Writing an Integration Test with the Fabric Smart Client
+## Writing an integration test with the Fabric Smart Client
 
 Normally, to run the `Secured asset transfer in Fabric` sample, one would have to deploy the Fabric network, 
 invoke the chaincode, and so on, by using a bunch of scripts. 
 This is not the most convenient way to test programmatically an application.
 
-FSC provides an `Integration Test Infrastructure` that allow the developer to:
+FSC provides an `Integration Test Infrastructure` that allows the developer to:
 - Describe the topology of the networks used (Fabric and FSC networks);
 - Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
@@ -164,15 +166,14 @@ func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 
 It is pretty straight-forward the meaning of each step. However, let us dedicate some time to the FSC topology. 
 One limitation of golang is that it cannot load code at runtime. This means that all views 
-that a node might use must be burned inside the FSC node executable (We will solve this problem 
-by adding support for YAEGI, [`Issue 19`](https://github.com/hyperledger-labs/fabric-smart-client/issues/19)).
+that a node might use must be burned inside the FSC node executable.
 This is the reason we specify the view factories at topology definition time. At network bootstrapping time,
 the Integration Test Infrastructure synthesizes the `main` file for each FSC node and builds it.
 The developer does not have to worry about this.
 
 ### Bootstrap the networks
 
-To bootstrap the networks described by the above topologies, we can simply do this:
+To bootstrap the networks described by the above topologies, we do this:
 
 ```go
 s := &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
@@ -184,16 +185,16 @@ s.Setup()
 (The above code is adapted from this [`test file`](atsa_test.go), which imports this package as `atsa` and calls `s.Setup` from a
 `BeforeEach`. `StartPort` is defined in the suite's [`atsa_suite_test.go`](atsa_suite_test.go).)
 
-### Initiate a Business Process
+### Initiate a business process
 
 In order to exchange an asset, this asset must be created first.
 Because the endorsement policy says that any organization can endorse the chaincode,
 we can have Alice issuing directly an asset. 
 To do so, Alice must contact her FSC node and ask the node to create a new instance of the `CreateAsset` view, on input 
 the asset to be created, and run it.
-Now, recall that each FSC node exposes a GRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
-to this GRPC service and send the proper command. Fortunately enough, the Integration Test Infrastructure 
-take care also of this.
+Now, recall that each FSC node exposes a gRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
+to this gRPC service and send the proper command. The Integration Test Infrastructure 
+takes care of this.
 
 To get the View Service client for Alice, we can do the following:
 ```go
@@ -258,5 +259,5 @@ func (c *CreateAssetViewFactory) NewView(in []byte) (view.View, error) {
 ```
 
 This view is very simple, it just invokes the `CreateAsset` function of the `asset_transfer` chaincode passing the proper
-inputs. The `NewInvokeView` takes care of the entire endorsement process and blocks until the Fabric reports
+inputs. The `NewInvokeView` takes care of the entire endorsement process and blocks until Fabric reports
 back that the transaction has been committed, or a timeout happened.

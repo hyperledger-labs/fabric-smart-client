@@ -1,10 +1,10 @@
-# Comm Benchmarks
+# Comm benchmarks
 
 Micro-benchmarks of the P2P communication layer (`platform/view/services/comm`). Each benchmark
 runs once per transport, `websocket` and `libp2p`, between nodes on loopback, so the two
 transports can be compared under identical workloads.
 
-The nodes are real `comm.P2PNode`s over real hosts: websocket uses mutual TLS with
+The nodes are real `comm.P2PNode`s over real hosts: WebSocket uses mutual TLS with
 certificates issued by a throwaway CA and a static ID router, and libp2p nodes dial each other
 by address. Keys are generated per benchmark; no fixtures or Fabric
 binaries are needed.

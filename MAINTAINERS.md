@@ -1,9 +1,8 @@
-Maintainers
-===========
+# Maintainers
 
-**Active Maintainers**
+## Active maintainers
 
-| Name                 | GitHub                               | Chat        | email                       |
+| Name                 | GitHub                               | Chat        | Email                       |
 |----------------------|--------------------------------------|-------------|-----------------------------|
 | Angelo De Caro       | [adecaro][adecaro]                   | adecaro     | <adc@zurich.ibm.com>        |
 | Kaoutar Elkhiyaoui   | [KElkhiyaoui][KElkhiyaoui]           | KElkhiyaoui | <kao@zurich.ibm.com>        |
@@ -11,10 +10,10 @@ Maintainers
 | Marcus Brandenburger | [mbrandenburger][mbrandenburger]     | bur         | <bur@zurich.ibm.com>        |
 | Alexandros Filios    | [alexandrosfilios][alexandrosfilios] | lio         | <alexandros.filios@ibm.com> |
 
-**Emeritus Maintainers**
+## Emeritus maintainers
 
-| Name | GitHub | Chat | email |
-| --- | --- | --- | --- |
+| Name             | GitHub               | Chat     | Email                         |
+|------------------|----------------------|----------|-------------------------------|
 | Mathilde Ffrench | [mffrench][mffrench] | mffrench | <mathilde.ffrench@fr.ibm.com> |
 
 [adecaro]: https://github.com/adecaro

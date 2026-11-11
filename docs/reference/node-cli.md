@@ -1,10 +1,10 @@
-# FSC Node CLI Reference
+# FSC node CLI reference
 
 ## Overview
 
 FSC nodes are Go applications that embed the Fabric Smart Client library. You create a custom node application that registers your views (business logic) and starts the FSC node.
 
-## Creating a Node Application
+## Creating a node application
 
 FSC nodes require a Go application that embeds the FSC library:
 
@@ -123,7 +123,7 @@ Check, before a rollout, that this binary can still talk to the node's peers.
 ./mynode node peers --check
 ```
 
-The command reads the node's configuration, as `node start` does, but installs no SDK and opens no database. It refuses the resolver entries the node refuses, and like the node it uses only the first entry of each name; later entries of a name are bound to it and never dialed. For each such entry that has a `P2P` address, other than the node itself, it dials the peer over websocket P2P with the node's identity and TLS settings, checks that the peer's TLS certificate belongs to the resolver's identity, reads the [preamble](../platform/view/services/comm/readme.md) the peer sends on the upgrade response, and disconnects. It opens no session and starts no view, so the peer runs nothing. Each peer gets 10 seconds.
+The command reads the node's configuration, as `node start` does, but installs no SDK and opens no database. It refuses the resolver entries the node refuses, and like the node it uses only the first entry of each name; later entries of a name are bound to it and never dialed. For each such entry that has a `P2P` address, other than the node itself, it dials the peer over WebSocket P2P with the node's identity and TLS settings, checks that the peer's TLS certificate belongs to the resolver's identity, reads the [preamble](../platform/view/services/comm/readme.md) the peer sends on the upgrade response, and disconnects. It opens no session and starts no view, so the peer runs nothing. Each peer gets 10 seconds.
 
 For each peer it prints the peer's FSC version and framing epoch and, per component, both ranges and the version they use, the highest one in both ranges. A peer of a release without preambles, or a component only this binary announces, is reported but does not fail the check, since the node accepts such peers. Run the new binary with the node's configuration and key material. Only `fsc.p2p.type: websocket` is supported; with libp2p the command exits 1.
 
@@ -146,7 +146,7 @@ Display version information.
 ```
 
 **Output:**
-```
+```text
 node:
  Go version: go1.27.3
  OS/Arch: darwin/arm64
@@ -193,7 +193,7 @@ With `--json` it prints one JSON object for release tooling:
   without `core.yaml`. Without one, `node migrate` and `node peers --check` exit 1 with the
   missing-file error, and `node start` fails with it like any other start error
 
-## Environment Variables
+## Environment variables
 
 All environment variables use the `FSCNODE_` prefix.
 
@@ -237,7 +237,7 @@ These files can be analyzed using Go's pprof tool, for example:
 go tool pprof cpu.pprof
 ```
 
-## Signal Handling
+## Signal handling
 
 The FSC node handles these signals for graceful shutdown:
 
@@ -257,7 +257,7 @@ Views that observe their context (`ctx.Done()`) return promptly once it is cance
 
 **Note:** The node listens for both signals with Go's `signal.Notify`. A second SIGINT or SIGTERM during the shutdown skips the rest of the drain. On Windows, Ctrl+C and Ctrl+Break arrive as `os.Interrupt` and trigger the same shutdown.
 
-## Exit Codes
+## Exit codes
 
 | Code | Meaning |
 |------|---------|

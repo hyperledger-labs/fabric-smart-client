@@ -1,4 +1,4 @@
-# DB Drivers
+# Database drivers
 
 This document explains FSC persistence, store, and driver concepts.
 If you are looking for the physical tables and columns created by those stores, see [Database layout](database-layout.md).
@@ -7,7 +7,7 @@ If you are looking for runtime usage and operator inspection guidance, see [Runt
 ## Project terminology
 
 ### Database
-A project can support multiple databases, as long as the relations of the DB don't have to interact. The common practice would be to use just one DB per project, e.g. Postgres. We can also have multiple Postgres databases in one project (also not recommended for simplicity purposes). 
+A project can use several databases, of the same type or of different types (for example two Postgres databases), as long as no relation spans two of them. One database per project, for example Postgres, is the simpler setup.
 
 ### Persistence
 A persistence is an instantiation strategy, and it is backed by a specific database.
@@ -16,12 +16,12 @@ Multiple persistences can share the same underlying database, but still be diffe
 * Each persistence has a `type` that defines the underlying database type.
 Depending on the `type`, a persistence (except for `memory`) must define a different set of options (`opts`).
 We support the following types:
-  * `memory` (backed by an Sqlite database)
+  * `memory` (backed by an SQLite database)
   * `postgres` (backed by a Postgres database)
-  * `sqlite` (backed by an Sqlite database)
+  * `sqlite` (backed by an SQLite database)
 
 * The `dataSource` defines the concrete underlying DB.
-Two persistences that share the same `type` but not `dataSource`, have different underlying databases (although both of these database are of the same type).
+Two persistences that share the same `type` but not `dataSource`, have different underlying databases (although both of these databases are of the same type).
 
 * Further properties such as `tablePrefix` and `maxIdleConns` complete the persistence.
 Two persistences can share the same `type` and `dataSource` and differ in the rest of the options.
@@ -37,7 +37,7 @@ A store can also have references to other stores (e.g. foreign keys, joins).
 It has one implementation per persistence type, e.g.:
 * `memory`: no store of its own; the driver uses the SQLite stores (`sqlite.NewBindingStore` and so on) on an in-memory database
 * `postgres.BindingStore`: Postgres DB via remote connection to standalone running DB (e.g. container)
-* `sqlite.BindingStore`: Sqlite DB in the local filesystem
+* `sqlite.BindingStore`: SQLite DB in the local filesystem
 
 However, they all share one common interface such as the following:
 
@@ -60,11 +60,11 @@ The store interfaces are defined in `platform/common/driver/kvs.go`.
 ### Driver
 A driver is responsible for the instantiation of multiple (or usually all) stores.
 It has multiple implementations: one for each persistence type.
-* `memory.Driver`: Sqlite DB in memory
+* `memory.Driver`: SQLite DB in memory
 * `postgres.Driver`: Postgres DB via remote connection to standalone running DB (e.g. container)
-* `sqlite.Driver`: Sqlite DB in the local filesystem
+* `sqlite.Driver`: SQLite DB in the local filesystem
 
-Aside to the database-related implementations of the `Driver` interface (i.e. `memory.Driver`, `postgres.Driver`, `sqlite.Driver`), there is a `multiplexed.Driver` that reads the underlying configuration and instantiates the store using the correct driver.
+Aside from the database-related implementations of the `Driver` interface (i.e. `memory.Driver`, `postgres.Driver`, `sqlite.Driver`), there is a `multiplexed.Driver` that reads the underlying configuration and instantiates the store using the correct driver.
 
 During instantiation, the driver has access to the persistence `opts`.
 This way, it takes care of:
@@ -161,94 +161,7 @@ The constructors pass the options from `sqlcommon.MigrateOptions`: `migrate.With
 
 A store whose write format depends on one of its own contract steps implements `migrate.ReadableByObserver`; `Migrate` calls its `SetReadableBy` with the store's `readable_by` after every successful open, including `WithCheckOnly`, so the store learns once the step has run without reading the versions table itself.
 
-### Versioning an application store
-
-A store adopts versioning by adding two methods next to `CreateSchema`. `StoreName` returns the store's primary table name, and `Steps` returns every step in order, starting at version 1:
-
-```go
-func (s *OrderStore) StoreName() string { return s.table }
-
-func (s *OrderStore) Steps() []migrate.Step {
-	return []migrate.Step{
-		{Version: 1, Name: "create orders", SQL: []string{
-			"CREATE TABLE IF NOT EXISTS " + s.table + " (id TEXT PRIMARY KEY, amount BIGINT NOT NULL)",
-		}},
-		{Version: 2, Name: "add orders.note", SQL: []string{
-			"ALTER TABLE " + s.table + " ADD COLUMN note TEXT NOT NULL DEFAULT ''",
-		}},
-	}
-}
-```
-
-Write step 1 with `IF NOT EXISTS` so that it accepts a database created by the store's earlier `CreateSchema`. Never edit, reorder or remove a released step: a database that applied it does not run it again. A step must leave the store readable by binaries that lack it, unless it is a contract step.
-
-#### Contract steps
-
-Dropping a column, changing a type or moving data into a new form breaks binaries that still read the old form. Split such a change in two:
-
-1. An expand step adds the new form, and the store code of the same release writes both forms and reads the new one, falling back to the old one. Binaries of the previous release keep working.
-2. A contract step, in a later release, copies rows that are still only in the old form and then drops it. Set `Contract: true`:
-
-```go
-{Version: 3, Name: "drop orders.amount_text", Contract: true, SQL: []string{
-	"UPDATE " + s.table + " SET amount = CAST(amount_text AS BIGINT) WHERE amount IS NULL",
-	"ALTER TABLE " + s.table + " DROP COLUMN amount_text",
-}},
-```
-
-Backfill before dropping: until the operator runs the step, replicas of the previous release may have kept writing the old form. On a store that existed before, a node does not run a contract step at startup, only `node migrate --contract` does (see [Contract steps](schema-migrations.md#contract-steps)), so the release that ships the step serves the store both before and after it and must not depend on the step having run. A new store runs every step at startup. `StoreName` must be the store's primary table: a store without a version row whose table exists counts as existing. The step runs in one transaction, which on a large table holds its locks for the whole rewrite. Do not mark a step as a contract step after its release: `Step.Hash` covers the flag.
-
-`Step.Hash` is a SHA-256 over a step's version, name, SQL and `Contract` flag. The `migrate/migratetest` package checks a store's steps against a golden file with one line per step, `<version> <hash> <name>`, and fails when a recorded line changes or disappears. New steps are appended by running the test with `FSC_UPDATE_STEPS=1`, which never rewrites a recorded line. Build the store with fixed table names, since steps embed them:
-
-```go
-func TestOrderStoreSteps(t *testing.T) {
-	s, err := NewOrderStore(&drivercommon.RWDB{}, "orders")
-	require.NoError(t, err)
-	migratetest.CheckSteps(t, "testdata/steps/orders.steps", s.Steps())
-}
-```
-
-The FSC stores keep their golden files under `platform/view/services/storage/driver/sql/testdata/steps` and `platform/fabric/services/db/driver/sql/testdata/steps`, one per dialect and store. On every pull request, `scripts/check-step-files.sh` checks that each step file of the latest release tag is a line prefix of the file at HEAD, so a step cannot be changed in the golden file and the code together. The hash does not cover a step's `Go` function.
-
-A store whose databases may have received manual changes before it adopted versioning needs a step 1 that converges from each of them. Probe the catalog before each change instead of assuming a starting layout:
-
-```go
-{Version: 1, Name: "create orders", Go: func(ctx context.Context, q migrate.Execer) error {
-	if _, err := q.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS "+s.table+" (id TEXT PRIMARY KEY, amount BIGINT NOT NULL)"); err != nil {
-		return err
-	}
-	// Postgres: SELECT EXISTS (SELECT 1 FROM information_schema.columns
-	//           WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2)
-	var has bool
-	if err := q.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM pragma_table_info($1) WHERE name = $2)", s.table, "note").Scan(&has); err != nil {
-		return err
-	}
-	if has {
-		return nil
-	}
-	_, err := q.ExecContext(ctx, "ALTER TABLE "+s.table+" ADD COLUMN note TEXT NOT NULL DEFAULT ''")
-	return err
-}},
-```
-
-Such a step does its work in `Go`, so its hash covers only its version and name.
-
-A step whose change SQL cannot express sets `Go`, which runs after the step's `SQL` in the same transaction. Typical cases are a backfill computed in Go and a SQLite table rebuild. The function runs its statements through the `migrate.Execer` it receives and must not begin, commit or roll back a transaction. If it returns an error, the step rolls back, `SQL` included:
-
-```go
-{Version: 3, Name: "backfill orders.hash", SQL: []string{
-	"ALTER TABLE " + s.table + " ADD COLUMN hash TEXT",
-}, Go: func(ctx context.Context, q migrate.Execer) error {
-	// read rows with q.QueryContext, close them, then write with q.ExecContext
-	return nil
-}},
-```
-
-The rules for released steps cover the Go function too: a database that applied the step never runs a changed function body. A step that rewrites existing data needs a test that checks the rewritten values; the fixture tests under `platform/fabric/services/db/driver/sql/testdata` only check that the rows they wrote still read back after every step.
-
-A store built through the FSC constructors is migrated automatically. A store an application builds with its own constructor calls `migrate.CreateSchema(ctx, writeDB, dialect, tablePrefix, store, opts...)` where it calls `CreateSchema()` today, with `opts` from the persistence's `ConfigProvider.MigrateOptions(skipCreateTable)`, as the FSC constructors do. On SQLite, pass the single-connection write pool. To honor the persistence's `queryTimeout`, derive each statement's context with `sqlcommon.QueryTimeout(cfg.QueryTimeout).Context(ctx)`, and close an iterator of rows with `sqlcommon.NewWrappedIteratorWithCancel`, so that the deadline lasts until the rows are read.
-
-A table that several stores use is versioned by one of them, its owner: only the owner lists steps for the table, so the table has a single row in the versions table. Each store migrates when it is opened, so steps that depend on another store's tables, for example through a foreign key, run after that store has been opened.
+To add schema steps to a store of your own, see [Schema versioning](schema-versioning.md).
 
 ### Reaching stores from `node migrate`
 
@@ -283,7 +196,7 @@ func NewSDK(registry services.Registry) *SDK {
 
 Registering a name again replaces its list, so an SDK built twice is reported once.
 
-## Extending the Driver on the same Project
+## Extending the driver on the same project
 
 If you want to add a new store (e.g. `TransactionStore`), you will need to:
 * extend the `Driver` interface with one more method that has the same inputs
@@ -296,12 +209,10 @@ type Driver interface {
 ```
 * implement it for all 4 drivers (DB specific and multiplexed)
 
-## Adding Drivers or Creating Drivers on new Projects
+## Adding drivers or creating drivers on new projects
 
-Although in the scope of this project, it is sufficient to extend the existing Driver with the addition of more methods for new stores, it will be necessary to add stores in extending projects.
-
-In that case, you will need to create a new Driver interface that follows the same principles as before (containing only the new stores) and make sure that:
-* the `Driver` is implemented by all necessary DBs. If you do not support `memory` in your `core.yaml`, then there is no need to create an extending `Driver`. Similarly, if you want to support more DBs, you will need to extend them accordingly.
+Within FSC, a new store is added as a method of the existing `Driver`. A project built on FSC that adds its own stores defines a new `Driver` interface instead, built on the same principles and containing only the new stores, and makes sure that:
+* every database the project supports implements the new `Driver`. A database the project's `core.yaml` does not use, such as `memory`, needs no implementation; supporting another database means implementing the `Driver` for it too.
 * there is a new `multiplexed.Driver` that combines the rest of the `Driver` implementations
 * the `Driver` implementations are wired in the SDK
 * there is a section in the `core.yaml` that follows the same format and defines the characteristics of the store

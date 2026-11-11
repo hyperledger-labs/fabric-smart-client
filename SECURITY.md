@@ -1,13 +1,13 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+## Supported versions
 
 The Fabric Smart Client is developed on `main` and shipped as tagged releases (see
 [Versioning](README.md#versioning)). There are no maintenance branches: fixes land on
 `main` and go out in the next release. Only the **latest release** receives security
 fixes, so please confirm a report against it before filing.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
 **Do not open a public issue for a security vulnerability.** Use one of these private
 channels instead:
@@ -27,7 +27,7 @@ Please include as much of the following as you have:
 - steps, a test, or a minimal program that reproduces it,
 - any mitigation or fix you would suggest.
 
-## What to Expect
+## What to expect
 
 | Step | Timeline |
 |------|----------|

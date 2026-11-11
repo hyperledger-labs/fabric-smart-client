@@ -1,19 +1,41 @@
-# Fabric-x Platform Configuration
+# Fabric-x platform configuration
 
-The Fabric-x platform builds on the shared FSC configuration plus additional `fabric.<network>` service settings for Fabric-x-specific integrations.
+A Fabric-x node uses the shared FSC `core.yaml`. Every key, including the Fabric-x ones, is listed in the [node configuration reference](../../configuration.md); this page explains the settings of the services that connect a node to the [Fabric-x committer](https://github.com/hyperledger/fabric-x-committer).
 
-## Shared Node Configuration
+## Fabric-x services
 
-Start with the common FSC node settings documented in the [shared node configuration](../../configuration.md) guide.
-
-## Fabric-x Services
-
-The Fabric-x platform currently documents configuration for these services:
+The Fabric-x services are configured per network:
 
 - `fabric.<network>.notificationService`
 - `fabric.<network>.queryService`
+- `fabric.<network>.configMonitor`, see [Channel configuration updates](channelconfig.md)
 
-Both services support endpoint-based gRPC connectivity and optional TLS or mutual TLS settings, plus a `requestTimeout` for outbound gRPC calls (default `30s`). For `queryService` it is the deadline of every query, so a zero or negative value falls back to `30s`.
+Both committer services support endpoint-based gRPC connectivity and optional TLS or mutual TLS settings, plus a `requestTimeout` for outbound gRPC calls (default `30s`). For `queryService` it is the deadline of every query, so a zero or negative value falls back to `30s`.
+
+### Endpoint TLS
+
+Each entry of `endpoints` takes a `tls` block that inherits field by field from the network's `fabric.<network>.tls` block (see [Migrating TLS configuration](../../configuration.md#migrating-tls-configuration)). Fabric-x committers require TLS 1.3, so `minVersion` defaults to `772` (TLS 1.3) on these endpoints.
+
+- No TLS: set `enabled: false`, or leave TLS off in both the endpoint's and the network's `tls` block. An endpoint without a `tls` block takes the network's settings.
+- Server TLS: set `enabled: true` and `rootCAs.files`; the node verifies the committer's certificate against those CAs.
+- Mutual TLS: also set `clientCert.file` and `clientKey.file`.
+
+`serverNameOverride` sets the host name verified in the committer's certificate, which is needed when dialling an IP address:
+
+```yaml
+endpoints:
+  - address: "10.0.0.5:9090"
+    tls:
+      enabled: true
+      rootCAs:
+        files:
+          - "/path/to/ca.pem"
+      clientCert:
+        file: "/path/to/client.pem"
+      clientKey:
+        file: "/path/to/client-key.pem"
+      serverNameOverride: "committer.example.com"
+```
 
 ### Notification service tuning
 
@@ -117,7 +139,7 @@ Invalid timeouts are omitted, in which case the default above applies. Two zero 
 
 `handlerTimeout: 0`, `handlerWorkers: 0`, `handlerQueueSize: 0` and `sweepInterval: 0` have no such meaning and fall back to their defaults.
 
-## Related Documentation
+## Related documentation
 
 - [Fabric-x platform overview](README.md)
 - [Fabric platform configuration](../fabric/configuration.md)

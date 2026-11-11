@@ -1,17 +1,8 @@
-# View Platform Configuration
+# View platform configuration
 
-The View platform uses the shared FSC node configuration described in [shared node configuration](../../configuration.md).
+The View platform reads the `logging` and `fsc` sections of the shared FSC `core.yaml`: node identity, transport, persistence, observability and the runtime services the View SDK uses. Every key is listed in the [node configuration reference](../../configuration.md).
 
-## Core Sections
-
-For a node using only the View platform, the most relevant `core.yaml` sections are:
-
-- `logging`
-- `fsc`, in particular its subsections `fsc.grpc`, `fsc.p2p`, `fsc.kvs`, `fsc.persistences`, `fsc.web`, `fsc.tracing`, `fsc.metrics`
-
-These sections configure node identity, transport, persistence, observability, and runtime services used by the View SDK.
-
-## Related Documentation
+## Related documentation
 
 - [View SDK architecture](view-sdk.md)
 - [View runtime security model](security-model.md)

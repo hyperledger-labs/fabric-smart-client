@@ -1,11 +1,11 @@
-# Configuration Service
+# Configuration service
 
 ## Overview
 
 The configuration service in the View Platform is responsible for loading, managing, and providing access to application settings. 
 It follows a hierarchical structure and supports loading configuration from multiple sources, including YAML files and environment variables.
 
-## Key Features and Guarantees
+## Key features and guarantees
 
 * **Hierarchical Structure:** Configuration is organized in a nested tree structure using dot-separated keys (e.g., `fsc.id`, `fabric.network.name`).
 * **Case Insensitivity:** Configuration keys are **case-insensitive**. Whether you use `FSC.ID`, `fsc.id`, or `Fsc.Id`, the service will correctly identify and retrieve the corresponding value. Keys are lowercased on load, so a configuration with two keys at the same level that differ only in case, such as `Foo` and `foo`, is rejected. Likewise, a dotted key that names the same setting or section as a nested one, such as `fsc.id` next to `fsc: {id: ...}`, is rejected, also when the two come from different sources: the file and a `CORE_` environment variable, or the loaded configuration and one merged at runtime.
@@ -23,7 +23,7 @@ It follows a hierarchical structure and supports loading configuration from mult
 * **Configuration Merging:** The service supports dynamically merging additional configuration from byte buffers (YAML format) at runtime.
 * **Events:** It provides an event system to notify listeners when the configuration is merged or updated.
 
-## Environment Variable Substitution
+## Environment variable substitution
 
 The configuration service automatically maps environment variables with the `CORE_` prefix to configuration keys. The mapping follows these rules:
 1. The prefix `CORE_` is removed.
@@ -39,7 +39,7 @@ The environment variable `CORE_FSC_PERSISTENCES_MY__DB_OPTS_DATASOURCE` maps to 
 
 ## Examples
 
-### YAML Configuration (`core.yaml`)
+### YAML configuration (`core.yaml`)
 
 ```yaml
 fsc:
@@ -63,7 +63,7 @@ fabric:
     enabled: true
 ```
 
-### Accessing Configuration in Go
+### Accessing configuration in Go
 
 ```go
 func (s *MyService) DoSomething(cp *config.Provider) {
@@ -85,7 +85,7 @@ func (s *MyService) DoSomething(cp *config.Provider) {
 }
 ```
 
-### Merging Configuration at Runtime
+### Merging configuration at runtime
 
 ```go
 func (s *MyService) UpdateConfig(cp *config.Provider, rawYaml []byte) {
@@ -96,9 +96,9 @@ func (s *MyService) UpdateConfig(cp *config.Provider, rawYaml []byte) {
 }
 ```
 
-## Implementation Details
+## Implementation details
 
-The configuration service is based on [github.com/knadh/koanf](https://github.com/knadh/koanf), a light-weight, extensible configuration management library for Go. While the `config.Provider` interface abstracts most of these details, the underlying implementation utilizes `koanf` for its powerful parsing, merging, and environment variable substitution capabilities.
+The configuration service is based on [github.com/knadh/koanf](https://github.com/knadh/koanf), a configuration library for Go. The `config.Provider` interface hides most of it; the implementation uses `koanf` for parsing, merging and environment variable substitution.
 This implementation supports the field tag `yaml` as well. This allows the developer to support something like this:
 
 ```go

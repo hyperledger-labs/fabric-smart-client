@@ -1,6 +1,19 @@
-# Example configuration
+# Node configuration (core.yaml)
 
-The following configuration example provides descriptions for the various keys required for a Fabric Smart Client node that uses the Fabric SDK.
+Every FSC node reads one `core.yaml`. The annotated example below lists every key the node reads, with its default and meaning. Its top-level sections are:
+
+- `logging`: log format and levels.
+- `fsc`: the node itself (identity, TLS, gRPC, P2P, storage and persistences, views, web server, tracing, metrics, endpoints), read by the View platform.
+- `fabric`: one entry per Fabric or Fabric-x network, read by the Fabric and Fabric-x platforms. A node that installs only the View SDK leaves it out.
+
+After the example:
+
+- [Migrating TLS configuration](#migrating-tls-configuration)
+- [Overriding configuration keys](#overriding-configuration-keys)
+- [HSM support](#hsm-support)
+- [Persistence: sqlite/postgres](#persistence-sqlitepostgres), including [Query timeout](#query-timeout) and [Postgres errors](#postgres-errors)
+
+The platform pages explain settings that need more than a comment: [Fabric](platform/fabric/configuration.md), [Fabric-x](platform/fabric-x/configuration.md) and [View](platform/view/configuration.md).
 
 ```yaml
 ---
@@ -585,11 +598,13 @@ fabric:
     # pseudonyms are generated in batches of the given size to be ready to be used. 0 disables the cache.
     # if not specified then the default is 3. A negative or non-integer value is a startup error.
     mspCacheSize: 500
-    # the default msp for this node (matches the id in the msps key)
-    # TBD: what does being the default mean ?
+    # The id (from the msps list) of the MSP whose identity is this node's default identity
+    # on this network, used whenever no other identity is requested. When absent, the first MSP
+    # in the msps list is the default.
     defaultMSP: mymsp
-    # 1 or more msps this node can represent
-    # TBD: but what does that mean ???? how do you know which one will be used ?
+    # One or more MSPs, each an identity this node can use on this network. Every entry is
+    # loaded at startup; an identity other than the default is used only when a view asks for
+    # it by its id (for example the anonymous identity, by the id idemix).
     msps:
         # a unique id for this msp
       - id: mymsp
@@ -599,7 +614,7 @@ fabric:
         mspID: peerOrg2MSP
         # path to full local fabric defined msp structure (including private keys) of this fsc node
         path: /path/to/mymsp
-        # Options, currently only key available is BCCSP (so do we need the BCCSP key ?)
+        # Options; BCCSP is the only key
         opts:
           BCCSP:
             # Can be SW or PKCS11
@@ -634,11 +649,14 @@ fabric:
         mspID: IdemixOrgMSP
         # Path to idemix credentials
         path: /path/to/myanonymous/idemix
-        # TBD: Optional, applies only to idemix, need to define the scale and meaning and what 0 means
-        # used to override the MSPCacheSize
+        # Optional, idemix only. Number of pseudonyms generated in advance for this MSP. A value
+        # larger than 0 overrides mspCacheSize; 0 or absent uses mspCacheSize. An idemix-folder
+        # entry ignores it, and its MSPs always use mspCacheSize.
         cacheSize: 3
 
-      # TBD: idemix-folder, bccsp-folder
+      # The folder types load one MSP per subdirectory of path: each subdirectory is an MSP
+      # whose id and mspID are the subdirectory name, of type idemix (idemix-folder) or bccsp
+      # (bccsp-folder). opts applies to every MSP of a bccsp-folder entry.
 
     # Client-side TLS for every connection this node dials on this network: orderers, peers
     # and, for Fabric-x, the query and notification services.
@@ -969,12 +987,17 @@ fabric:
 
 ## Migrating TLS configuration
 
-Every TLS setting is now resolved through one schema: nested `{file:}` / `{files:}`, plural CA
-lists, and per-field inheritance from a parent `tls:` block. The old keys are **rejected at
-startup** rather than translated, so a node whose configuration no longer means what it says
-fails loudly instead of silently serving in the clear.
+Every TLS setting uses one schema: nested `{file:}` / `{files:}`, plural CA lists, and
+per-field inheritance from a parent `tls:` block. A field a `tls:` block omits takes the
+parent's value, and a field it sets overrides the parent even when the value is `false` or an
+empty list. Listeners (`fsc.grpc.tls`, `fsc.web.tls`, `fsc.metrics.tls`) inherit from
+`fsc.tls`; each `orderers[].tls`, `peers[].tls` and Fabric-x service endpoint `tls:` block
+inherits from its network's `fabric.<net>.tls`. Nothing inherits across the `fsc`/`fabric`
+boundary or between sibling blocks.
 
-Two mechanisms reject them, and the error you see depends on where the key sat:
+The node rejects the keys in the table below at startup instead of translating them, so a
+configuration that does not mean what it says fails instead of silently serving in the clear.
+Two checks reject them, and the error depends on where the key sits:
 
 - A key **inside** a `tls:` block fails the strict decode of that block, naming the key and
   the block: `invalid TLS configuration under [fabric.mynet.tls]: ... has invalid keys:
@@ -982,7 +1005,7 @@ Two mechanisms reject them, and the error you see depends on where the key sat:
 - A key **outside** every `tls:` block is caught by an explicit check that names the
   replacement for you: `configuration key [...] has been removed; use [...] instead`.
 
-| Removed | Replacement |
+| Rejected key | Use instead |
 | --- | --- |
 | `fsc.p2p.opts.websocket.tls.serverRootCAs.files` | `fsc.p2p.opts.websocket.tls.rootCAs.files` |
 | `fsc.metrics.prometheus.tls` | `fsc.metrics.clientAuthRequired` |
@@ -990,7 +1013,7 @@ Two mechanisms reject them, and the error you see depends on where the key sat:
 | `fabric.<net>.tls.serverHostOverride` | `fabric.<net>.tls.serverNameOverride` |
 | `fabric.<net>.tls.rootCert.file` | `fabric.<net>.tls.rootCAs.files` |
 | `fabric.<net>.tls.rootCertFile` | `fabric.<net>.tls.rootCAs.files` |
-| `fabric.<net>.tls.cert`, `.key`, `.clientRootCAs` | removed; nothing read them (a network dials, it does not listen) |
+| `fabric.<net>.tls.cert`, `.key`, `.clientRootCAs` | none; a network dials, it does not listen |
 | `fabric.<net>.ordering.tlsEnabled` | `fabric.<net>.tls.enabled` |
 | `fabric.<net>.ordering.tlsClientAuthRequired` | `fabric.<net>.tls.clientAuthEnabled` |
 | `orderers[].tlsEnabled`, `peers[].tlsEnabled` | `…[].tls.enabled` |
@@ -998,20 +1021,20 @@ Two mechanisms reject them, and the error you see depends on where the key sat:
 | `orderers[].tlsClientSideAuth`, `peers[].tlsClientSideAuth` | `…[].tls.clientAuthEnabled` |
 | `orderers[].tlsRootCertFile`, `peers[].tlsRootCertFile` | `…[].tls.rootCAs.files` |
 | `orderers[].serverNameOverride`, `peers[].serverNameOverride` | `…[].tls.serverNameOverride` |
-| `orderers[].tlsRootCertBytes`, `peers[].tlsRootCertBytes` | none; no YAML ever set it |
+| `orderers[].tlsRootCertBytes`, `peers[].tlsRootCertBytes` | none; set the CA files with `…[].tls.rootCAs.files` |
 | Fabric-x `tls.clientKey`, `.clientCert` (flat strings) | `tls.clientKey.file`, `tls.clientCert.file` |
 | Fabric-x `tls.rootCerts` (flat list) | `tls.rootCAs.files` |
 
-Two of these change behaviour rather than spelling:
+Two of these keys differ in meaning, not only in spelling, from the key to use instead:
 
-- **`ordering.tlsEnabled` / `ordering.tlsClientAuthRequired`** used to shadow the network block
-  for orderer connections alone, so the same two settings had two homes and the narrower one
-  silently won. The network `tls:` block now applies to every connection, orderers included. A
-  node that relied on `ordering.tlsEnabled: false` to reach its orderers in plaintext must now
-  say so with a per-orderer `tls: {enabled: false}` block.
-- **Metrics** now have their own `fsc.metrics.address`. Without one, `/metrics` and `/logspec`
-  stay on the `fsc.web` listener and share its TLS, as before; setting one gives them a
-  listener of their own, and `fsc.metrics.tls` then applies to it.
+- `fabric.<net>.ordering.tlsEnabled` and `ordering.tlsClientAuthRequired`: there are no
+  orderer-only TLS switches. The network `tls:` block applies to every connection, orderers
+  included. To reach the orderers in plaintext while the network block enables TLS, give each
+  orderer a `tls: {enabled: false}` block.
+- `fsc.metrics.prometheus.tls`: it controls whether scraping `/metrics` requires a client
+  certificate, which is `fsc.metrics.clientAuthRequired`, not transport TLS. Without
+  `fsc.metrics.address`, `/metrics` and `/logspec` are served on the `fsc.web` listener and use
+  its TLS; with it, they get a listener of their own, and `fsc.metrics.tls` applies to it.
 
 ### Other removed keys
 
@@ -1066,10 +1089,10 @@ CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web
 CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
 ```
 
-## HSM Support
+## HSM support
 
 In order to use a hardware HSM for x.509 identities, you have to build the application with
-`CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11 settings as describe above.
+`CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11 settings as described above.
 
 ## Persistence: sqlite/postgres
 
@@ -1083,7 +1106,7 @@ reasons to choose sql may include:
 
 The driver has been tested with the following sql drivers:
 
-- SQLite: (pure go): modernc.org/sqlite
+- SQLite (pure Go): modernc.org/sqlite
 - Postgres (pure Go): github.com/jackc/pgx/v5/stdlib
 
 In theory you can use any [sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in your application.
@@ -1132,7 +1155,7 @@ fsc:
 
 Unless `skipPragmas` is `true`, FSC adds these pragmas to the dataSource as `_pragma` parameters:
 
-```
+```text
 _pragma=busy_timeout(5000)
 _pragma=journal_mode(WAL)
 _pragma=synchronous(NORMAL)

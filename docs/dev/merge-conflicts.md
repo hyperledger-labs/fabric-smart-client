@@ -1,11 +1,11 @@
-# Resolving Merge Conflicts
+# Resolving merge conflicts
 
-Merge conflicts are caused by working on outdated versions of the codebase, or another developer merging a change involving similar parts of the codebase to you.
+A merge conflict happens when your branch and the branch you rebase onto both change the same lines. A branch that has fallen far behind main makes this more likely, and so does another developer merging a change to the same parts of the codebase.
 
 > [!IMPORTANT]
 > **Avoid Merge Conflicts** by syncing your branch regularly [Sync Guide](rebasing.md).
 
-## Step-by-Step Guide
+## Step-by-step guide
 
 ### 1. See which files are conflicted
 ```bash
@@ -32,7 +32,7 @@ Have a vision of what you'd like the final code to look like, given what is curr
 > - Do not blindly accept incoming
 > - Do not blindly accept existing
 
-Merge conflicts require: ✅ Human interpretation
+Merge conflicts require human interpretation.
 
 Sometimes you'll be:
 - Accepting both incoming and current
@@ -45,8 +45,7 @@ Generally, you want to keep all changes that were merged to main, but additional
 ### 4. Resolve conflicts in VS Code (recommended):
 Once you understand you have a merge conflict and have a vision of the final document, we recommend using VS Code.
 
-
-VS Code makes solving merge-conflicts easier with a 3-pane interface for resolving conflicts:
+VS Code makes solving merge conflicts easier with a 3-pane interface for resolving conflicts:
 
 - Incoming Change → your commit that the rebase is replaying (left/top)
 - Current Change → `HEAD` during the rebase: upstream main plus any of your commits already replayed (right/top)
@@ -81,7 +80,7 @@ You want to accept or reject content from the top left and top right panes, and 
    git rebase --continue
    ```
 
-7. If there are more conflicts in other files, VS Code will automatically move you to the next one. Repeat until no conflicts remain.
+7. If `git rebase --continue` stops again with conflicts, in other files or in a later commit, repeat these steps until the rebase completes.
 
    > [!WARNING]
    > Do not just click “Accept All Incoming” or “Accept All Current” — that usually **deletes** or **corrupts** important code.
@@ -102,7 +101,7 @@ You want to accept or reject content from the top left and top right panes, and 
 > [!TIP]
 > To be safe, create a backup branch before force pushing.
 
-## Common Issues
+## Common issues
 
 #### 1. Message: *“No changes – did you forget to use git add?”*
 - **What it means:** You resolved the conflicts but forgot to stage the files.
@@ -120,7 +119,7 @@ git rebase --abort
 > [!TIP]
 > At each conflict: resolve → save → stage → continue. Repeat until all conflicts are gone.
 
-### What NOT to do
+### What not to do
 1. ❌ Do not run git merge main
    → This creates messy merge commits. Always rebase instead.
 
@@ -132,7 +131,7 @@ git rebase --abort
 
 At each conflict instance, you'll have to repeat: fix the conflict, stage the files and continue rebasing.
 
-## Recovery Tips
+## Recovery tips
 
 Undo the last rebase commit, but keep changes staged (while still in rebase):
   If you are in the middle of a rebase and realize the last step went wrong, you can undo it while keeping changes staged:
@@ -157,7 +156,7 @@ git rebase --abort
 ```
 
 2. Reset your fork's main to the upstream main and layer your commits on top of that:
-``` bash
+```bash
 git checkout main
 git reset --hard upstream/main
 git push origin main --force-with-lease

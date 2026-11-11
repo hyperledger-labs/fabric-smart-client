@@ -1,8 +1,8 @@
-# FSC CLI Reference
+# FSC CLI reference
 
 ## Overview
 
-The Fabric Smart Client CLI (`fsccli`) is a helper utility command-line tool for developing and testing FSC-based application. It allows for managing FSC nodes, generating artifacts, managing cryptographic material, and invoking views on running FSC nodes.
+The Fabric Smart Client CLI (`fsccli`) is a helper utility command-line tool for developing and testing FSC-based applications. It allows for managing FSC nodes, generating artifacts, managing cryptographic material, and invoking views on running FSC nodes.
 
 ## Installation
 
@@ -35,7 +35,7 @@ fsccli version
 ```
 
 **Output:**
-```
+```text
 fsccli:
  Go version: go1.25.0
  OS/Arch: darwin/arm64
@@ -362,7 +362,7 @@ fsccli view \
   --userKey ./user-key.pem
 ```
 
-#### Configuration File Format
+#### Configuration file format
 
 ```yaml
 version: 1
@@ -380,7 +380,7 @@ signerconfig:
   keypath: <path>            # User private key (required)
 ```
 
-#### Input Encoding
+#### Input encoding
 
 The `--input` flag accepts data in two formats:
 
@@ -425,7 +425,7 @@ fsccli hsm show-slots
 ```
 
 **Output:**
-```
+```text
 Tokens found:
 ForFSC
 TestToken
@@ -451,7 +451,7 @@ The command uses these environment variables (if set):
 - **AWS CloudHSM:** `/opt/cloudhsm/lib/libcloudhsm_pkcs11.so`
 
 
-## Exit Codes
+## Exit codes
 
 The FSC CLI uses standard exit codes:
 

@@ -1,4 +1,4 @@
-# Runtime DB Access
+# Runtime DB access
 
 ## Overview
 
@@ -22,7 +22,7 @@ Related documentation:
 - [Fabric platform](../../fabric/README.md)
 - [Fabric-x platform](../../fabric-x/README.md)
 
-## Runtime Access Paths
+## Runtime access paths
 
 The following table summarizes the most common runtime access paths:
 
@@ -34,7 +34,7 @@ The following table summarizes the most common runtime access paths:
 | Reading Fabric-x state | `queryservice.GetQueryService(...)` or the channel API | Read state through the platform abstraction rather than local SQL |
 | Inspecting a live node database | `sqlite3` or `psql` in read-only mode | Inspect persisted rows for debugging or troubleshooting |
 
-## Runtime Access Layers
+## Runtime access layers
 
 At runtime, persistence-backed data flows through the following layers:
 
@@ -54,20 +54,11 @@ These layers have different responsibilities:
 - **Persistence:** the configured backend selection under `fsc.persistences`
 - **Backend:** the actual database implementation, such as SQLite or Postgres
 
-## Key Terms
+Persistence, store and driver are defined in [Database drivers](db-driver.md#project-terminology).
 
-For detailed definitions of persistence, store, and driver concepts, see the [Database drivers](db-driver.md) documentation.
+## Access from a running view
 
-Key runtime concepts:
-
-- **Persistence**: A named database configuration under `fsc.persistences` that defines the backend type and connection details
-- **Store**: A logical runtime data partition (e.g., KVS, vault, envelope store) backed by one or more tables
-- **Runtime Service**: The API that application code uses from a running view (e.g., `state.GetVault(viewCtx)`)
-- **Direct DB Access**: Inspecting the underlying database with external tools like `sqlite3` or `psql` for troubleshooting
-
-## Access from a Running View
-
-### General Rule
+### General rule
 
 Views and application services should prefer the runtime APIs exposed by FSC.
 Normal application logic should not be built around direct SQL access.
@@ -79,7 +70,7 @@ This reflects the runtime model:
 - Fabric and Fabric-x add their own abstractions on top of the underlying database
 - not all runtime state is guaranteed to be local SQL state
 
-### View Platform
+### View platform
 
 The base View platform wires four persistence-backed stores:
 
@@ -102,13 +93,13 @@ If an application needs direct access to a persistence-backed store from a view,
 2. Register that service in the application SDK or service registry
 3. Retrieve the service through `view.Context.GetService(...)`
 
-### Fabric Platform
+### Fabric platform
 
 The Fabric platform is the main place where runtime persisted state becomes an application-facing API.
 
 There are two common access levels.
 
-#### Simple Vault Access
+#### Simple vault access
 
 Use `state.GetVault(viewCtx)` when you need the application-facing state service:
 
@@ -130,7 +121,7 @@ func (v *MyView) Call(viewCtx view.Context) (any, error) {
 
 This is the simplest entry point for common Fabric state reads in views.
 
-#### Advanced Channel and Vault Access
+#### Advanced channel and vault access
 
 Use the channel API when you need lower-level control:
 
@@ -166,7 +157,7 @@ It also exposes:
 - envelope storage
 - transient data storage
 
-### Fabric-x Platform
+### Fabric-x platform
 
 Fabric-x behaves differently from Fabric.
 In practice:
@@ -181,16 +172,16 @@ In particular:
 - common entry points are `queryservice.GetQueryService(...)` and the channel/vault API
 - the Fabric-x vault uses a `QueryService` for state reads
 - range queries are not supported by the Fabric-x vault query executor
-- local persistence still exists for envelope, metadata, and endorse-tx data, but Fabric-x state queries do not read from local SQL vault tables
+- envelope, metadata, and endorse-tx data are kept in local persistence, but Fabric-x state queries do not read from local SQL vault tables
 
 Operationally:
 
 - Fabric usually exposes runtime state through a local vault-backed service
 - Fabric-x should be treated as a query-backed platform API, even if the node also persists some local data
 
-## Inspecting a Live Node Database
+## Inspecting a live node database
 
-### When Direct DB Access Makes Sense
+### When direct DB access makes sense
 
 Direct DB access is useful for:
 
@@ -201,10 +192,11 @@ Direct DB access is useful for:
 
 Direct inspection should be treated as **read-only**.
 
-### Locate the Active Persistence
+### Locate the active persistence
 
 Each logical store chooses a persistence by name.
-The persistence definitions live under `fsc.persistences`.
+The persistence definitions live under `fsc.persistences`; `fsc.persistences.<name>.opts.dataSource`
+is the SQLite file path or the Postgres connection string.
 
 Common store-to-persistence mappings are:
 
@@ -249,7 +241,7 @@ fabric:
       persistence: default
 ```
 
-### Backend Types
+### Backend types
 
 The three supported backend types are `memory`, `sqlite`, and `postgres`. For detailed configuration options and behavior, see the [Database drivers](db-driver.md) and [Shared node configuration](../../../configuration.md) documentation.
 
@@ -258,129 +250,25 @@ At runtime:
 - **sqlite**: local file-based, easiest for local inspection with separate read/write handles
 - **postgres**: external database, best for shared/remote inspection with a single connection pool
 
-## Table Naming
+### Tables and columns
 
-Table names are derived from the configured `tablePrefix` (default: `fsc`) combined with store-specific suffixes and parameters. For complete details on table naming conventions, table families, and physical schemas, see [Database layout](database-layout.md) and [Database drivers](db-driver.md).
+Table names derive from the persistence's `tablePrefix` (default `fsc`), the store's parameters and a
+store-specific suffix. For a network `default` and a channel `testchannel`, the vault tables are
+`fsc_default__testchannel_vstate` and `fsc_default__testchannel_vstatus`. Every table, its columns
+and the naming rules are in [Database layout](database-layout.md).
 
-### View Platform Tables
+At the `kvs.KVS` API layer, values are typically JSON-marshaled before they are persisted, so `val`
+in `fsc_kvs` is often readable JSON. In Fabric-based applications the main application state is
+usually in the vault, so `fsc_kvs` may contain little or no application data. On Postgres, the vault
+stores `pkey` as `BYTEA`; inspect it with `encode(pkey, 'escape')`.
 
-The KVS store is created without extra naming parameters, while the binding, signer info, and audit info stores are created with the `default` parameter.
-
-With the default prefix, a generated node typically creates:
-
-| Logical store | Default table | Main contents |
-| --- | --- | --- |
-| KVS | `fsc_kvs` | namespaced key/value data |
-| Binding | `fsc_default_bind` | ephemeral-to-long-term identity bindings |
-| Signer info | `fsc_default_sign` | known signer identities |
-| Audit info | `fsc_default_aud` | audit bytes by identity |
-
-### Fabric Platform Tables
-
-The Fabric envelope, metadata, and endorse transaction stores also use the `default` parameter in a generated node.
-
-With the default prefix, a generated node typically creates:
-
-| Logical store | Default table | Main contents |
-| --- | --- | --- |
-| Envelope | `fsc_default_env` | envelope bytes by `network.channel.txid` |
-| Metadata | `fsc_default_meta` | metadata bytes by `network.channel.txid` |
-| EndorseTx | `fsc_default_etx` | endorse transaction bytes by `network.channel.txid` |
-
-The Fabric vault tables are per network and per channel.
-Their base suffixes are:
-
-- `vstate`
-- `vstatus`
-
-So the effective table names are of the form:
-
-- `<prefix>_<escaped network+channel params>_vstate`
-- `<prefix>_<escaped network+channel params>_vstatus`
-
-For a network named `default` and a channel named `testchannel`, the generated tables (on SQLite and Postgres alike) are:
-
-- `fsc_default__testchannel_vstate`
-- `fsc_default__testchannel_vstatus`
-
-## What the Stored Data Looks Like
-
-### View KVS
-
-The View KVS stores:
-
-- `ns`: logical namespace
-- `pkey`: binary key
-- `val`: raw value bytes
-
-At the `kvs.KVS` API layer, values are typically JSON-marshaled before they are persisted.
-This means the stored bytes are often JSON and may be readable after decoding, but the database still stores them as bytes.
-In Fabric-based applications, the main application state is often stored in the Fabric vault instead of `fsc_kvs`, so it is normal for `fsc_kvs` to contain little or no application data.
-
-### Binding, Signer, and Audit Stores
-
-- binding rows map an ephemeral identity hash to a long-term identity
-- signer rows track known identity hashes
-- audit rows map identity hashes to audit bytes
-
-### Fabric Envelope, Metadata, and EndorseTx Stores
-
-These tables use a simple `key` / `data` layout.
-The key is the logical transaction key:
-
-`network.channel.txid`
-
-The payload is opaque binary data from the point of view of direct DB inspection.
-
-### Fabric Vault State and Status
-
-The Fabric vault uses two main tables:
-
-- `vstatus`
-  - tracks transaction status codes and messages
-- `vstate`
-  - stores current state rows by namespace and key
-
-The state rows include:
-
-- namespace
-- persisted key
-- raw value bytes
-- version bytes
-- metadata bytes
-
-Namespaces and keys are stored verbatim. SQLite stores keys as `TEXT`; Postgres stores them as `BYTEA`, so inspect them
-with `encode(pkey, 'escape')`.
-
-## Inspecting a Live Database
-
-### Locating the Database
-
-**SQLite**: The file path is defined in `fsc.persistences.<name>.opts.dataSource` (e.g., `/path/to/default.sqlite`)
-
-**Postgres**: The connection string is defined in `fsc.persistences.<name>.opts.dataSource`
-
-### Key Tables and Columns
-
-**Transaction status** (`fsc_<network>__<channel>_vstatus`):
-- `tx_id`, `code`, `message`, `pos`
-
-**Vault state** (`fsc_<network>__<channel>_vstate`):
-- `ns`, `pkey`, `val`, `metadata`, `kversion`
-
-**Envelopes** (`fsc_default_env`):
-- `key` (format: `network.channel.txid`), `data`
-
-**View KVS** (`fsc_kvs`):
-- `ns`, `pkey`, `val`
-
-### Important Notes
+### Binary columns
 
 - Payload columns (`val`, `data`, `metadata`) contain binary data that may be JSON, protobuf, or encoded bytes
 - Use `hex()` or `length()` functions when inspecting binary columns
 - Always use read-only access to avoid corrupting the database or invalidating caches
 
-## What Is Safe at Runtime
+## What is safe at runtime
 
 ### Safe
 
@@ -389,7 +277,7 @@ with `encode(pkey, 'escape')`.
 - comparing transaction status rows across nodes
 - validating that a configured persistence is being used
 
-### Unsafe or Unsupported
+### Unsafe or unsupported
 
 - modifying rows manually while the node is running
 - deleting rows from the KVS or vault tables

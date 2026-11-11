@@ -1,4 +1,4 @@
-# Integration Tests
+# Integration tests
 
 An integration test starts a real network and drives FSC nodes through it: the Fabric
 peers and orderers or the Fabric-x committer, the FSC nodes built from the test's topology,
@@ -10,6 +10,7 @@ Ginkgo v2 and Gomega.
 | Page | Read it to |
 |---|---|
 | [Authoring Integration Tests](authoring.md) | write a new suite: topology, storage, comm type, consensus, namespaces, spec structure |
+| [Fabric-x committers in integration tests](fabricx-committers.md) | configure the committer and orderer containers of a Fabric-x network, or add committers |
 | [Fault-Recovery Tests](fault-recovery.md) | inject faults into a running network and check that FSC recovers |
 | [Development Guide](../development.md#integration-tests) | install the Fabric binaries and Docker images, and run, profile or measure coverage of a target |
 
@@ -29,7 +30,7 @@ network definition (see [Registering the target](authoring.md#registering-the-ta
 | `fabric/configupdate` | `fabric-configupdate` | channel configuration updates |
 | `fabric/events` | `fabric-events` | chaincode events |
 | `fabric/faultrecovery` | `fabric-faultrecovery`, `-crash`, `-postgres-outage`, `-replication`, `-partition`, `-bft` | see [Fault-Recovery Tests](fault-recovery.md) |
-| `fabric/iou` | `fabric-iou`, `fabric-iou-libp2p` | the IOU life cycle, with replicas, on websocket and on libp2p, and with a lender that supports only version 1 of the `fabric` formats |
+| `fabric/iou` | `fabric-iou`, `fabric-iou-libp2p` | the IOU life cycle, with replicas, on WebSocket and on libp2p, and with a lender that supports only version 1 of the `fabric` formats |
 | `fabric/iouhsm` | `fabric-iouhsm` | the IOU life cycle with keys in an HSM (built with `-tags pkcs11`) |
 | `fabric/mixedversion` | `fabric-mixedversion` (nightly) | nodes of the previous FSC release next to nodes of the current tree: endorsement across releases, a node upgraded and rolled back replica by replica on a shared database, a replica killed after broadcasting whose transaction the replica of the other release settles, a responder behind a load balancer upgraded and rolled back replica by replica while transactions run, and the contract steps the previous release lacks run with `node migrate --contract`; see [Nodes of another release](authoring.md#nodes-of-another-release) |
 | `fabric/mixednets` | `fabric-mixednets` | a Fabric and a Fabric-x network side by side: a responder endorses a transaction for its non-default platform |
@@ -69,7 +70,7 @@ A filter that matches no spec still reports `ok`, so check the `Ran N of M Specs
 CI runs every target as a job of its own, on its own runner, from the list
 `make list-integration-tests` prints; adding a target to the `Makefile` adds the job. The
 jobs restore a shared Go build cache, so the time a suite adds to CI is mostly its network
-startup and its specs. A suite that grows too long for one job splits into labelled
+startup and its specs. A suite that grows too long for one job splits into labeled
 targets, as the fault-recovery suites do.
 
 Targets in `NIGHTLY_INTEGRATION_TARGETS` are left out of that list and run on a schedule
@@ -78,7 +79,7 @@ release, so the `Mixed versions` workflow runs it nightly, on demand, and on pul
 that change the suite, the release build, or code two releases share: the SQL stores of the
 view and Fabric platforms and their schema steps, the stream preamble, and the protobuf
 messages of `platform/fabric/protos` and `platform/fabricx/protos`. A failed nightly
-run opens the issue `Mixed versions nightly run failed`, labelled `testing` and `ci`, or
+run opens the issue `Mixed versions nightly run failed`, labeled `testing` and `ci`, or
 comments on it if it is open; the next successful nightly run closes it. A run started by
 hand with the `report` input opens, comments on and closes the issue the same way.
 

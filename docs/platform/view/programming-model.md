@@ -1,8 +1,8 @@
-# Programming Model Guide
+# Programming model guide
 
 This guide explains how to build FSC applications around views, sessions, identities, and platform services.
 
-## What FSC Applications Look Like
+## What FSC applications look like
 
 An FSC application is a Go program that embeds an FSC node, installs one or more SDKs, registers views, and starts the node runtime.
 
@@ -16,7 +16,9 @@ At a high level:
 
 This model lets you write business protocols directly as Go code instead of pushing all coordination into chaincode or external workflow engines.
 
-## Core Concepts
+## Core concepts
+
+[Core concepts](../../core-concepts.md#design-key-ingredients) defines views, identities and sessions, and the [View API](view-api.md) specifies their contracts. This section shows how a view uses them.
 
 ### Views
 
@@ -92,7 +94,7 @@ This keeps business logic decoupled from concrete wiring and storage details.
 
 For persistence-related service boundaries, see [Runtime DB access](services/runtime-db-access.md), [Database layout](services/database-layout.md), and [Database drivers](services/db-driver.md).
 
-## Application Structure
+## Application structure
 
 A typical FSC application has these pieces:
 
@@ -146,11 +148,11 @@ If the application also needs Fabric capabilities, it installs the Fabric SDK in
 
 For node startup configuration, see [View platform configuration](configuration.md) and [Shared node configuration](../../configuration.md).
 
-## Initiator and Responder Pattern
+## Initiator and responder pattern
 
 The most important programming pattern in FSC is the initiator/responder pair.
 
-### Initiator Responsibilities
+### Initiator responsibilities
 
 An initiator view typically:
 
@@ -206,7 +208,7 @@ This shows the essential mechanics:
 - send data
 - receive the response
 
-### Responder Responsibilities
+### Responder responsibilities
 
 A responder view typically:
 
@@ -257,7 +259,7 @@ limit a responder to the nodes it expects, register it with an authorizer (see
 
 For more details on initiator/responder dispatch and responder registration, see [View service](services/view-service.md).
 
-## View Factories and Registration
+## View factories and registration
 
 Views are often created through factories so that FSC can instantiate them from external input.
 
@@ -291,7 +293,7 @@ go get github.com/hyperledger-labs/fabric-smart-client@v0.28.0
 
 Use the latest release tag. These pages describe `main`, which can contain changes that are not released yet.
 
-Put the `main.go` of [Application Structure](#application-structure) in the module, with the views it registers, and build it:
+Put the `main.go` of [Application structure](#application-structure) in the module, with the views it registers, and build it:
 
 ```bash
 go build -o mynode .
@@ -355,7 +357,7 @@ and `RequireClientCert` in `grpc.SecureOptions`.
 [View service over HTTP](services/view-service-http.md) describes the HTTP transport of the same
 client, and `fsccli view` calls a view from the shell (see the [FSC CLI reference](../../reference/fsc-cli.md#view)).
 
-## Running Child Views
+## Running child views
 
 Large business protocols are easier to maintain if they are split into smaller views.
 
@@ -370,7 +372,7 @@ A parent view can call another view using [`RunView()`](services/view-service.md
 
 A good rule is that each view should represent a meaningful step in a business protocol, not just a random helper function.
 
-## Accessing Runtime and Application Services
+## Accessing runtime and application services
 
 For reusable application logic, prefer services over duplicating wiring inside every view.
 
@@ -383,7 +385,7 @@ Patterns that work well:
 
 This aligns with the service-oriented model described in [`view-service.md`](services/view-service.md).
 
-## Where Fabric Fits
+## Where Fabric fits
 
 The View platform provides the programming model for distributed protocols. The Fabric platform adds ledger-facing capabilities on top of that model.
 
@@ -395,7 +397,7 @@ In practical terms:
 The architecture summary in [`core-concepts.md`](../../core-concepts.md) describes this split:
 the View platform handles orchestration, while the Fabric platform provides Fabric-aware APIs such as state, vault, transaction, and finality services.
 
-## Recommended Design Style
+## Recommended design style
 
 When writing FSC applications, prefer the following style:
 
@@ -434,7 +436,7 @@ Protocols are easier to debug when the steps are clear:
 
 Views should work in terms of FSC identities and business roles rather than raw addresses.
 
-## Error Handling Guidelines
+## Error handling guidelines
 
 Distributed protocols fail in real systems, so views should handle:
 
@@ -477,7 +479,7 @@ For complete examples, see:
 - [stoprestart](../../../integration/fsc/stoprestart) - Session handling across a responder restart
 - [IOU](../../../integration/fabric/common/iou) - Complex Fabric integration with state management and endorsement collection
 
-## Symmetric Signing with Session Identity
+## Symmetric signing with session identity
 
 In protocols where each party must sign its message and verify the counterpart's signature, both identities — local and remote — can be resolved directly from the session without additional parameters or out-of-band lookups.
 
@@ -507,7 +509,7 @@ Both sides of the protocol apply the same pattern — the initiator's `LocalPKID
 
 For a complete end-to-end example of this pattern with negative-case checks, see [`integration/fsc/signedpingpong`](../../../integration/fsc/signedpingpong).
 
-## Suggested Development Flow
+## Suggested development flow
 
 A practical way to build an FSC application is:
 
@@ -564,7 +566,7 @@ authorizer's own error text never reaches the caller. A running check holds a re
 counted against both `fsc.p2p.maxRespondersPerPeer` and `fsc.p2p.maxResponders`, so keep it fast.
 
 The authorizer decides who may start the responder. It does not check the payload: the responder
-must still validate every message it receives, as [Responder Responsibilities](#responder-responsibilities) describes.
+must still validate every message it receives, as [Responder responsibilities](#responder-responsibilities) describes.
 
 Each initiator of a responder has its own authorizer, so a responder registered for several
 initiators needs an authorizer on each of them: an initiator registered without one lets any node
@@ -634,10 +636,11 @@ Applications with their own recipient exchange can reuse the same proof:
 `state.SignRecipientProof` and `state.VerifyRecipientProof`
 (`platform/fabric/services/state/proof.go`) sign and check it, and `endpoint.Service.BindProven`
 binds the verified identity to the caller's node identity. See
-[Security Model](security-model.md#recipient-proof-of-ownership).
+[Recipient proof of ownership](../fabric/security.md#recipient-proof-of-ownership).
 
-## Related Documentation
+## Related documentation
 
+- [View API](view-api.md)
 - [View SDK architecture](view-sdk.md)
 - [View service](services/view-service.md)
 - [View platform configuration](configuration.md)

@@ -1,4 +1,4 @@
-# Fabric Smart Client Documentation
+# Fabric Smart Client documentation
 
 ## Getting started
 
@@ -8,7 +8,7 @@ To write your first FSC application:
 3. Add the ledger you target: the [Fabric platform](platform/fabric/README.md) or the [Fabric-x platform](platform/fabric-x/README.md).
 4. Configure your node with [`core.yaml`](configuration.md).
 
-## Core Concepts
+## Core concepts
 
 - [Overview and architecture](core-concepts.md)
 - [Shared node configuration](configuration.md)

@@ -1,4 +1,4 @@
-# Fault-Recovery Tests
+# Fault-recovery tests
 
 The fault-recovery suites take parts of a running network down (FSC nodes, peers, orderers,
 the Fabric-x committer, Postgres, network links) and check that FSC either recovers on its
@@ -43,8 +43,8 @@ discovers all the others through gossip.
 Every organization with a peer in a Fabric-x network runs a committer, named `CommitterName(org)`
 (`Org2_committer_0`), in a container of its own with its own database, and each FSC node
 uses its own organization's committer. All committers read from one mock orderer in a
-separate container; the [Fabric-x guide](../../platform/fabric-x/README.md#integration-tests)
-covers the topology options.
+separate container; [Fabric-x committers in integration tests](fabricx-committers.md) covers
+the topology options.
 
 `fabricx.FxPlatform(ii).StopCommitter(names...)` and `StartCommitter(names...)` stop and
 restart the services of the named committers, every committer when no name is given, so a spec can take one
@@ -143,7 +143,7 @@ both suites need goes there.
 | Spec group | What it registers |
 |---|---|
 | `CrashSpecs(s, responder)` | the crash and catch-up specs, with `responder` as the node that crashes. They kill the responder after it endorsed, again while it catches up, and under load, and kill alice after she broadcast a transaction and before she saw it final. Each name ends in `(<responder>)` and carries the `crash` label; both suites call it for bob and for charlie, so a node on SQLite is crashed as well as one on Postgres. |
-| `ClientSpecs(s)` | how alice's gRPC and web view clients behave across a restart of her node, and a call bob's responder is blocked in, cancelled through each client: the call fails with the cancellation and bob frees the responder's view context |
+| `ClientSpecs(s)` | how alice's gRPC and web view clients behave across a restart of her node, and a call bob's responder is blocked in, canceled through each client: the call fails with the cancellation and bob frees the responder's view context |
 | `ViewSpecs(s)` | called once per suite: a view with two responders, bob and charlie, while charlie is down; it must fail within `SessionCloseTimeout`, and bob must release his half |
 | `DependencySpecs(s, dbPrefix)` | take down bob's Postgres database, `DBName(dbPrefix, "bob")`, and bring it back |
 | `HostileSpecs(s)` | a bob that changes the transaction before endorsing it; alice must reject the endorsement |
@@ -219,9 +219,9 @@ the orderers through them, while raft traffic stays direct.
 
 It also turns on alice's gRPC client keepalive (`KeepaliveTime`, 60 s, plus
 `KeepaliveTimeout`, 10 s). nwo leaves gRPC keepalive off for every other node, and without
-it a silent partition of the delivery peer is never detected. The websocket between two
+it a silent partition of the delivery peer is never detected. The WebSocket between two
 FSC nodes has a keepalive of its own, on by default (`fsc.p2p.opts.websocket.keepalive`,
-30 s plus 10 s), which closes a silently cut websocket and its sessions; `SetFaultProxies`
+30 s plus 10 s), which closes a silently cut WebSocket and its sessions; `SetFaultProxies`
 shortens it for alice and bob to `P2PKeepaliveInterval` plus `P2PKeepaliveTimeout`, 5 s
 each, so a spec sees the cut well within a view's own receive timeout. Each spec there heals the proxy it partitions.
 
@@ -244,18 +244,18 @@ front of the P2P ports of the node's replicas and writes the proxy's address as 
 P2P address in every other node's `core.yaml`. The proxy forwards each new connection to
 the next replica that accepts a dial and passes the bytes through, so TLS ends at the
 replica; this works because nwo gives every replica of a node the same TLS key pair, which
-the websocket transport requires since it authenticates both sides from the TLS
+the WebSocket transport requires since it authenticates both sides from the TLS
 certificates. `FscPlatform.LoadBalancer(name).Connections()` returns the open connections
 per replica P2P address, so a spec can find the replica that holds a peer's connection;
 `faultrecovery.ConnectedReplica(ii, name)` returns that replica and the others.
 
-Alice multiplexes all her sessions to bob over one websocket, so the replica that holds it
+Alice multiplexes all her sessions to bob over one WebSocket, so the replica that holds it
 serves every one of them; she reaches the other replica only after that connection closes
 and she dials again. A dropped connection runs the same close path on both ends whatever
 closed it. On a load balancer that closes the connection with a FIN, alice's provider and
 the replica both read the end of the stream at once, as when a replica dies;
 `Proxy.CloseConnections()` reproduces it while both replicas stay up. A balancer that drops
-the flow silently is detected by the websocket keepalive instead, as a partition is (see
+the flow silently is detected by the WebSocket keepalive instead, as a partition is (see
 [Partitions and latency](#partitions-and-latency)). `FailoverSpecs` covers the three cases
 in [#2546](https://github.com/hyperledger-labs/fabric-smart-client/issues/2546): "fails an
 in-flight view cleanly when its replica dies", "continues on the other replica when the load

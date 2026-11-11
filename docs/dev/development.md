@@ -1,4 +1,4 @@
-# Development Guide
+# Development guide
 
 This document provides guidelines and steps for setting up your local development environment for the **Fabric Smart Client (FSC)**.
 
@@ -13,18 +13,29 @@ Before you begin, ensure you have the following installed:
 - **Go** — [Install Go](https://go.dev/doc/install) (see the required version in [`go.mod`](../../go.mod))
 - **Docker** — [Install Docker Engine](https://docs.docker.com/engine) (or a compatible container manager)
 
-## Clone the Repository
+## Fork and clone
 
-Clone the FSC repository to your local workspace.  
-Throughout this document, `$FSC_PATH` refers to the local path of your cloned repository.
+Fork [the repository](https://github.com/hyperledger-labs/fabric-smart-client) on GitHub,
+clone your fork, and add the main repository as the `upstream` remote. Your fork is
+`origin`: you push branches there and open pull requests from it. `upstream` is what you
+rebase onto (see [Rebasing](rebasing.md)).
+Throughout this document, `$FSC_PATH` refers to the local path of your clone.
 
 ```bash
 export FSC_PATH=$HOME/myprojects/fabric-smart-client
-git clone https://github.com/hyperledger-labs/fabric-smart-client.git $FSC_PATH
+git clone https://github.com/YOUR_GITHUB_NAME/fabric-smart-client.git $FSC_PATH
 cd $FSC_PATH
+git remote add upstream https://github.com/hyperledger-labs/fabric-smart-client.git
+git fetch upstream
 ```
 
-## Setting Up Developer Tools
+Do each change on its own branch, started from upstream `main`:
+
+```bash
+git switch -c my-change upstream/main
+```
+
+## Setting up developer tools
 
 FSC provides several helper tools for building, testing, and monitoring.
 Install them using:
@@ -45,10 +56,9 @@ make install-fabric-bins pull-images-fabric
 
 > [!IMPORTANT]
 > `FABRIC_BINARY_BASE` defaults to `$(PWD)/../fabric`, which assumes you are in your
-> primary checkout. Run this from a worktree under `.claude/worktrees/<name>/` and it
-> resolves to a sibling of the *worktree* — a second Fabric install, in the wrong
-> place, inside the repository, with no warning. From a worktree, either run the target
-> from the primary checkout or pass the base explicitly:
+> primary checkout. Run this from a git worktree and it resolves to a sibling of the
+> *worktree*: a second Fabric install in the wrong place, with no warning. From a
+> worktree, either run the target from the primary checkout or pass the base explicitly:
 >
 > ```bash
 > FABRIC_BINARY_BASE=$HOME/fabric make install-fabric-bins
@@ -82,7 +92,6 @@ exception: `make` retags them to fixed local names (`fsc.itests/postgres:latest`
 resolves short image names differently from Docker and the peer configuration names the
 Fabric images.
 
-
 ### Fabric-x
 
 Install Fabric-x configuration tools and Docker images:
@@ -102,7 +111,7 @@ Most integration tests require Fabric(x) binaries to launch a local test network
 Set the `FAB_BINS` environment variable to point to the directory containing these binaries:
 
 ```bash
-export FAB_BINS=/home/yourusername/fabric/bin
+export FAB_BINS=$FSC_PATH/../fabric/bin
 ```
 
 One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
@@ -111,14 +120,14 @@ One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
 
 > [!NOTE]
 > Do *not* store the Fabric binaries inside your fabric-smart-client repository.
-Doing so may cause integration tests to fail when installing chaincode.
+> Doing so may cause integration tests to fail when installing chaincode.
 
-## Running Tests
+## Running tests
 
 FSC includes both unit tests and integration tests.
-Integration tests are powered by the NWO (Network Orchestrator), which programmatically creates DLT networks and FSC application nodes.
+Integration tests are powered by `nwo` (Network Orchestrator), which programmatically creates DLT networks and FSC application nodes.
 
-### Code Checks
+### Code checks
 
 `make checks` runs the linter and `go fix` across every module in the repository, and checks
 that no page for people links into `docs/agents/` (see
@@ -149,7 +158,7 @@ Run `make list-go-modules` to see which modules these targets cover.
 > gofmt -l $(git ls-files '*.go')
 > ```
 
-### Unit Tests
+### Unit tests
 
 Run all unit tests:
 ```bash
@@ -195,7 +204,7 @@ To reproduce the filtered local coverage used in CI:
 make coverage-local
 ```
 
-### Integration Tests
+### Integration tests
 
 [Integration Tests](integration-tests/README.md) lists the suites and what each covers. This
 section covers running them.
@@ -254,7 +263,7 @@ already in use`. Targets share these resources:
 
 CI runs each target as a job on its own runner, so this applies only locally.
 
-### What CI Gates
+### What CI gates
 
 CI gates every pull request on the following. It drives the linter through
 `golangci-lint-action` and `go fix` through its own workflow rather than through these
@@ -298,11 +307,11 @@ Before pushing for review, read [Commit Hygiene](workflow.md#commit-hygiene).
 
 `golangci-lint` keeps one machine-wide cache — `golangci-lint cache status` prints the
 directory — shared by every checkout of the repository. Working in more than one
-checkout, a second clone or a worktree under `.claude/worktrees/`, can therefore surface
+checkout, a second clone or a git worktree, can therefore surface
 findings against files outside the tree you are linting. The giveaway is a path that
 leaves your working directory:
 
-```
+```text
 ../other-worktree/node/start/profile/profile_test.go:119:1: ...
 ```
 
@@ -328,11 +337,10 @@ ls $FAB_BINS/fabric-x   # fabric-x tools
 
 ### Fabric suites failing in `configtxgen`
 
-Before the fabric-x tools moved into `$FAB_BINS/fabric-x`,
-`make install-fabricx-tools` installed its `configtxgen` and `cryptogen` on top
-of fabric's. If you ran it against an older checkout, those two binaries in
-`$FAB_BINS` are still the fabric-x ones, and every `fabric-*` suite fails while
-generating artifacts. `make install-fabric-bins` will not repair it, because it
+Every `fabric-*` suite fails while generating artifacts when the `configtxgen`
+and `cryptogen` in `$FAB_BINS` are the fabric-x ones rather than fabric's. This
+happens when an older checkout's `make install-fabricx-tools` installed them
+directly into `$FAB_BINS` instead of `$FAB_BINS/fabric-x`. `make install-fabric-bins` will not repair it, because it
 skips the download whenever `bin/peer version` already matches
 `FABRIC_VERSION`. Remove the directory and re-install once:
 
@@ -379,7 +387,7 @@ go test -race -coverprofile=cov.out ./platform/common/utils/dig
 go tool cover -func=cov.out
 ```
 
-## Dependency Management
+## Dependency management
 
 FSC is a multi-module repository. Use [`scripts/gomate.sh`](../../scripts/gomate.sh) to manage Go dependencies across all modules at once.
 
@@ -407,7 +415,7 @@ Omit the argument to update all direct dependencies to their latest versions:
 ./scripts/gomate.sh update
 ```
 
-Be careful with updating all dependencies at once. This may easily break something.
+Updating all dependencies at once can introduce breaking changes; review the result.
 Note that `gomate.sh tidy` can also be invoked via `make tidy`. 
 After updating, run `make tidy` and `make checks` to verify the result.
 
@@ -420,12 +428,12 @@ often needs matching non-dependency changes across modules, so they're updated b
 with `gomate.sh update` on a regular cadence instead of arriving as unreviewed weekly noise.
 
 Dependabot's `ignore` suppresses both the weekly version-update PRs and the
-auto-generated security-update PRs for these deps -- there's no config to scope it to
+auto-generated security-update PRs for these deps; there's no config to scope it to
 one or the other. A GHSA against any of them still shows up as a Dependabot alert (the
 repo's Security tab), it just won't arrive as a ready-made PR; treat that alert the
 same as a routine bump and patch it by hand.
 
-## Write Your Own Integration Test
+## Write your own integration test
 
 [Authoring Integration Tests](integration-tests/authoring.md) walks through a new suite: its
 directory and files, the topology, and registering its `make` target.

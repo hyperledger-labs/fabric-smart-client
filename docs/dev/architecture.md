@@ -1,8 +1,8 @@
-# Architecture & Dependency Injection
+# Architecture and dependency injection
 
 ## Platform layers
 
-```
+```text
 platform/
 ├── view/      # Core: P2P comm, view execution, identity, storage, metrics/tracing
 ├── fabric/    # Fabric integration: chaincode, endorsement, vault, RWSet
@@ -12,13 +12,13 @@ platform/
 Each platform has an `sdk/dig/sdk.go` that wires services with
 [uber/dig](https://github.com/uber-go/dig). SDKs compose hierarchically:
 
-```
+```text
 BaseSDK → ViewSDK → FabricSDK → FabricXSDK → Application SDK
 ```
 
 A platform depends on the platforms below it, never on those built on it: no package under
 `platform/fabric/` imports `platform/fabricx/`, and a test in `platform/fabric/protos` checks
-it. Where Fabric code needs per-platform behaviour, the platform built on it registers it.
+it. Where Fabric code needs per-platform behavior, the platform built on it registers it.
 The transaction formats are an example: `platform/fabric/protos` defines the
 `TransactionEnvelope` and the Fabric format, and `platform/fabricx/protos` registers the
 Fabric-x format with `RegisterTransactionFormat` in an `init` function.
@@ -155,11 +155,9 @@ Worked examples live in
 
 ## Where FSC sits in the ecosystem
 
-- **[Panurus](https://github.com/LFDT-Panurus/panurus)** (formerly Token SDK) is a
-  token layer built *on top of* FSC. It reuses FSC's view/session model and even
-  imports `pkg/utils/errors`, so its conventions are a stricter superset of FSC's —
-  a useful reference when tightening our own.
+- **[Panurus](https://github.com/LFDT-Panurus/panurus)** is a token layer built on
+  top of FSC. It uses FSC's view/session model and FSC's `pkg/utils/errors`.
 - **[Fabric-x Committer](https://github.com/hyperledger/fabric-x-committer)** is the
   validation/commit service the `fabricx` platform submits transactions to. It is a
-  separate Go codebase with deliberately different conventions (e.g. `cockroachdb/errors`,
-  concrete-types-over-interfaces) — align with it only on the wire/protocol, not on Go style.
+  separate Go codebase with its own conventions; FSC shares its wire protocol, not its
+  Go style.

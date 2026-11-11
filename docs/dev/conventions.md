@@ -10,8 +10,8 @@
 ## Error handling
 
 Use `github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors`. Do **not**
-build or wrap errors with `fmt.Errorf` (the codebase uses `errors.Wrapf`/`Errorf`
-~10x more than `fmt.Errorf`, and downstream projects such as Panurus enforce this).
+build or wrap errors with `fmt.Errorf` (downstream projects such as Panurus enforce
+this too).
 
 Permitted constructors: `errors.New`, `errors.Errorf`, `errors.Wrap`,
 `errors.Wrapf`, `errors.WithMessage`, `errors.WithMessagef`, `errors.Join`.
@@ -114,7 +114,7 @@ for the trust and identity model.
 - Keep endorser/HSM key material out of application views.
 - The view API's HTTP binding ignores unknown JSON fields, as gRPC ignores unknown protobuf
   fields, so an older node accepts a message with a field it does not know and does not
-  honour it. Never add a field with security meaning (an audience, a target node, a signature
+  honor it. Never add a field with security meaning (an audience, a target node, a signature
   algorithm) to an existing view-API message; add a new command type, which an older server
   rejects with `ErrCommandNotRecognized`.
 - FSC's wire and API protos (the files `buf.yaml` includes) only gain fields, so a node reads

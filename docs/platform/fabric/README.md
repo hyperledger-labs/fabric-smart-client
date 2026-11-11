@@ -1,16 +1,17 @@
-# Fabric Platform
+# Fabric platform
 
 The Fabric platform extends the FSC view runtime with services and APIs for communicating with Hyperledger Fabric networks.
 
-## Start Here
+## Start here
 
 - [Fabric SDK architecture](fabric-sdk.md)
 - [Fabric platform driver architecture](drivers.md)
 - [Fabric platform configuration](configuration.md)
+- [Fabric security](security.md): what a node checks in transactions and identities from other nodes
 
 ## Use Fabric from a view
 
-A node talks to Fabric once it installs the Fabric [SDK](../../../platform/fabric/sdk/dig/sdk.go) in place of the view SDK. The Fabric SDK builds on the view SDK, so the views and responders you register work as in the [Programming Model Guide](../view/programming-model.md). The SDK does nothing unless `fabric.enabled` is `true` in `core.yaml` (see [configuration](configuration.md)).
+A node talks to Fabric once it installs the Fabric [SDK](../../../platform/fabric/sdk/dig/sdk.go) in place of the view SDK. The Fabric SDK builds on the view SDK, so the views and responders you register work as in the [Programming model guide](../view/programming-model.md). The SDK does nothing unless `fabric.enabled` is `true` in `core.yaml` (see [configuration](configuration.md)).
 
 ```go
 import (
@@ -185,14 +186,14 @@ The approver's responder has the same shape as `LenderView` without the identity
 
 The complete example is [`integration/fabric/common/iou`](../../../integration/fabric/common/iou): the borrower, lender and approver views, including an update of an existing state, are in its `views` directory, and `topology.go` shows which node registers which view.
 
-## What This Platform Adds
+## What this platform adds
 
 - Fabric-aware APIs layered on top of the View platform
 - Transaction endorsement and submission flows
 - Identity providers and finality handlers
 - Vault and state-oriented services used by Fabric applications
 
-## Related Documentation
+## Related documentation
 
 - [View platform](../view/README.md)
 - [Shared node configuration](../../configuration.md)

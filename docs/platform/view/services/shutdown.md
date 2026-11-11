@@ -88,7 +88,7 @@ connections keep serving the protocols they carry until they finish.
 
 Give the pod time for the whole sequence:
 
-```
+```text
 terminationGracePeriodSeconds >= preStop sleep + drainTimeout + teardownTimeout + 5s
 ```
 

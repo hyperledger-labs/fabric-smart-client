@@ -80,7 +80,7 @@ Each platform owns its payload format: `platform/fabric/protos` holds the Fabric
 registry (`RegisterTransactionFormat`), and `platform/fabricx/protos` registers the Fabric-x
 format in an `init` function. A format also tells the endorser whether to check that the txID is
 derived from nonce and creator (`SkipTxIDCheck`, set for Fabric-x; see
-[Security Model](../view/security-model.md#data-received-from-peers)). A receiver refuses an
+[Fabric security](security.md#data-received-from-peers)). A receiver refuses an
 envelope whose platform has no registered format, whose `channel` differs from the channel
 header of the signed proposal, or whose platform differs from the driver of the network that
 decodes it.
