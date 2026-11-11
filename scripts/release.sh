@@ -4,14 +4,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# release.sh prepare|pr|publish cuts a minor release of FSC in three steps.
+# release.sh prepare|pr|publish cuts a release of FSC in three steps: a minor vX.Y.0
+# from main, or a patch vX.Y.Z from its release branch release-X.Y.
 # docs/dev/releasing.md describes the steps, a release from a fork, and what to do
 # by hand when one of them stops.
 #
-#   prepare  generate the release files of the next minor on release/vX.Y.0, staged
+#   prepare  generate the release files on release/vX.Y.Z, staged
 #   pr       commit them, push the branch, open or update the release PR
-#   publish  check the merged release commit on main, tag it, push the tags and
-#            create the GitHub release
+#   publish  check the merged release commit, tag it, push the tags and create the
+#            GitHub release
 #
 # Settings, all optional:
 #   RELEASE_REPO  the GitHub repository to release in, owner/name; by default the
@@ -19,8 +20,9 @@
 #                 tags and GitHub release, and notes that link to it.
 #   REMOTE        the git remote of RELEASE_REPO; upstream for the main repository,
 #                 origin for a fork.
-#   VERSION       the version prepare picks, vX.Y.0; by default the next minor
-#                 after the main repository's latest release.
+#   VERSION       the version prepare picks, vX.Y.Z; by default the next minor
+#                 after the main repository's latest release. publish takes it
+#                 when more than one release is untagged.
 #   DRY_RUN=1     do every local step and check, and print what would be written to
 #                 GitHub instead of writing it.
 #   YES=1         answer every question with yes.
@@ -77,14 +79,28 @@ check_remote() {
 
 check_clean() { [[ -z "$(git status --porcelain)" ]] || die "the working tree is not clean"; }
 
-# fetch fetches main from $REMOTE, and the tags of the main repository too when the
-# release goes to a fork: they hold the previous release.
+# base prints the branch release $1 is cut from: main for a minor, release-X.Y for a patch.
+base() {
+    [[ "$1" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || die "invalid version $1"
+    if [[ "${BASH_REMATCH[3]}" == 0 ]]; then echo main; else echo "release-${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"; fi
+}
+
+# fetch_main_repo fetches the release tags, main and the release branches of the main
+# repository, for a release in a fork: they hold the previous release, and GitHub
+# generates the changelog there.
+fetch_main_repo() {
+    git fetch -q --tags "$MAIN_URL" "+main:refs/release/main" "+refs/heads/release-*:refs/release/release-*"
+}
+
+# fetch fetches main and the release branches from $REMOTE, and the main repository
+# too when the release goes to a fork.
 fetch() {
     say "fetching $REMOTE"
-    git fetch -q --tags "$REMOTE" main
+    git fetch -q --tags "$REMOTE" "+refs/heads/main:refs/remotes/$REMOTE/main" \
+        "+refs/heads/release-*:refs/remotes/$REMOTE/release-*"
     if [[ "$REPO" != "$MAIN_REPO" ]]; then
-        say "fetching the release tags and main of $MAIN_REPO"
-        git fetch -q --tags "$MAIN_URL" "+main:refs/release/main"
+        say "fetching the release tags, main and the release branches of $MAIN_REPO"
+        fetch_main_repo
     fi
 }
 
@@ -93,7 +109,8 @@ fetch() {
 # main repository's.
 tagged() { git ls-remote --exit-code -q --tags "$REMOTE" "refs/tags/$1" >/dev/null; }
 
-# previous_release prints the highest release tag below $1.
+# previous_release prints the release $1 follows: vX.Y.(Z-1) for a patch, vX.(Y-1).0 for a
+# minor.
 previous_release() { go run ./scripts/release previous --version "$1"; }
 
 # report writes the reference node's report to $TMP/report.json.
@@ -111,7 +128,9 @@ notes() {
     # the main repository has the release tags. A fork's notes list the PRs merged into the
     # main repository up to the commit the fork's release is based on.
     if [[ "$REPO" != "$MAIN_REPO" ]]; then
-        target=$(git merge-base "$3" refs/release/main) || die "${3:0:9} shares no commit with $MAIN_REPO main"
+        local b
+        b=$(base "$1")
+        target=$(git merge-base "$3" "refs/release/$b") || die "${3:0:9} shares no commit with $MAIN_REPO $b"
     fi
     gh api "repos/$MAIN_REPO/releases/generate-notes" -f tag_name="$1" \
         -f previous_tag_name="$previous" -f target_commitish="$target" --jq .body > "$TMP/changelog.md"
@@ -133,35 +152,59 @@ prepare() {
         die "the working tree is not clean; to prepare again, remove the staged release files as docs/dev/releasing.md, Stopping or abandoning a release, shows"
     check_remote
     gh auth status >/dev/null 2>&1 || die "gh is not logged in; run gh auth login"
-    docker info >/dev/null 2>&1 || die "Docker is not running; the storage fixtures need it"
     fetch
-    local version previous
+    local version previous b
     version=${VERSION:-$(go run ./scripts/release bump)}
-    [[ "$version" =~ ^v[0-9]+\.[0-9]+\.0$ ]] || die "a release is a minor vX.Y.0 (got: $version)"
+    b=$(base "$version" 2>/dev/null) || die "a release is vX.Y.Z (got: $version)"
+    # A minor writes storage fixtures, which run Postgres; a patch has none.
+    [[ "$b" != main ]] || docker info >/dev/null 2>&1 || die "Docker is not running; the storage fixtures need it"
+    git rev-parse -q --verify "$REMOTE/$b^{commit}" >/dev/null ||
+        die "$REMOTE has no branch $b; create it as docs/dev/releasing.md, Creating a release branch, shows"
     ! tagged "$version" || die "$version is tagged already"
-    local guide others
-    guide=$(git ls-tree --name-only "$REMOTE/main" docs/upgrade/ | grep -- "-to-${version%.0}\.md$" | head -n1 || true)
-    [[ -n "$guide" ]] || die "$REMOTE/main has no upgrade guide docs/upgrade/v…-to-${version%.0}.md"
     # One release at a time: the release PR of another version would be tagged later
     # with notes that miss this one.
+    local others
     others=$(gh pr list -R "$REPO" --state open --search "head:release/v" --json headRefName \
         --jq "[.[].headRefName | select(startswith(\"release/v\") and . != \"release/$version\")] | join(\" \")")
     [[ -z "$others" ]] || die "release PR $others is open; merge or close it first"
     previous=$(previous_release "$version")
-    say "the upgrade guide of $version is $guide"
-    confirm "Is $guide complete: every breaking change has a section that says what to do, and the checklist lists every step?"
-    confirm "Prepare $version (after $previous) on release/$version from $REMOTE/main?"
+    if [[ "$b" == main ]]; then
+        local guide
+        guide=$(git ls-tree --name-only "$REMOTE/main" docs/upgrade/ | grep -- "-to-${version%.0}\.md$" | head -n1 || true)
+        [[ -n "$guide" ]] || die "$REMOTE/main has no upgrade guide docs/upgrade/v…-to-${version%.0}.md"
+        say "the upgrade guide of $version is $guide"
+        confirm "Is $guide complete: every breaking change has a section that says what to do, and the checklist lists every step?"
+    else
+        # A patch carries fixes only: a feature or a breaking change waits for the next minor.
+        # The release steps and CI run from the branch, so it must come from a minor cut with
+        # them: one whose Makefile has the release targets and whose Tests run on release-*.
+        if ! git grep -q '^release-pr:' "$REMOTE/$b" -- Makefile ||
+            ! git grep -q "release-\*" "$REMOTE/$b" -- .github/workflows/tests.yml; then
+            die "$b predates patch releases; only a minor cut with them gets a release branch (docs/dev/releasing.md, Creating a release branch)"
+        fi
+        local unfit
+        unfit=$( (git log --format='%h %s' "$previous..$REMOTE/$b" | grep -E '^[0-9a-f]+ (feat[(:!]|[a-z]+(\([^)]*\))?!:)'
+            git log -E --grep='^BREAKING[ -]CHANGE:' --format='%h %s' "$previous..$REMOTE/$b") |
+            sort -u || true)
+        [[ -z "$unfit" ]] || die "a patch carries fixes only, but $b has:"$'\n'"$unfit"
+        say "$version has these commits since $previous:"
+        git log --format='  %h %s' "$previous..$REMOTE/$b"
+    fi
+    confirm "Prepare $version (after $previous) on release/$version from $REMOTE/$b?"
 
-    git switch -q -C "release/$version" "$REMOTE/main"
+    git switch -q -C "release/$version" "$REMOTE/$b"
     say "release data and notes"
     report
     go run ./scripts/release data --version "$version" --report "$TMP/report.json" > "$RELEASES/$version.json"
     notes "$version" "$RELEASES/$version.md" "$(git rev-parse HEAD)"
-    say "storage fixtures"
-    make pull-images-database >/dev/null
-    "$FIXTURES/generate.sh" --local "$version"
-    go test -count=1 -run Fixtures ./platform/fabric/services/db/driver/sql/
-    git add "$RELEASES/$version.json" "$RELEASES/$version.md" "$FIXTURES/$version"
+    git add "$RELEASES/$version.json" "$RELEASES/$version.md"
+    if [[ "$b" == main ]]; then
+        say "storage fixtures"
+        make pull-images-database >/dev/null
+        "$FIXTURES/generate.sh" --local "$version"
+        go test -count=1 -run Fixtures ./platform/fabric/services/db/driver/sql/
+        git add "$FIXTURES/$version"
+    fi
     echo
     git status --short
     echo
@@ -170,15 +213,17 @@ prepare() {
 
 pr() {
     check_remote
-    local branch version
+    local branch version b
     branch=$(git branch --show-current)
-    [[ "$branch" =~ ^release/(v[0-9]+\.[0-9]+\.0)$ ]] || die "check out release/vX.Y.0 first (on ${branch:-a detached HEAD})"
+    [[ "$branch" =~ ^release/(v[0-9]+\.[0-9]+\.[0-9]+)$ ]] || die "check out release/vX.Y.Z first (on ${branch:-a detached HEAD})"
     version=${BASH_REMATCH[1]}
+    b=$(base "$version")
     [[ -z "$(git status --porcelain | grep -v '^[AM] ')" ]] ||
         die "the tree has changes that are not staged; the release PR adds only what make release-prepare staged"
-    local other
-    other=$(git diff --cached --name-only |
-        grep -v -E "^(${RELEASES}/${version}\.(json|md)|${FIXTURES}/${version}/.+)$" || true)
+    # The release files: the data and the notes, and for a minor its storage fixtures.
+    local other files="${RELEASES}/${version}\.(json|md)"
+    [[ "$b" != main ]] || files+="|${FIXTURES}/${version}/.+"
+    other=$(git diff --cached --name-only | grep -v -E "^(${files})$" || true)
     [[ -z "$other" ]] || die "staged files that are not part of the release: $other"
     if git diff --cached --quiet; then
         [[ "$(git log -1 --format=%s)" == "build(release): $version" ]] || die "nothing staged; run make release-prepare"
@@ -196,8 +241,8 @@ pr() {
     if [[ -n "$open" ]]; then
         echo "Updated the open release PR $open."
     else
-        write gh pr create -R "$REPO" --base main --head "$branch" --title "build(release): $version" \
-            --body "The release data, notes and storage fixtures of $version, from \`make release-prepare\`. Read the notes as GitHub will show them. Once it is merged, run \`make release-publish\`; see docs/dev/releasing.md."
+        write gh pr create -R "$REPO" --base "$b" --head "$branch" --title "build(release): $version" \
+            --body "The release files of $version, from \`make release-prepare\`. Read the notes as GitHub will show them. Once it is merged, run \`make release-publish\`; see docs/dev/releasing.md."
     fi
     echo "Once the PR is approved and merged, run: make release-publish"
 }
@@ -207,21 +252,38 @@ pr() {
 # main repository's release data, whose tags are only in the main repository.
 ours() { [[ "$REPO" == "$MAIN_REPO" ]] || ! git rev-parse -q --verify "refs/tags/$1" >/dev/null; }
 
-# untagged prints the one release whose data file is on $REMOTE/main and which has no tag.
-untagged() {
-    local found="" f v
-    for f in $(git ls-tree --name-only "$REMOTE/main" "$RELEASES/"); do
-        v=$(basename "$f" .json)
-        [[ "$f" == *.json && "$v" =~ $SEMVER ]] && ours "$v" && ! tagged "$v" || continue
-        [[ -z "$found" ]] || die "more than one untagged release on $REMOTE/main: $found $v"
-        found=$v
+# released prints, lowest first, every release of $REPO with a data file on main or on a
+# release branch of $REMOTE.
+released() {
+    local ref v
+    for ref in $(git for-each-ref --format='%(refname)' "refs/remotes/$REMOTE/main" "refs/remotes/$REMOTE/release-*"); do
+        git ls-tree --name-only "$ref" "$RELEASES/" | sed -n 's|.*/\(v[0-9.]*\)\.json$|\1|p'
+    done | { grep -E "$SEMVER" || true; } | sort -u -V | while read -r v; do
+        if ours "$v"; then echo "$v"; fi
     done
+}
+
+# untagged prints the one release of released that has no tag; $VERSION picks one of
+# several, such as a minor on main and a patch on a release branch.
+untagged() {
+    # A string, not an array: bash 3.2 (macOS) fails on an empty array under set -u.
+    local found="" v
+    for v in $(released); do
+        tagged "$v" || found+=" $v"
+    done
+    found=${found# }
+    if [[ -n "${VERSION:-}" ]]; then
+        [[ " $found " == *" $VERSION "* ]] || return 0
+        echo "$VERSION"
+        return
+    fi
+    [[ "$found" != *" "* ]] || die "more than one untagged release: $found; set VERSION"
     echo "$found"
 }
 
 publish() {
     local version commit subject base
-    if [[ "${DRY_RUN:-}" == 1 && "$(git branch --show-current)" =~ ^release/(v[0-9]+\.[0-9]+\.0)$ ]]; then
+    if [[ "${DRY_RUN:-}" == 1 && "$(git branch --show-current)" =~ ^release/(v[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
         # Before the merge: check the release branch, staged or committed, as if it had
         # been squash-merged onto the commit it starts from.
         version=${BASH_REMATCH[1]}
@@ -250,15 +312,12 @@ publish() {
     version=$(untagged)
     if [[ -z "$version" ]]; then
         # A run that stopped after pushing the tags left the GitHub release to create:
-        # the latest release with a data file on main and a tag in this repository.
-        local v
-        for v in $(git ls-tree --name-only "$REMOTE/main" "$RELEASES/" | sed -n 's|.*/\(v[0-9.]*\)\.json$|\1|p' |
-            grep -E "$SEMVER" | sort -V || true); do
-            ours "$v" && tagged "$v" && version=$v
-        done
-        [[ -n "$version" ]] || die "no release of $REPO on $REMOTE/main; merge the release PR first"
+        # the latest release with a data file on $REMOTE and a tag in this repository.
+        # A patch can be such a release after a newer minor, so VERSION picks it.
+        version=${VERSION:-$(released | tail -n1)}
+        released | grep -qxF -- "$version" || die "no release ${VERSION:-of $REPO} on $REMOTE; merge the release PR first"
         gh release view "$version" -R "$REPO" >/dev/null 2>&1 &&
-            die "no untagged release on $REMOTE/main; merge the release PR first"
+            die "no untagged release on $REMOTE; merge the release PR first, or set VERSION to a release whose tags are pushed but which has no GitHub release"
         say "$version is tagged but has no GitHub release"
         confirm "Create the GitHub release of $version?"
         git show "$version:$RELEASES/$version.md" > "$TMP/notes.md"
@@ -267,12 +326,14 @@ publish() {
     fi
 
     # The squash merge of the release PR added the data file. That commit is the
-    # release, whatever the head of main is now.
+    # release, whatever the head of its branch is now.
     # The latest release commit of the version: a release opened again after the merge
     # updates its files, maybe only the notes.
-    commit=$(git log --format=%H -n1 --grep="^build(release): $version\( (#[0-9]*)\)\?$" "$REMOTE/main" -- \
+    local ref
+    ref="$REMOTE/$(base "$version")"
+    commit=$(git log --format=%H -n1 --grep="^build(release): $version\( (#[0-9]*)\)\?$" "$ref" -- \
         "$RELEASES/$version.json" "$RELEASES/$version.md" "$FIXTURES/$version")
-    [[ -n "$commit" ]] || commit=$(git log --format=%H -n1 "$REMOTE/main" -- "$RELEASES/$version.json")
+    [[ -n "$commit" ]] || commit=$(git log --format=%H -n1 "$ref" -- "$RELEASES/$version.json")
     subject=$(git log -1 --format=%s "$commit")
     [[ "$subject" == "build(release): $version"* ]] ||
         die "$RELEASES/$version.json was added by ${commit:0:9} \"$subject\", not a release PR"
@@ -299,8 +360,12 @@ publish() {
     echo "The checkout is on the release commit, detached; switch back with: git switch main"
 }
 
+# release creates the GitHub release $1 with notes $2. A patch is never marked Latest: a
+# newer minor may be out.
 release() {
-    write gh release create "$1" -R "$REPO" --verify-tag --title "$1" --notes-file "$2"
+    local latest=true
+    [[ "$1" =~ \.0$ ]] || latest=false
+    write gh release create "$1" -R "$REPO" --verify-tag --title "$1" --notes-file "$2" --latest="$latest"
     [[ "$REPO" == "$MAIN_REPO" ]] && echo "Announce the release in #fabric-smart-client on the LFDT Discord."
     return 0
 }
@@ -324,7 +389,7 @@ case "${1:-}" in
     # check-notes VERSION BASE: what the Release check workflow runs on a release PR.
     check-notes)
         [[ $# -eq 3 ]] || die "usage: $0 check-notes vX.Y.Z <base commit>"
-        [[ "$REPO" == "$MAIN_REPO" ]] || git fetch -q --tags "$MAIN_URL" "+main:refs/release/main"
+        [[ "$REPO" == "$MAIN_REPO" ]] || fetch_main_repo
         check_notes "$2" "$3"
         ;;
     *) echo "usage: $0 prepare|pr|publish" >&2; exit 2 ;;

@@ -10,7 +10,7 @@ name: Release check
 # after make release-prepare fails here; prepare it again. See docs/dev/releasing.md.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'release-*']
     paths:
       - '.github/workflows/release-check.yml'
       - 'docs/upgrade/releases/**'

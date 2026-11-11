@@ -131,18 +131,25 @@ func TestBump(t *testing.T) {
 func TestPreviousRelease(t *testing.T) {
 	t.Parallel()
 	dir := newRepo(t, nil)
-	for _, tag := range []string{"v0.28.0", "v0.28.1", "v0.29.0", "integration/v0.30.0", "v0.30.0-rc.1"} {
+	for _, tag := range []string{"v0.28.0", "v0.28.1", "v0.29.0", "v0.29.1", "v0.29.2", "integration/v0.30.0", "v0.30.0-rc.1"} {
 		run(t, dir, "tag", tag)
 	}
 	tags, err := releaseTags(dir)
 	require.NoError(t, err)
-	require.Len(t, tags, 3, "module and pre-release tags are ignored")
+	require.Len(t, tags, 5, "module and pre-release tags are ignored")
 
 	for _, tc := range []struct{ version, want, err string }{
+		// A minor follows the previous minor: patches are on a release branch, not on main.
 		{version: "v0.30.0", want: "v0.29.0"},
+		{version: "v0.31.0", err: "no release v0.30.0 before v0.31.0"},
+		// A patch follows the previous patch of its minor, or the minor itself.
+		{version: "v0.29.3", want: "v0.29.2"},
 		{version: "v0.29.1", want: "v0.29.0"},
-		{version: "v0.28.1", want: "v0.28.0"},
+		{version: "v0.28.2", want: "v0.28.1"},
+		{version: "v0.28.3", err: "no release v0.28.2 before v0.28.3"},
+		{version: "v0.30.1", err: "no release v0.30.0 before v0.30.1"},
 		{version: "v0.28.0", err: "no release before v0.28.0"},
+		{version: "v1.0.0", want: "v0.29.0"},
 	} {
 		got, err := previousRelease(tags, mustVersion(t, tc.version))
 		if tc.err != "" {
@@ -214,14 +221,18 @@ postgres:
 )
 
 // releaseRepo returns a repository released as v0.28.0, with the files of a root module, a
-// submodule and the tools module.
+// submodule and the tools module, and release data of v0.28.0 with the stores and components of
+// testdata/report.json.
 func releaseRepo(t *testing.T) string {
 	t.Helper()
+	report, err := os.ReadFile(filepath.Join("testdata", "report.json"))
+	require.NoError(t, err)
 	dir := newRepo(t, map[string]string{
-		"go.mod":             testGoMod,
-		"Makefile":           testMakefile,
-		"integration/go.mod": "module integration\n",
-		"tools/go.mod":       "module tools\n",
+		"go.mod":                      testGoMod,
+		"Makefile":                    testMakefile,
+		"integration/go.mod":          "module integration\n",
+		"tools/go.mod":                "module tools\n",
+		releasesDir + "/v0.28.0.json": string(report),
 	})
 	run(t, dir, "tag", "v0.28.0")
 	return dir
@@ -266,8 +277,37 @@ func TestDataFromReport(t *testing.T) {
 	_, err = newData(dir, mustVersion(t, "v0.28.0"), readReport(t))
 	require.ErrorContains(t, err, "no release before v0.28.0")
 
-	_, err = newData(dir, mustVersion(t, "v0.28.1"), readReport(t))
-	require.ErrorContains(t, err, "patch releases are not supported")
+	// A patch rolls out over its minor and has no upgrade guide of its own.
+	d, err = newData(dir, mustVersion(t, "v0.28.1"), readReport(t))
+	require.NoError(t, err)
+	require.Equal(t, "v0.28.1", d.Version)
+	require.Equal(t, Upgrade{Mode: "rolling"}, d.Upgrade)
+	require.Contains(t, d.Modules, "integration/v0.28.1")
+
+	_, err = newData(dir, mustVersion(t, "v0.28.2"), readReport(t))
+	require.ErrorContains(t, err, "no release v0.28.1 before v0.28.2")
+}
+
+func TestPatchKeepsSchemaAndWireFormat(t *testing.T) {
+	t.Parallel()
+	dir := releaseRepo(t)
+	_, err := newData(dir, mustVersion(t, "v0.28.1"), readReport(t))
+	require.NoError(t, err, "the same stores and components")
+
+	moved := readReport(t)
+	moved.Components[0].Max++
+	_, err = newData(dir, mustVersion(t, "v0.28.1"), moved)
+	require.ErrorContains(t, err, "v0.28.1 changes the schema steps or component ranges of v0.28.0")
+	moved = readReport(t)
+	moved.Stores[0].Steps = append(moved.Stores[0].Steps, Step{Version: 99, Name: "new"})
+	_, err = newData(dir, mustVersion(t, "v0.28.1"), moved)
+	require.ErrorContains(t, err, "a patch cannot")
+
+	// Without the release data of its minor, a patch cannot show that it rolls out.
+	old := newRepo(t, map[string]string{"go.mod": testGoMod, "Makefile": testMakefile})
+	run(t, old, "tag", "v0.27.0")
+	_, err = newData(old, mustVersion(t, "v0.27.1"), readReport(t))
+	require.ErrorContains(t, err, "v0.27.0 has no release data")
 }
 
 func TestRenderIsDeterministic(t *testing.T) {
@@ -319,6 +359,24 @@ func TestNotes(t *testing.T) {
 	require.Contains(t, got, "| Go | Hyperledger Fabric | Fabric-x committer | Fabric-x tools | PostgreSQL |\n|---|---|---|---|---|\n| 1.27.3 | 3.1.4 | 1.0.7 | v1.0.3 | 16.2 |\n")
 	// The changelog follows unchanged.
 	require.True(t, strings.HasSuffix(got, strings.TrimSpace(string(changelog))+"\n"))
+
+	// A minor without a guide is refused, not linked to the repository root.
+	d.Upgrade.Guide = ""
+	_, err = notes(dir, mainRepo, d, string(changelog))
+	require.ErrorContains(t, err, "v0.29.0 is a minor and has no upgrade guide")
+}
+
+func TestPatchNotes(t *testing.T) {
+	t.Parallel()
+	dir := releaseRepo(t)
+	d, err := newData(dir, mustVersion(t, "v0.28.1"), readReport(t))
+	require.NoError(t, err)
+	got, err := notes(dir, mainRepo, d, "## What's Changed\n* fix: something\n")
+	require.NoError(t, err)
+	golden(t, "v0.28.1.md", []byte(got))
+	require.Contains(t, got, "No breaking changes. Upgrade from v0.28.x at any time")
+	require.NotContains(t, got, "upgrade guide")
+	require.Contains(t, got, "](https://github.com/hyperledger-labs/fabric-smart-client/blob/v0.28.1/docs/upgrade/releases/v0.28.1.json)")
 }
 
 func TestCheck(t *testing.T) {
@@ -327,9 +385,11 @@ func TestCheck(t *testing.T) {
 	dir := releaseRepo(t)
 	require.NoError(t, check(dir, r), "no data files")
 
-	// v0.28.0 was cut before the tooling: its tag has no data file, so its file is not checked.
-	writeFiles(t, dir, map[string]string{"docs/upgrade/releases/v0.28.0.json": "{}\n"})
-	require.NoError(t, check(dir, r))
+	// A release cut before the tooling: its tag has no data file, so its file is not checked.
+	old := newRepo(t, nil)
+	run(t, old, "tag", "v0.27.0")
+	writeFiles(t, old, map[string]string{"docs/upgrade/releases/v0.27.0.json": "{}\n"})
+	require.NoError(t, check(old, r))
 
 	// A release PR: the untagged file must be what data generates.
 	d, err := newData(dir, mustVersion(t, "v0.29.0"), r)

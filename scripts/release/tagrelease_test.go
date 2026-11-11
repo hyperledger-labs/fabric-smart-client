@@ -73,12 +73,13 @@ func TestTagRelease(t *testing.T) {
 		require.Empty(t, tags(t, dir))
 	})
 
-	t.Run("tags a patch without release data", func(t *testing.T) {
+	t.Run("refuses a patch without its release data", func(t *testing.T) {
 		t.Parallel()
-		dir, _ := tagRepo(t, false)
+		dir, _ := tagRepo(t, true)
 		out, err := tagRelease(dir, "v0.29.1")
-		require.NoError(t, err, out)
-		require.ElementsMatch(t, []string{"v0.29.1", "sub/v0.29.1"}, tags(t, dir))
+		require.Error(t, err)
+		require.Contains(t, out, releasesDir+"/v0.29.1.json")
+		require.Empty(t, tags(t, dir))
 	})
 
 	t.Run("refuses an existing tag and creates none", func(t *testing.T) {
