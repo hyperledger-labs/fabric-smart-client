@@ -142,7 +142,7 @@ func main() {
 runtime is provided by [`node.New()`](../../../node/node.go), and [`Node.Execute()`](../../../node/node.go)
 runs the command line; the callback runs once the node has started.
 
-If the application also needs Fabric capabilities, it installs the Fabric SDK in the same startup flow, as described in [Fabric SDK architecture](../fabric/fabric-sdk.md). For Fabric-x capabilities, see [Fabric-x](../fabric-x/README.md).
+If the application also needs Fabric capabilities, it installs the Fabric SDK in the same startup flow, as [Use Fabric from a view](../fabric/README.md#use-fabric-from-a-view) shows. For Fabric-x, see [Use Fabric-x from a view](../fabric-x/README.md#use-fabric-x-from-a-view).
 
 For node startup configuration, see [View platform configuration](configuration.md) and [Shared node configuration](../../configuration.md).
 
@@ -250,6 +250,11 @@ A message payload is input from the remote party. The transport authenticates wh
 the payload, such as an identity the caller says it owns, must check that claim against `Caller`
 (see [Binding identities a caller claims](#binding-identities-a-caller-claims)).
 
+By default, any node that the transport authenticates can start any registered responder. To
+limit a responder to the nodes it expects, register it with an authorizer (see
+[Authorizing responders](#authorizing-responders)). A responder registered under a
+[protocol name](#protocol-names) stays reachable when its Go types are renamed.
+
 For more details on initiator/responder dispatch and responder registration, see [View service](services/view-service.md).
 
 ## View Factories and Registration
@@ -281,8 +286,10 @@ Conceptually, registration happens during node startup inside the callback passe
 An FSC application is a Go module that depends on FSC:
 
 ```bash
-go get github.com/hyperledger-labs/fabric-smart-client@<version>
+go get github.com/hyperledger-labs/fabric-smart-client@v0.28.0
 ```
+
+Use the latest release tag. These pages describe `main`, which can contain changes that are not released yet.
 
 Put the `main.go` of [Application Structure](#application-structure) in the module, with the views it registers, and build it:
 
@@ -290,9 +297,16 @@ Put the `main.go` of [Application Structure](#application-structure) in the modu
 go build -o mynode .
 ```
 
-The binary is a command line. `node start` starts the node and keeps it running until it receives
-`SIGINT` or `SIGTERM`. The node reads its `core.yaml` from the directory that `FSCNODE_CFG_PATH`
-names, or from the current directory:
+Each node needs a `core.yaml`, its identity and TLS material, and the addresses of the nodes it
+talks to. The `Initiator` above needs a second node, `bob`, that runs the `Responder` and is listed
+under `fsc.endpoint.resolvers`. `fsccli artifactsgen gen` generates all of this from a topology
+file, with one directory per node under `fsc/nodes/` (see the
+[FSC CLI reference](../../reference/fsc-cli.md#artifactsgen)).
+
+The binary is a command-line tool. `node start` starts the node and keeps it running until it
+receives `SIGINT` or `SIGTERM`. The node reads its `core.yaml` from the directory that
+`FSCNODE_CFG_PATH` names; without it, from the current directory, then from
+`/etc/hyperledger-labs/fabric-smart-client-node`:
 
 ```bash
 FSCNODE_CFG_PATH=/etc/mynode ./mynode node start
@@ -329,8 +343,13 @@ c, err := client.NewClient(&client.Config{
 if err != nil {
 	return nil, err
 }
-res, err := c.CallView("init", []byte("bob"))
+ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+defer cancel()
+res, err := c.CallViewWithContext(ctx, "init", []byte("bob"))
 ```
+
+If the node requires client certificates (`clientAuthRequired`), also set `Certificate`, `Key`
+and `RequireClientCert` in `grpc.SecureOptions`.
 
 `grpc` is `platform/common/services/grpc` and `tracing` is `platform/view/services/tracing`.
 [View service over HTTP](services/view-service-http.md) describes the HTTP transport of the same
@@ -448,9 +467,9 @@ case <-time.After(1 * time.Minute):
 }
 ```
 
-`session.ReadMessageWithContext(viewCtx.Context(), session, timeout)` in
-`platform/view/services/comm/session` does the same and returns the payload; `ReadFirstMessage`
-ends with the view context too.
+`commsession.ReadMessageWithContext(viewCtx.Context(), session, timeout)` from
+`platform/view/services/comm/session` does the same and returns the payload.
+`commsession.ReadFirstMessage` also stops when the view context ends.
 
 For complete examples, see:
 - [`integration/fsc/pingpong`](../../../integration/fsc/pingpong/): source of a ping/pong protocol with timeout and validation
@@ -502,8 +521,8 @@ A practical way to build an FSC application is:
 
 ## Advanced topics
 
-A first application does not need these. They control who may start a responder, keep a
-protocol reachable across releases, and bind identities that a caller claims.
+These sections cover the details of responder authorization, protocol names, format versions
+and claimed identities.
 
 ### Authorizing responders
 
@@ -622,5 +641,6 @@ binds the verified identity to the caller's node identity. See
 - [View SDK architecture](view-sdk.md)
 - [View service](services/view-service.md)
 - [View platform configuration](configuration.md)
+- [Fabric platform](../fabric/README.md) and [Fabric-x platform](../fabric-x/README.md)
 - [Fabric SDK architecture](../fabric/fabric-sdk.md)
 - [Core concepts](../../core-concepts.md)

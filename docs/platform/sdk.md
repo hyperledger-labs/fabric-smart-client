@@ -23,8 +23,10 @@ func main() {
 }
 ```
 
-`iou` is `integration/fabric/common/iou`, `views` is its `views` subpackage, `fscnode` is
-`node` and `viewregistry` is `platform/view/services/view`.
+`iou` is `integration/fabric/common/iou` and `views` is its `views` subpackage. Both live in
+the separate `github.com/hyperledger-labs/fabric-smart-client/integration` module, so treat them
+as an example to copy rather than a package to import. `fscnode` is `node` and `viewregistry` is
+`platform/view/services/view`.
 
 In this example the services included in the `iou.SDK` can be used by
 * the views of the node, i.e. `ApproverView`, `ApproverInitViewFactory`

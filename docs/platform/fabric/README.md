@@ -17,21 +17,22 @@ import (
 	"log"
 
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
-	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
 	node := fscnode.New()
-	if err := node.InstallSDK(fabric.NewSDK(node)); err != nil {
+	if err := node.InstallSDK(fabricsdk.NewSDK(node)); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
 	node.Execute(func() error {
 		registry := view.GetRegistry(node)
+		// The borrower's node registers the factory, the lender's node the responder.
+		// One binary can serve both roles; the approver's node registers its own responder.
 		if err := registry.RegisterFactory("create", &CreateIOUViewFactory{}); err != nil {
 			return err
 		}
-		// on the lender's node; the approver's node registers &ApproverView{} instead
 		return registry.RegisterResponder(&LenderView{}, &CreateIOUView{})
 	})
 }
@@ -108,21 +109,53 @@ type CreateIOUViewFactory struct{}
 
 func (*CreateIOUViewFactory) NewView(in []byte) (view.View, error) {
 	v := &CreateIOUView{}
-	return v, json.Unmarshal(in, v)
+	if err := json.Unmarshal(in, v); err != nil {
+		return nil, errors.Wrap(err, "invalid input for the create view")
+	}
+	return v, nil
 }
 
 // LenderView runs on the lender's node when CreateIOUView contacts it.
 type LenderView struct{}
 
 func (*LenderView) Call(ctx view.Context) (any, error) {
-	if _, _, err := state.RespondExchangeRecipientIdentities(ctx); err != nil {
+	lender, borrower, err := state.RespondExchangeRecipientIdentities(ctx)
+	if err != nil {
 		return nil, err
 	}
 
-	// Receive the transaction NewCollectEndorsementsView sends and inspect it.
+	// Receive the transaction NewCollectEndorsementsView sends. Endorsing signs whatever it
+	// contains, so check all of it: the namespace, the command and its parties, the inputs
+	// and outputs, and that the borrower has already signed.
 	tx, err := state.ReceiveTransaction(ctx)
 	if err != nil {
 		return nil, err
+	}
+	parties := []view.Identity{lender, borrower}
+	namespaces, err := tx.Namespaces()
+	if err != nil {
+		return nil, err
+	}
+	if len(namespaces) != 1 || namespaces[0] != "iou" {
+		return nil, errors.Errorf("expected only the iou namespace, got %v", namespaces)
+	}
+	commands, err := tx.Commands()
+	if err != nil {
+		return nil, err
+	}
+	if commands.Count() != 1 || commands.At(0).Name != "create" || !commands.At(0).Ids.Match(parties) {
+		return nil, errors.New("expected one create command between borrower and lender")
+	}
+	numInputs, err := tx.NumInputs()
+	if err != nil {
+		return nil, err
+	}
+	numOutputs, err := tx.NumOutputs()
+	if err != nil {
+		return nil, err
+	}
+	if numInputs != 0 || numOutputs != 1 {
+		return nil, errors.Errorf("expected no inputs and one output, got %d and %d", numInputs, numOutputs)
 	}
 	iou := &IOU{}
 	if err := tx.GetOutputAt(0, iou); err != nil {
@@ -130,6 +163,12 @@ func (*LenderView) Call(ctx view.Context) (any, error) {
 	}
 	if iou.Amount < 5 {
 		return nil, errors.Errorf("amount [%d] is below 5", iou.Amount)
+	}
+	if !state.Identities(iou.Parties).Match(parties) {
+		return nil, errors.New("the IOU is not owned by borrower and lender")
+	}
+	if err := tx.HasBeenEndorsedBy(borrower); err != nil {
+		return nil, errors.Wrap(err, "the borrower has not endorsed")
 	}
 
 	// Endorse it, then wait for finality.
@@ -140,7 +179,9 @@ func (*LenderView) Call(ctx view.Context) (any, error) {
 }
 ```
 
-The approver's responder has the same shape as `LenderView` without the identity exchange: it receives the transaction, checks it against its own rules, endorses it and waits for finality. To reach a network or channel other than the default one, use `fabric.GetFabricNetworkService` and `fabric.GetChannel` from [`platform/fabric`](../../../platform/fabric/fns.go); `fabric.GetDefaultChannel` returns the default ones.
+The approver's responder has the same shape as `LenderView` without the identity exchange: it receives the transaction, checks it against its own rules, including that every owner of the new state has signed (`tx.HasBeenEndorsedBy`), endorses it and waits for finality. To reach a network or channel other than the default one, use `fabric.GetFabricNetworkService` and `fabric.GetChannel` from [`platform/fabric`](../../../platform/fabric/fns.go); `fabric.GetDefaultChannel` returns the default ones.
+
+`NewCollectEndorsementsView` waits up to a minute for each party, and the finality views wait for the timeout they are given. A view called through the remote view API must finish within `fsc.view.remote.timeout` (2m by default), so keep the two in step.
 
 The complete example is [`integration/fabric/common/iou`](../../../integration/fabric/common/iou): the borrower, lender and approver views, including an update of an existing state, are in its `views` directory, and `topology.go` shows which node registers which view.
 

@@ -227,20 +227,8 @@ The payload passed to `SendError` is transmitted as-is. When a responder view re
 
 Incoming messages are represented as:
 
-```go
-type Message struct {
-    SessionID    string
-    ContextID    string
-    Caller       string
-    FromEndpoint string
-    FromPKID     []byte
-    Status       int32
-    Payload      []byte
-    Ctx          context.Context
-    Protocol     string
-    Versions     []byte
-}
-```
+[`view.Message`](../../../platform/view/view/session.go) carries the payload in `Payload`, the
+outcome in `Status`, and the metadata listed below.
 
 The `Status` field uses the constants:
 
