@@ -60,7 +60,12 @@ The `OnStatus` callback receives one of the validation codes of [`platform/fabri
 
 The committer's manager is the notification-stream manager wrapped in a `finality.ResolvingListenerManager`, which asks the query service before subscribing. That is what makes registering for an *already final* transaction report its status instead of `Unknown`: the notification stream reports each transaction once, so a subscription created after that point would never be answered. `finality.GetListenerManager(sp, network, channel)` returns the unwrapped manager and does not do this.
 
-`OnStatus` implementations must observe `ctx.Done()` and return promptly, handing slow work to their own queue: at most `handlerWorkers` callbacks run at once, and once every slot is held by a callback that does not return, finality notifications stop being delivered. See [notification service tuning](configuration.md#notification-service-tuning) for the failure mode and its log messages.
+> [!WARNING]
+> `OnStatus` implementations MUST observe `ctx.Done()` and return promptly, handing slow work
+> to their own queue. At most `handlerWorkers` (default 16) callbacks run at once, and once every
+> slot is held by a callback that does not return, finality notifications stop being delivered.
+> See [notification service tuning](configuration.md#notification-service-tuning) for the
+> failure mode and its log messages.
 
 ### Limitations
 
