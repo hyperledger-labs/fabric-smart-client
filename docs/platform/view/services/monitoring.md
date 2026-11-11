@@ -47,8 +47,8 @@ type Provider interface {
 }
 ```
 FSC provides two provider implementations (custom ones can also be added), that can be configured in the `core.yaml`:
-* `disabled.Provider`: No metrics are registered, when `fsc.metrics.provider = disabled`
-* `prometheus.Provider`: The default implementation, when `fsc.metrics.provider = prometheus`
+* `disabled.Provider`: No metrics are registered. Used unless `fsc.metrics.provider` is `prometheus`, including when the key is unset
+* `prometheus.Provider`: Used when `fsc.metrics.provider = prometheus`
 
 The default implementation of the metric provider is defined in `view.SDK` and can be overridden by any parent SDK as follows:
 ```go
@@ -271,13 +271,13 @@ func (s *MyService) Transfer(ctx context.Context, ... OtherParams) error {
 ##### Add traces/spans in a View
 In views, you can add events to the existing context as shown above. In most (or all) of the cases you will not need to create your own span, but use the existing one. 
 
-If you though want to create one, since views do not have a proper dependency injection mechanism and creating a new tracer would be inefficient for each view call, you can use the following methods of `view.Context`:
+If you though want to create one, since views do not have a proper dependency injection mechanism and creating a new tracer would be inefficient for each view call, you can use the following method of `view.Context`:
 ```go
 type Context interface {
 	StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span)
 }
 ```
-Pass `context.Context()` to start a child of the view's span. You can also start from another context, e.g. when you receive a message from a session:
+Pass the view's Go context (`viewCtx.Context()`) to start a child of the view's span. You can also start from another context, e.g. when you receive a message from a session:
 ```go
 	ch := session.Receive()
 	var payload []byte

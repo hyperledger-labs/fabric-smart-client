@@ -35,7 +35,7 @@ A store is a logical partition of the project storage, e.g. identity info, trans
 It consists of one or more underlying tables and exposes querying functionality through an interface.
 A store can also have references to other stores (e.g. foreign keys, joins).
 It has one implementation per persistence type, e.g.:
-* `memory`: Sqlite DB in memory; the `memory` driver uses the SQLite stores (`sqlite.NewBindingStore` and so on) on an in-memory database
+* `memory`: no store of its own; the driver uses the SQLite stores (`sqlite.NewBindingStore` and so on) on an in-memory database
 * `postgres.BindingStore`: Postgres DB via remote connection to standalone running DB (e.g. container)
 * `sqlite.BindingStore`: Sqlite DB in the local filesystem
 

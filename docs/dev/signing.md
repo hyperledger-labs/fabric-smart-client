@@ -132,7 +132,7 @@ Alternatively, you can **amend commits retroactively**. To re-sign the last comm
 git commit --amend --no-edit -S -s
 ```
 
-To re-sign every commit on your branch, replay them onto upstream main and amend each one:
+To re-sign every commit on your branch, replay them onto upstream main and amend each one. This also moves the branch onto the latest upstream main, so it can stop on conflicts (see [Resolving merge conflicts](merge-conflicts.md)):
 
 ```bash
 git fetch upstream

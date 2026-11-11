@@ -34,7 +34,7 @@ To rebase:
 
 ```bash
 git checkout mybranch
-git rebase main -S
+git rebase upstream/main -S
 ```
 > [!IMPORTANT]
 > - Always include the `-S` flag  

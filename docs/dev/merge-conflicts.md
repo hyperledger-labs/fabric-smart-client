@@ -49,10 +49,10 @@ Once you understand you have a merge conflict and have a vision of the final doc
 VS Code makes solving merge-conflicts easier with a 3-pane interface for resolving conflicts:
 
 - Incoming Change → your commit that the rebase is replaying (left/top)
-- Current Change → code from upstream main, which is `HEAD` during the rebase (right/top)
+- Current Change → `HEAD` during the rebase: upstream main plus any of your commits already replayed (right/top)
 - Result → the lower/third pane, where you create the final merged file.
 
-During a rebase the two sides are the reverse of a merge: "Current" is the upstream branch you are rebasing onto, and "Incoming" is your own change.
+These are the reverse of a merge, where "Current" is your branch.
 
 You want to accept or reject content from the top left and top right panes, and edit the final pane in the bottom so the final code submission reasonably resolves the issue while respecting the work of others.
 

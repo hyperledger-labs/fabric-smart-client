@@ -284,7 +284,7 @@ func Topology() []api.Topology {
 
 	fscTopo := fsc.NewTopology()
 	fscTopo.AddNodeByName("alice").
-		AddOptions(fabric.WithOrganization("Org1"))
+		AddOptions(fabric.WithOrganization("Org1")) // Org1 endorses the iou namespace
 	// register alice's views with RegisterResponder and RegisterViewFactory ...
 	fscTopo.AddNodeByName("bob").
 		AddOptions(fabric.WithOrganization("Org2"))

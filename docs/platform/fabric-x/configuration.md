@@ -17,7 +17,7 @@ Both services support endpoint-based gRPC connectivity and optional TLS or mutua
 
 ### Notification service tuning
 
-`notificationService` configures the client used to subscribe to transaction status updates from the committer's notification service. It is what backs, for example, the finality listeners a view application registers via `ch.Committer().AddFinalityListener(txID, listener)`, where `ch` is the channel `fabric.GetChannel(sp, network, channel)` returns: It subscribes to the transaction on the notification stream and invokes the listener's `OnStatus` callback once the committer reports an outcome.
+`notificationService` configures the client used to subscribe to transaction status updates from the committer's notification service. It is what backs, for example, the finality listeners a view application registers via `ch.Committer().AddFinalityListener(txID, listener)`, with `ch` from `_, ch, err := fabric.GetChannel(sp, network, channel)`. It subscribes to the transaction on the notification stream and invokes the listener's `OnStatus` callback once the committer reports an outcome.
 
 | Key | Default | What it controls |
 |-----|---------|------------------|
@@ -88,7 +88,6 @@ fabric:
     notificationService:
       endpoints:
         - address: 127.0.0.1:5516
-          connectionTimeout: 30s
           tls:
             enabled: true
             rootCAs:

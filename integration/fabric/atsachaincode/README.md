@@ -178,10 +178,10 @@ To bootstrap the networks described by the above topologies, we can simply do th
 s := &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 	return integration.GenerateAt(StartPort(), "out/testdata", integration.WithRaceDetection, atsa.Topology(integration.NoReplication)...)
 })}
-// Create and start the integration ii
+// Create and start the networks
 s.Setup()
 ```
-(The above code is adapted from this [`test file`](atsa_test.go), which calls `s.Setup` from a
+(The above code is adapted from this [`test file`](atsa_test.go), which imports this package as `atsa` and calls `s.Setup` from a
 `BeforeEach`. `StartPort` is defined in the suite's [`atsa_suite_test.go`](atsa_suite_test.go).)
 
 ### Initiate a Business Process

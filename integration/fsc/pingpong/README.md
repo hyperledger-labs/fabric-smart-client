@@ -300,7 +300,7 @@ FSC provides an `Integration Test Infrastructure` that allow the developer to:
 - Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
-To run the test, run `make integration-tests-fsc-pingpong` from the repository root.
+To run the test, run `make integration-tests-fsc-pingpong` from the repository root. The target uses `ginkgo`, which `make install-tools` installs.
 
 Let us go step by step.
 
@@ -455,7 +455,7 @@ alice := ii.Client("initiator")
 We are now ready to put together all components in a BDD test.
 To make everything more concrete, let us take an example and see how its BDD test looks like.
 For this purpose, the ping-pong example will do the job. This is a trimmed version of
-[`pingpong_test.go`](./pingpong_test.go):
+[`pingpong_test.go`](./pingpong_test.go), where `doGenerate` and `testdataDir` are package-level values:
 
 ```go
 var _ = Describe("EndToEnd", func() {
@@ -576,11 +576,7 @@ fsc:
     enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.
     address: 127.0.0.1:21000
-    # TLS Settings
-    # (We use here the same set of properties as Hyperledger Fabric)
-    # enabled, cert, key and clientAuthRequired are all inherited from fsc.tls above.
-    # This block is intentionally absent: a listener that overrides nothing needs no block,
-    # and this fixture exists to exercise exactly that path.
+    # TLS settings are inherited from fsc.tls above.
   # P2P configuration
   p2p:
     # Type of p2p communication: websocket or libp2p
@@ -624,8 +620,8 @@ fsc:
       domain: fsc.example.com
       identity:
         path: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/msp/signcerts/responder.fsc.example.com-cert.pem
-      addresses: 
+      addresses:
         P2P: 127.0.0.1:21004
-      aliases: 
+      aliases:
         - bob
 ````
