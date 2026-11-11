@@ -1,19 +1,30 @@
 # Fabric-x committers in integration tests
 
-The Fabric-x integration tests use the [fabric-x-committer-test-node](https://github.com/hyperledger/fabric-x-committer/pkgs/container/fabric-x-committer-test-node) container image. From it nwo starts:
+The Fabric-x integration tests use the
+[fabric-x-committer-test-node](https://github.com/hyperledger/fabric-x-committer/pkgs/container/fabric-x-committer-test-node)
+container image. From it nwo starts:
 
-- a mock ordering service in a container of its own, reached as `orderer.localhost`;
-- a [committer](https://github.com/hyperledger/fabric-x-committer) for every organization with a peer, named `CommitterName(org)` (`Org1_committer_0`), each in a container of its own with its own Postgres.
+- a mock ordering service in a container of its own, reached as
+  `orderer.localhost`;
+- a [committer](https://github.com/hyperledger/fabric-x-committer) for every
+  organization with a peer, named `CommitterName(org)` (`Org1_committer_0`),
+  each in a container of its own with its own Postgres.
 
-Each FSC node uses its own organization's committers, or the first committer when its organization has none. The first organization's committer is the network's default, which nwo uses to deploy namespaces; startup waits until every committer lists them.
+Each FSC node uses its own organization's committers, or the first committer
+when its organization has none. The first organization's committer is the
+network's default, which nwo uses to deploy namespaces; startup waits until
+every committer lists them.
 
-The containers resolve `orderer.localhost` through Docker's DNS, and the FSC nodes on the host resolve it to loopback through the system resolver. On Linux that needs systemd-resolved or nss-myhostname, as on most desktop distributions and GitHub runners.
+The containers resolve `orderer.localhost` through Docker's DNS, and the FSC
+nodes on the host resolve it to loopback through the system resolver. On Linux
+that needs systemd-resolved or nss-myhostname, as on most desktop distributions
+and GitHub runners.
 
 ## Committer container configuration
 
-The committers are configured through the `nwofabricx.Topology` returned by `NewTopology()`,
-`NewDefaultTopology()`, or `NewTopologyWithName()`. Every option has a default, so a standard
-test needs none of them.
+The committers are configured through the `nwofabricx.Topology` returned by
+`NewTopology()`, `NewDefaultTopology()`, or `NewTopologyWithName()`. Every
+option has a default, so a standard test needs none of them.
 
 ### Settings for every committer
 
@@ -25,8 +36,8 @@ test needs none of them.
 
 ### Adding committers
 
-`AddCommitter(org string, opts ...CommitterOption)` adds a committer to `org`, such as a second one
-in an organization:
+`AddCommitter(org string, opts ...CommitterOption)` adds a committer to `org`,
+such as a second one in an organization:
 
 | Option                       | Default                         | Description                                                                                         |
 | ---------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -36,7 +47,8 @@ in an organization:
 | `WithImage(image string)`    | the topology's                  | Docker image for this committer's container.                                                        |
 | `WithEnv(key, value string)` | the topology's                  | Override or add an environment variable of this committer's container.                              |
 
-Default environment variables set by the test framework; `SC_ORDERER_*` is read by the orderer container, the rest by the committer containers:
+Default environment variables set by the test framework; `SC_ORDERER_*` is read
+by the orderer container, the rest by the committer containers:
 
 | Variable                                   | Default value            |
 | ------------------------------------------ | ------------------------ |
@@ -76,7 +88,8 @@ fxTopo.AddCommitter("Org1", nwofabricx.WithName("audit"), nwofabricx.WithEnv("SC
 
 ## Example: a simple Fabric-x network topology
 
-The example below defines a simple Fabric-x network with two organizations (`Org1` and `Org2`) and two FSC application nodes (`alice` and `bob`).
+The example below defines a simple Fabric-x network with two organizations
+(`Org1` and `Org2`) and two FSC application nodes (`alice` and `bob`).
 
 In this setup:
 
@@ -116,4 +129,6 @@ func Topology() []api.Topology {
 }
 ```
 
-More examples are in [`integration/fabricx/`](../../../integration/fabricx/). How an application node uses several committers at runtime is described in [Several committers](../../platform/fabric-x/README.md#several-committers).
+More examples are in [`integration/fabricx/`](../../../integration/fabricx/).
+How an application node uses several committers at runtime is described in
+[Several committers](../../platform/fabric-x/README.md#several-committers).

@@ -1,44 +1,49 @@
 # Graceful shutdown
 
-A node that gets SIGTERM or SIGINT, or whose `Node.Stop` is called, lets running views finish
-before it stops its components, and stops them in an order where none outlives what it uses.
-`Node.Stop` and `node start` therefore block for up to `fsc.shutdown.drainTimeout` plus
-`fsc.shutdown.teardownTimeout`.
-Replacing a node's binary one node at a time relies on this; see
+A node that gets SIGTERM or SIGINT, or whose `Node.Stop` is called, lets running
+views finish before it stops its components, and stops them in an order where
+none outlives what it uses. `Node.Stop` and `node start` therefore block for up
+to `fsc.shutdown.drainTimeout` plus `fsc.shutdown.teardownTimeout`. Replacing a
+node's binary one node at a time relies on this; see
 [Rolling upgrades](../../../upgrade/rolling-upgrade.md).
 
 ## Order
 
 1. The node drains and stops taking new work:
-   - `GET /readyz` answers 503 with `{"status":"not ready","reason":"draining"}`, so a load
-     balancer takes the node out of rotation. `GET /healthz` stays 200.
+   - `GET /readyz` answers 503 with
+     `{"status":"not ready","reason":"draining"}`, so a load balancer takes the
+     node out of rotation. `GET /healthz` stays 200.
    - The gRPC health service reports `NOT_SERVING` for every service.
    - The gauge `fsc_shutdown_draining` is 1.
-   - A new view-API command is refused (see [View-API clients](#view-api-clients)).
-   - A first P2P message for a new protocol is refused (see [P2P peers](#p2p-peers)).
-2. Views already running get up to `fsc.shutdown.drainTimeout` to finish. The node
-   logs every 5s how many views still run. A view counts as running from the moment
-   `InitiateView` starts it, a view-API command from the moment it is admitted, and a
-   responder from the moment its first message is admitted, until it returns. Only the view API and P2P refuse new work: a view
-   the application starts itself with `InitiateView` during the drain still runs and is
-   waited for. Goroutines a view starts itself, such as with
-   `view.RunView`, are not waited for.
+   - A new view-API command is refused (see
+     [View-API clients](#view-api-clients)).
+   - A first P2P message for a new protocol is refused (see
+     [P2P peers](#p2p-peers)).
+2. Views already running get up to `fsc.shutdown.drainTimeout` to finish. The
+   node logs every 5s how many views still run. A view counts as running from
+   the moment `InitiateView` starts it, a view-API command from the moment it is
+   admitted, and a responder from the moment its first message is admitted,
+   until it returns. Only the view API and P2P refuse new work: a view the
+   application starts itself with `InitiateView` during the drain still runs and
+   is waited for. Goroutines a view starts itself, such as with `view.RunView`,
+   are not waited for.
 3. At the timeout, every initiator view still running is cancelled with
-   `view.ErrCancelledByShutdown`, and the node waits at most one more second for them to
-   return. It does not wait for a view that ignores cancellation. A view's context is
-   cancelled only by this step or by its caller, not when the view returns, so work a view
-   leaves running keeps its caller's context.
-4. The node context is cancelled, which cancels the responders still running, and `Stop()`
-   is called on every SDK in reverse install order, for at most
+   `view.ErrCancelledByShutdown`, and the node waits at most one more second for
+   them to return. It does not wait for a view that ignores cancellation. A
+   view's context is cancelled only by this step or by its caller, not when the
+   view returns, so work a view leaves running keeps its caller's context.
+4. The node context is cancelled, which cancels the responders still running,
+   and `Stop()` is called on every SDK in reverse install order, for at most
    `fsc.shutdown.teardownTimeout` in total. With the usual
-   `fabricsdk.NewFrom(viewsdk.NewSDK(...))` this stops the Fabric networks (delivery and
-   committer) first, then the view SDK's web, metrics, gRPC and operations servers, then the
-   comm service, then the KVS. The comm service runs on a context of its own until then, so
-   cancelled responders can still send their replies. An SDK still stopping at the timeout is
-   logged and left running.
+   `fabricsdk.NewFrom(viewsdk.NewSDK(...))` this stops the Fabric networks
+   (delivery and committer) first, then the view SDK's web, metrics, gRPC and
+   operations servers, then the comm service, then the KVS. The comm service
+   runs on a context of its own until then, so cancelled responders can still
+   send their replies. An SDK still stopping at the timeout is logged and left
+   running.
 
-A second SIGTERM or SIGINT, or a second `Node.Stop` call, skips the rest of the drain and goes
-on with the teardown.
+A second SIGTERM or SIGINT, or a second `Node.Stop` call, skips the rest of the
+drain and goes on with the teardown.
 
 ```yaml
 fsc:
@@ -62,27 +67,29 @@ On gRPC and on the HTTP binding ([view-service-http.md](view-service-http.md)):
 | The node is busy (`fsc.view.remote.maxConcurrentRequests`) | `Unavailable` "node is busy: too many concurrent view requests" | 503                   | close code 1013 (try again later)               | Retry later or on another replica. The command did not run.                                                                    |
 | A shutdown cancelled the view                              | `Aborted` "view cancelled by node shutdown"                     | 409                   | close code 1011, the reason naming the shutdown | Check the outcome. The view may have had effects, such as a submitted transaction that still commits; do not retry it blindly. |
 
-The Go client (`platform/view/services/view/client`) reports these as gRPC status errors on
-either transport. `status.Code(err)` tells `Unavailable` from `Aborted`; only the message tells a
-draining node from a busy one.
+The Go client (`platform/view/services/view/client`) reports these as gRPC
+status errors on either transport. `status.Code(err)` tells `Unavailable` from
+`Aborted`; only the message tells a draining node from a busy one.
 
 ## P2P peers
 
-While draining, a node answers a first message for a responder it hosts with the error
-`draining: node is draining`, so the initiator fails at once. A message for a protocol already
-in progress is still admitted: one whose context ID names a responder context that a session of
-the same peer (the same `FromPKID`) already joined. The per-peer responder and rejection limits
-still apply.
+While draining, a node answers a first message for a responder it hosts with the
+error `draining: node is draining`, so the initiator fails at once. A message
+for a protocol already in progress is still admitted: one whose context ID names
+a responder context that a session of the same peer (the same `FromPKID`)
+already joined. The per-peer responder and rejection limits still apply.
 
-When an initiator gets `draining:` on a session it opened, its comm layer retires its cached
-WebSocket connections to that peer. Sessions already open on them keep working; the next session
-to that peer dials a new connection, which a load balancer can route to another replica.
+When an initiator gets `draining:` on a session it opened, its comm layer
+retires its cached WebSocket connections to that peer. Sessions already open on
+them keep working; the next session to that peer dials a new connection, which a
+load balancer can route to another replica.
 
 ## Replicas behind a load balancer
 
-Configure the balancer's health check on `GET /readyz` of the `fsc.web` listener. A draining
-replica turns unready at once, so new connections go to the other replicas, while its open
-connections keep serving the protocols they carry until they finish.
+Configure the balancer's health check on `GET /readyz` of the `fsc.web`
+listener. A draining replica turns unready at once, so new connections go to the
+other replicas, while its open connections keep serving the protocols they carry
+until they finish.
 
 ## Kubernetes
 
@@ -92,9 +99,9 @@ Give the pod time for the whole sequence:
 terminationGracePeriodSeconds >= preStop sleep + drainTimeout + teardownTimeout + 5s
 ```
 
-That is 70s with a 5s `preStop` sleep and the default timeouts. The `preStop` sleep gives the
-endpoints controller time to take the pod out of the Service before the node starts refusing
-work.
+That is 70s with a 5s `preStop` sleep and the default timeouts. The `preStop`
+sleep gives the endpoints controller time to take the pod out of the Service
+before the node starts refusing work.
 
 ```yaml
 apiVersion: apps/v1
@@ -128,16 +135,19 @@ spec:
         - {name: p2p, containerPort: 9001}
 ```
 
-With `tls.clientAuthRequired: true` on `fsc.web`, a probe without a client certificate fails the
-TLS handshake; use a TCP probe or an exec probe that presents one.
+With `tls.clientAuthRequired: true` on `fsc.web`, a probe without a client
+certificate fails the TLS handshake; use a TCP probe or an exec probe that
+presents one.
 
 ## SDK authors
 
-`pkg/node` drains through the `node.Drainer` it finds in the node's registry; the view SDK
-registers the view manager, which implements it. An SDK does not need to implement or pass on
-anything for the drain. To release what it started, an SDK implements `Stop() error` (part of
-`commondig.SDK`) and calls the `Stop` of the SDK it wraps last, so that what it uses outlives it.
+`pkg/node` drains through the `node.Drainer` it finds in the node's registry;
+the view SDK registers the view manager, which implements it. An SDK does not
+need to implement or pass on anything for the drain. To release what it started,
+an SDK implements `Stop() error` (part of `commondig.SDK`) and calls the `Stop`
+of the SDK it wraps last, so that what it uses outlives it.
 
-An SDK can hold `GET /readyz` at 503 with a readiness gate of its own (`viewsdk.ReadinessGateEntry`).
-Such a gate never hides `draining`: the drain gate is checked first. The gRPC health service
-ignores these gates and reports `NOT_SERVING` only while the node drains.
+An SDK can hold `GET /readyz` at 503 with a readiness gate of its own
+(`viewsdk.ReadinessGateEntry`). Such a gate never hides `draining`: the drain
+gate is checked first. The gRPC health service ignores these gates and reports
+`NOT_SERVING` only while the node drains.

@@ -22,14 +22,16 @@ make unit-tests-root     # one module only: -root, -integration or -extensions
 make integration-tests   # integration tests (need Fabric binaries + Docker)
 ```
 
-If `make lint` reports a file outside your working tree, the `golangci-lint` cache is
-stale — common with several worktrees. Run `golangci-lint cache clean` and re-run; see
+If `make lint` reports a file outside your working tree, the `golangci-lint`
+cache is stale — common with several worktrees. Run `golangci-lint cache clean`
+and re-run; see
 [`docs/dev/development.md`](docs/dev/development.md#lint-failures-in-files-you-never-touched).
 
 The `make` defaults assume the **primary checkout**: `FABRIC_BINARY_BASE` is
-`$(PWD)/../fabric`, so `make install-fabric-bins` run from a worktree installs a second
-Fabric next to that worktree. Pass `FABRIC_BINARY_BASE` explicitly, or run it from the
-primary checkout — see [`docs/dev/development.md`](docs/dev/development.md#fabric).
+`$(PWD)/../fabric`, so `make install-fabric-bins` run from a worktree installs a
+second Fabric next to that worktree. Pass `FABRIC_BINARY_BASE` explicitly, or
+run it from the primary checkout — see
+[`docs/dev/development.md`](docs/dev/development.md#fabric).
 
 Run one unit test: `go test -run TestMyTest ./platform/view/...`. The full
 integration suite is slow and needs Fabric binaries + Docker — run a focused
@@ -50,16 +52,17 @@ root only sees the root module — the other four are invisible to it.
 | chaincode query | `platform/fabric/services/state/cc/query/` | chaincode, does not depend on root                                               |
 | tools           | `tools/`                                   | dev-tool pins (`module tools`); not released                                     |
 
-- **Dependency changes**: run `make tidy` (`scripts/gomate.sh tidy` — tidies _every_
-  module), not `go mod tidy` in one place. To bump a dep everywhere:
+- **Dependency changes**: run `make tidy` (`scripts/gomate.sh tidy` — tidies
+  _every_ module), not `go mod tidy` in one place. To bump a dep everywhere:
   `./scripts/gomate.sh update github.com/some/dep@v1.2.3`.
-- A dependency used only by code under `integration/` or the libp2p host
-  belongs in _that_ module's `go.mod`, not the root one.
-- **Releases** are cut by a maintainer with `make release-prepare`, `make release-pr` and
-  `make release-publish` (`scripts/release.sh`), which tag every module with the same version;
-  a change in a submodule is consumable downstream only after the next release. The steps are
-  in [`docs/dev/releasing.md`](docs/dev/releasing.md). Never run `make release-pr` or
-  `make release-publish` without `DRY_RUN=1`: they push to GitHub and tag.
+- A dependency used only by code under `integration/` or the libp2p host belongs
+  in _that_ module's `go.mod`, not the root one.
+- **Releases** are cut by a maintainer with `make release-prepare`,
+  `make release-pr` and `make release-publish` (`scripts/release.sh`), which tag
+  every module with the same version; a change in a submodule is consumable
+  downstream only after the next release. The steps are in
+  [`docs/dev/releasing.md`](docs/dev/releasing.md). Never run `make release-pr`
+  or `make release-publish` without `DRY_RUN=1`: they push to GitHub and tag.
 
 ## Where to look next
 
@@ -80,37 +83,54 @@ Read these on demand — don't load them up front.
 
 ## Documentation
 
-[`docs/dev/documentation.md`](docs/dev/documentation.md) is the convention; read it before
-writing any documentation. The rules that matter most:
+[`docs/dev/documentation.md`](docs/dev/documentation.md) is the convention; read
+it before writing any documentation. The rules that matter most:
 
-- Documentation for people (everything under `docs/` except `docs/agents/`, the READMEs,
-  `CONTRIBUTING.md`) is complete and self-contained, and never links into `docs/agents/`;
-  `make checks` enforces the links.
-- `AGENTS.md` and `docs/agents/` add only what helps an agent work consistently: rules,
-  pitfalls, checks. An explanation goes into the page for people, and the agent page links
-  to it.
-- Documentation describes the **current implementation as a self-contained system**: not a
-  changelog, no "previously" or "now instead of", history only as an input. The upgrade
-  guides in `docs/upgrade/` are the exception.
-- Godoc covers an exported identifier's contract, never why the code changed; style in
-  [`docs/dev/conventions.md`](docs/dev/conventions.md#godoc).
-- Update the documentation in the same commit as the code; delete what no longer holds.
-- Markdown follows [Markdown style](docs/dev/documentation.md#markdown-style): 80 columns,
-  one `#` title, no skipped heading levels, descriptive link text, alt text on images;
-  `make docs-lint` checks it.
+- Documentation for people (everything under `docs/` except `docs/agents/`, the
+  READMEs, `CONTRIBUTING.md`) is complete and self-contained, and never links
+  into `docs/agents/`; `make checks` enforces the links.
+- `AGENTS.md` and `docs/agents/` add only what helps an agent work consistently:
+  rules, pitfalls, checks. An explanation goes into the page for people, and the
+  agent page links to it.
+- Documentation describes the **current implementation as a self-contained
+  system**: not a changelog, no "previously" or "now instead of", history only
+  as an input. The upgrade guides in `docs/upgrade/` are the exception.
+- Godoc covers an exported identifier's contract, never why the code changed;
+  style in [`docs/dev/conventions.md`](docs/dev/conventions.md#godoc).
+- Update the documentation in the same commit as the code; delete what no longer
+  holds.
+- Markdown follows [Markdown style](docs/dev/documentation.md#markdown-style):
+  80 columns, one `#` title, no skipped heading levels, descriptive link text,
+  alt text on images; `make docs-lint` checks it.
 
 ## Conventions in one line
 
-- **Errors**: use `pkg/utils/errors` (`errors.New/Errorf/Wrap/Wrapf/WithMessage/WithMessagef/Join`); do not build or wrap errors with `fmt.Errorf`.
+- **Errors**: use `pkg/utils/errors`
+  (`errors.New/Errorf/Wrap/Wrapf/WithMessage/WithMessagef/Join`); do not build
+  or wrap errors with `fmt.Errorf`.
 - **Logging**: `platform/common/services/logging`.
-- **New code**: platform code → `platform/<name>/`; shared → `pkg/utils/` or `platform/common/`.
-- **DI**: register in the platform's `sdk/dig/sdk.go` (e.g. `platform/view/sdk/dig/sdk.go`); `Install()` must call the parent `p.SDK.Install()`.
-- **Mocks**: `counterfeiter` via `make generate-mocks` (see [`docs/dev/mocks.md`](docs/dev/mocks.md)).
-- **Git**: run `make checks` before committing; sign off every commit (`git commit -s`, DCO); rebase, don't merge. Fixups during review, then autosquash: a PR merges as one commit whose message describes the PR. See [`docs/dev/workflow.md`](docs/dev/workflow.md#commit-hygiene), [`docs/dev/signing.md`](docs/dev/signing.md), [`docs/dev/rebasing.md`](docs/dev/rebasing.md).
-- **Docs**: a change that leaves any documentation wrong is not finished — update the page [`docs/dev/documentation.md`](docs/dev/documentation.md#where-documentation-goes) names, in the same commit; see [Documentation](#documentation).
+- **New code**: platform code → `platform/<name>/`; shared → `pkg/utils/` or
+  `platform/common/`.
+- **DI**: register in the platform's `sdk/dig/sdk.go` (e.g.
+  `platform/view/sdk/dig/sdk.go`); `Install()` must call the parent
+  `p.SDK.Install()`.
+- **Mocks**: `counterfeiter` via `make generate-mocks` (see
+  [`docs/dev/mocks.md`](docs/dev/mocks.md)).
+- **Git**: run `make checks` before committing; sign off every commit
+  (`git commit -s`, DCO); rebase, don't merge. Fixups during review, then
+  autosquash: a PR merges as one commit whose message describes the PR. See
+  [`docs/dev/workflow.md`](docs/dev/workflow.md#commit-hygiene),
+  [`docs/dev/signing.md`](docs/dev/signing.md),
+  [`docs/dev/rebasing.md`](docs/dev/rebasing.md).
+- **Docs**: a change that leaves any documentation wrong is not finished —
+  update the page
+  [`docs/dev/documentation.md`](docs/dev/documentation.md#where-documentation-goes)
+  names, in the same commit; see [Documentation](#documentation).
 
 ## Related projects
 
-- **Panurus** (token layer built _on_ FSC, formerly Token SDK): <https://github.com/LFDT-Panurus/panurus>
-- **Fabric-x Committer** (what the `fabricx` platform submits to): <https://github.com/hyperledger/fabric-x-committer>
+- **Panurus** (token layer built _on_ FSC, formerly Token SDK):
+  <https://github.com/LFDT-Panurus/panurus>
+- **Fabric-x Committer** (what the `fabricx` platform submits to):
+  <https://github.com/hyperledger/fabric-x-committer>
 - Community: LFDT Discord `#fabric-smart-client`

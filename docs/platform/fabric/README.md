@@ -1,17 +1,24 @@
 # Fabric platform
 
-The Fabric platform extends the FSC view runtime with services and APIs for communicating with Hyperledger Fabric networks.
+The Fabric platform extends the FSC view runtime with services and APIs for
+communicating with Hyperledger Fabric networks.
 
 ## Start here
 
 - [Fabric SDK architecture](fabric-sdk.md)
 - [Fabric platform driver architecture](drivers.md)
 - [Fabric platform configuration](configuration.md)
-- [Fabric security](security.md): what a node checks in transactions and identities from other nodes
+- [Fabric security](security.md): what a node checks in transactions and
+  identities from other nodes
 
 ## Use Fabric from a view
 
-A node talks to Fabric once it installs the Fabric [SDK](../../../platform/fabric/sdk/dig/sdk.go) in place of the view SDK. The Fabric SDK builds on the view SDK, so the views and responders you register work as in the [Programming model guide](../view/programming-model.md). The SDK does nothing unless `fabric.enabled` is `true` in `core.yaml` (see [configuration](configuration.md)).
+A node talks to Fabric once it installs the Fabric
+[SDK](../../../platform/fabric/sdk/dig/sdk.go) in place of the view SDK. The
+Fabric SDK builds on the view SDK, so the views and responders you register work
+as in the [Programming model guide](../view/programming-model.md). The SDK does
+nothing unless `fabric.enabled` is `true` in `core.yaml` (see
+[configuration](configuration.md)).
 
 ```go
 import (
@@ -39,7 +46,21 @@ func main() {
 }
 ```
 
-The views below create an IOU (I owe you) state, trimmed from the IOU example. The borrower assembles the transaction with the state-based API of [`platform/fabric/services/state`](../../../platform/fabric/services/state), which wraps the endorser transaction of [`platform/fabric/services/endorser`](../../../platform/fabric/services/endorser): it picks a namespace, adds a command naming the parties, and adds the new state as an output. `NewCollectEndorsementsView` sends the transaction to each party in turn and collects its signature; [Collecting endorsements](fabric-sdk.md#collecting-endorsements) describes the errors it returns when a party fails. The approver is an FSC node whose Fabric identity satisfies the endorsement policy of the `iou` namespace, so its signature is the endorsement Fabric checks. `NewOrderingAndFinalityWithTimeoutView` submits the transaction to the ordering service and waits until it is final; it returns an error if Fabric marks the transaction invalid or the timeout passes.
+The views below create an IOU (I owe you) state, trimmed from the IOU example.
+The borrower assembles the transaction with the state-based API of
+[`platform/fabric/services/state`](../../../platform/fabric/services/state),
+which wraps the endorser transaction of
+[`platform/fabric/services/endorser`](../../../platform/fabric/services/endorser):
+it picks a namespace, adds a command naming the parties, and adds the new state
+as an output. `NewCollectEndorsementsView` sends the transaction to each party
+in turn and collects its signature;
+[Collecting endorsements](fabric-sdk.md#collecting-endorsements) describes the
+errors it returns when a party fails. The approver is an FSC node whose Fabric
+identity satisfies the endorsement policy of the `iou` namespace, so its
+signature is the endorsement Fabric checks.
+`NewOrderingAndFinalityWithTimeoutView` submits the transaction to the ordering
+service and waits until it is final; it returns an error if Fabric marks the
+transaction invalid or the timeout passes.
 
 ```go
 import (
@@ -180,11 +201,24 @@ func (*LenderView) Call(ctx view.Context) (any, error) {
 }
 ```
 
-The approver's responder has the same shape as `LenderView` without the identity exchange: it receives the transaction, checks it against its own rules, including that every owner of the new state has signed (`tx.HasBeenEndorsedBy`), endorses it and waits for finality. To reach a network or channel other than the default one, use `fabric.GetFabricNetworkService` and `fabric.GetChannel` from [`platform/fabric`](../../../platform/fabric/fns.go); `fabric.GetDefaultChannel` returns the default ones.
+The approver's responder has the same shape as `LenderView` without the identity
+exchange: it receives the transaction, checks it against its own rules,
+including that every owner of the new state has signed (`tx.HasBeenEndorsedBy`),
+endorses it and waits for finality. To reach a network or channel other than the
+default one, use `fabric.GetFabricNetworkService` and `fabric.GetChannel` from
+[`platform/fabric`](../../../platform/fabric/fns.go); `fabric.GetDefaultChannel`
+returns the default ones.
 
-`NewCollectEndorsementsView` waits up to a minute for each party, and the finality views wait for the timeout they are given. A view called through the remote view API must finish within `fsc.view.remote.timeout` (2m by default), so keep the two in step.
+`NewCollectEndorsementsView` waits up to a minute for each party, and the
+finality views wait for the timeout they are given. A view called through the
+remote view API must finish within `fsc.view.remote.timeout` (2m by default), so
+keep the two in step.
 
-The complete example is [`integration/fabric/common/iou`](../../../integration/fabric/common/iou): the borrower, lender and approver views, including an update of an existing state, are in its `views` directory, and `topology.go` shows which node registers which view.
+The complete example is
+[`integration/fabric/common/iou`](../../../integration/fabric/common/iou): the
+borrower, lender and approver views, including an update of an existing state,
+are in its `views` directory, and `topology.go` shows which node registers which
+view.
 
 ## What this platform adds
 

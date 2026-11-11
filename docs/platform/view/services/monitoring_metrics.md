@@ -1,27 +1,42 @@
 # Metrics catalog
 
-This document catalogs the metric families defined by the Fabric Smart Client (FSC). For each family, it records the exported name, type, labels, and operational meaning. It focuses on the metrics that FSC itself declares and emits. It excludes the standard Go runtime, process, and Prometheus HTTP handler metrics that exporters expose independently of FSC.
+This document catalogs the metric families defined by the Fabric Smart Client
+(FSC). For each family, it records the exported name, type, labels, and
+operational meaning. It focuses on the metrics that FSC itself declares and
+emits. It excludes the standard Go runtime, process, and Prometheus HTTP handler
+metrics that exporters expose independently of FSC.
 
 ## Overview
 
 The FSC metrics surface has two layers:
 
-- **Explicit metrics**: Counters, gauges, and histograms that are declared directly in service packages.
-- **Trace-derived metrics**: Operation counters and duration histograms that are generated automatically by FSC's tracing wrapper whenever FSC code creates a tracer through the tracing provider.
+- **Explicit metrics**: Counters, gauges, and histograms that are declared
+  directly in service packages.
+- **Trace-derived metrics**: Operation counters and duration histograms that are
+  generated automatically by FSC's tracing wrapper whenever FSC code creates a
+  tracer through the tracing provider.
 
-Each tracer base produces two trace-derived families, `*_operations` and `*_duration`.
+Each tracer base produces two trace-derived families, `*_operations` and
+`*_duration`.
 
-This catalog is organized by subsystem and records the metric family names that Prometheus sees.
+This catalog is organized by subsystem and records the metric family names that
+Prometheus sees.
 
 The activation conditions are:
 
-- libp2p transport families appear only when the node uses the libp2p communication stack
-- WebSocket transport families appear only when the node uses the WebSocket communication stack
+- libp2p transport families appear only when the node uses the libp2p
+  communication stack
+- WebSocket transport families appear only when the node uses the WebSocket
+  communication stack
 - unary view gRPC request counters appear only on the `ProcessCommand` path
-- Fabric ordering, delivery, committer, vault, and finality families appear only when the node executes a Fabric transaction flow
-- caller-process tracer families appear only in the process that creates those tracers
+- Fabric ordering, delivery, committer, vault, and finality families appear only
+  when the node executes a Fabric transaction flow
+- caller-process tracer families appear only in the process that creates those
+  tracers
 
-Not every family is emitted by the FSC node itself. The caller-process families are `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`.
+Not every family is emitted by the FSC node itself. The caller-process families
+are `fsc_view_services_view_client_client_*` and
+`fsc_view_services_view_client_node_view_client_*`.
 
 ## Scope and conventions
 
@@ -35,12 +50,19 @@ fsc:
     provider: prometheus
 ```
 
-The exporter is exposed on `/metrics`, served on `fsc.metrics.address` when set and on the FSC web server otherwise. It requires a verified client certificate unless `fsc.metrics.clientAuthRequired` is `false` (see the [configuration reference](../../../configuration.md)). When the metrics provider is disabled, FSC still instantiates the metric objects, but they are backed by a no-op provider and no data is exported.
+The exporter is exposed on `/metrics`, served on `fsc.metrics.address` when set
+and on the FSC web server otherwise. It requires a verified client certificate
+unless `fsc.metrics.clientAuthRequired` is `false` (see the
+[configuration reference](../../../configuration.md)). When the metrics provider
+is disabled, FSC still instantiates the metric objects, but they are backed by a
+no-op provider and no data is exported.
 
 ### Metric families vs. time series
 
-- A counter or gauge family exports one time series for each distinct label combination
-- A histogram family exports `*_bucket`, `*_sum`, and `*_count` series for each label combination
+- A counter or gauge family exports one time series for each distinct label
+  combination
+- A histogram family exports `*_bucket`, `*_sum`, and `*_count` series for each
+  label combination
 
 ### Naming rules
 
@@ -50,7 +72,9 @@ The full metric name is assembled from:
 2. **Subsystem**
 3. **Name**
 
-Most FSC packages do not hard-code the namespace or subsystem. Instead, the Prometheus provider derives them automatically from the calling package path. For example:
+Most FSC packages do not hard-code the namespace or subsystem. Instead, the
+Prometheus provider derives them automatically from the calling package path.
+For example:
 
 - package `platform/view/services/view`
 - namespace `fsc_view_services`
@@ -60,46 +84,81 @@ Most FSC packages do not hard-code the namespace or subsystem. Instead, the Prom
 
 Explicit overrides are used in the following places:
 
-- `platform/fabric/core/generic/metrics/metrics.go` registers `fsc_fabric_core_generic_ordering_ordered_transactions`
-- `platform/view/services/metrics/connstate/connstate.go` registers the `fsc_connection_*` families
+- `platform/fabric/core/generic/metrics/metrics.go` registers
+  `fsc_fabric_core_generic_ordering_ordered_transactions`
+- `platform/view/services/metrics/connstate/connstate.go` registers the
+  `fsc_connection_*` families
 - `platform/view/services/view/metrics.go` registers `fsc_shutdown_draining`
 - `platform/view/sdk/dig/servers.go` registers `fsc_tls_cert_not_after`
-- `platform/view/services/storage/driver/sql/postgres/dbmetrics.go` registers the `fsc_database_*` families
+- `platform/view/services/storage/driver/sql/postgres/dbmetrics.go` registers
+  the `fsc_database_*` families
 
 ### Labels
 
-Only the labels registered with the metric family are part of the exported schema. For trace-derived metrics, this means that only the label names declared in `tracing.WithMetricsOpts(...)` are guaranteed to appear in Prometheus. A span sets a label from the span attribute with the same key, rendering non-string values as text (`true`, `false`, `3`). Attributes whose key is not a declared label name are recorded on the trace only.
+Only the labels registered with the metric family are part of the exported
+schema. For trace-derived metrics, this means that only the label names declared
+in `tracing.WithMetricsOpts(...)` are guaranteed to appear in Prometheus. A span
+sets a label from the span attribute with the same key, rendering non-string
+values as text (`true`, `false`, `3`). Attributes whose key is not a declared
+label name are recorded on the trace only.
 
-For trace-derived metrics, the namespace and subsystem are also fixed by `tracing.WithMetricsOpts(...)`. If a tracer is created without that option, the wrapper registers the metric family under the tracing package.
+For trace-derived metrics, the namespace and subsystem are also fixed by
+`tracing.WithMetricsOpts(...)`. If a tracer is created without that option, the
+wrapper registers the metric family under the tracing package.
 
 ### Node export vs. library metrics
 
-The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
+The node-facing families are exported by an FSC node when
+`fsc.metrics.provider = prometheus`. These include:
 
-- the explicit metric families, except `fsc_common_services_grpc_conn_*` (see [Known gaps](#known-gaps)) and the families of the communication transport the node does not use (libp2p or WebSocket)
-- all trace-derived families except `fsc_view_services_view_client_client_*` and `fsc_view_services_view_client_node_view_client_*`
+- the explicit metric families, except `fsc_common_services_grpc_conn_*` (see
+  [Known gaps](#known-gaps)) and the families of the communication transport the
+  node does not use (libp2p or WebSocket)
+- all trace-derived families except `fsc_view_services_view_client_client_*` and
+  `fsc_view_services_view_client_node_view_client_*`
 
-The two caller-process families are exported only by the process that creates those tracers:
+The two caller-process families are exported only by the process that creates
+those tracers:
 
 - `fsc_view_services_view_client_client_*`
 - `fsc_view_services_view_client_node_view_client_*`
 
-When validating the catalog from an FSC node's `/metrics` endpoint, those two caller-process families are expected to be absent unless the node process itself is the tracer owner.
+When validating the catalog from an FSC node's `/metrics` endpoint, those two
+caller-process families are expected to be absent unless the node process itself
+is the tracer owner.
 
 ### Operator summary
 
-For node-level monitoring, the quickest way to interpret the FSC metrics surface is below. Unless `fsc.metrics.clientAuthRequired` is `false`, the scraper must present a client certificate.
+For node-level monitoring, the quickest way to interpret the FSC metrics surface
+is below. Unless `fsc.metrics.clientAuthRequired` is `false`, the scraper must
+present a client certificate.
 
-- if the node is up and metrics are enabled, expect `fsc_view_services_metrics_operations_fsc_version` on `/metrics`
-- if the node is serving views, expect `fsc_view_services_view_contexts`, `fsc_view_services_view_calls_*`, and `fsc_view_services_view_grpc_server_requests_*`, which count view-service commands whether callers reach the view service over gRPC or HTTP
-- if the node uses libp2p, expect `fsc_view_services_comm_host_libp2p_bytes_sent` and `fsc_view_services_comm_host_libp2p_bytes_received`
-- if the node uses WebSocket transport, expect `fsc_view_services_comm_host_websocket_ws_opened_websockets`, `fsc_view_services_comm_host_websocket_ws_opened_subconns`, and `fsc_view_services_comm_host_websocket_ws_active_subconns`
-- if the node participates in Fabric transaction execution, expect the Fabric ordering, committer, delivery, vault, and finality-manager families listed in this catalog
-- do not expect `fsc_view_services_view_client_client_*` or `fsc_view_services_view_client_node_view_client_*` on the node unless the node process itself is the tracer owner
+- if the node is up and metrics are enabled, expect
+  `fsc_view_services_metrics_operations_fsc_version` on `/metrics`
+- if the node is serving views, expect `fsc_view_services_view_contexts`,
+  `fsc_view_services_view_calls_*`, and
+  `fsc_view_services_view_grpc_server_requests_*`, which count view-service
+  commands whether callers reach the view service over gRPC or HTTP
+- if the node uses libp2p, expect
+  `fsc_view_services_comm_host_libp2p_bytes_sent` and
+  `fsc_view_services_comm_host_libp2p_bytes_received`
+- if the node uses WebSocket transport, expect
+  `fsc_view_services_comm_host_websocket_ws_opened_websockets`,
+  `fsc_view_services_comm_host_websocket_ws_opened_subconns`, and
+  `fsc_view_services_comm_host_websocket_ws_active_subconns`
+- if the node participates in Fabric transaction execution, expect the Fabric
+  ordering, committer, delivery, vault, and finality-manager families listed in
+  this catalog
+- do not expect `fsc_view_services_view_client_client_*` or
+  `fsc_view_services_view_client_node_view_client_*` on the node unless the node
+  process itself is the tracer owner
 
-If a family is absent, check the matching runtime condition first: communication transport, ingress path, Fabric execution path, or caller-process ownership.
+If a family is absent, check the matching runtime condition first: communication
+transport, ingress path, Fabric execution path, or caller-process ownership.
 
-`fsc_connection_state` reports the health of each client connection; see [Connection state](#connection-state) for what each value means and when to alert.
+`fsc_connection_state` reports the health of each client connection; see
+[Connection state](#connection-state) for what each value means and when to
+alert.
 
 ## Explicit metrics
 
@@ -109,7 +168,8 @@ If a family is absent, check the matching runtime condition first: communication
 | -------------------------------------------------- | ----- | --------- | ------------------------------------------------------------------------------------------ |
 | `fsc_view_services_metrics_operations_fsc_version` | gauge | `version` | FSC version information. The gauge is set to `1` at startup for the active version string. |
 
-Primary implementation: `platform/view/services/metrics/operations/metrics.go`, initialized by `platform/view/services/metrics/operations/system.go`.
+Primary implementation: `platform/view/services/metrics/operations/metrics.go`,
+initialized by `platform/view/services/metrics/operations/system.go`.
 
 ### Listener TLS
 
@@ -117,7 +177,10 @@ Primary implementation: `platform/view/services/metrics/operations/metrics.go`, 
 | ------------------------ | ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fsc_tls_cert_not_after` | gauge | `listener` | Expiry, in Unix seconds, of the TLS certificate the listener currently serves. It is set at startup and after every successful reload (`reloadInterval`, see [configuration.md](../../../configuration.md)). A listener without TLS has no series. |
 
-Alert on `fsc_tls_cert_not_after - time()` falling below the renewal margin. A failed reload leaves the value unchanged, so a renewed certificate that is refused still shows up as an approaching expiry. The gauge is set by `platform/common/services/grpc/certreloader.go`.
+Alert on `fsc_tls_cert_not_after - time()` falling below the renewal margin. A
+failed reload leaves the value unchanged, so a renewed certificate that is
+refused still shows up as an approaching expiry. The gauge is set by
+`platform/common/services/grpc/certreloader.go`.
 
 ### View runtime
 
@@ -126,9 +189,12 @@ Alert on `fsc_tls_cert_not_after - time()` falling below the renewal margin. A f
 | `fsc_view_services_view_contexts` | gauge | none   | Number of active view contexts currently tracked by the view manager.                                |
 | `fsc_shutdown_draining`           | gauge | none   | `1` while the node drains running views before it stops, `0` otherwise ([shutdown.md](shutdown.md)). |
 
-The `contexts` gauge tracks the size of the manager's internal context registry. It increases when initiator or responder contexts are created or registered, and decreases when they are deleted.
+The `contexts` gauge tracks the size of the manager's internal context registry.
+It increases when initiator or responder contexts are created or registered, and
+decreases when they are deleted.
 
-Primary implementation: `platform/view/services/view/metrics.go`, updated through the view manager in `platform/view/services/view/manager.go`.
+Primary implementation: `platform/view/services/view/metrics.go`, updated
+through the view manager in `platform/view/services/view/manager.go`.
 
 ### Comm service
 
@@ -147,12 +213,16 @@ Operational notes:
 
 - `sessions` tracks the size of the session map, not a lifetime total.
 - `stream_hashes` tracks distinct cache buckets, not individual streams.
-- `opened_streams` is incremented only when FSC creates a fresh outbound stream because the cache could not be reused.
+- `opened_streams` is incremented only when FSC creates a fresh outbound stream
+  because the cache could not be reused.
 - `dropped_messages` is incremented in two main failure modes:
   - the dispatcher cannot deliver to a closed or closing session
-  - the session's queue is full, which also closes the session unless it is the master session
+  - the session's queue is full, which also closes the session unless it is the
+    master session
 
-Primary implementation: `platform/view/services/comm/metrics.go`, with updates in `platform/view/services/comm/master.go` and `platform/view/services/comm/p2p.go`.
+Primary implementation: `platform/view/services/comm/metrics.go`, with updates
+in `platform/view/services/comm/master.go` and
+`platform/view/services/comm/p2p.go`.
 
 ### P2P service
 
@@ -162,11 +232,19 @@ Primary implementation: `platform/view/services/comm/metrics.go`, with updates i
 
 Operational notes:
 
-- A rejection is counted when the node attempts it; it is not sent if no stream to the peer is left.
-- Rejections dropped because the peer already has `fsc.p2p.maxRespondersPerPeer` rejections pending, or the node already has `fsc.p2p.maxResponders` pending across all peers, and first messages dropped for status `ERROR` or an empty caller, are not counted.
-- A rising `busy` rate points at one peer, a rising `node_busy` rate at overall load.
-- A rising `unknown_view` rate usually means the nodes run different versions of the application.
-- `authorizer_error` points at the application's authorizer, for example a backend it depends on; the cause of an error or timeout is logged at debug level, a panic at error level with its stack.
+- A rejection is counted when the node attempts it; it is not sent if no stream
+  to the peer is left.
+- Rejections dropped because the peer already has `fsc.p2p.maxRespondersPerPeer`
+  rejections pending, or the node already has `fsc.p2p.maxResponders` pending
+  across all peers, and first messages dropped for status `ERROR` or an empty
+  caller, are not counted.
+- A rising `busy` rate points at one peer, a rising `node_busy` rate at overall
+  load.
+- A rising `unknown_view` rate usually means the nodes run different versions of
+  the application.
+- `authorizer_error` points at the application's authorizer, for example a
+  backend it depends on; the cause of an error or timeout is logged at debug
+  level, a panic at error level with its stack.
 
 Primary implementation: `platform/view/services/view/p2p/service.go`.
 
@@ -180,7 +258,8 @@ Primary implementation: `platform/view/services/view/p2p/service.go`.
 
 The `bytes_*` counters measure traffic volume. They count bytes, not messages.
 
-Primary implementation: `platform/view/services/comm/host/libp2p/metrics.go`, updated by `platform/view/services/comm/host/libp2p/bandwidthreporter.go`.
+Primary implementation: `platform/view/services/comm/host/libp2p/metrics.go`,
+updated by `platform/view/services/comm/host/libp2p/bandwidthreporter.go`.
 
 ### WebSocket transport
 
@@ -196,14 +275,19 @@ Operational notes:
 
 - `side` takes the values `client` or `server`.
 - `opened_websockets` counts physical WebSocket connections.
-- `opened_subconns` counts multiplexed logical channels created on top of those WebSockets.
-- `active_subconns` is recomputed periodically by scanning the current connection state.
+- `opened_subconns` counts multiplexed logical channels created on top of those
+  WebSockets.
+- `active_subconns` is recomputed periodically by scanning the current
+  connection state.
 
-Primary implementation: `platform/view/services/comm/host/websocket/ws/metrics.go`, updated by `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
+Primary implementation:
+`platform/view/services/comm/host/websocket/ws/metrics.go`, updated by
+`platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
 
 ### View service
 
-The view service counts commands on every transport it is served on, gRPC (`fsc.grpc`) and HTTP (`fsc.web`) alike.
+The view service counts commands on every transport it is served on, gRPC
+(`fsc.grpc`) and HTTP (`fsc.web`) alike.
 
 | Metric                                                  | Type    | Labels               | Description                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------------------- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -213,11 +297,21 @@ The view service counts commands on every transport it is served on, gRPC (`fsc.
 
 Operational notes:
 
-- `requests_received` and `requests_completed` are updated only on the unary `ProcessCommand` path; the streaming `StreamCommand` path is not counted by them.
-- `requests_rejected` counts both `ProcessCommand` and `StreamCommand`. `stale` is counted before the signature is checked, so any caller can raise it; `denied` is counted when the policy checker returns an error wrapping `view.ErrDenied`; the built-in access control checker never does, so an unknown creator or a bad signature is not counted. `replay` and `busy` are counted only for commands that passed the policy check; a `busy` command did not run and is not remembered, so its client may send it again.
-- `command` is the Go type of the command payload, for example `*protos.Command_CallView`.
+- `requests_received` and `requests_completed` are updated only on the unary
+  `ProcessCommand` path; the streaming `StreamCommand` path is not counted by
+  them.
+- `requests_rejected` counts both `ProcessCommand` and `StreamCommand`. `stale`
+  is counted before the signature is checked, so any caller can raise it;
+  `denied` is counted when the policy checker returns an error wrapping
+  `view.ErrDenied`; the built-in access control checker never does, so an
+  unknown creator or a bad signature is not counted. `replay` and `busy` are
+  counted only for commands that passed the policy check; a `busy` command did
+  not run and is not remembered, so its client may send it again.
+- `command` is the Go type of the command payload, for example
+  `*protos.Command_CallView`.
 
-Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, updated in `platform/view/services/view/grpc/server/server.go`.
+Primary implementation: `platform/view/services/view/grpc/server/metrics.go`,
+updated in `platform/view/services/view/grpc/server/server.go`.
 
 ### gRPC connection metrics
 
@@ -226,9 +320,12 @@ Primary implementation: `platform/view/services/view/grpc/server/metrics.go`, up
 | `fsc_common_services_grpc_conn_opened` | counter | none   | Number of gRPC connections opened. |
 | `fsc_common_services_grpc_conn_closed` | counter | none   | Number of gRPC connections closed. |
 
-These counters are implemented by FSC's custom gRPC server stats handler. The handler itself is tested, but the default runtime wires the gRPC server through OpenTelemetry's server handler. See [Known gaps](#known-gaps).
+These counters are implemented by FSC's custom gRPC server stats handler. The
+handler itself is tested, but the default runtime wires the gRPC server through
+OpenTelemetry's server handler. See [Known gaps](#known-gaps).
 
-Primary implementation: `platform/common/services/grpc/metrics.go`, with the custom stats handler in `platform/common/services/grpc/serverstatshandler.go`.
+Primary implementation: `platform/common/services/grpc/metrics.go`, with the
+custom stats handler in `platform/common/services/grpc/serverstatshandler.go`.
 
 ### Connection state
 
@@ -260,18 +357,54 @@ Components that report connection state:
 
 Operational notes:
 
-- Each series is keyed by all four labels, so a node serving several channels or networks has one series per channel for the same endpoint. Group alerts by `network` and `channel` as well as `component`.
-- `delivery`, `fabricx_notification` and `database` retry on their own: alert when one of them stays at `reconnecting` longer than you can tolerate, or when `fsc_connection_reconnects` keeps rising. `orderer` and `fabricx_query` change state only on traffic, so on an idle node a series can stay at `reconnecting` with nothing wrong.
-- Only Fabric reports `delivery`. A Fabric-x node runs no long-running delivery stream and has no `delivery` series.
-- `stopped` means the committer rejected a block, not that the peer is unreachable. Check `commit_failures{class}` and the node log for the cause. A restart re-delivers the same block, so after a `degrade` failure the channel stops again until the cause is fixed.
-- Delivery picks a random peer on every connection attempt. When it moves to another peer, the previous peer's series drops to `disconnected`, so at most one peer per channel shows a live state. The attempt is counted against the peer being tried.
-- Only the channel's long-running block stream reports. Historical scans (`ScanBlock`, `Scan`) open their own streams and do not report.
-- The `orderer` series is updated only by broadcasts. A node that broadcasts nothing keeps the last reported state, and an orderer whose stream broke stays `reconnecting` until a broadcast connects to it again. An orderer no stream was ever opened to has no series. For orderers, `fsc_connection_last_connected_timestamp_seconds` is the time of the last stream opened or envelope accepted.
-- A shutdown, including the cancellation of the node's context, ends delivery in `disconnected`. Only a rejected block ends it in `stopped`.
-- The `fabricx_query` series is updated only by queries, so it keeps the last reported state while the node queries nothing and is not set to `disconnected` on shutdown. The channel config monitor queries the service once per poll interval. A query service that has never answered has no series, so it never holds `GET /readyz` at 503 as never connected; an unreachable committer shows on `fabricx_notification` instead.
-- `GET /readyz` on the web listener is derived from the same state: it returns 503 while a component (network, channel, component) has not been `connected` through any endpoint since startup, or while any connection is `stopped`. The drain gate (`draining`), the migration gate (`migrating`), the gRPC gate (`grpc server stopped`) and the readiness gates SDKs provide come first: the first that is not ready makes it answer 503 with its own reason. See [configuration](../../../configuration.md).
+- Each series is keyed by all four labels, so a node serving several channels or
+  networks has one series per channel for the same endpoint. Group alerts by
+  `network` and `channel` as well as `component`.
+- `delivery`, `fabricx_notification` and `database` retry on their own: alert
+  when one of them stays at `reconnecting` longer than you can tolerate, or when
+  `fsc_connection_reconnects` keeps rising. `orderer` and `fabricx_query` change
+  state only on traffic, so on an idle node a series can stay at `reconnecting`
+  with nothing wrong.
+- Only Fabric reports `delivery`. A Fabric-x node runs no long-running delivery
+  stream and has no `delivery` series.
+- `stopped` means the committer rejected a block, not that the peer is
+  unreachable. Check `commit_failures{class}` and the node log for the cause. A
+  restart re-delivers the same block, so after a `degrade` failure the channel
+  stops again until the cause is fixed.
+- Delivery picks a random peer on every connection attempt. When it moves to
+  another peer, the previous peer's series drops to `disconnected`, so at most
+  one peer per channel shows a live state. The attempt is counted against the
+  peer being tried.
+- Only the channel's long-running block stream reports. Historical scans
+  (`ScanBlock`, `Scan`) open their own streams and do not report.
+- The `orderer` series is updated only by broadcasts. A node that broadcasts
+  nothing keeps the last reported state, and an orderer whose stream broke stays
+  `reconnecting` until a broadcast connects to it again. An orderer no stream
+  was ever opened to has no series. For orderers,
+  `fsc_connection_last_connected_timestamp_seconds` is the time of the last
+  stream opened or envelope accepted.
+- A shutdown, including the cancellation of the node's context, ends delivery in
+  `disconnected`. Only a rejected block ends it in `stopped`.
+- The `fabricx_query` series is updated only by queries, so it keeps the last
+  reported state while the node queries nothing and is not set to `disconnected`
+  on shutdown. The channel config monitor queries the service once per poll
+  interval. A query service that has never answered has no series, so it never
+  holds `GET /readyz` at 503 as never connected; an unreachable committer shows
+  on `fabricx_notification` instead.
+- `GET /readyz` on the web listener is derived from the same state: it returns
+  503 while a component (network, channel, component) has not been `connected`
+  through any endpoint since startup, or while any connection is `stopped`. The
+  drain gate (`draining`), the migration gate (`migrating`), the gRPC gate
+  (`grpc server stopped`) and the readiness gates SDKs provide come first: the
+  first that is not ready makes it answer 503 with its own reason. See
+  [configuration](../../../configuration.md).
 
-Primary implementation: `platform/view/services/metrics/connstate/connstate.go`, updated in `platform/fabric/core/generic/delivery/delivery.go`, `platform/fabric/core/generic/ordering/`, `platform/fabricx/core/finality/nlm.go`, `platform/fabricx/core/committer/queryservice/query.go` and `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
+Primary implementation: `platform/view/services/metrics/connstate/connstate.go`,
+updated in `platform/fabric/core/generic/delivery/delivery.go`,
+`platform/fabric/core/generic/ordering/`,
+`platform/fabricx/core/finality/nlm.go`,
+`platform/fabricx/core/committer/queryservice/query.go` and
+`platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
 
 ### Database pool
 
@@ -283,11 +416,19 @@ Primary implementation: `platform/view/services/metrics/connstate/connstate.go`,
 | `fsc_database_wait_count`            | gauge | `data_source` | Total number of times a caller waited for a connection. |
 | `fsc_database_wait_duration_seconds` | gauge | `data_source` | Total time callers waited for a connection.             |
 
-The values are `sql.DBStats` of each Postgres connection pool, sampled every 10 s. `wait_count` and `wait_duration_seconds` only grow; alert on their rate. The liveness ping keeps one connection open, so `open_connections` stays at 1 or more. When `maxOpenConns` is set and every connection is in use, the ping is skipped and the state stays `connected`.
+The values are `sql.DBStats` of each Postgres connection pool, sampled every 10
+s. `wait_count` and `wait_duration_seconds` only grow; alert on their rate. The
+liveness ping keeps one connection open, so `open_connections` stays at 1 or
+more. When `maxOpenConns` is set and every connection is in use, the ping is
+skipped and the state stays `connected`.
 
-The `data_source` label is `host:port/dbname` of the first host in the data source; for a unix socket, `host` is the socket directory, and a data source that cannot be parsed is labeled `unknown`. Pools whose data sources differ only in user or connection options share the label and therefore one series.
+The `data_source` label is `host:port/dbname` of the first host in the data
+source; for a unix socket, `host` is the socket directory, and a data source
+that cannot be parsed is labeled `unknown`. Pools whose data sources differ only
+in user or connection options share the label and therefore one series.
 
-Primary implementation: `platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
+Primary implementation:
+`platform/view/services/storage/driver/sql/postgres/dbmetrics.go`.
 
 ### Fabric ordering
 
@@ -295,9 +436,13 @@ Primary implementation: `platform/view/services/storage/driver/sql/postgres/dbme
 | ------------------------------------------------------- | ------- | --------- | ------------------------------------------------------------------------------- |
 | `fsc_fabric_core_generic_ordering_ordered_transactions` | counter | `network` | Number of transactions that were successfully accepted by the ordering service. |
 
-The CFT broadcaster increments this counter after the orderer returns `Status_SUCCESS`. The BFT broadcaster increments it once per envelope, after enough orderers return `Status_SUCCESS` to meet the threshold.
+The CFT broadcaster increments this counter after the orderer returns
+`Status_SUCCESS`. The BFT broadcaster increments it once per envelope, after
+enough orderers return `Status_SUCCESS` to meet the threshold.
 
-Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updated in `platform/fabric/core/generic/ordering/cft.go` and `platform/fabric/core/generic/ordering/bft.go`.
+Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`,
+updated in `platform/fabric/core/generic/ordering/cft.go` and
+`platform/fabric/core/generic/ordering/bft.go`.
 
 ### Fabric committer
 
@@ -315,46 +460,53 @@ Primary implementation: `platform/fabric/core/generic/metrics/metrics.go`, updat
 
 Operational notes:
 
-- `notify_finality` measures the synchronous notification of local waiting listeners.
-- `post_finality` measures the cost of posting the event to the shared finality manager queue.
-- `notify_status` measures the cost of publishing `TransactionStatusChanged` events.
+- `notify_finality` measures the synchronous notification of local waiting
+  listeners.
+- `post_finality` measures the cost of posting the event to the shared finality
+  manager queue.
+- `notify_status` measures the cost of publishing `TransactionStatusChanged`
+  events.
 - `handler{status}` uses the values:
   - `not_found`
   - `failure`
   - `successful`
-- `event_queue` measures enqueue blocking time, not the total residence time of an event in the queue.
+- `event_queue` measures enqueue blocking time, not the total residence time of
+  an event in the queue.
 - `event_queue_length` is a manually maintained occupancy gauge.
-- `commit_retries` rising while `commit_failures` stays flat is a channel absorbing
-  transient faults and recovering on its own. It is worth a dashboard, not a page.
-  While the database is unreachable the committer keeps retrying the same block
-  until the database comes back, so a long outage shows up as `commit_retries`
-  rising for as long as it lasts, not as a `commit_failures` increment. Which
-  Postgres errors count as an unreachable database is listed in
-  [Postgres errors](../../../configuration.md#postgres-errors). To page on
-  a long outage, alert on the `database` connection state staying `reconnecting`,
+- `commit_retries` rising while `commit_failures` stays flat is a channel
+  absorbing transient faults and recovering on its own. It is worth a dashboard,
+  not a page. While the database is unreachable the committer keeps retrying the
+  same block until the database comes back, so a long outage shows up as
+  `commit_retries` rising for as long as it lasts, not as a `commit_failures`
+  increment. Which Postgres errors count as an unreachable database is listed in
+  [Postgres errors](../../../configuration.md#postgres-errors). To page on a
+  long outage, alert on the `database` connection state staying `reconnecting`,
   or on `commit_retries` rising for longer than the outage you tolerate.
-- **Any** increment of `commit_failures` means that channel has stopped ingesting
-  blocks and will not resume without intervention. A stopped channel emits no
-  further blocks and no further errors, so it does not show up in `block_commit` at
-  all - that histogram simply stops receiving observations, which is
-  indistinguishable from an idle channel. This counter is what an alert should
-  watch.
+- **Any** increment of `commit_failures` means that channel has stopped
+  ingesting blocks and will not resume without intervention. A stopped channel
+  emits no further blocks and no further errors, so it does not show up in
+  `block_commit` at all - that histogram simply stops receiving observations,
+  which is indistinguishable from an idle channel. This counter is what an alert
+  should watch.
 - `commit_failures{class}` uses the values:
   - `degrade` - a deterministic failure on an already-final block, such as a
     configuration this node cannot apply. Retrying cannot clear it.
-  - `fatal` - an invariant the node relies on is broken, so continuing would risk
-    committing over untrustworthy state.
+  - `fatal` - an invariant the node relies on is broken, so continuing would
+    risk committing over untrustworthy state.
   - `retry` never appears here: a retryable failure that exhausts its budget is
-    wrapped in `ErrRetriesExhausted`, which classifies as `degrade`, so an alert on
-    `degrade` catches the exhausted-contention case as well as the deterministic
-    ones.
+    wrapped in `ErrRetriesExhausted`, which classifies as `degrade`, so an alert
+    on `degrade` catches the exhausted-contention case as well as the
+    deterministic ones.
 - A commit that stops because the delivery stops or the node shuts down is not
-  counted in `commit_failures`: the block is committed again once delivery resumes.
+  counted in `commit_failures`: the block is committed again once delivery
+  resumes.
 - Both counters carry `network` and `channel`, because the metrics provider is
-  process-wide and a node serves several channels: without them every channel would
-  increment one series and an operator would learn only that something stopped.
+  process-wide and a node serves several channels: without them every channel
+  would increment one series and an operator would learn only that something
+  stopped.
 
-Primary implementation: `platform/fabric/core/generic/committer/metrics.go`, updated in `platform/fabric/core/generic/committer/committer.go`.
+Primary implementation: `platform/fabric/core/generic/committer/metrics.go`,
+updated in `platform/fabric/core/generic/committer/committer.go`.
 
 ### Security
 
@@ -365,57 +517,71 @@ Primary implementation: `platform/fabric/core/generic/committer/metrics.go`, upd
 Operational notes:
 
 - `kind` is one of:
-  - `invalid_tx`: a transaction received from a peer that failed `endorser.ValidateReceived`
-    (see [Fabric security](../../fabric/security.md#data-received-from-peers)).
-  - `binding_refused`: a bind that would have stored a known long-term identity, one with a
-    resolver or a self-row, as another identity's ephemeral. The row is not written (see
+  - `invalid_tx`: a transaction received from a peer that failed
+    `endorser.ValidateReceived` (see
+    [Fabric security](../../fabric/security.md#data-received-from-peers)).
+  - `binding_refused`: a bind that would have stored a known long-term identity,
+    one with a resolver or a self-row, as another identity's ephemeral. The row
+    is not written (see
     [Security model](../security-model.md#identity-bindings)).
-  - `binding_conflict`: an unproven bind of an ephemeral already bound to a different long-term
-    identity. The existing row is kept.
-  - `recipient_proof`: a recipient identity received in a recipient exchange without a valid
-    proof of ownership. Nothing is bound (see
-    [Fabric security](../../fabric/security.md#recipient-proof-of-ownership)). It names the counterparty's
-    node identity as the peer, and no txID. The warn line gives one of these reasons:
-    - `missing`: no proof. The peer has not been upgraded yet; expected in a burst while
-      organizations upgrade.
-    - `incomplete context`: this node could not name the counterparty node or the session, so no
-      proof is accepted.
-    - `no verifier`: this node cannot get a verifier for the identity: an idemix identity whose
-      credential is not valid for its MSP in the channel, an identity the signature service
-      cannot deserialize, or bytes that are not an identity.
-      An identity refused because the channel that verifies it is unknown or has no
-      configuration in force yet is not counted: that is a condition of this node.
-    - `invalid signature`: the proof does not verify for this session, direction and pair of
-      nodes. The peer forged or replayed it, or the two nodes disagree on one of their FSC node
-      identities, for example a node whose `fsc.identity.cert.file` does not match the certificate
-      its peers' resolvers hold for it.
-  - `unauthorized`: a first P2P message whose sender a responder's authorizer refused. It names
-    the sender's node identity as the peer, and no txID; the reason names the responder's caller
-    view. The same refusal is counted as `fsc_view_services_view_p2p_rejections{reason="unauthorized"}`.
-  - `store_conflict`: a write to a write-once store that differs from the record already stored
-    under the same key. The stored record is kept (see
-    [Security model](../security-model.md#write-once-stores)). It names the txID. `endorseView`
-    names the remote peer of the write that conflicted, which is not necessarily the party that
-    wrote the stored record; the committer names no peer.
-- `binding_refused` and `binding_conflict` name the long-term identity of the bind as the peer, and
-  no txID. An isolated `binding_conflict` after a remote node rotated its certificate is expected:
-  its alias rows still point at the old certificate. A steady rate, or any `binding_refused`, means
-  a peer is claiming identities it does not own, or a node's own MSP identity is configured as a
-  separate resolver.
-- An `invalid_tx` rejection is not a degrade and is not counted in `commit_failures`: the endorser
-  refuses the transaction before it reaches the committer, so no channel's block stream is affected.
-- A `store_conflict` from the committer discards one transaction and is not a degrade either. Any
-  `store_conflict` means two parties produced different records under one txID; an honest retry
-  never does.
-- Each rejection also logs one warn line naming the peer and, for `invalid_tx` and `store_conflict`, the txID; the
-  binding kinds have no txID. The line is rate-limited to one per kind per second since the remote
-  peer controls how often it fires; the counter itself counts every rejection, and the binding
-  kinds count one per refused or conflicting ephemeral. Peer and txID are never counter labels.
+  - `binding_conflict`: an unproven bind of an ephemeral already bound to a
+    different long-term identity. The existing row is kept.
+  - `recipient_proof`: a recipient identity received in a recipient exchange
+    without a valid proof of ownership. Nothing is bound (see
+    [Fabric security](../../fabric/security.md#recipient-proof-of-ownership)).
+    It names the counterparty's node identity as the peer, and no txID. The warn
+    line gives one of these reasons:
+    - `missing`: no proof. The peer has not been upgraded yet; expected in a
+      burst while organizations upgrade.
+    - `incomplete context`: this node could not name the counterparty node or
+      the session, so no proof is accepted.
+    - `no verifier`: this node cannot get a verifier for the identity: an idemix
+      identity whose credential is not valid for its MSP in the channel, an
+      identity the signature service cannot deserialize, or bytes that are not
+      an identity. An identity refused because the channel that verifies it is
+      unknown or has no configuration in force yet is not counted: that is a
+      condition of this node.
+    - `invalid signature`: the proof does not verify for this session, direction
+      and pair of nodes. The peer forged or replayed it, or the two nodes
+      disagree on one of their FSC node identities, for example a node whose
+      `fsc.identity.cert.file` does not match the certificate its peers'
+      resolvers hold for it.
+  - `unauthorized`: a first P2P message whose sender a responder's authorizer
+    refused. It names the sender's node identity as the peer, and no txID; the
+    reason names the responder's caller view. The same refusal is counted as
+    `fsc_view_services_view_p2p_rejections{reason="unauthorized"}`.
+  - `store_conflict`: a write to a write-once store that differs from the record
+    already stored under the same key. The stored record is kept (see
+    [Security model](../security-model.md#write-once-stores)). It names the
+    txID. `endorseView` names the remote peer of the write that conflicted,
+    which is not necessarily the party that wrote the stored record; the
+    committer names no peer.
+- `binding_refused` and `binding_conflict` name the long-term identity of the
+  bind as the peer, and no txID. An isolated `binding_conflict` after a remote
+  node rotated its certificate is expected: its alias rows still point at the
+  old certificate. A steady rate, or any `binding_refused`, means a peer is
+  claiming identities it does not own, or a node's own MSP identity is
+  configured as a separate resolver.
+- An `invalid_tx` rejection is not a degrade and is not counted in
+  `commit_failures`: the endorser refuses the transaction before it reaches the
+  committer, so no channel's block stream is affected.
+- A `store_conflict` from the committer discards one transaction and is not a
+  degrade either. Any `store_conflict` means two parties produced different
+  records under one txID; an honest retry never does.
+- Each rejection also logs one warn line naming the peer and, for `invalid_tx`
+  and `store_conflict`, the txID; the binding kinds have no txID. The line is
+  rate-limited to one per kind per second since the remote peer controls how
+  often it fires; the counter itself counts every rejection, and the binding
+  kinds count one per refused or conflicting ephemeral. Peer and txID are never
+  counter labels.
 
-Primary implementation: `platform/view/services/security/rejections.go`, updated from
-`platform/fabric/services/endorser/validate.go`, `platform/fabric/services/endorser/endorsement.go`,
-`platform/fabric/core/generic/committer/committer.go`, `platform/view/services/endpoint/service.go`,
-`platform/fabric/services/state/recipients.go` and `platform/view/services/view/p2p/service.go`.
+Primary implementation: `platform/view/services/security/rejections.go`, updated
+from `platform/fabric/services/endorser/validate.go`,
+`platform/fabric/services/endorser/endorsement.go`,
+`platform/fabric/core/generic/committer/committer.go`,
+`platform/view/services/endpoint/service.go`,
+`platform/fabric/services/state/recipients.go` and
+`platform/view/services/view/p2p/service.go`.
 
 ### Vault
 
@@ -426,19 +592,23 @@ Primary implementation: `platform/view/services/security/rejections.go`, updated
 
 Operational notes:
 
-- `commit` records the batch duration normalized by the number of transactions in the batch.
+- `commit` records the batch duration normalized by the number of transactions
+  in the batch.
 - `batched_commit` records the end-to-end duration of the outer `CommitTX` call.
 
-Primary implementation: `platform/common/core/generic/vault/metrics.go`, updated in `platform/common/core/generic/vault/vault.go`.
+Primary implementation: `platform/common/core/generic/vault/metrics.go`, updated
+in `platform/common/core/generic/vault/vault.go`.
 
 ## Trace-derived metrics
 
-FSC wraps the tracing provider so that every tracer can export two metric families:
+FSC wraps the tracing provider so that every tracer can export two metric
+families:
 
 - `<metric-base>_operations`: counter of completed spans
 - `<metric-base>_duration`: histogram of completed span durations
 
-Unless otherwise stated, the duration is recorded in seconds and uses the default Prometheus histogram buckets.
+Unless otherwise stated, the duration is recorded in seconds and uses the
+default Prometheus histogram buckets.
 
 ### View and API tracers
 
@@ -468,7 +638,8 @@ Primary implementation:
 | --------------------------------------------------------- | ------------ | ------------------------------------------------------------------ |
 | `fsc_view_services_comm_host_websocket_ws_multiplexed_ws` | `context_id` | WebSocket multiplexer tracer for inbound view invocation handling. |
 
-Primary implementation: `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
+Primary implementation:
+`platform/view/services/comm/host/websocket/ws/multiplexed_provider.go`.
 
 ### Fabric tracers
 
@@ -537,8 +708,18 @@ The following labels are part of the current FSC metric surface.
 
 The following families have implementation caveats:
 
-- `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared but never starts a span, so these families are never emitted.
-- `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared but never incremented, so it stays at zero.
-- `fsc_common_services_grpc_conn_opened` and `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
-- `fsc_view_services_view_client_client_*`: these are caller-process metrics. The standard integration harness creates its external view clients with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
-- `fsc_view_services_view_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.
+- `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared
+  but never starts a span, so these families are never emitted.
+- `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family
+  is declared but never incremented, so it stays at zero.
+- `fsc_common_services_grpc_conn_opened` and
+  `fsc_common_services_grpc_conn_closed`: FSC's custom handler for these
+  counters is tested, but the default runtime wiring uses OpenTelemetry's gRPC
+  server handler instead of the FSC-specific one.
+- `fsc_view_services_view_client_client_*`: these are caller-process metrics.
+  The standard integration harness creates its external view clients with
+  `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing
+  provider, so these families are not expected on the FSC node's `/metrics`.
+- `fsc_view_services_view_client_node_view_client_*`: these are emitted only
+  when the in-process local client helper is used inside the node. They are not
+  part of the normal external gRPC or web ingress path.

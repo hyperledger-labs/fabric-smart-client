@@ -9,9 +9,9 @@
 
 ## Error handling
 
-Use `github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors`. Do **not**
-build or wrap errors with `fmt.Errorf` (downstream projects such as Panurus enforce
-this too).
+Use `github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors`. Do
+**not** build or wrap errors with `fmt.Errorf` (downstream projects such as
+Panurus enforce this too).
 
 Permitted constructors: `errors.New`, `errors.Errorf`, `errors.Wrap`,
 `errors.Wrapf`, `errors.WithMessage`, `errors.WithMessagef`, `errors.Join`.
@@ -41,9 +41,9 @@ documentation short, precise, and behavior-focused.
 ## Logging & monitoring
 
 - Structured logging via `platform/common/services/logging`.
-- Raw state values, payloads, private keys and credentials are never logged at any
-  level, in log lines or in error messages. Log a hash (`logging.SHA256Base64`), a
-  length, or an identifier instead.
+- Raw state values, payloads, private keys and credentials are never logged at
+  any level, in log lines or in error messages. Log a hash
+  (`logging.SHA256Base64`), a length, or an identifier instead.
 - OpenTelemetry for traces and metrics; OTLP setup lives in
   `platform/view/services/tracing`.
 - Jaeger (tracing) and Prometheus (metrics) are the typical backends.
@@ -62,8 +62,8 @@ Keys are compared bytewise and may contain U+0000 (composite keys). Bind them so
 the column stores them verbatim — `BYTEA` on Postgres and for the SQLite KVS,
 `TEXT` for the SQLite vault — rather than escaping them into another string: an
 escape scheme must stay injective and order-preserving, and range scans silently
-break when it is not. A range query needs `ORDER BY pkey`: without it SQL returns
-rows in whatever order the plan produces.
+break when it is not. A range query needs `ORDER BY pkey`: without it SQL
+returns rows in whatever order the plan produces.
 
 ### Schema migrations
 
@@ -74,16 +74,17 @@ A store whose schema changes implements `migrate.Versioned`
 tables as `CreateSchema` does. Never edit, reorder or remove a released step,
 including the body of its `Go` function, and keep every step readable by
 binaries that lack it unless it is a contract step (`Step.Contract`). A table
-shared by several stores has one owning store that lists its steps. A step
-that rewrites existing data, such as a backfill or a key conversion, comes
-with a test that checks the rewritten values; the fixture tests only check
-that the rows they wrote still read back. Do not add
-new schema probes to `CreateSchema`. See
+shared by several stores has one owning store that lists its steps. A step that
+rewrites existing data, such as a backfill or a key conversion, comes with a
+test that checks the rewritten values; the fixture tests only check that the
+rows they wrote still read back. Do not add new schema probes to `CreateSchema`.
+See
 [`docs/platform/view/services/db-driver.md`](../platform/view/services/db-driver.md#schema-versions).
 
 ## Identity management
 
-- An identity is a container for lower-level identity types: X509, ECDSA, Idemix.
+- An identity is a container for lower-level identity types: X509, ECDSA,
+  Idemix.
 - FSC nodes can act as Fabric endorsers when given the proper key material.
 - Identity providers are registered via DI.
 - HSM key material is supported through PKCS#11 (`github.com/miekg/pkcs11`).
@@ -99,29 +100,31 @@ for the trust and identity model.
 - `docs/configuration.md` is pinned by reference tests built on
   [`pkg/utils/configtest`](../../pkg/utils/configtest): each platform's
   `TestReferenceConfiguration` (`platform/view/services/config`,
-  `platform/fabric/core/generic/config`, `platform/fabricx/core/committer/config`) claims
-  its sections, strictly decoding the ones read into a struct and listing the keys read one
-  at a time; `TestReferenceResolvers` (`platform/view/sdk/dig/support/endpoint`) checks
+  `platform/fabric/core/generic/config`,
+  `platform/fabricx/core/committer/config`) claims its sections, strictly
+  decoding the ones read into a struct and listing the keys read one at a time;
+  `TestReferenceResolvers` (`platform/view/sdk/dig/support/endpoint`) checks
   `fsc.endpoint.resolvers`. A documented key that no test claims fails, and
-  `TestReferenceSectionsOwned` (`pkg/utils/configtest`) fails on a top-level section with no
-  owning test. Adding, renaming or removing a key means updating the document and the
-  reference test of the component that reads it.
+  `TestReferenceSectionsOwned` (`pkg/utils/configtest`) fails on a top-level
+  section with no owning test. Adding, renaming or removing a key means updating
+  the document and the reference test of the component that reads it.
 
 ## Security
 
 - TLS is configurable for all network communication.
 - View sessions verify peer identity; endorsement policies are validated.
 - Keep endorser/HSM key material out of application views.
-- The view API's HTTP binding ignores unknown JSON fields, as gRPC ignores unknown protobuf
-  fields, so an older node accepts a message with a field it does not know and does not
-  honor it. Never add a field with security meaning (an audience, a target node, a signature
-  algorithm) to an existing view-API message; add a new command type, which an older server
-  rejects with `ErrCommandNotRecognized`.
-- FSC's wire and API protos (the files `buf.yaml` includes) only gain fields, so a node reads
-  the messages of the release before it. `make buf-breaking` (CI: `buf.yml`) compares them
-  against the latest release tag with buf's `FILE` rules. A new FSC proto belongs under a path
-  `buf.yaml` includes.
-- A new message FSC nodes send each other or store is protobuf in a versioned proto package
-  (for example `fsc.fabric.v1` in `platform/fabric/protos`), not JSON of a Go struct, so
-  `buf breaking` checks its evolution. Marshal bytes that are stored or compared with
-  `proto.MarshalOptions{Deterministic: true}`.
+- The view API's HTTP binding ignores unknown JSON fields, as gRPC ignores
+  unknown protobuf fields, so an older node accepts a message with a field it
+  does not know and does not honor it. Never add a field with security meaning
+  (an audience, a target node, a signature algorithm) to an existing view-API
+  message; add a new command type, which an older server rejects with
+  `ErrCommandNotRecognized`.
+- FSC's wire and API protos (the files `buf.yaml` includes) only gain fields, so
+  a node reads the messages of the release before it. `make buf-breaking` (CI:
+  `buf.yml`) compares them against the latest release tag with buf's `FILE`
+  rules. A new FSC proto belongs under a path `buf.yaml` includes.
+- A new message FSC nodes send each other or store is protobuf in a versioned
+  proto package (for example `fsc.fabric.v1` in `platform/fabric/protos`), not
+  JSON of a Go struct, so `buf breaking` checks its evolution. Marshal bytes
+  that are stored or compared with `proto.MarshalOptions{Deterministic: true}`.

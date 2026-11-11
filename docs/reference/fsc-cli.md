@@ -2,7 +2,10 @@
 
 ## Overview
 
-The Fabric Smart Client CLI (`fsccli`) is a helper utility command-line tool for developing and testing FSC-based applications. It allows for managing FSC nodes, generating artifacts, managing cryptographic material, and invoking views on running FSC nodes.
+The Fabric Smart Client CLI (`fsccli`) is a helper utility command-line tool for
+developing and testing FSC-based applications. It allows for managing FSC nodes,
+generating artifacts, managing cryptographic material, and invoking views on
+running FSC nodes.
 
 ## Installation
 
@@ -65,8 +68,10 @@ Generate artifacts from a topology configuration file.
 **Flags:**
 
 - `-t, --topology <file>` - **(Required)** Path to topology file in YAML format
-- `-o, --output <dir>` - Output directory for generated artifacts (default: `./out/testdata`)
-- `-p, --port <number>` - Starting port number for host services (default: `20000`)
+- `-o, --output <dir>` - Output directory for generated artifacts (default:
+  `./out/testdata`)
+- `-p, --port <number>` - Starting port number for host services (default:
+  `20000`)
 
 **Examples:**
 
@@ -101,7 +106,8 @@ topologies:
     # FSC network configuration...
 ```
 
-**For more topology examples, see the integration tests in [`integration/`](../../integration/) directory.**
+**For more topology examples, see the integration tests in
+[`integration/`](../../integration/) directory.**
 
 **Supported Topology Types:**
 
@@ -137,7 +143,8 @@ Generate cryptographic material from a configuration template.
 **Flags:**
 
 - `-c, --config <file>` - **(Required)** Path to configuration template file
-- `-o, --output <dir>` - Output directory for crypto material (default: `crypto-config`)
+- `-o, --output <dir>` - Output directory for crypto material (default:
+  `crypto-config`)
 
 **Examples:**
 
@@ -157,7 +164,8 @@ Generate cryptographic material from a configuration template.
 
 **Configuration File Format:**
 
-The configuration file defines organizations and their cryptographic requirements:
+The configuration file defines organizations and their cryptographic
+requirements:
 
 ```yaml
 # Example crypto-config.yaml
@@ -199,7 +207,8 @@ fsccli cryptogen showtemplate > my-crypto-config.yaml
 
 **Output:**
 
-Displays a complete example configuration template that can be customized for your network.
+Displays a complete example configuration template that can be customized for
+your network.
 
 ### `view`
 
@@ -272,7 +281,8 @@ Run preflight validation on an FSC configuration directory.
 - Fabric network configuration (when present)
 - gRPC server configuration (when enabled)
 - web server and TLS configuration (when enabled)
-- operations endpoints: the `fsc.metrics` listener TLS and `fsc.metrics.clientAuthRequired`
+- operations endpoints: the `fsc.metrics` listener TLS and
+  `fsc.metrics.clientAuthRequired`
 - tracing configuration (when present)
 
 **Output:**
@@ -286,7 +296,10 @@ configuration is valid
 - validated fsc.grpc server configuration
 ```
 
-A configuration that is valid but leaves the operations endpoints rejecting every request, because `fsc.metrics.clientAuthRequired` defaults to true on a listener that never requests a client certificate, adds a `- warning:` line naming the remedies.
+A configuration that is valid but leaves the operations endpoints rejecting
+every request, because `fsc.metrics.clientAuthRequired` defaults to true on a
+listener that never requests a client certificate, adds a `- warning:` line
+naming the remedies.
 
 #### Examples
 
@@ -331,7 +344,8 @@ echo '{"id":"asset123","owner":"Alice"}' | fsccli view \
 
 **4. Using configuration file:**
 
-> **Important:** Replace the example paths below with actual paths to your certificate and key files. The paths must point to existing files.
+> **Important:** Replace the example paths below with actual paths to your
+> certificate and key files. The paths must point to existing files.
 
 Create `view-config.yaml`:
 
@@ -427,7 +441,9 @@ The CLI automatically detects base64 encoding and decodes it.
 
 HSM (Hardware Security Module) related utilities.
 
-> **Note:** The HSM utilities need a build with PKCS#11 support (`-tags pkcs11`). Without that tag, `fsccli hsm` only prints a help text saying so.
+> **Note:** The HSM utilities need a build with PKCS#11 support
+> (`-tags pkcs11`). Without that tag, `fsccli hsm` only prints a help text
+> saying so.
 
 **Usage:**
 

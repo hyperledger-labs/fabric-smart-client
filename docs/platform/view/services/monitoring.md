@@ -4,10 +4,14 @@
 
 FSC offers two ways to monitor the performance of an application:
 
-- **Metrics** provide an overview of the overall system performance using aggregated results, e.g. total requests, requests per second, current state of a variable, average duration, percentile of duration
-- **Traces** analyze single requests by breaking down their lifecycles into smaller components
+- **Metrics** provide an overview of the overall system performance using
+  aggregated results, e.g. total requests, requests per second, current state of
+  a variable, average duration, percentile of duration
+- **Traces** analyze single requests by breaking down their lifecycles into
+  smaller components
 
-For a complete list of the metric families FSC defines, see the [Metrics catalog](./monitoring_metrics.md).
+For a complete list of the metric families FSC defines, see the
+[Metrics catalog](./monitoring_metrics.md).
 
 ## Metrics
 
@@ -29,13 +33,16 @@ type Histogram interface {
 }
 ```
 
-For more information on their meaning and how they are used, refer to [this article](https://prometheus.io/docs/concepts/metric_types/).
+For more information on their meaning and how they are used, refer to
+[this article](https://prometheus.io/docs/concepts/metric_types/).
 
-For the catalog of FSC metric families, including the exported names, labels, and operational meaning, see the [Metrics catalog](./monitoring_metrics.md).
+For the catalog of FSC metric families, including the exported names, labels,
+and operational meaning, see the [Metrics catalog](./monitoring_metrics.md).
 
 ### Types of providers
 
-A metric provider specifies the implementation of the aforementioned metrics, and it implements the following interface:
+A metric provider specifies the implementation of the aforementioned metrics,
+and it implements the following interface:
 
 ```go
 // A Provider is an abstraction for a metrics provider. It is a factory for
@@ -50,12 +57,15 @@ type Provider interface {
 }
 ```
 
-FSC provides two provider implementations (custom ones can also be added), that can be configured in the `core.yaml`:
+FSC provides two provider implementations (custom ones can also be added), that
+can be configured in the `core.yaml`:
 
-- `disabled.Provider`: No metrics are registered. Used unless `fsc.metrics.provider` is `prometheus`, including when the key is unset
+- `disabled.Provider`: No metrics are registered. Used unless
+  `fsc.metrics.provider` is `prometheus`, including when the key is unset
 - `prometheus.Provider`: Used when `fsc.metrics.provider = prometheus`
 
-The default implementation of the metric provider is defined in `view.SDK` and can be overridden by any parent SDK as follows:
+The default implementation of the metric provider is defined in `view.SDK` and
+can be overridden by any parent SDK as follows:
 
 ```go
 func (p *SDK) Install() error {
@@ -73,7 +83,9 @@ func (p *SDK) Install() error {
 
 To record metrics within a service:
 
-- Create a new struct `Metrics` that contains as properties all the metrics this specific service and its sub-components need. Avoid adding more fields to the struct.
+- Create a new struct `Metrics` that contains as properties all the metrics this
+  specific service and its sub-components need. Avoid adding more fields to the
+  struct.
 
 ```go
 type Metrics struct {
@@ -101,7 +113,8 @@ func NewMetrics(provider metrics.Provider) *Metrics {
 }
 ```
 
-- In the service constructor, inject the `metrics.Provider` and create the `Metrics` struct.
+- In the service constructor, inject the `metrics.Provider` and create the
+  `Metrics` struct.
 
 ```go
 type MyService struct {
@@ -121,9 +134,14 @@ func NewMyService(... Deps, metricsProvider metrics.Provider) *MyService {
 
 #### In a view
 
-Views do not support proper dependency injection and instantiating a new Metrics struct can be inefficient for each view invocation. For this reason, avoid keeping metrics within the views and try to do it using the services that the view uses.
+Views do not support proper dependency injection and instantiating a new Metrics
+struct can be inefficient for each view invocation. For this reason, avoid
+keeping metrics within the views and try to do it using the services that the
+view uses.
 
-However, if it is necessary, you can create a `Metrics` struct that contains all the metrics your application uses as shown above, and register it in your SDK, as [Developing new SDKs](../../sdk.md#developing-new-sdks) explains:
+However, if it is necessary, you can create a `Metrics` struct that contains all
+the metrics your application uses as shown above, and register it in your SDK,
+as [Developing new SDKs](../../sdk.md#developing-new-sdks) explains:
 
 ```go
 type Metrics struct {...}
@@ -141,19 +159,41 @@ func (p *SDK) Install() error {
 
 ### Visualization
 
-The visualization of the prometheus metrics can be done in three different steps:
+The visualization of the prometheus metrics can be done in three different
+steps:
 
-- **Prometheus Exporter:** The application collects the metrics and exposes them on `/metrics`, served on `fsc.metrics.address` when set and on `fsc.web.address` otherwise. Unless `fsc.metrics.clientAuthRequired` is `false`, the endpoint requires a verified client certificate, so a browser or scraper must present one signed by the listener's `clientRootCAs`.
-- **Prometheus Server:** A separate server can be run on the same or a different host that scrapes the data from the endpoint above and presents aggregated results. The fastest way is using the Docker image `prom/prometheus:latest` and adding in the `prometheus.yaml` configuration file the endpoints that need to be scraped. The Prometheus server keeps a local database to record the history of the scraped metrics. The server provides a simple UI, as well as a REST interface to query the aggregated metrics.
-- **Grafana UI:** On top of the Prometheus server, a separate UI that issues queries to the Prometheus server and visualizes the results in more complex graphs. Additionally, dashboard pages can be defined to collect different graphs. The fastest way is using the Docker image `grafana/grafana:latest`, where the endpoint of the Prometheus server is passed in the configuration as a datasource, and the various dashboards are mounted on the image, so they don't need to be configured each time.
+- **Prometheus Exporter:** The application collects the metrics and exposes them
+  on `/metrics`, served on `fsc.metrics.address` when set and on
+  `fsc.web.address` otherwise. Unless `fsc.metrics.clientAuthRequired` is
+  `false`, the endpoint requires a verified client certificate, so a browser or
+  scraper must present one signed by the listener's `clientRootCAs`.
+- **Prometheus Server:** A separate server can be run on the same or a different
+  host that scrapes the data from the endpoint above and presents aggregated
+  results. The fastest way is using the Docker image `prom/prometheus:latest`
+  and adding in the `prometheus.yaml` configuration file the endpoints that need
+  to be scraped. The Prometheus server keeps a local database to record the
+  history of the scraped metrics. The server provides a simple UI, as well as a
+  REST interface to query the aggregated metrics.
+- **Grafana UI:** On top of the Prometheus server, a separate UI that issues
+  queries to the Prometheus server and visualizes the results in more complex
+  graphs. Additionally, dashboard pages can be defined to collect different
+  graphs. The fastest way is using the Docker image `grafana/grafana:latest`,
+  where the endpoint of the Prometheus server is passed in the configuration as
+  a datasource, and the various dashboards are mounted on the image, so they
+  don't need to be configured each time.
 
 ## Traces
 
-Traces are used to capture, analyze and break down the lifecycle of a request that spans across different hosts. FSC uses the OpenTelemetry open standard (see the [OpenTelemetry observability primer](https://opentelemetry.io/docs/concepts/observability-primer/) for an introduction to its concepts).
+Traces are used to capture, analyze and break down the lifecycle of a request
+that spans across different hosts. FSC uses the OpenTelemetry open standard (see
+the
+[OpenTelemetry observability primer](https://opentelemetry.io/docs/concepts/observability-primer/)
+for an introduction to its concepts).
 
 ### Types of providers
 
-The tracer provider specifies the behavior of the traces, e.g. where they are stored, the sampling rate, the format etc.
+The tracer provider specifies the behavior of the traces, e.g. where they are
+stored, the sampling rate, the format etc.
 
 ```go
 type TracerProvider interface {
@@ -161,63 +201,93 @@ type TracerProvider interface {
 }
 ```
 
-FSC defines the following implementations, although custom implementations can be added:
+FSC defines the following implementations, although custom implementations can
+be added:
 
 - **NoOp:** Disables the tracer, when `fsc.tracing.provider = none`
-- **Console:** Exports (prints) the traces on the console, when `fsc.tracing.provider = console`
-- **File:** Exports (stores) the traces into the file `fsc.tracing.file.path`, when `fsc.tracing.provider = file`
-- **OTLP:** Exports (sends) the traces to an OTLP collector that listens on the port `fsc.tracing.otlp.address` when `fsc.tracing.provider = otlp`
+- **Console:** Exports (prints) the traces on the console, when
+  `fsc.tracing.provider = console`
+- **File:** Exports (stores) the traces into the file `fsc.tracing.file.path`,
+  when `fsc.tracing.provider = file`
+- **OTLP:** Exports (sends) the traces to an OTLP collector that listens on the
+  port `fsc.tracing.otlp.address` when `fsc.tracing.provider = otlp`
 
-These supported tracer providers can be instantiated using `tracing.NewProviderFromConfigService`, which reads `fsc.tracing` from `core.yaml`, or `tracing.NewProviderFromConfig`, which takes an already-populated `tracing.Config` as is.
-Besides the type of the exporter, the configuration specifies other parameters, like the sampling rate (`fsc.tracing.sampling.ratio`, in [0, 1]).
-`NewProviderFromConfigService` defaults an unset ratio to 1; `NewProviderFromConfig` applies no defaults, so a zero ratio samples no root spans.
-Any other `fsc.tracing.provider` value is rejected at startup.
-The default implementation is defined in the view SDK, but can be overridden in the same way as the metrics provider.
+These supported tracer providers can be instantiated using
+`tracing.NewProviderFromConfigService`, which reads `fsc.tracing` from
+`core.yaml`, or `tracing.NewProviderFromConfig`, which takes an
+already-populated `tracing.Config` as is. Besides the type of the exporter, the
+configuration specifies other parameters, like the sampling rate
+(`fsc.tracing.sampling.ratio`, in [0, 1]). `NewProviderFromConfigService`
+defaults an unset ratio to 1; `NewProviderFromConfig` applies no defaults, so a
+zero ratio samples no root spans. Any other `fsc.tracing.provider` value is
+rejected at startup. The default implementation is defined in the view SDK, but
+can be overridden in the same way as the metrics provider.
 
-FSC provides also an enhanced implementation of the `tracing.Provider` that keeps metrics in the background for each span.
-For every span started, it records the count and the duration of the operation. To use it, override the existing tracer provider with this implementation using `tracing.NewProviderWithBackingProvider`.
+FSC provides also an enhanced implementation of the `tracing.Provider` that
+keeps metrics in the background for each span. For every span started, it
+records the count and the duration of the operation. To use it, override the
+existing tracer provider with this implementation using
+`tracing.NewProviderWithBackingProvider`.
 
 ### Adding traces
 
-The base unit of the traces are the spans. A span represents a unit of work. FSC code only starts spans; the remote agent (with the OTLP provider) links them into traces.
+The base unit of the traces are the spans. A span represents a unit of work. FSC
+code only starts spans; the remote agent (with the OTLP provider) links them
+into traces.
 
-1. For instance, in the case of a transfer, the transfer operation is conceptually a trace. The first span of this trace can be created on the end user that initiates the client (e.g. alice).
-2. When the request arrives at the recipient (e.g. bob), another span can be initiated when the corresponding view is invoked.
-3. This view calls other views and/or services, each of which can initiate new spans (or re-use the same span).
-4. Then bob asks his FSC peers for endorsements, and that can initiate new spans respectively.
+1. For instance, in the case of a transfer, the transfer operation is
+   conceptually a trace. The first span of this trace can be created on the end
+   user that initiates the client (e.g. alice).
+2. When the request arrives at the recipient (e.g. bob), another span can be
+   initiated when the corresponding view is invoked.
+3. This view calls other views and/or services, each of which can initiate new
+   spans (or re-use the same span).
+4. Then bob asks his FSC peers for endorsements, and that can initiate new spans
+   respectively.
 
-In order to link the different spans to compose a single trace, the span metadata (span context) have to be propagated from one request to the other (i.e. from alice to bob, from bob to the intermediaries, from bob back to alice).
-This happens automatically by passing the context from one unit of work to the other.
+In order to link the different spans to compose a single trace, the span
+metadata (span context) have to be propagated from one request to the other
+(i.e. from alice to bob, from bob to the intermediaries, from bob back to
+alice). This happens automatically by passing the context from one unit of work
+to the other.
 
 The span context has to be transmitted in the following cases:
 
-1. Within the same FSC node (case 3 in the above example). These calls can be performed in the following ways:
+1. Within the same FSC node (case 3 in the above example). These calls can be
+   performed in the following ways:
    1. calling a view
    2. calling a service
-2. During remote calls (cases 1, 2, 4 in the above example). These calls can be performed in the following ways:
+2. During remote calls (cases 1, 2, 4 in the above example). These calls can be
+   performed in the following ways:
    1. calling a view using gRPC/REST (case 1, when alice calls the view on bob)
    2. calling a RESTful API directly
-   3. using sessions (case 4, when bob collects endorsements using the session factory)
+   3. using sessions (case 4, when bob collects endorsements using the session
+      factory)
 
-FSC propagates the span context itself in cases 1.i and 2.i, and in case 2.iii over WebSocket: a view called in-process
-runs with the caller's context, a view called over gRPC or REST carries the span context in the request (through the
-OpenTelemetry gRPC and HTTP instrumentation), and a WebSocket session carries it in the stream metadata. A libp2p
-session does not carry it. In case 1.ii the developer passes the context to every service call, and in case 2.ii
-the HTTP client has to inject it, for example with `otelhttp.NewTransport`.
+FSC propagates the span context itself in cases 1.i and 2.i, and in case 2.iii
+over WebSocket: a view called in-process runs with the caller's context, a view
+called over gRPC or REST carries the span context in the request (through the
+OpenTelemetry gRPC and HTTP instrumentation), and a WebSocket session carries it
+in the stream metadata. A libp2p session does not carry it. In case 1.ii the
+developer passes the context to every service call, and in case 2.ii the HTTP
+client has to inject it, for example with `otelhttp.NewTransport`.
 
 #### Add events
 
-**You will not need to add new spans, but only add events to the existing spans.**
+**You will not need to add new spans, but only add events to the existing
+spans.**
 
-- The simplest way to add an event to an existing context is using the logger's methods.
-  In the following cases, both events will be added, but the log line is written only if debug logging is enabled.
+- The simplest way to add an event to an existing context is using the logger's
+  methods. In the following cases, both events will be added, but the log line
+  is written only if debug logging is enabled.
 
 ```go
 logger.DebugfContext(ctx, "here is a debug event")
 logger.InfofContext(ctx, "here is an info event.")
 ```
 
-- Otherwise, for more control and flexibility, you can retrieve the span from the context and add the event:
+- Otherwise, for more control and flexibility, you can retrieve the span from
+  the context and add the event:
 
 ```go
 span := trace.SpanFromContext(ctx)
@@ -227,7 +297,8 @@ span.AddEvent("here is an event")
 #### Add traces and spans
 
 It will not be necessary to add new traces or spans, so you can skip this part.
-However, if this is indeed necessary, below are some implementation details on how to add traces in services and views.
+However, if this is indeed necessary, below are some implementation details on
+how to add traces in services and views.
 
 ##### Add traces/spans in a service
 
@@ -245,7 +316,9 @@ type MyService struct {
 }
 ```
 
-- Inject the `tracing.Provider` into your service constructor and instantiate a new tracer. As the name for the tracer, try to pick a noun that describes the actor:
+- Inject the `tracing.Provider` into your service constructor and instantiate a
+  new tracer. As the name for the tracer, try to pick a noun that describes the
+  actor:
 
 ```go
 const (
@@ -267,15 +340,27 @@ func NewMyService(... Deps, tracerProvider tracing.Provider, otherService OtherS
 
 - Start a new span in the method:
   - Make sure the methods of your service accept the context in their signature.
-  - All the services you call need to be passed the child context `newCtx`. Otherwise you will still get the spans, but they will not belong to the same trace as the parent span.
+  - All the services you call need to be passed the child context `newCtx`.
+    Otherwise you will still get the spans, but they will not belong to the same
+    trace as the parent span.
   - As a span name, use a noun that describes the action.
   - The label values can be overwritten
   - Make sure you always `End()` the span.
   - Use `trace.SpanKindInternal` that corresponds to calls within the same node.
-  - Start a new trace and avoid re-using the trace of the parent if you think that a new unit of work has started. If you need to reuse the parent span (just to add events and properties, but not to end it), use `trace.SpanFromContext(ctx)`.
-  - Optionally add more events that appear as logs within your span. Prefer verbs as event names.
-  - Do not try to set labels that you haven't defined in the `LabelNames` field above, and make sure all labels have a value (pick a default value if you are unsure and overwrite it later). The span implementation records attributes with any other key on the trace only, and event attributes never set labels, but custom extensions of it (read below) will require that they all be defined and set.
-  - The Subsystem field is optional and is automatically derived if left unspecified.
+  - Start a new trace and avoid re-using the trace of the parent if you think
+    that a new unit of work has started. If you need to reuse the parent span
+    (just to add events and properties, but not to end it), use
+    `trace.SpanFromContext(ctx)`.
+  - Optionally add more events that appear as logs within your span. Prefer
+    verbs as event names.
+  - Do not try to set labels that you haven't defined in the `LabelNames` field
+    above, and make sure all labels have a value (pick a default value if you
+    are unsure and overwrite it later). The span implementation records
+    attributes with any other key on the trace only, and event attributes never
+    set labels, but custom extensions of it (read below) will require that they
+    all be defined and set.
+  - The Subsystem field is optional and is automatically derived if left
+    unspecified.
 
 ```go
 func (s *MyService) Transfer(ctx context.Context, ... OtherParams) error {
@@ -297,9 +382,13 @@ func (s *MyService) Transfer(ctx context.Context, ... OtherParams) error {
 
 ##### Add traces/spans in a view
 
-In views, you can add events to the existing context as shown above. In most (or all) of the cases you will not need to create your own span, but use the existing one.
+In views, you can add events to the existing context as shown above. In most (or
+all) of the cases you will not need to create your own span, but use the
+existing one.
 
-If you do want to create one, since views do not have a proper dependency injection mechanism and creating a new tracer would be inefficient for each view call, you can use the following method of `view.Context`:
+If you do want to create one, since views do not have a proper dependency
+injection mechanism and creating a new tracer would be inefficient for each view
+call, you can use the following method of `view.Context`:
 
 ```go
 type Context interface {
@@ -307,7 +396,9 @@ type Context interface {
 }
 ```
 
-Pass the view's Go context (`viewCtx.Context()`) to start a child of the view's span. You can also start from another context, e.g. when you receive a message from a session:
+Pass the view's Go context (`viewCtx.Context()`) to start a child of the view's
+span. You can also start from another context, e.g. when you receive a message
+from a session:
 
 ```go
 	ch := session.Receive()
@@ -329,13 +420,17 @@ Note that you can also link two spans for better visualization on the UI.
 
 ### Visualization
 
-Reading single spans from the console or a file is cumbersome and tools exist that:
+Reading single spans from the console or a file is cumbersome and tools exist
+that:
 
 - collect the spans
 - combine the spans by their metadata (span context) and compose traces
 - allow querying of traces based on their name, labels, time, etc.
 - visualize the traces on a UI
 
-Although these components are separate and have distinct responsibilities, there is a docker image that combines all of them: `jaegertracing/all-in-one:latest`.
-The `jaeger_collector` sub-image listens on a port for new spans. The application exports (sends) the spans to that endpoint (defined in `fsc.tracing.otlp.address`).
-The `jaeger_ui` serves an application with querying and trace-visualization capabilities.
+Although these components are separate and have distinct responsibilities, there
+is a docker image that combines all of them: `jaegertracing/all-in-one:latest`.
+The `jaeger_collector` sub-image listens on a port for new spans. The
+application exports (sends) the spans to that endpoint (defined in
+`fsc.tracing.otlp.address`). The `jaeger_ui` serves an application with querying
+and trace-visualization capabilities.

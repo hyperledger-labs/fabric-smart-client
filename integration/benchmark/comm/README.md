@@ -1,13 +1,13 @@
 # Comm benchmarks
 
-Micro-benchmarks of the P2P communication layer (`platform/view/services/comm`). Each benchmark
-runs once per transport, `websocket` and `libp2p`, between nodes on loopback, so the two
-transports can be compared under identical workloads.
+Micro-benchmarks of the P2P communication layer (`platform/view/services/comm`).
+Each benchmark runs once per transport, `websocket` and `libp2p`, between nodes
+on loopback, so the two transports can be compared under identical workloads.
 
-The nodes are real `comm.P2PNode`s over real hosts: WebSocket uses mutual TLS with
-certificates issued by a throwaway CA and a static ID router, and libp2p nodes dial each other
-by address. Keys are generated per benchmark; no fixtures or Fabric
-binaries are needed.
+The nodes are real `comm.P2PNode`s over real hosts: WebSocket uses mutual TLS
+with certificates issued by a throwaway CA and a static ID router, and libp2p
+nodes dial each other by address. Keys are generated per benchmark; no fixtures
+or Fabric binaries are needed.
 
 ## Benchmarks
 
@@ -20,10 +20,14 @@ binaries are needed.
 
 Units:
 
-- `ns/op` is the mean time per op. In the parallel and mesh benchmarks ops overlap, so it is wall time divided by ops, the inverse of throughput.
-- `p50-ns` and `p99-ns` are the median and 99th percentile of a single op, measured by the sender: one round trip, or in `BenchmarkSessionSetup` one full session lifecycle.
+- `ns/op` is the mean time per op. In the parallel and mesh benchmarks ops
+  overlap, so it is wall time divided by ops, the inverse of throughput.
+- `p50-ns` and `p99-ns` are the median and 99th percentile of a single op,
+  measured by the sender: one round trip, or in `BenchmarkSessionSetup` one full
+  session lifecycle.
 - `TPS` is ops per second. `MB/s` counts payload bytes in both directions.
-- `B/op` and `allocs/op` cover both ends of the exchange, since all nodes run in the benchmark process.
+- `B/op` and `allocs/op` cover both ends of the exchange, since all nodes run in
+  the benchmark process.
 
 ## Running
 
@@ -34,4 +38,6 @@ go test -run '^$' -bench . -benchtime 2s -count 10 ./benchmark/comm/ | tee comm.
 benchstat -col /transport comm.txt   # websocket vs libp2p side by side
 ```
 
-Logs are off by default so that they do not interleave with results; set `FSC_LOGSPEC` (e.g. `error` or `fsc.platform.view.services.comm=debug:error`) to see them.
+Logs are off by default so that they do not interleave with results; set
+`FSC_LOGSPEC` (e.g. `error` or `fsc.platform.view.services.comm=debug:error`) to
+see them.

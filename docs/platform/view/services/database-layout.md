@@ -2,13 +2,18 @@
 
 ## Overview
 
-This document describes the physical database layout created by an FSC node.
-It focuses on the concrete tables, naming rules, and stored data shapes used by the current implementation.
-Unless otherwise noted, the examples and default names below refer to the standard generated node path with the default table prefix and default store parameters.
+This document describes the physical database layout created by an FSC node. It
+focuses on the concrete tables, naming rules, and stored data shapes used by the
+current implementation. Unless otherwise noted, the examples and default names
+below refer to the standard generated node path with the default table prefix
+and default store parameters.
 
-- [Database drivers](db-driver.md) explains persistence, store, and driver concepts
-- [Runtime DB access](runtime-db-access.md) explains how application code and operators access persisted data at runtime
-- this document explains what tables and columns exist in the underlying database
+- [Database drivers](db-driver.md) explains persistence, store, and driver
+  concepts
+- [Runtime DB access](runtime-db-access.md) explains how application code and
+  operators access persisted data at runtime
+- this document explains what tables and columns exist in the underlying
+  database
 
 ## How FSC storage maps to tables
 
@@ -24,28 +29,35 @@ flowchart LR
 
 The important pieces are:
 
-- a **store** is the logical API used by the runtime, such as KVS, BindingStore, or the Fabric vault
+- a **store** is the logical API used by the runtime, such as KVS, BindingStore,
+  or the Fabric vault
 - a **persistence** is the configured backend selection under `fsc.persistences`
-- a **table prefix** is part of the persistence options and affects the final physical table names
+- a **table prefix** is part of the persistence options and affects the final
+  physical table names
 - a store may use one table or multiple tables depending on its semantics
 
 For background on these concepts, see [Database drivers](db-driver.md).
 
 ## Table naming
 
-A table name is `<prefix>_<params>_<suffix>`, or `<prefix>_<suffix>` for a store without parameters:
+A table name is `<prefix>_<params>_<suffix>`, or `<prefix>_<suffix>` for a store
+without parameters:
 
 1. the configured `tablePrefix` for the selected persistence
-2. optional naming parameters such as `default`, network name, or channel name, joined with `_` and then escaped as below, so the separator appears as `__`
+2. optional naming parameters such as `default`, network name, or channel name,
+   joined with `_` and then escaped as below, so the separator appears as `__`
 3. a store-specific suffix such as `kvs`, `bind`, `env`, or `vstate`
 
-If no `tablePrefix` is set, FSC uses `fsc`. A prefix may contain only letters and underscores, may be at most 100 characters
-long, and is lowercased. After escaping, the parameters may contain only letters and underscores, so a network or channel name
-with a digit (such as `channel1`) is rejected and the store fails to open.
+If no `tablePrefix` is set, FSC uses `fsc`. A prefix may contain only letters
+and underscores, may be at most 100 characters long, and is lowercased. After
+escaping, the parameters may contain only letters and underscores, so a network
+or channel name with a digit (such as `channel1`) is rejected and the store
+fails to open.
 
 ### Parameter escaping
 
-When table names include parameters, FSC escapes special characters before composing the final name:
+When table names include parameters, FSC escapes special characters before
+composing the final name:
 
 | Character | Escaped form |
 | --------- | ------------ |
@@ -57,11 +69,13 @@ With the default prefix `fsc`:
 
 - `kvs` becomes `fsc_kvs`
 - parameter `default` plus suffix `bind` becomes `fsc_default_bind`
-- parameters `default`, `testchannel` plus suffix `vstate` become `fsc_default__testchannel_vstate`
+- parameters `default`, `testchannel` plus suffix `vstate` become
+  `fsc_default__testchannel_vstate`
 
 ## Logical store map
 
-The following table summarizes the main logical stores and their default physical table names in a generated node:
+The following table summarizes the main logical stores and their default
+physical table names in a generated node:
 
 | Platform | Logical store   | Config key                           | Default params   | Default table name or pattern |
 | -------- | --------------- | ------------------------------------ | ---------------- | ----------------------------- |
@@ -79,7 +93,8 @@ The following table summarizes the main logical stores and their default physica
 
 ### KVS
 
-The View KVS is the general-purpose namespaced key/value store used by the View platform and by applications that build storage-backed services on top of it.
+The View KVS is the general-purpose namespaced key/value store used by the View
+platform and by applications that build storage-backed services on top of it.
 
 Default table:
 
@@ -98,11 +113,13 @@ Notes:
 - the primary key is `(ns, pkey)`
 - on startup a primary key of `(pkey, ns)` is reordered to `(ns, pkey)`
 - the database layer stores raw bytes
-- at the higher `kvs.KVS` API layer, values are often JSON-marshaled before they are persisted
+- at the higher `kvs.KVS` API layer, values are often JSON-marshaled before they
+  are persisted
 
 ### BindingStore
 
-The binding store maps an ephemeral identity identifier to the corresponding long-term identity bytes.
+The binding store maps an ephemeral identity identifier to the corresponding
+long-term identity bytes.
 
 Default table:
 
@@ -141,7 +158,8 @@ Notes:
 
 ### AuditInfoStore
 
-The audit info store maps an identity-derived unique ID to audit bytes associated with that identity.
+The audit info store maps an identity-derived unique ID to audit bytes
+associated with that identity.
 
 Default table:
 
@@ -161,8 +179,9 @@ Notes:
 
 ## Fabric auxiliary tables
 
-Fabric adds three persistence-backed auxiliary stores in addition to the local vault.
-They all use the same physical table shape: a logical transaction key mapped to opaque payload bytes.
+Fabric adds three persistence-backed auxiliary stores in addition to the local
+vault. They all use the same physical table shape: a logical transaction key
+mapped to opaque payload bytes.
 
 | Store          | Default table      | Payload                                                                                      |
 | -------------- | ------------------ | -------------------------------------------------------------------------------------------- |
@@ -185,13 +204,14 @@ Notes:
 
 ## Fabric vault tables
 
-The Fabric vault is the main local SQL-backed state store for Fabric applications.
-It uses two tables per network and channel:
+The Fabric vault is the main local SQL-backed state store for Fabric
+applications. It uses two tables per network and channel:
 
 - `vstatus`
 - `vstate`
 
-For a network named `default` and a channel named `testchannel`, the generated tables are typically:
+For a network named `default` and a channel named `testchannel`, the generated
+tables are typically:
 
 - `fsc_default__testchannel_vstatus`
 - `fsc_default__testchannel_vstate`
@@ -210,7 +230,8 @@ Schema:
 Notes:
 
 - `tx_id` is unique and indexed
-- FSC uses this table to track status transitions such as unknown, busy, valid, or invalid
+- FSC uses this table to track status transitions such as unknown, busy, valid,
+  or invalid
 
 ### Vault state table
 
@@ -228,12 +249,18 @@ Notes:
 
 - the primary key is `(ns, pkey)`
 - `metadata` is stored as encoded bytes
-- metadata values are marshaled from a `map[string][]byte`: gob-encoded, or a protobuf `VaultMetadata` once contract step 2 has run; readers tell the two apart by the first byte
-- unlike the View KVS, the vault state table is the main persisted application state surface for many Fabric applications
+- metadata values are marshaled from a `map[string][]byte`: gob-encoded, or a
+  protobuf `VaultMetadata` once contract step 2 has run; readers tell the two
+  apart by the first byte
+- unlike the View KVS, the vault state table is the main persisted application
+  state surface for many Fabric applications
 
 ## Schema versions table
 
-Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions` by default) with one row per store that implements `migrate.Versioned`, which includes every FSC store. The first migration of such a store creates the table.
+Each table prefix has one `<prefix>_schema_versions` table
+(`fsc_schema_versions` by default) with one row per store that implements
+`migrate.Versioned`, which includes every FSC store. The first migration of such
+a store creates the table.
 
 | Column        | Type               | Meaning                                                                                                      |
 | ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------ |
@@ -241,11 +268,17 @@ Each table prefix has one `<prefix>_schema_versions` table (`fsc_schema_versions
 | `version`     | `INT NOT NULL`     | the highest step applied                                                                                     |
 | `readable_by` | `INT NOT NULL`     | the lowest step version a binary must know to read the store: the highest contract step applied, `0` if none |
 
-A store without a row has applied no step. A binary refuses to open a store whose `readable_by` is above the highest step it knows, and opens one whose `version` alone is above it: the steps it lacks keep the store readable for it. The table decides which SQL a node runs, so only the roles that run migrations should be able to write it. See [Schema versions](db-driver.md#schema-versions).
+A store without a row has applied no step. A binary refuses to open a store
+whose `readable_by` is above the highest step it knows, and opens one whose
+`version` alone is above it: the steps it lacks keep the store readable for it.
+The table decides which SQL a node runs, so only the roles that run migrations
+should be able to write it. See [Schema versions](db-driver.md#schema-versions).
 
 ## Schema openers table
 
-Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers` by default), created together with the versions table. Every successful open of a versioned store upserts one row.
+Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers`
+by default), created together with the versions table. Every successful open of
+a versioned store upserts one row.
 
 | Column         | Type                 | Meaning                                            |
 | -------------- | -------------------- | -------------------------------------------------- |
@@ -254,11 +287,17 @@ Each table prefix has one `<prefix>_schema_openers` table (`fsc_schema_openers` 
 | `highest_step` | `INT NOT NULL`       | the highest step the opening binary knows          |
 | `opened_at`    | `TIMESTAMP NOT NULL` | the database's time, in UTC, of the last such open |
 
-The primary key is `(store, node, highest_step)`. Replicas of a node share its `fsc.id`, so a replica on another binary adds a row instead of overwriting one. FSC deletes rows only on `node migrate --forget-opener`. A contract step does not run while a row of its store names a `highest_step` below the step's version. See [Which binaries use a store](schema-migrations.md#which-binaries-use-a-store).
+The primary key is `(store, node, highest_step)`. Replicas of a node share its
+`fsc.id`, so a replica on another binary adds a row instead of overwriting one.
+FSC deletes rows only on `node migrate --forget-opener`. A contract step does
+not run while a row of its store names a `highest_step` below the step's
+version. See
+[Which binaries use a store](schema-migrations.md#which-binaries-use-a-store).
 
 ## Backend differences
 
-The logical layout is the same across supported SQL backends, but some physical SQL details differ.
+The logical layout is the same across supported SQL backends, but some physical
+SQL details differ.
 
 | Area                | SQLite                                                         | Postgres                                                              |
 | ------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -266,7 +305,10 @@ The logical layout is the same across supported SQL backends, but some physical 
 | Vault byte columns  | `val`, `kversion`, and `metadata` default to empty byte values | stored as `BYTEA` without SQLite-style empty defaults                 |
 | Vault `pkey` column | `TEXT`, keys stored verbatim                                   | `BYTEA`, keys stored verbatim (inspect with `encode(pkey, 'escape')`) |
 
-These differences do not change the logical meaning of the data, but they matter when directly inspecting tables or writing backend-specific SQL.
+These differences do not change the logical meaning of the data, but they matter
+when directly inspecting tables or writing backend-specific SQL.
 
-On startup the vault converts a Postgres state table whose `pkey` column is `TEXT` to `BYTEA`, and on both Postgres and SQLite the vault and the key-value store reorder a primary key of `(pkey, ns)` to `(ns, pkey)`. See
+On startup the vault converts a Postgres state table whose `pkey` column is
+`TEXT` to `BYTEA`, and on both Postgres and SQLite the vault and the key-value
+store reorder a primary key of `(pkey, ns)` to `(ns, pkey)`. See
 [Persistence: sqlite/postgres](../../../configuration.md#persistence-sqlitepostgres).

@@ -1,9 +1,12 @@
 # Ping Pong
 
-This tutorial teaches the basics of FSC views: two nodes that exchange messages over a session. It belongs to the [programming model](../../../docs/platform/view/programming-model.md) guide.
+This tutorial teaches the basics of FSC views: two nodes that exchange messages
+over a session. It belongs to the
+[programming model](../../../docs/platform/view/programming-model.md) guide.
 
-The goal of this section is to familiarize ourselves with the Fabric Smart Client basic concepts.
-At the end of this document, we will gain the following knowledge:
+The goal of this section is to familiarize ourselves with the Fabric Smart
+Client basic concepts. At the end of this document, we will gain the following
+knowledge:
 
 - What it means for a party to establish a communication channel
 - What it means to deploy FSC nodes
@@ -13,18 +16,20 @@ But, let us start with the protagonists of our story: Alice and Bob.
 
 ## Alice and Bob
 
-Alice and Bob are two parties who know each other and who want to interact to accomplish a given business task.
-Alice is the initiator and starts the interactive protocol by executing a view representing her in the business process.
-At some point, Alice needs to send a message to Bob.
-To do that, Alice opens a `communication session` to Bob. Alice just needs to know Bob's identity in order to establish
-this connection.
-When Alice's message reaches Bob, Bob responds by executing a view representing him in the business process.
-Bob gets Alice's message, executes his business logic, and can use the very same session to respond to Alice and
-the ping-pong can continue until Alice and Bob reach their goal.
+Alice and Bob are two parties who know each other and who want to interact to
+accomplish a given business task. Alice is the initiator and starts the
+interactive protocol by executing a view representing her in the business
+process. At some point, Alice needs to send a message to Bob. To do that, Alice
+opens a `communication session` to Bob. Alice just needs to know Bob's identity
+in order to establish this connection. When Alice's message reaches Bob, Bob
+responds by executing a view representing him in the business process. Bob gets
+Alice's message, executes his business logic, and can use the very same session
+to respond to Alice and the ping-pong can continue until Alice and Bob reach
+their goal.
 
-Let us then give a very concrete example of such a ping-pong.
-The initiator, Alice, sends a ping to the responder, Bob, and waits for a reply.
-Bob, the responder, upon receiving the ping, responds with a pong.
+Let us then give a very concrete example of such a ping-pong. The initiator,
+Alice, sends a ping to the responder, Bob, and waits for a reply. Bob, the
+responder, upon receiving the ping, responds with a pong.
 
 This is view describing Alice's behavior:
 
@@ -145,27 +150,31 @@ func (p *Initiator) rounds() int {
 
 Let us go through the main steps:
 
-- **Retrieve responder identity**: The initiator should send a ping to the responder.
-  The first step is therefore to retrieve the responder's identity.
-  This can be done by using the identity service.
-  If you are asking yourself: Where is the responder's identity defined?
-  It is in the initiator's configuration file. More information in this [section](#fsc-nodes-configuration-file).
-- **Run `Rounds` ping/pong rounds**: `Initiator.Call` loops `Rounds` times (`DefaultRounds`, i.e. 3, if
-  unset), running a `PingView` in each round. Each round gets its own context, bounded by
-  `roundTimeout` and canceled as soon as the round is over. This matters because sessions (and,
-  underneath, the streams/sub-connections that back them) are cached and reused across rounds:
-  deriving each round's context from the caller's context and canceling it at the end of the
-  round would otherwise tear down a stream that a later round still needs.
-- **Open a session to the responder**: Inside `PingView.Call`, with the responder's identity, the
-  initiator opens a session. The context allows the initiator to do that.
+- **Retrieve responder identity**: The initiator should send a ping to the
+  responder. The first step is therefore to retrieve the responder's identity.
+  This can be done by using the identity service. If you are asking yourself:
+  Where is the responder's identity defined? It is in the initiator's
+  configuration file. More information in this
+  [section](#fsc-nodes-configuration-file).
+- **Run `Rounds` ping/pong rounds**: `Initiator.Call` loops `Rounds` times
+  (`DefaultRounds`, i.e. 3, if unset), running a `PingView` in each round. Each
+  round gets its own context, bounded by `roundTimeout` and canceled as soon as
+  the round is over. This matters because sessions (and, underneath, the
+  streams/sub-connections that back them) are cached and reused across rounds:
+  deriving each round's context from the caller's context and canceling it at
+  the end of the round would otherwise tear down a stream that a later round
+  still needs.
+- **Open a session to the responder**: Inside `PingView.Call`, with the
+  responder's identity, the initiator opens a session. The context allows the
+  initiator to do that.
 - **Send a ping**: Using the established session, the sender sends her ping.
-- **Wait for the pong**: At this point, the initiator waits for the reply.
-  The round's context is done if no message comes in `roundTimeout`.
-  If a reply comes, the initiator checks that it contains a pong.
-  If this is not the case, the view returns an error.
-- **Signal the end of the protocol**: Once all rounds are done, the initiator runs a
-  `FinishedView` (not shown above) that sends a `finished` message, so the responder knows to
-  stop waiting for another ping instead of timing out.
+- **Wait for the pong**: At this point, the initiator waits for the reply. The
+  round's context is done if no message comes in `roundTimeout`. If a reply
+  comes, the initiator checks that it contains a pong. If this is not the case,
+  the view returns an error.
+- **Signal the end of the protocol**: Once all rounds are done, the initiator
+  runs a `FinishedView` (not shown above) that sends a `finished` message, so
+  the responder knows to stop waiting for another ping instead of timing out.
 
 Let us now look at the view describing the view of the responder:
 
@@ -238,30 +247,33 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
 
 These are the main steps carried out by the responder:
 
-- **Retrieve the session opened by the initiator**: The responder expects to
-  be invoked upon the reception of a message transmitted using a session.
-  The responder can access his endpoint of this session via the context.
-- **Loop until the initiator signals the end of the protocol**: `Responder.Call` keeps running
-  `PongView` rounds (each bounded by its own `roundTimeout`, via the same `runRound` helper used
-  by the initiator) until one of them reports the `finished` message, mirroring the initiator's
-  round structure.
-- **Read the message from the initiator**: Inside `PongView.Call`, the responder reads the next
-  message from the session.
-- **Respond with a pong if a ping is received, report completion if finished, an error
-  otherwise**: If the received message is a ping, the responder replies with a pong and reports
-  it handled a ping, so the caller keeps looping. If it is `finished`, it reports that value so
-  the caller stops looping. Otherwise, the responder replies with an error and returns it.
+- **Retrieve the session opened by the initiator**: The responder expects to be
+  invoked upon the reception of a message transmitted using a session. The
+  responder can access his endpoint of this session via the context.
+- **Loop until the initiator signals the end of the protocol**: `Responder.Call`
+  keeps running `PongView` rounds (each bounded by its own `roundTimeout`, via
+  the same `runRound` helper used by the initiator) until one of them reports
+  the `finished` message, mirroring the initiator's round structure.
+- **Read the message from the initiator**: Inside `PongView.Call`, the responder
+  reads the next message from the session.
+- **Respond with a pong if a ping is received, report completion if finished, an
+  error otherwise**: If the received message is a ping, the responder replies
+  with a pong and reports it handled a ping, so the caller keeps looping. If it
+  is `finished`, it reports that value so the caller stops looping. Otherwise,
+  the responder replies with an error and returns it.
 
 ## View management
 
-In the previous section, we have seen an example of a ping-pong between two parties: an `initiator`, Alice, and a `responder`, Bob.
-A few questions remained unanswered there though. Namely:
+In the previous section, we have seen an example of a ping-pong between two
+parties: an `initiator`, Alice, and a `responder`, Bob. A few questions remained
+unanswered there though. Namely:
 
 - How does Alice decide to start the interactive protocol?
 - How does Bob know which view to execute when a message from Alice comes?
 
-A way to answer the first question is to imagine Alice connecting to her FSC node and asking the node
-to instantiate a given view, to execute it, and return the generated output.
+A way to answer the first question is to imagine Alice connecting to her FSC
+node and asking the node to instantiate a given view, to execute it, and return
+the generated output.
 
 To do so, we use factories to create new instances of the view to be executed.
 Here is the View Factory for the initiator's View.
@@ -291,16 +303,18 @@ func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
 }
 ```
 
-The optional input, if any, is unmarshaled into `Initiator.Params`, so a caller can, for
-example, run the protocol for a specific number of rounds by passing `{"rounds": 5}` as input.
+The optional input, if any, is unmarshaled into `Initiator.Params`, so a caller
+can, for example, run the protocol for a specific number of rounds by passing
+`{"rounds": 5}` as input.
 
-To answer the second question, we need a way to tell the FSC node which view to execute
-in response to a first message from an incoming session opened by a remote party.
+To answer the second question, we need a way to tell the FSC node which view to
+execute in response to a first message from an incoming session opened by a
+remote party.
 
 ## Testing
 
-Normally, to run the `Ping Pong` sample, one would have to deploy the Fabric Smart Client nodes,
-invoke the view, and so on, by using a bunch of scripts.
+Normally, to run the `Ping Pong` sample, one would have to deploy the Fabric
+Smart Client nodes, invoke the view, and so on, by using a bunch of scripts.
 This is not the most convenient way to test programmatically an application.
 
 FSC provides an `Integration Test Infrastructure` that allows the developer to:
@@ -309,15 +323,17 @@ FSC provides an `Integration Test Infrastructure` that allows the developer to:
 - Bootstrap these networks;
 - Initiate interactive protocols to complete given business tasks.
 
-To run the test, run `make integration-tests-fsc-pingpong` from the repository root. The target uses `ginkgo`, which `make install-tools` installs.
+To run the test, run `make integration-tests-fsc-pingpong` from the repository
+root. The target uses `ginkgo`, which `make install-tools` installs.
 
 Let us go step by step.
 
 ### Describe the topology of the networks
 
-The `Ping Pong` example induces an FSC network topology with two FSC nodes.
-One node for the `initiator` and another node for the `responder`.
-We can describe the network topology programmatically as follows (from [`topology.go`](./topology.go)):
+The `Ping Pong` example induces an FSC network topology with two FSC nodes. One
+node for the `initiator` and another node for the `responder`. We can describe
+the network topology programmatically as follows (from
+[`topology.go`](./topology.go)):
 
 ```go
 package pingpong
@@ -348,27 +364,31 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 }
 ```
 
-Before we describe the meaning of the above piece of code, let us stress the following point that is crucial
-to keep in mind.
-One limitation of Go is that it cannot load code at runtime. This means that all views
-that a node might use must be burned inside the FSC node executable (We will solve this problem
-by adding support for YAEGI, [`Issue 19`](https://github.com/hyperledger-labs/fabric-smart-client/issues/19)).
+Before we describe the meaning of the above piece of code, let us stress the
+following point that is crucial to keep in mind. One limitation of Go is that it
+cannot load code at runtime. This means that all views that a node might use
+must be burned inside the FSC node executable (We will solve this problem by
+adding support for YAEGI,
+[`Issue 19`](https://github.com/hyperledger-labs/fabric-smart-client/issues/19)).
 
-Now, let us go step by step and explain the meaning of the above code. Our goal is to describe
-the nodes in the network we want to bootstrap. Each node will have its own definition.
-We have two nodes here, the `initiator`, Alice, and the `responder`, Bob.
+Now, let us go step by step and explain the meaning of the above code. Our goal
+is to describe the nodes in the network we want to bootstrap. Each node will
+have its own definition. We have two nodes here, the `initiator`, Alice, and the
+`responder`, Bob.
 
-- **Create an empty FSC network topology**: We start by creating an empty topology to which FSC node
-  definitions will be added. `commType` selects the P2P transport (`fsc.WebSocket` or `fsc.LibP2P`),
-  and `replicationOpts` lets a test run several replicas of a node.
-- **Add the FSC nodes (Executable's Package Path)**: One way to add an FSC node to the topology
-  is to use the `AddNodeByName` method.
-  This method creates and returns an empty description of an FSC node and assigns it a name.
-  When the node description is ready, it can be populated in multiple ways.
-  In the above example, both nodes are populated by setting the `Executable's Package Path`.
-  Indeed, the method `SetExecutable` allows the developer to specify the package path that contains the main go file.
-  Here is the content of the initiator's main file, trimmed to the `init` view
-  (the real [`cmd/initiator/main.go`](./cmd/initiator/main.go) registers more factories):
+- **Create an empty FSC network topology**: We start by creating an empty
+  topology to which FSC node definitions will be added. `commType` selects the
+  P2P transport (`fsc.WebSocket` or `fsc.LibP2P`), and `replicationOpts` lets a
+  test run several replicas of a node.
+- **Add the FSC nodes (Executable's Package Path)**: One way to add an FSC node
+  to the topology is to use the `AddNodeByName` method. This method creates and
+  returns an empty description of an FSC node and assigns it a name. When the
+  node description is ready, it can be populated in multiple ways. In the above
+  example, both nodes are populated by setting the `Executable's Package Path`.
+  Indeed, the method `SetExecutable` allows the developer to specify the package
+  path that contains the main go file. Here is the content of the initiator's
+  main file, trimmed to the `init` view (the real
+  [`cmd/initiator/main.go`](./cmd/initiator/main.go) registers more factories):
 
 ```go
 package main
@@ -399,11 +419,14 @@ func main() {
 }
 ```
 
-- **Add an FSC node without a main file (Executable Synthesizer)**: Instead of `SetExecutable`,
-  a node definition can be populated directly with view factories and responders, using
-  `RegisterViewFactory` and `RegisterResponder`. For example, `topology.AddNodeByName("responder").RegisterResponder(&Responder{}, &Initiator{})`.
-  Then, at network bootstrap, the integration infrastructure synthesizes the node's `main` file on the fly.
-  For such a responder, the output of the synthesis looks like this:
+- **Add an FSC node without a main file (Executable Synthesizer)**: Instead of
+  `SetExecutable`, a node definition can be populated directly with view
+  factories and responders, using `RegisterViewFactory` and `RegisterResponder`.
+  For example,
+  `topology.AddNodeByName("responder").RegisterResponder(&Responder{}, &Initiator{})`.
+  Then, at network bootstrap, the integration infrastructure synthesizes the
+  node's `main` file on the fly. For such a responder, the output of the
+  synthesis looks like this:
 
 ```go
 package main
@@ -425,11 +448,13 @@ func main() {
 }
 ```
 
-SDKs added with `AddSDK` show up as `n.InstallSDK(...)` calls before `n.Execute`.
+SDKs added with `AddSDK` show up as `n.InstallSDK(...)` calls before
+`n.Execute`.
 
 ### Bootstrap these networks
 
-Once the topology is ready, the relative networks can be bootstrapped by creating a new integration test infrastructure.
+Once the topology is ready, the relative networks can be bootstrapped by
+creating a new integration test infrastructure.
 
 ```go
 // Create the integration ii
@@ -439,27 +464,30 @@ Expect(err).NotTo(HaveOccurred())
 ii.Start()
 ```
 
-`StartPortWithGeneration` is defined in [`pingpong_suite_test.go`](./pingpong_suite_test.go): every
-suite defines the start-port helpers it needs, each backed by its own port range in `integration`.
-Depending on the specific networks, configuration files, crypto material, and so on will be generated.
-Finally, the FSC nodes will be executed in their own process.
+`StartPortWithGeneration` is defined in
+[`pingpong_suite_test.go`](./pingpong_suite_test.go): every suite defines the
+start-port helpers it needs, each backed by its own port range in `integration`.
+Depending on the specific networks, configuration files, crypto material, and so
+on will be generated. Finally, the FSC nodes will be executed in their own
+process.
 
-`Generate` writes this material to a fresh temporary directory. The suite also keeps a checked-in
-copy for the `ping pong` example [`here`](./testdata/fsc), which its "loaded artifacts" specs and the
-node-based specs start from.
-There, you will find the following folders
+`Generate` writes this material to a fresh temporary directory. The suite also
+keeps a checked-in copy for the `ping pong` example [`here`](./testdata/fsc),
+which its "loaded artifacts" specs and the node-based specs start from. There,
+you will find the following folders
 
-- `crypto` that contains all the crypto material (we use a customized version
-  of Fabric's `cryptogen`), and
+- `crypto` that contains all the crypto material (we use a customized version of
+  Fabric's `cryptogen`), and
 - `nodes` that contains the FSC nodes' configurations.
 
 ### Initiate interactive protocols to complete given business tasks
 
-Now, it is time for Alice to initiate the ping pong. To do so, Alice must contact her
-FSC node and ask the node to create a new instance of the `init` view, and run it.
-Now, recall that each FSC node exposes a gRPC service, the `View Service`, to do exactly this. Alice just needs to have a client to connect
-to this gRPC service and send the proper command. The Integration Test Infrastructure
-takes care of this.
+Now, it is time for Alice to initiate the ping pong. To do so, Alice must
+contact her FSC node and ask the node to create a new instance of the `init`
+view, and run it. Now, recall that each FSC node exposes a gRPC service, the
+`View Service`, to do exactly this. Alice just needs to have a client to connect
+to this gRPC service and send the proper command. The Integration Test
+Infrastructure takes care of this.
 
 To get the View Service client for Alice, we can do the following:
 
@@ -467,10 +495,11 @@ To get the View Service client for Alice, we can do the following:
 alice := ii.Client("initiator")
 ```
 
-We are now ready to put together all components in a BDD test.
-To make everything more concrete, let us take an example and see what its BDD test looks like.
-For this purpose, the ping-pong example will do the job. This is a trimmed version of
-[`pingpong_test.go`](./pingpong_test.go), where `doGenerate` and `testdataDir` are package-level values:
+We are now ready to put together all components in a BDD test. To make
+everything more concrete, let us take an example and see what its BDD test looks
+like. For this purpose, the ping-pong example will do the job. This is a trimmed
+version of [`pingpong_test.go`](./pingpong_test.go), where `doGenerate` and
+`testdataDir` are package-level values:
 
 ```go
 var _ = Describe("EndToEnd", func() {
@@ -516,39 +545,42 @@ func (s *TestSuite) TestPingPong(clients ...string) {
 
 Let us describe what is happening in the above BDD test:
 
-- **Create the integration network**: `integration.NewTestSuite` takes a function that creates the
-  integration test infrastructure consisting of all networks described by the passed topologies.
-  Each node in each network gets one or more network ports starting from
-  initial network port number used to construct the integration infrastructure.
-  The `Ordered` container shares one network among its specs: `BeforeAll(s.Setup)` creates it
-  before the first spec and `AfterAll(s.TearDown)` stops it after the last.
-- **Start the integration infrastructure**: `Setup` calls the function above and then `Start`.
-  Depending on the specific networks, configuration files, crypto material, and so on
-  will be generated.
-  Finally, the nodes will be executed in their own process.
-- **Get a client for the FSC node labeled `initiator`**:
-  To access an FSC node, the test developers can get an instance of the
-  View Service client by the node's name, here with `s.II.Client`.
-- **Initiate a view and check the output**:
-  With the View Service client in hand, the test developers can initiate a view on the given node
-  and get the result.
+- **Create the integration network**: `integration.NewTestSuite` takes a
+  function that creates the integration test infrastructure consisting of all
+  networks described by the passed topologies. Each node in each network gets
+  one or more network ports starting from initial network port number used to
+  construct the integration infrastructure. The `Ordered` container shares one
+  network among its specs: `BeforeAll(s.Setup)` creates it before the first spec
+  and `AfterAll(s.TearDown)` stops it after the last.
+- **Start the integration infrastructure**: `Setup` calls the function above and
+  then `Start`. Depending on the specific networks, configuration files, crypto
+  material, and so on will be generated. Finally, the nodes will be executed in
+  their own process.
+- **Get a client for the FSC node labeled `initiator`**: To access an FSC node,
+  the test developers can get an instance of the View Service client by the
+  node's name, here with `s.II.Client`.
+- **Initiate a view and check the output**: With the View Service client in
+  hand, the test developers can initiate a view on the given node and get the
+  result.
 
 ## Deeper dive
 
 There are still questions to answer. Here are some:
 
 - How do I configure an FSC node?
-- How does an FSC node know where the other nodes are and who they are (their PKs)?
+- How does an FSC node know where the other nodes are and who they are (their
+  PKs)?
 - Where is information stored?
 
-The above questions can be answered by looking at an FSC node's configuration file.
+The above questions can be answered by looking at an FSC node's configuration
+file.
 
 ### FSC node's configuration file
 
-Let's start from the configuration file.
-Here is the annotated configuration file used for the `initiator`, Alice, in the node-based and
-"loaded artifacts" specs, without its unused `fsc.p2p.opts` section.
-You can find it [`here`](testdata/fsc/nodes/initiator.0/core.yaml) too.
+Let's start from the configuration file. Here is the annotated configuration
+file used for the `initiator`, Alice, in the node-based and "loaded artifacts"
+specs, without its unused `fsc.p2p.opts` section. You can find it
+[`here`](testdata/fsc/nodes/initiator.0/core.yaml) too.
 
 ```yaml
 ---

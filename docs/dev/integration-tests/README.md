@@ -1,11 +1,11 @@
 # Integration tests
 
-An integration test starts a real network and drives FSC nodes through it: the Fabric
-peers and orderers or the Fabric-x committer, the FSC nodes built from the test's topology,
-and any Postgres databases they use. The harness that does this is `nwo`, in
-`integration/nwo`. Each suite lives in `integration/<platform>/<suite>/`, where
-`<platform>` is `fsc` (FSC nodes only), `fabric` or `fabricx`, and is written with
-Ginkgo v2 and Gomega.
+An integration test starts a real network and drives FSC nodes through it: the
+Fabric peers and orderers or the Fabric-x committer, the FSC nodes built from
+the test's topology, and any Postgres databases they use. The harness that does
+this is `nwo`, in `integration/nwo`. Each suite lives in
+`integration/<platform>/<suite>/`, where `<platform>` is `fsc` (FSC nodes only),
+`fabric` or `fabricx`, and is written with Ginkgo v2 and Gomega.
 
 | Page                                                              | Read it to                                                                                      |
 | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -16,9 +16,10 @@ Ginkgo v2 and Gomega.
 
 ## Suites and targets
 
-Each suite has a `make` target named `integration-tests-<platform>-<suite>`. Some suites
-are split by `Describe` label into several targets, which share the suite's directory and
-network definition (see [Registering the target](authoring.md#registering-the-target)).
+Each suite has a `make` target named `integration-tests-<platform>-<suite>`.
+Some suites are split by `Describe` label into several targets, which share the
+suite's directory and network definition (see
+[Registering the target](authoring.md#registering-the-target)).
 
 | Suite                      | Targets                                                                                    | Covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,9 +45,9 @@ network definition (see [Registering the target](authoring.md#registering-the-ta
 | `fabricx/multiendorsement` | `fabricx-multiendorsement`                                                                 | endorsements from several approvers merged into one transaction                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `fabricx/simple`           | `fabricx-simple`                                                                           | creating and querying objects, rejecting duplicates and negative values                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
-`make list-integration-tests` prints every target. To see the specs a target runs without
-starting a network, run `ginkgo --dry-run -v` in the suite directory with the target's
-`INTEGRATION_FLAGS_<target>` from the `Makefile`.
+`make list-integration-tests` prints every target. To see the specs a target
+runs without starting a network, run `ginkgo --dry-run -v` in the suite
+directory with the target's `INTEGRATION_FLAGS_<target>` from the `Makefile`.
 
 ## Running a target
 
@@ -55,39 +56,42 @@ make integration-tests-fabric-iou
 GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
 ```
 
-Run one target at a time: concurrent targets share ports, containers and `out/`, and fail
-(see [One target at a time](../development.md#one-target-at-a-time)). A target's platform
-prefix decides which toolchain it needs: `fabric-*` targets need `make install-fabric-bins`
-(binaries in `$FAB_BINS`), `fabricx-*` targets need `make install-fabricx-tools` (tools in
-`$FAB_BINS/fabric-x`, kept apart because both toolchains ship a `configtxgen`). Installing
-both is safe, and `fsc-*` targets need neither.
+Run one target at a time: concurrent targets share ports, containers and `out/`,
+and fail (see [One target at a time](../development.md#one-target-at-a-time)). A
+target's platform prefix decides which toolchain it needs: `fabric-*` targets
+need `make install-fabric-bins` (binaries in `$FAB_BINS`), `fabricx-*` targets
+need `make install-fabricx-tools` (tools in `$FAB_BINS/fabric-x`, kept apart
+because both toolchains ship a `configtxgen`). Installing both is safe, and
+`fsc-*` targets need neither.
 
-A filter that matches no spec still reports `ok`, so check the `Ran N of M Specs` line with
-`-v` before taking a focused run as evidence.
+A filter that matches no spec still reports `ok`, so check the
+`Ran N of M Specs` line with `-v` before taking a focused run as evidence.
 
 ## In CI
 
 CI runs every target as a job of its own, on its own runner, from the list
-`make list-integration-tests` prints; adding a target to the `Makefile` adds the job. The
-jobs restore a shared Go build cache, so the time a suite adds to CI is mostly its network
-startup and its specs. A suite that grows too long for one job splits into labeled
-targets, as the fault-recovery suites do.
+`make list-integration-tests` prints; adding a target to the `Makefile` adds the
+job. The jobs restore a shared Go build cache, so the time a suite adds to CI is
+mostly its network startup and its specs. A suite that grows too long for one
+job splits into labeled targets, as the fault-recovery suites do.
 
-Targets in `NIGHTLY_INTEGRATION_TARGETS` are left out of that list and run on a schedule
-instead. `fabric-mixedversion` builds a second set of node binaries, at the previous
-release, so the `Mixed versions` workflow runs it nightly, on demand, and on pull requests
-that change the suite, the release build, or code two releases share: the SQL stores of the
-view and Fabric platforms and their schema steps, the stream preamble, and the protobuf
-messages of `platform/fabric/protos` and `platform/fabricx/protos`. A failed nightly
-run opens the issue `Mixed versions nightly run failed`, labeled `testing` and `ci`, or
-comments on it if it is open; the next successful nightly run closes it. A run started by
-hand with the `report` input opens, comments on and closes the issue the same way.
+Targets in `NIGHTLY_INTEGRATION_TARGETS` are left out of that list and run on a
+schedule instead. `fabric-mixedversion` builds a second set of node binaries, at
+the previous release, so the `Mixed versions` workflow runs it nightly, on
+demand, and on pull requests that change the suite, the release build, or code
+two releases share: the SQL stores of the view and Fabric platforms and their
+schema steps, the stream preamble, and the protobuf messages of
+`platform/fabric/protos` and `platform/fabricx/protos`. A failed nightly run
+opens the issue `Mixed versions nightly run failed`, labeled `testing` and `ci`,
+or comments on it if it is open; the next successful nightly run closes it. A
+run started by hand with the `report` input opens, comments on and closes the
+issue the same way.
 
 ## Code the suites share
 
-A suite directory holds only its own `_test.go` files plus code no other suite imports.
-Topologies, views and helpers that several suites use live in
-`integration/fabric/common/<name>/` or `integration/fabricx/common/<name>/`. Downstream
-projects such as Panurus import `integration`, `integration/nwo/...` and
-`integration/benchmark/...`, so changes there must stay compatible; the suite packages and
-their `common` packages are FSC's own.
+A suite directory holds only its own `_test.go` files plus code no other suite
+imports. Topologies, views and helpers that several suites use live in
+`integration/fabric/common/<name>/` or `integration/fabricx/common/<name>/`.
+Downstream projects such as Panurus import `integration`, `integration/nwo/...`
+and `integration/benchmark/...`, so changes there must stay compatible; the
+suite packages and their `common` packages are FSC's own.

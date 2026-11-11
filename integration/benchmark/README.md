@@ -1,14 +1,18 @@
 # FSC benchmarks
 
-Performance benchmarks for the Fabric Smart Client framework, measuring throughput (TPS) and latency across different workloads and deployment scenarios.
+Performance benchmarks for the Fabric Smart Client framework, measuring
+throughput (TPS) and latency across different workloads and deployment
+scenarios.
 
 ## Overview
 
-This package contains micro-benchmarks organized into four categories, described in [Benchmark Architecture](#benchmark-architecture).
+This package contains micro-benchmarks organized into four categories, described
+in [Benchmark Architecture](#benchmark-architecture).
 
 ## Benchmark architecture
 
-The benchmark suite follows a layered architecture to systematically measure overhead at each level of the stack:
+The benchmark suite follows a layered architecture to systematically measure
+overhead at each level of the stack:
 
 ![Benchmark Architecture](benchmark_architecture.drawio.png)
 
@@ -20,7 +24,8 @@ Standalone view implementations defining various workloads:
 - **cpu**: CPU-intensive workload (200k iterations)
 - **ecdsa**: ECDSA P-256 signing operations
 
-Each workload can be benchmarked standalone or used by higher-level benchmarks (gRPC, Node).
+Each workload can be benchmarked standalone or used by higher-level benchmarks
+(gRPC, Node).
 
 ### 2. gRPC benchmarks (`grpc/`)
 
@@ -67,12 +72,16 @@ Full FSC node benchmarks via View API and gRPC View API:
 
 ### 4. Comm benchmarks (`comm/`)
 
-P2P communication layer benchmarks, each run against both the WebSocket and the libp2p transport:
+P2P communication layer benchmarks, each run against both the WebSocket and the
+libp2p transport:
 
-- **`BenchmarkRoundTrip`**: steady-state request/echo latency on one session, 64 B to 1 MiB payloads
-- **`BenchmarkSessionSetup`**: full session lifecycle (open, one exchange, close)
+- **`BenchmarkRoundTrip`**: steady-state request/echo latency on one session, 64
+  B to 1 MiB payloads
+- **`BenchmarkSessionSetup`**: full session lifecycle (open, one exchange,
+  close)
 - **`BenchmarkParallelRoundTrip`**: concurrent senders, one session each
-- **`BenchmarkMesh`**: full mesh of 3 or 5 nodes, 1 or 4 sessions per pair, all exchanging at once
+- **`BenchmarkMesh`**: full mesh of 3 or 5 nodes, 1 or 4 sessions per pair, all
+  exchanging at once
 - Each reports p50/p99 latency and allocations next to the mean
 - See `comm/README.md` for details and a known libp2p limitation
 
@@ -144,9 +153,12 @@ Benchmark<Component>/<parameters>-<workers>
 
 Examples:
 
-- `BenchmarkAPI/w=noop/f=0/nc=0-8`: Direct API, noop workload, view reuse (f=0), 8 workers
-- `BenchmarkAPIGRPC/w=cpu/f=1/nc=4-16`: gRPC API, CPU workload, factory per call (f=1), 4 connections, 16 workers
-- `BenchmarkGRPCImpl/w=ecdsa/grpcsigner=mock-8`: FSC gRPC, ECDSA workload, mock signer, 8 workers
+- `BenchmarkAPI/w=noop/f=0/nc=0-8`: Direct API, noop workload, view reuse (f=0),
+  8 workers
+- `BenchmarkAPIGRPC/w=cpu/f=1/nc=4-16`: gRPC API, CPU workload, factory per call
+  (f=1), 4 connections, 16 workers
+- `BenchmarkGRPCImpl/w=ecdsa/grpcsigner=mock-8`: FSC gRPC, ECDSA workload, mock
+  signer, 8 workers
 
 Parameters:
 
@@ -157,7 +169,8 @@ Parameters:
 
 ## Garbage collection tuning
 
-Go's garbage collector can significantly impact performance. Test with different settings:
+Go's garbage collector can significantly impact performance. Test with different
+settings:
 
 ```bash
 # Default GC
@@ -221,7 +234,8 @@ BenchmarkAPIGRPC/w=ecdsa/f=1/nc=2-16    236702    23670 TPS    654140 ns/op (p5)
 
 ### Baseline vs implementation
 
-Compare `BenchmarkGRPCBaseline` vs `BenchmarkGRPCImpl` to measure FSC framework overhead:
+Compare `BenchmarkGRPCBaseline` vs `BenchmarkGRPCImpl` to measure FSC framework
+overhead:
 
 ```bash
 go test -bench='Benchmark(GRPCBaseline|GRPCImpl)' -benchmem -count=10 ./grpc/
@@ -258,8 +272,10 @@ go test -bench='BenchmarkGRPCImpl/w=noop' -benchmem -count=10 ./grpc/
 3. **CPU Scaling**: Test with `-cpu=1,2,4,8,16` to measure scalability
 4. **GC Impact**: Compare results with different GOGC settings
 5. **Isolation**: Run on idle systems for consistent results
-6. **Baseline Comparison**: Use baseline benchmarks to measure framework overhead
-7. **Remote Testing**: Use `node/remote/` or `grpc/remote/` for realistic network conditions
+6. **Baseline Comparison**: Use baseline benchmarks to measure framework
+   overhead
+7. **Remote Testing**: Use `node/remote/` or `grpc/remote/` for realistic
+   network conditions
 8. **Factory Testing**: Use f=0 vs f=1 to understand factory overhead impact
 
 ## Troubleshooting

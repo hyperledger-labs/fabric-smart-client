@@ -1,13 +1,15 @@
 # Benchmarking custom views tutorial
 
-This guide shows how to benchmark a custom `view.View` implementation using FSC's exported benchmark infrastructure from an external repository.
+This guide shows how to benchmark a custom `view.View` implementation using
+FSC's exported benchmark infrastructure from an external repository.
 
 ## What you implement
 
 Your view must satisfy two interfaces from FSC:
 
 - [`view.View`](../../../platform/view/view/view.go) : the view logic itself
-- [`viewregistry.Factory`](../../../platform/view/services/view/registry.go) : creates new instances of your view
+- [`viewregistry.Factory`](../../../platform/view/services/view/registry.go) :
+  creates new instances of your view
 
 ```go
 // your_view.go
@@ -44,13 +46,17 @@ your-repo/
 ```
 
 - `your_view.go` : your `View` and `ViewFactory` implementations.
-- `standalone_bench_test.go` : benchmarks that call your view directly, no FSC infrastructure.
-- `node_bench_test.go` : benchmarks that run your view through a real FSC node (API and gRPC).
-- `remote/server/main.go` and `remote/client/main.go` : binaries for running benchmarks across two machines.
+- `standalone_bench_test.go` : benchmarks that call your view directly, no FSC
+  infrastructure.
+- `node_bench_test.go` : benchmarks that run your view through a real FSC node
+  (API and gRPC).
+- `remote/server/main.go` and `remote/client/main.go` : binaries for running
+  benchmarks across two machines.
 
 ## Define your workload
 
-Wrap your view in a [`node.Workload`](./bench_helpers.go) to plug into FSC's benchmark runners:
+Wrap your view in a [`node.Workload`](./bench_helpers.go) to plug into FSC's
+benchmark runners:
 
 ```go
 var yourWorkload = node.Workload{
@@ -89,14 +95,18 @@ go test -bench=BenchmarkYourView -benchmem -count=5 -cpu=1,2,4,8 ./bench/
 
 ### 2. Local node - View API and gRPC
 
-Spins up an FSC node in-process using [`node.GenerateConfig`](./benchmark.go) and [`node.SetupNode`](./benchmark.go).
+Spins up an FSC node in-process using [`node.GenerateConfig`](./benchmark.go)
+and [`node.SetupNode`](./benchmark.go).
 
 [`RunAPIBenchmark`](./bench_helpers.go) produces two sub-benchmarks:
 
-- **f=0** : creates one view instance per goroutine and reuses it. Measures pure view execution cost.
-- **f=1** : creates a new view via the factory on every call. Measures view execution + factory overhead.
+- **f=0** : creates one view instance per goroutine and reuses it. Measures pure
+  view execution cost.
+- **f=1** : creates a new view via the factory on every call. Measures view
+  execution + factory overhead.
 
-[`RunAPIGRPCBenchmark`](./bench_helpers.go) adds the full gRPC stack on top and tests across multiple connection counts.
+[`RunAPIGRPCBenchmark`](./bench_helpers.go) adds the full gRPC stack on top and
+tests across multiple connection counts.
 
 ```go
 // node_bench_test.go
@@ -169,7 +179,8 @@ func main() {
 }
 ```
 
-**Client** - populate config and call [`RunRemoteBenchmarkSuite`](./bench_remote.go):
+**Client** - populate config and call
+[`RunRemoteBenchmarkSuite`](./bench_remote.go):
 
 ```go
 // remote/client/main.go
@@ -198,7 +209,11 @@ FSC's own remote benchmarks use the same infrastructure:
 
 #### Deployment
 
-When the server starts, `node.GenerateConfig` generates all required crypto material and configuration into `./out/testdata`, including TLS certificates used by both server and client. This folder must be copied to the client machine before running benchmarks. The client currently expects it at `./out/testdata` this path is not yet configurable.
+When the server starts, `node.GenerateConfig` generates all required crypto
+material and configuration into `./out/testdata`, including TLS certificates
+used by both server and client. This folder must be copied to the client machine
+before running benchmarks. The client currently expects it at `./out/testdata`
+this path is not yet configurable.
 
 ```bash
 # server machine

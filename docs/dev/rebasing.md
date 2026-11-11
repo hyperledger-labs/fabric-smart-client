@@ -1,13 +1,15 @@
 # Rebasing
 
-Rebasing keeps your branch in sync with the upstream main, meaning you are working on the latest version of the codebase. This means the methods you are using are up-to-date and you avoid merge conflicts.
+Rebasing keeps your branch in sync with the upstream main, meaning you are
+working on the latest version of the codebase. This means the methods you are
+using are up-to-date and you avoid merge conflicts.
 
 ## Step-by-step guide
 
 ### 1. Add the original repo as a remote called "upstream"
 
-Only do this once per repository clone. [Fork and clone](development.md#fork-and-clone)
-already does it.
+Only do this once per repository clone.
+[Fork and clone](development.md#fork-and-clone) already does it.
 
 If not already done:
 
@@ -26,13 +28,16 @@ Each time you want to sync your fork's main with the upstream main changes:
   git push origin main
 ```
 
-You can also do this by visiting your repository `"https://github.com/YOUR_GITHUB_NAME/fabric-smart-client"` and clicking the sync fork button which is a few lines from the top near the right. Then pull these changes locally in GitHub Desktop.
+You can also do this by visiting your repository
+`"https://github.com/YOUR_GITHUB_NAME/fabric-smart-client"` and clicking the
+sync fork button which is a few lines from the top near the right. Then pull
+these changes locally in GitHub Desktop.
 
 ### 3. Sync your working branch
 
 Your fork’s `main` branch is now up-to-date, but **your working branch is not**.
-To bring your branch in sync with the latest changes, apply a **rebase**.
-This keeps history clean and ensures your commits remain eligible for review.
+To bring your branch in sync with the latest changes, apply a **rebase**. This
+keeps history clean and ensures your commits remain eligible for review.
 
 To rebase:
 
@@ -55,10 +60,12 @@ replace `3` with the number of commits on your branch:
 git log -n 3 --pretty=format:'%h %an %G? %s'
 ```
 
-You should see `G` (valid signature). If you experience signing issues, read the [Signing Guide](signing.md).
+You should see `G` (valid signature). If you experience signing issues, read the
+[Signing Guide](signing.md).
 
 > [!NOTE]
-> If conflicts occur during rebase, see the [Merge Conflict Guide](merge-conflicts.md) for detailed guidance.
+> If conflicts occur during rebase, see the
+> [Merge Conflict Guide](merge-conflicts.md) for detailed guidance.
 
 > [!TIP]
 > **Regularly** rebase your branch to avoid merge conflicts.

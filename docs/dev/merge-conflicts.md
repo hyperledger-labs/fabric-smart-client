@@ -1,9 +1,13 @@
 # Resolving merge conflicts
 
-A merge conflict happens when your branch and the branch you rebase onto both change the same lines. A branch that has fallen far behind main makes this more likely, and so does another developer merging a change to the same parts of the codebase.
+A merge conflict happens when your branch and the branch you rebase onto both
+change the same lines. A branch that has fallen far behind main makes this more
+likely, and so does another developer merging a change to the same parts of the
+codebase.
 
 > [!IMPORTANT]
-> **Avoid Merge Conflicts** by syncing your branch regularly [Sync Guide](rebasing.md).
+> **Avoid Merge Conflicts** by syncing your branch regularly
+> [Sync Guide](rebasing.md).
 
 ## Step-by-step guide
 
@@ -27,7 +31,8 @@ your branch’s code
 
 ### 3. Decide what the final code should be
 
-Have a vision of what you'd like the final code to look like, given what is currently on main and what you'd like to propose.
+Have a vision of what you'd like the final code to look like, given what is
+currently on main and what you'd like to propose.
 
 > [!WARNING]
 >
@@ -44,21 +49,27 @@ Sometimes you'll be:
 - Accepting only current
 - Accepting **parts** of both incoming and current
 
-Generally, you want to keep all changes that were merged to main, but additionally, layer on your changes.
+Generally, you want to keep all changes that were merged to main, but
+additionally, layer on your changes.
 
 ### 4. Resolve conflicts in VS Code (recommended)
 
-Once you understand you have a merge conflict and have a vision of the final document, we recommend using VS Code.
+Once you understand you have a merge conflict and have a vision of the final
+document, we recommend using VS Code.
 
-VS Code makes solving merge conflicts easier with a 3-pane interface for resolving conflicts:
+VS Code makes solving merge conflicts easier with a 3-pane interface for
+resolving conflicts:
 
 - Incoming Change → your commit that the rebase is replaying (left/top)
-- Current Change → `HEAD` during the rebase: upstream main plus any of your commits already replayed (right/top)
+- Current Change → `HEAD` during the rebase: upstream main plus any of your
+  commits already replayed (right/top)
 - Result → the lower/third pane, where you create the final merged file.
 
 These are the reverse of a merge, where "Current" is your branch.
 
-You want to accept or reject content from the top left and top right panes, and edit the final pane in the bottom so the final code submission reasonably resolves the issue while respecting the work of others.
+You want to accept or reject content from the top left and top right panes, and
+edit the final pane in the bottom so the final code submission reasonably
+resolves the issue while respecting the work of others.
 
 #### Steps to resolve in VS Code
 
@@ -66,14 +77,16 @@ You want to accept or reject content from the top left and top right panes, and 
 
 2. Look at both the Incoming Change (left) and Current Change (right) panels.
 
-3. In the Result (lower pane), edit the file so it contains the correct final version.
+3. In the Result (lower pane), edit the file so it contains the correct final
+   version.
    - Sometimes keep Current (upstream main)
    - Sometimes keep Incoming (your commit)
    - Often, combine both parts and edit the code manually.
 
    If the conflict is resolved correctly, VS Code will mark it as fixed.
 
-4. Save the lower pane file once there are no more merge conflicts to resolve in this file.
+4. Save the lower pane file once there are no more merge conflicts to resolve in
+   this file.
 
 5. Click the add button next to the file to resolve conflicts or:
 
@@ -87,14 +100,21 @@ You want to accept or reject content from the top left and top right panes, and 
    git rebase --continue
    ```
 
-7. If `git rebase --continue` stops again with conflicts, in other files or in a later commit, repeat these steps until the rebase completes.
+7. If `git rebase --continue` stops again with conflicts, in other files or in a
+   later commit, repeat these steps until the rebase completes.
 
    > [!WARNING]
-   > Do not just click “Accept All Incoming” or “Accept All Current” — that usually **deletes** or **corrupts** important code.
+   > Do not just click “Accept All Incoming” or “Accept All Current”
+   > — that usually **deletes** or **corrupts** important code.
 
-   Once the rebase operation completes, your commits will be layered on top of main. It means your commit history will look “different” and you may even see changes to commits from other authors — this is expected, since rebase rewrites history.
+   Once the rebase operation completes, your commits will be layered on top of
+   main. It means your commit history will look “different” and you may even see
+   changes to commits from other authors — this is expected, since rebase
+   rewrites history.
 
-8. Push changes. If you already have an open Pull Request, you will need to update it with a **force push**. Before pushing, double-check that your commits are both DCO signed and GPG verified:
+8. Push changes. If you already have an open Pull Request, you will need to
+   update it with a **force push**. Before pushing, double-check that your
+   commits are both DCO signed and GPG verified:
 
    ```bash
    git log -n 10 --pretty=format:'%h %an %G? %s'
@@ -120,8 +140,10 @@ You want to accept or reject content from the top left and top right panes, and 
 
 ### 2. Message: _“Are you sure you want to continue with conflicts?”_
 
-- **What it means:** Some conflicts are still unresolved or the files were not saved properly.
-- **Solution:** Double-check your files in VS Code, make sure they are saved, and resolve any remaining conflict markers.
+- **What it means:** Some conflicts are still unresolved or the files were not
+  saved properly.
+- **Solution:** Double-check your files in VS Code, make sure they are saved,
+  and resolve any remaining conflict markers.
 
 ### If you need to stop
 
@@ -130,25 +152,28 @@ git rebase --abort
 ```
 
 > [!TIP]
-> At each conflict: resolve → save → stage → continue. Repeat until all conflicts are gone.
+> At each conflict: resolve → save → stage → continue. Repeat until all
+> conflicts are gone.
 
 ### What not to do
 
-1. ❌ Do not run git merge main
-   → This creates messy merge commits. Always rebase instead.
+1. ❌ Do not run git merge main → This creates messy merge commits. Always
+   rebase instead.
 
-2. ❌ Do not merge into your local main
-   → Keep main as a clean mirror of upstream/main.
+2. ❌ Do not merge into your local main → Keep main as a clean mirror of
+   upstream/main.
 
-3. ❌ Do not open PRs from your fork’s main
-   → Always create a feature branch for your changes.
+3. ❌ Do not open PRs from your fork’s main → Always create a feature branch for
+   your changes.
 
-At each conflict instance, you'll have to repeat: fix the conflict, stage the files and continue rebasing.
+At each conflict instance, you'll have to repeat: fix the conflict, stage the
+files and continue rebasing.
 
 ## Recovery tips
 
-Undo the last rebase commit, but keep changes staged (while still in rebase):
-If you are in the middle of a rebase and realize the last step went wrong, you can undo it while keeping changes staged:
+Undo the last rebase commit, but keep changes staged (while still in rebase): If
+you are in the middle of a rebase and realize the last step went wrong, you can
+undo it while keeping changes staged:
 
 ```bash
 git reset --soft HEAD~n
@@ -165,7 +190,8 @@ For example:
 
 ### If you are completely stuck
 
-Sometimes a rebase can get too messy to fix conflict by conflict. In that case, it’s often easier to start fresh:
+Sometimes a rebase can get too messy to fix conflict by conflict. In that case,
+it’s often easier to start fresh:
 
 1. Abort the rebase to stop where you are:
 
@@ -173,7 +199,8 @@ Sometimes a rebase can get too messy to fix conflict by conflict. In that case, 
    git rebase --abort
    ```
 
-2. Reset your fork's main to the upstream main and layer your commits on top of that:
+2. Reset your fork's main to the upstream main and layer your commits on top of
+   that:
 
    ```bash
    git checkout main
@@ -184,4 +211,6 @@ Sometimes a rebase can get too messy to fix conflict by conflict. In that case, 
    ```
 
 > [!WARNING]
-> Use git stash only if you really want to save some local changes that aren’t yet committed. In most cases, if the rebase is failing, it’s safer to abort or reset rather than reapplying a stash of broken work.
+> Use git stash only if you really want to save some local changes
+> that aren’t yet committed. In most cases, if the rebase is failing, it’s safer
+> to abort or reset rather than reapplying a stash of broken work.
