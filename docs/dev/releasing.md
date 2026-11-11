@@ -1,7 +1,7 @@
 # Releasing
 
 This guide is for maintainers. It lists the steps to cut a minor release of Fabric Smart Client
-(FSC), eight steps and about two hours, most of it waiting for CI, or a patch release, and how
+(FSC), seven steps and about two hours, most of it waiting for CI, or a patch release, and how
 fixes reach a release branch.
 
 ## How FSC is released
@@ -15,7 +15,8 @@ fixes reach a release branch.
 - A fix merges to `main` first. A release branch takes only backports, cherry-picks of fixes
   merged to `main`; see [Backports](#backports).
 - The latest two minors are supported and take backports, security fixes included. When a new
-  minor ships, the oldest leaves support.
+  minor ships, the oldest leaves support. The release of a minor updates the backport rules and
+  labels to match; see [Backports](#backports).
 - A release tags the root module and every submodule (`integration`,
   `platform/fabric/services/state/cc/query`, `platform/view/services/comm/host/libp2p`) with
   the same version: `v0.28.0`, `integration/v0.28.0`, and so on. `scripts/tag-release.sh`
@@ -32,6 +33,8 @@ fixes reach a release branch.
     [the fixture README](../../platform/fabric/services/db/driver/sql/testdata/README.md). The
     fixture tests open every release directory there, so the PR changes no code. A patch
     changes no schema, so it has no fixtures.
+  - For a minor, `.mergify.yml`, the backport rules of the two supported minors, which
+    `scripts/release mergify` generates from the release data in the tree. A patch leaves it.
 - The release PR starts from a commit of `main`, or of `release-X.Y` for a patch, its *base
   commit*. It is squash-merged, so it lands on that branch as one commit,
   `build(release): vX.Y.Z (#n)`, the *release commit*. The release commit is what gets tagged.
@@ -125,8 +128,8 @@ what differs for a patch.
    `skip-changelog`, so it stays out of the next changelog.
 
    CI gates the release. `Tests` runs the full suite on the release PR, including the fixture
-   tests on the new fixture. `Release check` fails when the release data or the release notes
-   differ from what `make release-prepare` generates for the PR's base commit.
+   tests on the new fixture. `Release check` fails when the release data, the backport rules or
+   the release notes differ from what `make release-prepare` generates for the PR's base commit.
 
 5. **Get the PR reviewed and merge it.** Another maintainer approves it. `main` accepts only a
    PR that is up to date with it, so a merge to `main` while the release PR is open forces an
@@ -146,8 +149,10 @@ what differs for a patch.
    It finds the release commit of `v0.29.0` on `upstream/main`, however far `main` has moved
    since; if the release was prepared again after the merge, it takes the newest one. It checks
    the release data and the release notes against that commit, checks that `Tests` passed on
-   it, lists the tags and asks before it pushes them. The push is all or none. It then creates
-   the GitHub release from the release notes.
+   it, lists the tags and asks before it pushes them. The push is all or none. For a minor, it
+   then syncs the backport labels with `.mergify.yml`, asking first: it creates `backport/0.29`
+   and deletes every other `backport/` label, so with `v0.31.0` it deletes `backport/0.29`.
+   Last, it creates the GitHub release from the release notes.
 
    Your checkout is left on the release commit, detached. Return and delete the local release
    branch, which the merge already deleted on GitHub:
@@ -165,11 +170,6 @@ what differs for a patch.
 7. **Announce the release** in
    [#fabric-smart-client](https://discord.com/channels/905194001349627914/945691888348967012) on
    the LFDT Discord with a link to the GitHub release.
-
-8. **End support for the oldest minor.** With `v0.31.0` out, `v0.29` leaves support. If
-   `release-0.29` exists, remove its rule from `.mergify.yml` in a PR to `main`, and delete its
-   label with `gh label delete backport/0.29 -R hyperledger-labs/fabric-smart-client`; otherwise
-   there is nothing to do. The branch stays, so its tags stay reachable.
 
 ## Cutting a patch release
 
@@ -192,7 +192,8 @@ A patch `v0.29.1` follows the same steps as a minor, on the release branch `rele
   `main`.
 - `make release-publish` finds the release commit on `release-0.29`. If a minor and a patch
   are both merged and untagged, it asks for `VERSION`. The GitHub release of a patch is not
-  marked as the latest release, since a newer minor may be out.
+  marked as the latest release, since a newer minor may be out. A patch changes no backport
+  rule or label.
 - The changelog lists the PRs merged to `release-0.29` since the previous release, the
   backports, and the notes say "No breaking changes".
 
@@ -203,11 +204,19 @@ One release PR can be open at a time, a minor's or a patch's.
 A fix reaches a supported minor as a *backport*: a cherry-pick of its squash commit onto
 `release-X.Y`, merged there through a PR of its own.
 
-**Asking for one.** A fix qualifies if it repairs a bug, a security issue or a dependency of
-a supported minor, and changes no API, schema step or wire format. The PR to `main` says, under
+**Rules and labels.** Mergify reads the backport rules from `.mergify.yml` on `main`, one per
+supported minor. The rules and the labels come with the release of a minor, with nothing to do
+by hand: its release PR brings the rules, and `make release-publish` creates the minor's label
+`backport/X.Y` and deletes the label of the minor that left support. A rule and its label exist
+from the release of their minor on, before the release branch. The branch of a minor that left
+support stays, so its tags stay reachable.
+
+**Asking for one.** A fix qualifies if it repairs a bug, a security issue or a dependency of a
+supported minor, and changes no API, schema step or wire format. The PR to `main` says, under
 "Backport", which release branch needs it and why the next minor is not soon enough. A
-maintainer adds the label `backport/X.Y`, before or after the merge; Mergify acts on it once the
-PR is merged and the branch's rule is on `main`.
+maintainer who agrees adds the label `backport/X.Y` to the PR, before or after the merge, once
+`release-X.Y` exists (Mergify fails a backport to a branch that does not exist). Mergify acts on
+it once the PR is merged. Adding the label to the PR is the one label step done by hand.
 
 **What Mergify does.** When a PR with the label merges to `main`, Mergify cherry-picks its
 commit onto `release-X.Y` and opens a PR titled `<title of #n> (backport #n)`, assigned to the
@@ -216,7 +225,7 @@ Mergify commits the conflict markers, labels the PR `conflicts`, and the author 
 the PR's branch. Mergify never merges: the backport PR needs CI and one maintainer's approval,
 like any other PR.
 
-**By hand**, when Mergify cannot, for example for a PR merged before its branch's rule existed:
+**By hand**, when Mergify cannot, for example for a PR merged before its release branch existed:
 
 ```bash
 git fetch upstream
@@ -243,13 +252,10 @@ Without it, a push to a release branch skips the CI that `make release-publish` 
 ```bash
 git fetch upstream --tags
 git push upstream 'v0.29.0^{commit}:refs/heads/release-0.29'
-gh label create backport/0.29 -R hyperledger-labs/fabric-smart-client \
-  --description "Backport to release-0.29 once merged to main"
 ```
 
-Then add its rule to `.mergify.yml` in a PR to `main`, as the comment there shows. Mergify reads
-the rules from `main`, so it backports only the PRs that merge after that PR. Backport anything
-merged before by hand.
+Its rule and its label `backport/0.29` exist since the release of `v0.29.0`. Backport by hand
+the fixes merged before the branch existed.
 
 ## Trying a release first
 
@@ -307,12 +313,13 @@ git rm -r -f -q --cached --ignore-unmatch docs/upgrade/releases/v0.29.0.json \
   docs/upgrade/releases/v0.29.0.md platform/fabric/services/db/driver/sql/testdata/v0.29.0
 rm -rf docs/upgrade/releases/v0.29.0.json docs/upgrade/releases/v0.29.0.md \
   platform/fabric/services/db/driver/sql/testdata/v0.29.0
+git restore --staged --worktree .mergify.yml
 git switch main                  # to abandon the release
 git branch -D release/v0.29.0
 ```
 
-These commands touch only the release files, staged or not. Do not use `git reset --hard`
-unless the tree holds nothing else you want to keep.
+These commands touch only the release files, staged or not, and put back the backport rules. Do
+not use `git reset --hard` unless the tree holds nothing else you want to keep.
 
 **After `make release-pr`, before the merge.** The release PR is open and its branch is on
 `upstream`. To fix the release, change what is wrong on `main` in a normal PR and run
@@ -419,10 +426,12 @@ The steps by hand, for when a script stops and you cannot fix the cause:
      --jq .body > "$tmp/changelog.md"
    go run ./scripts/release notes --data docs/upgrade/releases/v0.29.0.json \
      --changelog "$tmp/changelog.md" > docs/upgrade/releases/v0.29.0.md
+   go run ./scripts/release mergify > .mergify.yml
    go run ./scripts/release check --report "$tmp/report.json"
    platform/fabric/services/db/driver/sql/testdata/generate.sh --local v0.29.0
    go test -run Fixtures ./platform/fabric/services/db/driver/sql/
-   git add docs/upgrade/releases/v0.29.0.* platform/fabric/services/db/driver/sql/testdata/v0.29.0
+   git add docs/upgrade/releases/v0.29.0.* platform/fabric/services/db/driver/sql/testdata/v0.29.0 \
+     .mergify.yml
    git commit -s -S -m "build(release): v0.29.0"
    git push upstream release/v0.29.0
    gh pr create -R hyperledger-labs/fabric-smart-client --base main --head release/v0.29.0 \
@@ -445,11 +454,14 @@ The steps by hand, for when a script stops and you cannot fix the cause:
    make tag-release VERSION=v0.29.0 PUSH=upstream
    ```
 
-3. **The GitHub release**, with the release notes as its body:
+3. **The GitHub release**, with the release notes as its body, and for a minor the backport
+   label of each rule in `.mergify.yml`; delete every other `backport/` label:
 
    ```bash
    gh release create v0.29.0 -R hyperledger-labs/fabric-smart-client --verify-tag \
      --title v0.29.0 --notes-file docs/upgrade/releases/v0.29.0.md
+   gh label create backport/0.29 -R hyperledger-labs/fabric-smart-client \
+     --description "Backport to release-0.29 once merged to main"
    ```
 
 Remove the worktree with `cd .. && git worktree remove fsc-release`.
