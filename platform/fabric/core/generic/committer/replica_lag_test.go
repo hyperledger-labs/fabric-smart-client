@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -68,6 +69,98 @@ func TestIsFinalSeesCommitByAnotherReplica(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	require.NoError(t, c.IsFinal(ctx, "tx1"))
+}
+
+func TestLateReplicaCommitKeepsLatestKey(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	store, err := fvault.OpenSqliteVault("node", t.TempDir())
+	require.NoError(t, err)
+	defer func() { _ = store.Close() }()
+	newReplicaVault := func() *vault.Vault {
+		return vault.NewVault(fvault.NewCachedVault(store, 100), &disabled.Provider{}, noop.NewTracerProvider())
+	}
+	a, b := newReplicaVault(), newReplicaVault()
+
+	cA := &Committer{
+		logger: logger,
+		ChannelConfig: &fake.ChannelConfig{
+			FinalityRetries:        3,
+			FinalityUnknownTimeout: time.Millisecond,
+			WaitForEventTimeout:    time.Minute,
+		},
+		Vault:              a,
+		EnvelopeService:    &fake.EnvelopeService{},
+		listeners:          map[string][]chan FinalityEvent{},
+		pollingTimeout:     10 * time.Millisecond,
+		tracer:             noop.NewTracerProvider().Tracer("test"),
+		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
+		DependencyResolver: NewSerialDependencyResolver(),
+		ProcessorManager: &fake.ProcessorManager{
+			ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+		},
+	}
+
+	cB := &Committer{
+		logger: logger,
+		ChannelConfig: &fake.ChannelConfig{
+			FinalityRetries:        3,
+			FinalityUnknownTimeout: time.Millisecond,
+			WaitForEventTimeout:    time.Minute,
+		},
+		Vault:              b,
+		EnvelopeService:    &fake.EnvelopeService{},
+		listeners:          map[string][]chan FinalityEvent{},
+		pollingTimeout:     10 * time.Millisecond,
+		tracer:             noop.NewTracerProvider().Tracer("test"),
+		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
+		DependencyResolver: NewSerialDependencyResolver(),
+		ProcessorManager: &fake.ProcessorManager{
+			ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+		},
+	}
+
+	rws, err := a.NewRWSet(ctx, "X")
+	require.NoError(t, err)
+	err = rws.SetState("ns", "K", []byte("vX"))
+	require.NoError(t, err)
+	rws.Done()
+
+	vc, _, err := cA.Status(ctx, "X")
+	require.NoError(t, err)
+	require.Equal(t, fdriver.Busy, vc)
+
+	rws, err = b.NewRWSet(ctx, "X")
+	require.NoError(t, err)
+	err = rws.SetState("ns", "K", []byte("vX"))
+	require.NoError(t, err)
+	rws.Done()
+
+	isValid, err := cB.CommitEndorserTransaction(ctx, "X", 10, 0, nil, &FinalityEvent{TxID: "X"})
+	require.NoError(t, err)
+	require.False(t, isValid)
+
+	rws, err = b.NewRWSet(ctx, "Y")
+	require.NoError(t, err)
+	err = rws.SetState("ns", "K", []byte("vY"))
+	require.NoError(t, err)
+	rws.Done()
+
+	isValid, err = cB.CommitEndorserTransaction(ctx, "Y", 11, 0, nil, &FinalityEvent{TxID: "Y"})
+	require.NoError(t, err)
+	require.False(t, isValid)
+
+	isValid, err = cA.CommitEndorserTransaction(ctx, "X", 10, 0, nil, &FinalityEvent{TxID: "X"})
+	require.NoError(t, err)
+	require.True(t, isValid)
+
+	qe, _ := a.NewQueryExecutor(ctx)
+	defer func() { require.NoError(t, qe.Done()) }()
+	vr, err := qe.GetState(ctx, "ns", "K")
+	require.NoError(t, err)
+
+	require.Equal(t, []byte("vY"), vr.Raw)
 }
 
 // A replica that discarded a transaction reports it Valid once another replica commits it:
