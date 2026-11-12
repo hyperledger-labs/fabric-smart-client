@@ -1,6 +1,6 @@
 module github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p
 
-go 1.27.3
+go 1.27.4
 
 replace github.com/hyperledger-labs/fabric-smart-client => ../../../../../../
 
