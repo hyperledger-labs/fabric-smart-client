@@ -355,6 +355,44 @@ func TestPickOrderer_nilAndSetConfigOrderers(t *testing.T) {
 	require.NotNil(t, picked)
 }
 
+// A broadcast iterates the slice Orderers returned while a channel config update replaces
+// the orderers; the update must not rewrite that slice in place.
+func TestSetConfigOrderers_keepsReturnedSliceIntact(t *testing.T) {
+	t.Parallel()
+	svc := newServiceWithPeers(t, nil)
+
+	require.NoError(t, svc.SetConfigOrderers([]*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}}))
+	require.NoError(t, svc.SetConfigOrderers([]*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}}))
+	inFlight := svc.Orderers()
+
+	require.NoError(t, svc.SetConfigOrderers([]*grpc.ConnectionConfig{{Address: "o3"}, {Address: "o4"}}))
+
+	require.Equal(t, "o1", inFlight[0].Address)
+	require.Equal(t, "o2", inFlight[1].Address)
+	require.Equal(t, "o3", svc.Orderers()[0].Address)
+}
+
+// Run with -race: the channel config monitor calls SetConfigOrderers while broadcasts read.
+func TestSetConfigOrderers_concurrentWithReaders(t *testing.T) {
+	t.Parallel()
+	svc := newServiceWithPeers(t, nil)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 100 {
+			assert.NoError(t, svc.SetConfigOrderers([]*grpc.ConnectionConfig{{Address: "o1"}, {Address: "o2"}}))
+		}
+	}()
+	for range 100 {
+		svc.PickOrderer()
+		for _, o := range svc.Orderers() {
+			_ = o.Address
+		}
+	}
+	<-done
+}
+
 func TestServiceGetters(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
