@@ -186,7 +186,8 @@ and a peer of another epoch may not read our `ViewPacket` framing.
 
 Two nodes use, per session, the highest version of each component's formats that
 both support, so a node talks to peers of its own release and of the previous
-one at the same time.
+one at the same time. Two nodes without a common version of a component refuse
+each other's sessions, whichever opens them.
 
 - **Components**: every binary publishes FSC's `view`, `fabric` and `fabricx`
   (`preamble.FSCComponents`). An application adds its own with
@@ -204,25 +205,32 @@ one at the same time.
   learns them from whichever message reaches it first. Messages of a session the
   node did not open carry none. A component the peer does not list, or every
   component of a peer without a preamble, counts as `{1, 1}`. A component
-  without overlap is stated as version 0, so both nodes fail on it with
-  `view.ErrNoCommonVersion`. Two nodes that open a session with an agreed ID
+  without overlap is stated as version 0, and the session sends nothing (see the
+  next item). Two nodes that open a session with an agreed ID
   (`NewSessionWithID`) each negotiate and pick the same version.
 - **Reading the version**: `view.SessionVersion(ctx, session, component)`, or
   `Version` on a session that implements `view.VersionedSession`, returns the
   version. On an initiator session the first call, or the first `Send`,
   negotiates, opening the stream if needed; a codec calls it before it encodes
   the first payload. A component without overlap fails with
-  `view.ErrNoCommonVersion`, naming both ranges, before anything is sent. A
-  session that does not implement the interface, such as an in-process one, and
-  a responder session whose initiator stated nothing (an older release) use
-  version 1.
-- **Checking**: the responder checks each stated version of a component it has
+  `view.ErrNoCommonVersion`, naming both ranges, and so does every `Send` and
+  `SendError` of the session, before anything is written, whichever component
+  the view uses: a responder of a release without negotiation would not check
+  the versions and would run the view. A session that does not implement the
+  interface, such as an in-process one, uses version 1, and a responder session
+  counts a component its initiator does not state as version 1.
+- **Checking**: the responder checks the version of each component it has
   against its own range and rejects one outside it, including 0, with
   `no_common_version: <component> <version> not in [<min>, <max>]`, and a list
   that does not decode with `no_common_version: invalid versions`, before any
-  limit or authorizer applies. This happens only if the responder's ranges
-  changed since the initiator read them or the initiator misbehaves; a component
-  the responder does not have is not checked.
+  limit or authorizer applies. A component the first message does not state
+  counts as version 1, as on a responder session: an initiator of a release
+  without negotiation states none, so a responder whose range of a component
+  excludes 1 rejects it, for example with
+  `no_common_version: fabric 1 not in [2, 2]`. An initiator of a release with
+  negotiation is rejected only if the responder's ranges changed since the
+  initiator read them or the initiator misbehaves. A component the responder
+  does not have is not checked.
 - **Payload bytes do not change**: FSC adds and strips nothing inside `Send` and
   `Receive`. A component's codec reads the version and picks its encoding.
 - **libp2p replicas**: on libp2p all sessions to a peer share its streams, and

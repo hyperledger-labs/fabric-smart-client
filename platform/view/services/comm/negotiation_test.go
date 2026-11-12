@@ -143,7 +143,7 @@ func TestInitiatorNegotiates(t *testing.T) {
 		require.ErrorIs(t, err, ErrSessionClosed)
 	})
 
-	t.Run("no overlap fails with both ranges and is stated as 0", func(t *testing.T) {
+	t.Run("no overlap fails Version and every send with both ranges", func(t *testing.T) {
 		t.Parallel()
 		s, h := newInitiatorSession(t, peerWith(&preamble.ComponentRange{Component: "fabric", Min: 3, Max: 4}))
 		_, _, err := s.Version(t.Context(), "fabric")
@@ -153,8 +153,11 @@ func TestInitiatorNegotiates(t *testing.T) {
 		require.NoError(t, err, "other components still negotiate")
 		require.Equal(t, uint32(1), v)
 
-		require.NoError(t, s.Send(t.Context(), nil))
-		require.Equal(t, uint32(0), statedVersions(t, h.packets(t)[0])["fabric"])
+		err = s.Send(t.Context(), []byte("x"))
+		require.ErrorIs(t, err, view.ErrNoCommonVersion, "a peer that does not check versions must not get the payload")
+		require.EqualError(t, err, "component [fabric]: local [1, 2], peer [3, 4]: no common version")
+		require.ErrorIs(t, s.SendError(t.Context(), []byte("x")), view.ErrNoCommonVersion)
+		require.Empty(t, h.packets(t), "nothing is written")
 	})
 
 	t.Run("a component this node does not have", func(t *testing.T) {

@@ -169,10 +169,11 @@ the peer runs nothing. Each peer gets 10 seconds.
 
 For each peer it prints the peer's FSC version and framing epoch and, per
 component, both ranges and the version they use, the highest one in both ranges.
-A peer of a release without preambles, or a component only this binary
-announces, is reported but does not fail the check, since the node accepts such
-peers. Run the new binary with the node's configuration and key material. Only
-`fsc.p2p.type: websocket` is supported; with libp2p the command exits 1.
+A component the peer does not announce counts as version 1, and so does every
+component of a peer of a release without preambles, as in a session: the check
+fails if version 1 is outside this binary's range. Run the new binary with the
+node's configuration and key material. Only `fsc.p2p.type: websocket` is
+supported; with libp2p the command exits 1.
 
 | Exit code | Meaning                                                                                         |
 | --------- | ----------------------------------------------------------------------------------------------- |
