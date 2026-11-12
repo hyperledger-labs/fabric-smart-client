@@ -59,21 +59,6 @@ jobs:
       - name: Build chaincode images
         run: make chaincode-images
 
-      # ponytail: v0.28.0 predates the suite, so every spec would skip against it. Until the
-      # previous release contains the views, run them from a checkout of that release with
-      # HEAD's copy added: the views change only compatibly, so this is the copy the next
-      # release ships. Remove this step once v0.29.0 is tagged.
-      - name: Add the suite's views to a release that predates them
-        run: |
-          prev=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname --no-contains HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-          views=integration/fabric/mixedversion/views
-          if [ -z "$(git ls-tree "$prev" "$views")" ]; then
-            git worktree add --detach "$RUNNER_TEMP/previous" "$prev"
-            mkdir -p "$RUNNER_TEMP/previous/$views"
-            cp "$views"/*.go "$RUNNER_TEMP/previous/$views/"
-            echo "FSC_PREVIOUS_RELEASE=$RUNNER_TEMP/previous" >> "$GITHUB_ENV"
-          fi
-
       - name: Run the mixed-version suite
         run: make integration-tests-fabric-mixedversion
 
