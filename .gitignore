@@ -8,6 +8,10 @@
 # ignoring all generated artifacts in integration tests
 integration/**/out/
 
+# Go test binaries, which ginkgo and `go test -c` leave next to a package, such
+# as integration/fabric/iou/iou.test.
+*.test
+
 integration/nwo/cmd/fsccli/cmd
 /.bob/notes/pending-notes.txt
 
