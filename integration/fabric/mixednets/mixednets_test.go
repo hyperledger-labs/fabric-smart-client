@@ -56,9 +56,13 @@ var _ = Describe("EndToEnd", func() {
 
 			committer.StartCommitter()
 			s.II.EventuallyConnectionState("alice", fxNotification, connstate.Connected, faultrecovery.RecoveryTimeout)
-			twonets.EndorseAcross(s.II, []twonets.Endorsement{
+			// Each node's gRPC connections to the committer reconnect on their own backoff, so
+			// alice's notification stream being back says nothing of bob's connections. Bob's
+			// endorsement reads from the committer's query service, whose connection state
+			// changes only when a query answers, so it retries until bob's connections are back.
+			twonets.EndorseAcrossEventually(s.II, []twonets.Endorsement{
 				{Initiator: "bob", Endorser: "alice", Network: "fx", Namespace: "ns2"},
-			})
+			}, faultrecovery.RecoveryTimeout)
 		})
 	})
 })
