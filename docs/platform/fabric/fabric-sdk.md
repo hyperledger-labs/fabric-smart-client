@@ -67,7 +67,9 @@ an application with several endorsers can try the next one. It matches, with
 | The transaction could not be sent, for example to a node that is down                                    | the send's error, such as a dial error wrapping `syscall.ECONNREFUSED`                                                                                                                                                                           |
 
 An error reply that is not a rejection, and an endorsement that does not verify,
-wrap none of these.
+wrap none of these. On WebSocket, a deadline of the view's context that passes
+during the handshake of a new connection fails opening the session's stream, so
+the error wraps `os.ErrDeadlineExceeded`, not the context's error.
 
 The view adds each endorsement to the transaction as soon as it verifies, this
 node's own included, and a failure does not remove the ones added before it. A
@@ -75,6 +77,36 @@ party that fails before its reply verifies, which includes every failure in the
 table above, adds nothing, so a caller that asks one party at a time can pass
 the same transaction to another party. An endorsement already on the transaction
 is not added a second time.
+
+#### Several endorsers that each satisfy the policy
+
+An application can spread its transactions over several endorser nodes,
+without replicas or a load balancer, when any one of them satisfies the
+namespace's endorsement policy, such as `OutOf(1, 'Org2MSP.member')`. Each
+endorser is a separate FSC node, with its own identity and database. For each
+transaction, the initiator endorses first: that signs the proposal the
+endorsers endorse, and a transaction without that signature cannot be ordered.
+It then asks one endorser at a time, each under a deadline of its own that it
+passes with `view.WithGoContext`. When the endorser is unavailable, it asks the
+next one with the same transaction. Unavailable means a rejection because the
+endorser drains or is busy (`session.ErrDraining`, `session.ErrBusy`), a closed
+session, the deadline (`context.DeadlineExceeded`, or `os.ErrDeadlineExceeded`
+during the handshake), a refused connection (`syscall.ECONNREFUSED`), or a
+connection that broke because the endorser died (`syscall.ECONNRESET`,
+`syscall.EPIPE`, `io.EOF`, `net.ErrClosed`). Any other error, such as `session.ErrUnknownView`,
+is not one that another endorser of the same application would avoid.
+
+The session to an endorser the initiator gave up on stays open until the
+initiator's view returns, and the initiator ignores a late reply on it. A
+responder that runs after that has no session left to answer on. On Fabric,
+such an endorser may keep the transaction `Busy`
+([#2618](https://github.com/hyperledger-labs/fabric-smart-client/issues/2618)).
+On Fabric-x, every node reads statuses and state from the committer.
+
+The views in
+[`integration/fabric/common/endorsers/views`](../../../integration/fabric/common/endorsers/views/views.go)
+follow this pattern, and the `fabric-endorsers` and `fabricx-endorsers`
+integration suites run it.
 
 ### The transaction envelope
 

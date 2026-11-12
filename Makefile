@@ -265,6 +265,7 @@ INTEGRATION_TARGETS += fsc-signedpingpong
 INTEGRATION_TARGETS += fabric-atsa
 INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-configupdate
+INTEGRATION_TARGETS += fabric-endorsers
 INTEGRATION_TARGETS += fabric-events
 INTEGRATION_TARGETS += fabric-faultrecovery
 # fabric/faultrecovery runs its long Postgres outage specs, which set a shortened
@@ -299,6 +300,7 @@ INTEGRATION_TARGETS += fabricx-simple
 INTEGRATION_TARGETS += fabricx-deployment
 INTEGRATION_TARGETS += fabricx-multiendorsement
 INTEGRATION_TARGETS += fabricx-configupdate
+INTEGRATION_TARGETS += fabricx-endorsers
 INTEGRATION_TARGETS += fabricx-faultrecovery
 # Its specs on replicated nodes run in a target of their own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-replication
