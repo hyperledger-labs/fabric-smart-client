@@ -1,8 +1,10 @@
 # Development guide
 
-This document provides guidelines and steps for setting up your local development environment for the **Fabric Smart Client (FSC)**.
+This document provides guidelines and steps for setting up your local
+development environment for the **Fabric Smart Client (FSC)**.
 
-For general development best practices, see the following guidelines:  
+For general development best practices, see the following guidelines:
+
 - [Fabric-x Committer Development Guidelines](https://github.com/hyperledger/fabric-x-committer/blob/main/guidelines.md)
 - [Panurus Development Guidelines](https://github.com/LFDT-Panurus/panurus/blob/main/docs/development/development.md)
 
@@ -10,15 +12,17 @@ For general development best practices, see the following guidelines:
 
 Before you begin, ensure you have the following installed:
 
-- **Go** — [Install Go](https://go.dev/doc/install) (see the required version in [`go.mod`](../../go.mod))
-- **Docker** — [Install Docker Engine](https://docs.docker.com/engine) (or a compatible container manager)
+- **Go** — [Install Go](https://go.dev/doc/install) (see the required version in
+  [`go.mod`](../../go.mod))
+- **Docker** — [Install Docker Engine](https://docs.docker.com/engine) (or a
+  compatible container manager)
 
 ## Fork and clone
 
-Fork [the repository](https://github.com/hyperledger-labs/fabric-smart-client) on GitHub,
-clone your fork, and add the main repository as the `upstream` remote. Your fork is
-`origin`: you push branches there and open pull requests from it. `upstream` is what you
-rebase onto (see [Rebasing](rebasing.md)).
+Fork [the repository](https://github.com/hyperledger-labs/fabric-smart-client)
+on GitHub, clone your fork, and add the main repository as the `upstream`
+remote. Your fork is `origin`: you push branches there and open pull requests
+from it. `upstream` is what you rebase onto (see [Rebasing](rebasing.md)).
 Throughout this document, `$FSC_PATH` refers to the local path of your clone.
 
 ```bash
@@ -37,8 +41,8 @@ git switch -c my-change upstream/main
 
 ## Setting up developer tools
 
-FSC provides several helper tools for building, testing, and monitoring.
-Install them using:
+FSC provides several helper tools for building, testing, and monitoring. Install
+them using:
 
 ```bash
 make install-tools install-linter-tool pull-images-monitoring pull-images-database
@@ -55,10 +59,11 @@ make install-fabric-bins pull-images-fabric
 ```
 
 > [!IMPORTANT]
-> `FABRIC_BINARY_BASE` defaults to `$(PWD)/../fabric`, which assumes you are in your
-> primary checkout. Run this from a git worktree and it resolves to a sibling of the
-> *worktree*: a second Fabric install in the wrong place, with no warning. From a
-> worktree, either run the target from the primary checkout or pass the base explicitly:
+> `FABRIC_BINARY_BASE` defaults to `$(PWD)/../fabric`, which
+> assumes you are in your primary checkout. Run this from a git worktree and it
+> resolves to a sibling of the _worktree_: a second Fabric install in the wrong
+> place, with no warning. From a worktree, either run the target from the
+> primary checkout or pass the base explicitly:
 >
 > ```bash
 > FABRIC_BINARY_BASE=$HOME/fabric make install-fabric-bins
@@ -71,8 +76,8 @@ images built once:
 make chaincode-images
 ```
 
-Rebuild them whenever you change a chaincode under `integration/fabric/*/chaincode*`
-or `integration/nwo/fabric/chaincode/base`.
+Rebuild them whenever you change a chaincode under
+`integration/fabric/*/chaincode*` or `integration/nwo/fabric/chaincode/base`.
 
 To install a specific Fabric version, set the `FABRIC_VERSION` variable:
 
@@ -80,17 +85,19 @@ To install a specific Fabric version, set the `FABRIC_VERSION` variable:
 FABRIC_VERSION=3.1.0 make install-fabric-bins
 ```
 
-The default `FABRIC_VERSION` is defined in the project [Makefile](../../Makefile).
+The default `FABRIC_VERSION` is defined in the project
+[Makefile](../../Makefile).
 
-The `*_VERSION` variables at the top of the [Makefile](../../Makefile) also pin every
-container image the tests run. nwo names the same images, registry and tag included, and
-`TestImagePins` in `integration/nwo` fails when nwo runs an image the `Makefile` does not
-pull, so a version bump changes both. Images come from `ghcr.io` where the project publishes
-there; Grafana comes from Docker Hub and Jaeger from `cr.jaegertracing.io`. Postgres, Fabric's `baseos` and `ccenv` are the
-exception: `make` retags them to fixed local names (`fsc.itests/postgres:latest`,
-`hyperledger/fabric-baseos:latest`, `hyperledger/fabric-ccenv:latest`), because Podman
-resolves short image names differently from Docker and the peer configuration names the
-Fabric images.
+The `*_VERSION` variables at the top of the [Makefile](../../Makefile) also pin
+every container image the tests run. nwo names the same images, registry and tag
+included, and `TestImagePins` in `integration/nwo` fails when nwo runs an image
+the `Makefile` does not pull, so a version bump changes both. Images come from
+`ghcr.io` where the project publishes there; Grafana comes from Docker Hub and
+Jaeger from `cr.jaegertracing.io`. Postgres, Fabric's `baseos` and `ccenv` are
+the exception: `make` retags them to fixed local names
+(`fsc.itests/postgres:latest`, `hyperledger/fabric-baseos:latest`,
+`hyperledger/fabric-ccenv:latest`), because Podman resolves short image names
+differently from Docker and the peer configuration names the Fabric images.
 
 ### Fabric-x
 
@@ -107,8 +114,9 @@ time, and neither install target disturbs the other.
 
 ### Set `FAB_BINS`
 
-Most integration tests require Fabric(x) binaries to launch a local test network.
-Set the `FAB_BINS` environment variable to point to the directory containing these binaries:
+Most integration tests require Fabric(x) binaries to launch a local test
+network. Set the `FAB_BINS` environment variable to point to the directory
+containing these binaries:
 
 ```bash
 export FAB_BINS=$FSC_PATH/../fabric/bin
@@ -119,40 +127,44 @@ One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
 `make install-fabricx-tools` puts its tools.
 
 > [!NOTE]
-> Do *not* store the Fabric binaries inside your fabric-smart-client repository.
-> Doing so may cause integration tests to fail when installing chaincode.
+> Do _not_ store the Fabric binaries inside your fabric-smart-client
+> repository. Doing so may cause integration tests to fail when installing
+> chaincode.
 
 ## Running tests
 
-FSC includes both unit tests and integration tests.
-Integration tests are powered by `nwo` (Network Orchestrator), which programmatically creates DLT networks and FSC application nodes.
+FSC includes both unit tests and integration tests. Integration tests are
+powered by `nwo` (Network Orchestrator), which programmatically creates DLT
+networks and FSC application nodes.
 
 ### Code checks
 
-`make checks` runs the linter and `go fix` across every module in the repository, and checks
-that no page for people links into `docs/agents/` (see
+`make checks` runs the linter and `go fix` across every module in the
+repository, and checks that no page for people links into `docs/agents/` (see
 [Writing Documentation](documentation.md#two-audiences)):
 
 ```bash
 make checks
 ```
 
-| Target               | What it does                                                          |
-|----------------------|-----------------------------------------------------------------------|
-| `make lint`          | `golangci-lint run` in every module                                   |
-| `make lint-auto-fix` | the same, with `--fix` to apply what `golangci-lint` can fix itself   |
-| `make lint-fmt`      | `golangci-lint fmt`, applying the formatter configuration CI enforces  |
-| `make go-fix`        | reports the modernizations `go fix` suggests, without applying them    |
-| `make go-fix-apply`  | applies those modernizations, in every module                          |
+| Target               | What it does                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `make lint`          | `golangci-lint run` in every module                                                          |
+| `make lint-auto-fix` | the same, with `--fix` to apply what `golangci-lint` can fix itself                          |
+| `make lint-fmt`      | `golangci-lint fmt`, applying the formatter configuration CI enforces                        |
+| `make go-fix`        | reports the modernizations `go fix` suggests, without applying them                          |
+| `make go-fix-apply`  | applies those modernizations, in every module                                                |
 | `make docs-links`    | fails if a Markdown page other than `AGENTS.md` and `docs/agents/` links into `docs/agents/` |
+| `make docs-lint`     | runs markdownlint-cli2 in Docker on every tracked `.md` file; not part of `make checks`      |
+| `make docs-lint-fix` | applies the fixes markdownlint can make itself; it does not wrap lines                       |
 
 Run `make list-go-modules` to see which modules these targets cover.
 
 > [!NOTE]
-> Checking formatting by path — `gofmt -l platform integration` — also walks gitignored
-> generated files, such as everything an integration run leaves under
-> `integration/**/out/`, so your source looks unformatted when it is not. Check the
-> tracked files instead:
+> Checking formatting by path — `gofmt -l platform integration` — also
+> walks gitignored generated files, such as everything an integration run leaves
+> under `integration/**/out/`, so your source looks unformatted when it is not.
+> Check the tracked files instead:
 >
 > ```bash
 > gofmt -l $(git ls-files '*.go')
@@ -161,16 +173,19 @@ Run `make list-go-modules` to see which modules these targets cover.
 ### Unit tests
 
 Run all unit tests:
+
 ```bash
 make unit-tests
 make unit-tests-postgres
 make unit-tests-sdk
 ```
 
-Use `make unit-tests` for the default unit-test suite.
-Use `make unit-tests-postgres` only for tests that explicitly exercise the PostgreSQL-backed storage implementations.
-It runs only root-module tests whose top-level name contains `Postgres`, so name new Postgres tests accordingly; `make unit-tests` skips them.
-Use `make unit-tests-sdk` when validating dependency-injection wiring in SDK packages.
+Use `make unit-tests` for the default unit-test suite. Use
+`make unit-tests-postgres` only for tests that explicitly exercise the
+PostgreSQL-backed storage implementations. It runs only root-module tests whose
+top-level name contains `Postgres`, so name new Postgres tests accordingly;
+`make unit-tests` skips them. Use `make unit-tests-sdk` when validating
+dependency-injection wiring in SDK packages.
 
 When your change is confined to one module, run just that module's target:
 
@@ -180,8 +195,8 @@ make unit-tests-integration    # the nwo harness and the helpers the suites shar
 make unit-tests-extensions     # optional driver modules (today: the libp2p comm host)
 ```
 
-To keep the feedback loop fast while working on a single package, scope the root-module
-run with `TEST_PKGS`:
+To keep the feedback loop fast while working on a single package, scope the
+root-module run with `TEST_PKGS`:
 
 ```bash
 TEST_PKGS=./platform/common/utils/... make unit-tests-root
@@ -189,8 +204,8 @@ TEST_PKGS=./platform/common/utils/dig go test -race -cover ./platform/common/uti
 ```
 
 For coverage analysis, `COVERAGE=1` makes any unit-test target leave a filtered
-profile (the same filter CI reports through) in `./coverage.profile`; override the
-path with `COVERAGE_PROFILE`:
+profile (the same filter CI reports through) in `./coverage.profile`; override
+the path with `COVERAGE_PROFILE`:
 
 ```bash
 COVERAGE=1 make unit-tests-root
@@ -206,10 +221,11 @@ make coverage-local
 
 ### Integration tests
 
-[Integration Tests](integration-tests/README.md) lists the suites and what each covers. This
-section covers running them.
+[Integration Tests](integration-tests/README.md) lists the suites and what each
+covers. This section covers running them.
 
 List all available integration tests:
+
 ```bash
 make list-integration-tests
 ```
@@ -221,23 +237,27 @@ make integration-tests
 ```
 
 Run a specific integration test (e.g., Fabric IOU test):
+
 ```bash
 make integration-tests-fabric-iou
 ```
 
 > [!IMPORTANT]
-> `go test` prints nothing for a package that passes, so a ginkgo suite whose filter
-> matched **zero specs** reports `ok ... 9.5s` — indistinguishable from real success.
-> Never take that as evidence that a focused run exercised anything. Add `-v` and read
-> the `Ran N of M Specs` line; `N == 0` means the filter matched nothing.
+> `go test` prints nothing for a package that passes, so a ginkgo
+> suite whose filter matched **zero specs** reports `ok ... 9.5s` —
+> indistinguishable from real success. Never take that as evidence that a
+> focused run exercised anything. Add `-v` and read the `Ran N of M Specs` line;
+> `N == 0` means the filter matched nothing.
 
 Enable profiling for deeper analysis:
+
 ```bash
 export FSCNODE_PROFILER=true
 make integration-tests-fabric-iou
 ```
 
 Enable coverage profiling:
+
 ```bash
 mkdir -p covdata
 GOCOVERDIR=covdata make integration-tests
@@ -246,70 +266,75 @@ go tool covdata textfmt -i=covdata -o profile.txt
 
 #### One target at a time
 
-Run one target at a time per machine. `make integration-tests` runs them one after
-another. Under `make -j` or in a second shell, targets that share a resource fail with
-`address already in use`, `port is already allocated` or `container name ... is
-already in use`. Targets share these resources:
+Run one target at a time per machine. `make integration-tests` runs them one
+after another. Under `make -j` or in a second shell, targets that share a
+resource fail with `address already in use`, `port is already allocated` or
+`container name ... is already in use`. Targets share these resources:
 
-- Each suite takes its ports from a constant in `integration/ports.go`, and suites
-  share them: `integration.IOUPort` backs `fabric/iou` and four `fabricx` suites,
-  `integration.PingPongPort` backs `fsc/pingpong` and `fsc/stoprestart`.
-- The monitoring containers bind fixed host ports, among them Jaeger 4317 and 16686,
-  Prometheus 9090 and Grafana 3000.
+- Each suite takes its ports from a constant in `integration/ports.go`, and
+  suites share them: `integration.IOUPort` backs `fabric/iou` and four `fabricx`
+  suites, `integration.PingPongPort` backs `fsc/pingpong` and `fsc/stoprestart`.
+- The monitoring containers bind fixed host ports, among them Jaeger 4317 and
+  16686, Prometheus 9090 and Grafana 3000.
 - Postgres containers are named after their database (`fr-bob`, `borrower-db`).
-- Targets that run the same suite directory (see `INTEGRATION_DIR_<target>` in the
-  `Makefile`, e.g. `fabric-iou` and `fabric-iou-libp2p`) share its `out/` directory,
-  which `make clean-<target>` deletes.
+- Targets that run the same suite directory (see `INTEGRATION_DIR_<target>` in
+  the `Makefile`, e.g. `fabric-iou` and `fabric-iou-libp2p`) share its `out/`
+  directory, which `make clean-<target>` deletes.
 
 CI runs each target as a job on its own runner, so this applies only locally.
 
 ### What CI gates
 
 CI gates every pull request on the following. It drives the linter through
-`golangci-lint-action` and `go fix` through its own workflow rather than through these
-targets, so the right-hand column is the local equivalent, not the literal CI command:
+`golangci-lint-action` and `go fix` through its own workflow rather than through
+these targets, so the right-hand column is the local equivalent, not the literal
+CI command:
 
-| CI check                     | Local equivalent                  |
-|------------------------------|-----------------------------------|
-| `golangci-lint`, per module  | `make lint`                       |
-| `go fix -diff`               | `make go-fix`                     |
-| `go mod tidy` leaves no diff | `make tidy`                       |
-| unit tests                   | `make unit-tests`                 |
-| PostgreSQL unit tests        | `make unit-tests-postgres`        |
-| integration suites           | `make integration-tests-<target>` |
-| `govulncheck`, per module    | `make govulncheck`                |
-| `buf breaking`, on proto changes | `make buf-breaking`           |
-| no page for people links into `docs/agents/` | `make docs-links` |
+| CI check                                     | Local equivalent                  |
+| -------------------------------------------- | --------------------------------- |
+| `golangci-lint`, per module                  | `make lint`                       |
+| `go fix -diff`                               | `make go-fix`                     |
+| `go mod tidy` leaves no diff                 | `make tidy`                       |
+| unit tests                                   | `make unit-tests`                 |
+| PostgreSQL unit tests                        | `make unit-tests-postgres`        |
+| integration suites                           | `make integration-tests-<target>` |
+| `govulncheck`, per module                    | `make govulncheck`                |
+| `buf breaking`, on proto changes             | `make buf-breaking`               |
+| no page for people links into `docs/agents/` | `make docs-links`                 |
 
-`make buf-breaking` needs the tool from `make install-tools` and the release tags
-(`git fetch --tags`); set `BUF_AGAINST=<tag>` to compare against another release.
+`make buf-breaking` needs the tool from `make install-tools` and the release
+tags (`git fetch --tags`); set `BUF_AGAINST=<tag>` to compare against another
+release.
 
 `make govulncheck` needs the tool from `make install-tools`. Unlike CI, it exits
 non-zero on any finding, including one already dismissed in code scanning, so a
 failure here does not mean the pull request is red: CI reports to code scanning,
 which gates only on findings new to the branch.
 
-Scheduled workflows run what is too slow for every pull request: the fuzz targets, the
-storage fixtures of the latest release, and the `fabric-mixedversion` suite, which runs nodes
-of the latest release next to nodes of the current tree. `fabric-mixedversion` also runs on
-pull requests that change the code two releases share, such as schema steps or stored and
-wire formats, and a failed nightly run of it opens or comments on the issue `Mixed versions
-nightly run failed` (see [Integration Tests](integration-tests/README.md#in-ci)). Start one by
-hand from the Actions tab when a change affects them.
+Scheduled workflows run what is too slow for every pull request: the fuzz
+targets, the storage fixtures of the latest release, and the
+`fabric-mixedversion` suite, which runs nodes of the latest release next to
+nodes of the current tree. `fabric-mixedversion` also runs on pull requests that
+change the code two releases share, such as schema steps or stored and wire
+formats, and a failed nightly run of it opens or comments on the issue
+`Mixed versions nightly run failed` (see
+[Integration Tests](integration-tests/README.md#in-ci)). Start one by hand from
+the Actions tab when a change affects them.
 
-If your pull request only touches unit-tested code, `make checks` plus a targeted
-`make unit-tests` is usually the fastest high-signal validation pass before pushing.
-Before pushing for review, read [Commit Hygiene](workflow.md#commit-hygiene).
+If your pull request only touches unit-tested code, `make checks` plus a
+targeted `make unit-tests` is usually the fastest high-signal validation pass
+before pushing. Before pushing for review, read
+[Commit Hygiene](workflow.md#commit-hygiene).
 
 ## Troubleshooting
 
 ### Lint failures in files you never touched
 
-`golangci-lint` keeps one machine-wide cache — `golangci-lint cache status` prints the
-directory — shared by every checkout of the repository. Working in more than one
-checkout, a second clone or a git worktree, can therefore surface
-findings against files outside the tree you are linting. The giveaway is a path that
-leaves your working directory:
+`golangci-lint` keeps one machine-wide cache — `golangci-lint cache status`
+prints the directory — shared by every checkout of the repository. Working in
+more than one checkout, a second clone or a git worktree, can therefore surface
+findings against files outside the tree you are linting. The giveaway is a path
+that leaves your working directory:
 
 ```text
 ../other-worktree/node/start/profile/profile_test.go:119:1: ...
@@ -327,7 +352,8 @@ failure you cannot reproduce by reading the code.
 
 ### Missing `FAB_BINS`
 
-If integration tests fail early because Fabric binaries cannot be found, confirm that `FAB_BINS` points to the directory created by `make install-fabric-bins`:
+If integration tests fail early because Fabric binaries cannot be found, confirm
+that `FAB_BINS` points to the directory created by `make install-fabric-bins`:
 
 ```bash
 echo $FAB_BINS
@@ -340,9 +366,10 @@ ls $FAB_BINS/fabric-x   # fabric-x tools
 Every `fabric-*` suite fails while generating artifacts when the `configtxgen`
 and `cryptogen` in `$FAB_BINS` are the fabric-x ones rather than fabric's. This
 happens when an older checkout's `make install-fabricx-tools` installed them
-directly into `$FAB_BINS` instead of `$FAB_BINS/fabric-x`. `make install-fabric-bins` will not repair it, because it
-skips the download whenever `bin/peer version` already matches
-`FABRIC_VERSION`. Remove the directory and re-install once:
+directly into `$FAB_BINS` instead of `$FAB_BINS/fabric-x`.
+`make install-fabric-bins` will not repair it, because it skips the download
+whenever `bin/peer version` already matches `FABRIC_VERSION`. Remove the
+directory and re-install once:
 
 ```bash
 rm -rf $(dirname $FAB_BINS)
@@ -360,12 +387,11 @@ make chaincode-images
 
 ### Missing `ccaas` external builder
 
-`ccaas external builder not found next to FAB_BINS` means `FAB_BINS` points at
-a directory whose sibling `builders/ccaas` is absent. `make install-fabric-bins`
-alone will not fix it: it skips the download whenever `bin/peer version`
-already matches `FABRIC_VERSION`, which is exactly the state you are in.
-Remove the directory and re-run the install so it re-downloads the full
-release tarball:
+`ccaas external builder not found next to FAB_BINS` means `FAB_BINS` points at a
+directory whose sibling `builders/ccaas` is absent. `make install-fabric-bins`
+alone will not fix it: it skips the download whenever `bin/peer version` already
+matches `FABRIC_VERSION`, which is exactly the state you are in. Remove the
+directory and re-run the install so it re-downloads the full release tarball:
 
 ```bash
 rm -rf $(dirname $FAB_BINS)
@@ -375,12 +401,14 @@ ls $(dirname $FAB_BINS)/builders/ccaas/bin
 
 ### PostgreSQL unit tests
 
-The PostgreSQL-specific unit tests expect the container image pulled by `make pull-images-database`.
-Run that target once before `make unit-tests-postgres` on a new machine.
+The PostgreSQL-specific unit tests expect the container image pulled by
+`make pull-images-database`. Run that target once before
+`make unit-tests-postgres` on a new machine.
 
 ### Coverage for a single package
 
-When you are improving unit-test coverage for one package, it is often easier to generate coverage for just that package first:
+When you are improving unit-test coverage for one package, it is often easier to
+generate coverage for just that package first:
 
 ```bash
 go test -race -coverprofile=cov.out ./platform/common/utils/dig
@@ -389,9 +417,12 @@ go tool cover -func=cov.out
 
 ## Dependency management
 
-FSC is a multi-module repository. Use [`scripts/gomate.sh`](../../scripts/gomate.sh) to manage Go dependencies across all modules at once.
+FSC is a multi-module repository. Use
+[`scripts/gomate.sh`](../../scripts/gomate.sh) to manage Go dependencies across
+all modules at once.
 
-Set up a Go workspace so your local editor and tooling resolve cross-module imports correctly:
+Set up a Go workspace so your local editor and tooling resolve cross-module
+imports correctly:
 
 ```bash
 ./scripts/gomate.sh initwork
@@ -415,25 +446,28 @@ Omit the argument to update all direct dependencies to their latest versions:
 ./scripts/gomate.sh update
 ```
 
-Updating all dependencies at once can introduce breaking changes; review the result.
-Note that `gomate.sh tidy` can also be invoked via `make tidy`. 
-After updating, run `make tidy` and `make checks` to verify the result.
+Updating all dependencies at once can introduce breaking changes; review the
+result. Note that `gomate.sh tidy` can also be invoked via `make tidy`. After
+updating, run `make tidy` and `make checks` to verify the result.
 
 ### Fabric and IBM crypto dependencies
 
-[`dependabot.yml`](../../.github/dependabot.yml) excludes `github.com/hyperledger/fabric*`,
-`github.com/IBM/idemix`, and `github.com/IBM/mathlib` from the weekly version-update PRs.
-These track the Fabric/Fabric-x network binaries and the crypto stack, and bumping them
-often needs matching non-dependency changes across modules, so they're updated by hand
-with `gomate.sh update` on a regular cadence instead of arriving as unreviewed weekly noise.
+[`dependabot.yml`](../../.github/dependabot.yml) excludes
+`github.com/hyperledger/fabric*`, `github.com/IBM/idemix`, and
+`github.com/IBM/mathlib` from the weekly version-update PRs. These track the
+Fabric/Fabric-x network binaries and the crypto stack, and bumping them often
+needs matching non-dependency changes across modules, so they're updated by hand
+with `gomate.sh update` on a regular cadence instead of arriving as unreviewed
+weekly noise.
 
 Dependabot's `ignore` suppresses both the weekly version-update PRs and the
-auto-generated security-update PRs for these deps; there's no config to scope it to
-one or the other. A GHSA against any of them still shows up as a Dependabot alert (the
-repo's Security tab), it just won't arrive as a ready-made PR; treat that alert the
-same as a routine bump and patch it by hand.
+auto-generated security-update PRs for these deps; there's no config to scope it
+to one or the other. A GHSA against any of them still shows up as a Dependabot
+alert (the repo's Security tab), it just won't arrive as a ready-made PR; treat
+that alert the same as a routine bump and patch it by hand.
 
 ## Write your own integration test
 
-[Authoring Integration Tests](integration-tests/authoring.md) walks through a new suite: its
-directory and files, the topology, and registering its `make` target.
+[Authoring Integration Tests](integration-tests/authoring.md) walks through a
+new suite: its directory and files, the topology, and registering its `make`
+target.

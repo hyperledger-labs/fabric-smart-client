@@ -1,19 +1,26 @@
 # Node configuration (core.yaml)
 
-Every FSC node reads one `core.yaml`. The annotated example below lists every key the node reads, with its default and meaning. Its top-level sections are:
+Every FSC node reads one `core.yaml`. The annotated example below lists every
+key the node reads, with its default and meaning. Its top-level sections are:
 
 - `logging`: log format and levels.
-- `fsc`: the node itself (identity, TLS, gRPC, P2P, storage and persistences, views, web server, tracing, metrics, endpoints), read by the View platform.
-- `fabric`: one entry per Fabric or Fabric-x network, read by the Fabric and Fabric-x platforms. A node that installs only the View SDK leaves it out.
+- `fsc`: the node itself (identity, TLS, gRPC, P2P, storage and persistences,
+  views, web server, tracing, metrics, endpoints), read by the View platform.
+- `fabric`: one entry per Fabric or Fabric-x network, read by the Fabric and
+  Fabric-x platforms. A node that installs only the View SDK leaves it out.
 
 After the example:
 
 - [Migrating TLS configuration](#migrating-tls-configuration)
 - [Overriding configuration keys](#overriding-configuration-keys)
 - [HSM support](#hsm-support)
-- [Persistence: sqlite/postgres](#persistence-sqlitepostgres), including [Query timeout](#query-timeout) and [Postgres errors](#postgres-errors)
+- [Persistence: sqlite/postgres](#persistence-sqlitepostgres), including
+  [Query timeout](#query-timeout) and [Postgres errors](#postgres-errors)
 
-The platform pages explain settings that need more than a comment: [Fabric](platform/fabric/configuration.md), [Fabric-x](platform/fabric-x/configuration.md) and [View](platform/view/configuration.md).
+The platform pages explain settings that need more than a comment:
+[Fabric](platform/fabric/configuration.md),
+[Fabric-x](platform/fabric-x/configuration.md) and
+[View](platform/view/configuration.md).
 
 ```yaml
 ---
@@ -131,7 +138,7 @@ fsc:
         files:
         - /path/to/client/tls/ca.crt
 
-    # GRPC Server keepalive parameters. 
+    # GRPC Server keepalive parameters.
     # This section can be omitted.
     keepalive:
       # MaxConnectionIdle: send GOAWAY and gracefully close if connection is idle this long (no RPCs).
@@ -217,7 +224,7 @@ fsc:
           # Grace period - connections younger than this will not be pruned. Default: 60s
           # Format: duration in seconds
           gracePeriod: 60
-      
+
       # ------------------- websocket specific options -------------------------
       # Only needed when type == websocket
       websocket:
@@ -529,7 +536,7 @@ fsc:
     #   enabled: false
     # clientAuthRequired: false
 
-    
+
   # ------------------- FSC Node endpoint resolvers -------------------------
   # The endpoint section tells how to reach other FSC node in the network.
   # Each entry needs a name and an identity; domain, addresses and aliases are optional.
@@ -792,7 +799,7 @@ fabric:
         # `usage` allows the developer to specify the function for which this peer should be used.
         # The available functions are: delivery, discovery, finality, and query.
         # The default value is the empty string that means that the peer can be used for the supported operations.
-        usage: 
+        usage:
 
     # Fabric-x query and notification services (Fabric-x only).
     #
@@ -941,10 +948,10 @@ fabric:
           # random delay below this value, doubling the bound on each further failure
           # up to 1m.
           sleepAfterFailure: 10s
-        # section about the discovery service  
+        # section about the discovery service
         discovery:
           timeout: 10s
-        # section about the chaincode this node should be aware of  
+        # section about the chaincode this node should be aware of
         chaincodes:
             # chaincode id
           - name: mychaincode
@@ -987,75 +994,85 @@ fabric:
 
 ## Migrating TLS configuration
 
-Every TLS setting uses one schema: nested `{file:}` / `{files:}`, plural CA lists, and
-per-field inheritance from a parent `tls:` block. A field a `tls:` block omits takes the
-parent's value, and a field it sets overrides the parent even when the value is `false` or an
-empty list. Listeners (`fsc.grpc.tls`, `fsc.web.tls`, `fsc.metrics.tls`) inherit from
-`fsc.tls`; each `orderers[].tls`, `peers[].tls` and Fabric-x service endpoint `tls:` block
-inherits from its network's `fabric.<net>.tls`. Nothing inherits across the `fsc`/`fabric`
+Every TLS setting uses one schema: nested `{file:}` / `{files:}`, plural CA
+lists, and per-field inheritance from a parent `tls:` block. A field a `tls:`
+block omits takes the parent's value, and a field it sets overrides the parent
+even when the value is `false` or an empty list. Listeners (`fsc.grpc.tls`,
+`fsc.web.tls`, `fsc.metrics.tls`) inherit from `fsc.tls`; each `orderers[].tls`,
+`peers[].tls` and Fabric-x service endpoint `tls:` block inherits from its
+network's `fabric.<net>.tls`. Nothing inherits across the `fsc`/`fabric`
 boundary or between sibling blocks.
 
-The node rejects the keys in the table below at startup instead of translating them, so a
-configuration that does not mean what it says fails instead of silently serving in the clear.
-Two checks reject them, and the error depends on where the key sits:
+The node rejects the keys in the table below at startup instead of translating
+them, so a configuration that does not mean what it says fails instead of
+silently serving in the clear. Two checks reject them, and the error depends on
+where the key sits:
 
-- A key **inside** a `tls:` block fails the strict decode of that block, naming the key and
-  the block: `invalid TLS configuration under [fabric.mynet.tls]: ... has invalid keys:
-  rootcertfile`. Look the key up below for its replacement.
-- A key **outside** every `tls:` block is caught by an explicit check that names the
-  replacement for you: `configuration key [...] has been removed; use [...] instead`.
+- A key **inside** a `tls:` block fails the strict decode of that block, naming
+  the key and the block:
+  `invalid TLS configuration under [fabric.mynet.tls]: ... has invalid keys: rootcertfile`.
+  Look the key up below for its replacement.
+- A key **outside** every `tls:` block is caught by an explicit check that names
+  the replacement for you:
+  `configuration key [...] has been removed; use [...] instead`.
 
-| Rejected key | Use instead |
-| --- | --- |
-| `fsc.p2p.opts.websocket.tls.serverRootCAs.files` | `fsc.p2p.opts.websocket.tls.rootCAs.files` |
-| `fsc.metrics.prometheus.tls` | `fsc.metrics.clientAuthRequired` |
-| `fabric.<net>.tls.clientAuthRequired` | `fabric.<net>.tls.clientAuthEnabled` |
-| `fabric.<net>.tls.serverHostOverride` | `fabric.<net>.tls.serverNameOverride` |
-| `fabric.<net>.tls.rootCert.file` | `fabric.<net>.tls.rootCAs.files` |
-| `fabric.<net>.tls.rootCertFile` | `fabric.<net>.tls.rootCAs.files` |
-| `fabric.<net>.tls.cert`, `.key`, `.clientRootCAs` | none; a network dials, it does not listen |
-| `fabric.<net>.ordering.tlsEnabled` | `fabric.<net>.tls.enabled` |
-| `fabric.<net>.ordering.tlsClientAuthRequired` | `fabric.<net>.tls.clientAuthEnabled` |
-| `orderers[].tlsEnabled`, `peers[].tlsEnabled` | `…[].tls.enabled` |
-| `orderers[].tlsDisabled`, `peers[].tlsDisabled` | `…[].tls.enabled: false` |
-| `orderers[].tlsClientSideAuth`, `peers[].tlsClientSideAuth` | `…[].tls.clientAuthEnabled` |
-| `orderers[].tlsRootCertFile`, `peers[].tlsRootCertFile` | `…[].tls.rootCAs.files` |
-| `orderers[].serverNameOverride`, `peers[].serverNameOverride` | `…[].tls.serverNameOverride` |
-| `orderers[].tlsRootCertBytes`, `peers[].tlsRootCertBytes` | none; set the CA files with `…[].tls.rootCAs.files` |
-| Fabric-x `tls.clientKey`, `.clientCert` (flat strings) | `tls.clientKey.file`, `tls.clientCert.file` |
-| Fabric-x `tls.rootCerts` (flat list) | `tls.rootCAs.files` |
+| Rejected key                                                  | Use instead                                         |
+| ------------------------------------------------------------- | --------------------------------------------------- |
+| `fsc.p2p.opts.websocket.tls.serverRootCAs.files`              | `fsc.p2p.opts.websocket.tls.rootCAs.files`          |
+| `fsc.metrics.prometheus.tls`                                  | `fsc.metrics.clientAuthRequired`                    |
+| `fabric.<net>.tls.clientAuthRequired`                         | `fabric.<net>.tls.clientAuthEnabled`                |
+| `fabric.<net>.tls.serverHostOverride`                         | `fabric.<net>.tls.serverNameOverride`               |
+| `fabric.<net>.tls.rootCert.file`                              | `fabric.<net>.tls.rootCAs.files`                    |
+| `fabric.<net>.tls.rootCertFile`                               | `fabric.<net>.tls.rootCAs.files`                    |
+| `fabric.<net>.tls.cert`, `.key`, `.clientRootCAs`             | none; a network dials, it does not listen           |
+| `fabric.<net>.ordering.tlsEnabled`                            | `fabric.<net>.tls.enabled`                          |
+| `fabric.<net>.ordering.tlsClientAuthRequired`                 | `fabric.<net>.tls.clientAuthEnabled`                |
+| `orderers[].tlsEnabled`, `peers[].tlsEnabled`                 | `…[].tls.enabled`                                   |
+| `orderers[].tlsDisabled`, `peers[].tlsDisabled`               | `…[].tls.enabled: false`                            |
+| `orderers[].tlsClientSideAuth`, `peers[].tlsClientSideAuth`   | `…[].tls.clientAuthEnabled`                         |
+| `orderers[].tlsRootCertFile`, `peers[].tlsRootCertFile`       | `…[].tls.rootCAs.files`                             |
+| `orderers[].serverNameOverride`, `peers[].serverNameOverride` | `…[].tls.serverNameOverride`                        |
+| `orderers[].tlsRootCertBytes`, `peers[].tlsRootCertBytes`     | none; set the CA files with `…[].tls.rootCAs.files` |
+| Fabric-x `tls.clientKey`, `.clientCert` (flat strings)        | `tls.clientKey.file`, `tls.clientCert.file`         |
+| Fabric-x `tls.rootCerts` (flat list)                          | `tls.rootCAs.files`                                 |
 
-Two of these keys differ in meaning, not only in spelling, from the key to use instead:
+Two of these keys differ in meaning, not only in spelling, from the key to use
+instead:
 
-- `fabric.<net>.ordering.tlsEnabled` and `ordering.tlsClientAuthRequired`: there are no
-  orderer-only TLS switches. The network `tls:` block applies to every connection, orderers
-  included. To reach the orderers in plaintext while the network block enables TLS, give each
-  orderer a `tls: {enabled: false}` block.
-- `fsc.metrics.prometheus.tls`: it controls whether scraping `/metrics` requires a client
-  certificate, which is `fsc.metrics.clientAuthRequired`, not transport TLS. Without
-  `fsc.metrics.address`, `/metrics` and `/logspec` are served on the `fsc.web` listener and use
-  its TLS; with it, they get a listener of their own, and `fsc.metrics.tls` applies to it.
+- `fabric.<net>.ordering.tlsEnabled` and `ordering.tlsClientAuthRequired`: there
+  are no orderer-only TLS switches. The network `tls:` block applies to every
+  connection, orderers included. To reach the orderers in plaintext while the
+  network block enables TLS, give each orderer a `tls: {enabled: false}` block.
+- `fsc.metrics.prometheus.tls`: it controls whether scraping `/metrics` requires
+  a client certificate, which is `fsc.metrics.clientAuthRequired`, not transport
+  TLS. Without `fsc.metrics.address`, `/metrics` and `/logspec` are served on
+  the `fsc.web` listener and use its TLS; with it, they get a listener of their
+  own, and `fsc.metrics.tls` applies to it.
 
 ### Other removed keys
 
 These keys sit outside every `tls:` block and fail startup with the same
 `configuration key [...] has been removed; use [...] instead` error.
 
-| Removed | Replacement |
-| --- | --- |
-| `fsc.web.viewTimeout` | `fsc.view.remote.timeout`, which bounds remote view calls on `fsc.grpc` and `fsc.web` alike |
-| `fsc.grpc.authentication.timeWindow` | `fsc.view.remote.timeWindow` |
-| `fsc.client.certs` | `fsc.view.remote.clients` |
+| Removed                              | Replacement                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `fsc.web.viewTimeout`                | `fsc.view.remote.timeout`, which bounds remote view calls on `fsc.grpc` and `fsc.web` alike |
+| `fsc.grpc.authentication.timeWindow` | `fsc.view.remote.timeWindow`                                                                |
+| `fsc.client.certs`                   | `fsc.view.remote.clients`                                                                   |
 
-Two further checks stop a configuration that would otherwise silently serve no view API:
-`fsc.grpc.enabled: true` without `fsc.view.remote` (nothing else uses the gRPC listener), and
-any `fsc.view.remote` key without `fsc.view.remote.enabled: true`. A node that serves views
-adds the block explicitly, for example `fsc.view.remote: {enabled: true, backends: [grpc]}`.
+Two further checks stop a configuration that would otherwise silently serve no
+view API: `fsc.grpc.enabled: true` without `fsc.view.remote` (nothing else uses
+the gRPC listener), and any `fsc.view.remote` key without
+`fsc.view.remote.enabled: true`. A node that serves views adds the block
+explicitly, for example `fsc.view.remote: {enabled: true, backends: [grpc]}`.
 
 ## Overriding configuration keys
 
-Any value that is not a (grand-)child of a list can be overridden with an environment variable that is all uppercase, prefixed with `CORE_`,
-and traversing the path in the yaml with underscores. This means that a key like fsc.endpoint.resolvers[0].name cannot be changed via environment variables. Examples:
+Any value that is not a (grand-)child of a list can be overridden with an
+environment variable that is all uppercase, prefixed with `CORE_`, and
+traversing the path in the yaml with underscores. This means that a key like
+fsc.endpoint.resolvers[0].name cannot be changed via environment variables.
+Examples:
 
 ```sh
 CORE_LOGGING_SPEC=debug
@@ -1066,9 +1083,9 @@ CORE_FSC_TRACING_OTLP_ADDRESS=jaeger.example.com:4318
 CORE_FABRIC_MYNETWORK_KEEPALIVE_TIME=120s
 ```
 
-A single `_` in a variable name separates two levels of the key, and `__` stands for a
-literal `_` within one level. This reaches persistence names and keys that contain an
-underscore:
+A single `_` in a variable name separates two levels of the key, and `__` stands
+for a literal `_` within one level. This reaches persistence names and keys that
+contain an underscore:
 
 ```sh
 # fsc.persistences.token_persistence.opts.dataSource
@@ -1077,12 +1094,13 @@ CORE_FSC_PERSISTENCES_TOKEN__PERSISTENCE_OPTS_DATASOURCE=postgres://...
 CORE_FSC_PERSISTENCES_DEFAULT_OPTS_TLS_SSL__MODE=require
 ```
 
-A key level that starts with `_`, other than the first, cannot be set from the environment.
+A key level that starts with `_`, other than the first, cannot be set from the
+environment.
 
 A key whose value is a list of strings, such as `fsc.view.remote.backends` or
-`fsc.view.remote.clients`, takes a comma-separated value; spaces around an item are
-trimmed and empty items are dropped. The variable replaces the whole list from the file,
-and an item cannot contain a comma:
+`fsc.view.remote.clients`, takes a comma-separated value; spaces around an item
+are trimmed and empty items are dropped. The variable replaces the whole list
+from the file, and an item cannot contain a comma:
 
 ```sh
 CORE_FSC_VIEW_REMOTE_BACKENDS=grpc,web
@@ -1091,13 +1109,14 @@ CORE_FSC_VIEW_REMOTE_CLIENTS=/etc/fsc/alice.pem,/etc/fsc/bob.pem
 
 ## HSM support
 
-In order to use a hardware HSM for x.509 identities, you have to build the application with
-`CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11 settings as described above.
+In order to use a hardware HSM for x.509 identities, you have to build the
+application with `CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11
+settings as described above.
 
 ## Persistence: sqlite/postgres
 
-You can select a golang/sql compatible driver. Although the data in Fabric Smart Client is key/value and not relational,
-reasons to choose sql may include:
+You can select a golang/sql compatible driver. Although the data in Fabric Smart
+Client is key/value and not relational, reasons to choose sql may include:
 
 - Using a managed database for high availability, failover and backups
 - Wanting a stateless Fabric Smart Client
@@ -1109,14 +1128,17 @@ The driver has been tested with the following sql drivers:
 - SQLite (pure Go): modernc.org/sqlite
 - Postgres (pure Go): github.com/jackc/pgx/v5/stdlib
 
-In theory you can use any [sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in your application.
-To try a new sql driver, add a test next to `platform/view/services/storage/driver/sql/sqlite/sql_test.go`
-and `platform/view/services/storage/driver/sql/postgres/sql_test.go`.
+In theory you can use any
+[sql driver](https://github.com/golang/go/wiki/SQLDrivers) if you import it in
+your application. To try a new sql driver, add a test next to
+`platform/view/services/storage/driver/sql/sqlite/sql_test.go` and
+`platform/view/services/storage/driver/sql/postgres/sql_test.go`.
 
-Each example below is a persistence block under `fsc.persistences`, selected by a store through its
-`persistence` key (for example `fsc.kvs.persistence: default`).
+Each example below is a persistence block under `fsc.persistences`, selected by
+a store through its `persistence` key (for example
+`fsc.kvs.persistence: default`).
 
-### Config example for sqlite:
+### Config example for sqlite
 
 Simple:
 
@@ -1129,11 +1151,11 @@ fsc:
         dataSource: /some/path/fsc.sqlite
 ```
 
-
-The parent directory of the data source file is created when the database is opened. FSC opens two connection pools on the
-file: a write pool with exactly one connection, and a read pool for concurrent reads (see
-https://kerkour.com/sqlite-for-servers for why SQLite works well this way). `maxOpenConns`, `maxIdleConns` and `maxIdleTime`
-apply to the read pool only.
+The parent directory of the data source file is created when the database is
+opened. FSC opens two connection pools on the file: a write pool with exactly
+one connection, and a read pool for concurrent reads (see
+<https://kerkour.com/sqlite-for-servers> for why SQLite works well this way).
+`maxOpenConns`, `maxIdleConns` and `maxIdleTime` apply to the read pool only.
 
 Advanced, more customized settings:
 
@@ -1153,7 +1175,8 @@ fsc:
         queryTimeout: 30s # optional: how long one statement, or one batch commit, may run. Defaults to 0 (no limit). See [Query timeout](#query-timeout).
 ```
 
-Unless `skipPragmas` is `true`, FSC adds these pragmas to the dataSource as `_pragma` parameters:
+Unless `skipPragmas` is `true`, FSC adds these pragmas to the dataSource as
+`_pragma` parameters:
 
 ```text
 _pragma=busy_timeout(5000)
@@ -1163,25 +1186,33 @@ _pragma=temp_store(memory)
 _pragma=foreign_keys(ON)
 ```
 
-The driver runs them on every new connection in both pools. A pragma the dataSource already sets, as `_pragma=name(...)`
-or as a driver shorthand such as `_busy_timeout` or `_journal_mode`, takes precedence over the default. With
-`skipPragmas: true`, set at least `_pragma=journal_mode(WAL)` and `_pragma=busy_timeout(...)`: without them, readers and
-the writer block each other and fail with `SQLITE_BUSY`.
+The driver runs them on every new connection in both pools. A pragma the
+dataSource already sets, as `_pragma=name(...)` or as a driver shorthand such as
+`_busy_timeout` or `_journal_mode`, takes precedence over the default. With
+`skipPragmas: true`, set at least `_pragma=journal_mode(WAL)` and
+`_pragma=busy_timeout(...)`: without them, readers and the writer block each
+other and fail with `SQLITE_BUSY`.
 
-A write outside a transaction that fails with `SQLITE_BUSY` is retried up to 3 times; each attempt waits up to
-`busy_timeout` for the lock. Statements inside a transaction are not retried.
+A write outside a transaction that fails with `SQLITE_BUSY` is retried up to 3
+times; each attempt waits up to `busy_timeout` for the lock. Statements inside a
+transaction are not retried.
 
 ### Config example for postgres
 
-The same configuration flags as above apply, except `skipPragmas`. For Postgres we always use one connection pool for reads and writes.
+The same configuration flags as above apply, except `skipPragmas`. For Postgres
+we always use one connection pool for reads and writes.
 
 > [!WARNING]
-> The 'dataSource' field is sensitive because it contains a password. Instead of in this file, set it in the
-> `CORE_FSC_PERSISTENCES_<NAME>_OPTS_DATASOURCE` environment variable, where `<NAME>` is the persistence name in
-> uppercase and each `_` doubled (for example `CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE`, or
-> `CORE_FSC_PERSISTENCES_MY__PG_OPTS_DATASOURCE` for a persistence named `my_pg`). Stores such as `fsc.kvs` and
-> `fabric.<network>.vault` only name a persistence, so they take no `opts` of their own: a variable such as
-> `CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE` replaces the persistence name with a map, and the store fails to open. See
+> The 'dataSource' field is sensitive because it contains a password.
+> Instead of in this file, set it in the
+> `CORE_FSC_PERSISTENCES_<NAME>_OPTS_DATASOURCE` environment variable, where
+> `<NAME>` is the persistence name in uppercase and each `_` doubled (for
+> example `CORE_FSC_PERSISTENCES_DEFAULT_OPTS_DATASOURCE`, or
+> `CORE_FSC_PERSISTENCES_MY__PG_OPTS_DATASOURCE` for a persistence named
+> `my_pg`). Stores such as `fsc.kvs` and `fabric.<network>.vault` only name a
+> persistence, so they take no `opts` of their own: a variable such as
+> `CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE` replaces the persistence name with
+> a map, and the store fails to open. See
 > [Overriding configuration keys](#overriding-configuration-keys).
 
 ```yaml
@@ -1206,37 +1237,39 @@ fsc:
 ```
 
 `ssl_mode` follows the standard PostgreSQL/libpq semantics
-(https://www.postgresql.org/docs/current/libpq-ssl.html):
+(<https://www.postgresql.org/docs/current/libpq-ssl.html>):
 
-| ssl_mode      | Encrypted | Verifies CA | Verifies hostname | Notes |
-|---------------|-----------|-------------|-------------------|-------|
-| `disable`     | no        | no          | no                | The `dataSource` is used unchanged; no other tls option has any effect. |
-| `allow`       | maybe     | no          | no                | Tries a plaintext connection first, falls back to TLS. |
-| `prefer`      | maybe     | no          | no                | Tries TLS first, falls back to a plaintext connection. |
-| `require`     | yes       | no          | no                | Encrypts but does not validate the server certificate. |
-| `verify-ca`   | yes       | yes         | no                | Validates the certificate chain against `root_cert_path`. |
+| ssl_mode      | Encrypted | Verifies CA | Verifies hostname | Notes                                                                                                |
+| ------------- | --------- | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `disable`     | no        | no          | no                | The `dataSource` is used unchanged; no other tls option has any effect.                              |
+| `allow`       | maybe     | no          | no                | Tries a plaintext connection first, falls back to TLS.                                               |
+| `prefer`      | maybe     | no          | no                | Tries TLS first, falls back to a plaintext connection.                                               |
+| `require`     | yes       | no          | no                | Encrypts but does not validate the server certificate.                                               |
+| `verify-ca`   | yes       | yes         | no                | Validates the certificate chain against `root_cert_path`.                                            |
 | `verify-full` | yes       | yes         | yes               | Validates the chain and that the hostname matches. **This is the default when `ssl_mode` is empty.** |
 
 > [!NOTE]
-> Unlike libpq (whose default is `prefer`), an empty `ssl_mode` defaults to the
-> strictest mode, `verify-full`. Set it explicitly if you need a more permissive mode.
+> Unlike libpq (whose default is `prefer`), an empty `ssl_mode` defaults
+> to the strictest mode, `verify-full`. Set it explicitly if you need a more
+> permissive mode.
 
-With a multi-host `dataSource` (`postgres://u:p@pg-a:5432,pg-b:5432/db`), every host
-is tried in order with the attempts its `ssl_mode` requires, and each host's
-certificate is verified against that host's name unless `server_name` is set. A
-unix-socket host is always connected to in plaintext. With any `ssl_mode` other
-than `disable`, the `sslmode` in the `dataSource` is ignored.
+With a multi-host `dataSource` (`postgres://u:p@pg-a:5432,pg-b:5432/db`), every
+host is tried in order with the attempts its `ssl_mode` requires, and each
+host's certificate is verified against that host's name unless `server_name` is
+set. A unix-socket host is always connected to in plaintext. With any `ssl_mode`
+other than `disable`, the `sslmode` in the `dataSource` is ignored.
 
 > [!NOTE]
-> For `verify-ca` and `verify-full`, if `root_cert_path` is omitted the server
-> certificate is validated against the host's system CA pool. A server using an
-> internal/self-signed CA (the common case for Postgres) will therefore fail to
-> verify unless you point `root_cert_path` at that CA.
+> For `verify-ca` and `verify-full`, if `root_cert_path` is omitted the
+> server certificate is validated against the host's system CA pool. A server
+> using an internal/self-signed CA (the common case for Postgres) will therefore
+> fail to verify unless you point `root_cert_path` at that CA.
 
 #### Failover to a new primary
 
-To keep a node running through a Postgres primary failover, list every host that can become primary in the `dataSource`
-and set `target_session_attrs=read-write`:
+To keep a node running through a Postgres primary failover, list every host that
+can become primary in the `dataSource` and set
+`target_session_attrs=read-write`:
 
 ```yaml
 fsc:
@@ -1251,140 +1284,208 @@ fsc:
           root_cert_path: /path/to/ca.crt
 ```
 
-pgx tries the hosts in the order listed and keeps the first connection whose server accepts writes, so a new connection
-succeeds only on a primary. While no host has been promoted yet, connecting fails.
+pgx tries the hosts in the order listed and keeps the first connection whose
+server accepts writes, so a new connection succeeds only on a primary. While no
+host has been promoted yet, connecting fails.
 
-A commit on a Fabric channel that runs during a failover fails with a lost connection. The committer then retries the
-block until the database accepts writes again or the node shuts down: a lost connection does not count against
-`committer.retries` (see the channel's `committer` section above). Broken connections are dropped from the pool and the
-retry opens a new one, which goes to whichever host is primary by then. No `committer` setting needs to match the failover
-time of your Postgres setup. Because the wait between these retries backs off to at most one minute, commits resume up
-to a minute after the new primary is up. Only the committer retries a lost connection; any other database operation
-during the failover returns the error to its caller.
+A commit on a Fabric channel that runs during a failover fails with a lost
+connection. The committer then retries the block until the database accepts
+writes again or the node shuts down: a lost connection does not count against
+`committer.retries` (see the channel's `committer` section above). Broken
+connections are dropped from the pool and the retry opens a new one, which goes
+to whichever host is primary by then. No `committer` setting needs to match the
+failover time of your Postgres setup. Because the wait between these retries
+backs off to at most one minute, commits resume up to a minute after the new
+primary is up. Only the committer retries a lost connection; any other database
+operation during the failover returns the error to its caller.
 
-The spec `fails over to a promoted Postgres standby` in `integration/fabric/faultrecovery` covers the commit path: it
-kills a node's primary for longer than the node's commit retry budget, promotes a streaming-replication standby, and
-checks that the blocks delivered during the outage commit without a commit failure. It connects without TLS and does
-not exercise database operations outside the committer.
+The spec `fails over to a promoted Postgres standby` in
+`integration/fabric/faultrecovery` covers the commit path: it kills a node's
+primary for longer than the node's commit retry budget, promotes a
+streaming-replication standby, and checks that the blocks delivered during the
+outage commit without a commit failure. It connects without TLS and does not
+exercise database operations outside the committer.
 
 > [!WARNING]
-> Use synchronous replication (`synchronous_commit` with `synchronous_standby_names`) for the standby that is promoted.
-> With asynchronous replication, a commit the old primary acknowledged but had not yet streamed is missing after
-> promotion. The node does not detect this: delivery continues after the last block it received, so the vault silently
-> lacks the transactions of the lost commits. The spec waits for the standby to replay the primary's WAL before the
-> primary fails, so it does not cover this case.
+> Use synchronous replication (`synchronous_commit` with
+> `synchronous_standby_names`) for the standby that is promoted. With
+> asynchronous replication, a commit the old primary acknowledged but had not
+> yet streamed is missing after promotion. The node does not detect this:
+> delivery continues after the last block it received, so the vault silently
+> lacks the transactions of the lost commits. The spec waits for the standby to
+> replay the primary's WAL before the primary fails, so it does not cover this
+> case.
 
-- Set `connect_timeout` (in seconds). A host that drops packets instead of refusing the connection, such as a crashed
-  VM or a partitioned network, otherwise holds each connect until the operating system's TCP timeout before pgx tries the
-  next host. An expired `connect_timeout` is a lost connection, so it does not count against `committer.retries`.
-- With the `tls` block above, every host is tried and each host's certificate is verified against that host's name,
-  unless `server_name` is set: then every host's certificate must match `server_name`. The unit tests
-  `TestCreateTLSConnConfigMultiHost` and `TestTLSConnConfigConnectsToSecondHost` in
-  `platform/view/services/storage/driver/sql/postgres` cover this.
-- The database metrics label a pool with the first host of the `dataSource`, whichever host it is connected to (see
-  `data_source` in [Monitoring Metrics](./platform/view/services/monitoring_metrics.md)).
+- Set `connect_timeout` (in seconds). A host that drops packets instead of
+  refusing the connection, such as a crashed VM or a partitioned network,
+  otherwise holds each connect until the operating system's TCP timeout before
+  pgx tries the next host. An expired `connect_timeout` is a lost connection, so
+  it does not count against `committer.retries`.
+- With the `tls` block above, every host is tried and each host's certificate is
+  verified against that host's name, unless `server_name` is set: then every
+  host's certificate must match `server_name`. The unit tests
+  `TestCreateTLSConnConfigMultiHost` and `TestTLSConnConfigConnectsToSecondHost`
+  in `platform/view/services/storage/driver/sql/postgres` cover this.
+- The database metrics label a pool with the first host of the `dataSource`,
+  whichever host it is connected to (see `data_source` in
+  [Monitoring Metrics](./platform/view/services/monitoring_metrics.md)).
 
-Postgres stores KVS and vault keys in `BYTEA` columns. Composite keys contain U+0000, which `TEXT` cannot hold, and range scans
-need keys ordered bytewise, as Fabric orders them, whatever the database collation.
+Postgres stores KVS and vault keys in `BYTEA` columns. Composite keys contain
+U+0000, which `TEXT` cannot hold, and range scans need keys ordered bytewise, as
+Fabric orders them, whatever the database collation.
 
-On startup the vault checks the `pkey` column of its state table (the table whose name ends in `vstate`):
+On startup the vault checks the `pkey` column of its state table (the table
+whose name ends in `vstate`):
 
 - `BYTEA`: nothing to do.
-- `TEXT`: the vault converts the column to `BYTEA` in place. A `TEXT` column stores U+0000 as `?0?` and U+10FFFF as `?1?`; the
-  conversion turns both back into their UTF-8 bytes, so every key reads back as before. A key that contains a literal `?0?` or
-  `?1?` cannot be told apart from an escape and is converted too; where the two overlap, as in `?0?1?`, `?0?` is converted
-  first. The conversion rewrites the table and its primary-key index under an exclusive lock. On a large vault the first
-  start takes longer. Only the replica that gets the lock first converts the table.
+- `TEXT`: the vault converts the column to `BYTEA` in place. A `TEXT` column
+  stores U+0000 as `?0?` and U+10FFFF as `?1?`; the conversion turns both back
+  into their UTF-8 bytes, so every key reads back as before. A key that contains
+  a literal `?0?` or `?1?` cannot be told apart from an escape and is converted
+  too; where the two overlap, as in `?0?1?`, `?0?` is converted first. The
+  conversion rewrites the table and its primary-key index under an exclusive
+  lock. On a large vault the first start takes longer. Only the replica that
+  gets the lock first converts the table.
 - any other type: the vault refuses to start.
 
-The vault then checks the primary-key column order of that state table. Every state query filters on one namespace, so the primary key is `(ns, pkey)`.
+The vault then checks the primary-key column order of that state table. Every
+state query filters on one namespace, so the primary key is `(ns, pkey)`.
 
 - `(ns, pkey)`: nothing to do.
-- `(pkey, ns)`: the vault reorders the key to `(ns, pkey)`. Only the replica that gets the lock first reorders the table, and on a large vault the first start takes longer.
-  - Postgres: the vault drops the primary-key constraint and adds it back under an exclusive lock, which rebuilds the index. The constraint name is read from the catalog, so it does not depend on the table name.
-  - SQLite: the vault rebuilds the table in one transaction, copying every row while it holds the write lock. Other writers on the same file wait; a replica that waits longer than its `busy_timeout` fails to start with `SQLITE_BUSY`, and finds the table reordered when it is restarted.
-- any other column order: the vault refuses to start and leaves the table unchanged.
+- `(pkey, ns)`: the vault reorders the key to `(ns, pkey)`. Only the replica
+  that gets the lock first reorders the table, and on a large vault the first
+  start takes longer.
+  - Postgres: the vault drops the primary-key constraint and adds it back under
+    an exclusive lock, which rebuilds the index. The constraint name is read
+    from the catalog, so it does not depend on the table name.
+  - SQLite: the vault rebuilds the table in one transaction, copying every row
+    while it holds the write lock. Other writers on the same file wait; a
+    replica that waits longer than its `busy_timeout` fails to start with
+    `SQLITE_BUSY`, and finds the table reordered when it is restarted.
+- any other column order: the vault refuses to start and leaves the table
+  unchanged.
 
-The key-value store table (default `fsc_kvs`) uses the same primary key. Its `pkey` column is `BYTEA` on Postgres and on SQLite, so startup does not convert it. A primary key of `(pkey, ns)` is reordered to `(ns, pkey)` the same way as the vault: Postgres replaces the constraint under an exclusive lock, and SQLite rebuilds the table in one transaction. An upsert uses `ON CONFLICT (ns, pkey)`, which matches either column order, so a node that has not been upgraded keeps writing to a reordered table.
+The key-value store table (default `fsc_kvs`) uses the same primary key. Its
+`pkey` column is `BYTEA` on Postgres and on SQLite, so startup does not convert
+it. A primary key of `(pkey, ns)` is reordered to `(ns, pkey)` the same way as
+the vault: Postgres replaces the constraint under an exclusive lock, and SQLite
+rebuilds the table in one transaction. An upsert uses `ON CONFLICT (ns, pkey)`,
+which matches either column order, so a node that has not been upgraded keeps
+writing to a reordered table.
 
-On Postgres the conversion and the reorder need a database user that owns the state table and the key-value store table.
-Without that privilege the node fails to start and the table is left unchanged.
+On Postgres the conversion and the reorder need a database user that owns the
+state table and the key-value store table. Without that privilege the node fails
+to start and the table is left unchanged.
 
 > [!WARNING]
-> An FSC version that stores `pkey` as `TEXT` still starts against a converted table, but it writes escaped keys that this
-> version never reads, so the two silently diverge. Stop every replica before the first upgraded one starts, never run an
-> older version against a converted database, and back up the database before upgrading: downgrading means restoring the
-> backup.
+> An FSC version that stores `pkey` as `TEXT` still starts against a
+> converted table, but it writes escaped keys that this version never reads, so
+> the two silently diverge. Stop every replica before the first upgraded one
+> starts, never run an older version against a converted database, and back up
+> the database before upgrading: downgrading means restoring the backup.
 
-The column check, the conversion and the primary-key reorder are step 1 of the vault and key-value stores (see [Schema migrations](platform/view/services/schema-migrations.md)). With `skipCreateTable: true` the node runs no step and refuses a store whose step 1 has not run; `node migrate` runs it. A schema managed entirely outside FSC must declare the vault state table's `pkey` as
-`BYTEA` with `PRIMARY KEY (ns, pkey)`, the key-value store table the same way, and record each store in `<prefix>_schema_versions`. To convert an existing vault `TEXT` column by hand, run:
+The column check, the conversion and the primary-key reorder are step 1 of the
+vault and key-value stores (see
+[Schema migrations](platform/view/services/schema-migrations.md)). With
+`skipCreateTable: true` the node runs no step and refuses a store whose step 1
+has not run; `node migrate` runs it. A schema managed entirely outside FSC must
+declare the vault state table's `pkey` as `BYTEA` with `PRIMARY KEY (ns, pkey)`,
+the key-value store table the same way, and record each store in
+`<prefix>_schema_versions`. To convert an existing vault `TEXT` column by hand,
+run:
 
 ```sql
 ALTER TABLE <prefix>_vstate ALTER COLUMN pkey TYPE BYTEA USING
   decode(replace(replace(encode(convert_to(pkey, 'UTF8'), 'hex'), '3f303f', '00'), '3f313f', 'f48fbfbf'), 'hex');
 ```
 
-For more info about managing connections, see https://go.dev/doc/database/manage-connections. Fabric Smart Client
-opens one connection pool per distinct `dataSource` (on Postgres, per distinct `dataSource` and `tls` block), shared by
-every store and persistence that uses it, including the Fabric vault. The pool settings of the first store opened on a pool
-apply to all of them. On Postgres, the sum of `maxOpenConns` over the distinct data sources, across all replicas, should not
-exceed the server's `max_connections` (100 by default). SQLite opens two pools per data source: one for reads, limited by
-`maxOpenConns`, and one with a single connection for writes.
+For more info about managing connections, see
+<https://go.dev/doc/database/manage-connections>. Fabric Smart Client opens one
+connection pool per distinct `dataSource` (on Postgres, per distinct
+`dataSource` and `tls` block), shared by every store and persistence that uses
+it, including the Fabric vault. The pool settings of the first store opened on a
+pool apply to all of them. On Postgres, the sum of `maxOpenConns` over the
+distinct data sources, across all replicas, should not exceed the server's
+`max_connections` (100 by default). SQLite opens two pools per data source: one
+for reads, limited by `maxOpenConns`, and one with a single connection for
+writes.
 
 ### Query timeout
 
-`queryTimeout` bounds how long a store of the persistence waits for the database. Without it, a database that stops
-answering without closing its connections, such as a Postgres host stuck on I/O or a lock another client holds, stalls
-the node with no error. It is off by default. A value must be written with a unit, such as `30s`; a value below `100ms`
-or negative fails startup with an error naming the key and the persistence.
+`queryTimeout` bounds how long a store of the persistence waits for the
+database. Without it, a database that stops answering without closing its
+connections, such as a Postgres host stuck on I/O or a lock another client
+holds, stalls the node with no error. It is off by default. A value must be
+written with a unit, such as `30s`; a value below `100ms` or negative fails
+startup with an error naming the key and the persistence.
 
-- Each statement gets the deadline. A caller's own deadline that expires earlier still applies.
-- A query that returns rows keeps the deadline until its iterator is closed, so reading the rows counts too. A caller
-  that keeps an iterator open longer gets an error wrapping `context.DeadlineExceeded` from it.
-- A write transaction gets one deadline for its whole life: the vault's batch commit, which stores every transaction
-  of a batch at once, and the binding store's replace. Choose the value with the largest batch in mind. On SQLite the
-  final `COMMIT` is not bounded.
-- These transactions have no deadline, only their statements have: the read transaction an endorsement holds from
-  building its read-write set until it is done, and a KVS update between `BeginUpdate` and `Commit`. Their begin and
+- Each statement gets the deadline. A caller's own deadline that expires earlier
+  still applies.
+- A query that returns rows keeps the deadline until its iterator is closed, so
+  reading the rows counts too. A caller that keeps an iterator open longer gets
+  an error wrapping `context.DeadlineExceeded` from it.
+- A write transaction gets one deadline for its whole life: the vault's batch
+  commit, which stores every transaction of a batch at once, and the binding
+  store's replace. Choose the value with the largest batch in mind. On SQLite
+  the final `COMMIT` is not bounded.
+- These transactions have no deadline, only their statements have: the read
+  transaction an endorsement holds from building its read-write set until it is
+  done, and a KVS update between `BeginUpdate` and `Commit`. Their begin and
   commit are not bounded.
 - Schema migration is not bounded; see `fsc.storage.migrationLockTimeout`.
-- On Postgres the deadline ends the statement by closing its connection. The server keeps running the statement until
-  it notices, and may hold its locks meanwhile. Set `statement_timeout` or `client_connection_check_interval` to end it
-  on the server too.
+- On Postgres the deadline ends the statement by closing its connection. The
+  server keeps running the statement until it notices, and may hold its locks
+  meanwhile. Set `statement_timeout` or `client_connection_check_interval` to
+  end it on the server too.
 
-When a statement of the Fabric committer expires, the committer retries the block within `committer.retries`, then
-degrades the channel (`commit_retries` and `commit_failures{class="degrade"}` in
-[monitoring](platform/view/services/monitoring_metrics.md#fabric-committer)). If it expires while a new connection is
-being opened, as when the host is gone, the error is `ErrConnectionLost`, and the committer retries the block until the
-database is back. On Fabric-x, and for any other caller, the call that ran the statement fails.
+When a statement of the Fabric committer expires, the committer retries the
+block within `committer.retries`, then degrades the channel (`commit_retries`
+and `commit_failures{class="degrade"}` in
+[monitoring](platform/view/services/monitoring_metrics.md#fabric-committer)). If
+it expires while a new connection is being opened, as when the host is gone, the
+error is `ErrConnectionLost`, and the committer retries the block until the
+database is back. On Fabric-x, and for any other caller, the call that ran the
+statement fails.
 
 How it relates to the database's own limits:
 
-- SQLite's `busy_timeout` bounds the wait for a lock; a wait never runs longer than it. With `queryTimeout` below
-  `busy_timeout`, the wait ends at `queryTimeout`.
-- Postgres' `connect_timeout` and `startupConnectTimeout` bound connecting, not a statement on an open connection.
-- Postgres' `statement_timeout` and `lock_timeout`, set on the role or in the `dataSource` (`... statement_timeout=30000`),
-  bound a statement on the server, but not a host that stops answering. A statement they end is reported as `SqlBusy`
-  (see [Postgres errors](#postgres-errors)), which the committer retries.
+- SQLite's `busy_timeout` bounds the wait for a lock; a wait never runs longer
+  than it. With `queryTimeout` below `busy_timeout`, the wait ends at
+  `queryTimeout`.
+- Postgres' `connect_timeout` and `startupConnectTimeout` bound connecting, not
+  a statement on an open connection.
+- Postgres' `statement_timeout` and `lock_timeout`, set on the role or in the
+  `dataSource` (`... statement_timeout=30000`), bound a statement on the server,
+  but not a host that stops answering. A statement they end is reported as
+  `SqlBusy` (see [Postgres errors](#postgres-errors)), which the committer
+  retries.
 
-Stores of other modules, such as Panurus' token stores, decode the same `opts` and may not apply `queryTimeout`.
+Stores of other modules, such as Panurus' token stores, decode the same `opts`
+and may not apply `queryTimeout`.
 
 ### Postgres errors
 
 The Postgres driver maps server and connection errors onto the sentinels in
 `platform/view/services/storage/driver`, so callers match them with `errors.Is`:
 
-- `ErrConnectionLost`: a dropped or closed connection, a network error, an expired `connect_timeout`, any other failed
-  connect without a SQLSTATE (including DNS and TLS failures), and SQLSTATE `08000`, `08001`, `08003`, `08006`, `08007`,
-  `57P01`, `57P02`, `57P03` and `53300` (too_many_connections). The Fabric committer retries a block that fails with it
-  until the database is back (see [Failover to a new primary](#failover-to-a-new-primary) and `commit_retries` in
+- `ErrConnectionLost`: a dropped or closed connection, a network error, an
+  expired `connect_timeout`, any other failed connect without a SQLSTATE
+  (including DNS and TLS failures), and SQLSTATE `08000`, `08001`, `08003`,
+  `08006`, `08007`, `57P01`, `57P02`, `57P03` and `53300`
+  (too_many_connections). The Fabric committer retries a block that fails with
+  it until the database is back (see
+  [Failover to a new primary](#failover-to-a-new-primary) and `commit_retries`
+  in
   [monitoring](platform/view/services/monitoring_metrics.md#fabric-committer)).
 - `UniqueKeyViolation` (`23505`), `DeadlockDetected` (`40P01`).
-- `SqlBusy`: `40001` (serialization_failure), `55P03` (lock_not_available, an expired `lock_timeout`) and `57014`
-  (query_canceled, an expired `statement_timeout` or a `pg_cancel_backend`). The committer retries it within
+- `SqlBusy`: `40001` (serialization_failure), `55P03` (lock_not_available, an
+  expired `lock_timeout`) and `57014` (query_canceled, an expired
+  `statement_timeout` or a `pg_cancel_backend`). The committer retries it within
   `committer.retries`.
 
-Any other SQLSTATE, including one the server returns while connecting such as `28P01` (wrong password) or `3D000` (missing
-database), is returned unchanged, unless another host of a multi-host `dataSource` reported a code that maps to
-`ErrConnectionLost`. The committer does not retry it and degrades the channel. At startup the node instead
-retries every failed ping for `startupConnectTimeout`, then fails.
+Any other SQLSTATE, including one the server returns while connecting such as
+`28P01` (wrong password) or `3D000` (missing database), is returned unchanged,
+unless another host of a multi-host `dataSource` reported a code that maps to
+`ErrConnectionLost`. The committer does not retry it and degrades the channel.
+At startup the node instead retries every failed ping for
+`startupConnectTimeout`, then fails.

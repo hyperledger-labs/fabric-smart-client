@@ -1,29 +1,38 @@
 # FSC benchmarks
 
-Performance benchmarks for the Fabric Smart Client framework, measuring throughput (TPS) and latency across different workloads and deployment scenarios.
+Performance benchmarks for the Fabric Smart Client framework, measuring
+throughput (TPS) and latency across different workloads and deployment
+scenarios.
 
 ## Overview
 
-This package contains micro-benchmarks organized into four categories, described in [Benchmark Architecture](#benchmark-architecture).
+This package contains micro-benchmarks organized into four categories, described
+in [Benchmark Architecture](#benchmark-architecture).
 
 ## Benchmark architecture
 
-The benchmark suite follows a layered architecture to systematically measure overhead at each level of the stack:
+The benchmark suite follows a layered architecture to systematically measure
+overhead at each level of the stack:
 
 ![Benchmark Architecture](benchmark_architecture.drawio.png)
 
 ### 1. View workloads (`views/`)
+
 Standalone view implementations defining various workloads:
+
 - **noop**: Minimal no-op view (baseline overhead)
 - **cpu**: CPU-intensive workload (200k iterations)
 - **ecdsa**: ECDSA P-256 signing operations
 
-Each workload can be benchmarked standalone or used by higher-level benchmarks (gRPC, Node).
+Each workload can be benchmarked standalone or used by higher-level benchmarks
+(gRPC, Node).
 
 ### 2. gRPC benchmarks (`grpc/`)
+
 Benchmarks testing gRPC communication layers:
 
 #### Local benchmarks
+
 - **`baseline_bench_test.go`**: Raw gRPC baseline (bypasses FSC View Service)
   - Measures pure gRPC overhead without FSC framework
   - Use for comparing FSC implementation overhead vs raw gRPC
@@ -32,42 +41,54 @@ Benchmarks testing gRPC communication layers:
   - 6 workload/signer combinations (noop/cpu/ecdsa × mock/ecdsa)
 
 #### Remote benchmarks (`grpc/remote/`)
+
 - Client/server deployment with histogram-based latency measurement
 - Supports configurable workloads, connections, and workers
 - Measures TPS and tail latency (p5, p95, p99)
 - See `grpc/remote/README.md` for deployment instructions
 
 ### 3. Node benchmarks (`node/`)
+
 Full FSC node benchmarks via View API and gRPC View API:
 
 #### Direct API (`api_bench_test.go`)
+
 - Tests View execution without network overhead
 - Two factory variations:
   - **f=0**: Reuses view instance (efficient, measures pure view performance)
   - **f=1**: Creates new view per call (measures view + factory overhead)
 
 #### gRPC API (`api_grpc_bench_test.go`)
+
 - Tests View execution via gRPC with configurable connection counts
 - Supports `-numConn` flag for testing 1, 2, 4, 8+ connections
 - Always uses f=1 (factory per call) to match realistic usage
 
 #### Remote benchmarks (`node/remote/`)
+
 - Client/server deployment for realistic network conditions
 - Histogram-based latency measurement (p5, p95, p99)
 - See `node/remote/README.md` for deployment instructions
 
 ### 4. Comm benchmarks (`comm/`)
-P2P communication layer benchmarks, each run against both the WebSocket and the libp2p transport:
-- **`BenchmarkRoundTrip`**: steady-state request/echo latency on one session, 64 B to 1 MiB payloads
-- **`BenchmarkSessionSetup`**: full session lifecycle (open, one exchange, close)
+
+P2P communication layer benchmarks, each run against both the WebSocket and the
+libp2p transport:
+
+- **`BenchmarkRoundTrip`**: steady-state request/echo latency on one session, 64
+  B to 1 MiB payloads
+- **`BenchmarkSessionSetup`**: full session lifecycle (open, one exchange,
+  close)
 - **`BenchmarkParallelRoundTrip`**: concurrent senders, one session each
-- **`BenchmarkMesh`**: full mesh of 3 or 5 nodes, 1 or 4 sessions per pair, all exchanging at once
+- **`BenchmarkMesh`**: full mesh of 3 or 5 nodes, 1 or 4 sessions per pair, all
+  exchanging at once
 - Each reports p50/p99 latency and allocations next to the mean
 - See `comm/README.md` for details and a known libp2p limitation
 
 ## Quick start
 
 ### Run view benchmarks
+
 ```bash
 # Run all view benchmarks
 go test -bench=. -benchmem -count=10 -cpu=1,2,4,8 ./views/
@@ -77,6 +98,7 @@ go test -bench=BenchmarkECDSASign -benchmem -count=10 -cpu=1,2,4,8 ./views/
 ```
 
 ### Run gRPC benchmarks (local)
+
 ```bash
 # Run FSC gRPC implementation benchmarks
 go test -bench=BenchmarkGRPCImpl -benchmem -count=5 -cpu=1,8,16 ./grpc/
@@ -86,6 +108,7 @@ go test -bench=BenchmarkGRPCBaseline -benchmem -count=5 -cpu=1,8,16 ./grpc/
 ```
 
 ### Run node benchmarks (local)
+
 ```bash
 # Run direct API benchmarks (f=0 and f=1 variations)
 go test -bench=BenchmarkAPI -benchmem -count=5 -cpu=1,8,16 ./node/
@@ -97,6 +120,7 @@ go test -bench=BenchmarkAPIGRPC -benchmem -count=5 -cpu=1,8,16 -numConn=1,2,4,8 
 ### Run remote benchmarks
 
 #### gRPC remote
+
 ```bash
 # Start server
 cd grpc/remote/server && go run main.go
@@ -108,6 +132,7 @@ go run main.go -addr=localhost:8099 -benchtime=10s -count=5 \
 ```
 
 #### Node remote
+
 ```bash
 # Start server
 cd node/remote/server && go run main.go
@@ -121,16 +146,22 @@ go run main.go -benchtime=10s -count=5 \
 ## Benchmark naming convention
 
 Benchmark names follow this pattern:
+
 ```text
 Benchmark<Component>/<parameters>-<workers>
 ```
 
 Examples:
-- `BenchmarkAPI/w=noop/f=0/nc=0-8`: Direct API, noop workload, view reuse (f=0), 8 workers
-- `BenchmarkAPIGRPC/w=cpu/f=1/nc=4-16`: gRPC API, CPU workload, factory per call (f=1), 4 connections, 16 workers
-- `BenchmarkGRPCImpl/w=ecdsa/grpcsigner=mock-8`: FSC gRPC, ECDSA workload, mock signer, 8 workers
+
+- `BenchmarkAPI/w=noop/f=0/nc=0-8`: Direct API, noop workload, view reuse (f=0),
+  8 workers
+- `BenchmarkAPIGRPC/w=cpu/f=1/nc=4-16`: gRPC API, CPU workload, factory per call
+  (f=1), 4 connections, 16 workers
+- `BenchmarkGRPCImpl/w=ecdsa/grpcsigner=mock-8`: FSC gRPC, ECDSA workload, mock
+  signer, 8 workers
 
 Parameters:
+
 - **w**: Workload (noop, cpu, ecdsa/sign)
 - **f**: Factory mode (0=reuse view, 1=create per call)
 - **nc**: Number of connections (0=direct API, 1+=gRPC)
@@ -138,7 +169,8 @@ Parameters:
 
 ## Garbage collection tuning
 
-Go's garbage collector can significantly impact performance. Test with different settings:
+Go's garbage collector can significantly impact performance. Test with different
+settings:
 
 ```bash
 # Default GC
@@ -155,6 +187,7 @@ GOGC=off go test -bench=. -benchmem -count=10 ./...
 ```
 
 Save results for comparison:
+
 ```bash
 GOGC=100 go test -bench=. -benchmem -count=10 -cpu=1,2,4,8 ./views/ > plots/benchmark_gc_100.txt
 GOGC=off go test -bench=. -benchmem -count=10 -cpu=1,2,4,8 ./views/ > plots/benchmark_gc_off.txt
@@ -183,6 +216,7 @@ python3 plot_node.py node_results.txt node_results.pdf
 ## Understanding results
 
 Benchmark output includes:
+
 - **N**: Number of operations executed
 - **TPS**: Transactions per second (throughput)
 - **ns/op**: Nanoseconds per operation (latency)
@@ -191,6 +225,7 @@ Benchmark output includes:
 - **allocs/op**: Allocations per operation
 
 Example output:
+
 ```text
 BenchmarkAPIGRPC/w=ecdsa/f=1/nc=2-16    236702    23670 TPS    654140 ns/op (p5)    847374 ns/op (p95)
 ```
@@ -198,25 +233,34 @@ BenchmarkAPIGRPC/w=ecdsa/f=1/nc=2-16    236702    23670 TPS    654140 ns/op (p5)
 ## Benchmark comparison guide
 
 ### Baseline vs implementation
-Compare `BenchmarkGRPCBaseline` vs `BenchmarkGRPCImpl` to measure FSC framework overhead:
+
+Compare `BenchmarkGRPCBaseline` vs `BenchmarkGRPCImpl` to measure FSC framework
+overhead:
+
 ```bash
 go test -bench='Benchmark(GRPCBaseline|GRPCImpl)' -benchmem -count=10 ./grpc/
 ```
 
 ### Factory overhead
+
 Compare f=0 vs f=1 in `BenchmarkAPI` to measure view factory overhead:
+
 ```bash
 go test -bench='BenchmarkAPI/w=ecdsa' -benchmem -count=10 ./node/
 ```
 
 ### Connection scaling
+
 Test how performance scales with connection count:
+
 ```bash
 go test -bench=BenchmarkAPIGRPC -benchmem -count=5 -cpu=16 -numConn=1,2,4,8,16 ./node/
 ```
 
 ### Mock vs real crypto
+
 Compare mock vs ECDSA signers in gRPC benchmarks:
+
 ```bash
 go test -bench='BenchmarkGRPCImpl/w=noop' -benchmem -count=10 ./grpc/
 ```
@@ -228,25 +272,30 @@ go test -bench='BenchmarkGRPCImpl/w=noop' -benchmem -count=10 ./grpc/
 3. **CPU Scaling**: Test with `-cpu=1,2,4,8,16` to measure scalability
 4. **GC Impact**: Compare results with different GOGC settings
 5. **Isolation**: Run on idle systems for consistent results
-6. **Baseline Comparison**: Use baseline benchmarks to measure framework overhead
-7. **Remote Testing**: Use `node/remote/` or `grpc/remote/` for realistic network conditions
+6. **Baseline Comparison**: Use baseline benchmarks to measure framework
+   overhead
+7. **Remote Testing**: Use `node/remote/` or `grpc/remote/` for realistic
+   network conditions
 8. **Factory Testing**: Use f=0 vs f=1 to understand factory overhead impact
 
 ## Troubleshooting
 
 ### High variance in results
+
 - Ensure system is idle (no other processes consuming CPU)
 - Increase `-count` for more samples
 - Check for thermal throttling on laptops
 - Run with `GOGC=off` to eliminate GC variance
 
 ### Low TPS
+
 - Check if `-cpu` matches available cores
 - Verify workload isn't I/O bound
 - Compare against baseline to identify bottlenecks
 - Profile with `go test -cpuprofile=cpu.prof`
 
 ### Remote benchmarks failing
+
 - Verify server is running and accessible
 - Check firewall rules for port 8099
 - Ensure client config points to correct server address

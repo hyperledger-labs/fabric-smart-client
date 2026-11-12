@@ -2,7 +2,9 @@
 
 ## Overview
 
-An SDK is a set of services that an FSC node can use to implement its logic. An SDK is installed in the `main.go` file of a node in the following manner:
+An SDK is a set of services that an FSC node can use to implement its logic. An
+SDK is installed in the `main.go` file of a node in the following manner:
+
 ```go
 func main() {
 	n := fscnode.New()
@@ -23,50 +25,63 @@ func main() {
 }
 ```
 
-`iou` is `integration/fabric/common/iou` and `views` is its `views` subpackage. Both live in
-the separate `github.com/hyperledger-labs/fabric-smart-client/integration` module, so treat them
-as an example to copy rather than a package to import. `fscnode` is `node` and `viewregistry` is
-`platform/view/services/view`.
+`iou` is `integration/fabric/common/iou` and `views` is its `views` subpackage.
+Both live in the separate
+`github.com/hyperledger-labs/fabric-smart-client/integration` module, so treat
+them as an example to copy rather than a package to import. `fscnode` is `node`
+and `viewregistry` is `platform/view/services/view`.
 
 In this example the services included in the `iou.SDK` can be used by
-* the views of the node, i.e. `ApproverView`, `ApproverInitViewFactory`
-* other services
 
-The services contained in an SDK depend on other services defined in other SDKs. Hence, each SDK is built on top of other SDKs. As a result, installing and starting an SDK will install and instantiate the whole chain up to the root, so a node does not need to install multiple SDKs.
+- the views of the node, i.e. `ApproverView`, `ApproverInitViewFactory`
+- other services
+
+The services contained in an SDK depend on other services defined in other SDKs.
+Hence, each SDK is built on top of other SDKs. As a result, installing and
+starting an SDK will install and instantiate the whole chain up to the root, so
+a node does not need to install multiple SDKs.
 
 ## Base SDKs
 
 This project provides the following SDKs as a base:
-* **View SDK:**
-  * Config service
-  * View registry
-  * Communication with other FSC nodes
-  * Identity resolution
-  * Signers and verifiers
-  * KVS
-  * Logging
-  * Metrics
-  * Event publisher/subscriber
-* **Fabric SDK:** Built on top of ViewSDK, it adds the following functionality:
-  * Config service for Fabric
-  * Network provider for connection to the Fabric network
-  * Finality handlers
-  * Identity providers
-  * Endorser transaction handling
-  * Vault
+
+- **View SDK:**
+  - Config service
+  - View registry
+  - Communication with other FSC nodes
+  - Identity resolution
+  - Signers and verifiers
+  - KVS
+  - Logging
+  - Metrics
+  - Event publisher/subscriber
+- **Fabric SDK:** Built on top of ViewSDK, it adds the following functionality:
+  - Config service for Fabric
+  - Network provider for connection to the Fabric network
+  - Finality handlers
+  - Identity providers
+  - Endorser transaction handling
+  - Vault
 
 ## Developing new SDKs
 
-If new functionality is needed for the purposes of an application, this can be added with the definition of a new SDK that builds on top of the SDK(s) that contain the services we depend on.
+If new functionality is needed for the purposes of an application, this can be
+added with the definition of a new SDK that builds on top of the SDK(s) that
+contain the services we depend on.
 
 Hence, by defining a new SDK, we achieve the following goals:
-* Leverage services provided by other SDKs by combining them and using them as a base
-* Define new services that will be used by our views
-* Overwrite existing services and modify the behavior of the base SDKs
-* Register further drivers, handlers, etc.
-* Registering new or existing services to the Service Provider to make them available to the views
 
-A general structure for a new SDK, based on `integration/fabric/common/iou/sdk.go`, is:
+- Leverage services provided by other SDKs by combining them and using them as a
+  base
+- Define new services that will be used by our views
+- Overwrite existing services and modify the behavior of the base SDKs
+- Register further drivers, handlers, etc.
+- Registering new or existing services to the Service Provider to make them
+  available to the views
+
+A general structure for a new SDK, based on
+`integration/fabric/common/iou/sdk.go`, is:
+
 ```go
 package myapp
 
@@ -136,6 +151,7 @@ func (p *SDK) PostStart(ctx context.Context) error {
 ```
 
 Now the new services can be used from within the views:
+
 ```go
 func (*MyView) Call(viewCtx view.Context) (any, error) {
 	s, err := GetService(viewCtx)
@@ -159,7 +175,9 @@ func GetService(sp services.Provider) (Service, error) {
 }
 ```
 
-Note that multiple SDKs can also be combined and used as a base.
-The order in which the SDKs are installed is not relevant to dependency injection, but it may be important for the logic of `Start` and `PostStart`.
+Note that multiple SDKs can also be combined and used as a base. The order in
+which the SDKs are installed is not relevant to dependency injection, but it may
+be important for the logic of `Start` and `PostStart`.
 
-For further supported functionality and details on dependency injection, consult the [`dig` documentation](https://github.com/uber-go/dig).
+For further supported functionality and details on dependency injection, consult
+the [`dig` documentation](https://github.com/uber-go/dig).

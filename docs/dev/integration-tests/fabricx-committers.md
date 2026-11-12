@@ -1,55 +1,68 @@
 # Fabric-x committers in integration tests
 
-The Fabric-x integration tests use the [fabric-x-committer-test-node](https://github.com/hyperledger/fabric-x-committer/pkgs/container/fabric-x-committer-test-node) container image. From it nwo starts:
-- a mock ordering service in a container of its own, reached as `orderer.localhost`;
-- a [committer](https://github.com/hyperledger/fabric-x-committer) for every organization with a peer, named `CommitterName(org)` (`Org1_committer_0`), each in a container of its own with its own Postgres.
+The Fabric-x integration tests use the
+[fabric-x-committer-test-node](https://github.com/hyperledger/fabric-x-committer/pkgs/container/fabric-x-committer-test-node)
+container image. From it nwo starts:
 
-Each FSC node uses its own organization's committers, or the first committer when its organization has none. The first organization's committer is the network's default, which nwo uses to deploy namespaces; startup waits until every committer lists them.
+- a mock ordering service in a container of its own, reached as
+  `orderer.localhost`;
+- a [committer](https://github.com/hyperledger/fabric-x-committer) for every
+  organization with a peer, named `CommitterName(org)` (`Org1_committer_0`),
+  each in a container of its own with its own Postgres.
 
-The containers resolve `orderer.localhost` through Docker's DNS, and the FSC nodes on the host resolve it to loopback through the system resolver. On Linux that needs systemd-resolved or nss-myhostname, as on most desktop distributions and GitHub runners.
+Each FSC node uses its own organization's committers, or the first committer
+when its organization has none. The first organization's committer is the
+network's default, which nwo uses to deploy namespaces; startup waits until
+every committer lists them.
+
+The containers resolve `orderer.localhost` through Docker's DNS, and the FSC
+nodes on the host resolve it to loopback through the system resolver. On Linux
+that needs systemd-resolved or nss-myhostname, as on most desktop distributions
+and GitHub runners.
 
 ## Committer container configuration
 
-The committers are configured through the `nwofabricx.Topology` returned by `NewTopology()`,
-`NewDefaultTopology()`, or `NewTopologyWithName()`. Every option has a default, so a standard
-test needs none of them.
+The committers are configured through the `nwofabricx.Topology` returned by
+`NewTopology()`, `NewDefaultTopology()`, or `NewTopologyWithName()`. Every
+option has a default, so a standard test needs none of them.
 
 ### Settings for every committer
 
-| Method | Default | Description |
-|---|---|---|
-| `WithCommitterImage(image string)` | `ghcr.io/hyperledger/fabric-x-committer-test-node:1.0.7` (`scv2.DefaultCommitterImage`) | Docker image for every committer container and the orderer container. |
-| `WithCommitterEnv(key, value string)` | *(see below)* | Set an environment variable of every committer container; an empty value removes a default. |
-| `WithOrdererEnv(key, value string)` | *(see below)* | Set an environment variable of the mock orderer container, such as `SC_ORDERER_BLOCK_SIZE`; an empty value removes a default. |
+| Method                                | Default                                                                                 | Description                                                                                                                   |
+| ------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `WithCommitterImage(image string)`    | `ghcr.io/hyperledger/fabric-x-committer-test-node:1.0.7` (`scv2.DefaultCommitterImage`) | Docker image for every committer container and the orderer container.                                                         |
+| `WithCommitterEnv(key, value string)` | _(see below)_                                                                           | Set an environment variable of every committer container; an empty value removes a default.                                   |
+| `WithOrdererEnv(key, value string)`   | _(see below)_                                                                           | Set an environment variable of the mock orderer container, such as `SC_ORDERER_BLOCK_SIZE`; an empty value removes a default. |
 
 ### Adding committers
 
-`AddCommitter(org string, opts ...CommitterOption)` adds a committer to `org`, such as a second one
-in an organization:
+`AddCommitter(org string, opts ...CommitterOption)` adds a committer to `org`,
+such as a second one in an organization:
 
-| Option | Default | Description |
-|---|---|---|
-| `WithName(name string)` | next free `<org>_committer_<n>` | Peer name for the committer's sidecar identity in the Fabric network. |
-| `WithHost(host string)` | *(unset)* | Extra host name in the committer's TLS certificate; FSC nodes reach every committer at `127.0.0.1`. |
-| `WithPorts(ports api.Ports)` | *(auto)* | Pre-allocated ports; leave nil to let the test framework allocate them. |
-| `WithImage(image string)` | the topology's | Docker image for this committer's container. |
-| `WithEnv(key, value string)` | the topology's | Override or add an environment variable of this committer's container. |
+| Option                       | Default                         | Description                                                                                         |
+| ---------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `WithName(name string)`      | next free `<org>_committer_<n>` | Peer name for the committer's sidecar identity in the Fabric network.                               |
+| `WithHost(host string)`      | _(unset)_                       | Extra host name in the committer's TLS certificate; FSC nodes reach every committer at `127.0.0.1`. |
+| `WithPorts(ports api.Ports)` | _(auto)_                        | Pre-allocated ports; leave nil to let the test framework allocate them.                             |
+| `WithImage(image string)`    | the topology's                  | Docker image for this committer's container.                                                        |
+| `WithEnv(key, value string)` | the topology's                  | Override or add an environment variable of this committer's container.                              |
 
-Default environment variables set by the test framework; `SC_ORDERER_*` is read by the orderer container, the rest by the committer containers:
+Default environment variables set by the test framework; `SC_ORDERER_*` is read
+by the orderer container, the rest by the committer containers:
 
-| Variable | Default value |
-|---|---|
-| `SC_SIDECAR_LOGGING_LOGSPEC` | `info:grpc=error` |
-| `SC_QUERY_LOGGING_LOGSPEC` | `info:grpc=error` |
-| `SC_COORDINATOR_LOGGING_LOGSPEC` | `info:grpc=error` |
-| `SC_ORDERER_LOGGING_LOGSPEC` | `info:grpc=error` |
-| `SC_VC_LOGGING_LOGSPEC` | `info:grpc=error` |
-| `SC_VERIFIER_LOGGING_LOGSPEC` | `info:grpc=error` |
-| `SC_ORDERER_BLOCK_SIZE` | `1` |
-| `SC_SIDECAR_ORDERER_SIGNED_ENVELOPES` | `true` |
-| `SC_SIDECAR_SERVER_MAX_CONCURRENT_STREAMS` | `0` |
-| `SC_QUERY_SERVER_MAX_CONCURRENT_STREAMS` | `0` |
-| Endpoints and MSP dirs | *(derived from network)* |
+| Variable                                   | Default value            |
+| ------------------------------------------ | ------------------------ |
+| `SC_SIDECAR_LOGGING_LOGSPEC`               | `info:grpc=error`        |
+| `SC_QUERY_LOGGING_LOGSPEC`                 | `info:grpc=error`        |
+| `SC_COORDINATOR_LOGGING_LOGSPEC`           | `info:grpc=error`        |
+| `SC_ORDERER_LOGGING_LOGSPEC`               | `info:grpc=error`        |
+| `SC_VC_LOGGING_LOGSPEC`                    | `info:grpc=error`        |
+| `SC_VERIFIER_LOGGING_LOGSPEC`              | `info:grpc=error`        |
+| `SC_ORDERER_BLOCK_SIZE`                    | `1`                      |
+| `SC_SIDECAR_ORDERER_SIGNED_ENVELOPES`      | `true`                   |
+| `SC_SIDECAR_SERVER_MAX_CONCURRENT_STREAMS` | `0`                      |
+| `SC_QUERY_SERVER_MAX_CONCURRENT_STREAMS`   | `0`                      |
+| Endpoints and MSP dirs                     | _(derived from network)_ |
 
 ### Example
 
@@ -75,9 +88,11 @@ fxTopo.AddCommitter("Org1", nwofabricx.WithName("audit"), nwofabricx.WithEnv("SC
 
 ## Example: a simple Fabric-x network topology
 
-The example below defines a simple Fabric-x network with two organizations (`Org1` and `Org2`) and two FSC application nodes (`alice` and `bob`).
+The example below defines a simple Fabric-x network with two organizations
+(`Org1` and `Org2`) and two FSC application nodes (`alice` and `bob`).
 
 In this setup:
+
 - `alice` acts as the endorser for the `iou` namespace.
 - The namespace creation policy is controlled by Org1.
 
@@ -114,4 +129,6 @@ func Topology() []api.Topology {
 }
 ```
 
-More examples are in [`integration/fabricx/`](../../../integration/fabricx/). How an application node uses several committers at runtime is described in [Several committers](../../platform/fabric-x/README.md#several-committers).
+More examples are in [`integration/fabricx/`](../../../integration/fabricx/).
+How an application node uses several committers at runtime is described in
+[Several committers](../../platform/fabric-x/README.md#several-committers).

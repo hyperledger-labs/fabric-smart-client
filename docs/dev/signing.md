@@ -1,16 +1,19 @@
 # Commit signing guidelines (DCO + GPG)
 
-**Both a DCO sign-off and a GPG signature on every commit** are required for all pull requests to be merged successfully.
+**Both a DCO sign-off and a GPG signature on every commit** are required for all
+pull requests to be merged successfully.
 
-This guide makes it as easy as possible for you to set up your GPG key and DCO and GPG sign your commits.
+This guide makes it as easy as possible for you to set up your GPG key and DCO
+and GPG sign your commits.
 
 | Signature         | Flag | Purpose                                                                           | GitHub Check   |
-|:------------------|:-----|:----------------------------------------------------------------------------------|:---------------|
+| :---------------- | :--- | :-------------------------------------------------------------------------------- | :------------- |
 | **DCO Sign-off**  | `-s` | Confirms legal right to contribute code (required by CI bot).                     | DCO Check      |
 | **GPG Signature** | `-S` | Proves you are the author of the commit (required by CI bot, requires GPG setup). | Verified Badge |
 
 > [!IMPORTANT]
-> To pass the DCO check and achieve the "Verified" status, **all commits** must be signed using **both** the `-S` and `-s` flags together.
+> To pass the DCO check and achieve the "Verified" status, **all
+> commits** must be signed using **both** the `-S` and `-s` flags together.
 
 ## Step-by-step guide
 
@@ -23,13 +26,15 @@ gpg --full-generate-key
 ```
 
 Choose:
-- Kind: ECC (sign and encrypt) *default*
-- Elliptic curve: Curve 25519 *default*
-- Expiration: 0 *default* (does not expire)
+
+- Kind: ECC (sign and encrypt) _default_
+- Elliptic curve: Curve 25519 _default_
+- Expiration: 0 _default_ (does not expire)
 - Name, Email: Must match your GitHub email
 - Passphrase: Set a strong passphrase that you'll need to remember
 
-Learn more in the [GPG key set-up documentation on GitHub](https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key)
+Learn more in the
+[GPG key set-up documentation on GitHub](https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key)
 
 Once created, list your keys:
 
@@ -38,11 +43,13 @@ gpg --list-secret-keys --keyid-format LONG
 ```
 
 The output looks like this:
+
 ```text
 sec   ed25519/3AA5C34371566DD2 2026-10-20 [SC]
 ```
 
-Copy the key ID: the 16-character string after the algorithm on the `sec` line (`3AA5C34371566DD2` above).
+Copy the key ID: the 16-character string after the algorithm on the `sec` line
+(`3AA5C34371566DD2` above).
 
 ### 2. Add your GPG key to GitHub
 
@@ -53,7 +60,8 @@ gpg --armor --export YOUR_KEY_ID
 ```
 
 Paste the output into GitHub:
-* [Add GPG key on GitHub](https://github.com/settings/gpg/new)
+
+- [Add GPG key on GitHub](https://github.com/settings/gpg/new)
 
 ### 3. Configure Git to use your GPG key
 
@@ -64,15 +72,15 @@ git config --global commit.gpgsign true
 
 ### 4. Make signed commits
 
-**All commits must be signed using both DCO and GPG.**
-Each time you create a commit, use -S and -s flags like this:
+**All commits must be signed using both DCO and GPG.** Each time you create a
+commit, use -S and -s flags like this:
 
 ```bash
 git commit -S -s -m "chore: your commit message"
 ```
 
-* `-S` = GPG sign
-* `-s` = DCO sign-off
+- `-S` = GPG sign
+- `-s` = DCO sign-off
 
 > [!IMPORTANT]
 > Ensure **every commit** in your branch follows this rule.
@@ -85,13 +93,15 @@ To check that your commits are signed correctly:
 git log --show-signature
 ```
 
-* Ensure each commit shows both **GPG verified** and **DCO signed-off**.
+- Ensure each commit shows both **GPG verified** and **DCO signed-off**.
 
-For a quick check of your most recent commits — replace `3` with the number you added:
+For a quick check of your most recent commits — replace `3` with the number you
+added:
 
 ```bash
 git log -n 3 --pretty=format:'%h %an %G? %s'
 ```
+
 Legend:
 
 - G = good signature (you want to see `G`)
@@ -115,8 +125,8 @@ Soft revert the impacted commits while keeping changes locally:
 git reset --soft HEAD~n
 ```
 
-* `HEAD~n` = number of commits to go back
-* Example: To fix the last 3 commits: `git reset --soft HEAD~3`
+- `HEAD~n` = number of commits to go back
+- Example: To fix the last 3 commits: `git reset --soft HEAD~3`
 
 Then, recommit each commit with proper signing:
 
@@ -126,26 +136,33 @@ git commit -S -s -m "chore: your commit message"
 
 ### 2. Retroactively signing commits
 
-Alternatively, you can **amend commits retroactively**. To re-sign the last commit only:
+Alternatively, you can **amend commits retroactively**. To re-sign the last
+commit only:
 
 ```bash
 git commit --amend --no-edit -S -s
 ```
 
-To re-sign every commit on your branch, replay them onto upstream main and amend each one. This also moves the branch onto the latest upstream main, so it can stop on conflicts (see [Resolving merge conflicts](merge-conflicts.md)):
+To re-sign every commit on your branch, replay them onto upstream main and amend
+each one. This also moves the branch onto the latest upstream main, so it can
+stop on conflicts (see [Resolving merge conflicts](merge-conflicts.md)):
 
 ```bash
 git fetch upstream
 git rebase --exec 'git commit --amend --no-edit -n -s -S' upstream/main
 git push --force-with-lease
 ```
-This is difficult and you may run into problems, for example, if you have merged from main.
+
+This is difficult and you may run into problems, for example, if you have merged
+from main.
 
 ## Rebasing and signing
 
-Rebase operations will be required when your branch is behind the upstream main. We do not recommend merging from main; rebasing is strongly suggested.
+Rebase operations will be required when your branch is behind the upstream main.
+We do not recommend merging from main; rebasing is strongly suggested.
 
-When rebasing, you must use this command to ensure your commits remain DCO and GPG signed:
+When rebasing, you must use this command to ensure your commits remain DCO and
+GPG signed:
 
 ```bash
 git fetch upstream
@@ -153,4 +170,5 @@ git rebase upstream/main -S
 ```
 
 > [!NOTE]
-> `git push --force-with-lease` safely updates the remote branch without overwriting others' changes.
+> `git push --force-with-lease` safely updates the remote branch without
+> overwriting others' changes.
