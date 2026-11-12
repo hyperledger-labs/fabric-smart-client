@@ -25,7 +25,7 @@ import (
 )
 
 // KeepaliveTime and KeepaliveTimeout are the gRPC client keepalive SetFaultProxies gives
-// alice's Fabric connections, and SetReplicaDeliveryProxies each replica of bob. KeepaliveTime is the 60 s minimum ping interval that nwo's
+// alice's Fabric connections. KeepaliveTime is the 60 s minimum ping interval that nwo's
 // peers and orderers enforce; a node that pings more often is disconnected. A silent
 // partition of the delivery peer is therefore detected within their sum.
 const (
@@ -91,17 +91,22 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	faultrecovery.RewriteCore(ii, "bob", setP2PKeepalive, "host="+db.Host+" port="+db.Port+" ", "host=127.0.0.1 port="+dbPort+" ")
 	faultrecovery.RewriteCore(ii, "alice", func(core map[string]any) {
 		setP2PKeepalive(core)
-		setFabricKeepalive(core)
+		network, ok := core["fabric"].(map[string]any)["default"].(map[string]any)
+		gomega.Expect(ok).To(gomega.BeTrue(), "core.yaml of alice has no fabric.default")
+		network["keepalive"] = map[string]any{
+			"time":                  KeepaliveTime.String(),
+			"timeout":               KeepaliveTimeout.String(),
+			"permit-without-stream": true,
+		}
 	}, peer, p.Peer.Addr(), bob, p.Bob.Addr())
 	return p
 }
 
 // SetReplicaDeliveryProxies starts, for each replica of bob, a proxy in front of each peer of
-// Org2 that the replica's delivery may use, points the replica's core.yaml at its own
-// proxies, and enables its gRPC client keepalive, so that partitioning them cuts the delivery
-// of that replica alone and the replica detects it (see KeepaliveTime). It returns the
-// proxies by replica unique name. Call it after the network is generated and before it
-// starts; the proxies forward until Close.
+// Org2 that the replica's delivery may use, and points the replica's core.yaml at its own
+// proxies, so that cutting them (ReplicaProxies.Cut) cuts the delivery of that replica alone.
+// It returns the proxies by replica unique name. Call it after the network is generated
+// and before it starts; the proxies forward until Close.
 func SetReplicaDeliveryProxies(ii *integration.Infrastructure) faultrecovery.ReplicaProxies {
 	n := fabric.Network(ii.NWOCtx, "default").Network
 	proxies := faultrecovery.ReplicaProxies{}
@@ -116,21 +121,9 @@ func SetReplicaDeliveryProxies(ii *integration.Infrastructure) faultrecovery.Rep
 			proxies[r.UniqueName] = append(proxies[r.UniqueName], proxy)
 			oldnew = append(oldnew, addr, proxy.Addr())
 		}
-		faultrecovery.RewriteReplicaCore(ii, r, setFabricKeepalive, oldnew...)
+		faultrecovery.RewriteReplicaCore(ii, r, nil, oldnew...)
 	}
 	return proxies
-}
-
-// setFabricKeepalive sets fabric.default.keepalive in core to KeepaliveTime and
-// KeepaliveTimeout.
-func setFabricKeepalive(core map[string]any) {
-	network, ok := core["fabric"].(map[string]any)["default"].(map[string]any)
-	gomega.ExpectWithOffset(1, ok).To(gomega.BeTrue(), "core.yaml has no fabric.default")
-	network["keepalive"] = map[string]any{
-		"time":                  KeepaliveTime.String(),
-		"timeout":               KeepaliveTimeout.String(),
-		"permit-without-stream": true,
-	}
 }
 
 // setP2PKeepalive sets fsc.p2p.opts.websocket.keepalive in core to P2PKeepaliveInterval

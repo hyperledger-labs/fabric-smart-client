@@ -12,6 +12,7 @@ import (
 	"net"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -70,14 +71,16 @@ func (p *Proxy) Close() error {
 
 // CloseConnections closes both sides of every connection the proxy forwards, as a load
 // balancer does when it drops its connections on an idle timeout or a restart, and keeps
-// accepting new ones. Each side reads the end of the stream at once. It returns once none of
-// the closed connections is forwarded any more, so Connections no longer counts them.
-// Connections accepted meanwhile are forwarded as usual.
+// accepting new ones. Each side reads the end of the stream at once, also while the proxy is
+// partitioned. It returns once none of the closed connections is forwarded any more, so
+// Connections no longer counts them. Connections accepted meanwhile are forwarded as usual,
+// and held while the proxy is partitioned.
 func (p *Proxy) CloseConnections() {
 	p.mu.Lock()
 	closing := slices.Collect(maps.Values(p.forwarding))
 	p.mu.Unlock()
 	for _, f := range closing {
+		f.closing.Store(true)
 		_ = f.client.Close()
 		_ = f.backend.Close()
 	}
@@ -87,10 +90,12 @@ func (p *Proxy) CloseConnections() {
 }
 
 // forwarded is a connection the proxy forwards to a backend; done is closed once it is no
-// longer forwarded.
+// longer forwarded. closing is set once CloseConnections closes it, so its pipes end without
+// waiting for a Heal.
 type forwarded struct {
 	client, backend net.Conn
 	done            chan struct{}
+	closing         atomic.Bool
 }
 
 // Partition stops forwarding bytes in both directions until Heal, without closing any
@@ -99,7 +104,8 @@ type forwarded struct {
 // those of connections accepted during it, are held, not dropped, so after Heal every
 // connection resumes where it stopped; a chunk already read when Partition is called may
 // still be delivered. A connection that one side closes during the partition is closed on
-// the other side only after Heal. Partition on a partitioned proxy does nothing.
+// the other side only after Heal; one that CloseConnections closes ends at once. Partition
+// on a partitioned proxy does nothing.
 func (p *Proxy) Partition() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -171,20 +177,24 @@ func (p *Proxy) forward(c net.Conn) {
 
 		// The first direction to end closes both connections, which ends the other.
 		done := make(chan struct{}, 2)
-		go func() { p.pipe(b, c); done <- struct{}{} }()
-		go func() { p.pipe(c, b); done <- struct{}{} }()
+		go func() { p.pipe(b, c, f); done <- struct{}{} }()
+		go func() { p.pipe(c, b, f); done <- struct{}{} }()
 		<-done
 		return
 	}
 	logger.Warnf("proxy [%s] found no backend accepting a connection", p.Addr())
 }
 
-// pipe copies src to dst until src ends or dst fails. It holds each chunk, and the end of
-// src, while the proxy is partitioned, and delays each by the latency.
-func (p *Proxy) pipe(dst io.Writer, src io.Reader) {
+// pipe copies src to dst, the two sides of f, until src ends or dst fails. It holds each
+// chunk, and the end of src, while the proxy is partitioned, and delays each by the latency;
+// once CloseConnections closes f, it returns without either.
+func (p *Proxy) pipe(dst io.Writer, src io.Reader, f *forwarded) {
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := src.Read(buf)
+		if f.closing.Load() {
+			return
+		}
 		p.waitHealed()
 		if n > 0 {
 			if _, werr := dst.Write(buf[:n]); werr != nil {

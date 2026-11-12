@@ -227,10 +227,7 @@ var _ = Describe("Fault Recovery with Fabric-x and replicas", Ordered, ContinueO
 		expectStreamedFinality(s.II)
 	})
 
-	faultrecovery.FailoverSpecs(s, notification, faultrecovery.DeliveryCut{
-		Proxies: func() faultrecovery.ReplicaProxies { return notificationProxies },
-		Detect:  fxfaultrecovery.KeepaliveTime + fxfaultrecovery.KeepaliveTimeout + 10*time.Second,
-	})
+	faultrecovery.FailoverSpecs(s, notification, func() faultrecovery.ReplicaProxies { return notificationProxies })
 
 	It("settles txs ordered while Postgres is down on every replica", func() {
 		db := faultrecovery.DBName(dbPrefix, "bob")

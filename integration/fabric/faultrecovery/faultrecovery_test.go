@@ -272,10 +272,7 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		faultrecovery.ExpectSettled(s.II, endorser.ID(), tx.TxID, 1)
 	})
 
-	faultrecovery.FailoverSpecs(s, delivery, faultrecovery.DeliveryCut{
-		Proxies: func() faultrecovery.ReplicaProxies { return deliveryProxies },
-		Detect:  fabricfaultrecovery.KeepaliveTime + fabricfaultrecovery.KeepaliveTimeout + 10*time.Second,
-	})
+	faultrecovery.FailoverSpecs(s, delivery, func() faultrecovery.ReplicaProxies { return deliveryProxies })
 
 	// Both replicas migrate the shared database at once; the migration lock lets one run
 	// step 1 while the other waits (TestPostgresMigrate covers that each step runs once).

@@ -57,11 +57,14 @@ func rewriteCoreOf(ii *integration.Infrastructure, r *nwonode.Replica, patch fun
 // link, one per backend it can connect to.
 type ReplicaProxies map[string][]*common.Proxy
 
-// Partition partitions every proxy of replica; see common.Proxy.Partition.
-func (p ReplicaProxies) Partition(replica string) {
+// Cut partitions every proxy of replica, then closes the connections it forwards, so the
+// replica's streams end at once and every reconnect hangs until Heal; see
+// common.Proxy.Partition and common.Proxy.CloseConnections.
+func (p ReplicaProxies) Cut(replica string) {
 	gomega.ExpectWithOffset(1, p[replica]).NotTo(gomega.BeEmpty(), "no proxy for replica [%s]", replica)
 	for _, proxy := range p[replica] {
 		proxy.Partition()
+		proxy.CloseConnections()
 	}
 }
 

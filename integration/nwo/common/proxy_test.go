@@ -246,3 +246,48 @@ func TestProxy_CloseConnectionsKeepsAccepting(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "b", string(buf))
 }
+
+// CloseConnections on a partitioned proxy ends the connections it closes at once, while a
+// connection accepted afterwards is held until Heal, so a client that redials hangs.
+func TestProxy_CloseConnectionsWhilePartitioned(t *testing.T) {
+	t.Parallel()
+	p := newTestProxy(t, echoBackend(t))
+	c, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.NoError(t, c.SetReadDeadline(time.Now().Add(5*time.Second)))
+	buf := make([]byte, 1)
+	_, err = c.Write([]byte{'a'})
+	require.NoError(t, err)
+	_, err = c.Read(buf)
+	require.NoError(t, err)
+
+	p.Partition()
+	closed := make(chan struct{})
+	go func() { p.CloseConnections(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "CloseConnections did not return on a partitioned proxy")
+	}
+	_, err = c.Read(buf)
+	require.ErrorIs(t, err, io.EOF)
+	require.Empty(t, p.Connections())
+
+	late, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = late.Close() })
+	_, err = late.Write([]byte{'b'})
+	require.NoError(t, err)
+	require.NoError(t, late.SetReadDeadline(time.Now().Add(200*time.Millisecond)))
+	var nerr net.Error
+	_, err = late.Read(buf)
+	require.ErrorAs(t, err, &nerr)
+	require.True(t, nerr.Timeout(), "a connection accepted while partitioned is held")
+
+	p.Heal()
+	require.NoError(t, late.SetReadDeadline(time.Now().Add(5*time.Second)))
+	_, err = late.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "b", string(buf))
+}

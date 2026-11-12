@@ -47,9 +47,10 @@ const SessionCloseTimeout = 15 * time.Second
 // LaggingSettleTimeout bounds how long a replica whose delivery is cut takes to report a tx
 // final once another replica of the node has committed it. The replica learns it from the
 // state they share: on Fabric at its next poll of the vault, every second, and on Fabric-x
-// at its next failed attempt to reopen the notification stream, which a 5 s connection
-// timeout and a backoff of at most 10 s space out.
-const LaggingSettleTimeout = 30 * time.Second
+// at its next failed attempt to reopen the notification stream. An attempt into a cut proxy
+// hangs in its handshake until gRPC's minimum connect timeout of 20 s, and a backoff of at
+// most 10 s separates the attempts.
+const LaggingSettleTimeout = 45 * time.Second
 
 const (
 	// ViewContexts is the gauge of the view contexts a node holds, a responder's included.
@@ -433,24 +434,15 @@ func ViewSpecs(s *integration.TestSuite) {
 	})
 }
 
-// DeliveryCut tells FailoverSpecs how to cut the delivery of one replica of bob: its block
-// delivery from the peers on Fabric, its notification stream from the committer on Fabric-x.
-type DeliveryCut struct {
-	// Proxies returns the proxies in front of the delivery of each replica of bob. A suite
-	// starts them again when it rebuilds its network, so a spec reads them when it runs.
-	Proxies func() ReplicaProxies
-	// Detect bounds how long a replica takes to report Reconnecting on the delivery endpoint
-	// it uses once its proxies are partitioned: a silent partition shows only when the gRPC
-	// keepalive fails.
-	Detect time.Duration
-}
-
 // FailoverSpecs registers the specs that kill the replica of bob holding alice's connection
 // through bob's load balancer, or cut its delivery, for a suite s on ReplicatedFSCTopology.
-// conn is the replica's delivery connection, which a restarted or healed replica must report
-// Connected again before the next spec runs, and cut tells how to cut it. Each spec leaves
-// every replica running, so the specs can run under ShareNetwork.
-func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection, cut DeliveryCut) {
+// conn is the connection a replica receives commits on, block delivery on Fabric and the
+// notification stream on Fabric-x, which a restarted or healed replica must report Connected
+// again before the next spec runs. proxies returns the proxies in front of conn of each
+// replica of bob; a suite starts them again when it rebuilds its network, so a spec reads them
+// when it runs. Each spec leaves every replica running, so the specs can run under
+// ShareNetwork.
+func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection, proxies func() ReplicaProxies) {
 	ginkgo.It("serves new sessions after the replica holding them dies", func() {
 		// The first tx opens alice's connection, which ConnectedReplica looks for.
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
@@ -509,10 +501,10 @@ func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection, cut DeliveryCu
 		held, others := ConnectedReplica(s.II, "bob")
 		gomega.Expect(others).To(gomega.HaveLen(1))
 
-		proxies := cut.Proxies()
-		ginkgo.DeferCleanup(proxies.Heal, held.UniqueName)
-		proxies.Partition(held.UniqueName)
-		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Reconnecting, cut.Detect)
+		delivery := proxies()
+		ginkgo.DeferCleanup(delivery.Heal, held.UniqueName)
+		delivery.Cut(held.UniqueName)
+		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Reconnecting, pollTimeout)
 
 		// held endorses the tx. Its responder stops waiting for the tx once alice's session
 		// ends, so a finality view of held's own waits for it instead, started before the tx
@@ -531,7 +523,7 @@ func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection, cut DeliveryCu
 		Order(s.II, tx)
 		gomega.Eventually(final, LaggingSettleTimeout).Should(gomega.Receive(gomega.BeNil()), "finality of [%s] on [%s]", tx.TxID, held.UniqueName)
 
-		proxies.Heal(held.UniqueName)
+		delivery.Heal(held.UniqueName)
 		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Connected, time.Minute)
 		for _, r := range []string{held.ID(), others[0].ID()} {
 			ExpectSettled(s.II, r, tx.TxID, 1)
