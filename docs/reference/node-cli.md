@@ -198,7 +198,7 @@ Display version information.
 
 ```text
 node:
- Go version: go1.27.3
+ Go version: go1.27.4
  OS/Arch: darwin/arm64
  FSC version: v0.28.0
  Application: github.com/acme/app v1.4.0
