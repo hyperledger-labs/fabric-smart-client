@@ -76,6 +76,38 @@ table above, adds nothing, so a caller that asks one party at a time can pass
 the same transaction to another party. An endorsement already on the transaction
 is not added a second time.
 
+#### Several endorsers that each satisfy the policy
+
+An application can spread its transactions over several endorser nodes,
+without replicas or a load balancer, when any one of them satisfies the
+namespace's endorsement policy, such as `OutOf(1, 'Org2MSP.member')`. Each
+endorser is a separate FSC node, with its own identity and database. For each
+transaction, the initiator endorses first, which signs the proposal the
+endorsers endorse: a transaction whose endorsements lack that proposal cannot
+be ordered. It then asks one endorser at a time, each under a deadline of its
+own that it passes with `view.WithGoContext`. When the endorser is unavailable,
+it asks the next one with the same transaction. Unavailable means a rejection,
+a closed session or the deadline from the table above, or a dial error: the
+connection is refused (`syscall.ECONNREFUSED`), or the handshake of a new
+connection outlasts the deadline (`os.ErrDeadlineExceeded`).
+
+An endorser the initiator gave up on does not answer. A request that reached
+it runs in the context of the initiator's session, which ended when the
+initiator moved on, so the endorsement is neither stored nor sent. On Fabric,
+an endorser's vault commits only the transactions it has a record of, such as
+those it endorsed, unless a rule selects more, such as a namespace its
+committer processes (`Committer.ProcessNamespace`). If its responder marks the
+transaction `Busy` before the transaction's block arrives, the block commits
+it; otherwise the endorser keeps no record of it. A responder that marks it
+`Busy` after the block keeps it `Busy`
+([#2618](https://github.com/hyperledger-labs/fabric-smart-client/issues/2618)).
+On Fabric-x, every node reads statuses and state from the committer.
+
+The views in
+[`integration/fabric/common/endorsers/views`](../../../integration/fabric/common/endorsers/views/views.go)
+follow this pattern, and the `fabric-endorsers` and `fabricx-endorsers`
+integration suites run it.
+
 ### The transaction envelope
 
 A `TransactionEnvelope` carries what the receiver needs to pick the local
