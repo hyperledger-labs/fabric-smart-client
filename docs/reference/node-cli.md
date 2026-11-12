@@ -136,7 +136,7 @@ step runs; it cannot be combined with `--check`. See
 | Exit code | Meaning                                                                                                                                              |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `0`       | every store is current (or, without `--check`, has been migrated)                                                                                    |
-| `10`      | `--check`: steps are pending; each pending store and its steps are listed                                                                            |
+| `10`      | `--check`: steps are pending; each pending store and its steps are listed. Also without `--check`: a store requires a contract step that has not run |
 | `11`      | a store's schema is newer than this binary (`migrate.ErrSchemaTooNew`)                                                                               |
 | `12`      | `--contract`, also with `--check`: a store is opened by a binary that lacks a pending contract step (`migrate.ErrOlderOpener`); the nodes are listed |
 | `1`       | the command could not run or could not check or migrate a store: configuration, connection, lock or step failure                                     |

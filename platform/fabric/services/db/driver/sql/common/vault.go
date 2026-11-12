@@ -12,7 +12,7 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"sync"
-	"sync/atomic"
+	"unicode/utf8"
 
 	"google.golang.org/protobuf/proto"
 
@@ -67,8 +67,8 @@ func NewVaultStore(writeDB common.WriteDB, readDB *sql.DB, tables VaultTables, e
 }
 
 // VaultStore is the SQL vault shared by the SQLite and Postgres drivers. It stores each key's
-// metadata gob-encoded until the vault's contract step 2 (see [VaultStore.MetadataToProtobuf])
-// has run, and as protobuf [protos.VaultMetadata] afterwards; readers accept both forms.
+// metadata as protobuf [protos.VaultMetadata] and opens only once its contract step 2 (see
+// [VaultStore.MetadataToProtobuf]) has run; readers also accept the gob metadata stored before.
 type VaultStore struct {
 	*vaultReader
 	tables       VaultTables
@@ -80,13 +80,7 @@ type VaultStore struct {
 	// Timeout bounds each statement of the store, and the write transaction of a
 	// backend's Store as a whole.
 	Timeout common.QueryTimeout
-	// readableBy is the vault's readable_by as of its last open; see SetReadableBy.
-	readableBy atomic.Int32
 }
-
-// SetReadableBy implements migrate.ReadableByObserver: from readable_by 2 on, the vault
-// writes metadata as protobuf.
-func (db *VaultStore) SetReadableBy(v int) { db.readableBy.Store(int32(v)) } //nolint:gosec // a step number
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
 	logger.DebugfContext(ctx, "acquire tx id lock for [%s]", txID)
@@ -261,7 +255,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			var metaVersion driver.RawVersion
 			var err error
 			if metaVal, ok := metaWrite[pkey]; ok {
-				metadata, err = db.marshallMetadata(metaVal.Metadata)
+				metadata, err = marshallMetadata(metaVal.Metadata)
 				metaVersion = metaVal.Version
 			}
 			if len(metaVersion) > 0 && !bytes.Equal(val.Version, metaVersion) {
@@ -289,7 +283,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				// MetaWrites already written in the previous section
 				continue
 			}
-			metadata, err := db.marshallMetadata(metaVal.Metadata)
+			metadata, err := marshallMetadata(metaVal.Metadata)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to marshal metadata for [%s:%s]", ns, pkey)
 			}
@@ -575,9 +569,6 @@ func (db *VaultStore) Close() error {
 
 // Data marshal/unmarshal
 
-// protoMetadataStep is the contract step after which the vault writes metadata as protobuf.
-const protoMetadataStep = 2
-
 // metadataPageSize is the number of rows MetadataToProtobuf reads and rewrites at a time.
 const metadataPageSize = 1000
 
@@ -587,20 +578,16 @@ const metadataPageSize = 1000
 // forms apart without depending on the type ids gob assigned earlier in the process.
 const protoMetadataTag = 0x0a
 
-// marshallMetadata encodes metadata as gob until the vault's contract step 2 has run, and
-// afterwards as the protobuf VaultMetadata toProtoMetadata gives. A map protobuf cannot carry
-// exactly, such as one with a key that is not UTF-8, is encoded as gob in either case.
-func (db *VaultStore) marshallMetadata(metadata map[string][]byte) ([]byte, error) {
-	if db.readableBy.Load() >= protoMetadataStep {
-		if raw, ok := toProtoMetadata(metadata); ok {
-			return raw, nil
+// marshallMetadata encodes metadata as a deterministic protobuf VaultMetadata, the form
+// toProtoMetadata gives. It refuses a key that is not valid UTF-8, which protobuf cannot carry;
+// no committed transaction holds one, as the rwset carries metadata keys as protobuf strings too.
+func marshallMetadata(metadata map[string][]byte) ([]byte, error) {
+	for k := range metadata {
+		if !utf8.ValidString(k) {
+			return nil, errors.Errorf("metadata key [%q] is not valid UTF-8", k)
 		}
 	}
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(metadata); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return proto.MarshalOptions{Deterministic: true}.Marshal(&protos.VaultMetadata{Entries: &protos.Entries{Values: metadata}})
 }
 
 // toProtoMetadata returns the deterministic protobuf VaultMetadata of m if it decodes back to

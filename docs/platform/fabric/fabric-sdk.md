@@ -161,10 +161,12 @@ comes from a client, not from a session, so it is not versioned.
 ### Stored transactions and metadata
 
 The endorse-tx store (`fsc_default_etx`), which `fabric.Vault.StoreTransaction`
-and the endorser write and `LoadTransaction` reads, holds JSON until its
-contract step 2 has run and `TransactionEnvelope`s afterwards. The vault stores
-each state's metadata gob-encoded until its contract step 2 has run and as a
-protobuf `VaultMetadata` afterwards. Readers accept both forms in either case.
+and the endorser write and `LoadTransaction` reads, holds `TransactionEnvelope`s,
+and JSON for the transactions that do not convert. The vault stores each state's
+metadata as a protobuf `VaultMetadata`, and refuses metadata with a key that is
+not valid UTF-8. Neither store opens before its contract step 2 has run, which
+converts the JSON and gob rows that older releases wrote. Readers accept both
+forms.
 Decode a loaded transaction with the network's transaction manager
 (`fabric.TransactionManager.NewTransactionFromBytes`), which accepts both forms,
 never with `json.Unmarshal`. See

@@ -67,7 +67,8 @@ const (
 	ExitFailed = 1
 	// ExitUsage means invalid arguments; no store was opened.
 	ExitUsage = 2
-	// ExitPending means --check found steps pending.
+	// ExitPending means --check found steps pending, or a store requires a
+	// contract step that has not run.
 	ExitPending = 10
 	// ExitSchemaTooNew means a store was migrated by a newer binary.
 	ExitSchemaTooNew = 11
@@ -148,9 +149,10 @@ contract steps, which binaries without them cannot read, once no such binary ope
 With --check it runs no step and lists every pending step.
 The command reads the node's full configuration, including its identities.
 
-Exit codes: 0 every store is current (or has been migrated), 10 steps are pending (--check),
-11 a store's schema is newer than this binary, 12 a binary without a pending contract step
-opens a store (--contract), 1 the command failed, 2 invalid arguments.`,
+Exit codes: 0 every store is current (or has been migrated), 10 steps are pending (--check)
+or a store requires a contract step that has not run, 11 a store's schema is newer than
+this binary, 12 a binary without a pending contract step opens a store (--contract),
+1 the command failed, 2 invalid arguments.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return usageError(cmd, errors.Errorf("unexpected arguments %q", args))

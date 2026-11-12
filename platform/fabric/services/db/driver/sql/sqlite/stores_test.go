@@ -59,9 +59,9 @@ func TestKeyDataStoresSQLite(t *testing.T) {
 	}
 }
 
-// openEndorseTxContract opens an endorse-tx store, through the driver's constructor and
-// Migrate, on a SQLite table that exists before the store is versioned, so that its contract
-// step is held back until the returned Contract runs it.
+// openEndorseTxContract returns an endorse-tx store on a SQLite table that exists before the
+// store is versioned, so that its required contract step is pending until the returned
+// Contract runs it.
 func openEndorseTxContract(t *testing.T) common.EndorseTxContract {
 	t.Helper()
 	ds := "file:" + filepath.Join(t.TempDir(), "etx.sqlite")
@@ -75,15 +75,17 @@ func openEndorseTxContract(t *testing.T) common.EndorseTxContract {
 	require.NoError(t, unversioned.CreateSchema())
 
 	cp := sqlite.NewConfigProvider(drivertesting.MockConfig(sqlite.Config{DataSource: ds}))
-	s, err := fsqlite.NewPersistenceWithOpts(cp, dbp, "", fsqlite.NewEndorseTxStore)
-	require.NoError(t, err)
 	return common.EndorseTxContract{
-		Store: common.KeyDataStore{Get: s.GetEndorseTx, Exists: s.ExistsEndorseTx, Put: s.PutEndorseTx},
+		Store: common.KeyDataStore{Get: unversioned.GetEndorseTx, Exists: unversioned.ExistsEndorseTx, Put: unversioned.PutEndorseTx},
 		DB:    rw.WriteDB,
-		Table: s.StoreName(),
-		Step:  s.Steps()[1].Go,
+		Table: unversioned.StoreName(),
+		Step:  unversioned.Steps()[1].Go,
 		Contract: func() error {
-			return migrate.Migrate(t.Context(), rw.WriteDB, migrate.SQLite, "", s, migrate.WithContract())
+			return migrate.Migrate(t.Context(), rw.WriteDB, migrate.SQLite, "", unversioned, migrate.WithContract())
+		},
+		Open: func() error {
+			_, err := fsqlite.NewPersistenceWithOpts(cp, dbp, "", fsqlite.NewEndorseTxStore)
+			return err
 		},
 	}
 }
@@ -103,9 +105,8 @@ func TestEndorseTxWritesAfterContractSQLite(t *testing.T) {
 	common.TestEndorseTxWritesAfterContract(t, openEndorseTxContract(t))
 }
 
-// openVaultContract opens a vault, through the driver's constructor and Migrate, on SQLite
-// tables that exist before the vault is versioned, so that its contract step is held back
-// until the returned Contract runs it.
+// openVaultContract returns a vault on SQLite tables that exist before the vault is versioned,
+// so that its required contract step is pending until the returned Contract runs it.
 func openVaultContract(t *testing.T) common.VaultContract {
 	t.Helper()
 	ds := "file:" + filepath.Join(t.TempDir(), "vault.sqlite")
@@ -119,15 +120,17 @@ func openVaultContract(t *testing.T) common.VaultContract {
 	require.NoError(t, unversioned.CreateSchema())
 
 	cp := sqlite.NewConfigProvider(drivertesting.MockConfig(sqlite.Config{DataSource: ds}))
-	s, err := fsqlite.NewPersistenceWithOpts(cp, dbp, "", fsqlite.NewVaultStore)
-	require.NoError(t, err)
 	return common.VaultContract{
-		Store: s,
+		Store: unversioned,
 		DB:    rw.WriteDB,
-		Table: s.StoreName(),
-		Step:  s.Steps()[1].Go,
+		Table: unversioned.StoreName(),
+		Step:  unversioned.Steps()[1].Go,
 		Contract: func() error {
-			return migrate.Migrate(t.Context(), rw.WriteDB, migrate.SQLite, "", s, migrate.WithContract())
+			return migrate.Migrate(t.Context(), rw.WriteDB, migrate.SQLite, "", unversioned, migrate.WithContract())
+		},
+		Open: func() error {
+			_, err := fsqlite.NewPersistenceWithOpts(cp, dbp, "", fsqlite.NewVaultStore)
+			return err
 		},
 	}
 }

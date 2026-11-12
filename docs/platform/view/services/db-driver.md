@@ -242,11 +242,10 @@ not open. A failed step rolls back and the store does not open. A database whose
 `readable_by` is above the highest step the binary knows fails with
 `migrate.ErrSchemaTooNew`.
 
-A store whose write format depends on one of its own contract steps implements
-`migrate.ReadableByObserver`; `Migrate` calls its `SetReadableBy` with the
-store's `readable_by` after every successful open, including `WithCheckOnly`, so
-the store learns once the step has run without reading the versions table
-itself.
+A store that no longer works on its tables before one of its contract steps has
+run marks the step `Required`. `Migrate` then runs the steps before it and fails
+with `migrate.ErrPending` while the step is pending, also `WithCheckOnly`, and
+records no opener row. A new store runs the step at once.
 
 To add schema steps to a store of your own, see
 [Schema versioning](schema-versioning.md).

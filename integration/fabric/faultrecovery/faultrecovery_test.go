@@ -275,8 +275,10 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 	faultrecovery.FailoverSpecs(s, delivery, func() faultrecovery.ReplicaProxies { return deliveryProxies })
 
 	// Both replicas migrate the shared database at once; the migration lock lets one run
-	// step 1 while the other waits (TestPostgresMigrate covers that each step runs once).
-	It("starts both replicas at once on a v0.26 database", func() {
+	// each step while the other waits (TestPostgresMigrate covers that each step runs once).
+	// The endorse-tx store and the vault require their contract step, which a v0.26 database
+	// has pending, so both replicas run node migrate --contract, as an upgrade from v0.26 does.
+	It("migrates a v0.26 database from both replicas at once", func() {
 		db := faultrecovery.DBName(dbPrefix, "bob")
 		for _, r := range []string{"bob.0", "bob.1"} {
 			s.II.StopFSCNode(r)
@@ -296,10 +298,14 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 		for _, r := range []string{"bob.0", "bob.1"} {
 			wg.Go(func() {
 				defer GinkgoRecover()
-				s.II.StartFSCNode(r)
+				session := s.II.MigrateFSCNode(r, "--contract")
+				Expect(session.ExitCode()).To(BeZero(), string(session.Err.Contents()))
 			})
 		}
 		wg.Wait()
+		for _, r := range []string{"bob.0", "bob.1"} {
+			s.II.StartFSCNode(r)
+		}
 
 		// Both replicas started, so every store reached its latest step, and the key of every
 		// reordered table is (ns, pkey) again.
@@ -628,7 +634,12 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 			Expect(strings.Contains(out, want)).To(BeTrue(), "store [%s] not listed as pending", store)
 		}
 
-		Expect(s.II.MigrateFSCNode("bob").ExitCode()).To(BeZero())
+		// Without --contract the endorse-tx store and the vault stop before the contract step
+		// they require, so the run fails and names --contract, which then runs it.
+		migrated := s.II.MigrateFSCNode("bob")
+		Expect(migrated.ExitCode()).To(Equal(start.ExitPending))
+		Expect(string(migrated.Err.Contents()) + string(migrated.Out.Contents())).To(ContainSubstring("store [fsc_default_etx]: step 2 [transactions as envelopes]: required contract step has not run; run node migrate --contract"))
+		Expect(s.II.MigrateFSCNode("bob", "--contract").ExitCode()).To(BeZero())
 		// --check passes only when every store is at its latest step.
 		Expect(s.II.MigrateFSCNode("bob", "--check").ExitCode()).To(BeZero())
 		// Every open records bob in the openers table.

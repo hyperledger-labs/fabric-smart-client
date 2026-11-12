@@ -29,20 +29,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
-// store is a Versioned test store whose steps each create one table. It also
-// implements migrate.ReadableByObserver, recording the readable_by of its
-// last successful open. readableBy is an atomic because
-// ConcurrentMigratorsApplyOnce shares one store across several goroutines
-// that call Migrate concurrently, standing in for separate migrators.
+// store is a Versioned test store whose steps each create one table.
 type store struct {
-	name       string
-	steps      []migrate.Step
-	readableBy atomic.Int64
+	name  string
+	steps []migrate.Step
 }
 
 func (s *store) StoreName() string     { return s.name }
 func (s *store) Steps() []migrate.Step { return s.steps }
-func (s *store) SetReadableBy(v int)   { s.readableBy.Store(int64(v)) }
 func (*store) CreateSchema() error {
 	return errors.New("CreateSchema must not be called on a Versioned store")
 }
@@ -153,6 +147,33 @@ func TestPostgresMigrate(t *testing.T) {
 		var n int
 		require.NoError(t, db.QueryRow("SELECT count(*) FROM race_schema_openers WHERE node = 'old'").Scan(&n))
 		require.Zero(t, n)
+	})
+
+	// A binary that finds a required contract step pending while another migrator
+	// runs it on a store that was fresh to that migrator waits for the migrator's
+	// lock and then opens the store. The test plays the other migrator: it has
+	// applied step 1 and holds the lock while it runs step 2.
+	t.Run("RequiredStepRunMeanwhile", func(t *testing.T) {
+		t.Parallel()
+		db := b.open(t)
+		ctx := t.Context()
+		s := newStore("reqrace_s", 2)
+		s.steps[1].Contract, s.steps[1].Required = true, true
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "reqrace", newStore("reqrace_s", 1)))
+		holder, _ := lockHolder(t, db, "reqrace_schema_versions")
+
+		opened := make(chan error, 1)
+		go func() { opened <- migrate.Migrate(ctx, db, b.dialect, "reqrace", s) }()
+		select {
+		case err := <-opened:
+			t.Fatalf("the store opened while the other migrator held the lock: %v", err)
+		case <-time.After(time.Second):
+		}
+		_, err := holder.ExecContext(ctx, "UPDATE reqrace_schema_versions SET version = 2, readable_by = 2 WHERE store = 'reqrace_s'")
+		require.NoError(t, err)
+		_, err = holder.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", migrate.LockKey("reqrace_schema_versions"))
+		require.NoError(t, err)
+		require.NoError(t, <-opened)
 	})
 
 	t.Run("NothingPendingSkipsLock", func(t *testing.T) {
@@ -644,6 +665,44 @@ func testMigrate(t *testing.T, newBackend func(*testing.T) backend) {
 		requireRow(t, db, "fresh_schema_versions", "fresh_s", 3, 2)
 	})
 
+	// A binary refuses a store whose required contract step is pending, also
+	// WithCheckOnly, once the steps before it ran, and records no opener row.
+	// WithContract runs the step and the store opens again; a fresh store runs
+	// it at once. Required is valid only on a contract step.
+	t.Run("RequiredContractStep", func(t *testing.T) {
+		t.Parallel()
+		b := newBackend(t)
+		db := b.open(t)
+		ctx := t.Context()
+		s := newStore("req_s", 3)
+		s.steps[2].Contract, s.steps[2].Required = true, true
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "req", newStore("req_s", 1), migrate.WithNode("old")))
+		for _, opts := range [][]migrate.Option{nil, {migrate.WithCheckOnly()}} {
+			err := migrate.Migrate(ctx, db, b.dialect, "req", s, append(opts, migrate.WithNode("n"))...)
+			require.ErrorIs(t, err, migrate.ErrPending)
+			require.ErrorIs(t, err, migrate.ErrContractPending)
+			require.EqualError(t, err, "store [req_s]: step 3 [create req_s_t3]: required contract step has not run; run node migrate --contract")
+		}
+		requireVersion(t, db, "req_schema_versions", "req_s", 2)
+		var openers int
+		require.NoError(t, db.QueryRow("SELECT count(*) FROM req_schema_openers WHERE node = 'n'").Scan(&openers))
+		require.Zero(t, openers, "a refused binary leaves no opener row")
+
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "req", s, migrate.WithNode("n"), migrate.WithContract(), migrate.WithForgetOpeners("old")))
+		requireRow(t, db, "req_schema_versions", "req_s", 3, 3)
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "req", s, migrate.WithNode("n")))
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "req", s, migrate.WithNode("n"), migrate.WithCheckOnly()))
+
+		fresh := newStore("req_fresh_s", 2)
+		fresh.steps[1].Contract, fresh.steps[1].Required = true, true
+		require.NoError(t, migrate.Migrate(ctx, db, b.dialect, "req", fresh))
+		requireRow(t, db, "req_schema_versions", "req_fresh_s", 2, 2)
+
+		expand := newStore("req_expand_s", 1)
+		expand.steps[0].Required = true
+		require.ErrorContains(t, migrate.Migrate(ctx, db, b.dialect, "req", expand), "is required but not a contract step")
+	})
+
 	// A store without a row whose table exists, as a binary without
 	// versioning created it, is not fresh: its contract step waits.
 	t.Run("ContractStepOnUnversionedStore", func(t *testing.T) {
@@ -938,42 +997,6 @@ func TestContractStepPendingLogAndProcessOptions(t *testing.T) { //nolint:parall
 	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", newStore("plog_o", 1)))
 	require.NoError(t, migrate.Migrate(t.Context(), db, migrate.SQLite, "plog", o))
 	requireVersion(t, db, "plog_schema_versions", "plog_o", 1)
-}
-
-// Migrate reports the store's readable_by through SetReadableBy after every
-// successful open, including one that holds a contract step back.
-func TestMigrateReportsReadableBy(t *testing.T) {
-	t.Parallel()
-	db := sqliteBackend(t).open(t)
-	ctx := t.Context()
-
-	withContract := newStore("rb_s", 2)
-	withContract.steps[1].Contract = true
-
-	// A non-fresh store: step 1 exists already, so the contract step waits.
-	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", newStore("rb_s", 1)))
-	nonFresh := &store{name: "rb_s", steps: withContract.steps}
-	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", nonFresh))
-	require.Equal(t, int64(0), nonFresh.readableBy.Load())
-
-	// WithContract runs the contract step and reports its version; forget the
-	// opener row the earlier non-fresh open left, which would otherwise block it.
-	contracted := &store{name: "rb_s", steps: withContract.steps}
-	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", contracted, migrate.WithContract(), migrate.WithForgetOpeners("")))
-	require.Equal(t, int64(2), contracted.readableBy.Load())
-
-	// A fresh store runs the contract step at startup and reports its version.
-	fresh := &store{name: "rb_fresh_s", steps: []migrate.Step{
-		{Version: 1, Name: "create", SQL: []string{"CREATE TABLE rb_fresh_s (id INT)"}},
-		{Version: 2, Name: "contract", Contract: true, SQL: []string{"CREATE INDEX rb_fresh_s_id ON rb_fresh_s (id)"}},
-	}}
-	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", fresh))
-	require.Equal(t, int64(2), fresh.readableBy.Load())
-
-	// WithCheckOnly also reaches recordOpener on success and reports readable_by.
-	checked := &store{name: "rb_s", steps: withContract.steps}
-	require.NoError(t, migrate.Migrate(ctx, db, migrate.SQLite, "rb", checked, migrate.WithCheckOnly()))
-	require.Equal(t, int64(2), checked.readableBy.Load())
 }
 
 // TestPostgresMigratorDiesMidStep checks that when the backend of a migrator ends in the

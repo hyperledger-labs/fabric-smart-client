@@ -9,7 +9,6 @@ package common
 import (
 	"context"
 	"database/sql"
-	"sync/atomic"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protos"
@@ -31,18 +30,13 @@ const envelopeStep = 2
 // envelopePageSize is the number of rows the envelope step reads and rewrites at a time.
 const envelopePageSize = 1000
 
-// EndorseTxStore is a write-once store of endorsed transactions by key. A transaction is
-// stored as its JSON encoding until the store's contract step 2 has run, and as a protobuf
-// TransactionEnvelope (see [protos.EnvelopeFromJSON]) afterwards. Readers accept both forms.
+// EndorseTxStore is a write-once store of endorsed transactions by key. It stores a transaction
+// as a protobuf TransactionEnvelope (see [protos.EnvelopeFromJSON]) and opens only once its
+// contract step 2 has run. Readers also accept the JSON transactions stored before the step
+// and those that do not convert.
 type EndorseTxStore struct {
 	p *common.SimpleKeyDataStore
-	// readableBy is the store's readable_by as of its last open; see SetReadableBy.
-	readableBy atomic.Int32
 }
-
-// SetReadableBy implements migrate.ReadableByObserver: from readable_by 2 on, PutEndorseTx
-// stores JSON transactions as envelopes.
-func (db *EndorseTxStore) SetReadableBy(v int) { db.readableBy.Store(int32(v)) } //nolint:gosec // a step number
 
 func (db *EndorseTxStore) GetEndorseTx(ctx context.Context, key string) ([]byte, error) {
 	return db.p.GetData(ctx, key)
@@ -52,18 +46,16 @@ func (db *EndorseTxStore) ExistsEndorseTx(ctx context.Context, key string) (bool
 	return db.p.ExistData(ctx, key)
 }
 
-// PutEndorseTx stores data under key. Once the store's contract step 2 has run, JSON that
-// converts to an envelope (see [toEnvelope]) is stored as that envelope, the same bytes the
-// step writes for it; any other data, including JSON that does not tell its platform, is
-// stored as given. Writing the value already stored under key returns nil; writing different
-// bytes returns an error wrapping [driver.ErrConflict] and keeps the stored value. A store
-// opened before the step ran elsewhere writes JSON until its next open, so one transaction may
-// be offered in both forms: callers that can receive it twice compare the records on conflict.
+// PutEndorseTx stores data under key. JSON that converts to an envelope (see [toEnvelope]) is
+// stored as that envelope, the same bytes the contract step writes for it; any other data,
+// including JSON that does not tell its platform, is stored as given. Writing the value already
+// stored under key returns nil; writing different bytes returns an error wrapping
+// [driver.ErrConflict] and keeps the stored value. A row an older release stored may hold the
+// JSON of a transaction offered now as an envelope: callers that can receive a transaction
+// twice compare the records on conflict.
 func (db *EndorseTxStore) PutEndorseTx(ctx context.Context, key string, data []byte) error {
-	if db.readableBy.Load() >= envelopeStep {
-		if env, err := toEnvelope(data); err == nil {
-			data = env
-		}
+	if env, err := toEnvelope(data); err == nil {
+		data = env
 	}
 	return db.p.PutDataStrict(ctx, key, data)
 }
@@ -109,14 +101,16 @@ func (db *EndorseTxStore) CreateSchema() error {
 func (db *EndorseTxStore) StoreName() string { return db.p.StoreName() }
 
 // Steps returns the store's schema steps. Step 1 creates the table if it does not exist.
-// Step 2, a contract step, rewrites every JSON transaction that converts (see [toEnvelope]) as
-// its envelope; binaries that read only JSON refuse the store afterwards.
+// Step 2, a required contract step, rewrites every JSON transaction that converts (see
+// [toEnvelope]) as its envelope; binaries that read only JSON refuse the store afterwards, and
+// this binary refuses it before.
 func (db *EndorseTxStore) Steps() []migrate.Step {
 	return append(db.p.Steps(), migrate.Step{
 		Version:  envelopeStep,
 		Name:     "transactions as envelopes",
 		Go:       db.toEnvelopes,
 		Contract: true,
+		Required: true,
 	})
 }
 

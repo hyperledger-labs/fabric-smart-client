@@ -48,13 +48,17 @@ every organization involved to upgrade in the same window.
 
    `node peers --check` reports a peer of a release without version ranges as
    `no preamble`, and exits 11 if the new binary has no common version with it.
+   `node migrate --check` exits 10 if the new binary requires a contract step
+   that has not run on a store: run `node migrate --contract` first, with the
+   binary the node runs now or the new one, as the release guide says.
 
 3. **Replace the binaries one node, and one replica, at a time.** A node stopped
    with SIGTERM lets its running views finish before it exits (see
    [Graceful shutdown](../platform/view/services/shutdown.md)). The new binary
    migrates its stores at first start. On a database the previous release wrote,
    it holds contract steps back, so replicas still on the previous release keep
-   working against the same stores. On libp2p, the replicas of a node share one
+   working against the same stores. A contract step the new binary requires has
+   to run before, as step 2 checks. On libp2p, the replicas of a node share one
    peer ID and its streams, so a session one replica negotiated can reach
    another: upgrade the replicas of a libp2p node together, or drain the old
    ones first, unless the release guide says otherwise.

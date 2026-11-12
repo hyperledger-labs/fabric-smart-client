@@ -95,11 +95,13 @@ SPDX-License-Identifier: Apache-2.0
 // so an open that records itself meanwhile waits until the step commits; on
 // SQLite the step's BEGIN IMMEDIATE does the same.
 //
-// A store whose write format depends on whether one of its own contract steps
-// has run implements ReadableByObserver. Migrate calls SetReadableBy with the
-// store's readable_by after every successful open, including WithCheckOnly, so
-// the store can switch to the new write format once the step has run instead of
-// probing the versions table itself.
+// A binary that no longer works on the store before a contract step marks the
+// step Step.Required. Migrate then refuses the store while the step is pending,
+// once the steps before it ran: it fails with ErrContractPending, which matches
+// ErrPending, names the step and node migrate --contract, and records no opener
+// row. A fresh store runs the step at once, so it is never refused; a binary
+// that finds the step pending first waits for the migration lock, in case
+// another migrator runs it on a fresh store.
 //
 // # Rules for steps
 //
@@ -156,7 +158,20 @@ var (
 	// ErrOlderOpener is returned when a contract step cannot run because the
 	// openers table records a binary that lacks the step.
 	ErrOlderOpener = errors.New("store is opened by a binary that lacks the contract step")
+	// ErrContractPending is returned when a Required contract step has not
+	// run. It matches ErrPending, and its text names node migrate --contract.
+	ErrContractPending error = contractPending{}
 )
+
+// contractPending is the type of ErrContractPending.
+type contractPending struct{}
+
+func (contractPending) Error() string {
+	return "required contract step has not run; run node migrate --contract"
+}
+
+// Is makes ErrContractPending match ErrPending.
+func (contractPending) Is(target error) bool { return target == ErrPending }
 
 // errHeldBack stops a migration before a contract step it may not run.
 var errHeldBack = errors.New("contract step held back")
@@ -191,6 +206,10 @@ type Step struct {
 	// Contract marks a step that drops or rewrites what binaries without it
 	// read; see the package documentation.
 	Contract bool
+	// Required marks a contract step without which this binary does not open
+	// the store; see the package documentation. Hash does not cover it, so a
+	// release may require a contract step an earlier release shipped.
+	Required bool
 }
 
 // Hash returns the hex SHA-256 of the step's version, name, SQL statements and,
@@ -230,12 +249,6 @@ type Versioned interface {
 	// Steps returns all steps of the store, ordered by Version.
 	Steps() []Step
 }
-
-// ReadableByObserver is implemented by a store whose write format depends on whether a contract
-// step has run. Migrate calls SetReadableBy with the store's readable_by after each successful
-// open, including WithCheckOnly. A store open before a contract step runs elsewhere learns of it
-// only at its next open.
-type ReadableByObserver interface{ SetReadableBy(int) }
 
 type options struct {
 	checkOnly     bool
@@ -353,20 +366,26 @@ func CreateSchema(ctx context.Context, db *sql.DB, d Dialect, prefix string, obj
 // Migrate brings v's schema up to date: it runs every step of v whose version
 // is above the one recorded in <prefix>_schema_versions, up to the first
 // contract step it may not run, records each applied step, and records the
-// opener in <prefix>_schema_openers. On success, including WithCheckOnly, it
-// calls SetReadableBy on v with the store's readable_by if v implements
-// ReadableByObserver. It returns ErrSchemaTooNew if the database records a
-// readable_by above v's latest step, ErrPending with WithCheckOnly when steps
-// it would run are pending, naming each pending step, ErrOlderOpener when a
-// binary that lacks a contract step opens the store, and an error naming the
-// store and the step when a step fails. The package documentation describes
+// opener in <prefix>_schema_openers. It returns ErrSchemaTooNew if the
+// database records a readable_by above v's latest step, ErrPending with
+// WithCheckOnly when steps it would run are pending, naming each pending step,
+// ErrContractPending when a Required contract step has not run, ErrOlderOpener
+// when a binary that lacks a contract step opens the store, and an error naming
+// the store and the step when a step fails. The package documentation describes
 // contract steps and the locking.
 func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versioned, opts ...Option) error {
 	o := newOptions(opts)
 	store, steps := v.StoreName(), v.Steps()
+	var required *Step
 	for i, s := range steps {
 		if s.Version != i+1 {
 			return errors.Errorf("store [%s]: step [%s] has version %d, expected %d", store, s.Name, s.Version, i+1)
+		}
+		if s.Required && !s.Contract {
+			return errors.Errorf("store [%s]: step %d [%s] is required but not a contract step", store, s.Version, s.Name)
+		}
+		if s.Required {
+			required = &steps[i]
 		}
 	}
 	table, err := tableNames.CreateTableName(prefix, "schema_versions")
@@ -428,20 +447,16 @@ func Migrate(ctx context.Context, db *sql.DB, d Dialect, prefix string, v Versio
 		if err != nil {
 			return errors.Wrapf(err, "store [%s]: failed to look up [%s]", store, openers)
 		}
-		if !ok {
+		// A required step that is pending may be running right now, on a store that
+		// was fresh to another migrator: waiting for its lock lets recordOpener see
+		// the step instead of refusing the store.
+		if !ok || required != nil && required.Version > version {
 			if err := run(ctx, db, d, table, openers, store, nil, len(steps), o, false); err != nil {
 				return err
 			}
 		}
 	}
-	readableBy, err := recordOpener(ctx, db, d, table, openers, store, o, len(steps))
-	if err != nil {
-		return err
-	}
-	if ob, ok := v.(ReadableByObserver); ok {
-		ob.SetReadableBy(readableBy)
-	}
-	return nil
+	return recordOpener(ctx, db, d, table, openers, store, o, len(steps), required)
 }
 
 // logHeldBack logs that the contract step held[0] waits for node migrate
@@ -477,22 +492,22 @@ const openersColumns = "store TEXT NOT NULL, node TEXT NOT NULL, highest_step IN
 // recordOpener upserts the row of store, o.node and latest with the database's
 // current UTC time, then reads the store's row in the versions table again in
 // the same transaction and rolls back with ErrSchemaTooNew if a contract step
-// this binary lacks committed meanwhile; a refused binary leaves no row. The
-// read is a statement of its own: on Postgres a statement that waited for a
-// contract step's lock on the openers table keeps the snapshot it took before
-// waiting, so only a later statement sees the step. Migrate makes sure both
-// tables exist unless WithCheckOnly is set; then a missing table fails the
-// open. The upsert needs SELECT, INSERT and UPDATE. It returns the readable_by
-// read in that same transaction, the one Migrate reports to a
-// ReadableByObserver.
-func recordOpener(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, o options, latest int) (readableBy int, err error) {
+// this binary lacks committed meanwhile, and with ErrPending if the store's
+// readable_by is below required, the last Required step, if any, with
+// ErrContractPending; a refused
+// binary leaves no row. The read is a statement of its own: on Postgres a
+// statement that waited for a contract step's lock on the openers table keeps
+// the snapshot it took before waiting, so only a later statement sees the step.
+// Migrate makes sure both tables exist unless WithCheckOnly is set; then a
+// missing table fails the open. The upsert needs SELECT, INSERT and UPDATE.
+func recordOpener(ctx context.Context, db *sql.DB, d Dialect, table, openers, store string, o options, latest int, required *Step) (err error) {
 	now := "CURRENT_TIMESTAMP" // UTC on SQLite
 	if d == Postgres {
 		now = "(now() AT TIME ZONE 'UTC')"
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
+		return errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
 	}
 	defer func() {
 		if err != nil {
@@ -500,16 +515,19 @@ func recordOpener(ctx context.Context, db *sql.DB, d Dialect, table, openers, st
 		}
 	}()
 	if _, err := tx.ExecContext(ctx, "INSERT INTO "+openers+" (store, node, highest_step, opened_at) VALUES ($1, $2, $3, "+now+") ON CONFLICT (store, node, highest_step) DO UPDATE SET opened_at = excluded.opened_at", store, o.node, latest); err != nil { //nolint:gosec // table name comes from configuration, not user input
-		return 0, errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
+		return errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
 	}
-	_, readableBy, err = readRow(ctx, tx, table, store, latest)
+	_, readableBy, err := readRow(ctx, tx, table, store, latest)
 	if err != nil {
-		return 0, err
+		return err
+	}
+	if required != nil && readableBy < required.Version {
+		return errors.Wrapf(ErrContractPending, "store [%s]: step %d [%s]", store, required.Version, required.Name)
 	}
 	if err := tx.Commit(); err != nil {
-		return 0, errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
+		return errors.Wrapf(err, "store [%s]: failed to record opener in [%s]", store, openers)
 	}
-	return readableBy, nil
+	return nil
 }
 
 // describe lists steps as "step <n> [<name>]", comma-separated, with

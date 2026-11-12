@@ -48,22 +48,23 @@ func (p *fakeDbProvider) Get(o postgres.Opts) (*drivercommon.RWDB, error) {
 // Every store is recorded at version 1 in the versions table, so opening one
 // reads its row and runs no schema step: these tests assert on construction,
 // not on DDL.
-func mockDB(t *testing.T, checkOnly bool) (*drivercommon.RWDB, sqlmock.Sqlmock) {
+func mockDB(t *testing.T, checkOnly bool, steps int) (*drivercommon.RWDB, sqlmock.Sqlmock) {
 	t.Helper()
 	db, m, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
-	expectMigrated(m, checkOnly)
+	expectMigrated(m, checkOnly, steps)
 	return &drivercommon.RWDB{ReadDB: db, WriteDB: db}, m
 }
 
 // expectMigrated expects the read of a store's row in the versions table,
-// answers that the store is at version 1, and expects the opener to be recorded
-// and the row to be read again in one transaction; without checkOnly it first
-// answers that the openers table exists.
-func expectMigrated(m sqlmock.Sqlmock, checkOnly bool) {
+// answers that the store is at version steps with readable_by steps, so that no
+// step is pending, not even a required contract step, and expects the opener to
+// be recorded and the row to be read again in one transaction; without checkOnly
+// it first answers that the openers table exists.
+func expectMigrated(m sqlmock.Sqlmock, checkOnly bool, steps int) {
 	row := func() *sqlmock.Rows {
-		return sqlmock.NewRows([]string{"version", "readable_by"}).AddRow(1, 0)
+		return sqlmock.NewRows([]string{"version", "readable_by"}).AddRow(steps, steps)
 	}
 	m.ExpectQuery("SELECT to_regclass").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	m.ExpectQuery("SELECT version, readable_by FROM").WillReturnRows(row())
@@ -120,31 +121,35 @@ func TestNewDriverWithDbProvider(t *testing.T) {
 func TestDriverStoreConstructors(t *testing.T) {
 	t.Parallel()
 
-	for name, newStore := range map[string]func(*Driver) (any, error){
-		"EndorseTx": func(d *Driver) (any, error) { return d.NewEndorseTx("") },
-		"Metadata":  func(d *Driver) (any, error) { return d.NewMetadata("") },
-		"Envelope":  func(d *Driver) (any, error) { return d.NewEnvelope("") },
-		"Vault":     func(d *Driver) (any, error) { return d.NewVault("") },
+	// steps is the number of schema steps of each store.
+	for name, tc := range map[string]struct {
+		steps    int
+		newStore func(*Driver) (any, error)
+	}{
+		"EndorseTx": {2, func(d *Driver) (any, error) { return d.NewEndorseTx("") }},
+		"Metadata":  {1, func(d *Driver) (any, error) { return d.NewMetadata("") }},
+		"Envelope":  {1, func(d *Driver) (any, error) { return d.NewEnvelope("") }},
+		"Vault":     {2, func(d *Driver) (any, error) { return d.NewVault("") }},
 	} {
 		t.Run(name+"/valid", func(t *testing.T) {
 			t.Parallel()
-			dbs, _ := mockDB(t, false)
-			s, err := newStore(NewDriverWithDbProvider(validConfig(), &fakeDbProvider{dbs: dbs}))
+			dbs, _ := mockDB(t, false, tc.steps)
+			s, err := tc.newStore(NewDriverWithDbProvider(validConfig(), &fakeDbProvider{dbs: dbs}))
 			require.NoError(t, err)
 			require.NotNil(t, s)
 		})
 
 		t.Run(name+"/invalid config", func(t *testing.T) {
 			t.Parallel()
-			dbs, _ := mockDB(t, false)
-			_, err := newStore(NewDriverWithDbProvider(emptyConfig(), &fakeDbProvider{dbs: dbs}))
+			dbs, _ := mockDB(t, false, tc.steps)
+			_, err := tc.newStore(NewDriverWithDbProvider(emptyConfig(), &fakeDbProvider{dbs: dbs}))
 			require.ErrorContains(t, err, "missing data source")
 		})
 
 		t.Run(name+"/db open failure", func(t *testing.T) {
 			t.Parallel()
 			p := &fakeDbProvider{err: errFake}
-			_, err := newStore(NewDriverWithDbProvider(validConfig(), p))
+			_, err := tc.newStore(NewDriverWithDbProvider(validConfig(), p))
 			require.ErrorContains(t, err, "error opening db")
 			require.ErrorIs(t, err, errFake)
 		})
@@ -156,7 +161,7 @@ func TestDriverStoreConstructors(t *testing.T) {
 func TestNewPersistenceWithOptsPassesParams(t *testing.T) {
 	t.Parallel()
 
-	dbs, _ := mockDB(t, false)
+	dbs, _ := mockDB(t, false, 2)
 	p := &fakeDbProvider{dbs: dbs}
 	d := NewDriverWithDbProvider(validConfig(), p)
 
@@ -187,7 +192,7 @@ func TestNewPersistenceWithOptsSkipCreateTable(t *testing.T) {
 
 	t.Run("up to date", func(t *testing.T) {
 		t.Parallel()
-		dbs, m := mockDB(t, true)
+		dbs, m := mockDB(t, true, 2)
 		store, err := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: dbs}).NewVault("")
 		require.NoError(t, err)
 		require.NotNil(t, store)
@@ -223,7 +228,7 @@ func TestNewPersistenceWithOptsBadTablePrefix(t *testing.T) {
 		return nil
 	})
 
-	dbs, _ := mockDB(t, false)
+	dbs, _ := mockDB(t, false, 2)
 	d := NewDriverWithDbProvider(cp, &fakeDbProvider{dbs: dbs})
 
 	_, err := d.NewEndorseTx("")
@@ -234,7 +239,7 @@ func TestNewPersistenceWithOptsBadTablePrefix(t *testing.T) {
 func TestNewPersistenceWithOptsConstructorError(t *testing.T) {
 	t.Parallel()
 
-	dbs, _ := mockDB(t, false)
+	dbs, _ := mockDB(t, false, 2)
 	d := NewDriverWithDbProvider(validConfig(), &fakeDbProvider{dbs: dbs})
 
 	_, err := NewPersistenceWithOpts(d.cp, d.dbProvider, "",
@@ -299,7 +304,7 @@ func TestBuildStores(t *testing.T) {
 	// so it is checked directly.
 	t.Run("Vault", func(t *testing.T) {
 		t.Parallel()
-		dbs, _ := mockDB(t, false)
+		dbs, _ := mockDB(t, false, 2)
 		s, err := NewVaultStore(dbs, tables)
 		require.NoError(t, err)
 		require.NotNil(t, s.VaultStore)

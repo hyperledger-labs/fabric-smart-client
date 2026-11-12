@@ -570,7 +570,9 @@ func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 
 // Step 1 of the vault converts a v0.26 state table, keyed (pkey, ns) with a
 // TEXT pkey, when four migrators run it at once: one of them converts and
-// reorders the table, every key reads back, and the store is at version 1.
+// reorders the table, every key reads back, and the store is at version 1. Each
+// open then fails, as the required contract step waits for node migrate
+// --contract.
 func TestPostgresVaultStoreMigratesOldLayoutConcurrently(t *testing.T) {
 	t.Parallel()
 
@@ -587,7 +589,7 @@ func TestPostgresVaultStoreMigratesOldLayoutConcurrently(t *testing.T) {
 	}
 	wg.Wait()
 	for _, err := range errs {
-		require.NoError(t, err)
+		require.ErrorIs(t, err, migrate.ErrPending)
 	}
 	requirePkeyType(t, store, "bytea")
 	requirePrimaryKey(t, store, "ns,pkey")
@@ -604,7 +606,7 @@ func TestPostgresVaultStoreMigratesOldLayoutConcurrently(t *testing.T) {
 
 // Step 1 on an up-to-date vault takes no table lock: it completes while
 // another session holds ACCESS SHARE on the state table, as an older node
-// reading the vault does.
+// reading the vault does, and the open fails only on the required contract step.
 func TestPostgresVaultStoreStepOneDoesNotLockCurrentLayout(t *testing.T) {
 	t.Parallel()
 
@@ -620,5 +622,5 @@ func TestPostgresVaultStoreStepOneDoesNotLockCurrentLayout(t *testing.T) {
 
 	migrateCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	require.NoError(t, migrate.Migrate(migrateCtx, store.writeDB, migrate.Postgres, "", store))
+	require.ErrorIs(t, migrate.Migrate(migrateCtx, store.writeDB, migrate.Postgres, "", store), migrate.ErrPending)
 }

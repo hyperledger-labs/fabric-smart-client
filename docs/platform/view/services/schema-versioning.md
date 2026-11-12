@@ -65,6 +65,14 @@ the store's primary table: a store without a version row whose table exists
 counts as existing. The step runs in one transaction, which on a large table
 holds its locks for the whole rewrite.
 
+Once a release no longer needs to serve the store before the step, for example
+to drop the code that writes the old form, set `Required: true` on the step in
+that release. Its binary then refuses the store until `node migrate --contract`
+has run the step. `Step.Hash` does not cover `Required`, so a release may
+require a step an earlier release shipped; only a contract step can be
+required. Require a step only in a release whose previous release knows it, so
+that operators can run the step before they upgrade.
+
 `Step.Hash` is a SHA-256 over a step's version, name, SQL and `Contract` flag.
 The `migrate/migratetest` package checks a store's steps against a golden file
 with one line per step, `<version> <hash> <name>`, and fails when a recorded
