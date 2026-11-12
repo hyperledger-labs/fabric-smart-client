@@ -103,8 +103,9 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 }
 
 // SetReplicaDeliveryProxies starts, for each replica of bob, a proxy in front of each peer of
-// Org2 that the replica's delivery may use, and points the replica's core.yaml at its own
-// proxies, so that cutting them (ReplicaProxies.Cut) cuts the delivery of that replica alone.
+// Org2, and points the replica's core.yaml at its own proxies. Every link of the replica to a
+// peer goes through them, its delivery and its queries alike, so cutting them
+// (ReplicaProxies.Cut) cuts that replica alone off its peers.
 // It returns the proxies by replica unique name. Call it after the network is generated
 // and before it starts; the proxies forward until Close.
 func SetReplicaDeliveryProxies(ii *integration.Infrastructure) faultrecovery.ReplicaProxies {

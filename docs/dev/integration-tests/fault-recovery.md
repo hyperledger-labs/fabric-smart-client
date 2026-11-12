@@ -284,10 +284,11 @@ while both replicas stay up. A balancer that drops the flow silently is detected
 by the WebSocket keepalive instead, as a partition is (see
 [Partitions and latency](#partitions-and-latency)). `FailoverSpecs` covers the
 three cases in
-[#2546](https://github.com/hyperledger-labs/fabric-smart-client/issues/2546):
+[#2546](https://github.com/hyperledger-labs/fabric-smart-client/issues/2546),
 "fails an in-flight view cleanly when its replica dies", "continues on the other
 replica when the load balancer drops the connection" and "serves new sessions
-after the replica holding them dies".
+after the replica holding them dies", and a replica whose delivery lags behind,
+described below.
 
 `StopFSCNode`, `KillFSCNode` and `StartFSCNode` take a replica name such as
 `bob.1` to act on that replica alone, and `Client("fsc.bob.1")` and
@@ -308,18 +309,19 @@ before the transaction was ordered; the Fabric-x suite's
 
 Each replica of bob in those `Describe`s reaches its delivery through proxies of
 its own: `SetReplicaDeliveryProxies` on Fabric puts one in front of each peer of
-Org2 for every replica, and `SetReplicaNotificationProxies` on Fabric-x one in
-front of the committer's notification service, leaving the query service direct.
-Both return a `ReplicaProxies`, whose `Cut` partitions the proxies of one
-replica and closes the connections they forward: that replica's stream ends at
-once, and its reconnects hang until `Heal`, while the other replica keeps up.
-`FailoverSpecs`' "settles txs endorsed by a replica whose delivery lags behind"
-cuts the replica holding alice's connection. The replica endorses a transaction,
-and the spec starts the replica's finality view for it before alice orders it;
-only the other replica's delivery sees the block, and the finality view still
-returns within `LaggingSettleTimeout`, since the replica learns the transaction
-is final from the state the replicas share, the vault on Fabric and the
-committer's query service on Fabric-x
+Org2 for every replica, which carries all of the replica's links to that peer,
+and `SetReplicaNotificationProxies` on Fabric-x one in front of the committer's
+notification service, leaving the query service direct. Both return a
+`ReplicaProxies`, whose `Cut` partitions the proxies of one replica and closes
+the connections they forward: that replica's stream ends at once, and its
+reconnects hang until `Heal`, while the other replica keeps up. `FailoverSpecs`'
+"settles txs endorsed by a replica whose delivery lags behind" cuts the replica
+holding alice's connection. The replica endorses a transaction, and the spec
+starts the replica's finality view for it before alice orders it; only the other
+replica's delivery sees the block, and the finality view still returns within
+`LaggingSettleTimeout` while the replica is cut, since the replica learns the
+transaction is final from the state the replicas share, the vault on Fabric and
+the committer's query service on Fabric-x
 ([#2547](https://github.com/hyperledger-labs/fabric-smart-client/issues/2547)).
 The spec watches that finality view rather than bob's responder: the responder
 runs in the context of alice's session, which ends right after bob endorses, so

@@ -12,7 +12,6 @@ import (
 	"net"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -74,13 +73,20 @@ func (p *Proxy) Close() error {
 // accepting new ones. Each side reads the end of the stream at once, also while the proxy is
 // partitioned. It returns once none of the closed connections is forwarded any more, so
 // Connections no longer counts them. Connections accepted meanwhile are forwarded as usual,
-// and held while the proxy is partitioned.
+// and held while the proxy is partitioned. Concurrent calls are safe.
 func (p *Proxy) CloseConnections() {
 	p.mu.Lock()
 	closing := slices.Collect(maps.Values(p.forwarding))
+	for _, f := range closing {
+		// A concurrent call may have closed it already.
+		select {
+		case <-f.closed:
+		default:
+			close(f.closed)
+		}
+	}
 	p.mu.Unlock()
 	for _, f := range closing {
-		f.closing.Store(true)
 		_ = f.client.Close()
 		_ = f.backend.Close()
 	}
@@ -90,12 +96,12 @@ func (p *Proxy) CloseConnections() {
 }
 
 // forwarded is a connection the proxy forwards to a backend; done is closed once it is no
-// longer forwarded. closing is set once CloseConnections closes it, so its pipes end without
-// waiting for a Heal.
+// longer forwarded. closed is closed once CloseConnections closes it, so its pipes end
+// without waiting for a Heal, also those already holding a chunk.
 type forwarded struct {
 	client, backend net.Conn
 	done            chan struct{}
-	closing         atomic.Bool
+	closed          chan struct{}
 }
 
 // Partition stops forwarding bytes in both directions until Heal, without closing any
@@ -135,15 +141,21 @@ func (p *Proxy) SetLatency(d time.Duration) {
 	p.latency = d
 }
 
-// waitHealed blocks while the proxy is partitioned, then waits out the latency.
-func (p *Proxy) waitHealed() {
+// waitHealed blocks while the proxy is partitioned, then waits out the latency. It returns
+// false without waiting further once closed is closed.
+func (p *Proxy) waitHealed(closed <-chan struct{}) bool {
 	p.mu.Lock()
 	healed, latency := p.healed, p.latency
 	p.mu.Unlock()
 	if healed != nil {
-		<-healed
+		select {
+		case <-healed:
+		case <-closed:
+			return false
+		}
 	}
 	time.Sleep(latency)
+	return true
 }
 
 func (p *Proxy) serve() {
@@ -192,10 +204,9 @@ func (p *Proxy) pipe(dst io.Writer, src io.Reader, f *forwarded) {
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := src.Read(buf)
-		if f.closing.Load() {
+		if !p.waitHealed(f.closed) {
 			return
 		}
-		p.waitHealed()
 		if n > 0 {
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				return
@@ -209,7 +220,7 @@ func (p *Proxy) pipe(dst io.Writer, src io.Reader, f *forwarded) {
 
 // track records that c is forwarded to b at backend.
 func (p *Proxy) track(c, b net.Conn, backend string) *forwarded {
-	f := &forwarded{client: c, backend: b, done: make(chan struct{})}
+	f := &forwarded{client: c, backend: b, done: make(chan struct{}), closed: make(chan struct{})}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.forwarding[c] = f

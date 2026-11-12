@@ -46,7 +46,8 @@ const SessionCloseTimeout = 15 * time.Second
 
 // LaggingSettleTimeout bounds how long a replica whose delivery is cut takes to report a tx
 // final once another replica of the node has committed it. The replica learns it from the
-// state they share: on Fabric at its next poll of the vault, every second, and on Fabric-x
+// state they share: on Fabric at its next poll of the vault, every committer.pollingTimeout
+// (100 ms in nwo), and on Fabric-x
 // at its next failed attempt to reopen the notification stream. An attempt into a cut proxy
 // hangs in its handshake until gRPC's minimum connect timeout of 20 s, and a backoff of at
 // most 10 s separates the attempts.
@@ -522,6 +523,8 @@ func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection, proxies func()
 		// on Fabric-x, while its own delivery is still cut.
 		Order(s.II, tx)
 		gomega.Eventually(final, LaggingSettleTimeout).Should(gomega.Receive(gomega.BeNil()), "finality of [%s] on [%s]", tx.TxID, held.UniqueName)
+		// held answered while it was still cut, not after a stream got through.
+		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Reconnecting, pollTimeout)
 
 		delivery.Heal(held.UniqueName)
 		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Connected, time.Minute)

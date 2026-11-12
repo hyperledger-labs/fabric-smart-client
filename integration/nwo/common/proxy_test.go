@@ -10,6 +10,7 @@ import (
 	"io"
 	"maps"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -290,4 +291,66 @@ func TestProxy_CloseConnectionsWhilePartitioned(t *testing.T) {
 	_, err = late.Read(buf)
 	require.NoError(t, err)
 	require.Equal(t, "b", string(buf))
+}
+
+// CloseConnections on a partitioned proxy returns even when both directions of a connection
+// already read a chunk during the partition and hold it for Heal.
+func TestProxy_CloseConnectionsWhilePartitionedHoldsBothDirections(t *testing.T) {
+	t.Parallel()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = l.Close() })
+	send := make(chan struct{})
+	go func() {
+		b, err := l.Accept()
+		if err != nil {
+			return
+		}
+		defer func() { _ = b.Close() }()
+		<-send
+		_, _ = b.Write([]byte{'x'})
+		_, _ = io.Copy(io.Discard, b)
+	}()
+	p := newTestProxy(t, l.Addr().String())
+	c, err := net.Dial("tcp", p.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+	require.Eventually(t, func() bool { return len(p.Connections()) == 1 }, 5*time.Second, 10*time.Millisecond)
+
+	p.Partition()
+	t.Cleanup(p.Heal)
+	_, err = c.Write([]byte{'a'})
+	require.NoError(t, err)
+	close(send)
+	// No signal shows that a pipe holds its chunk; give both time to read one.
+	time.Sleep(200 * time.Millisecond)
+
+	closed := make(chan struct{})
+	go func() { p.CloseConnections(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "CloseConnections did not return while both directions held a chunk")
+	}
+	require.Empty(t, p.Connections())
+}
+
+// Concurrent CloseConnections calls on a partitioned proxy close each connection once and
+// all return.
+func TestProxy_CloseConnectionsConcurrently(t *testing.T) {
+	t.Parallel()
+	p := newTestProxy(t, echoBackend(t))
+	p.Partition()
+	t.Cleanup(p.Heal)
+	for range 100 {
+		c, err := net.Dial("tcp", p.Addr())
+		require.NoError(t, err)
+		require.Eventually(t, func() bool { return len(p.Connections()) == 1 }, 5*time.Second, time.Millisecond)
+		var wg sync.WaitGroup
+		wg.Go(p.CloseConnections)
+		wg.Go(p.CloseConnections)
+		wg.Wait()
+		require.Empty(t, p.Connections())
+		_ = c.Close()
+	}
 }
