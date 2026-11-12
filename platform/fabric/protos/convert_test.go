@@ -355,7 +355,6 @@ type flatJSON struct {
 
 func init() {
 	protos.RegisterTransactionFormat(testFlat, protos.TransactionFormat{
-		Component: testFlat,
 		ToPayload: func(raw []byte) ([]byte, *driver.ChannelKey, error) {
 			var tx flatJSON
 			if err := protos.DecodeStrict(raw, &tx); err != nil {
@@ -400,7 +399,6 @@ func TestRegisterTransactionFormatDuplicatePanics(t *testing.T) {
 
 	f, ok := protos.TransactionFormatOf("generic")
 	require.True(t, ok)
-	require.Equal(t, "fabric", f.Component)
 	require.False(t, f.SkipTxIDCheck)
 	_, ok = protos.TransactionFormatOf("unregistered")
 	require.False(t, ok)

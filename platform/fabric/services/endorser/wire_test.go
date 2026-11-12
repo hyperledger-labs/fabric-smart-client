@@ -43,7 +43,6 @@ const flatDriver = "test-flat"
 
 func init() {
 	protos.RegisterTransactionFormat(flatDriver, protos.TransactionFormat{
-		Component: "test-flat",
 		ToPayload: func(raw []byte) ([]byte, *driver.ChannelKey, error) { return raw, nil, nil },
 		ToJSON:    func(*protos.TransactionEnvelope) ([]byte, error) { return nil, errors.New("not implemented") },
 	})

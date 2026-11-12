@@ -143,6 +143,7 @@ func TestCollectEndorsementsView(t *testing.T) {
 // valid received transaction for channel ch1 of network net1.
 type endorseFixture struct {
 	ctx       *mock.Context
+	conf      *mock.ConfigService // the network's config; its driver is "generic"
 	tx        *mock.Transaction
 	ts        *mock.EndorserTransactionService
 	et        *Transaction
@@ -173,7 +174,8 @@ func newEndorseFixture(t *testing.T) *endorseFixture {
 	fakeCH.NameReturns("ch1")
 	fakeCH.ChannelMembershipReturns(&mock.ChannelMembership{})
 	fakeFNS.ChannelReturns(fakeCH, nil)
-	fakeFNS.ConfigServiceReturns(genericConfig())
+	fakeConf := genericConfig()
+	fakeFNS.ConfigServiceReturns(fakeConf)
 	fakeTM := &mock.TransactionManager{}
 	fakeTM.ComputeTxIDStub = func(id *driver.TxIDComponents) string { return protoutil.ComputeTxID(id.Nonce, id.Creator) }
 	fakeFNS.TransactionManagerReturns(fakeTM)
@@ -224,6 +226,7 @@ func newEndorseFixture(t *testing.T) *endorseFixture {
 	fns := fabric.NewNetworkService(nil, fakeFNS, "net1")
 	return &endorseFixture{
 		ctx:       fakeCtx,
+		conf:      fakeConf,
 		tx:        fakeTx,
 		ts:        fakeTS,
 		defaultTS: defaultTS,
@@ -726,7 +729,9 @@ func TestParallelCollectEndorsementsOnProposalView_ReportsAppendFailure(t *testi
 
 // newResponderFixture returns a view context and the transaction, on a Fabric network, that
 // an endorsementsOnProposalResponderView endorses.
-func newResponderFixture() (*mock.Context, *mock.Transaction, *Transaction) {
+// newResponderFixture returns a responder's context, driver transaction and transaction on a
+// network whose driver is named driverName.
+func newResponderFixture(driverName string) (*mock.Context, *mock.Transaction, *Transaction) {
 	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
 	fakeSP := &mock.Provider{}
@@ -736,7 +741,9 @@ func newResponderFixture() (*mock.Context, *mock.Transaction, *Transaction) {
 
 	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNS := &mock.FabricNetworkService{}
-	fakeFNS.ConfigServiceReturns(genericConfig())
+	fakeConf := genericConfig()
+	fakeConf.DriverNameReturns(driverName)
+	fakeFNS.ConfigServiceReturns(fakeConf)
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
@@ -774,7 +781,7 @@ func newResponderFixture() (*mock.Context, *mock.Transaction, *Transaction) {
 
 func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	t.Parallel()
-	fakeCtx, fakeTx, et := newResponderFixture()
+	fakeCtx, fakeTx, et := newResponderFixture("generic")
 
 	ev := NewEndorsementOnProposalResponderView(et)
 	fakeSession := &mock.Session{}
@@ -1142,7 +1149,6 @@ func genericConfig() *mock.ConfigService {
 func TestParallelCollectEndorsementsOnProposalView_SendsEnvelope(t *testing.T) {
 	t.Parallel()
 	f := newParallelEndorsementFixture(nil)
-	f.tx.BytesReturns(wireTxRaw, nil)
 	sessions := map[string]*mock.Session{"bob": {}, "carol": {}}
 	for _, s := range sessions {
 		ch := make(chan *view.Message, 1)
@@ -1168,7 +1174,6 @@ func TestParallelCollectEndorsementsOnProposalView_SendsEnvelope(t *testing.T) {
 func TestCollectEndorsementsView_SendsEnvelope(t *testing.T) {
 	t.Parallel()
 	f := newCollectFixture(t)
-	f.tx.BytesReturns(wireTxRaw, nil)
 	s := &mock.Session{}
 	s.ReceiveReturns(f.msgCh)
 	f.ctx.GetSessionReturns(s, nil)
@@ -1224,18 +1229,24 @@ func TestDecodeResponses(t *testing.T) {
 	}
 }
 
-// endorseView answers with an EndorsementResponse.
+// endorseView answers with an EndorsementResponse, and with a JSON array for a transaction
+// whose driver registers no transaction format.
 func TestEndorseView_ResponseEncoding(t *testing.T) {
 	t.Parallel()
-	f := newEndorseFixture(t)
-	s := &mock.Session{}
-	f.ctx.SessionReturns(s)
-
-	_, err := NewEndorseView(f.et).Call(f.ctx)
+	asJSON, err := json.Marshal([][]byte{[]byte("pr")})
 	require.NoError(t, err)
-	require.Equal(t, 1, s.SendCallCount())
-	_, sent := s.SendArgsForCall(0)
-	require.Equal(t, protoResponses(t, []byte("pr")), sent)
+	for driverName, want := range map[string][]byte{"generic": protoResponses(t, []byte("pr")), "other": asJSON} {
+		f := newEndorseFixture(t)
+		f.conf.DriverNameReturns(driverName)
+		s := &mock.Session{}
+		f.ctx.SessionReturns(s)
+
+		_, err := NewEndorseView(f.et).Call(f.ctx)
+		require.NoError(t, err, driverName)
+		require.Equal(t, 1, s.SendCallCount(), driverName)
+		_, sent := s.SendArgsForCall(0)
+		require.Equal(t, want, sent, driverName)
+	}
 }
 
 // The sequential view accepts an EndorsementResponse and today's JSON null.
@@ -1259,21 +1270,26 @@ func TestCollectEndorsementsView_DecodesResponses(t *testing.T) {
 	require.ErrorContains(t, err, "invalid endorsement, expected one signed by")
 }
 
-// The parallel responder answers with an EndorsementResponse.
+// The parallel responder answers with an EndorsementResponse, and with a JSON Response for a
+// transaction whose driver registers no transaction format.
 func TestEndorsementOnProposalResponderView_ResponseEncoding(t *testing.T) {
 	t.Parallel()
 	pr := &mock.ProposalResponse{}
 	pr.BytesReturns([]byte("pr1"), nil)
-	ctx, tx, et := newResponderFixture()
-	tx.ProposalResponsesReturns([]driver.ProposalResponse{pr}, nil)
-	s := &mock.Session{}
-	ctx.SessionReturns(s)
-
-	_, err := NewEndorsementOnProposalResponderView(et).Call(ctx)
+	asJSON, err := json.Marshal(&Response{ProposalResponses: [][]byte{[]byte("pr1")}})
 	require.NoError(t, err)
-	require.Equal(t, 1, s.SendCallCount())
-	_, sent := s.SendArgsForCall(0)
-	require.Equal(t, protoResponses(t, []byte("pr1")), sent)
+	for driverName, want := range map[string][]byte{"generic": protoResponses(t, []byte("pr1")), "other": asJSON} {
+		ctx, tx, et := newResponderFixture(driverName)
+		tx.ProposalResponsesReturns([]driver.ProposalResponse{pr}, nil)
+		s := &mock.Session{}
+		ctx.SessionReturns(s)
+
+		_, err := NewEndorsementOnProposalResponderView(et).Call(ctx)
+		require.NoError(t, err, driverName)
+		require.Equal(t, 1, s.SendCallCount(), driverName)
+		_, sent := s.SendArgsForCall(0)
+		require.Equal(t, want, sent, driverName)
+	}
 }
 
 // The parallel view accepts an EndorsementResponse.

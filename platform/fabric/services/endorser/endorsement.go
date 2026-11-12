@@ -293,7 +293,7 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.WithMessagef(err, "failed storing tx env [%s]", s.tx.ID())
 	}
 
-	// Send the proposal responses back, as protobuf if the transaction was an envelope.
+	// Send the proposal responses back, as protobuf if the driver registers a transaction format.
 	sess := viewCtx.Session()
 	var raw []byte
 	if sendsEnvelope(s.tx) {

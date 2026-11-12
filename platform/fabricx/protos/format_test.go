@@ -167,7 +167,6 @@ func TestFabricxFormat(t *testing.T) {
 	t.Parallel()
 	f, ok := fprotos.TransactionFormatOf(protos.Platform)
 	require.True(t, ok)
-	require.Equal(t, "fabricx", f.Component)
 	require.True(t, f.SkipTxIDCheck)
 }
 

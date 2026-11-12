@@ -19,7 +19,8 @@ import (
 
 // olderRelease is an FSC release older than version negotiation, which supports only version
 // 1 of every component, such as v0.27.0: a module version or the absolute path of a checkout.
-// The Makefile sets it.
+// The Makefile sets it. A release that negotiates, v0.28 or later, fails the specs: its nodes
+// state their versions and fail with other errors, or share version 2 with the current tree.
 var olderRelease = os.Getenv("FSC_OLDER_RELEASE")
 
 // refusalTimeout bounds how long a refused session may take to fail. It is well below the

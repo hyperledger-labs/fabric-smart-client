@@ -54,8 +54,7 @@ var deterministic = proto.MarshalOptions{Deterministic: true}
 
 // TransactionFormat converts one platform's JSON transaction to and from its envelope payload.
 type TransactionFormat struct {
-	Component     string // negotiation component, e.g. "fabric"
-	SkipTxIDCheck bool   // true if the platform's txID is not derived from nonce and creator; zero value applies the check
+	SkipTxIDCheck bool // true if the platform's txID is not derived from nonce and creator; zero value applies the check
 	// ToPayload returns the payload of raw and the key raw carries (nil if none).
 	ToPayload func(raw []byte) (payload []byte, key *driver.ChannelKey, err error)
 	// ToJSON returns the JSON of env's payload. It must check env.Channel against the channel
@@ -68,7 +67,7 @@ var (
 	formatsMu sync.RWMutex
 	// formats holds the transaction format of each platform by driver name.
 	formats = map[string]TransactionFormat{
-		fabricPlatform: {Component: "fabric", ToPayload: fabricToPayload, ToJSON: fabricToJSON},
+		fabricPlatform: {ToPayload: fabricToPayload, ToJSON: fabricToJSON},
 	}
 )
 

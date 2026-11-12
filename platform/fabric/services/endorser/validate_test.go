@@ -198,7 +198,6 @@ const skipTxIDDriver = "test-skip-txid"
 
 func init() {
 	protos.RegisterTransactionFormat(skipTxIDDriver, protos.TransactionFormat{
-		Component:     "test-skip-txid",
 		SkipTxIDCheck: true,
 		ToPayload:     func(raw []byte) ([]byte, *driver.ChannelKey, error) { return raw, nil, nil },
 		ToJSON:        func(*protos.TransactionEnvelope) ([]byte, error) { return nil, errors.New("not implemented") },

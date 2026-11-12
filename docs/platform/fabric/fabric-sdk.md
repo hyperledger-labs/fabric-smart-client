@@ -27,9 +27,11 @@ through the `fabric` component (Fabric networks) and the `fabricx` component
 (Fabric-x networks); FSC supports version 2 of both, so a session with a node of
 a release that supports only version 1 is refused (see
 [Format negotiation](../view/services/comm/readme.md#format-negotiation)). A
-node sends the version 2 forms on every session, also one that is not an FSC
-network session, such as an in-process one, and reads both. The messages are
-defined in `platform/fabric/protos/fabric.proto` (package `fsc.fabric.v1`) and
+node sends the version 2 forms on every session, and reads both: the senders do
+not ask the session for its version, so a session that is not an FSC network
+session, such as an in-process one, gets them too, although
+`view.SessionVersion` reports version 1 on it. The messages are defined in
+`platform/fabric/protos/fabric.proto` (package `fsc.fabric.v1`) and
 `platform/fabricx/protos/fabricx.proto` (package `fsc.fabricx.v1`); they only
 gain fields, and `make buf-breaking` checks this.
 
