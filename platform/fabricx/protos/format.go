@@ -27,7 +27,6 @@ const Platform = "fabricx"
 
 func init() {
 	fprotos.RegisterTransactionFormat(Platform, fprotos.TransactionFormat{
-		Component: "fabricx",
 		// The Fabric-x committer does not derive the txID from nonce and creator.
 		SkipTxIDCheck: true,
 		ToPayload:     toPayload,

@@ -81,7 +81,10 @@ release therefore keeps its views in a package of its own that changes only
 compatibly, and fails with a clear message when `fsc.ReleaseHasPackage` reports
 that the release predates the package. `integration/fabric/mixedversion` runs at
 `FSC_PREVIOUS_RELEASE`, which the `Makefile` sets to the latest release tag; set
-it to a checkout to run the suite against local changes.
+it to a checkout to run the suite against local changes. Its specs that the
+current tree refuses run at `FSC_OLDER_RELEASE`, which the `Makefile` sets to
+v0.27.0, the last release without version negotiation; they use the views of
+`integration/fsc/pingpong`, which exist at that release.
 
 ## Network topology options
 

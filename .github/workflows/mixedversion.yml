@@ -2,10 +2,12 @@ name: Mixed versions
 
 # Runs integration/fabric/mixedversion: nodes of the latest release tag other than
 # one at HEAD next to nodes built from HEAD (see FSC_PREVIOUS_RELEASE in the
-# Makefile). It builds a second set of node binaries, so it runs nightly, on
-# demand, and on pull requests that touch the suite, the release build, or what
-# two releases share: the SQL stores and their schema steps, the stream preamble
-# and the wire and stored messages. A failed nightly run, or a manual run with
+# Makefile), and nodes of the last release without version negotiation, which
+# HEAD refuses (FSC_OLDER_RELEASE). It builds more sets of node binaries, so it
+# runs nightly, on demand, and on pull requests that touch the suite, the release
+# build, or what two releases share: the SQL stores and their schema steps, the
+# stream preamble and version negotiation, and the wire and stored messages and
+# the views that send them. A failed nightly run, or a manual run with
 # report, opens or comments on the issue the report job keeps; the next
 # successful reported run closes it.
 on:
@@ -27,8 +29,12 @@ on:
       - 'platform/fabric/services/db/driver/sql/**'
       - 'platform/view/services/storage/driver/sql/**'
       - 'platform/view/services/comm/preamble/**'
+      - 'platform/view/services/comm/session.go'
+      - 'platform/view/services/view/p2p/**'
       - 'platform/fabric/protos/**'
       - 'platform/fabricx/protos/**'
+      - 'platform/fabric/services/endorser/**'
+      - 'platform/fabric/services/state/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}

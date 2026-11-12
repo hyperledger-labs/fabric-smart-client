@@ -143,7 +143,7 @@ func (n *NetworkStreamSession) negotiate(ctx context.Context) (map[string]uint32
 	for _, c := range preamble.Components() {
 		v, ok := preamble.Highest(c.Range, preamble.PeerRange(peer, c.Name))
 		if !ok {
-			v = 0 // states that the nodes support no common version
+			v = 0 // marks that the nodes support no common version
 			if n.refusal == nil {
 				n.refusal = noCommonVersion(c.Name, c.Range, peer)
 			}

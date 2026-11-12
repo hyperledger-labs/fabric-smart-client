@@ -142,7 +142,7 @@ release.
 
 - **Content**: the FSC version and VCS revision, the framing epoch, and per
   component the range of wire format versions the binary supports: FSC's `view`
-  at `{1, 1}` and `fabric` and `fabricx` at `{1, 2}`, and the components the
+  at `{1, 1}` and `fabric` and `fabricx` at `{2, 2}`, and the components the
   application registers (see [Format negotiation](#format-negotiation)).
 - **Framing epoch**: an integer (`preamble.FramingEpoch`, 1) raised only when
   the framing of `ViewPacket`s on a stream changes. A node refuses a peer whose
@@ -155,7 +155,8 @@ release.
   is refused.
 - **Older peers**: a peer of a release without preambles is accepted and has no
   preamble; WebSocket logs it once per peer. Such a peer supports version 1 of
-  every FSC component.
+  every FSC component, so a session with it fails on `fabric` and `fabricx` (see
+  [Format negotiation](#format-negotiation)).
 - **Where nodes find it**: the transport attaches the peer's preamble to the
   stream (`host.PreambleStream`), and a session negotiates from the preamble of
   the stream it sends on.
@@ -205,9 +206,9 @@ each other's sessions, whichever opens them.
   learns them from whichever message reaches it first. Messages of a session the
   node did not open carry none. A component the peer does not list, or every
   component of a peer without a preamble, counts as `{1, 1}`. A component
-  without overlap is stated as version 0, and the session sends nothing (see the
-  next item). Two nodes that open a session with an agreed ID
-  (`NewSessionWithID`) each negotiate and pick the same version.
+  without overlap gets version 0, and the session sends nothing (see the next
+  item). Two nodes that open a session with an agreed ID (`NewSessionWithID`)
+  each negotiate and pick the same version.
 - **Reading the version**: `view.SessionVersion(ctx, session, component)`, or
   `Version` on a session that implements `view.VersionedSession`, returns the
   version. On an initiator session the first call, or the first `Send`,
@@ -225,8 +226,8 @@ each other's sessions, whichever opens them.
   that does not decode with `no_common_version: invalid versions`, before any
   limit or authorizer applies. A component the first message does not state
   counts as version 1, as on a responder session: an initiator of a release
-  without negotiation states none, so a responder whose range of a component
-  excludes 1 rejects it, for example with
+  without negotiation states none, so a responder whose range excludes 1, such
+  as `fabric`'s `{2, 2}`, rejects it with
   `no_common_version: fabric 1 not in [2, 2]`. An initiator of a release with
   negotiation is rejected only if the responder's ranges changed since the
   initiator read them or the initiator misbehaves. A component the responder

@@ -8,7 +8,6 @@ package endorser
 
 import (
 	"encoding/json"
-	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -32,8 +31,9 @@ type EndorsementsOnProposalTransaction interface {
 	FabricNetworkService() *fabric.NetworkService
 }
 
-// Response is the JSON object endorsementsOnProposalResponderView answers with at version 1
-// of the component of the transaction; from version 2 it answers with an EndorsementResponse.
+// Response is the JSON object endorsementsOnProposalResponderView answers with for a
+// transaction whose driver registers no transaction format; for any other it answers with an
+// EndorsementResponse. Receivers read both.
 type Response struct {
 	ProposalResponses [][]byte
 }
@@ -86,9 +86,10 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 	if err != nil {
 		return nil, err
 	}
-	// The parties' sessions may be at different versions; the envelope is built once, for the
-	// first that needs it.
-	envelope := sync.OnceValues(func() ([]byte, error) { return protos.EnvelopeFromJSONFor(stateRaw, driverName(c.tx)) })
+	stateRaw, err = WireBytes(c.tx, stateRaw)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed encoding transaction")
+	}
 	answerChannel := make(chan *answer, len(c.parties))
 
 	timeout := c.timeout
@@ -98,7 +99,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 
 	logger.DebugfContext(viewCtx.Context(), "Collect endorsements from %d parties for TX [%s]", len(c.parties), c.tx.ID())
 	for _, party := range c.parties {
-		go c.collectEndorsement(viewCtx, party, stateRaw, envelope, timeout, answerChannel)
+		go c.collectEndorsement(viewCtx, party, stateRaw, timeout, answerChannel)
 	}
 
 	fns, err := fabric.GetFabricNetworkService(viewCtx, c.tx.Network())
@@ -178,7 +179,6 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	viewCtx view.Context,
 	party view.Identity,
 	raw []byte,
-	envelope func() ([]byte, error),
 	timeout time.Duration,
 	answerChan chan *answer,
 ) {
@@ -188,15 +188,6 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 		answerChan <- &answer{err: err, party: party}
 		return
 	}
-	asEnvelope, err := sendsEnvelope(viewCtx.Context(), s.Session(), c.tx)
-	if err == nil && asEnvelope {
-		raw, err = envelope()
-	}
-	if err != nil {
-		answerChan <- &answer{err: errors.WithMessage(err, "failed encoding transaction"), party: party}
-		return
-	}
-
 	// Wait to receive a Transaction back
 	logger.Debugf("Send transaction for TX [%s] signing to [%v]", c.tx.ID(), party)
 	err = s.SendRaw(viewCtx.Context(), raw)
@@ -249,14 +240,10 @@ func (s *endorsementsOnProposalResponderView) Call(viewCtx view.Context) (any, e
 	}
 	logger.Debugf("number of endorse proposal response produced [%d], send them back", len(prs))
 
-	// Send the proposal responses back, in the encoding the session negotiated.
+	// Send the proposal responses back, as protobuf if the driver registers a transaction format.
 	session := viewCtx.Session()
-	asProto, err := sendsEnvelope(viewCtx.Context(), session, s.tx)
-	if err != nil {
-		return nil, err
-	}
 	var raw []byte
-	if asProto {
+	if sendsEnvelope(s.tx) {
 		raw, err = proto.Marshal(&protos.EndorsementResponse{ProposalResponses: prs})
 	} else {
 		raw, err = json.Marshal(&Response{ProposalResponses: prs})

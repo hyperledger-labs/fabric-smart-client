@@ -80,16 +80,6 @@ func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID 
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-// SessionVersion returns the version of component that a session from party to peer negotiates.
-func SessionVersion(ii *integration.Infrastructure, party, peer, component string) int {
-	res, err := ii.Client(party).CallView("version", common.JSONMarshall(&views.Version{
-		Party:     ii.Identity(peer),
-		Component: component,
-	}))
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	return common.JSONUnmarshalInt(res)
-}
-
 func InitApprover(ii *integration.Infrastructure, approver string) {
 	_, err := ii.Client(approver).CallView("init", nil)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

@@ -313,9 +313,12 @@ INTEGRATION_TARGETS += fabricx-faultrecovery-committer-failover
 # the pull request matrix, leaves them out.
 NIGHTLY_INTEGRATION_TARGETS = fabric-mixedversion
 
-# fabric-mixedversion runs nodes of FSC_PREVIOUS_RELEASE: a module version, or the
-# absolute path of a checkout. It defaults to the latest release tag other than one
-# at HEAD itself. See docs/dev/integration-tests/authoring.md.
+# fabric-mixedversion runs nodes of FSC_PREVIOUS_RELEASE and of FSC_OLDER_RELEASE: a
+# module version, or the absolute path of a checkout. FSC_PREVIOUS_RELEASE defaults to the
+# latest release tag other than one at HEAD itself; FSC_OLDER_RELEASE to v0.27.0, the last
+# release without version negotiation, which the current tree refuses. See
+# docs/dev/integration-tests/authoring.md.
+integration-tests-fabric-mixedversion: export FSC_OLDER_RELEASE ?= v0.27.0
 integration-tests-fabric-mixedversion: export FSC_PREVIOUS_RELEASE ?= $(shell git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname --no-contains HEAD 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -n1)
 
 # Targets are normally named <platform>-<suite> and map onto

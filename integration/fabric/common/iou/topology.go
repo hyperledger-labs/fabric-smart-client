@@ -22,9 +22,6 @@ import (
 type Opts struct {
 	CommType        fsc.P2PCommunicationType
 	ReplicationOpts *integration.ReplicationOptions
-	// LegacyLender makes the lender support only version 1 of the fabric and fabricx formats
-	// (see LegacyFormatsSDK), while the other nodes support versions 1 and 2.
-	LegacyLender bool
 }
 
 func Topology(opts *Opts) []api.Topology {
@@ -75,11 +72,10 @@ func Topology(opts *Opts) []api.Topology {
 		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
-		RegisterViewFactory("version", &views.VersionViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add the lender's FSC node
-	lender := fscTopology.AddNodeByName("lender").
+	fscTopology.AddNodeByName("lender").
 		AddOptions(fabric.WithOrganization("Org3")).
 		AddOptions(opts.ReplicationOpts.For("lender")...).
 		RegisterResponder(&views.CreateIOUResponderView{}, &views.CreateIOUView{}).
@@ -94,9 +90,6 @@ func Topology(opts *Opts) []api.Topology {
 
 	// Add app-specific SDK to FSC Nodes
 	fscTopology.AddSDKWithExtensions(&SDK{}, &libp2psupport.SDK{})
-	if opts.LegacyLender {
-		lender.AddSDK(&LegacyFormatsSDK{})
-	}
 
 	return []api.Topology{
 		fabricTopology,

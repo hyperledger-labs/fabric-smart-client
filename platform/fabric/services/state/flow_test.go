@@ -703,7 +703,7 @@ func TestSendTransactionViewCallBranches(t *testing.T) {
 		_, err := NewSendTransactionView(tx, view.Identity("bob")).Call(ctx)
 		require.NoError(t, err)
 		require.Len(t, ms.sent, 1)
-		require.Equal(t, []byte("tx-bytes"), ms.sent[0])
+		require.Equal(t, testTxEnvelope(t), ms.sent[0])
 	})
 
 	t.Run("skip me", func(t *testing.T) {
@@ -775,7 +775,7 @@ func TestSendTransactionBackViewCallBranches(t *testing.T) {
 		_, err := NewSendTransactionBackView(tx).Call(ctx)
 		require.NoError(t, err)
 		require.Len(t, ms.sent, 1)
-		require.Equal(t, []byte("tx-bytes"), ms.sent[0])
+		require.Equal(t, testTxEnvelope(t), ms.sent[0])
 	})
 
 	t.Run("bytes error", func(t *testing.T) {
@@ -1085,37 +1085,10 @@ func TestRWSetProcessorProcessUnknownTransaction(t *testing.T) {
 
 var _ services.Provider = &mockServiceProvider{}
 
-// v2Session is a mockSession at version 2 of every component.
-type v2Session struct{ mockSession }
-
-func (*v2Session) Version(context.Context, string) (uint32, bool, error) { return 2, true, nil }
-
-// The send views send a party at version 2 the envelope of the transaction.
-func TestSendTransactionViewsSendEnvelopeAtV2(t *testing.T) {
-	t.Parallel()
-	// A Fabric transaction without a channel key.
-	raw := []byte(`{"Type":3,"Raw":"eyJUVHhJRCI6InR4MSIsIlRDaGFubmVsIjoiY2gxIn0="}`)
-	want, err := protos.EnvelopeFromJSON(raw)
+// testTxEnvelope is the envelope a sender sends for testTxRaw.
+func testTxEnvelope(t *testing.T) []byte {
+	t.Helper()
+	env, err := protos.EnvelopeFromJSONFor(testTxRaw, "generic")
 	require.NoError(t, err)
-
-	for name, send := range map[string]func(*Transaction, *v2Session) error{
-		"send": func(tx *Transaction, s *v2Session) error {
-			ctx := &mockViewContext{getSessionFn: func(view.View, view.Identity, ...view.View) (view.Session, error) { return s, nil }}
-			_, err := NewSendTransactionView(tx, view.Identity("bob")).Call(ctx)
-			return err
-		},
-		"send back": func(tx *Transaction, s *v2Session) error {
-			_, err := NewSendTransactionBackView(tx).Call(&mockViewContext{session: s})
-			return err
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			tx, _, dtx := newTestStateTransaction("assetns")
-			dtx.bytesRaw = raw
-			s := &v2Session{}
-			require.NoError(t, send(tx, s))
-			require.Equal(t, [][]byte{want}, s.sent)
-		})
-	}
+	return env
 }

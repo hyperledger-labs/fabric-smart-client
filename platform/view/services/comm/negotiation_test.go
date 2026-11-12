@@ -106,14 +106,17 @@ func peerWith(ranges ...*preamble.ComponentRange) *preamble.Preamble {
 	return &preamble.Preamble{FramingEpoch: preamble.FramingEpoch, Ranges: ranges}
 }
 
+// currentFabric are the fabric and fabricx ranges of a peer of this release.
+var currentFabric = []*preamble.ComponentRange{{Component: "fabric", Min: 2, Max: 2}, {Component: "fabricx", Min: 2, Max: 2}}
+
 // TestInitiatorNegotiates runs against the default components: view at {1, 1}, fabric and
-// fabricx at {1, 2}; the peer's range decides the version and whether one overlaps.
+// fabricx at {2, 2}; the peer's range decides the version and whether one overlaps.
 func TestInitiatorNegotiates(t *testing.T) {
 	t.Parallel()
 
 	t.Run("states the same versions and protocol on every message", func(t *testing.T) {
 		t.Parallel()
-		s, h := newInitiatorSession(t, peerWith(&preamble.ComponentRange{Component: "view", Min: 1, Max: 3}))
+		s, h := newInitiatorSession(t, peerWith(append([]*preamble.ComponentRange{{Component: "view", Min: 1, Max: 3}}, currentFabric...)...))
 		s.SetProtocol("pingpong/ping")
 		require.NoError(t, s.Send(t.Context(), []byte("one")))
 		require.NoError(t, s.Send(t.Context(), []byte("two")))
@@ -122,7 +125,7 @@ func TestInitiatorNegotiates(t *testing.T) {
 		require.Len(t, packets, 2)
 		for _, p := range packets {
 			require.Equal(t, "pingpong/ping", p.GetProtocol())
-			require.Equal(t, map[string]uint32{"view": 1, "fabric": 1, "fabricx": 1}, statedVersions(t, p))
+			require.Equal(t, map[string]uint32{"view": 1, "fabric": 2, "fabricx": 2}, statedVersions(t, p))
 		}
 		require.Equal(t, []byte("one"), packets[0].GetPayload(), "payload bytes are unchanged")
 	})
@@ -135,8 +138,10 @@ func TestInitiatorNegotiates(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, uint32(1), v, "a peer without a preamble speaks version 1")
 		require.Equal(t, 1, h.opened)
-		require.NoError(t, s.Send(t.Context(), []byte("x")))
+		err = s.Send(t.Context(), []byte("x"))
+		require.EqualError(t, err, "component [fabric]: local [2, 2], peer [1, 1]: no common version", "an older release gets nothing")
 		require.Equal(t, 1, h.opened, "Send reuses the stream negotiate opened")
+		require.Empty(t, h.packets(t))
 
 		s.Close()
 		_, _, err = s.Version(t.Context(), "fabric")
@@ -148,14 +153,14 @@ func TestInitiatorNegotiates(t *testing.T) {
 		s, h := newInitiatorSession(t, peerWith(&preamble.ComponentRange{Component: "fabric", Min: 3, Max: 4}))
 		_, _, err := s.Version(t.Context(), "fabric")
 		require.ErrorIs(t, err, view.ErrNoCommonVersion)
-		require.EqualError(t, err, "component [fabric]: local [1, 2], peer [3, 4]: no common version")
+		require.EqualError(t, err, "component [fabric]: local [2, 2], peer [3, 4]: no common version")
 		v, err := view.SessionVersion(t.Context(), s, "view")
 		require.NoError(t, err, "other components still negotiate")
 		require.Equal(t, uint32(1), v)
 
 		err = s.Send(t.Context(), []byte("x"))
 		require.ErrorIs(t, err, view.ErrNoCommonVersion, "a peer that does not check versions must not get the payload")
-		require.EqualError(t, err, "component [fabric]: local [1, 2], peer [3, 4]: no common version")
+		require.EqualError(t, err, "component [fabric]: local [2, 2], peer [3, 4]: no common version")
 		require.ErrorIs(t, s.SendError(t.Context(), []byte("x")), view.ErrNoCommonVersion)
 		require.Empty(t, h.packets(t), "nothing is written")
 	})
@@ -175,7 +180,7 @@ func TestInitiatorChoosesHighest(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, preamble.SetComponents(append(slices.Clone(preamble.FSCComponents), preamble.Component{Name: "iou", Range: preamble.Range{Min: 1, Max: 3}})))
 	t.Cleanup(func() { require.NoError(t, preamble.SetComponents(preamble.FSCComponents)) })
 
-	peer := peerWith(&preamble.ComponentRange{Component: "iou", Min: 2, Max: 5})
+	peer := peerWith(append([]*preamble.ComponentRange{{Component: "iou", Min: 2, Max: 5}}, currentFabric...)...)
 	s, h := newInitiatorSession(t, peer)
 	v, err := view.SessionVersion(t.Context(), s, "iou")
 	require.NoError(t, err)
@@ -230,9 +235,11 @@ func TestResponderVersions(t *testing.T) {
 	require.Equal(t, uint32(1), v)
 
 	s = newResponder("old-initiator", nil)
-	v, err = view.SessionVersion(t.Context(), s, "fabric")
+	v, err = view.SessionVersion(t.Context(), s, "view")
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), v, "an initiator that states nothing runs an older release, at version 1")
+	_, err = view.SessionVersion(t.Context(), s, "fabric")
+	require.EqualError(t, err, "component [fabric]: peer uses 1, local [2, 2]: no common version")
 
 	s = newResponder("outside", map[string]uint32{"view": 2})
 	_, err = view.SessionVersion(t.Context(), s, "view")

@@ -44,8 +44,8 @@ func TestFSCComponents(t *testing.T) {
 	t.Parallel()
 	require.Equal(t, []Component{
 		{Name: "view", Range: Range{1, 1}},
-		{Name: "fabric", Range: Range{1, 2}},
-		{Name: "fabricx", Range: Range{1, 2}},
+		{Name: "fabric", Range: Range{2, 2}},
+		{Name: "fabricx", Range: Range{2, 2}},
 	}, FSCComponents)
 }
 

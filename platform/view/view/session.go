@@ -108,7 +108,8 @@ type VersionedSession interface {
 }
 
 // ErrNoCommonVersion is wrapped by VersionedSession.Version when the two nodes support no common
-// version of a component.
+// version of a component, and by every send of an FSC network session this node opened with such
+// a component, which then writes nothing.
 var ErrNoCommonVersion = errors.New("no common version")
 
 // SessionVersion returns the version of the named component's formats that s uses; see
