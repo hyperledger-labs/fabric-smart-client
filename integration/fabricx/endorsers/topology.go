@@ -22,6 +22,7 @@ import (
 func Topology() []api.Topology {
 	fabricxTopology := nwofabricx.NewDefaultTopology()
 	fabricxTopology.AddOrganizationsByName("Org1", "Org2")
+	// On Fabric-x the approver only deploys the namespace, so it need not be in the policy.
 	fabricxTopology.SetNamespaceApproverOrgs("Org1")
 	fabricxTopology.AddNamespace(fviews.Namespace, endorsers.Policy)
 	return []api.Topology{fabricxTopology, endorsers.FSCTopology(&fabricxsdk.SDK{})}

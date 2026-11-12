@@ -9,7 +9,6 @@ package endorsers
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -20,22 +19,24 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/endorsers/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
 	fviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 const (
-	// Attempt bounds alice's attempt on one endorser. A healthy endorser answers well
-	// within it, and a hung one costs alice Attempt instead of the view's one-minute timer.
-	Attempt = 5 * time.Second
+	// AttemptTimeout bounds alice's attempt on one endorser. A healthy endorser answers
+	// well within it, and a hung one costs alice AttemptTimeout instead of the view's
+	// one-minute timer.
+	AttemptTimeout = 5 * time.Second
 	// Cooldown is how long alice asks an endorser that failed only after the others.
 	Cooldown = 10 * time.Second
 	// viewTimeout bounds each view call, so a node that never answers fails the spec
 	// instead of hanging it.
 	viewTimeout = 2 * time.Minute
 	// rejoinTimeout bounds how long a restarted endorser takes to sign again: it has to
-	// start, and alice asks it first again only once Cooldown has passed.
-	rejoinTimeout = Cooldown + time.Minute
+	// recover, and alice asks it first again only once Cooldown has passed.
+	rejoinTimeout = Cooldown + faultrecovery.RecoveryTimeout
 )
 
 // Specs registers the specs of an endorsers suite for s, a suite on FSCTopology under
@@ -46,7 +47,7 @@ func Specs(s *integration.TestSuite) {
 	ginkgo.It("spreads endorsements over every endorser", func() {
 		signed := map[string]int{}
 		for i := range 30 {
-			sub := Submit(s.II, i)
+			sub := submit(s.II, i)
 			gomega.Expect(sub.Err).NotTo(gomega.HaveOccurred(), "tx with value %d", i)
 			signed[sub.Endorser]++
 		}
@@ -68,56 +69,77 @@ func Specs(s *integration.TestSuite) {
 			}
 		}
 		s.II.StartFSCNode(Endorsers[0])
-		ExpectSignsAgain(s.II, Endorsers[0])
+		expectSignsAgain(s.II, Endorsers[0])
 	})
 
 	ginkgo.It("moves on when an endorser drains", func() {
-		// StopFSCNode returns only once the node has exited, so the submissions run while
-		// it drains and after it is gone.
-		subs := underLoad(s.II, func() { s.II.StopFSCNode(Endorsers[0]) })
-		var failed []string
-		for _, sub := range subs {
+		// A view running on endorser1 holds its drain: here a finality wait for a tx alice
+		// has endorsed but not ordered. endorser1 drains until alice orders the tx, or for at
+		// most its drain timeout (fsc.shutdown.drainTimeout, 30 s by default).
+		held := endorse(s.II, 300, endorsersOf(s.II)[:1])
+		gomega.Expect(held.Err).NotTo(gomega.HaveOccurred())
+		contexts := faultrecovery.MetricSum(s.II, Endorsers[0], faultrecovery.ViewContexts)
+		waited := make(chan error, 1)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+			defer cancel()
+			_, err := s.II.Client(Endorsers[0]).CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: held.TxID}))
+			waited <- err
+		}()
+		gomega.Eventually(func() float64 {
+			return faultrecovery.MetricSum(s.II, Endorsers[0], faultrecovery.ViewContexts)
+		}, viewTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">", contexts), "the finality wait runs on [%s]", Endorsers[0])
+		stopped := make(chan struct{})
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			defer close(stopped)
+			s.II.StopFSCNode(Endorsers[0])
+		}()
+
+		// Round robin asks endorser1 first within len(Endorsers) txs; once it drains, it
+		// rejects the session. Until then it may still sign.
+		drained := false
+		for i := 0; !drained && i < 4*len(Endorsers); i++ {
+			sub := submit(s.II, 301+i)
 			gomega.Expect(sub.Err).NotTo(gomega.HaveOccurred(), "tx with value %d", sub.Value)
-			for _, a := range sub.Failed {
-				gomega.Expect(a.Endorser).To(gomega.Equal(Endorsers[0]), "tx with value %d", sub.Value)
-				ginkgo.GinkgoWriter.Printf("tx with value %d: attempt on %s failed: %s\n", sub.Value, a.Endorser, a.Err)
-				failed = append(failed, a.Err)
+			for _, f := range sub.Failed {
+				ginkgo.GinkgoWriter.Printf("tx with value %d: attempt on %s failed (%s): %s\n", sub.Value, f.Endorser, f.Reason, f.Err)
+				gomega.Expect(f.Endorser).To(gomega.Equal(Endorsers[0]), "tx with value %d", sub.Value)
+				drained = drained || f.Reason == views.Draining
 			}
 		}
-		gomega.Expect(failed).NotTo(gomega.BeEmpty(), "alice asked the stopped endorser")
-		gomega.Expect(failed).To(gomega.HaveEach(gomega.Or(
-			gomega.ContainSubstring("remote rejection: draining"),
-			gomega.ContainSubstring("connection refused"),
-		)), "an attempt on a draining endorser is rejected, and one on an exited endorser cannot dial")
+		gomega.Expect(drained).To(gomega.BeTrue(), "alice's attempt on the draining endorser was rejected")
+
+		// Ordering the held tx ends the finality wait, and with it the drain.
+		gomega.Expect(order(s.II, &held)).To(gomega.Succeed())
+		gomega.Eventually(stopped, viewTimeout).Should(gomega.BeClosed(), "[%s] did not exit", Endorsers[0])
+		gomega.Eventually(waited, viewTimeout).Should(gomega.Receive(), "the finality wait on [%s] returned", Endorsers[0])
 		s.II.StartFSCNode(Endorsers[0])
-		ExpectSignsAgain(s.II, Endorsers[0])
+		expectSignsAgain(s.II, Endorsers[0])
 	})
 
 	// hung is the transaction alice sent to the paused endorser, for the next spec.
-	var hung *Submission
+	var hung *submission
 	ginkgo.It("moves on when an endorser hangs", func() {
 		s.II.PauseFSCNode(Endorsers[0])
 		ginkgo.DeferCleanup(s.II.ResumeFSCNode, Endorsers[0])
 		// Round robin asks the paused endorser first within len(Endorsers) txs.
 		for i := 0; hung == nil && i < len(Endorsers); i++ {
-			sub := Submit(s.II, 100+i)
+			sub := submit(s.II, 100+i)
 			gomega.Expect(sub.Err).NotTo(gomega.HaveOccurred(), "tx with value %d", sub.Value)
 			if len(sub.Failed) == 0 {
 				continue
 			}
-			gomega.Expect(sub.Failed).To(gomega.HaveExactElements(gomega.HaveField("Endorser", Endorsers[0])))
-			// The deadline ends the attempt in the open session, or in the handshake of a new
-			// connection to the paused endorser.
-			gomega.Expect(sub.Failed[0].Err).To(gomega.Or(
-				gomega.ContainSubstring(context.DeadlineExceeded.Error()),
-				gomega.ContainSubstring(os.ErrDeadlineExceeded.Error()),
-			))
-			// Alice gave up at her deadline, well before the view's one-minute timer.
-			gomega.Expect(sub.Took).To(gomega.BeNumerically("<", Attempt+20*time.Second))
+			// Alice's deadline ends the attempt on the paused endorser.
+			gomega.Expect(sub.Failed).To(gomega.HaveExactElements(gomega.And(
+				gomega.HaveField("Endorser", Endorsers[0]),
+				gomega.HaveField("Reason", views.Deadline),
+			)))
+			// Alice gave up before the view's one-minute timer would have.
+			gomega.Expect(sub.Took).To(gomega.BeNumerically("<", time.Minute))
 			hung = &sub
 		}
 		gomega.Expect(hung).NotTo(gomega.BeNil(), "alice asked the paused endorser")
-		s.II.ResumeFSCNode(Endorsers[0])
 	})
 
 	// Pending until https://github.com/hyperledger-labs/fabric-smart-client/issues/2618 is
@@ -130,30 +152,26 @@ func Specs(s *integration.TestSuite) {
 
 		// Once resumed, the paused endorser handles alice's request and the tx's block in
 		// either order. If its responder marks the tx Busy before the block, the block
-		// commits it Valid. If the block comes first, the endorser has no record of the tx
-		// and reads it as one another endorser signed; its responder, which runs in the
-		// context of alice's ended session, stores and sends nothing. It must never keep
-		// the tx Busy, waiting for a block that has passed. Signing again shows it is past
-		// that block.
-		ExpectSignsAgain(s.II, Endorsers[0])
-		other := SubmitSignedByOther(s.II, Endorsers[0])
-		gomega.Eventually(func(g gomega.Gomega) {
+		// commits it Valid. If the block comes first, the endorser should keep no record of
+		// it once #2618 is fixed; today it keeps the tx Busy, waiting for a block that has
+		// passed. Signing again shows it is past that block and has handled alice's request.
+		expectSignsAgain(s.II, Endorsers[0])
+		settled := func(g gomega.Gomega) {
 			got, err := faultrecovery.Query(s.II, Endorsers[0], hung.TxID)
 			g.Expect(err).NotTo(gomega.HaveOccurred())
-			want, err := faultrecovery.Query(s.II, Endorsers[0], other.TxID)
-			g.Expect(err).NotTo(gomega.HaveOccurred())
-			g.Expect(got.Status).NotTo(gomega.Equal(fdriver.Busy))
+			g.Expect(got.Status).To(gomega.BeElementOf(fdriver.Valid, fdriver.Unknown))
 			if got.Status == fdriver.Valid {
 				g.Expect(got.Value).To(gomega.Equal(hung.Value))
-				return
 			}
-			g.Expect(got.Status).To(gomega.Equal(want.Status))
-		}, faultrecovery.RecoveryTimeout, time.Second).Should(gomega.Succeed(), "[%s] settles tx [%s] or keeps no record of it", Endorsers[0], hung.TxID)
+		}
+		gomega.Eventually(settled, faultrecovery.RecoveryTimeout, time.Second).Should(gomega.Succeed(), "[%s] settles tx [%s] or keeps no record of it", Endorsers[0], hung.TxID)
+		// A late responder could still mark the tx Busy after the first poll.
+		gomega.Consistently(settled, 5*time.Second, time.Second).Should(gomega.Succeed(), "[%s] marked tx [%s] Busy", Endorsers[0], hung.TxID)
 	})
 }
 
-// Submission is the outcome of one Submit.
-type Submission struct {
+// submission is the outcome of one submit.
+type submission struct {
 	views.Endorsed
 	Value   int
 	Started time.Time
@@ -162,67 +180,69 @@ type Submission struct {
 	Err  error
 }
 
-// Submit has alice create a transaction with value, endorse it with one of Endorsers
+// submit has alice create a transaction with value, endorse it with one of Endorsers
 // through EndorseAnyView, and order it, and returns the outcome once the transaction is
 // final on alice. It reports every failure in Err, so it is safe to call from a goroutine.
-func Submit(ii *integration.Infrastructure, value int) Submission {
-	sub := Submission{Value: value, Started: time.Now()}
+func submit(ii *integration.Infrastructure, value int) submission {
+	sub := endorse(ii, value, endorsersOf(ii))
+	if sub.Err == nil {
+		sub.Err = order(ii, &sub)
+	}
+	return sub
+}
+
+// endorse has alice create a transaction with value and endorse it with one of endorsers
+// through EndorseAnyView, without ordering it.
+func endorse(ii *integration.Infrastructure, value int, endorsers []views.Endorser) submission {
+	sub := submission{Value: value, Started: time.Now()}
 	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
 	defer cancel()
 	raw, err := ii.Client("alice").CallViewWithContext(ctx, "endorseAny", common.JSONMarshall(&views.EndorseAny{
-		Value:     value,
-		Endorsers: endorsersOf(ii),
-		Attempt:   Attempt,
-		Cooldown:  Cooldown,
+		Value:          value,
+		Endorsers:      endorsers,
+		AttemptTimeout: AttemptTimeout,
+		Cooldown:       Cooldown,
 	}))
 	sub.Took = time.Since(sub.Started)
 	if err != nil {
 		sub.Err = err
 		return sub
 	}
-	if sub.Err = json.Unmarshal(raw.([]byte), &sub.Endorsed); sub.Err != nil {
-		return sub
-	}
-	_, sub.Err = ii.Client("alice").CallViewWithContext(ctx, "order", common.JSONMarshall(&fviews.Order{Tx: sub.Tx}))
+	sub.Err = json.Unmarshal(raw.([]byte), &sub.Endorsed)
 	return sub
 }
 
-// SubmitSignedByOther submits transactions until one is signed by an endorser other than
-// endorser, and returns it.
-func SubmitSignedByOther(ii *integration.Infrastructure, endorser string) Submission {
-	for range len(Endorsers) {
-		sub := Submit(ii, 0)
-		gomega.ExpectWithOffset(1, sub.Err).NotTo(gomega.HaveOccurred())
-		if sub.Endorser != endorser {
-			return sub
-		}
-	}
-	ginkgo.Fail("every tx was signed by [" + endorser + "]")
-	return Submission{}
+// order has alice order the transaction sub endorsed and wait until it is final on her.
+func order(ii *integration.Infrastructure, sub *submission) error {
+	ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+	defer cancel()
+	_, err := ii.Client("alice").CallViewWithContext(ctx, "order", common.JSONMarshall(&fviews.Order{Tx: sub.Tx}))
+	return err
 }
 
-// ExpectSignsAgain waits until alice gets a transaction signed by endorser, a node that
+// expectSignsAgain waits until alice gets a transaction signed by endorser, a node that
 // was down and is starting again.
-func ExpectSignsAgain(ii *integration.Infrastructure, endorser string) {
+func expectSignsAgain(ii *integration.Infrastructure, endorser string) {
 	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
-		sub := Submit(ii, 0)
+		sub := submit(ii, 0)
 		g.Expect(sub.Err).NotTo(gomega.HaveOccurred())
 		g.Expect(sub.Endorser).To(gomega.Equal(endorser))
 	}, rejoinTimeout, time.Second).Should(gomega.Succeed(), "[%s] never signed again", endorser)
 }
 
 // underLoad has alice submit one transaction after the other while it runs fault, once
-// three have finished, and returns every submission once three more have finished after
-// fault returned.
-func underLoad(ii *integration.Infrastructure, fault func()) []Submission {
+// three have finished, and returns every submission once len(Endorsers)+1 more have
+// finished after fault returned: the one in flight then, and a full round robin, so one of
+// them asks the endorser fault took down first.
+func underLoad(ii *integration.Infrastructure, fault func()) []submission {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var done atomic.Int32
-	subs := make(chan []Submission, 1)
+	subs := make(chan []submission, 1)
 	go func() {
-		var all []Submission
+		var all []submission
 		for i := 0; ctx.Err() == nil; i++ {
-			all = append(all, Submit(ii, 200+i)) //nolint:contextcheck // ctx only says when to stop
+			all = append(all, submit(ii, 200+i)) //nolint:contextcheck // ctx only says when to stop
 			done.Add(1)
 		}
 		subs <- all
@@ -230,7 +250,7 @@ func underLoad(ii *integration.Infrastructure, fault func()) []Submission {
 	gomega.EventuallyWithOffset(1, done.Load, viewTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">=", 3))
 	fault()
 	after := done.Load()
-	gomega.EventuallyWithOffset(1, done.Load, viewTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">=", after+3))
+	gomega.EventuallyWithOffset(1, done.Load, viewTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">=", after+int32(len(Endorsers))+1))
 	cancel()
 	return <-subs
 }

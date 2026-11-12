@@ -14,6 +14,8 @@ package views
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"net"
 	"os"
 	"sync"
 	"syscall"
@@ -40,16 +42,29 @@ type EndorseAny struct {
 	Value int
 	// Endorsers are the endorser nodes to pick from, in round-robin order.
 	Endorsers []Endorser
-	// Attempt bounds each attempt on one endorser, so a hung endorser costs the
-	// initiator Attempt rather than the view's one-minute timer.
-	Attempt time.Duration
+	// AttemptTimeout bounds each attempt on one endorser, so a hung endorser costs
+	// the initiator AttemptTimeout rather than the view's one-minute timer. It must be
+	// positive: with zero, every attempt fails at once.
+	AttemptTimeout time.Duration
 	// Cooldown is how long an endorser that failed is asked only after the others.
 	Cooldown time.Duration
 }
 
-// Attempt is an endorser EndorseAnyView asked without getting its endorsement.
-type Attempt struct {
+// Reasons an endorser is unavailable, as Failure.Reason reports them.
+const (
+	Draining      = "draining"
+	Busy          = "busy"
+	SessionClosed = "session closed"
+	Deadline      = "deadline"
+	Refused       = "refused"
+	ConnLost      = "connection lost"
+)
+
+// Failure is an endorser EndorseAnyView asked without getting its endorsement.
+type Failure struct {
 	Endorser string
+	// Reason is why the endorser was unavailable, one of the reasons above.
+	Reason string
 	// Err is the error the attempt ended with.
 	Err string
 }
@@ -63,7 +78,7 @@ type Endorsed struct {
 	Endorser string
 	// Failed are the endorsers asked before Endorser, in order. Each received the
 	// transaction, or was meant to.
-	Failed []Attempt
+	Failed []Failure
 }
 
 // EndorseAnyView creates an Asset and collects one endorsement for it. It asks the
@@ -71,9 +86,9 @@ type Endorsed struct {
 // those that failed within Cooldown for last. When an endorser is unavailable, it passes
 // the same transaction to the next one: an endorsement that failed before it verified
 // added nothing to it. An endorser is unavailable when it rejects the session because it
-// is draining or busy, the session closes, it does not answer within Attempt, or it cannot
-// be dialed: the connection is refused, or the handshake of a new connection outlasts
-// Attempt. Any other error fails the view.
+// is draining or busy, the session closes, it does not answer within AttemptTimeout, the
+// connection is refused, or the connection to it breaks. Any other error, and the end of
+// the view's own context, fail the view.
 type EndorseAnyView struct {
 	EndorseAny
 	selector *selector
@@ -103,6 +118,11 @@ func (v *EndorseAnyView) Call(viewCtx view.Context) (any, error) {
 	res := &Endorsed{TxID: tx.ID()}
 	for _, e := range v.selector.order(v.Endorsers, v.Cooldown) {
 		err := v.collect(viewCtx, tx, e.Identity)
+		// Once the view's own context has ended, the attempt says nothing about the
+		// endorser, and every further one would fail at once.
+		if err != nil && viewCtx.Context().Err() != nil {
+			return nil, errors.WithMessagef(err, "stopped asking endorsers for tx [%s]", tx.ID())
+		}
 		v.selector.report(e.Name, err)
 		if err == nil {
 			if res.Tx, err = tx.Bytes(); err != nil {
@@ -111,33 +131,51 @@ func (v *EndorseAnyView) Call(viewCtx view.Context) (any, error) {
 			res.Endorser = e.Name
 			return res, nil
 		}
-		if !unavailable(err) {
+		r := reason(err)
+		if r == "" {
 			return nil, errors.WithMessagef(err, "endorser [%s] failed tx [%s]", e.Name, tx.ID())
 		}
-		res.Failed = append(res.Failed, Attempt{Endorser: e.Name, Err: err.Error()})
+		res.Failed = append(res.Failed, Failure{Endorser: e.Name, Reason: r, Err: err.Error()})
 	}
 	return nil, errors.Errorf("no endorser endorsed tx [%s]: %v", tx.ID(), res.Failed)
 }
 
-// collect asks the endorser id for its endorsement of tx, for at most v.Attempt.
+// collect asks the endorser id for its endorsement of tx, for at most v.AttemptTimeout.
 func (v *EndorseAnyView) collect(viewCtx view.Context, tx *state.Transaction, id view.Identity) error {
-	ctx, cancel := context.WithTimeout(viewCtx.Context(), v.Attempt)
+	ctx, cancel := context.WithTimeout(viewCtx.Context(), v.AttemptTimeout)
 	defer cancel()
 	_, err := viewCtx.RunView(state.NewCollectEndorsementsView(tx, id), view.WithGoContext(ctx))
 	return err
 }
 
-// unavailable reports whether err, from collecting an endorsement, says that the endorser
-// could not endorse at the moment, so another one may.
-func unavailable(err error) bool {
-	// A deadline shows as context.DeadlineExceeded once a session is open, and as a
-	// socket timeout, os.ErrDeadlineExceeded, while a new connection is still dialing.
-	for _, target := range []error{session.ErrDraining, session.ErrBusy, comm.ErrSessionClosed, context.DeadlineExceeded, os.ErrDeadlineExceeded, syscall.ECONNREFUSED} {
-		if errors.Is(err, target) {
-			return true
+// reason returns why err, from collecting an endorsement, says that the endorser could not
+// endorse at the moment, so another one may, or "" when it does not say so.
+func reason(err error) string {
+	for _, c := range []struct {
+		target error
+		reason string
+	}{
+		{session.ErrDraining, Draining},
+		{session.ErrBusy, Busy},
+		{comm.ErrSessionClosed, SessionClosed},
+		// A deadline shows as context.DeadlineExceeded, or as os.ErrDeadlineExceeded
+		// when it passes during the websocket handshake of a new connection.
+		{context.DeadlineExceeded, Deadline},
+		{os.ErrDeadlineExceeded, Deadline},
+		{syscall.ECONNREFUSED, Refused},
+		// A connection that was open when the endorser died breaks on the next write
+		// or read.
+		{syscall.ECONNRESET, ConnLost},
+		{syscall.EPIPE, ConnLost},
+		{io.EOF, ConnLost},
+		{io.ErrUnexpectedEOF, ConnLost},
+		{net.ErrClosed, ConnLost},
+	} {
+		if errors.Is(err, c.target) {
+			return c.reason
 		}
 	}
-	return false
+	return ""
 }
 
 // selector keeps, across the calls of a node's EndorseAnyView, the round-robin position

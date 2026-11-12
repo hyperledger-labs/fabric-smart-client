@@ -8,6 +8,7 @@ package views
 
 import (
 	"context"
+	"io"
 	"net"
 	"os"
 	"syscall"
@@ -19,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func names(es []Endorser) []string {
@@ -60,27 +62,32 @@ func TestSelector(t *testing.T) {
 	})
 }
 
-func TestUnavailable(t *testing.T) {
+func TestReason(t *testing.T) {
 	t.Parallel()
 	dial := func(err error) error {
-		return errors.Wrap(&net.OpError{Op: "read", Net: "tcp", Err: err}, "failed to open websocket")
+		return errors.Wrap(&net.OpError{Op: "dial", Net: "tcp", Err: err}, "failed to open websocket")
 	}
-	for name, err := range map[string]error{
-		"draining":          errors.Wrap(session.ErrDraining, "rejected"),
-		"busy":              errors.Wrap(session.ErrBusy, "rejected"),
-		"session closed":    errors.Wrap(comm.ErrSessionClosed, "collecting"),
-		"deadline":          errors.Wrap(context.DeadlineExceeded, "collecting"),
-		"handshake timeout": dial(os.ErrDeadlineExceeded),
-		"refused":           dial(syscall.ECONNREFUSED),
-	} {
-		require.True(t, unavailable(err), name)
+	reply := func(payload string) error {
+		return session.RejectionError(&view.Message{Status: view.ERROR, Payload: []byte(payload)})
 	}
-	for name, err := range map[string]error{
-		"unknown view":  errors.Wrap(session.ErrUnknownView, "rejected"),
-		"unauthorized":  errors.Wrap(session.ErrUnauthorized, "rejected"),
-		"bad response":  errors.New("failed unmarshalling received proposal response"),
-		"canceled view": errors.Wrap(context.Canceled, "collecting"),
+	for err, want := range map[error]string{
+		// A node's rejection, as the collect view returns it: the text is the reply.
+		reply("draining: node is draining"):                         Draining,
+		reply("busy: too many concurrent responders for this peer"): Busy,
+		errors.Wrap(comm.ErrSessionClosed, "collecting"):            SessionClosed,
+		errors.Wrap(context.DeadlineExceeded, "collecting"):         Deadline,
+		dial(os.ErrDeadlineExceeded):                                Deadline,
+		dial(syscall.ECONNREFUSED):                                  Refused,
+		errors.Wrap(&net.OpError{Op: "write", Net: "tcp", Err: syscall.EPIPE}, "failed to send meta message"):  ConnLost,
+		errors.Wrap(&net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}, "failed to open websocket"): ConnLost,
+		errors.Wrap(io.EOF, "failed to open websocket"):                                                        ConnLost,
+		errors.Wrap(io.ErrUnexpectedEOF, "failed to open websocket"):                                           ConnLost,
+		errors.Wrap(net.ErrClosed, "failed to send meta message"):                                              ConnLost,
+		reply("unknown_view: no responder"):                                                                    "",
+		errors.Wrap(session.ErrUnauthorized, "rejected"):                                                       "",
+		errors.New("failed unmarshalling received proposal response"):                                          "",
+		errors.Wrap(context.Canceled, "collecting"):                                                            "",
 	} {
-		require.False(t, unavailable(err), name)
+		require.Equal(t, want, reason(err), err.Error())
 	}
 }
