@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -77,6 +78,19 @@ func waitFinalOnWithOffset(offset int, ii *integration.Infrastructure, node stri
 			return err
 		}, viewTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not final on [%s]", txID, node)
 	}
+}
+
+// StartFinality starts node's finality view for txID, bounded by viewTimeout, and returns
+// the channel its result arrives on. node is a node name or a replica ID.
+func StartFinality(ii *integration.Infrastructure, node, txID string) <-chan error {
+	final := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), viewTimeout)
+		defer cancel()
+		_, err := ii.Client(node).CallViewWithContext(ctx, "finality", common.JSONMarshall(&cviews.Finality{TxID: txID}))
+		final <- err
+	}()
+	return final
 }
 
 // ExpectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
@@ -344,6 +358,31 @@ func callEcho(ctx context.Context, c api.ViewClient, in *views.Echo) error {
 	defer cancel()
 	_, err := c.CallViewWithContext(ctx, "echo", common.JSONMarshall(in))
 	return err
+}
+
+// ExpectConnectionInUse waits until conn of node, a node name or a replica ID, holds want on
+// one endpoint and has given up every other endpoint it used, and returns that endpoint. A
+// connection reports each endpoint it has used as a series of its own, such as each peer a
+// node's delivery has used, so the endpoint in use is the one series that is not
+// disconnected.
+func ExpectConnectionInUse(ii *integration.Infrastructure, node string, conn fsc.Connection, want connstate.State, timeout time.Duration) string {
+	var endpoint string
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
+		families, err := ii.WebClient(node).Metrics()
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		live := map[string]connstate.State{}
+		for c, st := range fsc.ParseConnectionState(families, conn) {
+			if st != connstate.Disconnected {
+				live[c.Endpoint] = st
+			}
+		}
+		g.Expect(live).To(gomega.HaveLen(1))
+		for e, st := range live {
+			g.Expect(st).To(gomega.Equal(want))
+			endpoint = e
+		}
+	}, timeout, 500*time.Millisecond).Should(gomega.Succeed(), "%+v of [%s] never held state %d on one endpoint", conn, node, want)
+	return endpoint
 }
 
 // ConnectedReplica returns the replica of node that holds the one connection open through

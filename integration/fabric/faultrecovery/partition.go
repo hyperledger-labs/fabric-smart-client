@@ -102,6 +102,31 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	return p
 }
 
+// SetReplicaDeliveryProxies starts, for each replica of bob, a proxy in front of each peer of
+// Org2, and points the replica's core.yaml at its own proxies. Every link of the replica to a
+// peer goes through them, its delivery and its queries alike, so cutting them
+// (ReplicaProxies.Cut) cuts that replica alone off its peers.
+// It returns the proxies by replica unique name. Call it after the network is generated
+// and before it starts; the proxies forward until Close.
+func SetReplicaDeliveryProxies(ii *integration.Infrastructure) faultrecovery.ReplicaProxies {
+	n := fabric.Network(ii.NWOCtx, "default").Network
+	proxies := faultrecovery.ReplicaProxies{}
+	for _, r := range ii.FscPlatform.Peers {
+		if r.Name != "bob" {
+			continue
+		}
+		var oldnew []string
+		for _, name := range Org2Peers {
+			addr := n.PeerAddress(n.PeerByName(name), network.ListenPort)
+			proxy := faultrecovery.StartProxy(addr)
+			proxies[r.UniqueName] = append(proxies[r.UniqueName], proxy)
+			oldnew = append(oldnew, addr, proxy.Addr())
+		}
+		faultrecovery.RewriteReplicaCore(ii, r, nil, oldnew...)
+	}
+	return proxies
+}
+
 // setP2PKeepalive sets fsc.p2p.opts.websocket.keepalive in core to P2PKeepaliveInterval
 // and P2PKeepaliveTimeout.
 func setP2PKeepalive(core map[string]any) {

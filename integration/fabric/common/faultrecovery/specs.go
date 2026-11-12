@@ -44,6 +44,15 @@ const startupOutage = 10 * time.Second
 // the error to reach the client.
 const SessionCloseTimeout = 15 * time.Second
 
+// LaggingSettleTimeout bounds how long a replica whose delivery is cut takes to report a tx
+// final once another replica of the node has committed it. The replica learns it from the
+// state they share: on Fabric at its next poll of the vault, every committer.pollingTimeout
+// (100 ms in nwo), and on Fabric-x
+// at its next failed attempt to reopen the notification stream. An attempt into a cut proxy
+// hangs in its handshake until gRPC's minimum connect timeout of 20 s, and a backoff of at
+// most 10 s separates the attempts.
+const LaggingSettleTimeout = 45 * time.Second
+
 const (
 	// ViewContexts is the gauge of the view contexts a node holds, a responder's included.
 	ViewContexts = "fsc_view_services_view_contexts"
@@ -427,10 +436,14 @@ func ViewSpecs(s *integration.TestSuite) {
 }
 
 // FailoverSpecs registers the specs that kill the replica of bob holding alice's connection
-// through bob's load balancer, for a suite s on ReplicatedFSCTopology. conn is the
-// connection a restarted replica of bob must report Connected again before the next spec
-// runs. Each spec leaves every replica running, so the specs can run under ShareNetwork.
-func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection) {
+// through bob's load balancer, or cut its delivery, for a suite s on ReplicatedFSCTopology.
+// conn is the connection a replica receives commits on, block delivery on Fabric and the
+// notification stream on Fabric-x, which a restarted or healed replica must report Connected
+// again before the next spec runs. proxies returns the proxies in front of conn of each
+// replica of bob; a suite starts them again when it rebuilds its network, so a spec reads them
+// when it runs. Each spec leaves every replica running, so the specs can run under
+// ShareNetwork.
+func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection, proxies func() ReplicaProxies) {
 	ginkgo.It("serves new sessions after the replica holding them dies", func() {
 		// The first tx opens alice's connection, which ConnectedReplica looks for.
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
@@ -481,6 +494,43 @@ func FailoverSpecs(s *integration.TestSuite, conn fsc.Connection) {
 		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
 		now, _ := ConnectedReplica(s.II, "bob")
 		ginkgo.GinkgoWriter.Printf("alice's connection moved from [%s] to [%s]\n", held.UniqueName, now.UniqueName)
+	})
+
+	ginkgo.It("settles txs endorsed by a replica whose delivery lags behind", func() {
+		// The first tx opens alice's connection, which ConnectedReplica looks for.
+		gomega.Expect(SubmitAndWaitFinal(s.II, 1)).To(gomega.HaveLen(1))
+		held, others := ConnectedReplica(s.II, "bob")
+		gomega.Expect(others).To(gomega.HaveLen(1))
+
+		delivery := proxies()
+		ginkgo.DeferCleanup(delivery.Heal, held.UniqueName)
+		delivery.Cut(held.UniqueName)
+		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Reconnecting, pollTimeout)
+
+		// held endorses the tx. Its responder stops waiting for the tx once alice's session
+		// ends, so a finality view of held's own waits for it instead, started before the tx
+		// is ordered: neither a status held read while endorsing nor one resolved when the
+		// view starts answers it.
+		tx := Endorse(s.II, 1)
+		viewContexts := func() float64 { return MetricSum(s.II, held.ID(), ViewContexts) }
+		gomega.Eventually(viewContexts, SessionCloseTimeout, 100*time.Millisecond).Should(gomega.BeZero())
+		final := StartFinality(s.II, held.ID(), tx.TxID)
+		// The view context shows the finality view runs; it waits for the tx right after.
+		gomega.Eventually(viewContexts, pollTimeout, 100*time.Millisecond).Should(gomega.Equal(1.0))
+
+		// Only the other replica's delivery sees the block. held learns the tx is final from
+		// the state the replicas share, the vault on Fabric and the committer's query service
+		// on Fabric-x, while its own delivery is still cut.
+		Order(s.II, tx)
+		gomega.Eventually(final, LaggingSettleTimeout).Should(gomega.Receive(gomega.BeNil()), "finality of [%s] on [%s]", tx.TxID, held.UniqueName)
+		// held answered while it was still cut, not after a stream got through.
+		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Reconnecting, pollTimeout)
+
+		delivery.Heal(held.UniqueName)
+		ExpectConnectionInUse(s.II, held.ID(), conn, connstate.Connected, time.Minute)
+		for _, r := range []string{held.ID(), others[0].ID()} {
+			ExpectSettled(s.II, r, tx.TxID, 1)
+		}
 	})
 
 	ginkgo.It("fails an in-flight view cleanly when its replica dies", func() {

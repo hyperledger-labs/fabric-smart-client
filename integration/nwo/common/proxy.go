@@ -70,12 +70,21 @@ func (p *Proxy) Close() error {
 
 // CloseConnections closes both sides of every connection the proxy forwards, as a load
 // balancer does when it drops its connections on an idle timeout or a restart, and keeps
-// accepting new ones. Each side reads the end of the stream at once. It returns once none of
-// the closed connections is forwarded any more, so Connections no longer counts them.
-// Connections accepted meanwhile are forwarded as usual.
+// accepting new ones. Each side reads the end of the stream at once, also while the proxy is
+// partitioned. It returns once none of the closed connections is forwarded any more, so
+// Connections no longer counts them. Connections accepted meanwhile are forwarded as usual,
+// and held while the proxy is partitioned. Concurrent calls are safe.
 func (p *Proxy) CloseConnections() {
 	p.mu.Lock()
 	closing := slices.Collect(maps.Values(p.forwarding))
+	for _, f := range closing {
+		// A concurrent call may have closed it already.
+		select {
+		case <-f.closed:
+		default:
+			close(f.closed)
+		}
+	}
 	p.mu.Unlock()
 	for _, f := range closing {
 		_ = f.client.Close()
@@ -87,10 +96,12 @@ func (p *Proxy) CloseConnections() {
 }
 
 // forwarded is a connection the proxy forwards to a backend; done is closed once it is no
-// longer forwarded.
+// longer forwarded. closed is closed once CloseConnections closes it, so its pipes end
+// without waiting for a Heal, also those already holding a chunk.
 type forwarded struct {
 	client, backend net.Conn
 	done            chan struct{}
+	closed          chan struct{}
 }
 
 // Partition stops forwarding bytes in both directions until Heal, without closing any
@@ -99,7 +110,8 @@ type forwarded struct {
 // those of connections accepted during it, are held, not dropped, so after Heal every
 // connection resumes where it stopped; a chunk already read when Partition is called may
 // still be delivered. A connection that one side closes during the partition is closed on
-// the other side only after Heal. Partition on a partitioned proxy does nothing.
+// the other side only after Heal; one that CloseConnections closes ends at once. Partition
+// on a partitioned proxy does nothing.
 func (p *Proxy) Partition() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -129,15 +141,21 @@ func (p *Proxy) SetLatency(d time.Duration) {
 	p.latency = d
 }
 
-// waitHealed blocks while the proxy is partitioned, then waits out the latency.
-func (p *Proxy) waitHealed() {
+// waitHealed blocks while the proxy is partitioned, then waits out the latency. It returns
+// false without waiting further once closed is closed.
+func (p *Proxy) waitHealed(closed <-chan struct{}) bool {
 	p.mu.Lock()
 	healed, latency := p.healed, p.latency
 	p.mu.Unlock()
 	if healed != nil {
-		<-healed
+		select {
+		case <-healed:
+		case <-closed:
+			return false
+		}
 	}
 	time.Sleep(latency)
+	return true
 }
 
 func (p *Proxy) serve() {
@@ -171,21 +189,24 @@ func (p *Proxy) forward(c net.Conn) {
 
 		// The first direction to end closes both connections, which ends the other.
 		done := make(chan struct{}, 2)
-		go func() { p.pipe(b, c); done <- struct{}{} }()
-		go func() { p.pipe(c, b); done <- struct{}{} }()
+		go func() { p.pipe(b, c, f); done <- struct{}{} }()
+		go func() { p.pipe(c, b, f); done <- struct{}{} }()
 		<-done
 		return
 	}
 	logger.Warnf("proxy [%s] found no backend accepting a connection", p.Addr())
 }
 
-// pipe copies src to dst until src ends or dst fails. It holds each chunk, and the end of
-// src, while the proxy is partitioned, and delays each by the latency.
-func (p *Proxy) pipe(dst io.Writer, src io.Reader) {
+// pipe copies src to dst, the two sides of f, until src ends or dst fails. It holds each
+// chunk, and the end of src, while the proxy is partitioned, and delays each by the latency;
+// once CloseConnections closes f, it returns without either.
+func (p *Proxy) pipe(dst io.Writer, src io.Reader, f *forwarded) {
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := src.Read(buf)
-		p.waitHealed()
+		if !p.waitHealed(f.closed) {
+			return
+		}
 		if n > 0 {
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				return
@@ -199,7 +220,7 @@ func (p *Proxy) pipe(dst io.Writer, src io.Reader) {
 
 // track records that c is forwarded to b at backend.
 func (p *Proxy) track(c, b net.Conn, backend string) *forwarded {
-	f := &forwarded{client: c, backend: b, done: make(chan struct{})}
+	f := &forwarded{client: c, backend: b, done: make(chan struct{}), closed: make(chan struct{})}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.forwarding[c] = f

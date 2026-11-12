@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	fabricnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
+	fxnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )
 
 // KeepaliveTime and KeepaliveTimeout are the gRPC client keepalive SetFaultProxies gives
@@ -49,19 +50,14 @@ func (p *FaultProxies) Close() {
 // starts; the proxies forward until Close.
 func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 	n := nwofabricx.FxPlatform(ii).Network
-	// Bob is in Org2 and uses Org2's committer.
-	committer := n.Peer("Org2", Org2Committer)
-	gomega.Expect(committer).NotTo(gomega.BeNil(), "no committer peer for bob")
-	notification := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committer, fabricnetwork.ListenPort))
-
+	notification := bobNotificationAddress(n)
 	p := &FaultProxies{
 		Notification: faultrecovery.StartProxy(notification),
 	}
 	// The notification and query services may list the same address, so the notification
 	// service is rewritten through its own key rather than by address.
 	faultrecovery.RewriteCore(ii, "bob", func(core map[string]any) {
-		fabric, ok := core["fabric"].(map[string]any)[n.Topology().Name()].(map[string]any)
-		gomega.Expect(ok).To(gomega.BeTrue(), "core.yaml of bob has no fabric.%s", n.Topology().Name())
+		fabric := fabricOf(n, core)
 		setEndpoint(fabric, "notificationService", notification, p.Notification.Addr())
 		fabric["notificationService"].(map[string]any)["keepalive"] = map[string]any{
 			"time":    KeepaliveTime.String(),
@@ -69,6 +65,44 @@ func SetFaultProxies(ii *integration.Infrastructure) *FaultProxies {
 		}
 	})
 	return p
+}
+
+// SetReplicaNotificationProxies starts, for each replica of bob, a proxy in front of the
+// committer's notification service and points the replica's core.yaml at its own proxy, so
+// that cutting it (ReplicaProxies.Cut) cuts the notification stream of that replica alone.
+// The query service stays direct. It returns the proxies by replica unique name. Call it
+// after the network is generated and before it starts; the proxies forward until Close.
+func SetReplicaNotificationProxies(ii *integration.Infrastructure) faultrecovery.ReplicaProxies {
+	n := nwofabricx.FxPlatform(ii).Network
+	notification := bobNotificationAddress(n)
+	proxies := faultrecovery.ReplicaProxies{}
+	for _, r := range ii.FscPlatform.Peers {
+		if r.Name != "bob" {
+			continue
+		}
+		proxy := faultrecovery.StartProxy(notification)
+		proxies[r.UniqueName] = []*common.Proxy{proxy}
+		faultrecovery.RewriteReplicaCore(ii, r, func(core map[string]any) {
+			setEndpoint(fabricOf(n, core), "notificationService", notification, proxy.Addr())
+		})
+	}
+	return proxies
+}
+
+// bobNotificationAddress returns the address of the notification service of Org2's
+// committer, which bob, in Org2, uses.
+func bobNotificationAddress(n *fxnetwork.Network) string {
+	committer := n.Peer("Org2", Org2Committer)
+	gomega.ExpectWithOffset(1, committer).NotTo(gomega.BeNil(), "no committer peer for bob")
+	return fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committer, fabricnetwork.ListenPort))
+}
+
+// fabricOf returns the section of network n in core, a core.yaml of bob, which holds his
+// notification and query services.
+func fabricOf(n *fxnetwork.Network, core map[string]any) map[string]any {
+	fabric, ok := core["fabric"].(map[string]any)[n.Topology().Name()].(map[string]any)
+	gomega.ExpectWithOffset(1, ok).To(gomega.BeTrue(), "core.yaml of bob has no fabric.%s", n.Topology().Name())
+	return fabric
 }
 
 // setEndpoint replaces the address of the one endpoint of service, which must be old,
