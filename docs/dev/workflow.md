@@ -379,4 +379,4 @@ checks.
 - [Hiero SDK Python — GitHub Workflows](https://github.com/hiero-ledger/hiero-sdk-python/tree/main/.github/workflows)
 - [Hiero SDK C++ — GitHub Workflows](https://github.com/hiero-ledger/hiero-sdk-cpp/tree/main/.github/workflows)
 - [LFDT Maintainer Days — Contribution Workflow Presentation](https://www.youtube.com/watch?v=I87WCpiXOOs)
-- [Original proposal issue — fabric-x#130](https://github.com/hyperledger/fabric-x/issues/130)
+- [Original proposal issue — chaguar#130](https://github.com/Chaguar/chaguar/issues/130)

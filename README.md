@@ -10,7 +10,7 @@
 
 The Fabric Smart Client (FSC) is a Go framework for building client applications
 on Hyperledger [Fabric](https://github.com/hyperledger/fabric) and
-[Fabric-x](https://github.com/hyperledger/fabric-x). You write a business
+[Chaguar](https://github.com/Chaguar/chaguar). You write a business
 process as a set of _views_, one for each party, that exchange messages over
 sessions. FSC handles identities, endorsement, ordering, commit notifications
 and the peer-to-peer channels between the parties.
@@ -20,7 +20,7 @@ and the peer-to-peer channels between the parties.
 - A view and session programming model for multi-party protocols.
 - Direct peer-to-peer communication between FSC nodes.
 - Transaction assembly, endorsement collection and finality tracking for Fabric
-  and Fabric-x.
+  and Chaguar.
 - One node can connect to several networks, each configured in `core.yaml`.
 
 ## Getting started
@@ -35,7 +35,7 @@ To write your first FSC application:
    responder views.
 3. Add the ledger you target: the
    [Fabric platform](docs/platform/fabric/README.md) or the
-   [Fabric-x platform](docs/platform/fabric-x/README.md).
+   [Chaguar platform](docs/platform/fabric-x/README.md).
 4. Configure your node with [`core.yaml`](docs/configuration.md).
 
 The [documentation index](docs/README.md) lists every guide, and the
@@ -46,8 +46,8 @@ documents the packages.
 
 - [Panurus](https://github.com/LFDT-Panurus/panurus): a token layer built on
   FSC.
-- [Fabric-x Committer](https://github.com/hyperledger/fabric-x-committer): the
-  validation and commit service that FSC's Fabric-x platform submits
+- [Chaguar Committer](https://github.com/Chaguar/committer): the
+  validation and commit service that FSC's Chaguar platform submits
   transactions to.
 
 ## Contributing

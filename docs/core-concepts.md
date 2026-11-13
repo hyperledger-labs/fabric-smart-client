@@ -2,9 +2,9 @@
 
 The **Fabric Smart Client** (FSC) is a client-side framework for Hyperledger
 [Fabric](https://github.com/hyperledger/fabric) and
-[Fabric-x](https://github.com/hyperledger/fabric-x). An FSC application is
+[Chaguar](https://github.com/Chaguar/chaguar). An FSC application is
 written as the **business processes** it runs; FSC handles the interaction with
-Fabric and Fabric-x.
+Fabric and Chaguar.
 
 A business process is a collection of related and structured activities carried
 by business parties in which a specific sequence of steps serves a particular
@@ -12,7 +12,7 @@ business goal. In other words, a business process is an interactive protocol
 among business parties each of which has its own business view (or simply view)
 of the process. A **view** is then the sequence of steps that a business party
 must execute to serve a particular business goal. FSC provides the building
-blocks for such interactive protocols on top of Fabric and Fabric-x.
+blocks for such interactive protocols on top of Fabric and Chaguar.
 
 ## Fabric roles and transaction flow
 
@@ -182,7 +182,7 @@ comes with the following SDKs:
     submitted for ordering.
 - The [`Fabric-x platform`](platform/fabric-x/README.md) builds on top of the
   Fabric platform and offers the same API and services to allow FSC nodes to
-  communicate with Fabric-x. It replaces only the Fabric-x specific components,
+  communicate with Chaguar. It replaces only the Chaguar specific components,
   such as transaction processing and finality.
 
 Developers can read [how SDKs are handled](platform/sdk.md).

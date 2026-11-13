@@ -13,5 +13,5 @@ a change adds, wires or replaces a service:
   backend in the group just to read its name.
 - Never add a field with security meaning to an existing view-API message; add a
   new command type ([Conventions → Security](../dev/conventions.md#security)).
-- Align with the Fabric-x committer only on the wire protocol, not on its Go
+- Align with the Chaguar committer only on the wire protocol, not on its Go
   style.

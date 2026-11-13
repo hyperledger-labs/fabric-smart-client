@@ -1,7 +1,7 @@
 # AGENTS.md
 
 **Fabric Smart Client (FSC)** is a client-side framework for Hyperledger Fabric
-and Fabric-x that models distributed business processes as interactive protocols
+and Chaguar that models distributed business processes as interactive protocols
 of composable _views_, so developers write business logic instead of low-level
 blockchain plumbing.
 
@@ -131,6 +131,6 @@ it before writing any documentation. The rules that matter most:
 
 - **Panurus** (token layer built _on_ FSC, formerly Token SDK):
   <https://github.com/LFDT-Panurus/panurus>
-- **Fabric-x Committer** (what the `fabricx` platform submits to):
-  <https://github.com/hyperledger/fabric-x-committer>
+- **Chaguar Committer** (what the `fabricx` platform submits to):
+  <https://github.com/Chaguar/committer>
 - Community: LFDT Discord `#fabric-smart-client`

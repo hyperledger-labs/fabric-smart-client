@@ -9,7 +9,7 @@ them.
 ## Several networks on one node
 
 A node can be connected to several networks, of the same platform or of Fabric
-and Fabric-x, even when their channels have the same name. Network names under
+and Chaguar, even when their channels have the same name. Network names under
 `fabric` are local to each node, and another node may call the same network
 something else. A transaction sent to another node carries a channel key
 instead: the platform (the network's `driver`), the channel name and the header

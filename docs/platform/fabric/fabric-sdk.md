@@ -24,7 +24,7 @@ The endorser views (`platform/fabric/services/endorser`) and the state views
 (`platform/fabric/services/state`) exchange transactions, endorsement responses
 and finality requests with other nodes. Their formats are versioned per session
 through the `fabric` component (Fabric networks) and the `fabricx` component
-(Fabric-x networks); FSC supports version 2 of both, so a session with a node of
+(Chaguar networks); FSC supports version 2 of both, so a session with a node of
 a release that supports only version 1 is refused (see
 [Format negotiation](../view/services/comm/readme.md#format-negotiation)). A
 node sends the version 2 forms on every session, and reads both: the senders do
@@ -101,7 +101,7 @@ initiator's view returns, and the initiator ignores a late reply on it. A
 responder that runs after that has no session left to answer on. On Fabric,
 such an endorser may keep the transaction `Busy`
 ([#2618](https://github.com/hyperledger-labs/fabric-smart-client/issues/2618)).
-On Fabric-x, every node reads statuses and state from the committer.
+On Chaguar, every node reads statuses and state from the committer.
 
 The views in
 [`integration/fabric/common/endorsers/views`](../../../integration/fabric/common/endorsers/views/views.go)
@@ -114,7 +114,7 @@ A `TransactionEnvelope` carries what the receiver needs to pick the local
 network and channel before it decodes the transaction:
 
 - `platform`: the driver name of the sender's network, `generic` for Fabric and
-  `fabricx` for Fabric-x. It selects the format of `payload`.
+  `fabricx` for Chaguar. It selects the format of `payload`.
 - `channel_genesis_hash` and `channel`: the channel key. The receiver routes the
   transaction to the local network that has a channel with this name and genesis
   hash, as it does for the key in a JSON transaction. Without a genesis hash it
@@ -122,7 +122,7 @@ network and channel before it decodes the transaction:
 - `network_hint`: the sender's name for its network, for logs only.
 - `payload`: the transaction in the platform's format, a
   `fsc.fabric.v1.Transaction` for Fabric and a `fsc.fabricx.v1.Transaction` for
-  Fabric-x. Signed proposals and proposal responses are carried as marshaled
+  Chaguar. Signed proposals and proposal responses are carried as marshaled
   messages. The bytes their signatures cover, and the signatures, are kept byte
   for byte: the `proposal_bytes` and `signature` of the signed proposal, and the
   `payload` and `endorsement` of each proposal response. The outer messages are
@@ -131,9 +131,9 @@ network and channel before it decodes the transaction:
 
 Each platform owns its payload format: `platform/fabric/protos` holds the Fabric
 format and a registry (`RegisterTransactionFormat`), and
-`platform/fabricx/protos` registers the Fabric-x format in an `init` function. A
+`platform/fabricx/protos` registers the Chaguar format in an `init` function. A
 format also tells the endorser whether to check that the txID is derived from
-nonce and creator (`SkipTxIDCheck`, set for Fabric-x; see
+nonce and creator (`SkipTxIDCheck`, set for Chaguar; see
 [Fabric security](security.md#data-received-from-peers)). A receiver refuses an
 envelope whose platform has no registered format, whose `channel` differs from
 the channel header of the signed proposal, or whose platform differs from the

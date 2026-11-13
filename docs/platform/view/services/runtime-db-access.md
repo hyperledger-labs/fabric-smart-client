@@ -12,9 +12,9 @@ node is running. It covers two different use cases:
 The following principles apply throughout the runtime:
 
 - FSC runtime data access is **service-oriented**. Application code is expected
-  to use View, Fabric, or Fabric-x APIs instead of raw SQL connections.
+  to use View, Fabric, or Chaguar APIs instead of raw SQL connections.
 - Not all runtime state is guaranteed to live in a local SQL database. This is
-  especially relevant for Fabric-x, where state reads are backed by a query
+  especially relevant for Chaguar, where state reads are backed by a query
   service.
 
 Related documentation:
@@ -24,7 +24,7 @@ Related documentation:
 - [View platform configuration](../configuration.md)
 - [Shared node configuration](../../../configuration.md)
 - [Fabric platform](../../fabric/README.md)
-- [Fabric-x platform](../../fabric-x/README.md)
+- [Chaguar platform](../../fabric-x/README.md)
 
 ## Runtime access paths
 
@@ -35,7 +35,7 @@ The following table summarizes the most common runtime access paths:
 | Writing a view that depends on persisted data   | `view.Context.GetService(...)`                                                 | Access an application service that is backed by persistence       |
 | Reading Fabric state from a view                | `state.GetVault(viewCtx)`                                                      | Read application state from a view                                |
 | Working with lower-level Fabric vault functions | `fabric.GetDefaultChannel(viewCtx)`, then `ch.Vault()` on the returned channel | Perform lower-level vault, query, or RWSet work                   |
-| Reading Fabric-x state                          | `queryservice.GetQueryService(...)` or the channel API                         | Read state through the platform abstraction rather than local SQL |
+| Reading Chaguar state                           | `queryservice.GetQueryService(...)` or the channel API                         | Read state through the platform abstraction rather than local SQL |
 | Inspecting a live node database                 | `sqlite3` or `psql` in read-only mode                                          | Inspect persisted rows for debugging or troubleshooting           |
 
 ## Runtime access layers
@@ -72,7 +72,7 @@ This reflects the runtime model:
 
 - the runtime already defines store interfaces and higher-level services
 - some stores keep in-process caches
-- Fabric and Fabric-x add their own abstractions on top of the underlying
+- Fabric and Chaguar add their own abstractions on top of the underlying
   database
 - not all runtime state is guaranteed to be local SQL state
 
@@ -170,14 +170,14 @@ exposes:
 - envelope storage
 - transient data storage
 
-### Fabric-x platform
+### Chaguar platform
 
-Fabric-x behaves differently from Fabric. In practice:
+Chaguar behaves differently from Fabric. In practice:
 
 - **Fabric:** runtime state reads are backed by the local vault store
-- **Fabric-x:** runtime state reads are backed by a remote query service
+- **Chaguar:** runtime state reads are backed by a remote query service
 
-This means that Fabric-x application code should treat runtime state access as a
+This means that Chaguar application code should treat runtime state access as a
 platform API. It should not assume that application state reads come from local
 SQL tables.
 
@@ -185,15 +185,15 @@ In particular:
 
 - common entry points are `queryservice.GetQueryService(...)` and the
   channel/vault API
-- the Fabric-x vault uses a `QueryService` for state reads
-- range queries are not supported by the Fabric-x vault query executor
+- the Chaguar vault uses a `QueryService` for state reads
+- range queries are not supported by the Chaguar vault query executor
 - envelope, metadata, and endorse-tx data are kept in local persistence, but
-  Fabric-x state queries do not read from local SQL vault tables
+  Chaguar state queries do not read from local SQL vault tables
 
 Operationally:
 
 - Fabric usually exposes runtime state through a local vault-backed service
-- Fabric-x should be treated as a query-backed platform API, even if the node
+- Chaguar should be treated as a query-backed platform API, even if the node
   also persists some local data
 
 ## Inspecting a live node database
@@ -312,14 +312,14 @@ as `BYTEA`; inspect it with `encode(pkey, 'escape')`.
 > - modifying rows manually while the node is running
 > - deleting rows from the KVS or vault tables
 > - assuming that external DB writes will invalidate FSC caches
-> - assuming that Fabric-x runtime state is always available in a local SQL
+> - assuming that Chaguar runtime state is always available in a local SQL
 >   database
 
 This matters because:
 
 - the View KVS keeps an in-process cache
 - the Fabric vault caches transaction status information
-- Fabric-x keeps some runtime information in memory and reads state through the
+- Chaguar keeps some runtime information in memory and reads state through the
   query service
 
 For SQLite specifically, external live writes are also more likely to cause lock

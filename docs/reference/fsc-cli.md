@@ -112,7 +112,7 @@ topologies:
 **Supported Topology Types:**
 
 - `fabric` - Hyperledger Fabric network topology
-- `fabricx` - Hyperledger Fabric-x network topology
+- `fabricx` - LFDT Chaguar network topology
 - `fsc` - Fabric Smart Client network topology
 
 **Output:**

@@ -5,7 +5,7 @@ development environment for the **Fabric Smart Client (FSC)**.
 
 For general development best practices, see the following guidelines:
 
-- [Fabric-x Committer Development Guidelines](https://github.com/hyperledger/fabric-x-committer/blob/main/guidelines.md)
+- [Chaguar Committer Development Guidelines](https://github.com/Chaguar/committer/blob/main/guidelines.md)
 - [Panurus Development Guidelines](https://github.com/LFDT-Panurus/panurus/blob/main/docs/development/development.md)
 
 ## Prerequisites
@@ -48,7 +48,7 @@ them using:
 make install-tools install-linter-tool pull-images-monitoring pull-images-database
 ```
 
-Platform-specific tools are also required for **Fabric** and **Fabric-x**.
+Platform-specific tools are also required for **Fabric** and **Chaguar**.
 
 ### Fabric
 
@@ -99,15 +99,15 @@ the exception: `make` retags them to fixed local names
 `hyperledger/fabric-ccenv:latest`), because Podman resolves short image names
 differently from Docker and the peer configuration names the Fabric images.
 
-### Fabric-x
+### Chaguar
 
-Install Fabric-x configuration tools and Docker images:
+Install Chaguar configuration tools and Docker images:
 
 ```bash
 make install-fabricx-tools pull-images-fabricx
 ```
 
-Fabric-x ships a `configtxgen` and a `cryptogen` of its own, so the tools are
+Chaguar ships a `configtxgen` and a `cryptogen` of its own, so the tools are
 installed into a `fabric-x` subdirectory of `FAB_BINS` rather than next to
 fabric's binaries of the same name. Both toolchains can be installed at the same
 time, and neither install target disturbs the other.
@@ -358,13 +358,13 @@ that `FAB_BINS` points to the directory created by `make install-fabric-bins`:
 ```bash
 echo $FAB_BINS
 ls $FAB_BINS            # fabric binaries
-ls $FAB_BINS/fabric-x   # fabric-x tools
+ls $FAB_BINS/fabric-x   # Chaguar tools
 ```
 
 ### Fabric suites failing in `configtxgen`
 
 Every `fabric-*` suite fails while generating artifacts when the `configtxgen`
-and `cryptogen` in `$FAB_BINS` are the fabric-x ones rather than fabric's. This
+and `cryptogen` in `$FAB_BINS` are the Chaguar ones rather than fabric's. This
 happens when an older checkout's `make install-fabricx-tools` installed them
 directly into `$FAB_BINS` instead of `$FAB_BINS/fabric-x`.
 `make install-fabric-bins` will not repair it, because it skips the download
@@ -455,7 +455,7 @@ updating, run `make tidy` and `make checks` to verify the result.
 [`dependabot.yml`](../../.github/dependabot.yml) excludes
 `github.com/hyperledger/fabric*`, `github.com/IBM/idemix`, and
 `github.com/IBM/mathlib` from the weekly version-update PRs. These track the
-Fabric/Fabric-x network binaries and the crypto stack, and bumping them often
+Fabric/Chaguar network binaries and the crypto stack, and bumping them often
 needs matching non-dependency changes across modules, so they're updated by hand
 with `gomate.sh update` on a regular cadence instead of arriving as unreviewed
 weekly noise.

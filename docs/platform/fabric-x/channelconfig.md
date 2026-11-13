@@ -1,16 +1,16 @@
 # Channel configuration updates
 
-A Fabric-x channel's configuration changes over time, for example when an
+A Chaguar channel's configuration changes over time, for example when an
 organization joins or the orderer endpoints change. An FSC node picks these
 changes up with a channel configuration monitor
 (`platform/fabricx/core/channel/config`): it polls the committer's query service
 for the latest configuration transaction and, when it finds a newer one, updates
-the channel's membership service and ordering service. This applies to Fabric-x
+the channel's membership service and ordering service. This applies to Chaguar
 networks only.
 
 ## Lifecycle
 
-The Fabric-x channel provider starts one monitor per channel when it opens the
+The Chaguar channel provider starts one monitor per channel when it opens the
 channel and stops it when the channel is closed. No caller action is needed.
 Every monitor of a network shares the network's `configMonitor` settings.
 
