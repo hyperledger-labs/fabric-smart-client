@@ -22,10 +22,13 @@ import (
 )
 
 // apiPasses are the builds whose Go API a patch keeps: the default build, and the build with
-// tag pkcs11, which has other files in some packages.
-var apiPasses = []struct{ name, goflags string }{
+// tag pkcs11, which has other files in some packages. Each pass sets its build tags after the
+// caller's GOFLAGS, so the caller's other flags apply and its tags do not. The passes build for
+// the host OS: no FSC file is OS- or arch-specific, and building for another OS turns cgo off,
+// without which the pkcs11 build of integration does not load.
+var apiPasses = []struct{ name, tags string }{
 	{"default", ""},
-	{"pkcs11", "-tags=pkcs11"},
+	{"pkcs11", "pkcs11"},
 }
 
 // generatedRe matches the first line of a generated Go file, as `go generate` defines it.
@@ -70,7 +73,7 @@ func apiDiff(dir string, base semver, head string) error {
 		var changes []string
 		passes := map[string][]string{}
 		for _, p := range apiPasses {
-			env := append(os.Environ(), "GOFLAGS="+p.goflags)
+			env := append(os.Environ(), "GOFLAGS="+strings.TrimSpace(os.Getenv("GOFLAGS")+" -tags="+p.tags))
 			files := [2]string{}
 			for i, tree := range []string{baseTree, headTree} {
 				files[i] = filepath.Join(tmp, fmt.Sprintf("%s-%d-%s", p.name, i, strings.ReplaceAll(m, "/", "_")))

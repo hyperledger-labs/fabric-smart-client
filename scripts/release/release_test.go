@@ -583,6 +583,21 @@ func TestAPIDiff(t *testing.T) {
 	}
 }
 
+// TestAPIDiffKeepsItsBuildTags checks that the caller's build tags change neither pass. It sets
+// GOFLAGS, so it does not run in parallel.
+func TestAPIDiffKeepsItsBuildTags(t *testing.T) {
+	t.Setenv("GOFLAGS", "-tags=pkcs11 -modcacherw")
+	dir := newRepo(t, map[string]string{
+		"go.mod":          "module example.com/m\n\ngo 1.22\n",
+		"hsm/hsm.go":      "//go:build pkcs11\n\npackage hsm\n\nfunc Open(string) {}\n",
+		"hsm/disabled.go": "//go:build !pkcs11\n\npackage hsm\n",
+	})
+	run(t, dir, "tag", "v0.1.0")
+	commit(t, dir, map[string]string{"hsm/hsm.go": "//go:build pkcs11\n\npackage hsm\n"})
+	_, err := runCommand(dir, "apidiff", []string{"--base", "v0.1.0"})
+	require.ErrorContains(t, err, "- ./hsm.Open: removed (pkcs11)\n")
+}
+
 func TestChangedPackage(t *testing.T) {
 	t.Parallel()
 	for change, want := range map[string]string{
