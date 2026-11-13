@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
@@ -158,7 +159,9 @@ func TestVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 }
 
 // Step 1 of the vault rebuilds a state table keyed (pkey, ns) inside the
-// migration's BEGIN IMMEDIATE transaction, keeps every row and records version 1.
+// migration's BEGIN IMMEDIATE transaction, keeps every row and records version 1;
+// the open then fails, as the required contract step waits for node migrate
+// --contract.
 func TestVaultStoreMigratesOldLayout(t *testing.T) {
 	t.Parallel()
 
@@ -173,11 +176,13 @@ func TestVaultStoreMigratesOldLayout(t *testing.T) {
 	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE fsc_schema_versions")
 	require.NoError(t, err)
 
-	reopened := openSQLiteVault(t, ds, false)
-	requireSQLitePrimaryKey(t, reopened, "ns,pkey")
-	requireState(t, reopened, "ns-a", "k1", "a1")
-	requireState(t, reopened, "ns-b", "k1", "b1")
+	cp := sqlite.NewConfigProvider(drivertesting.MockConfig(sqlite.Config{DataSource: ds}))
+	_, err = NewPersistenceWithOpts(cp, sqlite.NewDbProvider(), "", NewVaultStore)
+	require.ErrorIs(t, err, migrate.ErrPending)
+	requireSQLitePrimaryKey(t, store, "ns,pkey")
+	requireState(t, store, "ns-a", "k1", "a1")
+	requireState(t, store, "ns-b", "k1", "b1")
 	var version int
-	require.NoError(t, reopened.readDB.QueryRowContext(ctx, "SELECT version FROM fsc_schema_versions WHERE store = $1", reopened.StoreName()).Scan(&version))
+	require.NoError(t, store.readDB.QueryRowContext(ctx, "SELECT version FROM fsc_schema_versions WHERE store = $1", store.StoreName()).Scan(&version))
 	require.Equal(t, 1, version, "the contract step waits for node migrate --contract")
 }

@@ -249,9 +249,10 @@ Notes:
 
 - the primary key is `(ns, pkey)`
 - `metadata` is stored as encoded bytes
-- metadata values are marshaled from a `map[string][]byte`: gob-encoded, or a
-  protobuf `VaultMetadata` once contract step 2 has run; readers tell the two
-  apart by the first byte
+- metadata values are marshaled from a `map[string][]byte` as a protobuf
+  `VaultMetadata`; rows that older releases wrote and that contract step 2 did
+  not convert stay gob-encoded, and readers tell the two apart by the first
+  byte
 - unlike the View KVS, the vault state table is the main persisted application
   state surface for many Fabric applications
 

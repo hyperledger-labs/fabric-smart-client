@@ -189,10 +189,11 @@ func TestSameEndorsementAcrossForms(t *testing.T) {
 	require.ErrorIs(t, ets.StoreTransaction(ctx, envID, endorse("other-rws")), dbdriver.ErrConflict)
 }
 
-// TestStoreTransactionAcrossContractStep stores a Fabric endorsement as JSON in a SQLite store
-// whose contract step is held back, runs the step as node migrate --contract does, and reopens
-// the store as a restarted node does. The row is then an envelope; the same endorsement written
-// again, byte-equal or re-signed, is the same record, and different results conflict.
+// TestStoreTransactionAcrossContractStep finds a Fabric endorsement stored as JSON, as an older
+// release wrote it, in a SQLite store whose contract step is pending. The node refuses to open
+// the store until the step has run, as node migrate --contract runs it. The row is then an
+// envelope; the same endorsement written again, byte-equal or re-signed, is the same record,
+// and different results conflict.
 func TestStoreTransactionAcrossContractStep(t *testing.T) {
 	t.Parallel()
 
@@ -215,7 +216,7 @@ func TestStoreTransactionAcrossContractStep(t *testing.T) {
 		return raw
 	}
 
-	// The table exists before the store is versioned, so opening it holds the contract step back.
+	// The table exists before the store is versioned, so its contract step is pending.
 	ds := "file:" + filepath.Join(t.TempDir(), "etx.sqlite")
 	dbp := sqlite.NewDbProvider()
 	rw, err := dbp.Get(sqlite.Opts{DataSource: ds})
@@ -226,25 +227,28 @@ func TestStoreTransactionAcrossContractStep(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, raw.CreateSchema())
 	cp := multiplexed.MockTypeConfig(fsqlite.Persistence, sqlite.Config{DataSource: ds})
-	open := func() driver.EndorserTransactionService {
+	open := func() (driver.EndorserTransactionService, error) {
 		s, err := endorsetx.NewStore[driver.Key](cp, multiplexed.NewDriver(cp, fsqlite.NewNamedDriver(cp, dbp)))
-		require.NoError(t, err)
-		return transaction.NewEndorseTransactionService(s, "network", "channel")
+		if err != nil {
+			return nil, err
+		}
+		return transaction.NewEndorseTransactionService(s, "network", "channel"), nil
 	}
 
 	ctx := t.Context()
 	first := endorse("rws")
-	ets := open()
-	require.NoError(t, ets.StoreTransaction(ctx, "tx", first))
-	stored, err := ets.LoadTransaction(ctx, "tx")
+	key := driver.Key{Network: "network", Channel: "channel", TxID: "tx"}.UniqueKey()
+	_, err = rw.WriteDB.ExecContext(ctx, "INSERT INTO "+raw.StoreName()+" (key, data) VALUES ($1, $2)", key, first)
 	require.NoError(t, err)
-	require.Equal(t, first, stored, "JSON is stored as given before the step")
+	_, err = open()
+	require.ErrorIs(t, err, migrate.ErrPending, "the store opens only after its contract step")
 
 	require.NoError(t, migrate.Migrate(ctx, rw.WriteDB, migrate.SQLite, "", raw, migrate.WithContract()))
-	ets = open()
+	ets, err := open()
+	require.NoError(t, err)
 	envelope, err := protos.EnvelopeFromJSON(first)
 	require.NoError(t, err)
-	stored, err = ets.LoadTransaction(ctx, "tx")
+	stored, err := ets.LoadTransaction(ctx, "tx")
 	require.NoError(t, err)
 	require.Equal(t, envelope, stored, "the step rewrote the row as an envelope")
 

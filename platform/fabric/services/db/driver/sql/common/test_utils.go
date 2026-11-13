@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 	"testing"
@@ -93,20 +96,49 @@ func TestKeyDataStore(t *testing.T, s KeyDataStore, strict bool) {
 	require.ErrorIs(t, errs[1], driver.ErrConflict, "the other conflicts")
 }
 
-// EndorseTxContract is an endorse-tx store opened on a table that existed before it, so that
-// its contract step is held back, with the means to inspect the table and run the step.
+// EndorseTxContract is an endorse-tx store on a table that existed before the store was
+// versioned, so that its required contract step is pending, with the means to inspect the
+// table, run the step and open the store as a node does.
 type EndorseTxContract struct {
+	// Store reads and writes the table without opening it through Migrate.
 	Store KeyDataStore
 	// DB writes rows directly into Table, bypassing the store.
 	DB    *sql.DB
 	Table string
 	// Contract runs the store's pending contract step on Store, as node migrate --contract does.
 	Contract func() error
+	// Open opens the store through the driver's constructor, as a node does.
+	Open func() error
 	// Step is the Go function of the contract step, for running it on a chosen Execer.
 	Step func(context.Context, migrate.Execer) error
 	// Concurrent, if set, writes rows from outside the step's transaction while it runs; if
 	// nil, such writes go through the step's own transaction, as SQLite has one writer.
 	Concurrent *sql.DB
+}
+
+// requireContract checks that open refuses a store while its required contract step 2 is
+// pending, runs the step with contract, and checks that open succeeds afterwards.
+func requireContract(t *testing.T, open, contract func() error) {
+	t.Helper()
+	err := open()
+	require.ErrorIs(t, err, migrate.ErrContractPending)
+	require.ErrorContains(t, err, "step 2 [")
+	require.NoError(t, contract())
+	require.NoError(t, open())
+}
+
+// insertRows writes rows into c's table directly, as a binary that stored JSON did before the
+// contract step.
+func insertRows(t *testing.T, c EndorseTxContract, rows map[string][]byte) {
+	t.Helper()
+	ctx := t.Context()
+	tx, err := c.DB.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	for k, v := range rows {
+		_, err := tx.ExecContext(ctx, "INSERT INTO "+c.Table+" (key, data) VALUES ($1, $2)", k, v) //nolint:gosec // test table name
+		require.NoError(t, err)
+	}
+	require.NoError(t, tx.Commit())
 }
 
 // endorseTxJSON returns the JSON of a Fabric transaction in the form protos.JSONFromEnvelope
@@ -266,16 +298,14 @@ func runStepWithConcurrentWrite(t *testing.T, db, concurrent *sql.DB, step func(
 	require.NoError(t, tx.Commit())
 }
 
-// TestEndorseTxStepKeepsConcurrentWrite writes three JSON transactions and runs the contract
+// TestEndorseTxStepKeepsConcurrentWrite inserts three JSON transactions and runs the contract
 // step while another writer replaces the last one after the step read it. That row keeps the
 // other writer's bytes; the others are converted. On Postgres, the concurrent write needs its
 // own connection, so c.Concurrent requires WriteDB to allow at least 2 open connections.
 func TestEndorseTxStepKeepsConcurrentWrite(t *testing.T, c EndorseTxContract) {
 	t.Helper()
 	ctx := t.Context()
-	for i, k := range []string{"k1", "k2", "k3"} {
-		require.NoError(t, c.Store.Put(ctx, k, endorseTxJSON(t, i)))
-	}
+	insertRows(t, c, map[string][]byte{"k1": endorseTxJSON(t, 0), "k2": endorseTxJSON(t, 1), "k3": endorseTxJSON(t, 2)})
 	newer := endorseTxJSON(t, 9)
 	runStepWithConcurrentWrite(t, c.DB, c.Concurrent, c.Step,
 		"UPDATE "+c.Table+" SET data = $1 WHERE key = $2", newer, "k3")
@@ -321,24 +351,16 @@ func TestEndorseTxContractStep(t *testing.T, c EndorseTxContract) {
 	for i := range bytesRows {
 		bytesRows[i] = bytesTxJSON(t, unsignedBytesTx(i))
 	}
-	tx, err := c.DB.BeginTx(ctx, nil)
-	require.NoError(t, err)
-	insert := func(key string, data []byte) {
-		_, err := tx.ExecContext(ctx, "INSERT INTO "+c.Table+" (key, data) VALUES ($1, $2)", key, data) //nolint:gosec // test table name
-		require.NoError(t, err)
-	}
+	rows := maps.Clone(others)
 	for i := range n {
-		insert(fmt.Sprintf("k%05d", i), endorseTxJSON(t, i))
-	}
-	for k, v := range others {
-		insert(k, v)
+		rows[fmt.Sprintf("k%05d", i)] = endorseTxJSON(t, i)
 	}
 	for i, v := range bytesRows {
-		insert(fmt.Sprintf("b%d", i), v)
+		rows[fmt.Sprintf("b%d", i)] = v
 	}
-	require.NoError(t, tx.Commit())
+	insertRows(t, c, rows)
 
-	require.NoError(t, c.Contract())
+	requireContract(t, c.Open, c.Contract)
 
 	for i, raw := range bytesRows {
 		got, err := c.Store.Get(ctx, fmt.Sprintf("b%d", i))
@@ -371,21 +393,19 @@ func TestEndorseTxContractStep(t *testing.T, c EndorseTxContract) {
 	require.NoError(t, c.Store.Put(ctx, "k00007", endorseTxJSON(t, 7)), "the JSON of a converted row is the same value")
 }
 
-// TestEndorseTxWritesAfterContract writes JSON before c's contract step and after it. Before,
-// the store keeps the JSON; after, it stores the envelope, a write of the JSON stored before
-// the step is not a conflict, and values that are not convertible JSON are stored as given.
+// TestEndorseTxWritesAfterContract inserts JSON before c's contract step and writes JSON after
+// it. The step converts the JSON inserted before, and writing that JSON again is not a
+// conflict; JSON written after is stored as its envelope, and values that are not convertible
+// JSON as given.
 func TestEndorseTxWritesAfterContract(t *testing.T, c EndorseTxContract) {
 	t.Helper()
 	ctx := t.Context()
 	before := endorseTxJSON(t, 1)
-	require.NoError(t, c.Store.Put(ctx, "before", before))
+	insertRows(t, c, map[string][]byte{"before": before})
+
+	requireContract(t, c.Open, c.Contract)
+
 	got, err := c.Store.Get(ctx, "before")
-	require.NoError(t, err)
-	require.Equal(t, before, got, "JSON is stored as given before the step")
-
-	require.NoError(t, c.Contract())
-
-	got, err = c.Store.Get(ctx, "before")
 	require.NoError(t, err)
 	require.Equal(t, envelopeOf(t, before), got)
 	require.NoError(t, c.Store.Put(ctx, "before", before), "the JSON converts to the envelope the step wrote")
@@ -394,7 +414,7 @@ func TestEndorseTxWritesAfterContract(t *testing.T, c EndorseTxContract) {
 	require.NoError(t, c.Store.Put(ctx, "after", after))
 	got, err = c.Store.Get(ctx, "after")
 	require.NoError(t, err)
-	require.Equal(t, envelopeOf(t, after), got, "JSON is stored as an envelope after the step")
+	require.Equal(t, envelopeOf(t, after), got, "JSON is stored as its envelope")
 
 	for k, v := range map[string][]byte{
 		"env":     envelopeOf(t, endorseTxJSON(t, 3)),
@@ -411,15 +431,19 @@ func TestEndorseTxWritesAfterContract(t *testing.T, c EndorseTxContract) {
 	}
 }
 
-// VaultContract is a vault opened on tables that existed before it, so that its contract step
-// is held back, with the means to inspect the state table and run the step.
+// VaultContract is a vault on tables that existed before the vault was versioned, so that its
+// required contract step is pending, with the means to inspect the state table, run the step
+// and open the vault as a node does.
 type VaultContract struct {
+	// Store reads and writes the tables without opening them through Migrate.
 	Store cdriver.VaultStore
 	// DB reads the state table directly, bypassing the store.
 	DB    *sql.DB
 	Table string
 	// Contract runs the vault's pending contract step on Store, as node migrate --contract does.
 	Contract func() error
+	// Open opens the vault through the driver's constructor, as a node does.
+	Open func() error
 	// Step is the Go function of the contract step, for running it on a chosen Execer.
 	Step func(context.Context, migrate.Execer) error
 	// Concurrent, if set, writes rows from outside the step's transaction while it runs; if
@@ -444,6 +468,28 @@ func requireSameMetadata(t *testing.T, want, got map[string][]byte, msg string) 
 	}
 }
 
+// storeGobMetadata stores each key of kv in ns through c.Store, with the value ns+"/"+key, and
+// replaces its metadata with the gob encoding of kv[key], the form a vault wrote before its
+// contract step.
+func storeGobMetadata(t *testing.T, c VaultContract, ns cdriver.Namespace, kv map[cdriver.PKey]map[string][]byte) {
+	t.Helper()
+	ctx := t.Context()
+	writes, metaWrites := cdriver.Writes{ns: {}}, cdriver.MetaWrites{ns: {}}
+	for k := range kv {
+		writes[ns][k] = cdriver.VaultValue{Raw: []byte(ns + "/" + k), Version: []byte("v")}
+		metaWrites[ns][k] = cdriver.VaultMetadataValue{Version: []byte("v")}
+	}
+	require.NoError(t, c.Store.Store(ctx, nil, writes, metaWrites))
+	tx, err := c.DB.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	// val identifies the row in either dialect; pkey is TEXT on SQLite and BYTEA on Postgres.
+	for k, m := range kv {
+		_, err := tx.ExecContext(ctx, "UPDATE "+c.Table+" SET metadata = $1 WHERE val = $2", gobMetadata(t, m), []byte(ns+"/"+k)) //nolint:gosec // test table name
+		require.NoError(t, err)
+	}
+	require.NoError(t, tx.Commit())
+}
+
 // rawMetadata returns the metadata column of every row of ns in c's state table.
 func rawMetadata(t *testing.T, c VaultContract, ns string) [][]byte {
 	t.Helper()
@@ -464,7 +510,8 @@ func rawMetadata(t *testing.T, c VaultContract, ns string) [][]byte {
 // step, including keys with U+0000 and U+10FFFF, keys in a second namespace, metadata with an
 // empty value, an empty map, a metadata key protobuf refuses, and a key without metadata, and
 // runs the contract step. GetStateMetadata then returns the same metadata for every key; every
-// row converts except the refused key, which stays gob; and new writes are protobuf.
+// row converts except the refused key, which stays gob; new writes are protobuf, and a new
+// write of a metadata key protobuf refuses fails.
 func TestVaultMetadataContractStep(t *testing.T, c VaultContract) {
 	t.Helper()
 	ctx := t.Context()
@@ -488,16 +535,10 @@ func TestVaultMetadataContractStep(t *testing.T, c VaultContract) {
 	for i, k := range keys {
 		want["ns"][k] = vaultMetadataOf(i)
 	}
-	writes, metaWrites := cdriver.Writes{}, cdriver.MetaWrites{}
 	for ns, kv := range want {
-		writes[ns], metaWrites[ns] = map[cdriver.PKey]cdriver.VaultValue{}, map[cdriver.PKey]cdriver.VaultMetadataValue{}
-		for k, m := range kv {
-			writes[ns][k] = cdriver.VaultValue{Raw: []byte("val"), Version: []byte("v")}
-			metaWrites[ns][k] = cdriver.VaultMetadataValue{Metadata: m, Version: []byte("v")}
-		}
+		storeGobMetadata(t, c, ns, kv)
 	}
-	writes["ns-b"]["no-meta"] = cdriver.VaultValue{Raw: []byte("val"), Version: []byte("v")}
-	require.NoError(t, c.Store.Store(ctx, nil, writes, metaWrites))
+	require.NoError(t, c.Store.Store(ctx, nil, cdriver.Writes{"ns-b": {"no-meta": {Raw: []byte("val"), Version: []byte("v")}}}, nil))
 	for _, ns := range []string{"ns", "ns-b"} {
 		for _, m := range rawMetadata(t, c, ns) {
 			if len(m) > 0 {
@@ -506,7 +547,7 @@ func TestVaultMetadataContractStep(t *testing.T, c VaultContract) {
 		}
 	}
 
-	require.NoError(t, c.Contract())
+	requireContract(t, c.Open, c.Contract)
 
 	for ns, kv := range want {
 		for k, m := range kv {
@@ -540,14 +581,18 @@ func TestVaultMetadataContractStep(t *testing.T, c VaultContract) {
 	got, _, err = c.Store.GetStateMetadata(ctx, "new", "k")
 	require.NoError(t, err)
 	require.Equal(t, map[string][]byte{"x": []byte("y")}, got)
+
+	err = c.Store.Store(ctx, nil, nil, cdriver.MetaWrites{"new": {"bad": {Metadata: map[string][]byte{"\xff": []byte("v")}, Version: []byte("v")}}})
+	require.ErrorContains(t, err, `[new:bad]`)
+	require.ErrorContains(t, err, `metadata key ["\xff"] is not valid UTF-8`)
 }
 
-// gobMetadata returns the gob encoding of m, the form a vault writes before its contract step.
+// gobMetadata returns the gob encoding of m, the form a vault wrote before its contract step.
 func gobMetadata(t *testing.T, m map[string][]byte) []byte {
 	t.Helper()
-	raw, err := (&VaultStore{}).marshallMetadata(m)
-	require.NoError(t, err)
-	return raw
+	var buf bytes.Buffer
+	require.NoError(t, gob.NewEncoder(&buf).Encode(m))
+	return buf.Bytes()
 }
 
 // TestVaultMetadataStepKeepsConcurrentWrite writes three keys with gob metadata and runs the
@@ -559,17 +604,15 @@ func TestVaultMetadataStepKeepsConcurrentWrite(t *testing.T, c VaultContract) {
 	t.Helper()
 	ctx := t.Context()
 	keys := []cdriver.PKey{"k1", "k2", "k3"}
-	writes, metaWrites := cdriver.Writes{"ns": {}}, cdriver.MetaWrites{"ns": {}}
+	kv := map[cdriver.PKey]map[string][]byte{}
 	for i, k := range keys {
-		writes["ns"][k] = cdriver.VaultValue{Raw: []byte("val-" + k), Version: []byte("v")}
-		metaWrites["ns"][k] = cdriver.VaultMetadataValue{Metadata: vaultMetadataOf(i), Version: []byte("v")}
+		kv[k] = vaultMetadataOf(i)
 	}
-	require.NoError(t, c.Store.Store(ctx, nil, writes, metaWrites))
+	storeGobMetadata(t, c, "ns", kv)
 
 	newer := map[string][]byte{"z": []byte("written meanwhile")}
-	// val identifies the row in either dialect; pkey is TEXT on SQLite and BYTEA on Postgres.
 	runStepWithConcurrentWrite(t, c.DB, c.Concurrent, c.Step,
-		"UPDATE "+c.Table+" SET metadata = $1 WHERE val = $2", gobMetadata(t, newer), []byte("val-k3"))
+		"UPDATE "+c.Table+" SET metadata = $1 WHERE val = $2", gobMetadata(t, newer), []byte("ns/k3"))
 
 	for i, k := range keys[:2] {
 		got, _, err := c.Store.GetStateMetadata(ctx, "ns", k)

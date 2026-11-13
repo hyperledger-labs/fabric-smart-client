@@ -130,9 +130,9 @@ func (db *VaultStore) StoreName() string { return db.tables.StateTable }
 
 // Steps returns the vault's schema steps. Step 1 creates the status and state
 // tables if they do not exist and rebuilds a state table keyed (pkey, ns).
-// Step 2, a contract step, rewrites gob metadata as protobuf (see
+// Step 2, a required contract step, rewrites gob metadata as protobuf (see
 // common.VaultStore.MetadataToProtobuf); binaries that read only gob refuse the
-// vault afterwards.
+// vault afterwards, and this binary refuses it before.
 func (db *VaultStore) Steps() []migrate.Step {
 	return []migrate.Step{{
 		Version: 1,
@@ -146,6 +146,7 @@ func (db *VaultStore) Steps() []migrate.Step {
 		Name:     "metadata as protobuf",
 		Go:       db.MetadataToProtobuf,
 		Contract: true,
+		Required: true,
 	}}
 }
 

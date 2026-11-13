@@ -58,31 +58,6 @@ func TestBetweenKeys_NoBounds(t *testing.T) {
 	require.Nil(t, args)
 }
 
-func TestMarshallMetadata_RoundTrip(t *testing.T) {
-	t.Parallel()
-	// gob decodes an empty []byte back as nil, so don't assert a round-trip
-	// on one — the callers only ever store non-empty metadata values.
-	in := map[string][]byte{"a": []byte("one"), "b": []byte("two")}
-
-	raw, err := (&VaultStore{}).marshallMetadata(in)
-	require.NoError(t, err)
-	require.NotEmpty(t, raw)
-
-	out, err := unmarshalMetadata(raw)
-	require.NoError(t, err)
-	require.Equal(t, in, out)
-}
-
-func TestMarshallMetadata_Empty(t *testing.T) {
-	t.Parallel()
-	raw, err := (&VaultStore{}).marshallMetadata(map[string][]byte{})
-	require.NoError(t, err)
-
-	out, err := unmarshalMetadata(raw)
-	require.NoError(t, err)
-	require.Empty(t, out)
-}
-
 // GetStateMetadata stores an empty metadata column for states written without
 // metadata, so unmarshalling nothing must not be an error.
 func TestUnmarshalMetadata_NoInput(t *testing.T) {
@@ -148,10 +123,8 @@ func TestUnmarshalMetadataBothForms(t *testing.T) {
 // An empty map has a protobuf form, 0a 00, which reads back as an empty map, not as no metadata.
 func TestMetadataEmptyMapProtobuf(t *testing.T) {
 	t.Parallel()
-	db := &VaultStore{}
-	db.SetReadableBy(2)
 	for _, m := range []map[string][]byte{{}, nil} {
-		raw, err := db.marshallMetadata(m)
+		raw, err := marshallMetadata(m)
 		require.NoError(t, err)
 		require.Equal(t, []byte{0x0a, 0x00}, raw)
 		out, err := unmarshalMetadata(raw)
@@ -161,36 +134,22 @@ func TestMetadataEmptyMapProtobuf(t *testing.T) {
 	}
 }
 
-// marshallMetadata writes gob until the store's contract step 2 has run and protobuf
-// VaultMetadata, deterministically, afterwards. A map protobuf cannot carry, such as one
-// with a key that is not UTF-8, is written as gob.
-func TestMarshallMetadataByReadableBy(t *testing.T) {
+// marshallMetadata writes protobuf VaultMetadata, deterministically, and refuses a key that is
+// not valid UTF-8, naming it.
+func TestMarshallMetadata(t *testing.T) {
 	t.Parallel()
 	in := map[string][]byte{"a": []byte("one"), "b": []byte("two"), "c": []byte("three")}
-	db := &VaultStore{}
-
-	db.SetReadableBy(1)
-	raw, err := db.marshallMetadata(in)
-	require.NoError(t, err)
-	require.NotEqual(t, byte(0x0a), raw[0], "gob before the step")
-
-	db.SetReadableBy(2)
-	raw, err = db.marshallMetadata(in)
+	raw, err := marshallMetadata(in)
 	require.NoError(t, err)
 	want, err := proto.MarshalOptions{Deterministic: true}.Marshal(&protos.VaultMetadata{Entries: &protos.Entries{Values: in}})
 	require.NoError(t, err)
-	require.Equal(t, want, raw, "deterministic protobuf after the step")
+	require.Equal(t, want, raw)
 	out, err := unmarshalMetadata(raw)
 	require.NoError(t, err)
 	require.Equal(t, in, out)
 
-	bad := map[string][]byte{"\xff": []byte("v")}
-	raw, err = db.marshallMetadata(bad)
-	require.NoError(t, err)
-	require.NotEqual(t, byte(0x0a), raw[0], "gob for a key protobuf refuses")
-	out, err = unmarshalMetadata(raw)
-	require.NoError(t, err)
-	require.Equal(t, bad, out)
+	_, err = marshallMetadata(map[string][]byte{"a": nil, "\xff": []byte("v")})
+	require.EqualError(t, err, `metadata key ["\xff"] is not valid UTF-8`)
 }
 
 // The store cannot tell the platform of a flat transaction without a channel key, so such a

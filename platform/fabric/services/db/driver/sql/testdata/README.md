@@ -1,6 +1,6 @@
 # Storage fixtures
 
-Each directory holds the databases one FSC release wrote, with every FSC store type and a few rows in each. `fixtures_test.go` opens them with the current code, which runs the pending schema steps, and reads every row back. A release whose layout an upgrade must still convert keeps its directory here.
+Each directory holds the databases one FSC release wrote, with every FSC store type and a few rows in each. `fixtures_test.go` opens them with the current code as an upgrade does: it runs the contract steps of the endorse-tx store and the vault, as `node migrate --contract` does, opens every store, which runs its pending schema steps, and reads every row back. A release whose layout an upgrade must still convert keeps its directory here.
 
 | File | Content |
 | --- | --- |

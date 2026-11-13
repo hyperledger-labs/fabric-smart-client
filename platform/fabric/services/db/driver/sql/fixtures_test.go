@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	fsqlcommon "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	fpostgres "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
 	fsqlite "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	drivertesting "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
@@ -170,16 +171,22 @@ func checkRows(t *testing.T, s fixtureStores) {
 	assert.Equal(t, driver.Valid, status.Code)
 }
 
-// runContract runs the contract steps of every store in s that has one, which an open
-// without WithContract holds back on a released database, and reads back every row again.
-func runContract(t *testing.T, db *sql.DB, d migrate.Dialect, s fixtureStores) {
+// runContract runs the steps of the endorse-tx store and the vault with WithContract, as
+// node migrate --contract does: the current code refuses to open either while its contract
+// step is pending, as it is on a database a release before v0.28 wrote.
+func runContract(t *testing.T, db *sql.DB, d migrate.Dialect, stores ...migrate.Versioned) {
 	t.Helper()
-	for _, store := range []any{s.etx, s.vault} {
-		v, ok := store.(migrate.Versioned)
-		require.True(t, ok, "%T is not migrate.Versioned", store)
+	for _, v := range stores {
 		require.NoError(t, migrate.Migrate(t.Context(), db, d, "", v, migrate.WithContract()))
 	}
-	checkRows(t, s)
+}
+
+// tableNames returns the table names of the stores opened with params.
+func tableNames(t *testing.T, params ...string) fsqlcommon.TableNames {
+	t.Helper()
+	tables, err := fsqlcommon.GetTableNames("", params...)
+	require.NoError(t, err)
+	return tables
 }
 
 // requireLatest checks that every store in s is recorded at its latest step.
@@ -195,8 +202,8 @@ func requireLatest(t *testing.T, db *sql.DB, s fixtureStores) {
 }
 
 // TestFixturesSQLite opens the SQLite database of every fixture directory (see
-// fixtureDirs), migrates every store, reads back every row, and does so again after running
-// the contract steps.
+// fixtureDirs) as an upgrade does: it runs the contract steps of the endorse-tx store and the
+// vault, opens and migrates every store, and reads back every row.
 func TestFixturesSQLite(t *testing.T) {
 	t.Parallel()
 	for name, dir := range fixtureDirs(t) {
@@ -214,6 +221,11 @@ func TestFixturesSQLite(t *testing.T) {
 
 			cp := sqlite.NewConfigProvider(drivertesting.MockConfig(sqlite.Config{DataSource: "file:" + path}))
 			dbp := sqlite.NewDbProvider()
+			rw, err := dbp.Get(sqlite.Opts{DataSource: "file:" + path})
+			require.NoError(t, err)
+			runContract(t, rw.WriteDB, migrate.SQLite,
+				must(fsqlite.NewEndorseTxStore(rw, tableNames(t, "default")))(t),
+				must(fsqlite.NewVaultStore(rw, tableNames(t, "net", "ch")))(t))
 			var s fixtureStores
 			s.kvs = must(sqlite.NewPersistenceWithOpts(cp, dbp, "", sqlite.NewKeyValueStore))(t)
 			s.bind = must(sqlite.NewPersistenceWithOpts(cp, dbp, "", sqlite.NewBindingStore, "default"))(t)
@@ -225,14 +237,11 @@ func TestFixturesSQLite(t *testing.T) {
 			s.vault = must(fsqlite.NewPersistenceWithOpts(cp, dbp, "", fsqlite.NewVaultStore, "net", "ch"))(t)
 			checkRows(t, s)
 
-			rw, err := dbp.Get(sqlite.Opts{DataSource: "file:" + path})
-			require.NoError(t, err)
 			for _, table := range []string{"fsc_kvs", "fsc_net__ch_vstate"} {
 				cols, err := sqlite.PrimaryKeyColumns(rw.ReadDB, table)
 				require.NoError(t, err)
 				assert.Equal(t, "ns,pkey", cols, table)
 			}
-			runContract(t, rw.WriteDB, migrate.SQLite, s)
 			requireLatest(t, rw.ReadDB, s)
 		})
 	}
@@ -332,9 +341,9 @@ func sequenceOf(def *string) (string, bool) {
 	return seq, ok
 }
 
-// TestPostgresFixtures restores the Postgres database of every fixture
-// directory (see fixtureDirs), migrates every store, reads back every row, and does so again
-// after running the contract steps.
+// TestPostgresFixtures restores the Postgres database of every fixture directory (see
+// fixtureDirs) and opens it as an upgrade does: it runs the contract steps of the endorse-tx
+// store and the vault, opens and migrates every store, and reads back every row.
 func TestPostgresFixtures(t *testing.T) {
 	t.Parallel()
 	for name, dir := range fixtureDirs(t) {
@@ -352,6 +361,9 @@ func TestPostgresFixtures(t *testing.T) {
 			restorePostgres(t, rw.WriteDB, fixture)
 
 			cp := postgres.NewConfigProvider(drivertesting.MockConfig(postgres.Config{DataSource: ds}))
+			runContract(t, rw.WriteDB, migrate.Postgres,
+				must(fpostgres.NewEndorseTxStore(rw, tableNames(t, "default")))(t),
+				must(fpostgres.NewVaultStore(rw, tableNames(t, "net", "ch")))(t))
 			var s fixtureStores
 			s.kvs = must(postgres.NewPersistenceWithOpts(cp, dbp, "", postgres.NewKeyValueStore))(t)
 			s.bind = must(postgres.NewPersistenceWithOpts(cp, dbp, "", postgres.NewBindingStore, "default"))(t)
@@ -368,7 +380,6 @@ func TestPostgresFixtures(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "ns,pkey", cols, table)
 			}
-			runContract(t, rw.WriteDB, migrate.Postgres, s)
 			requireLatest(t, rw.ReadDB, s)
 		})
 	}
