@@ -266,6 +266,22 @@ func TestTestedWith(t *testing.T) {
 	require.ErrorContains(t, err, "go directive")
 }
 
+// TestTestedWithDroppedRow drops PostgreSQL from the table: its key leaves tested_with.
+func TestTestedWithDroppedRow(t *testing.T) { //nolint:paralleltest // changes the table tested
+	saved := tested
+	t.Cleanup(func() { tested = saved })
+	tested = nil
+	for _, c := range saved {
+		if c.key != "postgres" {
+			tested = append(tested, c)
+		}
+	}
+	got, err := testedWith([]byte(testGoMod), []byte(testMakefile))
+	require.NoError(t, err)
+	require.NotContains(t, got, "postgres")
+	require.Len(t, got, len(tested))
+}
+
 func TestDataFromReport(t *testing.T) {
 	t.Parallel()
 	dir := releaseRepo(t)
@@ -356,8 +372,8 @@ func TestNotes(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, fork, "(https://github.com/someone/fabric-smart-client/blob/main/docs/upgrade/v0.28-to-v0.29.md)")
 	require.Contains(t, fork, "(https://github.com/someone/fabric-smart-client/blob/v0.29.0/docs/upgrade/releases/v0.29.0.json)")
-	// Tested with is one row, in the order of testedNames.
-	require.Contains(t, got, "| Go | Hyperledger Fabric | Fabric-x committer | Fabric-x tools | PostgreSQL |\n|---|---|---|---|---|\n| 1.27.3 | 3.1.4 | 1.0.7 | v1.0.3 | 16.2 |\n")
+	// Tested with is one row, in the order of tested.
+	require.Contains(t, got, "| Go | Hyperledger Fabric | Chaguar committer | Chaguar tools | PostgreSQL |\n|---|---|---|---|---|\n| 1.27.3 | 3.1.4 | 1.0.7 | v1.0.3 | 16.2 |\n")
 	// The changelog follows unchanged.
 	require.True(t, strings.HasSuffix(got, strings.TrimSpace(string(changelog))+"\n"))
 
