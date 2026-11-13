@@ -31,6 +31,7 @@ case "$*" in
     [[ "$p" != "$v" ]] || { echo "no release before $v" >&2; exit 1; }
     echo "$p" ;;
   *"refnode version"*) echo '{}' ;;
+  *"scripts/release apidiff"*) [[ -z "${FAKE_API_BREAK:-}" ]] || { echo "incompatible API changes" >&2; exit 1; } ;;
   *"scripts/release data"*) echo '{"version":"v0.29.0"}' ;;
   *"scripts/release notes"*) echo "notes ${FAKE_NOTES:-1}" ;;
   # The rule of release-0.29 once v0.29.0 has its data; before, no rule, as committed.
@@ -246,6 +247,7 @@ func TestReleaseScript(t *testing.T) {
 		require.ElementsMatch(t, []string{"v0.28.0", "v0.29.0", "sub/v0.29.0"}, f.upstreamTags())
 		require.Contains(t, f.logged(), "gh release create v0.29.0")
 		require.Contains(t, f.logged(), "--latest=true")
+		require.NotContains(t, f.logged(), "scripts/release apidiff", "a minor may break the API")
 		require.Contains(t, f.logged(), "gh label delete backport/0.27")
 		require.NotContains(t, f.logged(), "gh label create")
 
@@ -287,6 +289,7 @@ func TestReleaseScript(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "fix(view): a fix (backport #5)", parent, "the release starts from the release branch")
 		require.NotContains(t, f.logged(), "make pull-images-database")
+		require.Contains(t, f.logged(), "scripts/release apidiff --base v0.28.0 --head upstream/release-0.28")
 
 		f.mustRelease("pr")
 		require.Contains(t, f.logged(), "gh pr create -R hyperledger-labs/fabric-smart-client --base release-0.28 --head release/v0.28.1")
@@ -301,6 +304,7 @@ func TestReleaseScript(t *testing.T) {
 		head, err := git(f.upstream, "rev-parse", "release-0.28")
 		require.NoError(t, err)
 		require.Equal(t, head, tagged)
+		require.Contains(t, f.logged(), "scripts/release apidiff --base v0.28.0 --head "+tagged)
 		require.Contains(t, f.logged(), "previous_tag_name=v0.28.0")
 		// A patch is never GitHub's latest release: a newer minor may be out.
 		require.Contains(t, f.logged(), "gh release create v0.28.1")
@@ -635,6 +639,16 @@ func TestReleaseScriptRefuses(t *testing.T) {
 			f.releaseBranch("fix(view): a breaking fix (backport #5)\n\n"+strings.Repeat("line\n", 120)+"BREAKING CHANGE: it breaks",
 				"fix(view): a clean fix (backport #6)")
 		}, step: "prepare", env: []string{"VERSION=v0.28.1"}, want: "fix(view): a breaking fix (backport #5)", wantNot: "a clean fix"},
+		{name: "prepare a patch that breaks the Go API", setup: func(f *releaseFixture) {
+			f.releaseBranch("fix(view): a fix (backport #5)")
+		}, step: "prepare", env: []string{"VERSION=v0.28.1", "FAKE_API_BREAK=1"}, want: "incompatible API changes"},
+		{name: "publish a patch that breaks the Go API", setup: func(f *releaseFixture) {
+			f.releaseBranch("fix(view): a fix (backport #5)")
+			f.mustRelease("prepare", "VERSION=v0.28.1")
+			f.mustRelease("pr")
+			f.mergeTo("v0.28.1", "release-0.28")
+			run(f.t, f.dir, "switch", "-q", "main")
+		}, step: "publish", env: []string{"FAKE_API_BREAK=1"}, want: "incompatible API changes"},
 		{name: "prepare a patch of a minor cut before patch releases", setup: func(f *releaseFixture) {
 			// A minor whose Makefile has no release targets, as v0.28.0 of FSC.
 			run(f.t, f.dir, "switch", "-q", "-c", "old", "v0.28.0")

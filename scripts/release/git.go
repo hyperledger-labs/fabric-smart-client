@@ -7,10 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
-	"bytes"
 	"cmp"
 	"fmt"
-	"os/exec"
 	"path"
 	"regexp"
 	"slices"
@@ -43,15 +41,7 @@ func (v semver) compare(o semver) int {
 
 // gitRaw runs git in dir and returns its standard output.
 func gitRaw(dir string, args ...string) ([]byte, error) {
-	var stderr bytes.Buffer
-	// The arguments are fixed subcommands, tags and repository paths, never shell input.
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...) //nolint:gosec // see above
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, errors.Wrapf(err, "git %s: %s", strings.Join(args, " "), strings.TrimSpace(stderr.String()))
-	}
-	return out, nil
+	return command("", nil, "git", append([]string{"-C", dir}, args...)...)
 }
 
 // git runs git in dir and returns its trimmed standard output.
@@ -132,24 +122,35 @@ func previousRelease(tags []semver, v semver) (semver, error) {
 // module as v, every other module except tools as <dir>/v, sorted. These are the tags
 // scripts/tag-release.sh creates, from the same tree.
 func modules(dir string, v semver) ([]string, error) {
-	out, err := git(dir, "ls-tree", "-r", "--name-only", "HEAD")
+	dirs, err := moduleDirs(dir, "HEAD")
 	if err != nil {
 		return nil, err
 	}
 	var tags []string
-	for line := range strings.Lines(out) {
-		file := strings.TrimSpace(line)
-		if path.Base(file) != "go.mod" {
-			continue
-		}
-		switch d := path.Dir(file); d {
-		case "tools":
-		case ".":
+	for _, d := range dirs {
+		if d == "." {
 			tags = append(tags, v.String())
-		default:
+		} else {
 			tags = append(tags, d+"/"+v.String())
 		}
 	}
 	slices.Sort(tags)
 	return tags, nil
+}
+
+// moduleDirs returns the directories of the released modules in the tree of rev in dir: every
+// directory with a go.mod except tools, whose module is never released. The root module is ".".
+func moduleDirs(dir, rev string) ([]string, error) {
+	out, err := git(dir, "ls-tree", "-r", "--name-only", rev)
+	if err != nil {
+		return nil, err
+	}
+	var dirs []string
+	for line := range strings.Lines(out) {
+		file := strings.TrimSpace(line)
+		if path.Base(file) == "go.mod" && path.Dir(file) != "tools" {
+			dirs = append(dirs, path.Dir(file))
+		}
+	}
+	return dirs, nil
 }
