@@ -9,6 +9,7 @@ package logging
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -23,14 +24,15 @@ type stringer string
 func (s stringer) String() string { return "S(" + string(s) + ")" }
 
 // writeGoldenLines writes the lines of the golden tests: fields of several kinds, With,
-// Named, a disabled line and an Error line.
+// Named, a disabled line, an Error line, and an Error line from slog through Handler.
 func writeGoldenLines() {
 	l := MustGetLogger("golden")
 	l.Infow("hello", "int", 1, "str", "x", "err", context.Canceled, "stringer", stringer("v"),
 		"dur", time.Second, "bytes", []byte("hi"))
-	l.With("w", 2).Named("sub").Infof("with %d", 3)
+	l.With("w", 2).Named("sub").Named("").Infof("with %d", 3)
 	l.Debugf("dropped")
 	l.Errorf("bad %s", "thing")
+	slog.New(Handler("app")).Error("from slog")
 }
 
 var (
@@ -52,13 +54,15 @@ func TestDefaultOutput_Golden(t *testing.T) { //nolint:paralleltest // changes t
 			"[" + name + "] writeGoldenLines -> INFO hello int=1 str=x err=\"context canceled\" stringer=S(v) dur=1s bytes=hi",
 			"[" + name + ".sub] writeGoldenLines -> INFO with 3 w=2",
 			"[" + name + "] writeGoldenLines -> ERRO bad thing",
+			"[app] writeGoldenLines -> ERRO from slog",
 		},
 	}, {
 		format: "json",
 		want: []string{
-			`{"level":"info","ts":0,"name":"` + name + `","caller":"logging/output_test.go:29","msg":"hello","int":1,"str":"x","err":"context canceled","stringer":"S(v)","dur":1,"bytes":"aGk="}`,
-			`{"level":"info","ts":0,"name":"` + name + `.sub","caller":"logging/output_test.go:31","msg":"with 3","w":2}`,
-			`{"level":"error","ts":0,"name":"` + name + `","caller":"logging/output_test.go:33","msg":"bad thing","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
+			`{"level":"info","ts":0,"name":"` + name + `","caller":"logging/output_test.go:30","msg":"hello","int":1,"str":"x","err":"context canceled","stringer":"S(v)","dur":1,"bytes":"aGk="}`,
+			`{"level":"info","ts":0,"name":"` + name + `.sub","caller":"logging/output_test.go:32","msg":"with 3","w":2}`,
+			`{"level":"error","ts":0,"name":"` + name + `","caller":"logging/output_test.go:34","msg":"bad thing","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
+			`{"level":"error","ts":0,"name":"app","caller":"logging/output_test.go:35","msg":"from slog","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
 		},
 	}} {
 		t.Run(tc.format, func(t *testing.T) {

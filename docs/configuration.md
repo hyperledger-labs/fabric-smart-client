@@ -1002,8 +1002,9 @@ fabric:
 
 A node writes its log lines in `logging.format` to standard error, or to the
 `Writer` of `logging.Config`. An application that embeds FSC and has its own
-logging setup can send FSC's lines to its own `slog.Handler` instead; zap,
-zerolog, logrus and OpenTelemetry's `otelslog` all provide one:
+logging setup can send FSC's lines to its own `slog.Handler` instead. The
+standard library has text and JSON handlers, zap and OpenTelemetry ship one
+(`zapslog`, `otelslog`), and adapters exist for most other logging libraries:
 
 ```go
 logging.SetHandler(appHandler) // before building the node
@@ -1015,8 +1016,8 @@ loggers created before the call. `logging.format` and `Writer` no longer apply;
 
 Two filters decide whether a line is written, in this order:
 
-1. `logging.spec`, for the logger's name. It still applies, and
-   `PUT /logspec` still changes it while the node runs.
+1. `logging.spec`, for the logger's name, which `PUT /logspec` changes while
+   the node runs.
 2. The handler's `Enabled` method.
 
 To let the handler alone decide, set `logging.spec: debug`. At startup the node
@@ -1026,8 +1027,8 @@ dropped a missing line.
 The handler gets the logger name as the attribute `logger`; the fields of
 `With`, of the `*w` methods and of `logging.RegisterContextLogField` as
 attributes; and the caller of the log method as the record's PC. The
-`*Context` methods still record the message as an event on the span in the
-context.
+`*Context` methods also record the message as an event on the span in the
+context, whatever the handler.
 
 The application can route its own `slog` lines through `logging.spec` and the
 same handler, under a logger name of its choice:
@@ -1036,7 +1037,10 @@ same handler, under a logger name of its choice:
 slog.SetDefault(slog.New(logging.Handler("app")))
 ```
 
-FSC never calls `slog.SetDefault` itself.
+FSC never calls `slog.SetDefault` itself. The handler passed to `SetHandler`
+must not be `slog.Default().Handler()` after such a call, or any other handler
+that writes through `logging.Handler`: each line would come back to it without
+end.
 
 ## Migrating TLS configuration
 

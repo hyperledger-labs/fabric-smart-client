@@ -42,7 +42,9 @@ func init() { current.Store(defaultBackend) }
 // logging.spec to debug. The handler receives the logger name as the attribute "logger".
 //
 // Call SetHandler before building the node, so that every line goes through h. It is
-// safe to call while other goroutines log.
+// safe to call while other goroutines log. h must not write through [Handler], directly
+// or through slog.Default after slog.SetDefault(slog.New(Handler(name))): the line would
+// come back to h without end.
 func SetHandler(h slog.Handler) {
 	if h == nil {
 		current.Store(defaultBackend)
@@ -133,9 +135,8 @@ func (c *handlerCache) get() slog.Handler {
 }
 
 // zapStackSkip makes zapslog's stack trace at ErrorLevel start at the caller of the
-// Logger method: zapslog skips the frames of slog.Logger, and a Logger method has one
-// frame more between its caller and Handle. A slog line through [Handler] has other
-// frames, so its trace starts a few frames off.
+// Logger method, or of the slog.Logger method for a line through [Handler]: zapslog
+// skips the frames of slog.Logger, and both paths have one frame more before Handle.
 const zapStackSkip = 1
 
 // zapHandler is the default handler: zapslog over a flogging core, so lines have
