@@ -12,9 +12,8 @@ FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 FABRIC_X_TOOLS_VERSION ?= v1.0.3
 FABRIC_X_COMMITTER_VERSION ?= 1.0.7
 
-# scripts/release reports FABRIC_VERSION, FABRIC_X_TOOLS_VERSION,
-# FABRIC_X_COMMITTER_VERSION and POSTGRES_VERSION as the versions a release was
-# tested with.
+# scripts/release reports the pins listed in the table tested of
+# scripts/release/data.go as the versions a release was tested with.
 POSTGRES_VERSION ?= 16.2-alpine
 
 # Monitoring images. nwo runs the same refs; TestImagePins in integration/nwo fails
