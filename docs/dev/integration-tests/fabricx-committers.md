@@ -1,12 +1,12 @@
-# Fabric-x committers in integration tests
+# Chaguar committers in integration tests
 
-The Fabric-x integration tests use the
+The Chaguar integration tests use the
 [fabric-x-committer-test-node](https://github.com/hyperledger/fabric-x-committer/pkgs/container/fabric-x-committer-test-node)
 container image. From it nwo starts:
 
 - a mock ordering service in a container of its own, reached as
   `orderer.localhost`;
-- a [committer](https://github.com/hyperledger/fabric-x-committer) for every
+- a [committer](https://github.com/Chaguar/committer) for every
   organization with a peer, named `CommitterName(org)` (`Org1_committer_0`),
   each in a container of its own with its own Postgres.
 
@@ -70,7 +70,7 @@ by the orderer container, the rest by the committer containers:
 fxTopo := nwofabricx.NewDefaultTopology()
 fxTopo.AddOrganizationsByName("Org1", "Org2") // runs Org1_committer_0 and Org2_committer_0
 
-// run a committer image built locally from a fabric-x-committer checkout
+// run a committer image built locally from a Chaguar committer checkout
 fxTopo.WithCommitterImage("hyperledger/fabric-x-committer-test-node:local")
 
 // increase the orderer's block size and turn on its debug logging
@@ -86,9 +86,9 @@ fxTopo.AddCommitter("Org1")
 fxTopo.AddCommitter("Org1", nwofabricx.WithName("audit"), nwofabricx.WithEnv("SC_SIDECAR_LOGGING_LOGSPEC", "debug"))
 ```
 
-## Example: a simple Fabric-x network topology
+## Example: a simple Chaguar network topology
 
-The example below defines a simple Fabric-x network with two organizations
+The example below defines a simple Chaguar network with two organizations
 (`Org1` and `Org2`) and two FSC application nodes (`alice` and `bob`).
 
 In this setup:
@@ -122,7 +122,7 @@ func Topology() []api.Topology {
 		AddOptions(fabric.WithOrganization("Org2"))
 	// register bob's views ...
 
-	// register the Fabric-x SDK on every node
+	// register the Chaguar SDK on every node
 	fscTopo.AddSDK(&fabricx.SDK{})
 
 	return []api.Topology{fxTopo, fscTopo}

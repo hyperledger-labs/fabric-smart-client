@@ -18,7 +18,7 @@ is stored under or present a creator that disagrees with its proposal.
 
 - the nonce and the creator are not empty;
 - the txID equals `ComputeTxID(nonce, creator)` (Fabric networks only; see below
-  for Fabric-x);
+  for Chaguar);
 - a signed proposal, if the transaction carries one, is an
   `ENDORSER_TRANSACTION` with epoch `0`, a non-empty nonce and creator, and a
   header whose txID, nonce, and creator all equal those of the transaction;
@@ -30,15 +30,15 @@ that endorses signs it, which need not be the creator; anonymous-creator and
 HSM-based endorser flows rely on this. A node that wants signer-equals-creator
 must check that itself.
 
-On Fabric-x networks the txID-equality check is skipped: the Fabric-x committer
+On Chaguar networks the txID-equality check is skipped: the Chaguar committer
 does not require `txid == ComputeTxID(nonce, creator)` for data transactions,
-and a Fabric-x proposal response is bound to its transaction only by the txID,
+and a Chaguar proposal response is bound to its transaction only by the txID,
 not by a proposal hash. FSC skips the check there because the committer does not
-enforce it (the Fabric-x transaction format sets
+enforce it (the Chaguar transaction format sets
 `protos.TransactionFormat.SkipTxIDCheck`; a driver without a registered format
-is checked), so on Fabric-x a remote peer can still choose the txID its
+is checked), so on Chaguar a remote peer can still choose the txID its
 transaction is stored under. The proposal header consistency checks and the
-creator check still apply on Fabric-x.
+creator check still apply on Chaguar.
 
 Validation runs on the two paths that take a transaction from a remote peer:
 decoding it (`endorser.NewTransactionFromBytes`, used by

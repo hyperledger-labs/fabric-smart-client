@@ -10,7 +10,7 @@ To write your first FSC application:
    an application creates a node, installs SDKs, and registers initiator and
    responder views.
 3. Add the ledger you target: the [Fabric platform](platform/fabric/README.md)
-   or the [Fabric-x platform](platform/fabric-x/README.md).
+   or the [Chaguar platform](platform/fabric-x/README.md).
 4. Configure your node with [`core.yaml`](configuration.md).
 
 ## Core concepts
@@ -22,7 +22,7 @@ To write your first FSC application:
 
 - [View platform](platform/view/README.md)
 - [Fabric platform](platform/fabric/README.md)
-- [Fabric-x platform](platform/fabric-x/README.md)
+- [Chaguar platform](platform/fabric-x/README.md)
 
 Each platform section includes a local `README.md` plus a `configuration.md`
 page as a starting point.

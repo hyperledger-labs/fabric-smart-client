@@ -6,7 +6,7 @@
 platform/
 ├── view/      # Core: P2P comm, view execution, identity, storage, metrics/tracing
 ├── fabric/    # Fabric integration: chaincode, endorsement, vault, RWSet
-└── fabricx/   # Fabric-x integration (same structure as fabric/)
+└── fabricx/   # Chaguar integration (same structure as fabric/)
 ```
 
 Each platform has an `sdk/dig/sdk.go` that wires services with
@@ -21,7 +21,7 @@ package under `platform/fabric/` imports `platform/fabricx/`, and a test in
 `platform/fabric/protos` checks it. Where Fabric code needs per-platform
 behavior, the platform built on it registers it. The transaction formats are an
 example: `platform/fabric/protos` defines the `TransactionEnvelope` and the
-Fabric format, and `platform/fabricx/protos` registers the Fabric-x format with
+Fabric format, and `platform/fabricx/protos` registers the Chaguar format with
 `RegisterTransactionFormat` in an `init` function.
 
 ## The DI Install/Start pattern
@@ -165,7 +165,7 @@ Worked examples live in
 
 - **[Panurus](https://github.com/LFDT-Panurus/panurus)** is a token layer built
   on top of FSC. It uses FSC's view/session model and FSC's `pkg/utils/errors`.
-- **[Fabric-x Committer](https://github.com/hyperledger/fabric-x-committer)** is
+- **[Chaguar Committer](https://github.com/Chaguar/committer)** is
   the validation/commit service the `fabricx` platform submits transactions to.
   It is a separate Go codebase with its own conventions; FSC shares its wire
   protocol, not its Go style.

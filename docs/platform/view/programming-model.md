@@ -113,7 +113,7 @@ Views can retrieve services from the context using
 [`GetService()`](services/view-service.md#view-context). These services can be:
 
 - FSC runtime services
-- platform services from View, Fabric, or Fabric-x
+- platform services from View, Fabric, or Chaguar
 - application services registered by your node
 
 This keeps business logic decoupled from concrete wiring and storage details.
@@ -178,8 +178,8 @@ runs once the node has started.
 If the application also needs Fabric capabilities, it installs the Fabric SDK in
 the same startup flow, as
 [Use Fabric from a view](../fabric/README.md#use-fabric-from-a-view) shows. For
-Fabric-x, see
-[Use Fabric-x from a view](../fabric-x/README.md#use-fabric-x-from-a-view).
+Chaguar, see
+[Use Chaguar from a view](../fabric-x/README.md#use-chaguar-from-a-view).
 
 For node startup configuration, see
 [View platform configuration](configuration.md) and
@@ -745,6 +745,6 @@ identity. See
 - [View service](services/view-service.md)
 - [View platform configuration](configuration.md)
 - [Fabric platform](../fabric/README.md) and
-  [Fabric-x platform](../fabric-x/README.md)
+  [Chaguar platform](../fabric-x/README.md)
 - [Fabric SDK architecture](../fabric/fabric-sdk.md)
 - [Core concepts](../../core-concepts.md)

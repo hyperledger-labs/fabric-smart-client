@@ -1,19 +1,20 @@
-# Fabric-x platform driver
+# Chaguar platform driver
 
 ## Overview
 
 The **Fabric Smart Client (FSC)** includes support for
-[Fabric-x](https://github.com/hyperledger/fabric-x), available under
-[`platform/fabricx`](../../../platform/fabricx).
+[Chaguar](https://github.com/Chaguar/chaguar), available under
+[`platform/fabricx`](../../../platform/fabricx). The platform's Go packages,
+driver, configuration and integration test targets are named `fabricx`.
 
-The Fabric-x platform driver builds on the existing Fabric platform
-implementation and replaces only the components necessary for Fabric-x-specific
+The Chaguar platform driver builds on the existing Fabric platform
+implementation and replaces only the components necessary for Chaguar-specific
 functionality, such as the transaction processing component.
 
 ## Application node
 
-To use the Fabric-x platform within an FSC application node, you need to install
-the Fabric-x [SDK](../../../platform/fabricx/sdk/dig/sdk.go):
+To use the Chaguar platform within an FSC application node, you need to install
+the Chaguar [SDK](../../../platform/fabricx/sdk/dig/sdk.go):
 
 ```go
 import (
@@ -39,21 +40,21 @@ func main() {
 
 ### Configuration
 
-The Fabric-x services are configured under `fabric.<network>` in `core.yaml`:
+The Chaguar services are configured under `fabric.<network>` in `core.yaml`:
 the keys are listed in the
 [node configuration reference](../../configuration.md), and
-[Fabric-x platform configuration](configuration.md) covers notification service
+[Chaguar platform configuration](configuration.md) covers notification service
 tuning and endpoint TLS.
 
-## Use Fabric-x from a view
+## Use Chaguar from a view
 
-Views use the same APIs on Fabric-x as on Fabric: the transaction, endorsement
+Views use the same APIs on Chaguar as on Fabric: the transaction, endorsement
 and finality views of
 [`platform/fabric/services/state`](../../../platform/fabric/services/state) and
 [`platform/fabric/services/endorser`](../../../platform/fabric/services/endorser),
 and `fabric.GetDefaultChannel` and `fabric.GetChannel` to reach a channel. Start
 with [Use Fabric from a view](../fabric/README.md#use-fabric-from-a-view) and
-install `fabricx.NewSDK` instead of the Fabric SDK. The Fabric-x IOU example,
+install `fabricx.NewSDK` instead of the Fabric SDK. The Chaguar IOU example,
 [`integration/fabricx/common/iou`](../../../integration/fabricx/common/iou),
 runs the views of the Fabric IOU example unchanged. Notable differences:
 
@@ -69,7 +70,7 @@ runs the views of the Fabric IOU example unchanged. Notable differences:
 
 The notification service delivers realtime transaction finality events to FSC
 application nodes. It maintains a persistent bidirectional gRPC stream to the
-[fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s
+[Chaguar committer](https://github.com/Chaguar/committer)'s
 `SidecarService` (`OpenNotificationStream`), which pushes notifications as
 transactions are committed, invalidated, or timed out. The connection to the
 committer is re-used and shared among all active listeners for a given network
@@ -164,7 +165,7 @@ The notification service is configured under
 ## Query service
 
 The query service provides synchronous access to ledger state by connecting to
-the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s
+the [Chaguar committer](https://github.com/Chaguar/committer)'s
 `Query` service over gRPC. It is used for operations such as retrieving
 transaction status and channel configuration.
 
@@ -193,9 +194,9 @@ attempt.
 
 ## Integration tests
 
-The Fabric-x integration tests run a mock orderer and one committer per
+The Chaguar integration tests run a mock orderer and one committer per
 organization in containers.
-[Fabric-x committers in integration tests](../../dev/integration-tests/fabricx-committers.md)
+[Chaguar committers in integration tests](../../dev/integration-tests/fabricx-committers.md)
 covers the committer containers, their settings and an example topology.
 
 ## Channel configuration updates
@@ -206,5 +207,5 @@ orderer endpoints, by polling the query service; see
 
 ## Additional resources
 
-- Fabric-x Repository: <https://github.com/hyperledger/fabric-x>
-- Fabric-x Committer: <https://github.com/hyperledger/fabric-x-committer>
+- Chaguar Repository: <https://github.com/Chaguar/chaguar>
+- Chaguar Committer: <https://github.com/Chaguar/committer>

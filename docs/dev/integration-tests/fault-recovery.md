@@ -1,7 +1,7 @@
 # Fault-recovery tests
 
 The fault-recovery suites take parts of a running network down (FSC nodes,
-peers, orderers, the Fabric-x committer, Postgres, network links) and check that
+peers, orderers, the Chaguar committer, Postgres, network links) and check that
 FSC either recovers on its own or fails within a bounded time with an error the
 caller sees. This page describes the calls that inject faults, the two suites
 and their targets, the specs and helpers they share, and the rules a spec on a
@@ -24,7 +24,7 @@ around it.
 | `StopPeer(name)` / `StartPeer(name)`                                          | the same as `StopFSCNode` / `StartFSCNode` for a Fabric peer, e.g. `Org1_peer_0`                                                                                                                                                                                                             |
 | `StopOrderer(name)` / `StartOrderer(name)`                                    | the same for a Fabric orderer, e.g. `orderer`                                                                                                                                                                                                                                                |
 | `StopPostgres(dbName)` / `StartPostgres(dbName)`                              | `docker stop` / `docker start` the Postgres container nwo started for `postgres.WithDBName(dbName)`; data and port survive                                                                                                                                                                   |
-| `fabricx.FxPlatform(ii).StopCommitter(names...)` / `StartCommitter(names...)` | stop / restart the services of the named Fabric-x committers, every committer with no name; see [Fabric-x committer](#fabric-x-committer)                                                                                                                                                    |
+| `fabricx.FxPlatform(ii).StopCommitter(names...)` / `StartCommitter(names...)` | stop / restart the services of the named Chaguar committers, every committer with no name; see [Chaguar committer](#chaguar-committer)                                                                                                                                                       |
 | `common.Proxy` `Partition()` / `Heal()` / `SetLatency(d)`                     | cut, restore or slow a link through a fault proxy; see [Partitions and latency](#partitions-and-latency)                                                                                                                                                                                     |
 | `common.Proxy` `CloseConnections()`                                           | close both sides of every connection the proxy forwards and keep accepting new ones, as a load balancer does on an idle timeout or a restart; on a partitioned proxy the closed connections end at once too, and new ones are held until `Heal()`; see [Replicated nodes](#replicated-nodes) |
 | `faultrecovery.ReplicaProxies` `Cut(replica)` / `Heal(replica)`               | cut / restore one link of one replica, such as `bob.0`: `Cut` partitions the proxies a suite put in front of it, then closes the connections they forward, so the replica's streams end at once and every reconnect hangs until `Heal`; see [Replicated nodes](#replicated-nodes)            |
@@ -42,13 +42,13 @@ channel of an etcdraft network has a raft leader (a SmartBFT channel has no
 leader election to wait for) and every peer discovers all the others through
 gossip.
 
-### Fabric-x committer
+### Chaguar committer
 
-Every organization with a peer in a Fabric-x network runs a committer, named
+Every organization with a peer in a Chaguar network runs a committer, named
 `CommitterName(org)` (`Org2_committer_0`), in a container of its own with its
 own database, and each FSC node uses its own organization's committer. All
 committers read from one mock orderer in a separate container;
-[Fabric-x committers in integration tests](fabricx-committers.md) covers the
+[Chaguar committers in integration tests](fabricx-committers.md) covers the
 topology options.
 
 `fabricx.FxPlatform(ii).StopCommitter(names...)` and `StartCommitter(names...)`
@@ -57,7 +57,7 @@ name is given, so a spec can take one organization's committer down while the
 others keep committing. The databases and the mock orderer keep running. Start
 waits until the sidecar and query services accept connections, and fails at once
 if the services exit first; a transaction ordered after that commits. The mock
-orderer holds its blocks in memory only, so a Fabric-x spec cannot restart the
+orderer holds its blocks in memory only, so a Chaguar spec cannot restart the
 orderer.
 
 `CommitterFailoverTopology` adds a second committer to Org2, `Org2_committer_1`,
@@ -114,7 +114,7 @@ the fault-recovery suites, which run one network each:
 | Spec                                                              | Suite              | Fault                              |
 | ----------------------------------------------------------------- | ------------------ | ---------------------------------- |
 | "keeps committing on alpha while beta's peers are down"           | `fabric-twonets`   | `StopPeer` on every peer of `beta` |
-| "keeps committing on Fabric while the Fabric-x committer is down" | `fabric-mixednets` | `StopCommitter` on `fx`            |
+| "keeps committing on Fabric while the Chaguar committer is down"  | `fabric-mixednets` | `StopCommitter` on `fx`            |
 
 Each spec selects the broken network's connection with the `Network` field of
 `fsc.Connection`, expects it `Reconnecting` while the other network's stays
@@ -160,7 +160,7 @@ them. A view or helper both suites need goes there.
 | `ViewSpecs(s)`                    | called once per suite: a view with two responders, bob and charlie, while charlie is down; it must fail within `SessionCloseTimeout`, and bob must release his half                                                                                                                                                                                                                                                                                                                                                                      |
 | `DependencySpecs(s, dbPrefix)`    | take down bob's Postgres database, `DBName(dbPrefix, "bob")`, and bring it back                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `HostileSpecs(s)`                 | a bob that changes the transaction before endorsing it; alice must reject the endorsement                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `FailoverSpecs(s, conn, proxies)` | on `ReplicatedFSCTopology`: kill the replica of bob that holds alice's connection through bob's load balancer, have the load balancer drop the connection with both replicas up, or cut that replica's delivery while the other keeps up; `conn` is the connection a replica receives commits on, block delivery on Fabric and the notification stream on Fabric-x, which a restarted or healed replica must report `Connected` again before the next spec, and `proxies` returns the `ReplicaProxies` in front of each replica's `conn` |
+| `FailoverSpecs(s, conn, proxies)` | on `ReplicatedFSCTopology`: kill the replica of bob that holds alice's connection through bob's load balancer, have the load balancer drop the connection with both replicas up, or cut that replica's delivery while the other keeps up; `conn` is the connection a replica receives commits on, block delivery on Fabric and the notification stream on Chaguar, which a restarted or healed replica must report `Connected` again before the next spec, and `proxies` returns the `ReplicaProxies` in front of each replica's `conn`  |
 
 The `crash` specs run on the main network in a target of their own,
 `fabric-faultrecovery-crash` and `fabricx-faultrecovery-crash`, which the
@@ -189,14 +189,14 @@ default targets exclude, so neither target outlasts CI's per-job limit.
 | `Query` / `ExpectSettled`                           | a node's status for a transaction and the value it wrote / wait until a node reads a transaction as valid with a given value and reports it final                                                                                                                                                               |
 | `SetCommitRetries` / `SetFinalityWaitTimeout`       | Fabric suite: shorten a node's commit retry budget before the network starts / how long `IsFinal` waits for a transaction that is not final; call them in the generator of a `Describe` of its own, since they apply to every spec that shares that generator                                                   |
 
-On Fabric-x a node's vault is the committer's query service, so `Query` answers
+On Chaguar a node's vault is the committer's query service, so `Query` answers
 the same on every node and does not show whether a restarted node has recovered.
 
 Both nodes serve the `configseq` view, so a spec can change the channel
 configuration with the `configupdate` helpers (`SetBatchTimeout`,
 `ConfigSequenceOn`, `ExpectConfigSequence`) and check which configuration a node
 holds: `integration/fabric/common/configupdate` on Fabric, and
-`integration/fabricx/common/configupdate` on Fabric-x, where `SetBatchTimeout`
+`integration/fabricx/common/configupdate` on Chaguar, where `SetBatchTimeout`
 takes the network from `NetworkOf` and a node applies a new configuration on its
 config monitor's next poll of the committer.
 
@@ -246,7 +246,7 @@ to `P2PKeepaliveInterval` plus `P2PKeepaliveTimeout`, 5 s each, so a spec sees
 the cut well within a view's own receive timeout. Each spec there heals the
 proxy it partitions.
 
-**Fabric-x.** The Fabric-x suite's `partition` `Describe` calls its own
+**Chaguar.** The Chaguar suite's `partition` `Describe` calls its own
 `SetFaultProxies`, which puts a proxy in front of the committer's notification
 service and points bob's `core.yaml` at it; bob's query service stays direct,
 since each query call is bounded by its own request timeout. It turns on the
@@ -301,16 +301,16 @@ while a replica is down, poll the survivor by replica ID, for example with
 The `replication` `Describe` of each faultrecovery suite runs on
 `faultrecovery.ReplicatedFSCTopology`: bob with two replicas behind a load
 balancer, alice with two replicas without one, each node on its own database. On
-Fabric-x, the finality of a transaction that is already final also comes from
+Chaguar, the finality of a transaction that is already final also comes from
 the query service, so a replica shows that its own notification stream answers a
 subscription only by reporting a transaction final whose finality view started
-before the transaction was ordered; the Fabric-x suite's
+before the transaction was ordered; the Chaguar suite's
 `expectStreamedFinality` does that on every bob replica.
 
 Each replica of bob in those `Describe`s reaches its delivery through proxies of
 its own: `SetReplicaDeliveryProxies` on Fabric puts one in front of each peer of
 Org2 for every replica, which carries all of the replica's links to that peer,
-and `SetReplicaNotificationProxies` on Fabric-x one in front of the committer's
+and `SetReplicaNotificationProxies` on Chaguar one in front of the committer's
 notification service, leaving the query service direct. Both return a
 `ReplicaProxies`, whose `Cut` partitions the proxies of one replica and closes
 the connections they forward: that replica's stream ends at once, and its
@@ -321,7 +321,7 @@ starts the replica's finality view for it before alice orders it; only the other
 replica's delivery sees the block, and the finality view still returns within
 `LaggingSettleTimeout` while the replica is cut, since the replica learns the
 transaction is final from the state the replicas share, the vault on Fabric and
-the committer's query service on Fabric-x
+the committer's query service on Chaguar
 ([#2547](https://github.com/hyperledger-labs/fabric-smart-client/issues/2547)).
 The spec watches that finality view rather than bob's responder: the responder
 runs in the context of alice's session, which ends right after bob endorses, so

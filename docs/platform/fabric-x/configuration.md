@@ -1,14 +1,14 @@
-# Fabric-x platform configuration
+# Chaguar platform configuration
 
-A Fabric-x node uses the shared FSC `core.yaml`. Every key, including the
-Fabric-x ones, is listed in the
+A Chaguar node uses the shared FSC `core.yaml`. Every key, including the
+Chaguar ones, is listed in the
 [node configuration reference](../../configuration.md); this page explains the
 settings of the services that connect a node to the
-[Fabric-x committer](https://github.com/hyperledger/fabric-x-committer).
+[Chaguar committer](https://github.com/Chaguar/committer).
 
-## Fabric-x services
+## Chaguar services
 
-The Fabric-x services are configured per network:
+The Chaguar services are configured per network:
 
 - `fabric.<network>.notificationService`
 - `fabric.<network>.queryService`
@@ -25,7 +25,7 @@ or negative value falls back to `30s`.
 Each entry of `endpoints` takes a `tls` block that inherits field by field from
 the network's `fabric.<network>.tls` block (see
 [Migrating TLS configuration](../../configuration.md#migrating-tls-configuration)).
-Fabric-x committers require TLS 1.3, so `minVersion` defaults to `772` (TLS 1.3)
+Chaguar committers require TLS 1.3, so `minVersion` defaults to `772` (TLS 1.3)
 on these endpoints.
 
 - No TLS: set `enabled: false`, or leave TLS off in both the endpoint's and the
@@ -173,5 +173,5 @@ values are meaningful rather than "unset":
 
 ## Related documentation
 
-- [Fabric-x platform overview](README.md)
+- [Chaguar platform overview](README.md)
 - [Fabric platform configuration](../fabric/configuration.md)

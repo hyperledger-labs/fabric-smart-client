@@ -6,8 +6,8 @@ key the node reads, with its default and meaning. Its top-level sections are:
 - `logging`: log format and levels.
 - `fsc`: the node itself (identity, TLS, gRPC, P2P, storage and persistences,
   views, web server, tracing, metrics, endpoints), read by the View platform.
-- `fabric`: one entry per Fabric or Fabric-x network, read by the Fabric and
-  Fabric-x platforms. A node that installs only the View SDK leaves it out.
+- `fabric`: one entry per Fabric or Chaguar network, read by the Fabric and
+  Chaguar platforms. A node that installs only the View SDK leaves it out.
 
 After the example:
 
@@ -19,7 +19,7 @@ After the example:
 
 The platform pages explain settings that need more than a comment:
 [Fabric](platform/fabric/configuration.md),
-[Fabric-x](platform/fabric-x/configuration.md) and
+[Chaguar](platform/fabric-x/configuration.md) and
 [View](platform/view/configuration.md).
 
 ```yaml
@@ -666,7 +666,7 @@ fabric:
       # (bccsp-folder). opts applies to every MSP of a bccsp-folder entry.
 
     # Client-side TLS for every connection this node dials on this network: orderers, peers
-    # and, for Fabric-x, the query and notification services.
+    # and, for Chaguar, the query and notification services.
     #
     # This block is CLIENT-shaped, unlike fsc.tls which is server-shaped. Each endpoint under
     # orderers: and peers: inherits it FIELD BY FIELD and overrides only what it sets; there
@@ -801,7 +801,7 @@ fabric:
         # The default value is the empty string that means that the peer can be used for the supported operations.
         usage:
 
-    # Fabric-x query and notification services (Fabric-x only).
+    # Chaguar query and notification services (Chaguar only).
     #
     # Each endpoint's tls: block is the same client template as orderers and peers above, and
     # inherits from this network's tls block field by field. It replaces a block that spelled
@@ -826,7 +826,7 @@ fabric:
           maxSendMsgSize: 104857600
           tls:
             enabled: true
-            # Fabric-x requires TLS 1.3, so minVersion here defaults to 772 rather than the
+            # Chaguar requires TLS 1.3, so minVersion here defaults to 772 rather than the
             # 771/772 (TLS 1.2-1.3) range every other dialled connection defaults to. Set it
             # explicitly to override.
             rootCAs:
@@ -848,7 +848,7 @@ fabric:
         time: 60s
         timeout: 10s
         permit-without-stream: false
-    # Fabric-x notification service: pushes transaction finality events to this node.
+    # Chaguar notification service: pushes transaction finality events to this node.
     # endpoints, tls and keepalive take the same shape as queryService. A keepalive here
     # detects a silently cut notification stream, which otherwise stays open with no event.
     # handlerTimeout, handlerWorkers, handlerQueueSize and sweepInterval fall back to their
@@ -875,7 +875,7 @@ fabric:
       # listenerTTL + sweepInterval. Default: 30s.
       sweepInterval: 30s
 
-     # Channel Configuration Monitor settings (Fabric-x only)
+     # Channel Configuration Monitor settings (Chaguar only)
      # Applies to all channels in this network
     configMonitor:
        # How often to check for configuration updates
@@ -999,7 +999,7 @@ lists, and per-field inheritance from a parent `tls:` block. A field a `tls:`
 block omits takes the parent's value, and a field it sets overrides the parent
 even when the value is `false` or an empty list. Listeners (`fsc.grpc.tls`,
 `fsc.web.tls`, `fsc.metrics.tls`) inherit from `fsc.tls`; each `orderers[].tls`,
-`peers[].tls` and Fabric-x service endpoint `tls:` block inherits from its
+`peers[].tls` and Chaguar service endpoint `tls:` block inherits from its
 network's `fabric.<net>.tls`. Nothing inherits across the `fsc`/`fabric`
 boundary or between sibling blocks.
 
@@ -1033,8 +1033,8 @@ where the key sits:
 | `orderers[].tlsRootCertFile`, `peers[].tlsRootCertFile`       | `…[].tls.rootCAs.files`                             |
 | `orderers[].serverNameOverride`, `peers[].serverNameOverride` | `…[].tls.serverNameOverride`                        |
 | `orderers[].tlsRootCertBytes`, `peers[].tlsRootCertBytes`     | none; set the CA files with `…[].tls.rootCAs.files` |
-| Fabric-x `tls.clientKey`, `.clientCert` (flat strings)        | `tls.clientKey.file`, `tls.clientCert.file`         |
-| Fabric-x `tls.rootCerts` (flat list)                          | `tls.rootCAs.files`                                 |
+| Chaguar `tls.clientKey`, `.clientCert` (flat strings)         | `tls.clientKey.file`, `tls.clientCert.file`         |
+| Chaguar `tls.rootCerts` (flat list)                           | `tls.rootCAs.files`                                 |
 
 Two of these keys differ in meaning, not only in spelling, from the key to use
 instead:
@@ -1444,7 +1444,7 @@ and `commit_failures{class="degrade"}` in
 [monitoring](platform/view/services/monitoring_metrics.md#fabric-committer)). If
 it expires while a new connection is being opened, as when the host is gone, the
 error is `ErrConnectionLost`, and the committer retries the block until the
-database is back. On Fabric-x, and for any other caller, the call that ran the
+database is back. On Chaguar, and for any other caller, the call that ran the
 statement fails.
 
 How it relates to the database's own limits:

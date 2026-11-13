@@ -51,6 +51,6 @@ page.
 FSC is a client-side framework and has **not been formally audited** (see the
 [disclaimer](README.md#disclaimer-and-license)). In scope: FSC's own code, its
 default configuration, and its handling of keys, identities, sessions, and TLS.
-Vulnerabilities in Hyperledger Fabric, Fabric-x, or another dependency belong to
+Vulnerabilities in Hyperledger Fabric, Chaguar, or another dependency belong to
 that project and should be reported there — if you are unsure which, report it
 here and we will route it.
