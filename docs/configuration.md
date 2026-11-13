@@ -11,6 +11,7 @@ key the node reads, with its default and meaning. Its top-level sections are:
 
 After the example:
 
+- [Logging through the application's handler](#logging-through-the-applications-handler)
 - [Migrating TLS configuration](#migrating-tls-configuration)
 - [Overriding configuration keys](#overriding-configuration-keys)
 - [HSM support](#hsm-support)
@@ -996,6 +997,50 @@ fabric:
           path: /path/to/fscnodeB/msp
         addresses:
 ```
+
+## Logging through the application's handler
+
+A node writes its log lines in `logging.format` to standard error, or to the
+`Writer` of `logging.Config`. An application that embeds FSC and has its own
+logging setup can send FSC's lines to its own `slog.Handler` instead. The
+standard library has text and JSON handlers, zap and OpenTelemetry ship one
+(`zapslog`, `otelslog`), and adapters exist for most other logging libraries:
+
+```go
+logging.SetHandler(appHandler) // before building the node
+```
+
+Every FSC logger then writes through `appHandler`, including package-level
+loggers created before the call. `logging.format` and `Writer` no longer apply;
+`SetHandler(nil)` restores the default handler.
+
+Two filters decide whether a line is written, in this order:
+
+1. `logging.spec`, for the logger's name, which `PUT /logspec` changes while
+   the node runs.
+2. The handler's `Enabled` method.
+
+To let the handler alone decide, set `logging.spec: debug`. At startup the node
+logs, at Info, the spec and the type of the handler, which shows which filter
+dropped a missing line.
+
+The handler gets the logger name as the attribute `logger`; the fields of
+`With`, of the `*w` methods and of `logging.RegisterContextLogField` as
+attributes; and the caller of the log method as the record's PC. The
+`*Context` methods also record the message as an event on the span in the
+context, whatever the handler.
+
+The application can route its own `slog` lines through `logging.spec` and the
+same handler, under a logger name of its choice:
+
+```go
+slog.SetDefault(slog.New(logging.Handler("app")))
+```
+
+FSC never calls `slog.SetDefault` itself. The handler passed to `SetHandler`
+must not be `slog.Default().Handler()` after such a call, or any other handler
+that writes through `logging.Handler`: each line would come back to it without
+end.
 
 ## Migrating TLS configuration
 
