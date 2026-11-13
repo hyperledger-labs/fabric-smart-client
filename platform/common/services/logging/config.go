@@ -59,7 +59,8 @@ var otelSanitizeEnabled atomic.Bool
 // ContextLogFields are added to the registered ones, a field with a name already
 // registered replacing its key.
 //
-// Init fails if Format or LogSpec is invalid, and then changes nothing.
+// Init logs the spec and the handler (see [SetHandler]) at Info. It fails if Format or
+// LogSpec is invalid, and then changes nothing.
 func Init(c Config) error {
 	spec, specSource := c.LogSpec, "logging.spec"
 	if spec == "" {
@@ -85,8 +86,13 @@ func Init(c Config) error {
 	for _, f := range c.ContextLogFields {
 		doRegisterContextLogField(f.Name, f.Key, true)
 	}
+	// Both logging.spec and the handler filter lines; name them, so a missing line can be
+	// traced to the filter that dropped it.
+	initLogger.Infof("logging spec [%s], handler [%s]", spec, handlerName())
 	return nil
 }
+
+var initLogger = MustGetLogger()
 
 func otelSanitize() bool { return otelSanitizeEnabled.Load() }
 

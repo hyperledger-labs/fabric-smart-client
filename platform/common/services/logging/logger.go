@@ -13,11 +13,12 @@ import (
 	"maps"
 	"net/http"
 	"runtime"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -102,124 +103,156 @@ func zapLevel(level Level) zapcore.Level {
 	}
 }
 
-// callerSkip is the number of frames between zap's sugared logger and the caller of a
-// Logger method: the method itself, then logArgs, logf or logw, then write.
-const callerSkip = 3
+// callerSkip is the number of frames runtime.Callers skips in write to reach the caller
+// of a Logger method: runtime.Callers, write, then logArgs, logf or logw, then the method.
+const callerSkip = 4
 
+// logger is the front end of every FSC logger: it checks the level, builds a slog.Record
+// and hands it to its handler, derived from the backend with the logger's name and With
+// attributes.
 type logger struct {
-	// base is the zap logger without the caller skip; Named and With derive from it.
-	base *zap.Logger
-	s    *zap.SugaredLogger
-	name string
-	// levels holds the per-name levels of flogging. It is nil when base does not write
-	// through flogging, as in tests, and the level check then asks the zap core.
-	levels *flogging.LoggerLevels
+	name  string
+	attrs []slog.Attr
+	// levels holds the per-name levels of logging.spec. It is nil for a logger with a
+	// fixed backend, as in tests, which then leaves the level check to the handler.
+	levels  *flogging.LoggerLevels
+	handler *handlerCache
 }
 
-func newLogger(zapLogger *zap.Logger) *logger {
-	l := &logger{
-		base: zapLogger,
-		s:    zapLogger.WithOptions(zap.AddCallerSkip(callerSkip)).Sugar(),
-		name: zapLogger.Name(),
+// newLogger returns a logger named name with attrs. A nil root writes through the
+// current backend and applies logging.spec.
+func newLogger(name string, attrs []slog.Attr, root *backend) *logger {
+	l := &logger{name: name, attrs: attrs}
+	if root == nil {
+		l.levels = flogging.Global.LoggerLevels
 	}
-	if c, ok := zapLogger.Core().(*flogging.Core); ok {
-		l.levels = c.Levels
-	}
+	l.handler = &handlerCache{root: root, derive: func(h slog.Handler) slog.Handler {
+		return h.WithAttrs(append([]slog.Attr{slog.String(loggerAttr, l.name)}, l.attrs...))
+	}}
 	return l
 }
 
-func (l *logger) Named(name string) Logger { return newLogger(l.base.Named(name)) }
+// newZapLogger returns a logger named name that writes to core through zapslog, with no
+// logging.spec check, for tests.
+func newZapLogger(core zapcore.Core, name string) *logger {
+	return newLogger(name, nil, &backend{h: newZapHandler(core)})
+}
+
+func (l *logger) Named(name string) Logger {
+	if l.name != "" {
+		name = l.name + "." + name
+	}
+	return newLogger(name, l.attrs, l.handler.root)
+}
 
 func (l *logger) With(keysAndValues ...any) Logger {
-	return newLogger(l.base.Sugar().With(keysAndValues...).Desugar())
+	// slog.Group turns alternating keys and values into attributes as Record.Add does.
+	attrs := slices.Concat(l.attrs, slog.Group("", keysAndValues...).Value.Group())
+	return newLogger(l.name, attrs, l.handler.root)
 }
 
-func (l *logger) IsEnabledFor(level Level) bool { return l.enabled(zapLevel(level)) }
+func (l *logger) IsEnabledFor(level Level) bool {
+	_, ok := l.enabled(noCtx, level)
+	return ok
+}
 
-// enabled checks the level of this logger's name. The zap core of flogging checks only
-// the lowest level of the whole spec, which is why the name is looked up here.
-func (l *logger) enabled(level zapcore.Level) bool {
-	if l.levels != nil {
-		return l.levels.Level(l.name).Enabled(level)
+// enabled returns the logger's handler and whether a line at level is written: when
+// logging.spec enables level for the logger's name and the handler is enabled for it.
+// The spec is checked first, so a disabled line costs only that lookup.
+func (l *logger) enabled(ctx context.Context, level Level) (slog.Handler, bool) {
+	if !specEnabled(l.levels, l.name, level) {
+		return nil, false
 	}
-	return l.base.Core().Enabled(level)
+	h := l.handler.get()
+	return h, h.Enabled(ctx, level)
 }
 
-func (l *logger) logArgs(level zapcore.Level, args []any) {
-	if l.enabled(level) {
+func (l *logger) logArgs(level Level, args []any) {
+	if h, ok := l.enabled(noCtx, level); ok {
 		// Like fmt.Sprintln, which puts spaces between all operands, unlike fmt.Sprint.
-		l.write(noCtx, level, strings.TrimSuffix(fmt.Sprintln(args...), "\n"), nil)
+		l.write(noCtx, h, level, strings.TrimSuffix(fmt.Sprintln(args...), "\n"), nil)
 	}
 }
 
-func (l *logger) logf(ctx context.Context, level zapcore.Level, format string, args []any) {
-	if l.enabled(level) {
+func (l *logger) logf(ctx context.Context, level Level, format string, args []any) { //nolint:contextcheck // replaces only a nil ctx
+	if ctx == nil {
+		ctx = noCtx
+	}
+	if h, ok := l.enabled(ctx, level); ok {
 		msg := format
 		if len(args) > 0 {
 			msg = fmt.Sprintf(format, args...)
 		}
-		l.write(ctx, level, msg, nil)
+		l.write(ctx, h, level, msg, nil)
 	}
 }
 
-func (l *logger) logw(ctx context.Context, level zapcore.Level, msg string, keysAndValues []any) {
-	if l.enabled(level) {
-		l.write(ctx, level, msg, keysAndValues)
+func (l *logger) logw(ctx context.Context, level Level, msg string, keysAndValues []any) { //nolint:contextcheck // replaces only a nil ctx
+	if ctx == nil {
+		ctx = noCtx
+	}
+	if h, ok := l.enabled(ctx, level); ok {
+		l.write(ctx, h, level, msg, keysAndValues)
 	}
 }
 
 // noCtx is the context of the methods without one: it carries no span and no values.
 var noCtx = context.Background()
 
-// write writes an enabled line, with the span event and the context fields of ctx.
-func (l *logger) write(ctx context.Context, level zapcore.Level, msg string, keysAndValues []any) {
+// write writes an enabled line to h, with the span event and the context fields of ctx.
+func (l *logger) write(ctx context.Context, h slog.Handler, level Level, msg string, keysAndValues []any) {
 	l.spanEvent(ctx, level, msg)
-	keysAndValues = appendContextLogFields(ctx, keysAndValues)
-	l.s.Logw(level, msg, keysAndValues...)
+	var pcs [1]uintptr
+	runtime.Callers(callerSkip, pcs[:])
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	r.Add(keysAndValues...)
+	addContextLogFields(ctx, &r)
+	// A handler reports a failed write, which a log call has no one to return to.
+	_ = h.Handle(ctx, r)
 }
 
-func (l *logger) Debug(args ...any)                 { l.logArgs(zapcore.DebugLevel, args) }
-func (l *logger) Debugf(format string, args ...any) { l.logf(noCtx, zapcore.DebugLevel, format, args) }
-func (l *logger) Debugw(msg string, kv ...any)      { l.logw(noCtx, zapcore.DebugLevel, msg, kv) }
+func (l *logger) Debug(args ...any)                 { l.logArgs(DebugLevel, args) }
+func (l *logger) Debugf(format string, args ...any) { l.logf(noCtx, DebugLevel, format, args) }
+func (l *logger) Debugw(msg string, kv ...any)      { l.logw(noCtx, DebugLevel, msg, kv) }
 func (l *logger) DebugfContext(ctx context.Context, format string, args ...any) {
-	l.logf(ctx, zapcore.DebugLevel, format, args)
+	l.logf(ctx, DebugLevel, format, args)
 }
 
 func (l *logger) DebugwContext(ctx context.Context, msg string, kv ...any) {
-	l.logw(ctx, zapcore.DebugLevel, msg, kv)
+	l.logw(ctx, DebugLevel, msg, kv)
 }
 
-func (l *logger) Info(args ...any)                 { l.logArgs(zapcore.InfoLevel, args) }
-func (l *logger) Infof(format string, args ...any) { l.logf(noCtx, zapcore.InfoLevel, format, args) }
-func (l *logger) Infow(msg string, kv ...any)      { l.logw(noCtx, zapcore.InfoLevel, msg, kv) }
+func (l *logger) Info(args ...any)                 { l.logArgs(InfoLevel, args) }
+func (l *logger) Infof(format string, args ...any) { l.logf(noCtx, InfoLevel, format, args) }
+func (l *logger) Infow(msg string, kv ...any)      { l.logw(noCtx, InfoLevel, msg, kv) }
 func (l *logger) InfofContext(ctx context.Context, format string, args ...any) {
-	l.logf(ctx, zapcore.InfoLevel, format, args)
+	l.logf(ctx, InfoLevel, format, args)
 }
 
 func (l *logger) InfowContext(ctx context.Context, msg string, kv ...any) {
-	l.logw(ctx, zapcore.InfoLevel, msg, kv)
+	l.logw(ctx, InfoLevel, msg, kv)
 }
 
-func (l *logger) Warn(args ...any)                 { l.logArgs(zapcore.WarnLevel, args) }
-func (l *logger) Warnf(format string, args ...any) { l.logf(noCtx, zapcore.WarnLevel, format, args) }
-func (l *logger) Warnw(msg string, kv ...any)      { l.logw(noCtx, zapcore.WarnLevel, msg, kv) }
+func (l *logger) Warn(args ...any)                 { l.logArgs(WarnLevel, args) }
+func (l *logger) Warnf(format string, args ...any) { l.logf(noCtx, WarnLevel, format, args) }
+func (l *logger) Warnw(msg string, kv ...any)      { l.logw(noCtx, WarnLevel, msg, kv) }
 func (l *logger) WarnfContext(ctx context.Context, format string, args ...any) {
-	l.logf(ctx, zapcore.WarnLevel, format, args)
+	l.logf(ctx, WarnLevel, format, args)
 }
 
 func (l *logger) WarnwContext(ctx context.Context, msg string, kv ...any) {
-	l.logw(ctx, zapcore.WarnLevel, msg, kv)
+	l.logw(ctx, WarnLevel, msg, kv)
 }
 
-func (l *logger) Error(args ...any)                 { l.logArgs(zapcore.ErrorLevel, args) }
-func (l *logger) Errorf(format string, args ...any) { l.logf(noCtx, zapcore.ErrorLevel, format, args) }
-func (l *logger) Errorw(msg string, kv ...any)      { l.logw(noCtx, zapcore.ErrorLevel, msg, kv) }
+func (l *logger) Error(args ...any)                 { l.logArgs(ErrorLevel, args) }
+func (l *logger) Errorf(format string, args ...any) { l.logf(noCtx, ErrorLevel, format, args) }
+func (l *logger) Errorw(msg string, kv ...any)      { l.logw(noCtx, ErrorLevel, msg, kv) }
 func (l *logger) ErrorfContext(ctx context.Context, format string, args ...any) {
-	l.logf(ctx, zapcore.ErrorLevel, format, args)
+	l.logf(ctx, ErrorLevel, format, args)
 }
 
 func (l *logger) ErrorwContext(ctx context.Context, msg string, kv ...any) {
-	l.logw(ctx, zapcore.ErrorLevel, msg, kv)
+	l.logw(ctx, ErrorLevel, msg, kv)
 }
 
 // MustGetLogger is [GetLogger] for package-level loggers, var logger =
@@ -259,7 +292,7 @@ func newNamedLogger(replacements map[string]string, params []string, skip int) (
 		return nil, err
 	}
 	name := loggerName(fullPkgName, replacements, params...)
-	return newLogger(flogging.Global.ZapLogger(name)), nil
+	return newLogger(name, nil, nil), nil
 }
 
 // getPackageName returns the package path of the function skip frames above it.

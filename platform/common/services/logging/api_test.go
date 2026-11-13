@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -85,6 +84,15 @@ func TestDisabledMethodsDontFormat(t *testing.T) { //nolint:paralleltest // chan
 }
 
 // TestUnformattedMethods checks the unformatted methods put spaces between all their
+// TestDisabledAllocs checks a disabled Debug or Debugf allocates only the slice of its
+// arguments, whatever the handler.
+func TestDisabledAllocs(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
+	initForTest(t, Config{LogSpec: "info"})
+	l := MustGetLogger()
+	assert.InDelta(t, 1, testing.AllocsPerRun(1000, func() { l.Debug("x", "k", "v") }), 0.01)
+	assert.InDelta(t, 1, testing.AllocsPerRun(1000, func() { l.Debugf("x %s", "v") }), 0.01)
+}
+
 // arguments, as before; fmt.Sprint would join two strings without one.
 func TestUnformattedMethods(t *testing.T) {
 	t.Parallel()
@@ -98,7 +106,7 @@ func TestUnformattedMethods(t *testing.T) {
 func TestStructuredMethods(t *testing.T) {
 	t.Parallel()
 	core, observed := observer.New(zapcore.DebugLevel)
-	l := newLogger(zap.New(core))
+	l := newZapLogger(core, "")
 	ctx := t.Context()
 
 	l.Debugw("m", "k", "v")
@@ -126,6 +134,7 @@ func TestStructuredMethods(t *testing.T) {
 func TestCallerOfEveryMethod(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
 	var buf bytes.Buffer
 	initForTest(t, Config{Format: "%{shortfunc}", LogSpec: "debug", Writer: &buf})
+	buf.Reset() // drop what Init itself logs
 	base := MustGetLogger()
 	testLogger, r := NewTestLogger(t)
 	loggers := []Logger{base, base.Named("child"), base.With("k", "v"), testLogger, testLogger.Named("c").With("k", "v")}

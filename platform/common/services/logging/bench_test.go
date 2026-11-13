@@ -8,8 +8,11 @@ package logging
 
 import (
 	"context"
+	"io"
+	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -56,8 +59,7 @@ func registerBenchFields(n int) {
 func BenchmarkDebugfContext_Disabled_NoFields(b *testing.B) {
 	// NopCore is always disabled; use an Info-level core with debug calls instead for a realistic "disabled but real core" case.
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := b.Context()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -67,8 +69,7 @@ func BenchmarkDebugfContext_Disabled_NoFields(b *testing.B) {
 
 func BenchmarkDebugfContext_Disabled_With3Fields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := setupBenchRegistry(3)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -78,8 +79,7 @@ func BenchmarkDebugfContext_Disabled_With3Fields(b *testing.B) {
 
 func BenchmarkInfowContext_Enabled_NoFields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := b.Context()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -89,8 +89,7 @@ func BenchmarkInfowContext_Enabled_NoFields(b *testing.B) {
 
 func BenchmarkInfowContext_Enabled_With3Fields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := setupBenchRegistry(3)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -105,8 +104,7 @@ func BenchmarkInfowContext_Enabled_With3Fields(b *testing.B) {
 // must not pay for the fields it doesn't have.
 func BenchmarkInfowContext_Enabled_3FieldsRegistered_NoneInContext(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	registerBenchFields(3)
 	ctx := b.Context()
 	b.ReportAllocs()
@@ -119,8 +117,7 @@ func BenchmarkInfowContext_Enabled_3FieldsRegistered_NoneInContext(b *testing.B)
 // only some of the registered fields are present in ctx.
 func BenchmarkInfowContext_Enabled_3FieldsRegistered_OneInContext(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	gen := benchRegCounter
 	benchRegCounter++
 	keys := make([]benchKey, 3)
@@ -137,8 +134,7 @@ func BenchmarkInfowContext_Enabled_3FieldsRegistered_OneInContext(b *testing.B) 
 
 func BenchmarkInfowContext_Disabled_With3Fields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := setupBenchRegistry(3)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -148,8 +144,7 @@ func BenchmarkInfowContext_Disabled_With3Fields(b *testing.B) {
 
 func BenchmarkInfofContext_Enabled_With3Fields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := setupBenchRegistry(3)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -163,8 +158,7 @@ func BenchmarkInfofContext_Enabled_With3Fields(b *testing.B) {
 // though a given log call's context will typically carry only a handful of them.
 func BenchmarkInfowContext_Enabled_With10Fields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := setupBenchRegistry(10)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -174,8 +168,7 @@ func BenchmarkInfowContext_Enabled_With10Fields(b *testing.B) {
 
 func BenchmarkInfowContext_Enabled_With30Fields(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	l := newLogger(zl)
+	l := newZapLogger(core, "")
 	ctx := setupBenchRegistry(30)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -191,5 +184,43 @@ func BenchmarkInfow_RawZap_NoDecorator(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		sugared.Infow("msg", "i", i)
+	}
+}
+
+// benchNodeLogger returns a logger as a node has one: from MustGetLogger, with spec and
+// the default handler, writing to io.Discard.
+func benchNodeLogger(b *testing.B, spec string) Logger {
+	b.Helper()
+	b.Cleanup(func() { require.NoError(b, Init(Config{Writer: os.Stderr})) })
+	require.NoError(b, Init(Config{LogSpec: spec, Writer: io.Discard}))
+	return MustGetLogger()
+}
+
+func BenchmarkDebugf_Disabled(b *testing.B) {
+	l := benchNodeLogger(b, "info")
+	s, n := "x", 7
+	b.ReportAllocs()
+	for b.Loop() {
+		l.Debugf("x %s %d", s, n)
+	}
+}
+
+func BenchmarkDebugf_DisabledIsEnabledFor(b *testing.B) {
+	l := benchNodeLogger(b, "info")
+	s, n := "x", 7
+	b.ReportAllocs()
+	for b.Loop() {
+		if l.IsEnabledFor(DebugLevel) {
+			l.Debugf("x %s %d", s, n)
+		}
+	}
+}
+
+func BenchmarkInfof_Enabled(b *testing.B) {
+	l := benchNodeLogger(b, "info")
+	s, n := "x", 7
+	b.ReportAllocs()
+	for b.Loop() {
+		l.Infof("x %s %d", s, n)
 	}
 }

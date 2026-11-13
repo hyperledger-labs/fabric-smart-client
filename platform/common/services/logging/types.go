@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"time"
@@ -34,16 +35,17 @@ func (k keys[K, V]) String() string {
 	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
 }
 
-// SHA256Base64 returns a [fmt.Stringer] that prints the SHA-256 hash of b in base64.
+// SHA256Base64 returns a [fmt.Stringer] that prints the SHA-256 hash of b in base64 when
+// it is formatted, so a disabled line doesn't hash. b must not change until then.
 func SHA256Base64(b []byte) fmt.Stringer {
-	h := sha256.Sum256(b)
-	return sha256Base64Enc(h[:])
+	return sha256Base64Enc(b)
 }
 
 type sha256Base64Enc []byte
 
 func (b sha256Base64Enc) String() string {
-	return base64Enc(b).String()
+	h := sha256.Sum256(b)
+	return base64Enc(h[:]).String()
 }
 
 // Base64 returns a [fmt.Stringer] that prints b in base64 when it is formatted.
@@ -122,6 +124,19 @@ func (w printable) String() string {
 	res, _ := filterPrintable(s)
 	return res
 }
+
+// The values the helpers above return are also [slog.LogValuer]s with the value of
+// String, so a structured handler, which may not call String, logs the same text when
+// one is passed as a field.
+
+func (k keys[K, V]) LogValue() slog.Value      { return slog.StringValue(k.String()) }
+func (b sha256Base64Enc) LogValue() slog.Value { return slog.StringValue(b.String()) }
+func (b base64Enc) LogValue() slog.Value       { return slog.StringValue(b.String()) }
+func (t identifier) LogValue() slog.Value      { return slog.StringValue(t.String()) }
+func (e eval[V]) LogValue() slog.Value         { return slog.StringValue(e.String()) }
+func (s since) LogValue() slog.Value           { return slog.StringValue(s.String()) }
+func (w prefix) LogValue() slog.Value          { return slog.StringValue(w.String()) }
+func (w printable) LogValue() slog.Value       { return slog.StringValue(w.String()) }
 
 // filterPrintableWithMarker removes non-printable characters from the passed string.
 // If non-printable characters are found, then a prefix is added to the result.
