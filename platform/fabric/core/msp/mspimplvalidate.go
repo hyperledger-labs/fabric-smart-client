@@ -131,7 +131,7 @@ func (msp *bccspmsp) validateCertAgainstChain(cert *x509.Certificate, validation
 						// the CA cert that signed the certificate
 						// that is under validation did not sign the
 						// candidate CRL - skip
-						mspLogger.Warningf("Invalid signature over the identified CRL, error %+v", err)
+						mspLogger.Warnf("Invalid signature over the identified CRL, error %+v", err)
 						continue
 					}
 

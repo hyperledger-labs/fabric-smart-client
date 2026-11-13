@@ -4,6 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package logging provides gRPC server interceptors that log each call.
 package logging
 
 import (
@@ -11,183 +12,67 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-// Leveler returns a zap level to use when logging from a grpc interceptor.
-type Leveler interface {
-	Level(ctx context.Context, fullMethod string) zapcore.Level
-}
-
-// PayloadLeveler gets the level to use when logging grpc message payloads.
-type PayloadLeveler interface {
-	PayloadLevel(ctx context.Context, fullMethod string) zapcore.Level
-}
-
-type LevelerFunc func(ctx context.Context, fullMethod string) zapcore.Level
-
-func (l LevelerFunc) Level(ctx context.Context, fullMethod string) zapcore.Level {
-	return l(ctx, fullMethod)
-}
-
-func (l LevelerFunc) PayloadLevel(ctx context.Context, fullMethod string) zapcore.Level {
-	return l(ctx, fullMethod)
-}
-
-// DefaultPayloadLevel is default level to use when logging payloads
-const DefaultPayloadLevel = zapcore.DebugLevel - 1
-
-type options struct {
-	Leveler
-	PayloadLeveler
-}
-
-type Option func(o *options)
-
-func WithLeveler(l Leveler) Option {
-	return func(o *options) { o.Leveler = l }
-}
-
-func WithPayloadLeveler(l PayloadLeveler) Option {
-	return func(o *options) { o.PayloadLeveler = l }
-}
-
-func applyOptions(opts ...Option) *options {
-	o := &options{
-		Leveler:        LevelerFunc(func(context.Context, string) zapcore.Level { return zapcore.DebugLevel }),
-		PayloadLeveler: LevelerFunc(func(context.Context, string) zapcore.Level { return DefaultPayloadLevel }),
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
-// Levelers will be required and should be provided with the full method info
-
-func UnaryServerInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryServerInterceptor {
-	o := applyOptions(opts...)
-
+// UnaryServerInterceptor logs one line at Debug when a unary call completes, with the
+// fields of the call (see [StreamServerInterceptor]).
+func UnaryServerInterceptor(logger logging.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		logger := logger
-		startTime := time.Now()
-
-		fields := getFields(ctx, info.FullMethod)
-		logger = logger.With(fields...)
-		ctx = WithFields(ctx, fields)
-
-		payloadLogger := logger.Named("payload")
-		payloadLevel := o.PayloadLevel(ctx, info.FullMethod)
-		if ce := payloadLogger.Check(payloadLevel, "received unary request"); ce != nil {
-			ce.Write(ProtoMessage("message", req))
+		if !logger.IsEnabledFor(logging.DebugLevel) {
+			return handler(ctx, req)
 		}
-
+		start := time.Now()
 		resp, err := handler(ctx, req)
-
-		if ce := payloadLogger.Check(payloadLevel, "sending unary response"); ce != nil && err == nil {
-			ce.Write(ProtoMessage("message", resp))
-		}
-
-		if ce := logger.Check(o.Level(ctx, info.FullMethod), "unary call completed"); ce != nil {
-			st, _ := status.FromError(err)
-			ce.Write(
-				Error(err),
-				zap.Stringer("grpc.code", st.Code()),
-				zap.Duration("grpc.call_duration", time.Since(startTime)),
-			)
-		}
-
+		logger.Debugw("unary call completed", callFields(ctx, info.FullMethod, start, err)...)
 		return resp, err
 	}
 }
 
-func StreamServerInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamServerInterceptor {
-	o := applyOptions(opts...)
-
+// StreamServerInterceptor logs one line at Debug when a streaming call completes. The
+// line has the fields grpc.service, grpc.method, grpc.code and grpc.call_duration; if
+// known, grpc.request_deadline, grpc.peer_address and the TLS client certificate's
+// grpc.peer_subject; and, if the call failed, error.
+func StreamServerInterceptor(logger logging.Logger) grpc.StreamServerInterceptor {
 	return func(service any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		logger := logger
-		ctx := stream.Context()
-		startTime := time.Now()
-
-		fields := getFields(ctx, info.FullMethod)
-		logger = logger.With(fields...)
-		ctx = WithFields(ctx, fields)
-
-		wrappedStream := &serverStream{
-			ServerStream:  stream,
-			context:       ctx,
-			payloadLogger: logger.Named("payload"),
-			payloadLevel:  o.PayloadLevel(ctx, info.FullMethod),
+		if !logger.IsEnabledFor(logging.DebugLevel) {
+			return handler(service, stream)
 		}
-
-		err := handler(service, wrappedStream)
-		if ce := logger.Check(o.Level(ctx, info.FullMethod), "streaming call completed"); ce != nil {
-			st, _ := status.FromError(err)
-			ce.Write(
-				Error(err),
-				zap.Stringer("grpc.code", st.Code()),
-				zap.Duration("grpc.call_duration", time.Since(startTime)),
-			)
-		}
+		start := time.Now()
+		err := handler(service, stream)
+		logger.Debugw("streaming call completed", callFields(stream.Context(), info.FullMethod, start, err)...)
 		return err
 	}
 }
 
-func getFields(ctx context.Context, method string) []zapcore.Field {
-	var fields []zap.Field
-	if parts := strings.Split(method, "/"); len(parts) == 3 {
-		fields = append(fields, zap.String("grpc.service", parts[1]), zap.String("grpc.method", parts[2]))
+// callFields returns the key/value pairs of a completed call.
+func callFields(ctx context.Context, fullMethod string, start time.Time, err error) []any {
+	fields := make([]any, 0, 16)
+	if parts := strings.Split(fullMethod, "/"); len(parts) == 3 {
+		fields = append(fields, "grpc.service", parts[1], "grpc.method", parts[2])
 	}
 	if deadline, ok := ctx.Deadline(); ok {
-		fields = append(fields, zap.Time("grpc.request_deadline", deadline))
+		fields = append(fields, "grpc.request_deadline", deadline)
 	}
 	if p, ok := peer.FromContext(ctx); ok {
-		fields = append(fields, zap.String("grpc.peer_address", p.Addr.String()))
-		if ti, ok := p.AuthInfo.(credentials.TLSInfo); ok {
-			if len(ti.State.PeerCertificates) > 0 {
-				cert := ti.State.PeerCertificates[0]
-				fields = append(fields, zap.String("grpc.peer_subject", cert.Subject.String()))
-			}
+		fields = append(fields, "grpc.peer_address", p.Addr.String())
+		if ti, ok := p.AuthInfo.(credentials.TLSInfo); ok && len(ti.State.PeerCertificates) > 0 {
+			fields = append(fields, "grpc.peer_subject", ti.State.PeerCertificates[0].Subject.String())
 		}
 	}
+	fields = append(fields,
+		"grpc.code", status.Code(err).String(),
+		"grpc.call_duration", time.Since(start),
+	)
+	if err != nil {
+		// err.Error(), not err: zap would add a stack trace for an error that
+		// implements fmt.Formatter.
+		fields = append(fields, "error", err.Error())
+	}
 	return fields
-}
-
-type serverStream struct {
-	grpc.ServerStream
-	context       context.Context
-	payloadLogger *zap.Logger
-	payloadLevel  zapcore.Level
-}
-
-func (ss *serverStream) Context() context.Context {
-	return ss.context
-}
-
-func (ss *serverStream) SendMsg(msg any) error {
-	err := ss.ServerStream.SendMsg(msg)
-	// Log only what was actually sent, matching the unary path: a failed send
-	// may not have transmitted the message at all.
-	if ce := ss.payloadLogger.Check(ss.payloadLevel, "sending stream message"); ce != nil && err == nil {
-		ce.Write(ProtoMessage("message", msg))
-	}
-
-	return err
-}
-
-func (ss *serverStream) RecvMsg(msg any) error {
-	err := ss.ServerStream.RecvMsg(msg)
-	// A failed receive leaves msg unpopulated, or holding stale data if the
-	// caller reuses it, so there is nothing meaningful to log. The unary path
-	// guards its response the same way.
-	if ce := ss.payloadLogger.Check(ss.payloadLevel, "received stream message"); ce != nil && err == nil {
-		ce.Write(ProtoMessage("message", msg))
-	}
-
-	return err
 }

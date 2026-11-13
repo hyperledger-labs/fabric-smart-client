@@ -33,7 +33,7 @@ func restoreReplacers(t *testing.T) {
 
 // TestReplacers checks the registry starts with the FSC package-path shortening.
 func TestReplacers(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
-	assert.Equal(t, "fsc", Replacers()["github.com.hyperledger-labs.fabric-smart-client"],
+	assert.Equal(t, "fsc", getReplacers()["github.com.hyperledger-labs.fabric-smart-client"],
 		"the FSC package path is shortened by default")
 }
 
@@ -42,13 +42,13 @@ func TestRegisterReplacer(t *testing.T) { //nolint:paralleltest // mutates the s
 	restoreReplacers(t)
 
 	RegisterReplacer("some.long.package.path", "short")
-	assert.Equal(t, "short", Replacers()["some.long.package.path"])
+	assert.Equal(t, "short", getReplacers()["some.long.package.path"])
 
 	assert.PanicsWithValue(t, "replacer already exists", func() {
 		RegisterReplacer("some.long.package.path", "other")
 	}, "a key cannot be registered twice")
 
-	assert.Equal(t, "short", Replacers()["some.long.package.path"], "the first registration stands")
+	assert.Equal(t, "short", getReplacers()["some.long.package.path"], "the first registration stands")
 }
 
 // TestLoggerName covers the name construction: the package path is dotted, any params are
@@ -109,55 +109,81 @@ func TestNewSpecHandler(t *testing.T) {
 	assert.NotNil(t, NewSpecHandler())
 }
 
-// TestGetPackageName_UnexpectedCallDepth checks a caller at the wrong depth is reported
-// rather than panicked on. GetPackageName reads runtime.Caller(4), which assumes the
-// production call chain; called directly from a test there is no fourth frame.
+// TestGetPackageName_UnexpectedCallDepth checks a frame beyond the stack is reported
+// rather than panicked on.
 func TestGetPackageName_UnexpectedCallDepth(t *testing.T) {
 	t.Parallel()
 
-	name, err := GetPackageName()
+	name, err := getPackageName(1000)
 
 	require.Error(t, err)
 	assert.Empty(t, name)
 }
 
-// TestGetLogger_ReportsUnexpectedCallDepth checks the error is propagated rather than
-// panicking, for both entry points that reach GetPackageName directly.
-func TestGetLogger_ReportsUnexpectedCallDepth(t *testing.T) {
+func depth1() (string, error) { return depth2() }
+func depth2() (string, error) { return getPackageName(2) }
+
+type pkgNameHolder struct{}
+
+func (pkgNameHolder) method() (string, error) { return depth2() }
+
+// TestGetPackageName checks getPackageName resolves the package of a function and of a
+// method.
+func TestGetPackageName(t *testing.T) {
 	t.Parallel()
+	const pkg = "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	for name, call := range map[string]func() (string, error){
+		"function": depth1,
+		"method":   pkgNameHolder{}.method,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got, err := call()
+			require.NoError(t, err)
+			assert.Equal(t, pkg, got)
+		})
+	}
+}
 
-	t.Run("GetLogger", func(t *testing.T) {
-		t.Parallel()
+// wrapperGetLogger and wrapperMustGetLogger are a wrapper pair as GetLoggerWithReplacements
+// expects it, with a replacement that marks the name.
+func wrapperGetLogger() (Logger, error) {
+	return GetLoggerWithReplacements(map[string]string{"logging": "wrapped"}, nil)
+}
 
-		logger, err := GetLogger()
+func wrapperMustGetLogger() Logger {
+	l, err := wrapperGetLogger()
+	if err != nil {
+		panic(err)
+	}
+	return l
+}
 
-		require.Error(t, err)
-		assert.Nil(t, logger)
-	})
+// TestGetLoggerEntryPoints checks each entry point names the logger after the package it
+// documents: the direct caller for GetLogger, the caller of the wrapper pair for
+// GetLoggerWithReplacements.
+func TestGetLoggerEntryPoints(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
+	l, err := GetLogger("p")
+	require.NoError(t, err)
+	assert.Equal(t, "fsc.platform.common.services.logging.p", l.(*logger).name)
 
-	t.Run("GetLoggerWithReplacements", func(t *testing.T) {
-		t.Parallel()
-
-		logger, err := GetLoggerWithReplacements(map[string]string{"a": "b"}, nil)
-
-		require.Error(t, err)
-		assert.Nil(t, logger)
-	})
+	assert.Equal(t, "github.com.hyperledger-labs.fabric-smart-client.platform.common.services.wrapped",
+		wrapperMustGetLogger().(*logger).name, "only the given replacements apply")
 }
 
 // TestMustGetLogger checks the happy path. MustGetLogger adds a frame of its own, so from a
 // test runtime.Caller(4) lands on the calling test function rather than testing.tRunner, and
 // the name resolves -- with the registered replacements applied.
 func TestMustGetLogger(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
-	logger := MustGetLogger()
+	l := MustGetLogger()
 
-	require.NotNil(t, logger)
-	assert.Equal(t, "fsc.platform.common.services.logging", logger.Zap().Name(),
+	require.NotNil(t, l)
+	assert.Equal(t, "fsc.platform.common.services.logging", l.(*logger).name,
 		"the package path is resolved and the FSC replacement applied")
 }
 
 // TestMustGetLoggerParams checks params are appended to the resolved name.
 func TestMustGetLoggerParams(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
 	assert.Equal(t, "fsc.platform.common.services.logging.component",
-		MustGetLogger("component").Zap().Name())
+		MustGetLogger("component").(*logger).name)
 }

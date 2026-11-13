@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package scv2
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -26,8 +27,6 @@ import (
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
 	"github.com/onsi/gomega"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapio"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 
@@ -274,13 +273,13 @@ func (*Extension) forwardLogs(containerName string, r io.Reader, closeReader fun
 		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
 		defer closeReader()
 
-		w := &zapio.Writer{
-			Log:   dockerLogger.Zap(),
-			Level: zap.DebugLevel,
+		scanner := bufio.NewScanner(r)
+		scanner.Buffer(nil, 1<<20) // a longer line ends the forwarding with an error
+		for scanner.Scan() {
+			dockerLogger.Debugf("%s", scanner.Text())
 		}
-		_, copyErr := io.Copy(w, r)
-		if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, io.ErrClosedPipe) {
-			dockerLogger.Error(copyErr)
+		if err := scanner.Err(); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+			dockerLogger.Error(err)
 		}
 	}()
 	return ctx

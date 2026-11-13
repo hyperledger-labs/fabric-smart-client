@@ -44,9 +44,11 @@ func (*mockSender) sendTo(_ context.Context, _ host.StreamInfo, _ proto.Message,
 }
 
 func setupWithBufferSize(bufferSize int) *NetworkStreamSession {
-	logging.Init(logging.Config{
+	if err := logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	sessionID := "someSessionID"
 	contextID := "someContextID"

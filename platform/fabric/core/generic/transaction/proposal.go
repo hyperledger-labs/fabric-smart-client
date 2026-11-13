@@ -201,14 +201,14 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 	// get the identity of the creator
 	creator, err := idDeserializer.DeserializeIdentity(up.SignatureHeader.Creator)
 	if err != nil {
-		logger.Warningf("access denied: channel %s", err)
+		logger.Warnf("access denied: channel %s", err)
 		return genericAuthError
 	}
 
 	// ensure that creator is a valid certificate
 	err = creator.Validate()
 	if err != nil {
-		logger.Warningf("access denied: identity is not valid: %s", err)
+		logger.Warnf("access denied: identity is not valid: %s", err)
 		return genericAuthError
 	}
 
@@ -219,7 +219,7 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 	// validate the signature
 	err = creator.Verify(up.SignedProposal.ProposalBytes, up.SignedProposal.Signature)
 	if err != nil {
-		logger.Warningf("access denied: creator's signature over the proposal is not valid: %s", err)
+		logger.Warnf("access denied: creator's signature over the proposal is not valid: %s", err)
 		return genericAuthError
 	}
 

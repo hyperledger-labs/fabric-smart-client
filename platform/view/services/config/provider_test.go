@@ -18,6 +18,8 @@ import (
 	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 type Opts struct {
@@ -551,5 +553,22 @@ func TestForceSkipCreateTable(t *testing.T) {
 		var opts struct{ SkipCreateTable bool }
 		require.NoError(t, p.UnmarshalKey("fsc.persistences.mydb.opts", &opts))
 		require.Equal(t, skip, opts.SkipCreateTable)
+	}
+}
+
+// TestInvalidLoggingConfig checks an invalid logging setting fails loading the
+// configuration with an error naming the key, instead of panicking.
+func TestInvalidLoggingConfig(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
+	t.Cleanup(func() { require.NoError(t, logging.Init(logging.Config{Writer: os.Stderr})) })
+	for key, yaml := range map[string]string{
+		"logging.spec":   "logging:\n  spec: debug:nope=bogus\n",
+		"logging.format": "logging:\n  format: '%{color:blink}'\n",
+	} {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(yaml), 0o600))
+
+		_, err := NewProvider(dir)
+
+		require.ErrorContains(t, err, "invalid "+key)
 	}
 }

@@ -61,7 +61,7 @@ func TestFilterPrintable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := FilterPrintableWithMarker(tt.input)
+			got := filterPrintableWithMarker(tt.input)
 			assert.Equal(t, tt.expected, got, "got %q, want %q", got, tt.expected)
 
 			// check Printable

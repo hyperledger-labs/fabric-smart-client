@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 // TestKeys checks the map keys are rendered, whatever their order.
@@ -107,30 +106,4 @@ func TestBase64(t *testing.T) {
 
 	assert.Equal(t, "c29tZS1ieXRlcw==", Base64([]byte("some-bytes")).String())
 	assert.Empty(t, Base64(nil).String())
-}
-
-// TestPanicContextMethods checks the panic methods still panic, and record the message on
-// the span first.
-func TestPanicContextMethods(t *testing.T) { //nolint:paralleltest // mutates the shared global config
-	t.Run("PanicfContext", func(t *testing.T) { //nolint:paralleltest // mutates the shared global config
-		logger, _ := otelTestLogger(t, zapcore.DebugLevel, false)
-		ctx, ended := recordingSpanCtx(t)
-
-		require.Panics(t, func() { logger.PanicfContext(ctx, "boom %s", "now") })
-
-		span := ended()
-		require.Len(t, span.Events, 1)
-		assert.Equal(t, "boom now", span.Events[0].Name)
-	})
-
-	t.Run("PanicwContext", func(t *testing.T) { //nolint:paralleltest // mutates the shared global config
-		logger, _ := otelTestLogger(t, zapcore.DebugLevel, false)
-		ctx, ended := recordingSpanCtx(t)
-
-		require.Panics(t, func() { logger.PanicwContext(ctx, "boom") })
-
-		span := ended()
-		require.Len(t, span.Events, 1)
-		assert.Equal(t, "boom", span.Events[0].Name)
-	})
 }

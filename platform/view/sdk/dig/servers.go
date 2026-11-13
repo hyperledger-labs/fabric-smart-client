@@ -383,10 +383,10 @@ func NewServerConfig(configProvider driver.ConfigService) (commongrpc.ServerConf
 		SecOpts:           secOpts,
 		Logger:            logging.MustGetLogger().With("server", "PeerServer"),
 		UnaryInterceptors: []grpc.UnaryServerInterceptor{
-			glogging.UnaryServerInterceptor(logging.MustGetLogger().Zap()),
+			glogging.UnaryServerInterceptor(logging.MustGetLogger()),
 		},
 		StreamInterceptors: []grpc.StreamServerInterceptor{
-			glogging.StreamServerInterceptor(logging.MustGetLogger().Zap()),
+			glogging.StreamServerInterceptor(logging.MustGetLogger()),
 		},
 
 		ServerStatsHandler: otelgrpc.NewServerHandler(),

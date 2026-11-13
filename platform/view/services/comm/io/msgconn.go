@@ -10,8 +10,6 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -50,7 +48,7 @@ func NewMsgConn(ctx context.Context, index int, session view.Session) (MsgConn, 
 }
 
 func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		logger.Debugf("[commSCCMsgConn] Write [%d][%s]\n", len(data), logging.SHA256Base64(data))
 	}
 
@@ -66,7 +64,7 @@ func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 
 func (c *commSCCMsgConn) Read() ([]byte, error) {
 	c.readCounter++
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		logger.Debugf("[commSCCMsgConn] Reading at counter [%d]", c.readCounter)
 	}
 	msg, ok := <-c.ch
@@ -86,7 +84,7 @@ func (c *commSCCMsgConn) Read() ([]byte, error) {
 		return nil, errMsg
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), logging.SHA256Base64(msg.Payload))
 	}
 	return msg.Payload, nil

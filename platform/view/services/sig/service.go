@@ -13,8 +13,6 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -93,7 +91,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 	}
 
 	entry := SignerEntry{Signer: signer}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		entry.DebugStack = debug.Stack()
 	}
 	o.signers[idHash] = entry
@@ -143,7 +141,7 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	}
 
 	entry := VerifierEntry{Verifier: verifier}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		entry.DebugStack = debug.Stack()
 	}
 	o.verifiers[idHash] = entry
@@ -227,7 +225,7 @@ func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 			return nil, errors.Wrapf(err, "failed deserializing identity for signer [%s]", identity)
 		}
 		newEntry := SignerEntry{Signer: signer}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
+		if logger.IsEnabledFor(logging.DebugLevel) {
 			newEntry.DebugStack = debug.Stack()
 		}
 
@@ -265,7 +263,7 @@ func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	}
 
 	newEntry := VerifierEntry{Verifier: verifier}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		newEntry.DebugStack = debug.Stack()
 	}
 	logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, logging.Identifier(verifier))

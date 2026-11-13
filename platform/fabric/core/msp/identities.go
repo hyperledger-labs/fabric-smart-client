@@ -18,7 +18,6 @@ import (
 
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -54,7 +53,7 @@ type identity struct {
 }
 
 func newIdentity(cert *x509.Certificate, pk bccsp.Key, msp *bccspmsp) (Identity, error) {
-	if mspIdentityLogger.IsEnabledFor(zapcore.DebugLevel) {
+	if mspIdentityLogger.IsEnabledFor(logging.DebugLevel) {
 		mspIdentityLogger.Debugf("Creating identity instance for cert %s", certToPEM(cert))
 	}
 
@@ -189,7 +188,7 @@ func (id *identity) Verify(msg, sig []byte) error {
 		}
 	}
 
-	if mspIdentityLogger.IsEnabledFor(zapcore.DebugLevel) {
+	if mspIdentityLogger.IsEnabledFor(logging.DebugLevel) {
 		mspIdentityLogger.Debugf("Verify: signer identity (certificate subject=%s issuer=%s serialnumber=%d)", id.cert.Subject, id.cert.Issuer, id.cert.SerialNumber)
 		// mspIdentityLogger.Debugf("Verify: digest = %s", hex.Dump(digest))
 		// mspIdentityLogger.Debugf("Verify: sig = %s", hex.Dump(sig))

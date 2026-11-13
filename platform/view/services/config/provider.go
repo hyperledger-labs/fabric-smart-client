@@ -48,10 +48,7 @@ const (
 // ErrNotFound is wrapped by NewProvider when no configuration file exists in any searched path.
 var ErrNotFound = errors.New("could not find config file")
 
-var (
-	logOutput = os.Stderr
-	logger    = logging.MustGetLogger()
-)
+var logger = logging.MustGetLogger()
 
 // OnMergeConfigEventHandler is notified after configuration is merged into a [Provider].
 type OnMergeConfigEventHandler interface {
@@ -313,14 +310,11 @@ func (p *Provider) loadFromPath(path string) error {
 		return err
 	}
 
-	logging.Init(logging.Config{
+	return logging.Init(logging.Config{
 		Format:       p.Backend.String("logging.format"),
 		LogSpec:      p.Backend.String("logging.spec"),
 		OtelSanitize: p.Backend.Bool("logging.otel.sanitize"),
-		Writer:       logOutput,
 	})
-
-	return nil
 }
 
 func (p *Provider) loadFromRaw(raw []byte) error {

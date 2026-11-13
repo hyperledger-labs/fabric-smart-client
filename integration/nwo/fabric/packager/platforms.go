@@ -7,6 +7,8 @@
 package packager
 
 import (
+	"fmt"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/external"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/golang"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
@@ -45,7 +47,7 @@ func NewRegistry(platformTypes ...Platform) *Registry {
 	platforms := make(map[string]Platform)
 	for _, platform := range platformTypes {
 		if _, ok := platforms[platform.Name()]; ok {
-			logger.Panicf("Multiple platforms of the same name specified: %s", platform.Name())
+			panic(fmt.Sprintf("multiple platforms of the same name specified: %s", platform.Name()))
 		}
 		platforms[platform.Name()] = platform
 	}

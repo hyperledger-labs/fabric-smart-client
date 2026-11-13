@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -128,7 +127,7 @@ func CreateEndorserTX(signer SerializableSigner, proposal driver.Proposal, resps
 			}
 
 			if !bytes.Equal(rwset1, rwset2) {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
+				if logger.IsEnabledFor(logging.DebugLevel) {
 					logger.Debugf("ProposalResponsePayloads do not match (%v) \n[%s]\n!=\n[%s]",
 						bytes.Equal(rwset1, rwset2), string(rwset1), string(rwset2),
 					)
@@ -143,7 +142,7 @@ func CreateEndorserTX(signer SerializableSigner, proposal driver.Proposal, resps
 					return nil, nil, err
 				}
 
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
+				if logger.IsEnabledFor(logging.DebugLevel) {
 					logger.Debugf("ProposalResponse do not match  \n[%s]\n!=\n[%s]",
 						bytes.Equal(pr1, pr2), string(pr1), string(pr2),
 					)

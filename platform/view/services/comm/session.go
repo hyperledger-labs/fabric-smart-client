@@ -12,10 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -399,7 +398,7 @@ func (n *NetworkStreamSession) closeStreams() {
 
 	logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
 	for stream := range n.streams {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
+		if logger.IsEnabledFor(logging.DebugLevel) {
 			logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr.Load())
 		}
 		stream.release()

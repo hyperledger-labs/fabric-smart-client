@@ -22,7 +22,8 @@ const (
 	nonPrintablePrefix = "[nonprintable] "
 )
 
-// Keys logs lazily the keys of a map
+// Keys returns a [fmt.Stringer] that prints the keys of m, separated by commas, when it
+// is formatted.
 func Keys[K comparable, V any](m map[K]V) fmt.Stringer {
 	return keys[K, V](m)
 }
@@ -33,21 +34,21 @@ func (k keys[K, V]) String() string {
 	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
 }
 
-// SHA256Base64 logs lazily a byte slice as sha265 hash in base64 format
-func SHA256Base64(b []byte) sha256Base64Enc {
+// SHA256Base64 returns a [fmt.Stringer] that prints the SHA-256 hash of b in base64.
+func SHA256Base64(b []byte) fmt.Stringer {
 	h := sha256.Sum256(b)
-	return h[:]
+	return sha256Base64Enc(h[:])
 }
 
 type sha256Base64Enc []byte
 
 func (b sha256Base64Enc) String() string {
-	return Base64(b).String()
+	return base64Enc(b).String()
 }
 
-// Base64 logs lazily a byte array in base64 format
-func Base64(b []byte) base64Enc {
-	return b
+// Base64 returns a [fmt.Stringer] that prints b in base64 when it is formatted.
+func Base64(b []byte) fmt.Stringer {
+	return base64Enc(b)
 }
 
 type base64Enc []byte
@@ -56,8 +57,9 @@ func (b base64Enc) String() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// Identifier logs lazily the identifier of any object
-func Identifier(f any) identifier { return identifier{f} }
+// Identifier returns a [fmt.Stringer] that prints the package path and name of the type
+// of f, after dereferencing pointers, when it is formatted.
+func Identifier(f any) fmt.Stringer { return identifier{f} }
 
 type identifier struct{ f any }
 
@@ -72,13 +74,16 @@ func (t identifier) String() string {
 	return tt.PkgPath() + "/" + tt.Name()
 }
 
-func Eval[V any](f func() V) eval[V] { return f }
+// Eval returns a [fmt.Stringer] that calls f and prints its result when it is formatted.
+func Eval[V any](f func() V) fmt.Stringer { return eval[V](f) }
 
 type eval[V any] func() V
 
 func (e eval[V]) String() string { return fmt.Sprintf("%v", e()) }
 
-func Since(t time.Time) since { return since(t) }
+// Since returns a [fmt.Stringer] that prints the time elapsed since t when it is
+// formatted.
+func Since(t time.Time) fmt.Stringer { return since(t) }
 
 type since time.Time
 
@@ -88,13 +93,16 @@ func (s since) String() string {
 
 type prefix string
 
+// Prefix returns a [fmt.Stringer] that prints id without non-printable characters. If
+// that is longer than 20 characters, it prints the first 20, "~" and the base64 SHA-256
+// hash of the whole.
 func Prefix(id string) fmt.Stringer {
 	return prefix(id)
 }
 
 func (w prefix) String() string {
 	s := string(w)
-	res, _ := FilterPrintable(s)
+	res, _ := filterPrintable(s)
 
 	if len(res) <= 20 {
 		return res
@@ -104,29 +112,30 @@ func (w prefix) String() string {
 
 type printable string
 
+// Printable returns a [fmt.Stringer] that prints id without non-printable characters.
 func Printable(id string) fmt.Stringer {
 	return printable(id)
 }
 
 func (w printable) String() string {
 	s := string(w)
-	res, _ := FilterPrintable(s)
+	res, _ := filterPrintable(s)
 	return res
 }
 
-// FilterPrintableWithMarker removes non-printable characters from the passed string.
+// filterPrintableWithMarker removes non-printable characters from the passed string.
 // If non-printable characters are found, then a prefix is added to the result.
-func FilterPrintableWithMarker(s string) string {
-	cleaned, removed := FilterPrintable(s)
+func filterPrintableWithMarker(s string) string {
+	cleaned, removed := filterPrintable(s)
 	if removed {
 		return nonPrintablePrefix + cleaned
 	}
 	return cleaned
 }
 
-// FilterPrintable removes non-printable characters from the passed string.
+// filterPrintable removes non-printable characters from the passed string.
 // It returns true, if characters have been removed, false otherwise.
-func FilterPrintable(s string) (string, bool) {
+func filterPrintable(s string) (string, bool) {
 	// filter
 	found := false
 	cleaned := strings.Map(func(r rune) rune {

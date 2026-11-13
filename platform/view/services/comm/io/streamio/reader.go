@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package streamio
 
 import (
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
@@ -61,7 +59,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		r.buf = nil
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
+	if logger.IsEnabledFor(logging.DebugLevel) {
 		logger.Debugf("[Reader] Read [%d][%s]\n", n, logging.SHA256Base64(p[:n]))
 	}
 

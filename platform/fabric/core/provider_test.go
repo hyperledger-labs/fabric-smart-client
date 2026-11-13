@@ -9,6 +9,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -479,10 +480,10 @@ fabric:
 
 // Building the provider must leave the logging that logging.Init set up in place.
 func TestNewFabricNetworkServiceProvider_KeepsLogging(t *testing.T) { //nolint:paralleltest // changes the global logging state
-	t.Cleanup(func() { logging.Init(logging.Config{}) })
+	t.Cleanup(func() { require.NoError(t, logging.Init(logging.Config{Writer: os.Stderr})) })
 
 	var buf bytes.Buffer
-	logging.Init(logging.Config{LogSpec: "debug", Writer: &buf})
+	require.NoError(t, logging.Init(logging.Config{LogSpec: "debug", Writer: &buf}))
 
 	_, err := NewFabricNetworkServiceProvider(newTestProvider(t, baseYAML+"logging:\n  spec: info\n"), nil, nil)
 	require.NoError(t, err)

@@ -24,7 +24,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	logging.Init(logging.Config{LogSpec: "debug"})
+	if err := logging.Init(logging.Config{LogSpec: "debug"}); err != nil {
+		panic(err)
+	}
 	m.Run()
 }
 
