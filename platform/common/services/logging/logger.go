@@ -66,13 +66,15 @@ type Logger interface {
 	ErrorfContext(ctx context.Context, format string, args ...any)
 	ErrorwContext(ctx context.Context, msg string, keysAndValues ...any)
 
-	// IsEnabledFor reports whether the logger writes lines at level, which logging.spec
-	// sets for the logger's name; With keeps the name. Use it to skip building arguments
-	// that are expensive to compute.
+	// IsEnabledFor reports whether the logger writes lines at level: logging.spec
+	// enables level for the logger's name, which With keeps, and the handler is enabled
+	// for it (see [SetHandler]). Use it to skip building arguments that are expensive to
+	// compute.
 	IsEnabledFor(level Level) bool
 	// With returns a logger that adds the given alternating keys and values to every line.
 	With(keysAndValues ...any) Logger
-	// Named returns a logger whose name is this logger's name followed by "." and name.
+	// Named returns a logger whose name is this logger's name followed by "." and name,
+	// or this logger if name is empty.
 	Named(name string) Logger
 }
 
@@ -139,6 +141,9 @@ func newZapLogger(core zapcore.Core, name string) *logger {
 }
 
 func (l *logger) Named(name string) Logger {
+	if name == "" {
+		return l
+	}
 	if l.name != "" {
 		name = l.name + "." + name
 	}
