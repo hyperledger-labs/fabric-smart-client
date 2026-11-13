@@ -38,6 +38,16 @@ documentation short, precise, and behavior-focused.
 - Prefer one accurate sentence over several speculative or redundant ones, and
   keep documentation stable under implementation refactoring.
 
+## Exported interfaces
+
+Adding a method to an exported interface breaks code outside FSC that
+implements it, so a patch cannot do it (see
+[The Go API of a patch](releasing.md#the-go-api-of-a-patch)). An interface that
+applications call but must not implement gets an unexported method: methods can
+then be added later without a break, since code outside FSC can only embed it.
+An interface that exists to be implemented, such as a driver interface, gets a
+new method through a new interface.
+
 ## Logging & monitoring
 
 - Structured logging via `platform/common/services/logging`.

@@ -167,7 +167,8 @@ There is no PR template; this is the convention:
 4. **Notes for reviewers** — optional: where to look first, what is deliberately
    out of scope.
 5. **Backport** — only for a fix that a supported minor needs: the release
-   branch, and why the next minor is not soon enough. See
+   branch, and why the next minor is not soon enough. The backport PR must pass
+   the [API check](releasing.md#the-go-api-of-a-patch). See
    [Backports](releasing.md#backports).
 
 Keep it structured and short. A file-by-file walkthrough only duplicates the

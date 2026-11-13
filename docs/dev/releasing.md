@@ -216,6 +216,10 @@ A patch `v0.29.1` follows the same steps as a minor, on the release branch
   `!`, or whose body has a `BREAKING CHANGE:` footer, and lists the commits the
   patch carries. It writes no fixtures and needs no Docker. A patch follows the
   previous one and never skips a number.
+- `make release-prepare` also refuses a patch whose Go API is incompatible with
+  the previous release, and `make release-publish` checks the release commit
+  the same way before it pushes a tag; see
+  [The Go API of a patch](#the-go-api-of-a-patch).
 - The release steps and CI run from the release branch, so
   `make release-prepare` refuses a branch whose `Makefile` has no `release-pr`
   target or whose `tests.yml` does not run on `release-*`: a minor cut before
@@ -231,6 +235,41 @@ A patch `v0.29.1` follows the same steps as a minor, on the release branch
 
 One release PR can be open at a time, a minor's or a patch's.
 
+### The Go API of a patch
+
+A patch breaks no code built against the previous release of its minor. The API
+check compares the Go API of every released module with its API at a release,
+using [`apidiff`](https://pkg.go.dev/golang.org/x/exp/cmd/apidiff), and fails on
+every change `apidiff -m` reports as incompatible, one that could stop code
+outside FSC from compiling. It runs:
+
+- on every PR into `release-*`, backports and release PRs included, as the
+  `API check` workflow, against the highest `vX.Y.*` tag of the branch;
+- in `make release-prepare` and `make release-publish` of a patch, against the
+  previous release.
+
+It refuses a removed or renamed exported identifier, a changed signature, a
+removed package, and a method added to an exported interface, since code outside
+FSC may implement it. It allows every addition, such as a new function, struct
+field or package. It checks the default build and the build with
+`-tags pkcs11`, and reads both trees from git, so untracked files take no part.
+It skips `internal/` packages and generated test doubles: a directory named
+`mock`, `mocks`, `fake` or `fakes` whose Go files are all generated. A
+dependency update alone passes, since `apidiff` compares the types of other
+modules by name only. Behavior changes are not checked; the review of the
+backport covers them.
+
+There is no override. A fix that needs a patch is made compatible, for example
+with a new function next to the old one instead of a changed signature, or a
+method on a new interface instead of an existing one; otherwise it waits for the
+next minor. To run the check locally, for example before a backport by hand:
+
+```bash
+go run ./scripts/release apidiff --base v0.30.1 --head HEAD
+```
+
+`release-0.29` predates the check and releases its patches without it.
+
 ## Backports
 
 A fix reaches a supported minor as a _backport_: a cherry-pick of its squash
@@ -245,7 +284,8 @@ release of their minor on, before the release branch. The branch of a minor that
 left support stays, so its tags stay reachable.
 
 **Asking for one.** A fix qualifies if it repairs a bug, a security issue or a
-dependency of a supported minor, and changes no API, schema step or wire format.
+dependency of a supported minor, and changes no API, schema step or wire format;
+the [API check](#the-go-api-of-a-patch) refuses an incompatible API change.
 The PR to `main` says, under "Backport", which release branch needs it and why
 the next minor is not soon enough. A maintainer who agrees adds the label
 `backport/X.Y` to the PR, before or after the merge, once `release-X.Y` exists
@@ -258,8 +298,8 @@ cherry-picks its commit onto `release-X.Y` and opens a PR titled
 `<title of #n> (backport #n)`, assigned to the original author. The PR-title
 check reads the type from the title as usual. On a conflict, Mergify commits the
 conflict markers, labels the PR `conflicts`, and the author resolves them on the
-PR's branch. Mergify never merges: the backport PR needs CI and one maintainer's
-approval, like any other PR.
+PR's branch. Mergify never merges: the backport PR needs CI, the API check included,
+and one maintainer's approval, like any other PR.
 
 **By hand**, when Mergify cannot, for example for a PR merged before its release
 branch existed:
@@ -286,8 +326,9 @@ neither.
 
 Before the first release branch, a repository admin protects them once, with a
 branch ruleset on `release-*` like the one on `main`: pull requests only, one
-approval, squash merges, DCO. Without it, a push to a release branch skips the
-CI that `make release-publish` relies on.
+approval, squash merges, DCO, and the `API check` status check, except on
+`release-0.29`, which has no such check. Without it, a push to a release branch
+skips the CI that `make release-publish` relies on.
 
 ```bash
 git fetch upstream --tags
@@ -496,7 +537,10 @@ The steps by hand, for when a script stops and you cannot fix the cause:
    ```
 
 2. **The tags**, on the release commit, not a later head of `main`: the release
-   notes and the fixtures describe it. Check that `Tests` passed on it first.
+   notes and the fixtures describe it. Check that `Tests` passed on it first,
+   and for a patch that it keeps the Go API of the previous release, with
+   `go run ./scripts/release apidiff --base <previous release>` on the release
+   commit.
    The dry run lists one tag per module; `PUSH=upstream` creates the tags and
    pushes exactly these, all or none. `make tag-release` takes `DRY=1`, not
    `DRY_RUN=1`. It refuses a version that is not `vMAJOR.MINOR.PATCH`, a tag

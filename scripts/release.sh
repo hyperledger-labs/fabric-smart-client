@@ -114,6 +114,13 @@ tagged() { git ls-remote --exit-code -q --tags "$REMOTE" "refs/tags/$1" >/dev/nu
 # minor.
 previous_release() { go run ./scripts/release previous --version "$1"; }
 
+# check_api fails unless revision $2 keeps the Go API of release $1, as a patch must: it
+# breaks no code built against the previous release of its minor.
+check_api() {
+    say "checking that ${2:0:20} keeps the Go API of $1"
+    go run ./scripts/release apidiff --base "$1" --head "$2"
+}
+
 # report writes the reference node's report to $TMP/report.json.
 report() { go run ./scripts/release/refnode version --json > "$TMP/report.json"; }
 
@@ -188,6 +195,7 @@ prepare() {
             git log -E --grep='^BREAKING[ -]CHANGE:' --format='%h %s' "$previous..$REMOTE/$b") |
             sort -u || true)
         [[ -z "$unfit" ]] || die "a patch carries fixes only, but $b has:"$'\n'"$unfit"
+        check_api "$previous" "$REMOTE/$b"
         say "$version has these commits since $previous:"
         git log --format='  %h %s' "$previous..$REMOTE/$b"
     fi
@@ -349,6 +357,7 @@ publish() {
     say "checking the release data and notes against this commit"
     check_notes "$version" "$(git rev-parse "$commit^")"
     tests_passed "$commit"
+    [[ "$version" == *.0 ]] || check_api "$(previous_release "$version")" "$commit"
 
     ./scripts/tag-release.sh --dry "$version"
     confirm "Push these tags to $REMOTE ($(git remote get-url "$REMOTE"))? This cannot be undone."

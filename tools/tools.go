@@ -12,6 +12,7 @@ import (
 	_ "github.com/bufbuild/buf/cmd/buf"
 	_ "github.com/maxbrunsfeld/counterfeiter/v6"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
+	_ "golang.org/x/exp/cmd/apidiff"
 	_ "golang.org/x/vuln/cmd/govulncheck"
 	_ "google.golang.org/grpc/cmd/protoc-gen-go-grpc"
 	_ "google.golang.org/protobuf/cmd/protoc-gen-go"

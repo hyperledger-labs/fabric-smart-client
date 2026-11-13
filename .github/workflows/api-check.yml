@@ -1,0 +1,45 @@
+name: API check
+
+# Fails a PR into a release branch release-X.Y, a backport or a release PR, whose Go
+# API is incompatible with the latest release of the line, the highest tag vX.Y.Z:
+# a patch breaks no code built against the previous release of its minor
+# (`scripts/release apidiff`). Comparing with the tag, not the branch, keeps a
+# series of PRs that are each compatible from breaking the API together. See
+# docs/dev/releasing.md, Cutting a patch release.
+on:
+  pull_request:
+    branches: ['release-*']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api-check:
+    name: API check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # the tags
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - name: Check the Go API against the latest release of the line
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          line=${BASE_REF#release-}
+          base=$(git tag --list "v$line.*" --sort=v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | tail -n1 || true)
+          [[ -n "$base" ]] || { echo "::error::no release tag v$line.*"; exit 1; }
+          if ! go run ./scripts/release apidiff --base "$base" > "$RUNNER_TEMP/apidiff.txt" 2>&1; then
+            cat "$RUNNER_TEMP/apidiff.txt"
+            { echo "## Go API check against $base"; echo; echo '```text'; cat "$RUNNER_TEMP/apidiff.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "The Go API is compatible with $base."

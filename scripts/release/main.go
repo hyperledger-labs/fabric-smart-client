@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 // Command release writes the release data file, the release notes and the backport rules of
-// the next FSC release.
+// the next FSC release, and checks that a patch keeps the Go API of the release before it.
 // Run it from the repository root; docs/upgrade/releases/README.md shows how to preview a
 // release.
 //
@@ -15,6 +15,7 @@ SPDX-License-Identifier: Apache-2.0
 //	release notes --data vX.Y.Z.json --changelog changelog.md [--repo owner/name]
 //	release mergify
 //	release check --report report.json
+//	release apidiff --base vX.Y.Z [--head rev]
 package main
 
 import (
@@ -40,6 +41,7 @@ const usage = `usage:
   release notes --data vX.Y.Z.json --changelog changelog.md [--repo owner/name]
   release mergify
   release check --report report.json
+  release apidiff --base vX.Y.Z [--head rev]
 `
 
 func main() {
@@ -66,6 +68,8 @@ func runCommand(dir, cmd string, args []string) (string, error) {
 	data := fs.String("data", "", "the release data file")
 	changelog := fs.String("changelog", "", "the changelog GitHub generated for the release")
 	repo := fs.String("repo", mainRepo, "the GitHub repository the notes link to, owner/name")
+	base := fs.String("base", "", "the release whose Go API a patch keeps, vX.Y.Z")
+	head := fs.String("head", "HEAD", "the revision whose Go API is checked")
 	if err := fs.Parse(args); err != nil {
 		return "", err
 	}
@@ -147,6 +151,15 @@ func runCommand(dir, cmd string, args []string) (string, error) {
 			return "", err
 		}
 		return "", errors.Join(check(dir, r), checkMergify(dir))
+	case "apidiff":
+		if err := required("base"); err != nil {
+			return "", err
+		}
+		v, ok := parseVersion(*base)
+		if !ok {
+			return "", errors.Errorf("invalid version [%s], want vX.Y.Z", *base)
+		}
+		return "", apiDiff(dir, v, *head)
 	default:
 		return "", errors.Errorf("unknown command [%s]\n%s", cmd, usage)
 	}
