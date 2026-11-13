@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -41,7 +40,7 @@ func otelTestLogger(t *testing.T, lvl zapcore.Level, sanitize bool) (Logger, *ob
 	// Build the logger before Init. Package-level loggers are created the same way,
 	// and sanitize is read when the span event is recorded.
 	core, observed := observer.New(lvl)
-	logger := newLogger(zap.New(core).Named("my.logger"))
+	logger := newZapLogger(core, "my.logger")
 	require.NoError(t, Init(Config{OtelSanitize: sanitize}))
 	return logger, observed
 }
@@ -122,7 +121,7 @@ func TestSpanEvent_UnsanitizedWhenDisabledAfterCreate(t *testing.T) { //nolint:p
 func TestSpanEvent_SanitizeFollowsLaterChanges(t *testing.T) { //nolint:paralleltest // mutates the shared global config
 	t.Cleanup(func() { require.NoError(t, Init(Config{Writer: os.Stderr})) })
 	core, _ := observer.New(zapcore.InfoLevel)
-	logger := newLogger(zap.New(core))
+	logger := newZapLogger(core, "")
 	ctx, ended := recordingSpanCtx(t)
 
 	require.NoError(t, Init(Config{OtelSanitize: true}))

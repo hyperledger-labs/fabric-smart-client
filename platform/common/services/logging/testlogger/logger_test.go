@@ -23,6 +23,7 @@ func TestMustGetLogger(t *testing.T) { //nolint:paralleltest // changes the glob
 	var buf bytes.Buffer
 	require.NoError(t, logging.Init(logging.Config{Format: "%{module}", LogSpec: "info", Writer: &buf}))
 	t.Cleanup(func() { require.NoError(t, logging.Init(logging.Config{Writer: os.Stderr})) })
+	buf.Reset() // drop what Init itself logs
 
 	logging.MustGetLogger().Info("x")
 	logging.MustGetLogger("some", "thing").Info("x")

@@ -40,6 +40,7 @@ require (
 	go.uber.org/dig v1.19.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.28.0
+	go.uber.org/zap/exp v0.3.0
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/sync v0.25.0
 	google.golang.org/grpc v1.85.0

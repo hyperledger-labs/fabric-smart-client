@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -24,8 +23,7 @@ type ctxKey struct{ name string }
 
 func newObservedLogger() (Logger, *observer.ObservedLogs) {
 	core, observed := observer.New(zapcore.DebugLevel)
-	zl := zap.New(core, zap.AddCaller())
-	return newLogger(zl), observed
+	return newZapLogger(core, ""), observed
 }
 
 func findField(fields []zapcore.Field, name string) (zapcore.Field, bool) {
@@ -133,8 +131,7 @@ func TestContextLogFields_SurviveWithAndNamed(t *testing.T) { //nolint:parallelt
 	// Register the field only after the loggers below have already been created and
 	// derived, proving extraction is dynamic (read at call time, not construction time).
 	core, observed := observer.New(zapcore.DebugLevel)
-	zl := zap.New(core, zap.AddCaller())
-	base := newLogger(zl)
+	base := newZapLogger(core, "")
 	derived := base.Named("child").With("k", "v")
 
 	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.survive"}}}))

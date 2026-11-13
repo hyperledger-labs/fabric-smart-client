@@ -8,12 +8,11 @@ package logging
 
 import (
 	"context"
+	"log/slog"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -23,12 +22,12 @@ const (
 // spanEvent records msg as an event on the span in ctx, if that span is recording, and
 // sets the span status to Error at ErrorLevel. Span events are the only OpenTelemetry
 // signal produced here: no log-signal LoggerProvider is involved.
-func (l *logger) spanEvent(ctx context.Context, level zapcore.Level, msg string) {
+func (l *logger) spanEvent(ctx context.Context, level Level, msg string) {
 	span := trace.SpanFromContext(ctx)
 	if !span.IsRecording() {
 		return
 	}
-	if level >= zapcore.ErrorLevel {
+	if level >= ErrorLevel {
 		span.SetStatus(codes.Error, msg)
 	}
 	// Read at the call. Package-level loggers are created during package
@@ -39,29 +38,11 @@ func (l *logger) spanEvent(ctx context.Context, level zapcore.Level, msg string)
 	span.AddEvent(msg, trace.WithAttributes(attribute.String(loggerNameKey, l.name)))
 }
 
-// appendContextLogFields appends the registered context log fields present in ctx to
-// keysAndValues as zap fields, which zap accepts mixed with key/value pairs. It allocates
-// only when ctx carries a registered key, and then into a new slice, so the caller's
-// slice is never changed.
-func appendContextLogFields(ctx context.Context, keysAndValues []any) []any {
-	specs := contextLogFields()
-	if ctx == nil || len(specs) == 0 {
-		return keysAndValues
-	}
-	var combined []any
-	for _, s := range specs {
-		v := ctx.Value(s.Key)
-		if v == nil {
-			continue
+// addContextLogFields adds to r the registered context log fields present in ctx.
+func addContextLogFields(ctx context.Context, r *slog.Record) {
+	for _, f := range contextLogFields() {
+		if v := ctx.Value(f.Key); v != nil {
+			r.AddAttrs(slog.Any(f.Name, v))
 		}
-		if combined == nil {
-			combined = make([]any, len(keysAndValues), len(keysAndValues)+len(specs))
-			copy(combined, keysAndValues)
-		}
-		combined = append(combined, zap.Any(s.Name, v))
 	}
-	if combined == nil {
-		return keysAndValues
-	}
-	return combined
 }

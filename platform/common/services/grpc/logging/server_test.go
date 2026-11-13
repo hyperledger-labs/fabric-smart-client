@@ -109,6 +109,7 @@ func TestInterceptorsNothingAtInfo(t *testing.T) { //nolint:paralleltest // chan
 	var buf bytes.Buffer
 	require.NoError(t, logging.Init(logging.Config{LogSpec: "info", Writer: &buf}))
 	t.Cleanup(func() { require.NoError(t, logging.Init(logging.Config{Writer: os.Stderr})) })
+	buf.Reset() // drop what Init itself logs
 	logger := logging.MustGetLogger()
 
 	_, err := UnaryServerInterceptor(logger)(t.Context(), "req", &grpc.UnaryServerInfo{FullMethod: "/svc/M"},
