@@ -60,6 +60,7 @@ var SingleDBCases = []struct {
 	{"ShardLikeCommit", TTestShardLikeCommit},
 	{"VaultErr", TTestVaultErr},
 	{"KeyEncoding", TTestKeyEncoding},
+	{"LateReplicaCommit", TTestLateReplicaCommit},
 }
 
 var ReadCommittedDBCases = []struct {
@@ -475,6 +476,65 @@ func TTestKeyEncoding(t *testing.T, ddb fdbdriver.VaultStore, _ artifactsProvide
 		got[i] = r.Key
 	}
 	require.Equal(t, []driver.PKey{composite, childDigit, childLetter}, got)
+}
+
+// TTestLateReplicaCommit checks that two replicas sharing one store, each with
+// its own cache, keep a key's latest value when one of them commits a block
+// late: replica A holds tx X as Busy, replica B commits X in block 10 and then
+// Y in block 11, both writing the same key, and A then commits X. The key must
+// hold Y's value and version.
+func TTestLateReplicaCommit(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
+	t.Helper()
+	ns := "namespace"
+	ctx := t.Context()
+
+	// Two replicas on one store, each with its own cache.
+	va, err := vp.NewCachedVault(ddb)
+	require.NoError(t, err)
+	vb, err := vp.NewCachedVault(ddb)
+	require.NoError(t, err)
+
+	// Replica A endorses X, which leaves X Busy.
+	rws, err := va.NewRWSet(ctx, "X")
+	require.NoError(t, err)
+
+	err = rws.SetState(ns, "K", []byte("vX"))
+	require.NoError(t, err)
+	rws.Done()
+
+	valCode, _, err := va.Status(ctx, "X")
+	require.NoError(t, err)
+	require.Equal(t, busy, valCode)
+
+	// Replica B commits X in block 10 and Y in block 11, both writing K.
+	rws, err = vb.NewRWSet(ctx, "X")
+	require.NoError(t, err)
+	err = rws.SetState(ns, "K", []byte("vX"))
+	require.NoError(t, err)
+	rws.Done()
+
+	err = vb.CommitTX(ctx, "X", 10, 0)
+	require.NoError(t, err)
+
+	rws, err = vb.NewRWSet(ctx, "Y")
+	require.NoError(t, err)
+	err = rws.SetState(ns, "K", []byte("vY"))
+	require.NoError(t, err)
+	rws.Done()
+
+	err = vb.CommitTX(ctx, "Y", 11, 0)
+	require.NoError(t, err)
+
+	// Replica A reaches block 10 late and commits X again.
+	err = va.CommitTX(ctx, "X", 10, 0)
+	require.NoError(t, err)
+
+	// K must keep Y's value and version.
+	vaultRead, err := ddb.GetState(ctx, ns, "K")
+	require.NoError(t, err)
+
+	require.Equal(t, []byte("vY"), vaultRead.Raw)
+	require.Equal(t, versionBlockTxNumToBytes(11, 0), vaultRead.Version)
 }
 
 func TTestMerge(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
