@@ -18,15 +18,6 @@ import (
 // mainRepo is the GitHub repository of FSC releases, owner/name.
 const mainRepo = "hyperledger-labs/fabric-smart-client"
 
-// testedNames are the columns of the "Tested with" table, in order.
-var testedNames = []struct{ key, name string }{
-	{"go", "Go"},
-	{"fabric", "Hyperledger Fabric"},
-	{"fabric_x_committer", "Fabric-x committer"},
-	{"fabric_x_tools", "Fabric-x tools"},
-	{"postgres", "PostgreSQL"},
-}
-
 // notes returns the body of the GitHub release of d: how to upgrade, the versions the release
 // was tested with, a link to the release data, and the generated changelog unchanged. A minor
 // links its upgrade guide, which must exist in dir; a patch has no guide and says so. Both files
@@ -57,8 +48,8 @@ func notes(dir, repo string, d Data, changelog string) (string, error) {
 	}
 	b.WriteString("## Tested with\n\n")
 	var names, seps, versions []string
-	for _, t := range testedNames {
-		names = append(names, t.name)
+	for _, t := range tested {
+		names = append(names, t.heading)
 		seps = append(seps, "---")
 		versions = append(versions, d.TestedWith[t.key])
 	}

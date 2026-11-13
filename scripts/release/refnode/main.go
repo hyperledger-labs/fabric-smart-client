@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Command refnode is the reference FSC binary of the release tooling. It installs the Fabric-x
+// Command refnode is the reference FSC binary of the release tooling. It installs the Chaguar
 // SDK, which builds the Fabric and view SDKs, so `refnode version --json` reports every FSC
 // store. It is never started.
 package main

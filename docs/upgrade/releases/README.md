@@ -42,9 +42,13 @@ Releases cut before this directory existed have no files here.
 - `dropped_next`: the versions the next minor stops supporting. It is empty
   until FSC declares them.
 - `tested_with`: the versions the release's tests ran against: Go from `go.mod`,
-  the others from the `FABRIC_VERSION`, `FABRIC_X_COMMITTER_VERSION`,
-  `FABRIC_X_TOOLS_VERSION` and `POSTGRES_VERSION` pins in the `Makefile`
-  (`postgres` without the image suffix).
+  the others from version pins in the `Makefile` (`postgres` without the image
+  suffix). The table `tested` in `scripts/release/data.go` lists each component
+  with its key, its pin and its column in the release notes. A key names one
+  component for good, so releases stay comparable: a renamed component keeps
+  its key (`fabric_x_committer` and `fabric_x_tools` are the Chaguar committer
+  and tools), a dropped component is missing from later releases, and a new
+  component gets a key that was never used before.
 
 The field names are fixed: fields are added, never renamed or removed. The
 output is deterministic, so the file of a release can be regenerated and
