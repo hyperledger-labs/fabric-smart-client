@@ -10,6 +10,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -967,7 +968,7 @@ func TestCommitTXAdditionalBranches(t *testing.T) {
 			},
 		}
 		err := c.CommitTX(t.Context(), "tx-commit-valid", 1, 0, nil)
-		require.ErrorContains(t, err, "already valid")
+		require.NoError(t, err)
 	})
 
 	t.Run("already invalid", func(t *testing.T) {
@@ -1019,6 +1020,25 @@ func TestCommitTXAdditionalBranches(t *testing.T) {
 		err := c.CommitTX(t.Context(), "tx-commit-code", 1, 0, nil)
 		require.ErrorContains(t, err, "invalid status code [99]")
 	})
+}
+
+// Another replica commits the transaction between the two status reads.
+func TestCommitEndorserTransactionSkipsTxCommittedByAnotherReplica(t *testing.T) {
+	t.Parallel()
+	var reads atomic.Int32
+	c := &Committer{
+		logger: logger,
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				if reads.Add(1) == 1 {
+					return fdriver.Busy, "", nil
+				}
+				return fdriver.Valid, "", nil
+			},
+		},
+	}
+	_, err := c.CommitEndorserTransaction(t.Context(), "tx1", 52, 0, &common.Envelope{}, &FinalityEvent{TxID: "tx1"})
+	require.NoError(t, err)
 }
 
 func TestCommitAdditionalBranches(t *testing.T) {

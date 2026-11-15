@@ -286,7 +286,7 @@ func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.Bloc
 	case driver.Valid:
 		// This should generate a panic
 		c.logger.Debugf("[%s] is already valid", txID)
-		return errors.Errorf("[%s] is already valid", txID)
+		return nil
 	case driver.Invalid:
 		// This should generate a panic
 		c.logger.Debugf("[%s] is invalid", txID)
