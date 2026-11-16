@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -211,7 +212,7 @@ func TestPostgresMigrateWaiter(t *testing.T) { //nolint:paralleltest // replaces
 	done := make(chan error, 1)
 	go func() { done <- migrate.Migrate(ctx, db, b.dialect, "waiter", newStore("waiter_s", 1)) }()
 	require.Eventually(t, func() bool {
-		return len(logs.EntriesContaining(fmt.Sprintf("held by pid %d (application_name [holder-pod-0]", pid))) > 0
+		return logged(logs, fmt.Sprintf("held by pid %d (application_name [holder-pod-0]", pid))
 	}, 5*time.Second, 10*time.Millisecond)
 	select {
 	case err := <-done:
@@ -1136,12 +1137,17 @@ func (d *dyingStep) block(ctx context.Context, q migrate.Execer) error {
 
 func (d *dyingStep) unblock() { d.once.Do(func() { close(d.release) }) }
 
+// logged reports whether a recorded entry contains sub.
+func logged(logs *logging.Recorder, sub string) bool {
+	return slices.ContainsFunc(logs.Entries(), func(e string) bool { return strings.Contains(e, sub) })
+}
+
 // kill waits until another migrator logs that it waits for the first run's
 // backend, then ends that backend.
 func (d *dyingStep) kill(t *testing.T, admin *sql.DB, logs *logging.Recorder) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		return len(logs.EntriesContaining(fmt.Sprintf("held by pid %d (", d.pid))) > 0
+		return logged(logs, fmt.Sprintf("held by pid %d (", d.pid))
 	}, waitTimeout, 10*time.Millisecond)
 	var ok bool
 	require.NoError(t, admin.QueryRowContext(t.Context(), "SELECT pg_terminate_backend($1)", d.pid).Scan(&ok))

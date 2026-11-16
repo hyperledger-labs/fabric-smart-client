@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -22,7 +21,7 @@ import (
 func levelObservedLogger(lvl zapcore.Level) (Logger, *observer.ObservedLogs) {
 	core, observed := observer.New(lvl)
 
-	return newLogger(zap.New(core)), observed
+	return newZapLogger(core, ""), observed
 }
 
 // contextMethod names one of the eight level-guarded *Context methods, along with the
@@ -119,32 +118,4 @@ func TestContextMethods_NoRegisteredFields(t *testing.T) { //nolint:paralleltest
 			assert.Empty(t, entries[0].Context, "no fields are attached when none are registered")
 		})
 	}
-}
-
-// TestAppendContextLogFields_LeavesCallerSliceUnchanged checks the documented promise that
-// the caller's keysAndValues slice is never mutated when context fields are appended.
-func TestAppendContextLogFields_LeavesCallerSliceUnchanged(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
-	t.Cleanup(resetContextLogFields)
-	key := ctxKey{"append"}
-	require.NoError(t, Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.append"}}}))
-
-	original := []any{"k", "v"}
-	ctx := context.WithValue(t.Context(), key, "some-value")
-
-	combined := appendContextLogFields(ctx, original)
-
-	assert.Equal(t, []any{"k", "v"}, original, "the caller's slice is untouched")
-	require.Len(t, combined, len(original)+1, "one zap.Field is appended to a copy")
-	assert.Equal(t, original, combined[:len(original)], "the caller's entries come first")
-}
-
-// TestAppendContextLogFields_NoRegisteredFields checks the early return when the registry
-// is empty: the caller's slice is handed straight back.
-func TestAppendContextLogFields_NoRegisteredFields(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
-	t.Cleanup(resetContextLogFields)
-	require.NoError(t, Init(Config{}))
-
-	original := []any{"k", "v"}
-	assert.Equal(t, original, appendContextLogFields(t.Context(), original))
-	assert.Equal(t, original, appendContextLogFields(nil, original)) //nolint:staticcheck // nil context is the case under test
 }

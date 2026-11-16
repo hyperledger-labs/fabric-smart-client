@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
+	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -106,4 +108,28 @@ func TestBase64(t *testing.T) {
 
 	assert.Equal(t, "c29tZS1ieXRlcw==", Base64([]byte("some-bytes")).String())
 	assert.Empty(t, Base64(nil).String())
+}
+
+// TestLogValueMatchesString checks each helper's value logs the same text through a
+// structured handler as through String.
+func TestLogValueMatchesString(t *testing.T) {
+	t.Parallel()
+	b := []byte("data\x00")
+	for _, s := range []fmt.Stringer{
+		Keys(map[string]int{"a": 1}), SHA256Base64(b), Base64(b), Identifier(t),
+		Eval(func() int { return 1 }), Prefix(strings.Repeat("x", 30)), Printable(string(b)),
+	} {
+		assert.Equal(t, s.String(), s.(slog.LogValuer).LogValue().String())
+	}
+	assert.Implements(t, (*slog.LogValuer)(nil), Since(time.Now()))
+}
+
+// TestSHA256Base64_HashesWhenFormatted checks the hash is computed when the value is
+// formatted, not when SHA256Base64 is called, so a disabled line doesn't hash.
+func TestSHA256Base64_HashesWhenFormatted(t *testing.T) {
+	t.Parallel()
+	b := []byte("before")
+	s := SHA256Base64(b)
+	copy(b, "after!")
+	assert.Equal(t, SHA256Base64([]byte("after!")).String(), s.String())
 }
