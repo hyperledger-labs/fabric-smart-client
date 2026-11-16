@@ -14,11 +14,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -108,8 +110,11 @@ func TestSimultaneousDial(t *testing.T) {
 	require.NoError(t, <-errs)
 }
 
-// A responder replies to the source address of the incoming stream, an ephemeral port. Once the
-// connection is gone, the reply dials the listen address the identify protocol recorded.
+// TestReplyAfterConnectionClosed checks that a responder can still reply once the connection is
+// gone. The reply goes to the source address of the incoming stream, an ephemeral port, so it
+// reaches the peer only through the listen address the identify protocol recorded. Only the side
+// that opens a stream waits for identify; z receives the stream, so the test waits until z has
+// recorded a's listen address.
 func TestReplyAfterConnectionClosed(t *testing.T) {
 	t.Parallel()
 	addrs := freeLibP2PAddresses(t, 2)
@@ -138,6 +143,11 @@ func TestReplyAfterConnectionClosed(t *testing.T) {
 
 	aPeer, err := peer.Decode(aID)
 	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		return slices.ContainsFunc(zHost.Peerstore().Addrs(aPeer), func(ma multiaddr.Multiaddr) bool {
+			return ma.String() == a.Address
+		})
+	}, 10*time.Second, 10*time.Millisecond, "z never learned a's listen address")
 	require.NoError(t, zHost.Network().ClosePeer(aPeer))
 
 	r, err := z.NewResponderSession(msg.SessionID, msg.ContextID, msg.FromEndpoint, msg.FromPKID, nil, nil)
