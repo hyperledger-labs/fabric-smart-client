@@ -10,7 +10,6 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1025,12 +1024,13 @@ func TestCommitTXAdditionalBranches(t *testing.T) {
 // Another replica commits the transaction between the two status reads.
 func TestCommitEndorserTransactionSkipsTxCommittedByAnotherReplica(t *testing.T) {
 	t.Parallel()
-	var reads atomic.Int32
+	reads := 0
 	c := &Committer{
 		logger: logger,
 		Vault: &fake.Vault{
 			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-				if reads.Add(1) == 1 {
+				reads++
+				if reads == 1 {
 					return fdriver.Busy, "", nil
 				}
 				return fdriver.Valid, "", nil
