@@ -274,6 +274,9 @@ func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	return errors.WithMessagef(c.Vault.SetDiscarded(ctx, txID, message), "failed setting tx [%s] discarded in vault", txID)
 }
 
+// CommitTX commits the transaction txID at position indexInBlock of block to the
+// vault. A transaction the vault already holds as Valid is left unchanged and
+// nil is returned; one it holds as Invalid is an error.
 func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) (err error) {
 	c.logger.Debugf("Committing transaction [%s,%d,%d]", txID, block, indexInBlock)
 	defer c.logger.Debugf("Committing transaction [%s,%d,%d] done [%s]", txID, block, indexInBlock, err)

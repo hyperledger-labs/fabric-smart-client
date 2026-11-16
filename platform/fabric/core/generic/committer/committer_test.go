@@ -1037,8 +1037,9 @@ func TestCommitEndorserTransactionSkipsTxCommittedByAnotherReplica(t *testing.T)
 			},
 		},
 	}
-	_, err := c.CommitEndorserTransaction(t.Context(), "tx1", 52, 0, &common.Envelope{}, &FinalityEvent{TxID: "tx1"})
+	alreadyValid, err := c.CommitEndorserTransaction(t.Context(), "tx1", 52, 0, &common.Envelope{}, &FinalityEvent{TxID: "tx1"})
 	require.NoError(t, err)
+	require.False(t, alreadyValid)
 }
 
 func TestCommitAdditionalBranches(t *testing.T) {
