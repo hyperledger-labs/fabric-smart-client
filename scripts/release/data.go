@@ -14,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -100,7 +99,7 @@ func newData(dir string, v semver, r Report) (Data, error) {
 	if err != nil {
 		return Data{}, errors.Wrap(err, "failed reading the Makefile")
 	}
-	tested, err := testedWith(gomod, makefile)
+	tw, err := testedWith(gomod, makefile)
 	if err != nil {
 		return Data{}, err
 	}
@@ -118,7 +117,7 @@ func newData(dir string, v semver, r Report) (Data, error) {
 		Stores:      r.Stores,
 		Components:  r.Components,
 		DroppedNext: []string{},
-		TestedWith:  tested,
+		TestedWith:  tw,
 	}, nil
 }
 
@@ -156,13 +155,21 @@ var (
 	goDirective = regexp.MustCompile(`(?m)^go (\S+)$`)
 	// pinLine is a version pin of the Makefile, as TestImagePins in integration/nwo reads it.
 	pinLine = regexp.MustCompile(`(?m)^([A-Z0-9_]+_VERSION) \?= (\S+)$`)
-	// testedPins maps the Makefile pins a node runs against to their tested_with key. The
-	// monitoring and lint pins are test tooling and stay out.
-	testedPins = map[string]string{
-		"FABRIC_VERSION":             "fabric",
-		"FABRIC_X_COMMITTER_VERSION": "fabric_x_committer",
-		"FABRIC_X_TOOLS_VERSION":     "fabric_x_tools",
-		"POSTGRES_VERSION":           "postgres",
+	// tested are the components a release's tests run against, in the order of the "Tested
+	// with" table of the notes. Each has its tested_with key, its Makefile pin and its column
+	// heading. Go has no pin; it comes from go.mod. The monitoring and lint pins are test
+	// tooling and stay out.
+	//
+	// A key is a permanent ID of a component, since readers may compare tested_with across
+	// releases. A renamed component keeps its key and gets a new heading. A dropped component
+	// loses its row; released data keeps the key. A new or replacing component gets a new key,
+	// and a key is never reused for another component.
+	tested = []struct{ key, pin, heading string }{
+		{"go", "", "Go"},
+		{"fabric", "FABRIC_VERSION", "Hyperledger Fabric"},
+		{"fabric_x_committer", "FABRIC_X_COMMITTER_VERSION", "Chaguar committer"},
+		{"fabric_x_tools", "FABRIC_X_TOOLS_VERSION", "Chaguar tools"},
+		{"postgres", "POSTGRES_VERSION", "PostgreSQL"},
 	}
 )
 
@@ -173,23 +180,28 @@ func testedWith(gomod, makefile []byte) (map[string]string, error) {
 	if m == nil {
 		return nil, errors.New("go.mod has no go directive")
 	}
-	out := map[string]string{"go": string(m[1])}
+	out := map[string]string{}
+	pins := map[string]string{}
 	for _, p := range pinLine.FindAllSubmatch(makefile, -1) {
-		if key, ok := testedPins[string(p[1])]; ok {
-			out[key] = string(p[2])
-		}
+		pins[string(p[1])] = string(p[2])
 	}
 	var missing []string
-	for pin, key := range testedPins {
-		if _, ok := out[key]; !ok {
-			missing = append(missing, pin)
+	for _, t := range tested {
+		switch v, ok := pins[t.pin]; {
+		case t.pin == "":
+			out[t.key] = string(m[1])
+		case ok:
+			out[t.key] = v
+		default:
+			missing = append(missing, t.pin)
 		}
 	}
 	if len(missing) > 0 {
-		slices.Sort(missing)
 		return nil, errors.Errorf("the Makefile pins no %s", strings.Join(missing, ", "))
 	}
-	out["postgres"], _, _ = strings.Cut(out["postgres"], "-")
+	if v, ok := out["postgres"]; ok {
+		out["postgres"], _, _ = strings.Cut(v, "-")
+	}
 	return out, nil
 }
 
