@@ -93,7 +93,8 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum cdriver.Bl
 // CommitEndorserTransaction commits a transaction that Fabric found valid to the
 // vault. It returns true if the vault already holds it as Valid, and false
 // otherwise, after committing the transaction or skipping one this node does not
-// track.
+// track. It also returns false when another replica sharing the vault commits
+// the transaction during this call.
 //
 // A transaction the vault holds as Invalid is committed from the block envelope.
 // Fabric marks a transaction ID as DUPLICATE_TXID once it is in the ledger or a
