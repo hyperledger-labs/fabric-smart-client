@@ -116,6 +116,14 @@ type MetaWrites map[Namespace]map[PKey]VaultMetadataValue
 
 type Writes map[Namespace]map[PKey]VaultValue
 
+// TxWrites holds the state and metadata writes of one transaction.
+// An empty TxID marks writes that belong to no transaction.
+type TxWrites struct {
+	TxID       TxID
+	Writes     Writes
+	MetaWrites MetaWrites
+}
+
 type VaultReader interface {
 	// GetStateMetadata returns the metadata for the given specific namespace - key pair
 	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
@@ -182,8 +190,13 @@ type VaultStore interface {
 	// - can read any transaction
 	NewGlobalLockVaultReader(ctx context.Context) (LockedVaultReader, error)
 
-	// Store stores atomically the transaction statuses, writes and metadata writes
-	Store(ctx context.Context, txIDs []TxID, writes Writes, metaWrites MetaWrites) error
+	// Store stores txs in one database transaction: each transaction is marked
+	// Valid, and its writes and metadata writes are applied in the order of txs,
+	// so a later transaction overwrites an earlier one on the same key. A
+	// transaction already Valid keeps its status and its writes are not applied,
+	// so storing it again cannot roll back a key a later transaction wrote.
+	// Writes with an empty TxID belong to no transaction and are always applied.
+	Store(ctx context.Context, txs ...TxWrites) error
 
 	// SetStatuses sets the status and message for the given transactions.
 	// A Busy code leaves a Valid status unchanged.

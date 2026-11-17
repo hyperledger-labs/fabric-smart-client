@@ -91,14 +91,16 @@ func (s *cachedStore) forceGet(ctx context.Context, txID driver.TxID) (*driver.T
 	return txStatus, nil
 }
 
-func (s *cachedStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
-	logger.Debugf("Store writes and meta-writes for [%v] into backed and cache", txIDs)
-	if err := s.VaultStore.Store(ctx, txIDs, writes, metaWrites); err != nil {
+func (s *cachedStore) Store(ctx context.Context, txs ...driver.TxWrites) error {
+	logger.Debugf("Store writes and meta-writes for [%d] transactions into backed and cache", len(txs))
+	if err := s.VaultStore.Store(ctx, txs...); err != nil {
 		return err
 	}
 
-	for _, txID := range txIDs {
-		s.cache.Put(txID, &entry{Code: driver.Valid})
+	for _, tx := range txs {
+		if tx.TxID != "" {
+			s.cache.Put(tx.TxID, &entry{Code: driver.Valid})
+		}
 	}
 	return nil
 }

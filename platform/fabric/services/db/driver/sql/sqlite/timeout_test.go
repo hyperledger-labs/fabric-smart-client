@@ -58,7 +58,7 @@ func TestVaultStoreQueryTimeoutBoundsStore(t *testing.T) {
 	holdWriteLock(t, path, store.tables.StateTable)
 
 	start := time.Now()
-	err := store.Store(context.Background(), []driver.TxID{"tx"}, timeoutWrites, nil)
+	err := store.Store(context.Background(), driver.TxWrites{TxID: "tx", Writes: timeoutWrites})
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.Less(t, time.Since(start), 5*time.Second)
 }
@@ -71,7 +71,7 @@ func TestVaultStoreStoreMapsBusy(t *testing.T) {
 	store := openSQLiteVault(t, "file:"+path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(10)", false)
 	holdWriteLock(t, path, store.tables.StateTable)
 
-	err := store.Store(t.Context(), []driver.TxID{"tx"}, timeoutWrites, nil)
+	err := store.Store(t.Context(), driver.TxWrites{TxID: "tx", Writes: timeoutWrites})
 	require.ErrorIs(t, err, dbdriver.SqlBusy)
 }
 
@@ -83,7 +83,7 @@ func TestVaultStoreQueryTimeoutIterator(t *testing.T) {
 	store := openTimeoutVault(t, "file:"+filepath.Join(t.TempDir(), "v.db"))
 	ctx := t.Context()
 	for _, k := range []driver.PKey{"k1", "k2", "k3"} {
-		require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}, nil))
+		require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}}))
 	}
 
 	it, err := store.GetStateRange(ctx, "ns", "", "")
@@ -114,7 +114,7 @@ func TestVaultStoreQueryTimeoutTxLockReader(t *testing.T) {
 
 	store := openTimeoutVault(t, "file:"+filepath.Join(t.TempDir(), "v.db"))
 	ctx := t.Context()
-	require.NoError(t, store.Store(ctx, nil, timeoutWrites, nil))
+	require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: timeoutWrites}))
 
 	r, err := store.NewTxLockVaultReader(ctx, "tx", driver.LevelDefault)
 	require.NoError(t, err)

@@ -278,11 +278,11 @@ type failOnceStore struct {
 	failed atomic.Bool
 }
 
-func (f *failOnceStore) Store(ctx context.Context, txIDs []cdriver.TxID, writes cdriver.Writes, metaWrites cdriver.MetaWrites) error {
+func (f *failOnceStore) Store(ctx context.Context, txs ...cdriver.TxWrites) error {
 	if f.failed.CompareAndSwap(false, true) {
 		return errors.New("injected store failure")
 	}
-	return f.VaultStore.Store(ctx, txIDs, writes, metaWrites)
+	return f.VaultStore.Store(ctx, txs...)
 }
 
 // TestVaultRWSExists reports whether an interceptor is currently registered

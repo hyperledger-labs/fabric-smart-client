@@ -139,12 +139,24 @@ type stores struct {
 		BeginUpdate() error
 		Commit() error
 	}
-	bind  interface{ PutBindings(context.Context, view.Identity, ...view.Identity) error }
-	sign  interface{ PutSigner(context.Context, view.Identity) error }
-	aud   interface{ PutAuditInfo(context.Context, view.Identity, []byte) error }
-	etx   interface{ PutEndorseTx(context.Context, string, []byte) error }
-	meta  interface{ PutMetadata(context.Context, string, []byte) error }
-	env   interface{ PutEnvelope(context.Context, string, []byte) error }
+	bind interface {
+		PutBindings(context.Context, view.Identity, ...view.Identity) error
+	}
+	sign interface {
+		PutSigner(context.Context, view.Identity) error
+	}
+	aud interface {
+		PutAuditInfo(context.Context, view.Identity, []byte) error
+	}
+	etx interface {
+		PutEndorseTx(context.Context, string, []byte) error
+	}
+	meta interface {
+		PutMetadata(context.Context, string, []byte) error
+	}
+	env interface {
+		PutEnvelope(context.Context, string, []byte) error
+	}
 	vault interface {
 		Store(context.Context, []driver.TxID, driver.Writes, driver.MetaWrites) error
 		Close() error
@@ -190,7 +202,7 @@ func write(ctx context.Context, open func() (stores, error)) error {
 	for _, k := range vaultKeys {
 		writes["ns"][k] = driver.VaultValue{Raw: []byte("val-" + strings.ToValidUTF8(string(k), "?")), Version: []byte("v1")}
 	}
-	if err := s.vault.Store(ctx, []driver.TxID{"tx1"}, writes, nil); err != nil {
+	if err := s.vault.Store(ctx, driver.TxWrites{TxID: "tx1", Writes: writes}); err != nil {
 		return err
 	}
 	// Every store shares one pool per data source; closing the vault closes it.
@@ -303,4 +315,3 @@ func fail(err error) {
 		os.Exit(1)
 	}
 }
-

@@ -82,7 +82,7 @@ func TestPostgresVaultStore(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, store.Store(ctx, txIDs, writes, metaWrites))
+	require.NoError(t, store.Store(ctx, driver.TxWrites{TxID: "tx1", Writes: writes, MetaWrites: metaWrites}, driver.TxWrites{TxID: "tx2"}))
 
 	r, err := store.NewGlobalLockVaultReader(ctx)
 	require.NoError(t, err)
@@ -120,10 +120,10 @@ func TestPostgresVaultStoreEmpty(t *testing.T) {
 	t.Parallel()
 
 	store := newPostgresVaultStore(t)
-	require.NoError(t, store.Store(t.Context(), nil, nil, nil))
+	require.NoError(t, store.Store(t.Context()))
 }
 
-// Statuses and states are written independently: a call carrying only txIDs
+// Statuses and states are written independently: a call carrying only tx IDs
 // records them without any state, and a call carrying only writes records
 // state without touching statuses.
 func TestPostgresVaultStoreStatusesOnly(t *testing.T) {
@@ -132,7 +132,7 @@ func TestPostgresVaultStoreStatusesOnly(t *testing.T) {
 	store := newPostgresVaultStore(t)
 	ctx := t.Context()
 
-	require.NoError(t, store.Store(ctx, []driver.TxID{"txOnly"}, nil, nil))
+	require.NoError(t, store.Store(ctx, driver.TxWrites{TxID: "txOnly"}))
 
 	r, err := store.NewGlobalLockVaultReader(ctx)
 	require.NoError(t, err)
@@ -149,9 +149,9 @@ func TestPostgresVaultStoreWritesOnly(t *testing.T) {
 	store := newPostgresVaultStore(t)
 	ctx := t.Context()
 
-	require.NoError(t, store.Store(ctx, nil, driver.Writes{
+	require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{
 		"ns2": {"k9": driver.VaultValue{Raw: []byte("v9"), Version: []byte("ver9")}},
-	}, nil))
+	}}))
 
 	r, err := store.NewGlobalLockVaultReader(ctx)
 	require.NoError(t, err)
@@ -171,9 +171,9 @@ func TestPostgresVaultStoreUpsert(t *testing.T) {
 	ctx := t.Context()
 
 	write := func(raw, version string) error {
-		return store.Store(ctx, nil, driver.Writes{
+		return store.Store(ctx, driver.TxWrites{Writes: driver.Writes{
 			"ns3": {"k1": driver.VaultValue{Raw: []byte(raw), Version: []byte(version)}},
-		}, nil)
+		}})
 	}
 	require.NoError(t, write("first", "ver1"))
 	require.NoError(t, write("second", "ver2"))
@@ -197,14 +197,13 @@ func TestPostgresVaultStoreRecommitIsIdempotent(t *testing.T) {
 	store := newPostgresVaultStore(t)
 	ctx := t.Context()
 
-	txIDs := []driver.TxID{"tx1", "tx2"}
 	writes := driver.Writes{"ns": {"k": driver.VaultValue{Raw: []byte("v"), Version: []byte("ver")}}}
 	metaWrites := driver.MetaWrites{"ns": {"k": driver.VaultMetadataValue{
 		Version:  []byte("ver"),
 		Metadata: map[string][]byte{"m": []byte("meta")},
 	}}}
-	require.NoError(t, store.Store(ctx, txIDs, writes, metaWrites))
-	require.NoError(t, store.Store(ctx, txIDs, writes, metaWrites))
+	require.NoError(t, store.Store(ctx, driver.TxWrites{TxID: "tx1", Writes: writes, MetaWrites: metaWrites}, driver.TxWrites{TxID: "tx2"}))
+	require.NoError(t, store.Store(ctx, driver.TxWrites{TxID: "tx1", Writes: writes, MetaWrites: metaWrites}, driver.TxWrites{TxID: "tx2"}))
 
 	count := func(query string, args ...any) int {
 		var n int
@@ -244,7 +243,7 @@ func TestPostgresVaultStoreConnectionLost(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan error, 1)
-	go func() { done <- store.Store(ctx, []driver.TxID{"tx1"}, nil, nil) }()
+	go func() { done <- store.Store(ctx, driver.TxWrites{TxID: "tx1"}) }()
 
 	require.Eventually(t, func() bool {
 		var n int
@@ -258,7 +257,7 @@ func TestPostgresVaultStoreConnectionLost(t *testing.T) {
 	require.ErrorIs(t, err, dbdriver.ErrConnectionLost)
 	require.NoError(t, lock.Rollback())
 
-	require.NoError(t, store.Store(ctx, []driver.TxID{"tx1"}, nil, nil))
+	require.NoError(t, store.Store(ctx, driver.TxWrites{TxID: "tx1"}))
 }
 
 // CreateSchema is idempotent — every constructor runs it unless
@@ -365,7 +364,7 @@ func TestPostgresVaultStoreConvertsTextKeys(t *testing.T) {
 
 	// The plain key spelling out the composite key's escapes is now its own row.
 	forged := legacyEscape(textKeys[0])
-	require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {forged: {Raw: []byte("forged"), Version: []byte("v2")}}}, nil))
+	require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{"ns": {forged: {Raw: []byte("forged"), Version: []byte("v2")}}}}))
 	read, err := store.GetState(ctx, "ns", textKeys[0])
 	require.NoError(t, err)
 	require.Equal(t, driver.RawValue(textKeys[0]), read.Raw)
@@ -384,7 +383,7 @@ func TestPostgresVaultStoreRangeIsSorted(t *testing.T) {
 	ctx := t.Context()
 	// One Store per key, so the rows are laid out in this order.
 	for _, k := range []driver.PKey{"k3", "k2", "k111", "k1"} {
-		require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}, nil))
+		require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}}))
 	}
 
 	it, err := store.GetStateRange(ctx, "ns", "k1", "k3")
@@ -492,7 +491,7 @@ func TestPostgresVaultStoreReordersPrimaryKey(t *testing.T) {
 	store := newPostgresVaultStore(t)
 	ctx := t.Context()
 	recreateStateTable(t, store, "CONSTRAINT vault_state_old_pk PRIMARY KEY (pkey, ns)")
-	require.NoError(t, store.Store(ctx, nil, driver.Writes{
+	require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{
 		"ns-a": {
 			"k2":                 {Raw: []byte("a2"), Version: []byte("v")},
 			"k1":                 {Raw: []byte("a1"), Version: []byte("v")},
@@ -502,7 +501,7 @@ func TestPostgresVaultStoreReordersPrimaryKey(t *testing.T) {
 			"k1": {Raw: []byte("b1"), Version: []byte("v")},
 			"k2": {Raw: []byte("b2"), Version: []byte("v")},
 		},
-	}, nil))
+	}}))
 
 	require.NoError(t, store.CreateSchema())
 	requirePrimaryKey(t, store, "ns,pkey")
@@ -537,9 +536,9 @@ func TestPostgresVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	ctx := t.Context()
 	for _, ns := range []string{"ns-a", "ns-b"} {
 		for _, k := range []string{"k1", "k2", "k3"} {
-			require.NoError(t, store.Store(ctx, nil, driver.Writes{
+			require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{
 				ns: {k: {Raw: []byte(k), Version: []byte("v")}},
-			}, nil))
+			}}))
 		}
 	}
 

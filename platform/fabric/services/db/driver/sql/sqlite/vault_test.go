@@ -31,7 +31,7 @@ func TestVaultStoreRangeIsSorted(t *testing.T) {
 	// One Store per key, in key order, so rowid and index order agree and the
 	// reversed scan is unsorted whichever the planner picks.
 	for _, k := range []driver.PKey{"k1", "k111", "k2", "k3"} {
-		require.NoError(t, store.Store(ctx, nil, driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}, nil))
+		require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{"ns": {k: {Raw: []byte(k), Version: []byte("v")}}}}))
 	}
 
 	it, err := store.GetStateRange(ctx, "ns", "k1", "k3")
@@ -104,7 +104,7 @@ func TestVaultStoreReordersPrimaryKey(t *testing.T) {
 	store := openSQLiteVault(t, "file:"+filepath.Join(t.TempDir(), "vault.db"), false)
 	ctx := t.Context()
 	recreateStateTable(t, store, "PRIMARY KEY (pkey, ns)")
-	require.NoError(t, store.Store(ctx, nil, driver.Writes{
+	require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{
 		"ns-a": {
 			"k2":                 {Raw: []byte("a2"), Version: []byte("v")},
 			"k1":                 {Raw: []byte("a1"), Version: []byte("v")},
@@ -114,7 +114,7 @@ func TestVaultStoreReordersPrimaryKey(t *testing.T) {
 			"k1": {Raw: []byte("b1"), Version: []byte("v")},
 			"k2": {Raw: []byte("b2"), Version: []byte("v")},
 		},
-	}, nil))
+	}}))
 
 	require.NoError(t, store.CreateSchema())
 	requireSQLitePrimaryKey(t, store, "ns,pkey")
@@ -135,9 +135,9 @@ func TestVaultStoreRangePlanUsesNamespaceKey(t *testing.T) {
 	ctx := t.Context()
 	for _, ns := range []string{"ns-a", "ns-b"} {
 		for _, k := range []string{"k1", "k2", "k3"} {
-			require.NoError(t, store.Store(ctx, nil, driver.Writes{
+			require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{
 				ns: {k: {Raw: []byte(k), Version: []byte("v")}},
-			}, nil))
+			}}))
 		}
 	}
 
@@ -169,10 +169,10 @@ func TestVaultStoreMigratesOldLayout(t *testing.T) {
 	store := openSQLiteVault(t, ds, false)
 	ctx := t.Context()
 	recreateStateTable(t, store, "PRIMARY KEY (pkey, ns)")
-	require.NoError(t, store.Store(ctx, nil, driver.Writes{
+	require.NoError(t, store.Store(ctx, driver.TxWrites{Writes: driver.Writes{
 		"ns-a": {"k1": {Raw: []byte("a1"), Version: []byte("v")}},
 		"ns-b": {"k1": {Raw: []byte("b1"), Version: []byte("v")}},
-	}, nil))
+	}}))
 	_, err := store.writeDB.ExecContext(ctx, "DROP TABLE fsc_schema_versions")
 	require.NoError(t, err)
 

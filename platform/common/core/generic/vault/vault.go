@@ -202,22 +202,17 @@ func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error 
 		db.logger.DebugfContext(input.ctx, "Begin update for tx [%d:%d][%s]", input.block, input.indexInBloc, input.txID) //nolint:contextcheck // deliberately logging against this tx's own originating context (for trace correlation), not commitRWs' batch-level ctx: this call batches transactions submitted by different, possibly-already-returned callers
 	}
 
-	db.logger.Debugf("extract txids from [%d] inputs", len(inputs))
-	txIDs := db.rwMapper.mapTxIDs(inputs)
-
 	db.logger.Debugf("parse writes from [%d] inputs", len(inputs))
-	writes, err := db.rwMapper.mapWrites(inputs)
+	txs, err := db.rwMapper.mapTxWrites(inputs)
 	if err != nil {
 		return err
 	}
 
-	db.logger.Debugf("parse meta writes")
-	metaWrites, err := db.rwMapper.mapMetaWrites(inputs)
-	if err != nil {
-		return err
-	}
-
-	if err := db.vaultStore.Store(ctx, txIDs, writes, metaWrites); err != nil {
+	if err := db.vaultStore.Store(ctx, txs...); err != nil {
+		txIDs := make([]driver.TxID, len(txs))
+		for i, tx := range txs {
+			txIDs[i] = tx.TxID
+		}
 		db.vaultStore.Invalidate(txIDs...)
 		return errors.Wrap(err, "failed writing txids")
 	}
