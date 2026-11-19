@@ -135,6 +135,13 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	}
 
 	detectStartCheck = allOutput.Detect("%s", r.StartCheck)
+	// Stop watching if Run returns before the start check matched; the match
+	// cancels it already, and cancelling twice panics.
+	defer func() {
+		if detectStartCheck != nil {
+			allOutput.CancelDetects()
+		}
+	}()
 
 	for {
 		select {

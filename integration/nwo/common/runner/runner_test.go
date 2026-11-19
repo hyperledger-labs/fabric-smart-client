@@ -8,6 +8,8 @@ package runner_test
 
 import (
 	"os/exec"
+	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -81,4 +83,31 @@ func TestKillEndsTheProcessWithSIGKILL(t *testing.T) {
 	r.Kill()
 
 	g.Eventually(r, 30*time.Second).Should(gexec.Exit(128 + int(syscall.SIGKILL)))
+}
+
+// TestRunStopsWatchingWhenNeverReady checks that Run stops watching the output
+// for the start check when it returns without having seen it, here because the
+// process exits first. Otherwise the watching goroutine runs until the test
+// binary ends.
+//
+//nolint:paralleltest // counts the gbytes Detect goroutines of the whole process
+func TestRunStopsWatchingWhenNeverReady(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	r := runner.New(runner.Config{
+		Name:       "quitter",
+		Command:    exec.Command("true"),
+		StartCheck: "never printed",
+	})
+	process := ifrit.Background(r)
+	g.Eventually(process.Wait(), 10*time.Second).Should(gomega.Receive())
+
+	g.Eventually(detectGoroutines, 5*time.Second).Should(gomega.BeZero(), "the start check is still watched")
+}
+
+func detectGoroutines() int {
+	buf := make([]byte, 1<<20)
+	buf = buf[:runtime.Stack(buf, true)]
+
+	return strings.Count(string(buf), "gbytes.(*Buffer).Detect.func1")
 }
