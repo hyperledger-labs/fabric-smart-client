@@ -78,7 +78,7 @@ func Init(c Config) error {
 		return errors.Wrapf(err, "invalid %s", specSource)
 	}
 	if c.Writer != nil {
-		flogging.Global.SetWriter(c.Writer)
+		setFloggingWriter(c.Writer)
 	}
 
 	otelSanitizeEnabled.Store(c.OtelSanitize)

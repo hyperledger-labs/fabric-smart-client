@@ -9,8 +9,10 @@ package logging
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"slices"
+	"sync"
 	"sync/atomic"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
@@ -41,16 +43,88 @@ func init() { current.Store(defaultBackend) }
 // for the logger's name and h.Enabled reports true, so to let h alone decide, set
 // logging.spec to debug. The handler receives the logger name as the attribute "logger".
 //
+// h also receives the lines of the libraries that log through Fabric's flogging, such
+// as the Fabric MSP and BCCSP packages, and of gRPC, under the same two filters. Such a
+// line has no context, no stack trace, and none of the fields its library logger added
+// with With: flogging keeps those in its encoders. A level above Error, which zap has and
+// slog doesn't, arrives as Error+4 (DPanic), Error+8 (Panic) or Error+12 (Fatal). While a
+// handler is set, FSC replaces any observer set with flogging.Global.SetObserver, and
+// SetHandler(nil) restores it.
+//
 // Call SetHandler before building the node, so that every line goes through h. It is
 // safe to call while other goroutines log. h must not write through [Handler], directly
 // or through slog.Default after slog.SetDefault(slog.New(Handler(name))): the line would
 // come back to h without end.
 func SetHandler(h slog.Handler) {
+	floggingMu.Lock()
+	defer floggingMu.Unlock()
 	if h == nil {
-		current.Store(defaultBackend)
+		if current.Load() != defaultBackend {
+			// Restore flogging before the default backend, which writes through flogging.
+			flogging.Global.SetWriter(floggingWriter)
+			flogging.Global.SetObserver(floggingPrevObserver)
+			current.Store(defaultBackend)
+		}
 		return
 	}
-	current.Store(&backend{h: h})
+	if current.Swap(&backend{h: h}) == defaultBackend {
+		// ponytail: flogging still formats each line before it discards it; fine for the
+		// few lines the libraries log.
+		floggingWriter = flogging.Global.SetWriter(io.Discard)
+		floggingPrevObserver = flogging.Global.SetObserver(floggingObserver{})
+	}
+}
+
+var (
+	// floggingMu serializes SetHandler with the writer change of Init.
+	floggingMu sync.Mutex
+	// floggingWriter and floggingPrevObserver are what flogging gets back on
+	// SetHandler(nil), while a handler is set.
+	floggingWriter       io.Writer
+	floggingPrevObserver flogging.Observer
+)
+
+// setFloggingWriter makes w flogging's writer, or, while a handler is set, the writer
+// that SetHandler(nil) restores.
+func setFloggingWriter(w io.Writer) {
+	floggingMu.Lock()
+	defer floggingMu.Unlock()
+	if current.Load() == defaultBackend {
+		flogging.Global.SetWriter(w)
+	} else {
+		floggingWriter = w
+	}
+}
+
+// floggingObserver hands the lines flogging writes, after its logging.spec check, to the
+// handler set with SetHandler.
+type floggingObserver struct{}
+
+func (floggingObserver) Check(zapcore.Entry, *zapcore.CheckedEntry) {}
+
+func (floggingObserver) WriteEntry(e zapcore.Entry, fields []zapcore.Field) {
+	b := current.Load()
+	if b == defaultBackend {
+		// SetHandler(nil) is restoring flogging, and the default handler writes through
+		// flogging: forwarding would come back here.
+		return
+	}
+	level := slog.Level(e.Level) * (slog.LevelInfo - slog.LevelDebug) // zap's levels are 1 apart, slog's 4
+	if !b.h.Enabled(noCtx, level) {
+		return
+	}
+	r := slog.NewRecord(e.Time, level, e.Message, e.Caller.PC)
+	r.AddAttrs(slog.String(loggerAttr, e.LoggerName))
+	for _, f := range fields {
+		// A field can add more than one key, as zap.Error does with errorVerbose.
+		enc := zapcore.NewMapObjectEncoder()
+		f.AddTo(enc)
+		for k, v := range enc.Fields {
+			r.AddAttrs(slog.Any(k, v))
+		}
+	}
+	// A handler reports a failed write, which a log call has no one to return to.
+	_ = b.h.Handle(noCtx, r)
 }
 
 // handlerName names the current handler for the line Init logs.
