@@ -170,14 +170,25 @@ func (f *retryRunner) RunContext(ctx context.Context, runner func() error) error
 		}
 		delay := f.getNextDelay()
 		f.logger.Debugf("Attempt [%d] failed, retrying in [%v]: %v", i+1, delay, lastErr)
-		timer := time.NewTimer(delay)
-		select {
-		case <-ctx.Done(): // reported by the ctx check at the top of the loop
-		case <-timer.C:
-		}
-		timer.Stop()
+		_ = Sleep(ctx, delay) // a done ctx is reported by the check at the top of the loop
 	}
 	return errors.Join(ErrMaxRetriesExceeded, lastErr)
+}
+
+// Sleep waits for d, or until ctx is done. It returns nil after a full wait and
+// ctx.Err() when ctx ends first, including when ctx is already done on entry.
+func Sleep(ctx context.Context, d time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (f *retryRunner) deterministicDelay() time.Duration {

@@ -743,7 +743,9 @@ fabric:
       # number of retries to attempt to send a transaction to an orderer
       # If not specified or set to 0, it will default to 3 retries. The orderer is picked randomly for every attempt.
       numRetries: 3
-      # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it defaults to 500ms
+      # retryInterval specifies the amount of time to wait before retrying a connection
+      # to the ordering service, it defaults to 500ms. The wait ends early, and the
+      # broadcast fails, when the context of the broadcast ends.
       retryInterval: 500ms
       # maximum number of concurrent connections per pool. CFT keeps one pool for the network;
       # BFT keeps one per orderer, so 4 orderers allow up to 4 x connectionPoolSize connections.
@@ -915,7 +917,9 @@ fabric:
         # The default channel is used when a channel is requested with an empty name.
         default: true
         numRetries: 3 # number of retries on a chaincode operation failure
-        retrySleep: 1s # waiting time before retry again a failed chaincode operation
+        # waiting time before retrying a failed chaincode operation;
+        # the wait ends early when the invocation's context ends
+        retrySleep: 1s
         # section about the finality service
         # The remote peer probe and the local event wait run in sequence, so
         # finality.waitForEventTimeout and committer.waitForEventTimeout add up

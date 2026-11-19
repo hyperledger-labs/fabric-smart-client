@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"context"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -117,14 +118,17 @@ func (s *stdQuery) WithRetrySleep(duration time.Duration) {
 	s.chq.WithRetrySleep(duration)
 }
 
+// stdChaincode runs its endorsements and queries under ctx, the context of the view that
+// created it.
 type stdChaincode struct {
-	ch *fabric.Chaincode
+	ch  *fabric.Chaincode
+	ctx context.Context
 }
 
 func (s *stdChaincode) Endorse(function string, args ...any) Endorse {
-	return &stdEndorse{che: s.ch.Endorse(function, args...)}
+	return &stdEndorse{che: s.ch.Endorse(function, args...).WithContext(s.ctx)}
 }
 
 func (s *stdChaincode) Query(function string, args ...any) Query {
-	return &stdQuery{chq: s.ch.Query(function, args...)}
+	return &stdQuery{chq: s.ch.Query(function, args...).WithContext(s.ctx)}
 }
