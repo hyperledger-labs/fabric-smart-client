@@ -198,9 +198,12 @@ func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver,
 // followed.
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs ...view.Identity) error {
 	longTerm = r.canonical(longTerm)
-	toBind, refused := r.splitBindable(longTerm, ephemeralIDs)
+	toBind, refused, conflicting := r.splitBindable(longTerm, ephemeralIDs)
 	for range refused {
 		r.reportRefused(ctx, longTerm)
+	}
+	for range conflicting {
+		r.reportConflict(ctx, longTerm)
 	}
 	if len(toBind) == 0 {
 		return nil
@@ -224,7 +227,7 @@ func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs
 			continue
 		}
 		if !lt.IsNone() && !lt.Equal(longTerm) && !r.sameLongTerm(ctx, lt, longTerm) {
-			r.rejections().Report(ctx, security.KindBindingConflict, longTerm, "", "ephemeral already bound to another long-term identity")
+			r.reportConflict(ctx, longTerm)
 		}
 	}
 	return nil
@@ -235,12 +238,17 @@ func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs
 // only be called after verifying that longTerm proved ownership of ephemeral, since it lets the
 // caller take over an identity bound to another party. Like Bind, it refuses a known long-term
 // identity as ephemeral, counting security.KindBindingRefused, and in that case returns an error
-// wrapping driver.ErrBindingRefused. An ephemeral equal to longTerm is not bound.
+// wrapping driver.ErrBindingRefused; it also returns such an error, counting
+// security.KindBindingConflict, for an ephemeral the resolver index holds for another resolver. An ephemeral equal to longTerm is not bound.
 func (r *Service) BindProven(ctx context.Context, longTerm, ephemeral view.Identity) error {
-	toBind, refused := r.splitBindable(longTerm, []view.Identity{ephemeral})
+	toBind, refused, conflicting := r.splitBindable(longTerm, []view.Identity{ephemeral})
 	if len(refused) != 0 {
 		r.reportRefused(ctx, longTerm)
 		return errors.Wrapf(driver.ErrBindingRefused, "[%s] is the identity of a resolver", ephemeral)
+	}
+	if len(conflicting) != 0 {
+		r.reportConflict(ctx, longTerm)
+		return errors.Wrapf(driver.ErrBindingRefused, "[%s] belongs to another resolver by configuration", ephemeral)
 	}
 	if len(toBind) == 0 {
 		return nil
@@ -282,11 +290,15 @@ type noServices struct{}
 
 func (noServices) GetService(any) (any, error) { return nil, ErrNotFound }
 
-// splitBindable drops the ephemerals equal to longTerm and separates those that are the identity
-// of a registered resolver, which must not be bound as ephemerals, from the others.
-func (r *Service) splitBindable(longTerm view.Identity, ephemeralIDs []view.Identity) (toBind, refused []view.Identity) {
+// splitBindable sorts ephemeralIDs for a bind to longTerm. An identity equal to longTerm is
+// dropped. The identity of a resolver is refused, and an identity the resolver index holds for
+// a resolver other than longTerm's, such as its alias or Fabric MSP identity, conflicts, since a
+// stored row would never be used for it. An identity the index holds for longTerm's own resolver
+// is dropped. The rest are returned in toBind.
+func (r *Service) splitBindable(longTerm view.Identity, ephemeralIDs []view.Identity) (toBind, refused, conflicting []view.Identity) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
+	owner, _ := r.localResolver(longTerm)
 	for _, id := range ephemeralIDs {
 		if longTerm.Equal(id) {
 			continue
@@ -296,9 +308,21 @@ func (r *Service) splitBindable(longTerm view.Identity, ephemeralIDs []view.Iden
 			refused = append(refused, id)
 			continue
 		}
+		if res, ok := r.localResolver(id); ok {
+			if res != owner {
+				conflicting = append(conflicting, id)
+			}
+			continue
+		}
 		toBind = append(toBind, id)
 	}
-	return toBind, refused
+	return toBind, refused, conflicting
+}
+
+// reportConflict counts a bind of an ephemeral that another long-term identity, or another
+// resolver, already has; Rejections.Report writes the rate-limited warn line.
+func (r *Service) reportConflict(ctx context.Context, longTerm view.Identity) {
+	r.rejections().Report(ctx, security.KindBindingConflict, longTerm, "", "ephemeral already bound to another long-term identity")
 }
 
 // reportRefused counts a refused bind; Rejections.Report writes the rate-limited warn line.
@@ -497,14 +521,16 @@ func (r *Service) AddResolver(
 
 	r.resolversMutex.Lock()
 	// check again
-	if _, ok := r.resolversMap[name]; !ok {
+	resolver, ok := r.resolversMap[name]
+	if !ok {
 		r.appendResolver(newResolver, pkiID)
 		r.resolversMutex.Unlock()
 		return nil, nil
 	}
+	refused, conflicts := r.attach(resolver, ids)
 	r.resolversMutex.Unlock()
-	existingID, _ := r.attachToNamed(name, ids)
-	return existingID, nil
+	r.reportAttach(context.Background(), resolver.ID, refused, conflicts)
+	return resolver.ID, nil
 }
 
 // attachToNamed registers ids as identities of the resolver name matches, as AddLocalIdentities
@@ -574,7 +600,7 @@ func (r *Service) reportAttach(ctx context.Context, longTerm view.Identity, refu
 		r.reportRefused(ctx, longTerm)
 	}
 	for range conflicts {
-		r.rejections().Report(ctx, security.KindBindingConflict, longTerm, "", "identity already belongs to another resolver")
+		r.reportConflict(ctx, longTerm)
 	}
 }
 
@@ -734,7 +760,10 @@ func (r *Service) indexResolver(newResolver *Resolver, pkiID []byte) {
 		r.resolversMap[string(newResolver.ID)] = newResolver
 	}
 	for _, id := range newResolver.identities {
-		r.resolversMap[string(id)] = newResolver
+		// an identity another resolver has taken since stays with it
+		if other, ok := r.resolversMap[string(id)]; !ok || other == newResolver {
+			r.resolversMap[string(id)] = newResolver
+		}
 	}
 
 	// by pkiResolver

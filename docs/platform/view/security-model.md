@@ -129,7 +129,9 @@ signature counts for it, so the store and `endpoint.Service`
   and `binding_refused` (see
   [Security metrics](services/monitoring_metrics.md#security)), and logged at
   warn level, at most one line per kind per second. `Bind` still returns nil, so
-  configuration-driven binds at startup and application binds keep working.
+  application binds keep working. An unproven bind of an identity the resolver
+  index holds for another resolver writes nothing and counts `binding_conflict`;
+  `BindProven` refuses it with the `ErrBindingRefused` error.
 - **Proven binds win.** `Service.BindProven` is for callers that verified that
   the long-term identity proved ownership of the ephemeral. It binds the
   ephemeral to exactly that long-term identity, never to an identity the long
@@ -144,16 +146,15 @@ signature counts for it, so the store and `endpoint.Service`
 A planted row is one whose `ephemeral_hash` is the hash
 (`base64(sha256(identity bytes))`) of an identity that is itself the
 `long_term_id` of some row, while the row binds it to a different long-term
-identity. In the default store the table is `fsc_default_bind`. Many such rows
-are legitimate: rows that bind a node's own identities to each other, such as
-its Fabric MSP identity to its FSC identity, or an `endpoint.resolvers` entry to
-the FSC identity of the resolver with the same name, are harmless, because the
-endpoint service resolves those identities through the resolver index. To find
-planted rows, list these
-candidates, decode both identities and compare the certificates they carry.
-Delete a row only if its two identities clearly belong to different parties; an
-identity without a certificate, such as an Idemix identity, cannot be attributed
-this way, so keep its rows. The
+identity. In the default store the table is `fsc_default_bind`. A row that binds
+a node's own identities to each other, such as its Fabric MSP identity to its
+FSC identity, or an `endpoint.resolvers` entry to the FSC identity of the
+resolver with the same name, is harmless: the endpoint service resolves those
+identities through the resolver index and never reads such a row. To find
+planted rows, list these candidates, decode both identities and compare the
+certificates they carry. Delete a row only if its two identities clearly belong
+to different parties; an identity without a certificate, such as an Idemix
+identity, cannot be attributed this way, so keep its rows. The
 [v0.27 to v0.28 upgrade guide](../../upgrade/v0.27-to-v0.28.md#binding-store)
 has the queries for Postgres and SQLite.
 

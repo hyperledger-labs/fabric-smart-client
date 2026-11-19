@@ -37,7 +37,7 @@ const ownMSPPath = "../msp/x509/testdata/msp"
 
 // rotationCore is a core.yaml for node "me" with view identity at ownCert. It knows alice by
 // her view identity at aliceCert, her alias alice_alias, and her Fabric identity at
-// aliceFabricCert, which the Fabric resolver binds to her view identity by reusing her name.
+// aliceFabricCert, which the Fabric resolver attaches to her view identity by reusing her name.
 const rotationCore = `
 fsc:
   id: me
@@ -80,8 +80,8 @@ type rotatedNode struct {
 
 // startRotationNode starts node "me" on store the way the view and Fabric SDKs do: the view
 // resolver loader registers the node's own resolver and alice's, then the Fabric resolver
-// loader adds alice's Fabric identity, and the MSP service binds the node's MSP identity to
-// its view identity. Startup must succeed.
+// loader adds alice's Fabric identity, and the MSP service registers the node's MSP identity
+// for its view identity. Startup must succeed.
 func startRotationNode(t *testing.T, store driver.BindingStore, ownCert, aliceCert, aliceFabricCert string) *rotatedNode {
 	t.Helper()
 	dir := t.TempDir()

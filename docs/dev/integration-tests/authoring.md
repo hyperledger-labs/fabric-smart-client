@@ -185,10 +185,10 @@ The FSC platform renews a node's certificate on disk:
 
 It also rotates a node's FSC identity on disk:
 
-| Call | Effect |
-| --- | --- |
-| `RenewNodeIdentity(peer)` | writes a new key, and a certificate for it signed by the CA of the node's organization with the subject and expiry of the current one, over the node's identity files. The node's `core.yaml`, the `endpoint.resolvers` entry for the node in every other node's `core.yaml` and its WebSocket P2P transport read these files, so the nodes use the new identity once they restart |
-| `RefreshNodeClients(name)` | after the node restarted, builds its view clients again and records its new identity in the platform's context, which `Identity(name)` returns |
+| Call                       | Effect                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RenewNodeIdentity(peer)`  | writes a new key, and a certificate for it signed by the CA of the node's organization with the subject and expiry of the current one, over the node's identity files. The node's `core.yaml`, the `endpoint.resolvers` entry for the node in every other node's `core.yaml` and its WebSocket P2P transport read these files, so the nodes use the new identity once they restart |
+| `RefreshNodeClients(name)` | after the node restarted, builds its view clients again and records its new identity in the platform's context, which `Identity(name)` returns                                                                                                                                                                                                                                     |
 
 The fault-recovery spec "keeps working after a node's identity is rotated and
 every node restarts" uses them, see

@@ -776,12 +776,12 @@ func HostileSpecs(s *integration.TestSuite) {
 }
 
 // RotationSpecs registers, on the network of RotationFSCTopology, the rotation of bob's FSC
-// identity (#2559): every node stops, bob gets a new identity certificate from his
+// identity: every node stops, bob gets a new identity certificate from his
 // organization's CA, which the resolvers of the other nodes read from the same file, and every
 // node starts again. Alice must then reach bob by name and by alias, a transaction bob endorses
 // must commit, which needs alice to accept his endorsement against his new identity, and the
 // transaction committed before must still be final on both. The rotation changes the network
-// for good, so the spec runs last in its own network.
+// for good, so each suite registers it in a Describe of its own.
 func RotationSpecs(s *integration.TestSuite) {
 	ginkgo.It("keeps working after a node's identity is rotated and every node restarts", func() {
 		before := SubmitAndWaitFinal(s.II, 1)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/security"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -180,6 +181,43 @@ func TestIsBoundTo_StoredRowToLocalIdentity(t *testing.T) {
 
 	requireResolvesTo(t, svc, wallet, "alice")
 	assert.True(t, svc.IsBoundTo(t.Context(), wallet, alice))
+}
+
+// An unproven bind of an identity the index holds for another resolver stores nothing and
+// counts a conflict; one for the resolver it belongs to is dropped; a proven bind is refused.
+func TestBind_IdentityOfAnotherResolver(t *testing.T) {
+	t.Parallel()
+	svc, store, p := newBindingTestService(t)
+	x := view.Identity("alice-fabric")
+	require.NoError(t, svc.AddLocalIdentities(t.Context(), view.Identity("alice"), x))
+
+	require.NoError(t, svc.Bind(t.Context(), view.Identity("bob"), x))
+	assert.InDelta(t, 1, p.count(security.KindBindingConflict), 0)
+	require.NoError(t, svc.Bind(t.Context(), view.Identity("alice"), x))
+	assert.InDelta(t, 1, p.count(security.KindBindingConflict), 0)
+	lt, err := store.GetLongTerm(t.Context(), x)
+	require.NoError(t, err)
+	assert.True(t, lt.IsNone(), "x is stored")
+
+	require.ErrorIs(t, svc.BindProven(t.Context(), view.Identity("bob"), x), driver.ErrBindingRefused)
+	assert.InDelta(t, 2, p.count(security.KindBindingConflict), 0)
+	requireResolvesTo(t, svc, x, "alice")
+}
+
+// A resolver that takes an identity another resolver registered keeps it when the other
+// resolver is updated.
+func TestUpdateResolver_KeepsIdentityAnotherResolverTook(t *testing.T) {
+	t.Parallel()
+	svc, _, _ := newBindingTestService(t)
+	x := view.Identity("x")
+	require.NoError(t, svc.AddLocalIdentities(t.Context(), view.Identity("alice"), x))
+	_, err := svc.AddResolver("dave", "org1", map[string]string{string(endpoint.P2PPort): "dave:1"}, nil, x)
+	require.NoError(t, err)
+	requireResolvesTo(t, svc, x, "dave")
+
+	_, err = svc.UpdateResolver("alice", "org1", map[string]string{string(endpoint.P2PPort): "alice:2"}, nil, view.Identity("alice"))
+	require.NoError(t, err)
+	requireResolvesTo(t, svc, x, "dave")
 }
 
 func requireResolvesTo(t *testing.T, svc *endpoint.Service, id view.Identity, name string) {
