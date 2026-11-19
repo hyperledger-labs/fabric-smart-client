@@ -184,18 +184,21 @@ func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver,
 // that identity resolves to, so the caller must hold proof that longTerm owns each ephemeral, or
 // bind only identities from local configuration. Register identities from local configuration
 // and the node's own with AddLocalIdentities instead when a resolver has longTerm: those are not
-// stored, so they follow the configuration on every start. Bind does not let a bind take over an
-// existing binding: an
-// ephemeral already bound to another long-term identity keeps that binding, and the conflict is
-// counted as security.KindBindingConflict. Bind never binds a known long-term identity, the
-// identity of a registered resolver or an identity the store holds as a long-term identity, as an
-// ephemeral, since that would redirect it to longTerm; such an ephemeral is not bound, and the
-// refusal is counted as security.KindBindingRefused. Both counts are per ephemeral, so a call with
-// two refused ephemerals counts two refusals. Conflicts and refusals are not errors: Bind returns
-// an error only if the store fails. Use BindProven to replace an existing binding once ownership
-// is proven. A longTerm that is an identity of a resolver, such as an alias or its Fabric MSP
-// identity, is bound as the resolver's identity, so a binding stored for longTerm itself is not
-// followed.
+// stored, so they follow the configuration on every start.
+//
+// Bind does not let a bind take over an existing binding: an ephemeral already bound to another
+// long-term identity keeps that binding, and the conflict is counted as
+// security.KindBindingConflict. An ephemeral that the resolver index holds for a resolver, as an
+// alias or an identity AddResolver or AddLocalIdentities registered, is not stored either: it
+// counts as a conflict if the resolver is not longTerm's, and is dropped without a count if it is.
+// Bind never binds a known long-term identity, the identity of a registered resolver or an
+// identity the store holds as a long-term identity, as an ephemeral, since that would redirect it
+// to longTerm; such an ephemeral is not bound, and the refusal is counted as
+// security.KindBindingRefused. All counts are per ephemeral, so a call with two refused ephemerals
+// counts two refusals. Conflicts and refusals are not errors: Bind returns an error only if the
+// store fails. Use BindProven to replace an existing binding once ownership is proven. A longTerm
+// that is an identity of a resolver, such as an alias or its Fabric MSP identity, is bound as the
+// resolver's identity, so a binding stored for longTerm itself is not followed.
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs ...view.Identity) error {
 	longTerm = r.canonical(longTerm)
 	toBind, refused, conflicting := r.splitBindable(longTerm, ephemeralIDs)
@@ -234,12 +237,13 @@ func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs
 }
 
 // BindProven binds ephemeral to exactly longTerm, replacing any existing binding of ephemeral,
-// and does not resolve longTerm through a binding of its own. It must
-// only be called after verifying that longTerm proved ownership of ephemeral, since it lets the
-// caller take over an identity bound to another party. Like Bind, it refuses a known long-term
-// identity as ephemeral, counting security.KindBindingRefused, and in that case returns an error
-// wrapping driver.ErrBindingRefused; it also returns such an error, counting
-// security.KindBindingConflict, for an ephemeral the resolver index holds for another resolver. An ephemeral equal to longTerm is not bound.
+// and does not resolve longTerm through a binding of its own. It must only be called after
+// verifying that longTerm proved ownership of ephemeral, since it lets the caller take over an
+// identity bound to another party. Like Bind, it refuses a known long-term identity as
+// ephemeral, counting security.KindBindingRefused, and in that case returns an error wrapping
+// driver.ErrBindingRefused. It returns such an error too, counting security.KindBindingConflict,
+// for an ephemeral the resolver index holds for a resolver other than longTerm's. An ephemeral
+// equal to longTerm, or one the index holds for longTerm's own resolver, is not bound.
 func (r *Service) BindProven(ctx context.Context, longTerm, ephemeral view.Identity) error {
 	toBind, refused, conflicting := r.splitBindable(longTerm, []view.Identity{ephemeral})
 	if len(refused) != 0 {
@@ -274,8 +278,8 @@ func (r *Service) BindProven(ctx context.Context, longTerm, ephemeral view.Ident
 	return nil
 }
 
-// SetRejections sets the counter Bind and BindProven report refused and conflicting bindings to.
-// Without one, the reports are discarded.
+// SetRejections sets the counter Bind, BindProven, AddResolver and AddLocalIdentities report
+// refused and conflicting bindings to. Without one, the reports are discarded.
 func (r *Service) SetRejections(rj *security.Rejections) { r.rejectionsCounter.Store(rj) }
 
 func (r *Service) rejections() *security.Rejections {
@@ -498,13 +502,10 @@ func (r *Service) AddResolver(
 	for _, alias := range aliases {
 		ids = append(ids, view.Identity(alias))
 	}
-	// is there a resolver with the same name or clashing aliases?
-	if existingID, ok := r.attachToNamed(name, ids); ok {
-		return existingID, nil
-	}
+	// clashing aliases?
 	r.resolversMutex.RLock()
 	for _, alias := range aliases {
-		if existing, ok := r.resolversMap[alias]; ok {
+		if existing, ok := r.resolversMap[alias]; ok && existing.Name != name {
 			logger.Warnf("alias [%s] already defined by resolver [%s]", alias, existing.Name)
 		}
 	}
@@ -520,7 +521,7 @@ func (r *Service) AddResolver(
 	pkiID := r.PkiResolve(newResolver)
 
 	r.resolversMutex.Lock()
-	// check again
+	// a resolver with the same name, such as one a replica's entry or a Fabric entry reuses
 	resolver, ok := r.resolversMap[name]
 	if !ok {
 		r.appendResolver(newResolver, pkiID)
@@ -531,21 +532,6 @@ func (r *Service) AddResolver(
 	r.resolversMutex.Unlock()
 	r.reportAttach(context.Background(), resolver.ID, refused, conflicts)
 	return resolver.ID, nil
-}
-
-// attachToNamed registers ids as identities of the resolver name matches, as AddLocalIdentities
-// does, and returns its identity. It reports whether name matches a resolver.
-func (r *Service) attachToNamed(name string, ids []view.Identity) (view.Identity, bool) {
-	r.resolversMutex.Lock()
-	resolver, ok := r.resolversMap[name]
-	if !ok {
-		r.resolversMutex.Unlock()
-		return nil, false
-	}
-	refused, conflicts := r.attach(resolver, ids)
-	r.resolversMutex.Unlock()
-	r.reportAttach(context.Background(), resolver.ID, refused, conflicts)
-	return resolver.ID, true
 }
 
 // AddLocalIdentities registers ids, which the node knows to belong to longTerm because they

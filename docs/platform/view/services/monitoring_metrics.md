@@ -558,9 +558,9 @@ Operational notes:
     which is not necessarily the party that wrote the stored record; the
     committer names no peer.
 - `binding_refused` and `binding_conflict` name the long-term identity of the
-  bind as the peer, and no txID. A rotated certificate counts neither for the
-  identities of a node's configuration, which are not stored (see
-  [Rotated identities](../security-model.md#rotated-identities)); an application
+  bind as the peer, and no txID. Identities from a node's configuration are not
+  stored, so a rotated certificate counts neither kind for them (see
+  [Rotated identities](../security-model.md#rotated-identities)). An application
   that binds identities with `Bind` counts a `binding_conflict` for each one it
   binds again after a rotation. A steady rate, or any `binding_refused`, means a
   peer is claiming identities it does not own, or a node's own MSP identity is
