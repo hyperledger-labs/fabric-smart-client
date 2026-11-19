@@ -288,3 +288,30 @@ func TestRunContext_SucceedsAfterRetries(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, calls)
 }
+
+func TestSleep(t *testing.T) {
+	t.Parallel()
+
+	t.Run("waits the full duration", func(t *testing.T) {
+		t.Parallel()
+		start := time.Now()
+		require.NoError(t, Sleep(t.Context(), 20*time.Millisecond))
+		require.GreaterOrEqual(t, time.Since(start), 20*time.Millisecond)
+	})
+
+	t.Run("returns when the context ends", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		require.ErrorIs(t, Sleep(ctx, time.Hour), context.DeadlineExceeded)
+		require.Less(t, time.Since(start), 10*time.Second)
+	})
+
+	t.Run("returns at once for a done context", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		require.ErrorIs(t, Sleep(ctx, 0), context.Canceled)
+	})
+}

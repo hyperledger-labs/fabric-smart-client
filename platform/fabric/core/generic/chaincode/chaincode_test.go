@@ -909,3 +909,36 @@ func TestInvoke_EndorseQuerySubmit(t *testing.T) {
 		require.Nil(t, res)
 	})
 }
+
+// TestInvoke_RetryWaitHonorsContext checks that Endorse, Query and Submit stop waiting
+// between attempts when the invocation's context ends, and keep the attempt's error.
+func TestInvoke_RetryWaitHonorsContext(t *testing.T) {
+	t.Parallel()
+
+	calls := map[string]func(*chaincode.Invoke) error{
+		"Endorse": func(inv *chaincode.Invoke) error { _, err := inv.Endorse(); return err },
+		"Query":   func(inv *chaincode.Invoke) error { _, err := inv.Query(); return err },
+		"Submit":  func(inv *chaincode.Invoke) error { _, _, err := inv.Submit(); return err },
+	}
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			fix := setupInvokeTest(t)
+			// No signer identity, so every attempt fails in prepare.
+			inv := chaincode.NewInvoke(fix.Chaincode, "my-func", "arg1")
+			inv.WithNumRetries(3)
+			inv.WithRetrySleep(time.Hour)
+			ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+			defer cancel()
+			inv.WithContext(ctx)
+
+			start := time.Now()
+			err := call(inv)
+
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			require.ErrorContains(t, err, "stopped retrying chaincode invocation")
+			require.ErrorContains(t, err, "no invoker specified", "the last attempt's error is kept")
+			require.Less(t, time.Since(start), 10*time.Second)
+		})
+	}
+}

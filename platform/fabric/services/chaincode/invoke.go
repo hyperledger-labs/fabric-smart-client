@@ -55,6 +55,8 @@ func (i *invokeChaincodeView) Call(viewCtx view.Context) (any, error) {
 	return []any{txid, result}, nil
 }
 
+// Invoke endorses and submits the invocation and returns its transaction ID and result. The
+// calls to the peers and the waits between retries run under viewCtx's context.
 func (i *invokeChaincodeView) Invoke(viewCtx view.Context) (string, []byte, error) {
 	// TODO: endorse and then send to ordering
 	info := &info{
@@ -70,7 +72,7 @@ func (i *invokeChaincodeView) Invoke(viewCtx view.Context) (string, []byte, erro
 	i.InvokerIdentity = info.identity
 
 	logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
-	invocation := chaincode.Invoke(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)
+	invocation := chaincode.Invoke(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity).WithContext(viewCtx.Context())
 	for k, v := range i.TransientMap {
 		if _, err := invocation.WithTransientEntry(k, v); err != nil {
 			return "", nil, err

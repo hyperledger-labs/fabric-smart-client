@@ -39,6 +39,7 @@ func setupMockContextWithSubscriber(t *testing.T, sub events.Subscriber) (*mock.
 	mockChaincodeInvocation.WithRetrySleepReturns(mockChaincodeInvocation)
 	mockChaincodeInvocation.WithMatchEndorsementPolicyReturns(mockChaincodeInvocation)
 	mockChaincodeInvocation.WithTxIDReturns(mockChaincodeInvocation)
+	mockChaincodeInvocation.WithContextReturns(mockChaincodeInvocation)
 
 	mockEnv := &endorsermock.Envelope{}
 
