@@ -25,7 +25,8 @@ the overhead of opening multiple connections between nodes.
   or lower are rejected.
 - **Dynamic Port Assignment**: The transport supports starting on a dynamic port
   (by setting the port to `0` in `listenAddress`). The actual assigned port is
-  automatically retrieved and used for service discovery and readiness checks.
+  automatically retrieved and used for service discovery. The host accepts
+  connections on it as soon as it has started.
 
 ## Internal architecture
 

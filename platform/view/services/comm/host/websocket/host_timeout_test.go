@@ -23,78 +23,64 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 )
 
-// TestHostStartupTimeout tests that the host properly handles startup failures
-func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
+// TestHostStartFailsOnInvalidAddress checks that Start reports a listen address that cannot
+// be bound, without leaking a goroutine.
+func TestHostStartFailsOnInvalidAddress(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	// Use an invalid address that will cause the server to fail to listen
-	invalidAddress := "invalid:address"
-
-	// Create a mock config with invalid address
-	cfg := &mockConfig{
-		listenAddress: invalidAddress,
-	}
-
-	// Create a host with the invalid address
 	host, err := websocket.NewHost(
 		"test-node",
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[commhost.PeerIPAddress]()),
 		noopProvider(),
-		cfg,
+		&mockConfig{listenAddress: "invalid:address"},
 		nil, // caPoolProvider
 	)
 	require.NoError(t, err)
 
-	// Attempt to start the host - should fail due to inability to listen
-	err = host.Start(func(commhost.P2PStream) {})
-	require.Error(t, err)
-	// The error should be related to failing to listen
+	require.ErrorContains(t, host.Start(func(commhost.P2PStream) {}), "failed to listen")
 }
 
-// TestHostStartupReadinessTimeout tests the 2-second startup readiness timeout
-func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
+// TestHostStartAcceptsConnectionsAtOnce checks that the listen address accepts a
+// connection as soon as Start returns.
+func TestHostStartAcceptsConnectionsAtOnce(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	// Use a valid localhost address but don't actually start a listener
-	// This simulates a scenario where the server starts listening but
-	// the readiness check fails because no one is accepting connections
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	addr := listener.Addr().String()
-	require.NoError(t, listener.Close()) // Close immediately so no one is listening
-
-	// Create a mock config
-	cfg := &mockConfig{
-		listenAddress: addr,
-	}
-
-	// Create a host
 	h, err := websocket.NewHost(
 		"test-node",
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[commhost.PeerIPAddress]()),
 		noopProvider(),
-		cfg,
+		&mockConfig{listenAddress: "127.0.0.1:0"},
+		nil, // caPoolProvider
+	)
+	require.NoError(t, err)
+	defer func() { _ = h.Close() }()
+
+	require.NoError(t, h.Start(func(commhost.P2PStream) {}))
+
+	conn, err := net.DialTimeout("tcp", h.Addr(), time.Second)
+	require.NoError(t, err)
+	require.NoError(t, conn.Close())
+}
+
+// TestHostStartFailsOnBoundAddress checks that Start reports an address that another
+// listener already holds.
+func TestHostStartFailsOnBoundAddress(t *testing.T) {
+	t.Parallel()
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = l.Close() }()
+
+	h, err := websocket.NewHost(
+		"test-node",
+		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[commhost.PeerIPAddress]()),
+		noopProvider(),
+		&mockConfig{listenAddress: l.Addr().String()},
 		nil, // caPoolProvider
 	)
 	require.NoError(t, err)
 
-	// Ensure we clean up resources
-	defer func() {
-		_ = h.Close()
-	}()
-
-	// Attempt to start - should timeout waiting for readiness
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
-	defer cancel()
-	// Use ctx to satisfy compiler that it's used
-	_ = ctx
-	err = h.Start(func(commhost.P2PStream) {})
-	// This might succeed or fail depending on timing, but we're mainly
-	// testing that the timeout mechanism exists and doesn't panic
-	if err != nil {
-		// If it fails, it could be due to our timeout
-		require.ErrorContains(t, err, "timeout waiting for REST server readiness")
-	}
+	require.ErrorContains(t, h.Start(func(commhost.P2PStream) {}), "failed to listen")
 }
 
 // TestNewHostPropagatesClientTLSConfigError checks that a client TLS config error is
