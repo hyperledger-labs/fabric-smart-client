@@ -21,6 +21,11 @@ specs that inject faults,
   in `integration/fabric/common/faultrecovery`, so both suites run it. A spec
   under `ShareNetwork` leaves the network healthy and leaks no sessions or view
   contexts.
+- On Fabric, the nodes that endorse for a namespace register it with
+  `ProcessNamespace` before delivery starts, for example with the `SDK` of
+  `integration/fabric/common/faultrecovery/sdk`; otherwise a node that handles a
+  request after the transaction's block keeps the transaction `Busy`. See
+  [Several endorsers that each satisfy the policy](../platform/fabric/fabric-sdk.md#several-endorsers-that-each-satisfy-the-policy).
 - No `time.Sleep` where a signal exists; derive bounds from the timeouts the
   code defines (`SessionCloseTimeout`, `RecoveryTimeout`).
 - A change that renames, moves or relabels specs shows with

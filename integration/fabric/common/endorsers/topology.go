@@ -27,10 +27,10 @@ var Endorsers = []string{"endorser1", "endorser2", "endorser3"}
 // endorser of Org2 satisfies it.
 var Policy = topology.OneOutOfN("Org2")
 
-// FSCTopology returns the FSC node alice (Org1), which initiates every transaction, and the
-// endorser nodes of Endorsers (Org2), installing sdk on all of them. Each node is separate,
-// with its own identity and its own SQLite database, which survives a restart.
-func FSCTopology(sdk node.SDK) *fsc.Topology {
+// FSCTopology returns the FSC node alice (Org1), which initiates every transaction and runs
+// sdk, and the endorser nodes of Endorsers (Org2), which run endorserSDK. Each node is
+// separate, with its own identity and its own SQLite database, which survives a restart.
+func FSCTopology(sdk, endorserSDK node.SDK) *fsc.Topology {
 	fscTopology := fsc.NewTopology()
 	// The leak check of faultrecovery.ShareNetwork reads every node's metrics.
 	fscTopology.EnablePrometheusMetrics()
@@ -39,14 +39,15 @@ func FSCTopology(sdk node.SDK) *fsc.Topology {
 		RegisterViewFactory("endorseAny", &views.EndorseAnyViewFactory{}).
 		RegisterViewFactory("order", &fviews.OrderViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
-		RegisterViewFactory("query", &fviews.QueryViewFactory{})
+		RegisterViewFactory("query", &fviews.QueryViewFactory{}).
+		AddSDK(sdk)
 	for _, name := range Endorsers {
 		fscTopology.AddNodeByName(name).
 			AddOptions(fabric.WithOrganization("Org2"), fabric.WithDefaultSqlitePersistence()).
 			RegisterResponder(&fviews.ResponderView{}, &views.EndorseAnyView{}).
 			RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
-			RegisterViewFactory("query", &fviews.QueryViewFactory{})
+			RegisterViewFactory("query", &fviews.QueryViewFactory{}).
+			AddSDK(endorserSDK)
 	}
-	fscTopology.AddSDK(sdk)
 	return fscTopology
 }

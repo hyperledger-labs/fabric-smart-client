@@ -62,6 +62,7 @@ var SingleDBCases = []struct {
 	{"KeyEncoding", TTestKeyEncoding},
 	{"LateReplicaCommit", TTestLateReplicaCommit},
 	{"StoreSkipsValidTx", TTestStoreSkipsValidTx},
+	{"LateRWSetKeepsValid", TTestLateRWSetKeepsValid},
 }
 
 var ReadCommittedDBCases = []struct {
@@ -1196,4 +1197,41 @@ func versionBlockTxNumToBytes(block driver.BlockNum, txNum driver.TxNum) []byte 
 	binary.BigEndian.PutUint32(buf[:4], uint32(block))
 	binary.BigEndian.PutUint32(buf[4:], uint32(txNum))
 	return buf
+}
+
+// TTestLateRWSetKeepsValid checks that a read-write set opened for a transaction that is
+// already Valid leaves it Valid, on the store and through a cached vault. A Fabric endorser
+// that processes a namespace relies on it: its committer may commit a transaction from its
+// block before a late responder opens a read-write set for it, and the responder must not
+// turn it back to Busy, which no block would commit again.
+func TTestLateRWSetKeepsValid(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
+	t.Helper()
+	ctx := context.Background()
+	vault, err := vp.NewCachedVault(ddb)
+	require.NoError(t, err)
+
+	// The committer commits the transaction from its block.
+	rws, err := vault.NewRWSet(ctx, "late")
+	require.NoError(t, err)
+	require.NoError(t, rws.SetState("ns", "key", []byte("committed")))
+	rws.Done()
+	require.NoError(t, vault.CommitTX(ctx, "late", 1, 0))
+
+	// A late responder opens a read-write set for it and fails without storing anything.
+	rws, err = vault.NewRWSet(ctx, "late")
+	require.NoError(t, err)
+	rws.Done()
+
+	vc, _, err := vault.Status(ctx, "late")
+	require.NoError(t, err)
+	require.Equal(t, valid, vc, "the cached vault reads it Valid")
+	status, err := ddb.GetTxStatus(ctx, "late")
+	require.NoError(t, err)
+	require.Equal(t, driver.Valid, status.Code, "the store keeps it Valid")
+	qe, err := vault.NewQueryExecutor(ctx)
+	require.NoError(t, err)
+	read, err := qe.GetState(ctx, "ns", "key")
+	require.NoError(t, err)
+	require.NoError(t, qe.Done())
+	require.Equal(t, []byte("committed"), read.Raw, "its writes stay committed")
 }

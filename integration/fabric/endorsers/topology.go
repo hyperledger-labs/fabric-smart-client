@@ -11,6 +11,7 @@ package endorsers
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/endorsers"
+	fsdk "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/sdk"
 	fviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -18,7 +19,10 @@ import (
 )
 
 // Topology returns Fabric with Org1 and Org2, the namespace endorsed by any one member of
-// Org2 (endorsers.Policy), and the FSC nodes of endorsers.FSCTopology.
+// Org2 (endorsers.Policy), and the FSC nodes of endorsers.FSCTopology. The endorsers process
+// the namespace (see fsdk.SDK), as a Fabric endorser of a namespace must: an endorser that
+// processes the tx's block before it handles a request alice gave up on commits the tx.
+// Alice, who only initiates, runs the plain Fabric SDK.
 func Topology() []api.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
@@ -26,5 +30,5 @@ func Topology() []api.Topology {
 	// Org2 approves its definition.
 	fabricTopology.SetNamespaceApproverOrgs("Org2")
 	fabricTopology.AddNamespace(fviews.Namespace, endorsers.Policy)
-	return []api.Topology{fabricTopology, endorsers.FSCTopology(&fabricsdk.SDK{})}
+	return []api.Topology{fabricTopology, endorsers.FSCTopology(&fabricsdk.SDK{}, &fsdk.SDK{})}
 }

@@ -211,11 +211,15 @@ on its next start.
 
 A Fabric node commits a replayed transaction it has no record of only if the
 transaction touches a namespace registered with the committer's
-`ProcessNamespace` or another committer rule selects it. The Fabric suite's
-`SDK` registers the faultrecovery namespace at startup; since that also commits
-a transaction whose Busy record a node lost, only the `Describe` of the wipe
-spec runs on it. Its `ContractProbeSDK`, which the `replication` `Describe` runs
-on, adds a store with an expand and a contract step to replicas configured with
+`ProcessNamespace` or another committer rule selects it. The `SDK` in
+[`integration/fabric/common/faultrecovery/sdk`](../../../integration/fabric/common/faultrecovery/sdk/sdk.go)
+registers the faultrecovery namespace at startup. Since that also commits a
+transaction whose Busy record a node lost, only the `Describe` of the wipe spec
+runs on it in the Fabric suite. The Fabric endorsers suite runs its endorser
+nodes on it, since a Fabric endorser processes the namespace it endorses for. The
+Fabric suite's
+`ContractProbeSDK`, which the `replication` `Describe` runs on, adds a store
+with an expand and a contract step to replicas configured with
 `SetContractProbeSteps(ii, replica, steps)`, so one binary stands for two
 releases on a shared database.
 

@@ -98,10 +98,27 @@ is not one that another endorser of the same application would avoid.
 
 The session to an endorser the initiator gave up on stays open until the
 initiator's view returns, and the initiator ignores a late reply on it. A
-responder that runs after that has no session left to answer on. On Fabric,
-such an endorser may keep the transaction `Busy`
-([#2618](https://github.com/hyperledger-labs/fabric-smart-client/issues/2618)).
-On Chaguar, every node reads statuses and state from the committer.
+responder that runs after that has no session left to answer on, and its node
+may process the transaction's block before the responder handles the request.
+
+On Fabric, each endorser therefore registers the namespace it endorses for with
+its channel's committer, `ch.Committer().ProcessNamespace(ns)`, before delivery
+starts, for example in the `Start` of its SDK. Its committer then commits every
+transaction of the namespace from its block, also one this endorser did not
+endorse, so its vault holds the writes of every transaction of the namespace. A
+responder that opens a read-write set for a committed transaction leaves it
+`Valid`.
+
+A committer that does not process the namespace commits a transaction its node
+has no record of only if another rule selects it: its node holds it `Busy` or
+stored its envelope, a transaction filter accepts it, or it reads a key whose
+name contains `initialized`. Such an endorser's vault misses the writes of the
+transactions it did not take part in. A transaction whose block it processed
+before its responder marked the transaction `Busy` stays `Busy`: no later block
+commits it, and a finality wait on it on that endorser does not end.
+
+On Chaguar, every node reads statuses and state from the committer, and
+`ProcessNamespace` has no effect.
 
 The views in
 [`integration/fabric/common/endorsers/views`](../../../integration/fabric/common/endorsers/views/views.go)
