@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"unicode/utf8"
 
@@ -157,10 +158,7 @@ type stores struct {
 	env interface {
 		PutEnvelope(context.Context, string, []byte) error
 	}
-	vault interface {
-		Store(context.Context, []driver.TxID, driver.Writes, driver.MetaWrites) error
-		Close() error
-	}
+	vault interface{ Close() error } // written by storeVault
 }
 
 // write opens the stores and writes the fixture rows the test reads back.
@@ -202,11 +200,29 @@ func write(ctx context.Context, open func() (stores, error)) error {
 	for _, k := range vaultKeys {
 		writes["ns"][k] = driver.VaultValue{Raw: []byte("val-" + strings.ToValidUTF8(string(k), "?")), Version: []byte("v1")}
 	}
-	if err := s.vault.Store(ctx, driver.TxWrites{TxID: "tx1", Writes: writes}); err != nil {
+	if err := storeVault(ctx, s.vault, "tx1", writes); err != nil {
 		return err
 	}
 	// Every store shares one pool per data source; closing the vault closes it.
 	return s.vault.Close()
+}
+
+// storeVault stores writes as transaction txID with the vault's Store, through
+// reflection: Store takes (ctx, txIDs, writes, metaWrites) up to v0.29 and
+// (ctx, ...driver.TxWrites) from v0.30, and generate.go must build against both.
+func storeVault(ctx context.Context, vault any, txID driver.TxID, writes driver.Writes) error {
+	store := reflect.ValueOf(vault).MethodByName("Store")
+	args := []reflect.Value{reflect.ValueOf(ctx)}
+	if t := store.Type(); t.IsVariadic() {
+		tx := reflect.New(t.In(1).Elem()).Elem()
+		tx.FieldByName("TxID").SetString(txID)
+		tx.FieldByName("Writes").Set(reflect.ValueOf(writes))
+		args = append(args, tx)
+	} else {
+		args = append(args, reflect.ValueOf([]driver.TxID{txID}), reflect.ValueOf(writes), reflect.Zero(t.In(3)))
+	}
+	err, _ := store.Call(args)[0].Interface().(error)
+	return err
 }
 
 // pgTable is the layout and the rows of one Postgres table. Values are hex
