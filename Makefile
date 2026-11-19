@@ -281,6 +281,9 @@ INTEGRATION_TARGETS += fabric-faultrecovery-bft
 # Its crash and catch-up specs, labelled crash, run on the main network in a target of
 # their own, so neither target outlasts CI's per-job limit.
 INTEGRATION_TARGETS += fabric-faultrecovery-crash
+# Its spec that rotates a node's identity changes the network for good, so it runs in a
+# network and a target of its own.
+INTEGRATION_TARGETS += fabric-faultrecovery-rotation
 INTEGRATION_TARGETS += fabric-iou
 # fabric/iou runs both comm types. They are split into two targets so CI runs
 # them as parallel matrix entries rather than serially in one job.
@@ -308,6 +311,8 @@ INTEGRATION_TARGETS += fabricx-faultrecovery-partition
 INTEGRATION_TARGETS += fabricx-faultrecovery-crash
 # Its specs on a network where Org2 runs two committers run in a target of their own.
 INTEGRATION_TARGETS += fabricx-faultrecovery-committer-failover
+# Its identity rotation spec runs in a target of its own, as on Fabric.
+INTEGRATION_TARGETS += fabricx-faultrecovery-rotation
 
 # Integration targets that CI runs on a schedule, not on every pull request (see
 # .github/workflows/mixedversion.yml): `make list-integration-tests`, which feeds
@@ -331,10 +336,12 @@ INTEGRATION_DIR_fabric-faultrecovery-replication = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-partition = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-bft = fabric/faultrecovery
 INTEGRATION_DIR_fabric-faultrecovery-crash = fabric/faultrecovery
+INTEGRATION_DIR_fabric-faultrecovery-rotation = fabric/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-replication = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-crash = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-committer-failover = fabricx/faultrecovery
+INTEGRATION_DIR_fabricx-faultrecovery-rotation = fabricx/faultrecovery
 
 # Per-target ginkgo flags. A suite split into several targets selects each
 # target's specs by label. The suite's default target uses a negative filter
@@ -342,17 +349,19 @@ INTEGRATION_DIR_fabricx-faultrecovery-committer-failover = fabricx/faultrecovery
 # rather than silently running in neither job.
 INTEGRATION_FLAGS_fabric-iou        = --label-filter='!libp2p'
 INTEGRATION_FLAGS_fabric-iou-libp2p = --label-filter=libp2p
-INTEGRATION_FLAGS_fabric-faultrecovery                 = --label-filter='!postgres-outage && !replication && !partition && !bft && !crash'
+INTEGRATION_FLAGS_fabric-faultrecovery                 = --label-filter='!postgres-outage && !replication && !partition && !bft && !crash && !rotation'
 INTEGRATION_FLAGS_fabric-faultrecovery-postgres-outage = --label-filter=postgres-outage
 INTEGRATION_FLAGS_fabric-faultrecovery-replication     = --label-filter=replication
 INTEGRATION_FLAGS_fabric-faultrecovery-partition       = --label-filter=partition
 INTEGRATION_FLAGS_fabric-faultrecovery-bft             = --label-filter=bft
 INTEGRATION_FLAGS_fabric-faultrecovery-crash           = --label-filter=crash
-INTEGRATION_FLAGS_fabricx-faultrecovery                    = --label-filter='!replication && !partition && !crash && !committer-failover'
+INTEGRATION_FLAGS_fabric-faultrecovery-rotation        = --label-filter=rotation
+INTEGRATION_FLAGS_fabricx-faultrecovery                    = --label-filter='!replication && !partition && !crash && !committer-failover && !rotation'
 INTEGRATION_FLAGS_fabricx-faultrecovery-replication        = --label-filter=replication
 INTEGRATION_FLAGS_fabricx-faultrecovery-partition          = --label-filter=partition
 INTEGRATION_FLAGS_fabricx-faultrecovery-crash              = --label-filter=crash
 INTEGRATION_FLAGS_fabricx-faultrecovery-committer-failover = --label-filter=committer-failover
+INTEGRATION_FLAGS_fabricx-faultrecovery-rotation           = --label-filter=rotation
 
 # Per-target GOFLAGS for the test binary. Every file of fabric/iouhsm is built
 # with the pkcs11 tag; without it the suite compiles to no specs and passes.

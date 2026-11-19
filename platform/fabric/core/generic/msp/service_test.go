@@ -385,6 +385,24 @@ func TestService_GetIdentityInfoByIdentity_BCCSP(t *testing.T) {
 	})
 }
 
+// AddMSP registers a BCCSP identity in memory as an identity of the node's view identity, so
+// that it follows a rotation of the view identity.
+func TestService_AddMSPRegistersLocalIdentity(t *testing.T) {
+	t.Parallel()
+	mspService, _, binderService, _ := setup(t)
+	id := view.Identity("id1")
+
+	require.NoError(t, mspService.AddMSP("apple", msp.BccspMSP, "enrollment1", func(_ *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+		return id, nil, nil
+	}))
+
+	require.Zero(t, binderService.BindCallCount())
+	require.Equal(t, 1, binderService.AddLocalIdentitiesCallCount())
+	_, longTerm, ids := binderService.AddLocalIdentitiesArgsForCall(0)
+	require.Equal(t, view.Identity("default_view_identity"), longTerm)
+	require.Equal(t, []view.Identity{id}, ids)
+}
+
 func TestService_GetIdentityInfoByIdentity_Idemix(t *testing.T) {
 	t.Parallel()
 	mspService, _, _, _ := setup(t)
@@ -424,6 +442,8 @@ func TestService_AnonymousIdentity(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, idemixID, anonID)
 		require.Equal(t, initialCount+1, binderService.BindCallCount())
+		// a pseudonym is new on every call; registering it in memory would grow without bound
+		require.Zero(t, binderService.AddLocalIdentitiesCallCount())
 	})
 
 	t.Run("IdentityNotFound", func(t *testing.T) {

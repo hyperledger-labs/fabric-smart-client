@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
-	"context"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -55,7 +54,6 @@ type IdentityService interface {
 }
 
 type Backend interface {
-	Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 	AddResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 }
 
@@ -137,14 +135,6 @@ func (r *ResolversLoader) LoadResolvers() error {
 			// Add entry
 			if _, err := r.backend.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.ID); err != nil {
 				return errors.WithMessagef(err, "fsc.endpoint.resolvers[%d]", i)
-			}
-
-			// Bind Aliases
-			for _, alias := range resolver.Aliases {
-				logger.Debugf("binding [%s] to [%s]", resolver.Name, alias)
-				if err := r.backend.Bind(context.Background(), resolver.ID, []byte(alias)); err != nil {
-					return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
-				}
 			}
 		}
 	}

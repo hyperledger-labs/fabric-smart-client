@@ -10,14 +10,19 @@ import (
 )
 
 type BinderService struct {
+	AddLocalIdentitiesStub        func(context.Context, view.Identity, ...view.Identity) error
+	addLocalIdentitiesMutex       sync.RWMutex
+	addLocalIdentitiesArgsForCall []BinderServiceAddLocalIdentitiesArgs
+	addLocalIdentitiesReturns     struct {
+		result1 error
+	}
+	addLocalIdentitiesReturnsOnCall map[int]struct {
+		result1 error
+	}
 	BindStub        func(context.Context, view.Identity, ...view.Identity) error
 	bindMutex       sync.RWMutex
-	bindArgsForCall []struct {
-		arg1 context.Context
-		arg2 view.Identity
-		arg3 []view.Identity
-	}
-	bindReturns struct {
+	bindArgsForCall []BinderServiceBindArgs
+	bindReturns     struct {
 		result1 error
 	}
 	bindReturnsOnCall map[int]struct {
@@ -25,11 +30,8 @@ type BinderService struct {
 	}
 	GetIdentityStub        func(string, []byte) (view.Identity, error)
 	getIdentityMutex       sync.RWMutex
-	getIdentityArgsForCall []struct {
-		arg1 string
-		arg2 []byte
-	}
-	getIdentityReturns struct {
+	getIdentityArgsForCall []BinderServiceGetIdentityArgs
+	getIdentityReturns     struct {
 		result1 view.Identity
 		result2 error
 	}
@@ -38,20 +40,124 @@ type BinderService struct {
 		result2 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
+// BinderServiceAddLocalIdentitiesArgs holds the arguments of one call to AddLocalIdentities.
+type BinderServiceAddLocalIdentitiesArgs struct {
+	Arg1 context.Context
+	Arg2 view.Identity
+	Arg3 []view.Identity
+}
+
+// BinderServiceBindArgs holds the arguments of one call to Bind.
+type BinderServiceBindArgs struct {
+	Arg1 context.Context
+	Arg2 view.Identity
+	Arg3 []view.Identity
+}
+
+// BinderServiceGetIdentityArgs holds the arguments of one call to GetIdentity.
+type BinderServiceGetIdentityArgs struct {
+	Arg1 string
+	Arg2 []byte
+}
+
+func (fake *BinderService) AddLocalIdentities(arg1 context.Context, arg2 view.Identity, arg3 ...view.Identity) error {
+	var arg2Copy view.Identity
+	if arg2 != nil {
+		arg2Copy = make(view.Identity, len(arg2))
+		copy(arg2Copy, arg2)
+	}
+	var arg3Copy []view.Identity
+	if arg3 != nil {
+		arg3Copy = make([]view.Identity, len(arg3))
+		copy(arg3Copy, arg3)
+	}
+	fake.addLocalIdentitiesMutex.Lock()
+	ret, specificReturn := fake.addLocalIdentitiesReturnsOnCall[len(fake.addLocalIdentitiesArgsForCall)]
+	fake.addLocalIdentitiesArgsForCall = append(fake.addLocalIdentitiesArgsForCall, BinderServiceAddLocalIdentitiesArgs{arg1, arg2Copy, arg3Copy})
+	stub := fake.AddLocalIdentitiesStub
+	fakeReturns := fake.addLocalIdentitiesReturns
+	fake.recordInvocation("AddLocalIdentities", []interface{}{arg1, arg2Copy, arg3Copy})
+	fake.addLocalIdentitiesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *BinderService) AddLocalIdentitiesCallCount() int {
+	fake.addLocalIdentitiesMutex.RLock()
+	defer fake.addLocalIdentitiesMutex.RUnlock()
+	return len(fake.addLocalIdentitiesArgsForCall)
+}
+
+func (fake *BinderService) AddLocalIdentitiesCalls(stub func(context.Context, view.Identity, ...view.Identity) error) {
+	fake.addLocalIdentitiesMutex.Lock()
+	defer fake.addLocalIdentitiesMutex.Unlock()
+	fake.AddLocalIdentitiesStub = stub
+}
+
+func (fake *BinderService) AddLocalIdentitiesArgsForCall(i int) (context.Context, view.Identity, []view.Identity) {
+	fake.addLocalIdentitiesMutex.RLock()
+	defer fake.addLocalIdentitiesMutex.RUnlock()
+	argsForCall := fake.addLocalIdentitiesArgsForCall[i]
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *BinderService) AddLocalIdentitiesArgs() []BinderServiceAddLocalIdentitiesArgs {
+	fake.addLocalIdentitiesMutex.RLock()
+	defer fake.addLocalIdentitiesMutex.RUnlock()
+	args := make([]BinderServiceAddLocalIdentitiesArgs, len(fake.addLocalIdentitiesArgsForCall))
+	copy(args, fake.addLocalIdentitiesArgsForCall)
+	return args
+}
+
+func (fake *BinderService) AddLocalIdentitiesReturns(result1 error) {
+	fake.addLocalIdentitiesMutex.Lock()
+	defer fake.addLocalIdentitiesMutex.Unlock()
+	fake.AddLocalIdentitiesStub = nil
+	fake.addLocalIdentitiesReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *BinderService) AddLocalIdentitiesReturnsOnCall(i int, result1 error) {
+	fake.addLocalIdentitiesMutex.Lock()
+	defer fake.addLocalIdentitiesMutex.Unlock()
+	fake.AddLocalIdentitiesStub = nil
+	if fake.addLocalIdentitiesReturnsOnCall == nil {
+		fake.addLocalIdentitiesReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.addLocalIdentitiesReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *BinderService) Bind(arg1 context.Context, arg2 view.Identity, arg3 ...view.Identity) error {
+	var arg2Copy view.Identity
+	if arg2 != nil {
+		arg2Copy = make(view.Identity, len(arg2))
+		copy(arg2Copy, arg2)
+	}
+	var arg3Copy []view.Identity
+	if arg3 != nil {
+		arg3Copy = make([]view.Identity, len(arg3))
+		copy(arg3Copy, arg3)
+	}
 	fake.bindMutex.Lock()
 	ret, specificReturn := fake.bindReturnsOnCall[len(fake.bindArgsForCall)]
-	fake.bindArgsForCall = append(fake.bindArgsForCall, struct {
-		arg1 context.Context
-		arg2 view.Identity
-		arg3 []view.Identity
-	}{arg1, arg2, arg3})
+	fake.bindArgsForCall = append(fake.bindArgsForCall, BinderServiceBindArgs{arg1, arg2Copy, arg3Copy})
 	stub := fake.BindStub
 	fakeReturns := fake.bindReturns
-	fake.recordInvocation("Bind", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("Bind", []interface{}{arg1, arg2Copy, arg3Copy})
 	fake.bindMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3...)
@@ -78,7 +184,15 @@ func (fake *BinderService) BindArgsForCall(i int) (context.Context, view.Identit
 	fake.bindMutex.RLock()
 	defer fake.bindMutex.RUnlock()
 	argsForCall := fake.bindArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3
+}
+
+func (fake *BinderService) BindArgs() []BinderServiceBindArgs {
+	fake.bindMutex.RLock()
+	defer fake.bindMutex.RUnlock()
+	args := make([]BinderServiceBindArgs, len(fake.bindArgsForCall))
+	copy(args, fake.bindArgsForCall)
+	return args
 }
 
 func (fake *BinderService) BindReturns(result1 error) {
@@ -112,10 +226,7 @@ func (fake *BinderService) GetIdentity(arg1 string, arg2 []byte) (view.Identity,
 	}
 	fake.getIdentityMutex.Lock()
 	ret, specificReturn := fake.getIdentityReturnsOnCall[len(fake.getIdentityArgsForCall)]
-	fake.getIdentityArgsForCall = append(fake.getIdentityArgsForCall, struct {
-		arg1 string
-		arg2 []byte
-	}{arg1, arg2Copy})
+	fake.getIdentityArgsForCall = append(fake.getIdentityArgsForCall, BinderServiceGetIdentityArgs{arg1, arg2Copy})
 	stub := fake.GetIdentityStub
 	fakeReturns := fake.getIdentityReturns
 	fake.recordInvocation("GetIdentity", []interface{}{arg1, arg2Copy})
@@ -145,7 +256,15 @@ func (fake *BinderService) GetIdentityArgsForCall(i int) (string, []byte) {
 	fake.getIdentityMutex.RLock()
 	defer fake.getIdentityMutex.RUnlock()
 	argsForCall := fake.getIdentityArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.Arg1, argsForCall.Arg2
+}
+
+func (fake *BinderService) GetIdentityArgs() []BinderServiceGetIdentityArgs {
+	fake.getIdentityMutex.RLock()
+	defer fake.getIdentityMutex.RUnlock()
+	args := make([]BinderServiceGetIdentityArgs, len(fake.getIdentityArgsForCall))
+	copy(args, fake.getIdentityArgsForCall)
+	return args
 }
 
 func (fake *BinderService) GetIdentityReturns(result1 view.Identity, result2 error) {
@@ -184,9 +303,18 @@ func (fake *BinderService) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *BinderService) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *BinderService) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

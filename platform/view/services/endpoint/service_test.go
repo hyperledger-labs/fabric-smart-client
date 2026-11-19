@@ -86,7 +86,8 @@ func TestGetIdentity(t *testing.T) {
 	require.NoError(t, err)
 	resolvers = service.Resolvers()
 	require.Len(t, resolvers, 1)
-	require.Equal(t, 1, bindingStore.PutBindingsCallCount())
+	// alice_id2 and its alias apricot are registered in memory as identities of alice, not stored
+	require.Equal(t, 0, bindingStore.PutBindingsCallCount())
 
 	err = service.AddPublicKeyExtractor(extractor)
 	require.NoError(t, err)
@@ -99,6 +100,8 @@ func TestGetIdentity(t *testing.T) {
 		"strawberry",
 		"localhost:1010",
 		"alice_id",
+		"alice_id2",
+		"apricot",
 	} {
 		resultID, err := service.GetIdentity(label, []byte{})
 		require.NoError(t, err)
@@ -122,9 +125,7 @@ func TestGetIdentity(t *testing.T) {
 		"alice.fabric.domain",
 		"pineapple",
 		"bob",
-		"apricot",
 		"localhost:8080",
-		"alice_id2",
 	} {
 		resultID, err := service.GetIdentity(label, []byte("no"))
 		require.Error(t, err)

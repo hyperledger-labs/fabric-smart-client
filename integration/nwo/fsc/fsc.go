@@ -107,6 +107,8 @@ type Platform struct {
 	colorIndex               int
 	metricsAggregatorProcess ifrit.Process
 	cleanDB                  func()
+	// clientTracer traces the view clients PostRun creates.
+	clientTracer tracing.Provider
 
 	// loadBalancers holds, by node name, the proxy address of each node with WithLoadBalancer.
 	loadBalancers map[string]string
@@ -354,12 +356,6 @@ func startPostgres(p *Platform) {
 }
 
 func (p *Platform) PostRun(bool) {
-	for _, peer := range p.Peers {
-		k := p.koanf(peer)
-
-		address := k.String("fsc.grpc.address")
-		p.setIdentities(address, peer)
-	}
 	tracerProvider, err := tracing.NewProviderFromConfig(tracing.Config{
 		Provider: p.Topology.Monitoring.TracingType,
 		File: tracing.FileConfig{
@@ -374,64 +370,69 @@ func (p *Platform) PostRun(bool) {
 		panic(err)
 	}
 
+	p.clientTracer = tracerProvider
 	for _, node := range p.Peers {
-
-		k := p.koanf(node)
-
-		// Prepare GRPC Client, Web Client, and CLI
-
-		// GRPC client
-		grpcClient, err := viewserviceclient.NewClient(
-			&viewserviceclient.Config{
-				ID:               k.String("fsc.id"),
-				ConnectionConfig: p.Context.ConnectionConfig(node.UniqueName),
-			},
-			p.Context.ClientSigningIdentity(node.Name),
-			tracerProvider,
-		)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		p.Context.SetViewClient(node.Name, grpcClient)
-		p.Context.SetViewClient(node.ID(), grpcClient)
-		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
-			p.Context.SetViewClient(identity, grpcClient)
-		}
-		for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
-			p.Context.SetViewClient(identity, grpcClient)
-		}
-		for _, alias := range node.Aliases {
-			p.Context.SetViewClient(alias, grpcClient)
-		}
-
-		// Web client: the view service over HTTP, signed as the node itself, and its metrics.
-		webClient, err := client.NewWebClient(p.NodeDir(node), tracerProvider)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		p.Context.SetWebClient(node.Name, webClient)
-		p.Context.SetWebClient(node.ID(), webClient)
-		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
-			p.Context.SetWebClient(identity, webClient)
-		}
-		for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
-			p.Context.SetWebClient(identity, webClient)
-		}
-		for _, alias := range node.Aliases {
-			p.Context.SetWebClient(alias, webClient)
-		}
-
-		// CLI
-		cli := &fscCLIViewClient{
-			timeout: p.EventuallyTimeout,
-			p:       p,
-			CMD: commands.View{
-				TLSCA:         path.Join(p.NodeLocalTLSDir(node.Peer), "ca.crt"),
-				UserCert:      p.LocalMSPIdentityCert(node.Peer),
-				UserKey:       p.LocalMSPPrivateKey(node.Peer),
-				NetworkPrefix: p.NetworkID,
-				Server:        p.Context.ConnectionConfig(node.UniqueName).Address,
-			},
-		}
-		p.Context.SetCLI(node.Name, cli)
-		p.Context.SetCLI(node.ID(), cli)
+		p.setClients(node)
 	}
+}
+
+// setClients reads node's identities and sets its view clients, gRPC, web and CLI, in the
+// context, under its name, replica ID and aliases.
+func (p *Platform) setClients(node *nwonode.Replica) {
+	k := p.koanf(node)
+	p.setIdentities(k.String("fsc.grpc.address"), node)
+
+	// GRPC client
+	grpcClient, err := viewserviceclient.NewClient(
+		&viewserviceclient.Config{
+			ID:               k.String("fsc.id"),
+			ConnectionConfig: p.Context.ConnectionConfig(node.UniqueName),
+		},
+		p.Context.ClientSigningIdentity(node.Name),
+		p.clientTracer,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	p.Context.SetViewClient(node.Name, grpcClient)
+	p.Context.SetViewClient(node.ID(), grpcClient)
+	for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
+		p.Context.SetViewClient(identity, grpcClient)
+	}
+	for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
+		p.Context.SetViewClient(identity, grpcClient)
+	}
+	for _, alias := range node.Aliases {
+		p.Context.SetViewClient(alias, grpcClient)
+	}
+
+	// Web client: the view service over HTTP, signed as the node itself, and its metrics.
+	webClient, err := client.NewWebClient(p.NodeDir(node), p.clientTracer)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	p.Context.SetWebClient(node.Name, webClient)
+	p.Context.SetWebClient(node.ID(), webClient)
+	for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
+		p.Context.SetWebClient(identity, webClient)
+	}
+	for _, identity := range p.Context.GetViewIdentityAliases(node.Name) {
+		p.Context.SetWebClient(identity, webClient)
+	}
+	for _, alias := range node.Aliases {
+		p.Context.SetWebClient(alias, webClient)
+	}
+
+	// CLI
+	cli := &fscCLIViewClient{
+		timeout: p.EventuallyTimeout,
+		p:       p,
+		CMD: commands.View{
+			TLSCA:         path.Join(p.NodeLocalTLSDir(node.Peer), "ca.crt"),
+			UserCert:      p.LocalMSPIdentityCert(node.Peer),
+			UserKey:       p.LocalMSPPrivateKey(node.Peer),
+			NetworkPrefix: p.NetworkID,
+			Server:        p.Context.ConnectionConfig(node.UniqueName).Address,
+		},
+	}
+	p.Context.SetCLI(node.Name, cli)
+	p.Context.SetCLI(node.ID(), cli)
 }
 
 func (p *Platform) koanf(peer *nwonode.Replica) *koanf.Koanf {

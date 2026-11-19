@@ -82,55 +82,60 @@ func (p *Platform) RenewNodeTLSPair(peer *nwonode.Peer, notAfter time.Time) (TLS
 	if err != nil {
 		return TLSPair{}, errors.Wrapf(err, "failed parsing the TLS certificate of [%s]", peer.Name)
 	}
-	caDir := filepath.Join(p.orgCryptoDir(peer), "tlsca")
 	org := p.Organization(peer.Organization)
-	caCertPEM, err := os.ReadFile(filepath.Join(caDir, fmt.Sprintf("tlsca.%s-cert.pem", org.Domain)))
+	cert, key, err := issueCert(filepath.Join(p.orgCryptoDir(peer), "tlsca"), fmt.Sprintf("tlsca.%s-cert.pem", org.Domain), &x509.Certificate{
+		Subject:     leaf.Subject,
+		NotBefore:   time.Now().Add(-time.Minute),
+		NotAfter:    notAfter,
+		KeyUsage:    leaf.KeyUsage,
+		ExtKeyUsage: leaf.ExtKeyUsage,
+		DNSNames:    leaf.DNSNames,
+		IPAddresses: leaf.IPAddresses,
+	})
 	if err != nil {
-		return TLSPair{}, errors.Wrapf(err, "failed reading the TLS CA of [%s]", peer.Organization)
+		return TLSPair{}, errors.WithMessagef(err, "failed renewing the TLS certificate of [%s]", peer.Name)
+	}
+	return TLSPair{Cert: cert, Key: key}, nil
+}
+
+// issueCert returns a certificate made from template, with a new serial number, for a new P-256
+// key, signed by the CA in caDir whose certificate is caCertFile and whose key is priv_sk. It
+// returns the certificate and the PKCS #8 key in PEM.
+func issueCert(caDir, caCertFile string, template *x509.Certificate) (certPEM, keyPEM []byte, err error) {
+	caCertPEM, err := os.ReadFile(filepath.Join(caDir, caCertFile))
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed reading the CA certificate in [%s]", caDir)
 	}
 	caCert, err := parseCert(caCertPEM)
 	if err != nil {
-		return TLSPair{}, errors.Wrapf(err, "failed parsing the TLS CA of [%s]", peer.Organization)
+		return nil, nil, errors.Wrapf(err, "failed parsing the CA certificate in [%s]", caDir)
 	}
 	caKeyPEM, err := os.ReadFile(filepath.Join(caDir, "priv_sk"))
 	if err != nil {
-		return TLSPair{}, errors.Wrapf(err, "failed reading the TLS CA key of [%s]", peer.Organization)
+		return nil, nil, errors.Wrapf(err, "failed reading the CA key in [%s]", caDir)
 	}
 	caKey, err := parseKey(caKeyPEM)
 	if err != nil {
-		return TLSPair{}, errors.Wrapf(err, "failed parsing the TLS CA key of [%s]", peer.Organization)
+		return nil, nil, errors.Wrapf(err, "failed parsing the CA key in [%s]", caDir)
 	}
 
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return TLSPair{}, errors.Wrap(err, "failed generating a TLS key")
+		return nil, nil, errors.Wrap(err, "failed generating a key")
 	}
-	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		return TLSPair{}, errors.Wrap(err, "failed generating a serial number")
-	}
-	template := &x509.Certificate{
-		SerialNumber: serial,
-		Subject:      leaf.Subject,
-		NotBefore:    time.Now().Add(-time.Minute),
-		NotAfter:     notAfter,
-		KeyUsage:     leaf.KeyUsage,
-		ExtKeyUsage:  leaf.ExtKeyUsage,
-		DNSNames:     leaf.DNSNames,
-		IPAddresses:  leaf.IPAddresses,
+	if template.SerialNumber, err = rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128)); err != nil {
+		return nil, nil, errors.Wrap(err, "failed generating a serial number")
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
 	if err != nil {
-		return TLSPair{}, errors.Wrapf(err, "failed signing a TLS certificate for [%s]", peer.Name)
+		return nil, nil, errors.Wrap(err, "failed signing a certificate")
 	}
 	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
-		return TLSPair{}, errors.Wrap(err, "failed encoding the TLS key")
+		return nil, nil, errors.Wrap(err, "failed encoding the key")
 	}
-	return TLSPair{
-		Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
-		Key:  pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}),
-	}, nil
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
+		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), nil
 }
 
 // orgCryptoDir is the crypto directory of peer's organization.

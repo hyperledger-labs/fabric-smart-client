@@ -35,6 +35,12 @@ func ReplicatedTopology(dbPrefix string) []api.Topology {
 	return []api.Topology{fabricxTopology(), faultrecovery.ReplicatedFSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
 }
 
+// RotationTopology returns the network of Topology with the FSC nodes of
+// faultrecovery.RotationFSCTopology.
+func RotationTopology(dbPrefix string) []api.Topology {
+	return []api.Topology{fabricxTopology(), faultrecovery.RotationFSCTopology(&fabricxsdk.SDK{}, dbPrefix)}
+}
+
 // CommitterFailoverTopology returns the network of Topology with a second committer in Org2,
 // Org2SecondCommitter, so bob and charlie list two committer endpoints. It is kept apart from
 // Topology, where stopping Org2Committer must leave bob without a committer.

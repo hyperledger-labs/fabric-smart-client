@@ -49,6 +49,15 @@ func ReplicatedFSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
 	)
 }
 
+// BobAlias is the alias of bob in RotationFSCTopology.
+const BobAlias = "bob_alias"
+
+// RotationFSCTopology returns the nodes of FSCTopology with BobAlias as an alias of bob, so a
+// spec can reach bob by his name and by his alias after RotationSpecs rotates his identity.
+func RotationFSCTopology(sdk node.SDK, dbPrefix string) *fsc.Topology {
+	return newFSCTopology(sdk, dbPrefix, nil, map[string][]fscnode.Option{"bob": {fsc.WithAlias(BobAlias)}})
+}
+
 func newFSCTopology(sdk node.SDK, dbPrefix string, replicas map[string]int, opts map[string][]fscnode.Option) *fsc.Topology {
 	db := &integration.ReplicationOptions{
 		ReplicationFactors: replicas,

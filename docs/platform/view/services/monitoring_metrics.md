@@ -525,7 +525,8 @@ Operational notes:
     is not written (see
     [Security model](../security-model.md#identity-bindings)).
   - `binding_conflict`: an unproven bind of an ephemeral already bound to a
-    different long-term identity. The existing row is kept.
+    different long-term identity, or a configured identity that another
+    resolver already has. The existing row or resolver is kept.
   - `recipient_proof`: a recipient identity received in a recipient exchange
     without a valid proof of ownership. Nothing is bound (see
     [Fabric security](../../fabric/security.md#recipient-proof-of-ownership)).
@@ -557,10 +558,12 @@ Operational notes:
     which is not necessarily the party that wrote the stored record; the
     committer names no peer.
 - `binding_refused` and `binding_conflict` name the long-term identity of the
-  bind as the peer, and no txID. An isolated `binding_conflict` after a remote
-  node rotated its certificate is expected: its alias rows still point at the
-  old certificate. A steady rate, or any `binding_refused`, means a peer is
-  claiming identities it does not own, or a node's own MSP identity is
+  bind as the peer, and no txID. Identities from a node's configuration are not
+  stored, so a rotated certificate counts neither kind for them (see
+  [Rotated identities](../security-model.md#rotated-identities)). An application
+  that binds identities with `Bind` counts a `binding_conflict` for each one it
+  binds again after a rotation. A steady rate, or any `binding_refused`, means a
+  peer is claiming identities it does not own, or a node's own MSP identity is
   configured as a separate resolver.
 - An `invalid_tx` rejection is not a degrade and is not counted in
   `commit_failures`: the endorser refuses the transaction before it reaches the

@@ -11,12 +11,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/id"
+	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type EndpointService interface {
-	GetIdentity(label string, pkiID []byte) (view.Identity, error)
+	mspdriver.BinderService
 	endpoint.Service
 }
 

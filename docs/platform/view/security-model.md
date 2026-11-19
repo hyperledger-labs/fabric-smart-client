@@ -95,6 +95,24 @@ party an identity resolves to decides where messages for it are sent and whose
 signature counts for it, so the store and `endpoint.Service`
 (`platform/view/services/endpoint/service.go`) apply these rules:
 
+- **Configured identities are not stored.** The identities a node knows from its
+  configuration, and its own, belong to a resolver in the in-memory index: the
+  resolver's aliases, the identity and aliases of an `endpoint.resolvers` entry
+  that reuses the name of an earlier entry, such as a replica or the Fabric MSP
+  identity of an FSC node, and the node's own Fabric MSP identities.
+  `AddResolver` and `Service.AddLocalIdentities` register them on every start;
+  nothing writes them to the store. Lookups and `IsBoundTo` check the resolver
+  index before the store, and `Bind` binds to the resolver's identity when its
+  long-term identity is one of them, so a row stored for one of them, for
+  example before an identity was rotated, does not decide where it resolves. An
+  identity that already belongs to a resolver stays with it when a name match
+  or `AddLocalIdentities` registers it for another resolver, which counts
+  `binding_refused` if it is that resolver's identity, and `binding_conflict`
+  otherwise. `AddLocalIdentities` fails with an error
+  wrapping `endpoint.ErrNotFound` if no resolver has the long-term identity.
+  Identities created at runtime, such as Idemix pseudonyms, are bound with
+  `Bind`, since the configuration does not recreate them.
+
 - **No redirect.** A known long-term identity is never stored as the ephemeral
   of another identity. A known long-term identity is one that has a self-row, or
   that is the identity of a registered resolver; a resolver's name, aliases and
@@ -111,7 +129,9 @@ signature counts for it, so the store and `endpoint.Service`
   and `binding_refused` (see
   [Security metrics](services/monitoring_metrics.md#security)), and logged at
   warn level, at most one line per kind per second. `Bind` still returns nil, so
-  configuration-driven binds at startup and application binds keep working.
+  application binds keep working. An unproven bind of an identity the resolver
+  index holds for another resolver writes nothing and counts `binding_conflict`;
+  `BindProven` refuses it with the `ErrBindingRefused` error.
 - **Proven binds win.** `Service.BindProven` is for callers that verified that
   the long-term identity proved ownership of the ephemeral. It binds the
   ephemeral to exactly that long-term identity, never to an identity the long
@@ -126,14 +146,15 @@ signature counts for it, so the store and `endpoint.Service`
 A planted row is one whose `ephemeral_hash` is the hash
 (`base64(sha256(identity bytes))`) of an identity that is itself the
 `long_term_id` of some row, while the row binds it to a different long-term
-identity. In the default store the table is `fsc_default_bind`. Many such rows
-are legitimate: a node binds its own identities to each other (its Fabric MSP
-identity to its FSC identity, and an `endpoint.resolvers` entry to the FSC
-identity of the resolver with the same name), and endorsement checks rely on
-them. To find planted rows, list these candidates, decode both identities and
-compare the certificates they carry. Delete a row only if its two identities
-clearly belong to different parties; an identity without a certificate, such as
-an Idemix identity, cannot be attributed this way, so keep its rows. The
+identity. In the default store the table is `fsc_default_bind`. A row that binds
+a node's own identities to each other, such as its Fabric MSP identity to its
+FSC identity, or an `endpoint.resolvers` entry to the FSC identity of the
+resolver with the same name, is harmless: the endpoint service resolves those
+identities through the resolver index and never reads such a row. To find
+planted rows, list these candidates, decode both identities and compare the
+certificates they carry. Delete a row only if its two identities clearly belong
+to different parties; an identity without a certificate, such as an Idemix
+identity, cannot be attributed this way, so keep its rows. The
 [v0.27 to v0.28 upgrade guide](../../upgrade/v0.27-to-v0.28.md#binding-store)
 has the queries for Postgres and SQLite.
 
@@ -147,7 +168,27 @@ of ownership, stores the correct owner.
 
 `Bind` itself does not check ownership. Binding an identity received from a
 remote party is a trust decision: call `Bind` only for identities from local
-configuration or for which the caller holds a proof of ownership.
+configuration or for which the caller holds a proof of ownership, and register
+identities from local configuration whose owner has a resolver with
+`AddLocalIdentities` instead.
+
+### Rotated identities
+
+An operator rotates a node's FSC identity by giving the node a new certificate,
+putting it in the `fsc.endpoint.resolvers` entry of every node that talks to the
+node, and restarting them. Since configured identities are not stored, every
+node resolves them by its configuration after the restart: the aliases and
+Fabric identities of the rotated node, and the rotated node's own MSP
+identities, belong to its new certificate, and endorsement checks accept them.
+Replicas of a node that share a binding store each resolve by their own
+configuration, also while the new configuration rolls out.
+
+Identities the store holds still name the old certificate: recipient identities
+the rotated node proved before the rotation, and identities an application bound
+with `Bind`. A lookup of one fails with an error wrapping
+`endpoint.ErrNotFound` that names the stale binding,
+`[<identity>] is bound to [<old identity>], which no resolver has`. The next
+recipient exchange that names a recipient identity binds it again.
 
 ## P2P sessions
 
