@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -843,6 +844,10 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 				}
 				c.logger.DebugfContext(ctx, "Match RWSet")
 				if err := c.Vault.Match(ctx, txID, pt.Results()); err != nil {
+					// A set a view opened after the load is not a mismatch.
+					if errors.HasCause(err, vault.ErrRWSetOpen) {
+						return errors.WithMessagef(err, "failed matching rwset of [%s]", txID)
+					}
 					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
@@ -1022,6 +1027,10 @@ func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, enve
 
 func (c *Committer) extractStoredEnvelopeToVault(ctx context.Context, txID cdriver.TxID) error {
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
+	// The endorser transaction would fail on the open set too; keep the cause.
+	if errors.HasCause(err, vault.ErrRWSetOpen) {
+		return errors.WithMessagef(err, "failed to extract rws from envelope [%s]", txID)
+	}
 	if err != nil {
 		// If another replica of the same node created the RWSet
 		rws, _, err = c.RWSetLoaderService.GetRWSetFromETx(ctx, txID)

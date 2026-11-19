@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cvault "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
@@ -28,6 +29,10 @@ import (
 // the committer reaches the transaction's block. The block is retried, and once
 // the responder closes its set the transaction gets Fabric's verdict, with the
 // writes of the block envelope.
+//
+// In the stored cases the node keeps the transaction's envelope and status but
+// no read-write set, as after a restart, so the committer loads the stored
+// envelope and matches it against the block.
 func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 	t.Parallel()
 
@@ -35,6 +40,8 @@ func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 		beforeBlock  = "before the block"
 		afterStatus  = "after the status read"
 		beforeCommit = "between loading the envelope and committing"
+		atLoad       = "while loading the stored envelope"
+		atMatch      = "before matching the stored envelope"
 	)
 	for _, tc := range []struct {
 		opens string
@@ -45,6 +52,8 @@ func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 		{opens: afterStatus, code: peer.TxValidationCode_VALID, want: fdriver.Valid},
 		{opens: beforeCommit, code: peer.TxValidationCode_VALID, want: fdriver.Valid},
 		{opens: beforeBlock, code: peer.TxValidationCode_MVCC_READ_CONFLICT, want: fdriver.Invalid},
+		{opens: atLoad, code: peer.TxValidationCode_VALID, want: fdriver.Valid},
+		{opens: atMatch, code: peer.TxValidationCode_VALID, want: fdriver.Valid},
 	} {
 		t.Run(tc.opens+"/"+tc.code.String(), func(t *testing.T) {
 			t.Parallel()
@@ -53,6 +62,14 @@ func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { _ = store.Close() }()
 			v := vault.NewVault(fvault.NewCachedVault(store, 0), &disabled.Provider{}, noop.NewTracerProvider())
+			stored := tc.opens == atLoad || tc.opens == atMatch
+			if stored {
+				rws, err := v.NewRWSet(ctx, "tx1")
+				require.NoError(t, err)
+				rws.Done()
+				_, err = v.UnmapInterceptor("tx1")
+				require.NoError(t, err)
+			}
 
 			// The responder writes a value of its own, so the test can tell
 			// whose writes were committed.
@@ -68,12 +85,25 @@ func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 			}
 
 			c := &Committer{
-				logger:            logger,
-				metrics:           NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "net", "ch"),
-				ChannelConfig:     &fake.ChannelConfig{IDValue: "ch", Retries: 1},
-				Vault:             v,
+				logger:        logger,
+				metrics:       NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "net", "ch"),
+				ChannelConfig: &fake.ChannelConfig{IDValue: "ch", Retries: 1},
+				// The responder closes its set right after Match, before the
+				// committer could discard the transaction.
+				Vault: &matchHook{Vault: v, around: func(match func() error) error {
+					openResponder(atMatch)
+					err := match()
+					if tc.opens == atMatch {
+						responder.Done()
+					}
+					return err
+				}},
 				ProcessNamespaces: []string{"ns"},
 				EnvelopeService: &fake.EnvelopeService{
+					ExistsFn: func(context.Context, string) bool {
+						openResponder(atLoad)
+						return stored
+					},
 					StoreEnvelopeFn: func(context.Context, string, any) error {
 						openResponder(afterStatus)
 						return nil
@@ -81,7 +111,7 @@ func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 				},
 				TransactionManager: &fake.TransactionManager{
 					NewProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
-						return &fake.ProcessedTransaction{}, int32(common.HeaderType_ENDORSER_TRANSACTION), nil
+						return &fake.ProcessedTransaction{ResultsBytes: []byte("results")}, int32(common.HeaderType_ENDORSER_TRANSACTION), nil
 					},
 				},
 				ProcessorManager: &fake.ProcessorManager{
@@ -101,6 +131,9 @@ func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 							return nil, nil, err
 						}
 						return rws, nil, rws.SetState("ns", "key", []byte("ordered"))
+					},
+					GetFromETxFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+						return nil, nil, errors.New("transaction does not exist")
 					},
 				},
 			}
@@ -141,4 +174,14 @@ func TestCommitRetriesWhileResponderHoldsRWSetOpen(t *testing.T) {
 			}
 		})
 	}
+}
+
+// matchHook runs every Match through around.
+type matchHook struct {
+	*vault.Vault
+	around func(match func() error) error
+}
+
+func (m *matchHook) Match(ctx context.Context, txID cdriver.TxID, rwsRaw []byte) error {
+	return m.around(func() error { return m.Vault.Match(ctx, txID, rwsRaw) })
 }
