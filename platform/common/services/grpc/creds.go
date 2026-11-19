@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"net"
 	"sync"
+	"sync/atomic"
 
 	"google.golang.org/grpc/credentials"
 
@@ -156,5 +157,34 @@ func (dtc *DynamicClientCredentials) Clone() credentials.TransportCredentials {
 
 func (dtc *DynamicClientCredentials) OverrideServerName(name string) error {
 	dtc.TLSConfig.ServerName = name
+	return nil
+}
+
+// handshakeRecorder records the last error of a client handshake of the credentials it wraps,
+// so that a failed connection can report why its handshake failed.
+type handshakeRecorder struct {
+	credentials.TransportCredentials
+	last *atomic.Pointer[error]
+}
+
+func (r *handshakeRecorder) ClientHandshake(ctx context.Context, authority string, rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+	conn, info, err := r.TransportCredentials.ClientHandshake(ctx, authority, rawConn)
+	if err != nil {
+		r.last.Store(&err)
+	}
+	return conn, info, err
+}
+
+// Clone returns a recorder of a clone of the wrapped credentials that records into the same
+// place.
+func (r *handshakeRecorder) Clone() credentials.TransportCredentials {
+	return &handshakeRecorder{TransportCredentials: r.TransportCredentials.Clone(), last: r.last}
+}
+
+// lastErr returns the last recorded handshake error, or nil if no handshake failed.
+func (r *handshakeRecorder) lastErr() error {
+	if err := r.last.Load(); err != nil {
+		return *err
+	}
 	return nil
 }

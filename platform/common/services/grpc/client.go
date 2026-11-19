@@ -13,10 +13,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -43,6 +45,8 @@ type Client struct {
 	dialOpts []grpc.DialOption
 	// Duration for which to block while established a new connection
 	timeout time.Duration
+	// Whether NewConnection returns before the connection is ready
+	asyncConnect bool
 	// Maximum message size the client can receive
 	maxRecvMsgSize int
 	// Maximum message size the client can send
@@ -70,18 +74,11 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 	client.dialOpts = append(client.dialOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
 	// set keepalive
 	client.dialOpts = append(client.dialOpts, ClientKeepaliveOptions(config.KeepAliveConfig)...)
-	// Unless asynchronous connect is set, make connection establishment blocking.
-	if !config.AsyncConnect {
-		//lint:ignore SA1019 Refactor in next change
-		client.dialOpts = append(client.dialOpts, grpc.WithBlock()) //nolint:all
-		//lint:ignore SA1019 Refactor in next change
-		client.dialOpts = append(client.dialOpts, grpc.FailOnNonTempDialError(true)) //nolint:all
-		// Return connection errors immediately instead of timing out
-		// This ensures TLS certificate validation errors are returned with meaningful messages
-		//lint:ignore SA1019 Refactor in next change
-		client.dialOpts = append(client.dialOpts, grpc.WithReturnConnectionError()) //nolint:all
-	}
+	// Resolve the address on this node, also when a proxy is configured, and ignore any
+	// service config published in DNS: the endpoint configuration alone decides how to connect.
+	client.dialOpts = append(client.dialOpts, grpc.WithLocalDNSResolution(), grpc.WithDisableServiceConfig())
 	client.timeout = config.Timeout
+	client.asyncConnect = config.AsyncConnect
 	// set send/recv message size, falling back to the package defaults
 	client.maxRecvMsgSize = cmp.Or(config.MaxRecvMsgSize, MaxRecvMsgSize)
 	client.maxSendMsgSize = cmp.Or(config.MaxSendMsgSize, MaxSendMsgSize)
@@ -119,7 +116,7 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 	return nil
 }
 
-// Timeout is how long NewConnection blocks while dialling.
+// Timeout is how long NewConnection waits for a connection to become ready.
 func (client *Client) Timeout() time.Duration {
 	return client.timeout
 }
@@ -175,6 +172,12 @@ func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 
 // NewConnection returns a grpc.ClientConn for the target address. The server name used to
 // verify the hostname on the server's certificate comes from SecureOptions.ServerNameOverride.
+//
+// The address is a gRPC target: without a resolver scheme it is a host:port that gRPC resolves
+// through DNS, and the connection's Target is the address unchanged. The connection starts
+// connecting at once. Unless AsyncConnect is set, NewConnection waits up to Timeout for it to
+// become ready and fails, closing it, when Timeout passes or as soon as an attempt fails to
+// dial; a failed TLS handshake is retried until Timeout and the error then carries it.
 func (client *Client) NewConnection(address string) (*grpc.ClientConn, error) {
 	if len(address) == 0 {
 		return nil, errors.New("address is empty")
@@ -187,26 +190,31 @@ func (client *Client) NewConnection(address string) (*grpc.ClientConn, error) {
 	// immediately before creating a connection in order to allow
 	// SetServerRootCAs / SetMaxRecvMsgSize / SetMaxSendMsgSize
 	//  to take effect on a per connection basis
+	creds := insecure.NewCredentials()
 	if client.tlsConfig != nil {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(
-			&DynamicClientCredentials{TLSConfig: client.tlsConfig},
-		))
-	} else {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		creds = &DynamicClientCredentials{TLSConfig: client.tlsConfig}
 	}
+	handshakes := &handshakeRecorder{TransportCredentials: creds, last: &atomic.Pointer[error]{}}
+	dialOpts = append(dialOpts, grpc.WithTransportCredentials(handshakes))
 
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(
 		grpc.MaxCallRecvMsgSize(client.maxRecvMsgSize),
 		grpc.MaxCallSendMsgSize(client.maxSendMsgSize),
 	))
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
-	defer cancel()
-	//lint:ignore SA1019 Refactor in next change
-	conn, err := grpc.DialContext(ctx, address, dialOpts...) //nolint:all
+	conn, err := grpc.NewClient(address, dialOpts...)
 	if err != nil {
-		commLogger.Debugf("failed to create new connection to [%s]: [%s]", address, err)
 		return nil, errors.Wrapf(err, "failed to create new connection to [%s]", address)
+	}
+	conn.Connect()
+	if !client.asyncConnect {
+		ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+		defer cancel()
+		if err := waitForReady(ctx, conn, handshakes); err != nil {
+			_ = conn.Close()
+			commLogger.Debugf("failed to create new connection to [%s]: [%s]", address, err)
+			return nil, errors.Wrapf(err, "failed to create new connection to [%s]", address)
+		}
 	}
 
 	client.grpcCMux.Lock()
@@ -220,6 +228,30 @@ func (client *Client) Close() {
 	for _, grpcCon := range client.grpcConns {
 		if err := grpcCon.Close(); err != nil {
 			commLogger.Warnf("unable to close grpc conn but continue. Reason: %s", err.Error())
+		}
+	}
+}
+
+// waitForReady waits until conn is ready, as grpc.Dial did with WithBlock and
+// FailOnNonTempDialError: an idle conn is reconnected, an attempt whose dial failed, such as
+// a refused connection, ends the wait at once, and a failed TLS handshake is retried until
+// ctx ends. grpc does not expose why an attempt failed, so the error carries the last
+// handshake error that handshakes recorded, if any.
+func waitForReady(ctx context.Context, conn *grpc.ClientConn, handshakes *handshakeRecorder) error {
+	for {
+		state := conn.GetState()
+		switch state {
+		case connectivity.Idle:
+			conn.Connect()
+		case connectivity.Ready:
+			return nil
+		case connectivity.TransientFailure:
+			if handshakes.lastErr() == nil {
+				return errors.New("connection attempt failed")
+			}
+		}
+		if !conn.WaitForStateChange(ctx, state) {
+			return errors.Join(ctx.Err(), handshakes.lastErr())
 		}
 	}
 }
