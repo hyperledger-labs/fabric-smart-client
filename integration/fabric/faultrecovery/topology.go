@@ -56,6 +56,12 @@ func BFTTopology(dbPrefix string, sdk node.SDK) []api.Topology {
 
 // ReplicatedTopology returns the network of Topology with the FSC nodes of
 // faultrecovery.ReplicatedFSCTopology.
+// RotationTopology returns the network of Topology with the FSC nodes of
+// faultrecovery.RotationFSCTopology.
+func RotationTopology(dbPrefix string, sdk node.SDK) []api.Topology {
+	return []api.Topology{fabricTopology(), faultrecovery.RotationFSCTopology(sdk, dbPrefix)}
+}
+
 func ReplicatedTopology(dbPrefix string, sdk node.SDK) []api.Topology {
 	return []api.Topology{fabricTopology(), faultrecovery.ReplicatedFSCTopology(sdk, dbPrefix)}
 }

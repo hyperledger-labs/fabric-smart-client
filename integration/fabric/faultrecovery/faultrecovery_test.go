@@ -52,6 +52,9 @@ const (
 	partition = "partition"
 	// bft labels the specs on SmartBFT orderers, which run in a target of their own.
 	bft = "bft"
+	// rotation labels the spec that rotates a node's identity, which changes the network for
+	// good and runs in a target of its own.
+	rotation = "rotation"
 )
 
 var (
@@ -839,4 +842,16 @@ var _ = Describe("Fault Recovery with Fabric on SmartBFT orderers", Ordered, Con
 		DeferCleanup(s.II.StartOrderer, fabricfaultrecovery.BFTOrderers[1])
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 3)).To(HaveLen(3))
 	})
+})
+
+var _ = Describe("Fault Recovery with Fabric after an identity rotation", Ordered, ContinueOnFailure, Label(fsc.WebSocket, rotation), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return integration.Generate(
+			integration.FabricFaultRecoveryPort.StartPortForNode(),
+			integration.WithRaceDetection,
+			fabricfaultrecovery.RotationTopology(dbPrefix, &fabricsdk.SDK{})...,
+		)
+	})
+	faultrecovery.ShareNetwork(s)
+	faultrecovery.RotationSpecs(s)
 })

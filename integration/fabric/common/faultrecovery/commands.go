@@ -345,6 +345,13 @@ func EchoTo(ii *integration.Infrastructure, c api.ViewClient, responder string, 
 	return callEcho(context.Background(), c, &views.Echo{Responder: ii.Identity(responder), Block: block})
 }
 
+// EchoToLabel runs alice's echo view through her view client with label, a node name or alias,
+// as the responder, which alice resolves through her endpoint service rather than by the
+// identity the platform recorded at startup. It returns the view's error.
+func EchoToLabel(ii *integration.Infrastructure, label string) error {
+	return callEcho(context.Background(), ii.Client("alice"), &views.Echo{Responder: view.Identity(label)})
+}
+
 // AwaitEcho runs alice's echo view through c, a view client of alice, with bob's responder
 // waiting for a second message that never comes. It returns the view's error.
 func AwaitEcho(ii *integration.Infrastructure, c api.ViewClient) error {

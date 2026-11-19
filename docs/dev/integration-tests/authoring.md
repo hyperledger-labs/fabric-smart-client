@@ -183,6 +183,17 @@ The FSC platform renews a node's certificate on disk:
 | `RenewNodeTLSPair(peer, notAfter)` | returns a new pair, with a new key, signed by the TLS CA of the node's organization; it keeps the subject and names of the current certificate, so every client that verifies the node today verifies the renewed one |
 | `WriteNodeTLSPair(peer, pair)`     | overwrites the node's certificate and key                                                                                                                                                                             |
 
+It also rotates a node's FSC identity on disk:
+
+| Call | Effect |
+| --- | --- |
+| `RenewNodeIdentity(peer)` | writes a new key, and a certificate for it signed by the CA of the node's organization with the subject and expiry of the current one, over the node's identity files. The node's `core.yaml`, the `endpoint.resolvers` entry for the node in every other node's `core.yaml` and its WebSocket P2P transport read these files, so the nodes use the new identity once they restart |
+| `RefreshNodeClients(name)` | after the node restarted, builds its view clients again and records its new identity in the platform's context, which `Identity(name)` returns |
+
+The fault-recovery spec "keeps working after a node's identity is rotated and
+every node restarts" uses them, see
+[Fault-recovery tests](fault-recovery.md#shared-specs).
+
 `fsc/pingpong`'s "serves a renewed TLS certificate without a restart" renews the
 initiator's certificate, checks that the gauge of both listeners moves, that a
 new client still calls a view and that the initiator still reaches the responder

@@ -122,3 +122,84 @@ func TestRenewNodeTLSPair(t *testing.T) { //nolint:paralleltest // the platform'
 	require.NoError(t, err)
 	require.Equal(t, original, got)
 }
+
+// identityRenewFixture lays out, as cryptogen does, the signing CA of org1.example.com and alice's
+// identity certificate and key signed by it, and returns the platform, alice and the CA pool.
+func identityRenewFixture(t *testing.T) (*Platform, *nwonode.Peer, *x509.CertPool) {
+	t.Helper()
+	newKey := func() *ecdsa.PrivateKey {
+		k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+		return k
+	}
+	pemOf := func(typ string, der []byte) []byte { return pem.EncodeToMemory(&pem.Block{Type: typ, Bytes: der}) }
+	keyPEM := func(k *ecdsa.PrivateKey) []byte {
+		der, err := x509.MarshalPKCS8PrivateKey(k)
+		require.NoError(t, err)
+		return pemOf("PRIVATE KEY", der)
+	}
+
+	caKey := newKey()
+	caTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "ca.org1.example.com"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(24 * time.Hour),
+		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
+	require.NoError(t, err)
+	caCert, err := x509.ParseCertificate(caDER)
+	require.NoError(t, err)
+
+	nodeKey := newKey()
+	nodeTmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: "alice.org1.example.com", OrganizationalUnit: []string{"peer"}},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour).Truncate(time.Second),
+		KeyUsage: x509.KeyUsageDigitalSignature,
+	}
+	nodeDER, err := x509.CreateCertificate(rand.Reader, nodeTmpl, caCert, &nodeKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	p := NewPlatform(nwocontext.New(t.TempDir(), 0, nil), NewTopology(), nil)
+	p.Organizations = []*nwonode.Organization{{Name: "Org1", Domain: "org1.example.com"}}
+	peer := &nwonode.Peer{Name: "alice", Organization: "Org1"}
+	caDir := filepath.Join(p.orgCryptoDir(peer), "ca")
+	for _, d := range []string{caDir, filepath.Dir(p.LocalMSPIdentityCert(peer)), filepath.Dir(p.LocalMSPPrivateKey(peer))} {
+		require.NoError(t, os.MkdirAll(d, 0o755))
+	}
+	write := func(path string, data []byte) { require.NoError(t, os.WriteFile(path, data, 0o600)) }
+	write(filepath.Join(caDir, "ca.org1.example.com-cert.pem"), pemOf("CERTIFICATE", caDER))
+	write(filepath.Join(caDir, "priv_sk"), keyPEM(caKey))
+	write(p.LocalMSPIdentityCert(peer), pemOf("CERTIFICATE", nodeDER))
+	write(p.LocalMSPPrivateKey(peer), keyPEM(nodeKey))
+
+	pool := x509.NewCertPool()
+	pool.AddCert(caCert)
+	return p, peer, pool
+}
+
+func TestRenewNodeIdentity(t *testing.T) { //nolint:paralleltest // the platform's path helpers assert through the global Gomega handler
+	gomega.RegisterTestingT(t)
+	p, peer, pool := identityRenewFixture(t)
+	oldCert, err := os.ReadFile(p.LocalMSPIdentityCert(peer))
+	require.NoError(t, err)
+	oldLeaf, err := parseCert(oldCert)
+	require.NoError(t, err)
+
+	require.NoError(t, p.RenewNodeIdentity(peer))
+
+	// The node's identity files hold a new key and a certificate for it that chains to the
+	// org's CA and keeps the subject, organizational units and expiry of the old one.
+	cert, err := os.ReadFile(p.LocalMSPIdentityCert(peer))
+	require.NoError(t, err)
+	key, err := os.ReadFile(p.LocalMSPPrivateKey(peer))
+	require.NoError(t, err)
+	pair, err := tls.X509KeyPair(cert, key)
+	require.NoError(t, err)
+	leaf, err := x509.ParseCertificate(pair.Certificate[0])
+	require.NoError(t, err)
+	_, err = leaf.Verify(x509.VerifyOptions{Roots: pool, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny}})
+	require.NoError(t, err)
+	require.Equal(t, oldLeaf.Subject.String(), leaf.Subject.String())
+	require.True(t, oldLeaf.NotAfter.Equal(leaf.NotAfter))
+	require.NotEqual(t, oldLeaf.PublicKey, leaf.PublicKey)
+}

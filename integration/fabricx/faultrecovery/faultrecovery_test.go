@@ -36,6 +36,9 @@ const (
 	// committerFailover labels the specs on a network where Org2 runs two committers, which
 	// run in a target of their own.
 	committerFailover = "committer-failover"
+	// rotation labels the spec that rotates a node's identity, which changes the network for
+	// good and runs in a target of its own.
+	rotation = "rotation"
 )
 
 var (
@@ -413,4 +416,12 @@ var _ = Describe("Fault Recovery with Fabric-x and two committers in one organiz
 		down = false
 		Expect(faultrecovery.SubmitAndWaitFinal(s.II, 1)).To(HaveLen(1))
 	})
+})
+
+var _ = Describe("Fault Recovery with Fabric-x after an identity rotation", Ordered, ContinueOnFailure, Label(fsc.WebSocket, rotation), func() {
+	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
+		return newInfrastructure(fxfaultrecovery.RotationTopology(dbPrefix)...)
+	})
+	faultrecovery.ShareNetwork(s)
+	faultrecovery.RotationSpecs(s)
 })
