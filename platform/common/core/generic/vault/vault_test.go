@@ -303,7 +303,7 @@ func TestVaultRWSExists(t *testing.T) {
 
 	// Unmapping is refused while the interceptor is still open.
 	_, err = v.UnmapInterceptor("tx1")
-	require.ErrorContains(t, err, "done has not been called")
+	require.ErrorIs(t, err, ErrRWSetOpen)
 	require.True(t, v.RWSExists(ctx, "tx1"))
 
 	rws, err := v.NewRWSet(ctx, "tx2")

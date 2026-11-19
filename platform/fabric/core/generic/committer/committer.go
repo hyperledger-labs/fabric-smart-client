@@ -314,9 +314,10 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 // Commit commits the transactions in the block passed as argument.
 //
 // A transient failure — storage contention, a lost database connection, an
-// expired context — is retried here, on this same block, because this is the
-// component that can tell a fault worth retrying from one that will never clear:
-// it owns the vault, the membership service and the channel configuration.
+// expired context, a read-write set a view on this node still holds open — is
+// retried here, on this same block, because this is the component that can tell
+// a fault worth retrying from one that will never clear: it owns the vault, the
+// membership service and the channel configuration.
 // Committing a block again is safe: CommitEndorserTransaction skips transactions
 // already marked valid, a transaction Fabric found invalid stays invalid, and
 // CommitConfig does not reapply a configuration this process already holds.
