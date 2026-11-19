@@ -124,6 +124,49 @@ func (nilStateQE) GetState(context.Context, driver.Namespace, driver.PKey) (*dri
 
 func (nilStateQE) Done() error { return nil }
 
+type ctxKey struct{}
+
+// ctxQE records the context of the last GetState call.
+type ctxQE struct {
+	staleQE
+	got context.Context
+}
+
+func (q *ctxQE) GetState(ctx context.Context, _ driver.Namespace, pkey driver.PKey) (*driver.VaultRead, error) {
+	q.got = ctx
+	return &driver.VaultRead{Key: pkey, Version: []byte("v1")}, nil
+}
+
+// TestInterceptorIsValidUsesContext checks that IsValid reads storage under the
+// interceptor's context, so it keeps the caller's cancellation and trace.
+func TestInterceptorIsValidUsesContext(t *testing.T) {
+	t.Parallel()
+
+	qe := &ctxQE{}
+	ctx := context.WithValue(t.Context(), ctxKey{}, "caller")
+	i := NewInterceptor[ValidationCode](logging.MustGetLogger(), ctx, EmptyRWSet(), qe, fake.TxStatusStore{}, "tx1", VCProvider, &marshaller{}, &BlockTxIndexVersionComparator{})
+	require.NoError(t, i.AddReadAt("ns", "k1", []byte("v1")))
+
+	require.NoError(t, i.IsValid())
+	require.NotNil(t, qe.got)
+	require.Equal(t, "caller", qe.got.Value(ctxKey{}))
+}
+
+// TestInterceptorIsValidAbsentKey checks that a key absent from storage has no version:
+// a read of an absent key stays valid, and a read of a key that has since been deleted is
+// invalid. Neither may panic.
+func TestInterceptorIsValidAbsentKey(t *testing.T) {
+	t.Parallel()
+
+	absent := newTestInterceptor(nilStateQE{})
+	require.NoError(t, absent.AddReadAt("ns", "k1", nil))
+	require.NoError(t, absent.IsValid(), "a key read while absent is still absent")
+
+	deleted := newTestInterceptor(nilStateQE{})
+	require.NoError(t, deleted.AddReadAt("ns", "k1", []byte("recorded-version")))
+	require.ErrorContains(t, deleted.IsValid(), "invalid read")
+}
+
 func newTestInterceptor(qe VersionedQueryExecutor) *Interceptor[ValidationCode] {
 	return NewInterceptor[ValidationCode](
 		logging.MustGetLogger(),

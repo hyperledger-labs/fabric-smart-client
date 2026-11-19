@@ -75,6 +75,9 @@ func NewInterceptor[V driver.ValidationCode](
 	}
 }
 
+// IsValid reports an error if a key in the read set is no longer at the version it was
+// read at; a key that is absent from storage has no version. It reads storage under the
+// context the interceptor was created with.
 func (i *Interceptor[V]) IsValid() error {
 	i.RLock()
 	defer i.RUnlock()
@@ -83,11 +86,15 @@ func (i *Interceptor[V]) IsValid() error {
 	}
 	for ns, nsMap := range i.rws.Reads {
 		for k, v := range nsMap {
-			vv, err := i.qe.GetState(context.Background(), ns, k)
+			vv, err := i.qe.GetState(i.ctx, ns, k)
 			if err != nil {
 				return err
 			}
-			if !i.versionComparator.Equal(v, vv.Version) {
+			var vaultVersion driver.RawVersion
+			if vv != nil {
+				vaultVersion = vv.Version
+			}
+			if !i.versionComparator.Equal(v, vaultVersion) {
 				return errors.Errorf("invalid read: vault at version %s:%s [%v], read-write set at version [%v]", ns, k, vv, v)
 			}
 		}
