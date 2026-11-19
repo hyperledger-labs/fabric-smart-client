@@ -48,6 +48,17 @@ func (*ErrorMapper) WrapError(err error) error {
 	return errors.Wrapf(mappedErr, "%s", err)
 }
 
+// sqliteCantOpen is the primary result code SQLITE_CANTOPEN: SQLite cannot open the
+// database file, typically because its directory does not exist.
+const sqliteCantOpen = 14
+
+// isCantOpen reports whether err is a SQLite error with primary code SQLITE_CANTOPEN,
+// extended codes included.
+func isCantOpen(err error) bool {
+	var sqliteErr *sqlite.Error
+	return stderrors.As(err, &sqliteErr) && sqliteErr.Code()&0xff == sqliteCantOpen
+}
+
 // sentinelFor returns the sentinel that code maps to, or nil when none does.
 func sentinelFor(code int) error {
 	if mappedErr, ok := errorMap[code]; ok {

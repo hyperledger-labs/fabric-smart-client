@@ -126,3 +126,26 @@ func TestSentinelForFallsBackToPrimaryCode(t *testing.T) {
 		assert.Equal(t, want, sentinelFor(code), "code %d", code)
 	}
 }
+
+// TestIsCantOpen checks that only a SQLite SQLITE_CANTOPEN error, found anywhere in the
+// chain, is reported as one.
+func TestIsCantOpen(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, isCantOpen(errors.New("can't open")), "a plain error is not a SQLite error")
+
+	missing := filepath.Join(t.TempDir(), "missing", "test.db")
+	db, err := sql.Open("sqlite", "file:"+missing+"?mode=rw")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	err = db.Ping()
+	require.Error(t, err)
+	assert.True(t, isCantOpen(errors.Wrap(err, "wrapped")), "a wrapped SQLITE_CANTOPEN error is one: %v", err)
+
+	db = openTestDB(t)
+	_, err = db.Exec("CREATE TABLE t (k TEXT PRIMARY KEY)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO t VALUES ('a'), ('a')")
+	require.Error(t, err)
+	assert.False(t, isCantOpen(err), "another SQLite error is not one: %v", err)
+}
