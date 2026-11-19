@@ -60,6 +60,8 @@ var SingleDBCases = []struct {
 	{"ShardLikeCommit", TTestShardLikeCommit},
 	{"VaultErr", TTestVaultErr},
 	{"KeyEncoding", TTestKeyEncoding},
+	{"LateReplicaCommit", TTestLateReplicaCommit},
+	{"StoreSkipsValidTx", TTestStoreSkipsValidTx},
 }
 
 var ReadCommittedDBCases = []struct {
@@ -142,11 +144,11 @@ func TTestInterceptorConcurrency(t *testing.T, ddb fdbdriver.VaultStore, vp arti
 		rws.Done()
 	}()
 
-	err = ddb.Store(context.Background(), nil, driver.Writes{
+	err = ddb.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
 		ns: map[driver.PKey]driver.VaultValue{
 			k: {Raw: []byte("val"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
-	}, nil)
+	}})
 	require.NoError(t, err)
 
 	state, err := ddb.GetState(context.Background(), ns, k)
@@ -169,11 +171,11 @@ func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb fdbdriver.VaultS
 	require.NoError(t, err)
 	require.Nil(t, v)
 
-	err = ddb.Store(context.Background(), nil, driver.Writes{
+	err = ddb.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
 		ns: map[driver.PKey]driver.VaultValue{
 			k: {Raw: []byte("val"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
-	}, nil)
+	}})
 	require.NoError(t, err)
 
 	_, _, err = rws.GetReadAt(ns, 0)
@@ -186,14 +188,14 @@ func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb fdbdriver.VaultS
 	require.NoError(t, err)
 	require.Nil(t, mv)
 
-	err = ddb.Store(context.Background(), nil, nil, driver.MetaWrites{
+	err = ddb.Store(context.Background(), driver.TxWrites{MetaWrites: driver.MetaWrites{
 		ns: map[driver.PKey]driver.VaultMetadataValue{
 			mk: {
 				Version:  versionBlockTxNumToBytes(36, 1),
 				Metadata: map[string][]byte{"k": []byte("v")},
 			},
 		},
-	})
+	}})
 	require.NoError(t, err)
 
 	_, err = rws.GetStateMetadata(ns, mk)
@@ -207,14 +209,14 @@ func TTestQueryExecutor(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProv
 	aVault, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)
 
-	err = ddb.Store(context.Background(), nil, driver.Writes{
+	err = ddb.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
 		ns: map[driver.PKey]driver.VaultValue{
 			"k2":   {Raw: []byte("k2_value"), Version: versionBlockTxNumToBytes(35, 1)},
 			"k3":   {Raw: []byte("k3_value"), Version: versionBlockTxNumToBytes(35, 2)},
 			"k1":   {Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
 			"k111": {Raw: []byte("k111_value"), Version: versionBlockTxNumToBytes(35, 4)},
 		},
-	}, nil)
+	}})
 	require.NoError(t, err)
 
 	qe, err := aVault.NewQueryExecutor(context.Background())
@@ -278,12 +280,12 @@ func TTestShardLikeCommit(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsPr
 	k2 := "key2"
 
 	// Populate the DB with some data at some height
-	err := ddb.Store(context.Background(), nil, driver.Writes{
+	err := ddb.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
 		ns: map[driver.PKey]driver.VaultValue{
 			k1: {Raw: []byte("k1val"), Version: versionBlockTxNumToBytes(35, 1)},
 			k2: {Raw: []byte("k2val"), Version: versionBlockTxNumToBytes(37, 3)},
 		},
-	}, nil)
+	}})
 	require.NoError(t, err)
 
 	aVault, err := vp.NewNonCachedVault(ddb)
@@ -450,7 +452,7 @@ func TTestKeyEncoding(t *testing.T, ddb fdbdriver.VaultStore, _ artifactsProvide
 		writes[ns][k] = driver.VaultValue{Raw: []byte(k), Version: []byte("v")}
 		metaWrites[ns][k] = driver.VaultMetadataValue{Metadata: map[string][]byte{"k": []byte(k)}, Version: []byte("v")}
 	}
-	require.NoError(t, ddb.Store(ctx, nil, writes, metaWrites))
+	require.NoError(t, ddb.Store(ctx, driver.TxWrites{Writes: writes, MetaWrites: metaWrites}))
 
 	for _, k := range keys {
 		read, err := ddb.GetState(ctx, ns, k)
@@ -477,6 +479,118 @@ func TTestKeyEncoding(t *testing.T, ddb fdbdriver.VaultStore, _ artifactsProvide
 	require.Equal(t, []driver.PKey{composite, childDigit, childLetter}, got)
 }
 
+// TTestLateReplicaCommit checks that two replicas sharing one store, each with
+// its own cache, keep a key's latest value when one of them commits a block
+// late: replica A holds tx X as Busy, replica B commits X in block 10 and then
+// Y in block 11, both writing the same key, and A then commits X. The key must
+// hold Y's value and version.
+func TTestLateReplicaCommit(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
+	t.Helper()
+	ns := "namespace"
+	ctx := t.Context()
+
+	// Two replicas on one store, each with its own cache.
+	va, err := vp.NewCachedVault(ddb)
+	require.NoError(t, err)
+	vb, err := vp.NewCachedVault(ddb)
+	require.NoError(t, err)
+
+	// Replica A endorses X, which leaves X Busy.
+	rws, err := va.NewRWSet(ctx, "X")
+	require.NoError(t, err)
+
+	err = rws.SetState(ns, "K", []byte("vX"))
+	require.NoError(t, err)
+	rws.Done()
+
+	valCode, _, err := va.Status(ctx, "X")
+	require.NoError(t, err)
+	require.Equal(t, busy, valCode)
+
+	// Replica B commits X in block 10 and Y in block 11, both writing K.
+	rws, err = vb.NewRWSet(ctx, "X")
+	require.NoError(t, err)
+	err = rws.SetState(ns, "K", []byte("vX"))
+	require.NoError(t, err)
+	rws.Done()
+
+	err = vb.CommitTX(ctx, "X", 10, 0)
+	require.NoError(t, err)
+
+	rws, err = vb.NewRWSet(ctx, "Y")
+	require.NoError(t, err)
+	err = rws.SetState(ns, "K", []byte("vY"))
+	require.NoError(t, err)
+	rws.Done()
+
+	err = vb.CommitTX(ctx, "Y", 11, 0)
+	require.NoError(t, err)
+
+	// Replica A reaches block 10 late and commits X again.
+	err = va.CommitTX(ctx, "X", 10, 0)
+	require.NoError(t, err)
+
+	// K must keep Y's value and version.
+	vaultRead, err := ddb.GetState(ctx, ns, "K")
+	require.NoError(t, err)
+
+	require.Equal(t, []byte("vY"), vaultRead.Raw)
+	require.Equal(t, versionBlockTxNumToBytes(11, 0), vaultRead.Version)
+}
+
+// TTestStoreSkipsValidTx stores a batch that holds a transaction already Valid
+// together with a new one. The Valid one must not overwrite the key a later
+// transaction wrote, and the new one must still be written.
+func TTestStoreSkipsValidTx(t *testing.T, ddb fdbdriver.VaultStore, _ artifactsProvider) {
+	t.Helper()
+	ns := "namespace"
+	ctx := t.Context()
+
+	x := driver.TxWrites{
+		TxID:   "X",
+		Writes: driver.Writes{ns: {"K": {Raw: []byte("vX"), Version: versionBlockTxNumToBytes(10, 0)}}},
+		MetaWrites: driver.MetaWrites{ns: {"K": {
+			Metadata: map[string][]byte{"owner": []byte("x")},
+			Version:  versionBlockTxNumToBytes(10, 0),
+		}}},
+	}
+	y := driver.TxWrites{
+		TxID:   "Y",
+		Writes: driver.Writes{ns: {"K": {Raw: []byte("vY"), Version: versionBlockTxNumToBytes(11, 0)}}},
+		MetaWrites: driver.MetaWrites{ns: {"K": {
+			Metadata: map[string][]byte{"owner": []byte("y")},
+			Version:  versionBlockTxNumToBytes(11, 0),
+		}}},
+	}
+	z := driver.TxWrites{
+		TxID:   "Z",
+		Writes: driver.Writes{ns: {"K2": {Raw: []byte("vZ"), Version: versionBlockTxNumToBytes(12, 0)}}},
+	}
+	require.NoError(t, ddb.Store(ctx, x))
+	require.NoError(t, ddb.Store(ctx, y))
+
+	require.NoError(t, ddb.Store(ctx, x, z))
+
+	k, err := ddb.GetState(ctx, ns, "K")
+	require.NoError(t, err)
+	require.Equal(t, []byte("vY"), k.Raw)
+	require.Equal(t, versionBlockTxNumToBytes(11, 0), k.Version)
+
+	meta, _, err := ddb.GetStateMetadata(ctx, ns, "K")
+	require.NoError(t, err)
+	require.Equal(t, []byte("y"), meta["owner"])
+
+	k2, err := ddb.GetState(ctx, ns, "K2")
+	require.NoError(t, err)
+	require.Equal(t, []byte("vZ"), k2.Raw)
+
+	for _, txID := range []driver.TxID{"X", "Y", "Z"} {
+		status, err := ddb.GetTxStatus(ctx, txID)
+		require.NoError(t, err)
+		require.Equal(t, driver.Valid, status.Code, txID)
+	}
+}
+
 func TTestMerge(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	t.Helper()
 	ns := "namespace"
@@ -490,11 +604,11 @@ func TTestMerge(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider) {
 	// create DB and kvs
 	vault2, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)
-	err = ddb.Store(context.Background(), nil, driver.Writes{
+	err = ddb.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
 		ns: map[driver.PKey]driver.VaultValue{
 			k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
-	}, nil)
+	}})
 	require.NoError(t, err)
 
 	rws, err := vault2.NewRWSet(context.Background(), txid)
@@ -604,11 +718,11 @@ func TTestInspector(t *testing.T, ddb fdbdriver.VaultStore, vp artifactsProvider
 	// create DB and kvs
 	aVault, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)
-	err = ddb.Store(context.Background(), nil, driver.Writes{
+	err = ddb.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
 		ns: map[driver.PKey]driver.VaultValue{
 			k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
-	}, nil)
+	}})
 	require.NoError(t, err)
 
 	rws, err := aVault.NewRWSet(context.Background(), txid)
@@ -671,30 +785,26 @@ func TTestRun(t *testing.T, db1, db2 fdbdriver.VaultStore, vp artifactsProvider)
 	txid := "txid1"
 
 	// create and populate 2 DBs
-	err := db1.Store(context.Background(), nil,
-		driver.Writes{
-			ns: map[driver.PKey]driver.VaultValue{
-				k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
-			},
+	err := db1.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
+		ns: map[driver.PKey]driver.VaultValue{
+			k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
-		driver.MetaWrites{
-			ns: map[driver.PKey]driver.VaultMetadataValue{
-				k1Meta: {Metadata: map[string][]byte{"metakey": []byte("metavalue")}},
-			},
-		})
+	}, MetaWrites: driver.MetaWrites{
+		ns: map[driver.PKey]driver.VaultMetadataValue{
+			k1Meta: {Metadata: map[string][]byte{"metakey": []byte("metavalue")}},
+		},
+	}})
 	require.NoError(t, err)
 
-	err = db2.Store(context.Background(), nil,
-		driver.Writes{
-			ns: map[driver.PKey]driver.VaultValue{
-				k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
-			},
+	err = db2.Store(context.Background(), driver.TxWrites{Writes: driver.Writes{
+		ns: map[driver.PKey]driver.VaultValue{
+			k1: {Raw: []byte("v1"), Version: versionBlockTxNumToBytes(35, 1)},
 		},
-		driver.MetaWrites{
-			ns: map[driver.PKey]driver.VaultMetadataValue{
-				k1Meta: {Metadata: map[string][]byte{"metakey": []byte("metavalue")}},
-			},
-		})
+	}, MetaWrites: driver.MetaWrites{
+		ns: map[driver.PKey]driver.VaultMetadataValue{
+			k1Meta: {Metadata: map[string][]byte{"metakey": []byte("metavalue")}},
+		},
+	}})
 	require.NoError(t, err)
 
 	compare(t, ns, db1, db2)

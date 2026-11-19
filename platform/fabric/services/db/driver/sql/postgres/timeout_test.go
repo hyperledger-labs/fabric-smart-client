@@ -41,14 +41,14 @@ func TestPostgresVaultStoreQueryTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	start := time.Now()
-	err = store.Store(context.Background(), []driver.TxID{"tx1"}, writes, nil)
+	err = store.Store(context.Background(), driver.TxWrites{TxID: "tx1", Writes: writes})
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.Less(t, time.Since(start), 5*time.Second)
 
 	// pgx ends the statement by closing the connection; the server keeps running it
 	// until it notices, so the next commit writes another key.
 	require.NoError(t, lock.Rollback())
-	require.NoError(t, store.Store(context.Background(), []driver.TxID{"tx2"}, driver.Writes{"ns": {"k2": {Raw: []byte("v"), Version: []byte("1")}}}, nil))
+	require.NoError(t, store.Store(context.Background(), driver.TxWrites{TxID: "tx2", Writes: driver.Writes{"ns": {"k2": {Raw: []byte("v"), Version: []byte("1")}}}}))
 }
 
 // TestPostgresVaultStoreLockTimeoutIsBusy checks that a server-side lock_timeout
@@ -63,6 +63,6 @@ func TestPostgresVaultStoreLockTimeoutIsBusy(t *testing.T) {
 	_, err = lock.ExecContext(t.Context(), "LOCK TABLE "+store.tables.StateTable+" IN ACCESS EXCLUSIVE MODE")
 	require.NoError(t, err)
 
-	err = store.Store(t.Context(), []driver.TxID{"tx"}, driver.Writes{"ns": {"k": {Raw: []byte("v"), Version: []byte("1")}}}, nil)
+	err = store.Store(t.Context(), driver.TxWrites{TxID: "tx", Writes: driver.Writes{"ns": {"k": {Raw: []byte("v"), Version: []byte("1")}}}})
 	require.ErrorIs(t, err, dbdriver.SqlBusy)
 }

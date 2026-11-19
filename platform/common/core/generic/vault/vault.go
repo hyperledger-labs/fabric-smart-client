@@ -191,6 +191,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 	// A failure fails every tx in the batch. Transient ones (deadlock, lost
 	// connection) are retried by the committer, within its retry budget.
 	if err := db.commitRWs(ctx, inputs...); err != nil {
+		db.vaultStore.Invalidate(txIDs...)
 		return collections.Repeat(err, len(txs))
 	}
 	db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
@@ -202,26 +203,13 @@ func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error 
 		db.logger.DebugfContext(input.ctx, "Begin update for tx [%d:%d][%s]", input.block, input.indexInBloc, input.txID) //nolint:contextcheck // deliberately logging against this tx's own originating context (for trace correlation), not commitRWs' batch-level ctx: this call batches transactions submitted by different, possibly-already-returned callers
 	}
 
-	db.logger.Debugf("extract txids from [%d] inputs", len(inputs))
-	txIDs := db.rwMapper.mapTxIDs(inputs)
-
 	db.logger.Debugf("parse writes from [%d] inputs", len(inputs))
-	writes, err := db.rwMapper.mapWrites(inputs)
+	txs, err := db.rwMapper.mapTxWrites(inputs)
 	if err != nil {
 		return err
 	}
 
-	db.logger.Debugf("parse meta writes")
-	metaWrites, err := db.rwMapper.mapMetaWrites(inputs)
-	if err != nil {
-		return err
-	}
-
-	if err := db.vaultStore.Store(ctx, txIDs, writes, metaWrites); err != nil {
-		db.vaultStore.Invalidate(txIDs...)
-		return errors.Wrap(err, "failed writing txids")
-	}
-	return nil
+	return errors.Wrap(db.vaultStore.Store(ctx, txs...), "failed writing txids")
 }
 
 func (db *Vault[V]) SetDiscarded(ctx context.Context, txID driver.TxID, message string) error {

@@ -479,7 +479,7 @@ func storeGobMetadata(t *testing.T, c VaultContract, ns cdriver.Namespace, kv ma
 		writes[ns][k] = cdriver.VaultValue{Raw: []byte(ns + "/" + k), Version: []byte("v")}
 		metaWrites[ns][k] = cdriver.VaultMetadataValue{Version: []byte("v")}
 	}
-	require.NoError(t, c.Store.Store(ctx, nil, writes, metaWrites))
+	require.NoError(t, c.Store.Store(ctx, cdriver.TxWrites{Writes: writes, MetaWrites: metaWrites}))
 	tx, err := c.DB.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	// val identifies the row in either dialect; pkey is TEXT on SQLite and BYTEA on Postgres.
@@ -538,7 +538,7 @@ func TestVaultMetadataContractStep(t *testing.T, c VaultContract) {
 	for ns, kv := range want {
 		storeGobMetadata(t, c, ns, kv)
 	}
-	require.NoError(t, c.Store.Store(ctx, nil, cdriver.Writes{"ns-b": {"no-meta": {Raw: []byte("val"), Version: []byte("v")}}}, nil))
+	require.NoError(t, c.Store.Store(ctx, cdriver.TxWrites{Writes: cdriver.Writes{"ns-b": {"no-meta": {Raw: []byte("val"), Version: []byte("v")}}}}))
 	for _, ns := range []string{"ns", "ns-b"} {
 		for _, m := range rawMetadata(t, c, ns) {
 			if len(m) > 0 {
@@ -573,8 +573,7 @@ func TestVaultMetadataContractStep(t *testing.T, c VaultContract) {
 	}
 	require.Equal(t, 1, gobRows, "only the row protobuf refuses stays gob")
 
-	require.NoError(t, c.Store.Store(ctx, nil, cdriver.Writes{"new": {"k": {Raw: []byte("val"), Version: []byte("v")}}},
-		cdriver.MetaWrites{"new": {"k": {Metadata: map[string][]byte{"x": []byte("y")}, Version: []byte("v")}}}))
+	require.NoError(t, c.Store.Store(ctx, cdriver.TxWrites{Writes: cdriver.Writes{"new": {"k": {Raw: []byte("val"), Version: []byte("v")}}}, MetaWrites: cdriver.MetaWrites{"new": {"k": {Metadata: map[string][]byte{"x": []byte("y")}, Version: []byte("v")}}}}))
 	raw := rawMetadata(t, c, "new")
 	require.Len(t, raw, 1)
 	require.Equal(t, byte(0x0a), raw[0][0], "new writes are protobuf")
@@ -582,7 +581,7 @@ func TestVaultMetadataContractStep(t *testing.T, c VaultContract) {
 	require.NoError(t, err)
 	require.Equal(t, map[string][]byte{"x": []byte("y")}, got)
 
-	err = c.Store.Store(ctx, nil, nil, cdriver.MetaWrites{"new": {"bad": {Metadata: map[string][]byte{"\xff": []byte("v")}, Version: []byte("v")}}})
+	err = c.Store.Store(ctx, cdriver.TxWrites{MetaWrites: cdriver.MetaWrites{"new": {"bad": {Metadata: map[string][]byte{"\xff": []byte("v")}, Version: []byte("v")}}}})
 	require.ErrorContains(t, err, `[new:bad]`)
 	require.ErrorContains(t, err, `metadata key ["\xff"] is not valid UTF-8`)
 }

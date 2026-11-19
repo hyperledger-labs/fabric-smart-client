@@ -9,7 +9,6 @@ package vault
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 type VersionBuilder interface {
@@ -22,47 +21,31 @@ type rwSetMapper struct {
 	vb     VersionBuilder
 }
 
-func (*rwSetMapper) mapTxIDs(inputs []commitInput) []driver.TxID {
-	txIDs := make([]driver.TxID, len(inputs))
-	for i, input := range inputs {
-		txIDs[i] = input.txID
-	}
-	return txIDs
-}
-
-func (m *rwSetMapper) mapWrites(inputs []commitInput) (driver.Writes, error) {
-	writes := make(map[driver.Namespace]map[driver.PKey]driver.VaultValue)
+// mapTxWrites returns the versioned writes and metadata writes of each input,
+// one entry per transaction, in the order of inputs.
+func (m *rwSetMapper) mapTxWrites(inputs []commitInput) ([]driver.TxWrites, error) {
+	txs := make([]driver.TxWrites, len(inputs))
 	for i, input := range inputs {
 		m.logger.Debugf("input [%d] has [%d] writes", i, len(input.rws.Writes))
+		txs[i] = driver.TxWrites{
+			TxID:       input.txID,
+			Writes:     make(driver.Writes, len(input.rws.Writes)),
+			MetaWrites: make(driver.MetaWrites, len(input.rws.MetaWrites)),
+		}
 		for ns, ws := range input.rws.Writes {
 			vals, err := m.vb.VersionedValues(input.rws, ns, ws, input.block, input.indexInBloc)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to parse writes for txid %s", input.txID)
 			}
-			if nsWrites, ok := writes[ns]; !ok {
-				writes[ns] = vals
-			} else {
-				collections.CopyMap(nsWrites, vals)
-			}
+			txs[i].Writes[ns] = vals
 		}
-	}
-	return writes, nil
-}
-
-func (m *rwSetMapper) mapMetaWrites(inputs []commitInput) (driver.MetaWrites, error) {
-	metaWrites := make(map[driver.Namespace]map[driver.PKey]driver.VaultMetadataValue)
-	for _, input := range inputs {
 		for ns, ws := range input.rws.MetaWrites {
 			vals, err := m.vb.VersionedMetaValues(input.rws, ns, ws, input.block, input.indexInBloc)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to parse metadata writes for txid %s", input.txID)
 			}
-			if nsWrites, ok := metaWrites[ns]; !ok {
-				metaWrites[ns] = vals
-			} else {
-				collections.CopyMap(nsWrites, vals)
-			}
+			txs[i].MetaWrites[ns] = vals
 		}
 	}
-	return metaWrites, nil
+	return txs, nil
 }

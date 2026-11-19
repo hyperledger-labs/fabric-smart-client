@@ -11,6 +11,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
+	"maps"
 	"sync"
 	"unicode/utf8"
 
@@ -228,6 +229,80 @@ func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaW
 		WriteString(" ON CONFLICT (ns,pkey) DO UPDATE SET val = EXCLUDED.val, kversion = EXCLUDED.kversion, metadata = EXCLUDED.metadata").
 		Build()
 	return query, params, nil
+}
+
+// TxIDs returns the IDs of txs in order, leaving out the writes that belong to
+// no transaction.
+func TxIDs(txs []driver.TxWrites) []driver.TxID {
+	txIDs := make([]driver.TxID, 0, len(txs))
+	for _, t := range txs {
+		if t.TxID != "" {
+			txIDs = append(txIDs, t.TxID)
+		}
+	}
+	return txIDs
+}
+
+// PendingWrites merges, in order, the writes and metadata writes of the txs that
+// are not Valid in tx, so a later transaction overwrites an earlier one on the
+// same key. txIDs are the IDs of txs. Called after tx marked txIDs busy, the
+// read cannot go stale before tx ends. The maps of txs are not modified.
+func (db *VaultStore) PendingWrites(ctx context.Context, tx *sql.Tx, txs []driver.TxWrites, txIDs []driver.TxID) (driver.Writes, driver.MetaWrites, error) {
+	valid, err := db.validTxIDs(ctx, tx, txIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	writes := driver.Writes{}
+	metaWrites := driver.MetaWrites{}
+	for _, t := range txs {
+		if valid[t.TxID] {
+			continue
+		}
+		for ns, kv := range t.Writes {
+			if writes[ns] == nil {
+				writes[ns] = map[driver.PKey]driver.VaultValue{}
+			}
+			maps.Copy(writes[ns], kv)
+		}
+		for ns, kv := range t.MetaWrites {
+			if metaWrites[ns] == nil {
+				metaWrites[ns] = map[driver.PKey]driver.VaultMetadataValue{}
+			}
+			maps.Copy(metaWrites[ns], kv)
+		}
+	}
+	return writes, metaWrites, nil
+}
+
+// validTxIDs returns the transactions in txIDs whose status is Valid, read
+// inside tx so the answer reflects the locks tx already holds.
+func (db *VaultStore) validTxIDs(ctx context.Context, tx *sql.Tx, txIDs []driver.TxID) (map[driver.TxID]bool, error) {
+	valid := map[driver.TxID]bool{}
+	if len(txIDs) == 0 {
+		return valid, nil
+	}
+
+	query, params := sqlbuild.New().
+		WriteString("SELECT tx_id FROM " + db.tables.StatusTable).
+		WriteWhere(sqlbuild.And(sqlbuild.In("tx_id", txIDs...), sqlbuild.Eq("code", driver.Valid))).
+		Build()
+
+	rows, err := tx.QueryContext(ctx, query, params...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed reading valid statuses")
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var txID driver.TxID
+		if err := rows.Scan(&txID); err != nil {
+			return nil, errors.Wrap(err, "failed scanning tx id")
+		}
+		valid[txID] = true
+	}
+
+	return valid, rows.Err()
 }
 
 // SetStatusesValid builds an UPDATE statement that marks all transactions in

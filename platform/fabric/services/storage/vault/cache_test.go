@@ -43,12 +43,12 @@ func (m *mockVaultStore) GetTxStatus(_ context.Context, txID driver.TxID) (*driv
 	return s, nil
 }
 
-func (m *mockVaultStore) Store(_ context.Context, txIDs []driver.TxID, _ driver.Writes, _ driver.MetaWrites) error {
+func (m *mockVaultStore) Store(_ context.Context, txs ...driver.TxWrites) error {
 	if m.storeErr != nil {
 		return m.storeErr
 	}
-	for _, txID := range txIDs {
-		m.statuses[txID] = &driver.TxStatus{TxID: txID, Code: driver.Valid}
+	for _, tx := range txs {
+		m.statuses[tx.TxID] = &driver.TxStatus{TxID: tx.TxID, Code: driver.Valid}
 	}
 	return nil
 }
@@ -186,7 +186,7 @@ func TestCachedStoreStoreUpdatesCache(t *testing.T) {
 	backed := newMockVaultStore()
 	s := newCachedTestStore(backed)
 
-	err := s.Store(context.Background(), []driver.TxID{"tx1", "tx2"}, nil, nil)
+	err := s.Store(context.Background(), driver.TxWrites{TxID: "tx1"}, driver.TxWrites{TxID: "tx2"})
 	require.NoError(t, err)
 
 	for _, txID := range []driver.TxID{"tx1", "tx2"} {
@@ -202,7 +202,7 @@ func TestCachedStoreStorePropagatesError(t *testing.T) {
 	backed.storeErr = errors.New("store error")
 	s := newCachedTestStore(backed)
 
-	err := s.Store(context.Background(), []driver.TxID{"tx1"}, nil, nil)
+	err := s.Store(context.Background(), driver.TxWrites{TxID: "tx1"})
 	require.ErrorIs(t, err, backed.storeErr)
 
 	_, ok := s.cache.Get("tx1")

@@ -35,11 +35,11 @@ type flakyStore struct {
 	failed atomic.Bool
 }
 
-func (s *flakyStore) Store(ctx context.Context, txIDs []cdriver.TxID, writes cdriver.Writes, metaWrites cdriver.MetaWrites) error {
+func (s *flakyStore) Store(ctx context.Context, txs ...cdriver.TxWrites) error {
 	if s.failed.CompareAndSwap(false, true) {
 		return errors.Wrap(dbdriver.ErrConnectionLost, "connection reset by peer")
 	}
-	return s.VaultStore.Store(ctx, txIDs, writes, metaWrites)
+	return s.VaultStore.Store(ctx, txs...)
 }
 
 // TestCommitConfigRetriesATransientVaultFailure runs CommitConfig against a real

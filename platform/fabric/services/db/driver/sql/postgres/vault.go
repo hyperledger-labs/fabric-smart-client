@@ -50,17 +50,17 @@ func buildVaultStore(readDB, writeDB *sql.DB, tables fsqlcommon.VaultTables, tim
 // key verbatim and compares bytewise, as Fabric orders keys.
 func encodeKey(k driver.PKey) any { return []byte(k) }
 
-// Store marks txIDs busy, upserts writes and metaWrites, and marks txIDs valid,
-// all in one database transaction. Every statement is an upsert, so storing the
-// same transactions again leaves the same rows; this makes a retry safe after a
-// connection lost during COMMIT, when the outcome is unknown. The query timeout
-// bounds the transaction as a whole, COMMIT included. Database errors are mapped
-// by postgres.ErrorMapper.
-func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
-	return (&postgres.ErrorMapper{}).WrapError(db.storeTx(ctx, txIDs, writes, metaWrites))
+// Store marks the transactions of txs busy, upserts the writes of those not
+// already Valid, and marks them all valid, in one database transaction. Storing
+// the same transactions again finds them Valid and leaves the rows as they are;
+// this makes a retry safe after a connection lost during COMMIT, when the outcome
+// is unknown. The query timeout bounds the transaction as a whole, COMMIT
+// included. Database errors are mapped by postgres.ErrorMapper.
+func (db *VaultStore) Store(ctx context.Context, txs ...driver.TxWrites) error {
+	return (&postgres.ErrorMapper{}).WrapError(db.storeTx(ctx, txs))
 }
 
-func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+func (db *VaultStore) storeTx(ctx context.Context, txs []driver.TxWrites) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
@@ -72,6 +72,8 @@ func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes d
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	txIDs := fsqlcommon.TxIDs(txs)
+
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesBusy(txIDs)
 		if err != nil {
@@ -82,6 +84,17 @@ func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes d
 			return errors.Wrap(err, "failed setting tx to busy")
 		}
 	}
+
+	// The busy upsert locked the status row of every transaction in txIDs, the
+	// Valid ones included, so no other replica can commit one of them before this
+	// transaction ends. A replica sharing the database may already have committed
+	// some, and later transactions on top of them: writing theirs again would
+	// roll those keys back.
+	writes, metaWrites, err := db.PendingWrites(ctx, tx, txs, txIDs)
+	if err != nil {
+		return err
+	}
+
 	if len(writes) > 0 || len(metaWrites) > 0 {
 		query, params, err := db.UpsertStates(writes, metaWrites)
 		if err != nil {

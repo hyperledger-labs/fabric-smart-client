@@ -49,18 +49,19 @@ func buildVaultStore(readDB *sql.DB, writeDB sqlcommon.WriteDB, tables common.Va
 // survives, and its default BINARY collation compares keys bytewise.
 func encodeKey(k driver.PKey) any { return k }
 
-// Store marks txIDs busy, upserts writes and metaWrites, and marks txIDs valid,
-// all in one database transaction, bounded as a whole by the store's query
-// timeout. Database errors are mapped by sqlite.ErrorMapper.
-func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
-	if len(txIDs) == 0 && len(writes) == 0 && len(metaWrites) == 0 {
+// Store marks the transactions of txs busy, upserts the writes of those not
+// already Valid, and marks them all valid, in one database transaction bounded
+// as a whole by the store's query timeout. Database errors are mapped by
+// sqlite.ErrorMapper.
+func (db *VaultStore) Store(ctx context.Context, txs ...driver.TxWrites) error {
+	if len(txs) == 0 {
 		logger.DebugfContext(ctx, "Nothing to write")
 		return nil
 	}
-	return (&sqlite.ErrorMapper{}).WrapError(db.storeTx(ctx, txIDs, writes, metaWrites))
+	return (&sqlite.ErrorMapper{}).WrapError(db.storeTx(ctx, txs))
 }
 
-func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+func (db *VaultStore) storeTx(ctx context.Context, txs []driver.TxWrites) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
@@ -72,6 +73,8 @@ func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes d
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	txIDs := common.TxIDs(txs)
+
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesBusy(txIDs)
 		if err != nil {
@@ -81,6 +84,15 @@ func (db *VaultStore) storeTx(ctx context.Context, txIDs []driver.TxID, writes d
 		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 			return errors.Wrap(err, "failed setting tx to busy")
 		}
+	}
+
+	// The busy upsert took the write lock, so no other replica can commit one of
+	// txIDs before this transaction ends. A replica sharing the file may already
+	// have committed some, and later transactions on top of them: writing theirs
+	// again would roll those keys back.
+	writes, metaWrites, err := db.PendingWrites(ctx, tx, txs, txIDs)
+	if err != nil {
+		return err
 	}
 
 	if len(writes) > 0 || len(metaWrites) > 0 {
