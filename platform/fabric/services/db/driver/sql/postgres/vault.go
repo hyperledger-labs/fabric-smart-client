@@ -72,12 +72,7 @@ func (db *VaultStore) storeTx(ctx context.Context, txs []driver.TxWrites) error 
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	txIDs := make([]driver.TxID, 0, len(txs))
-	for _, t := range txs {
-		if t.TxID != "" {
-			txIDs = append(txIDs, t.TxID)
-		}
-	}
+	txIDs := fsqlcommon.TxIDs(txs)
 
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesBusy(txIDs)
@@ -95,17 +90,10 @@ func (db *VaultStore) storeTx(ctx context.Context, txs []driver.TxWrites) error 
 	// transaction ends. A replica sharing the database may already have committed
 	// some, and later transactions on top of them: writing theirs again would
 	// roll those keys back.
-	valid, err := db.ValidTxIDs(ctx, tx, txIDs)
+	writes, metaWrites, err := db.PendingWrites(ctx, tx, txs, txIDs)
 	if err != nil {
 		return err
 	}
-	pending := make([]driver.TxWrites, 0, len(txs))
-	for _, t := range txs {
-		if !valid[t.TxID] {
-			pending = append(pending, t)
-		}
-	}
-	writes, metaWrites := fsqlcommon.MergeTxWrites(pending)
 
 	if len(writes) > 0 || len(metaWrites) > 0 {
 		query, params, err := db.UpsertStates(writes, metaWrites)

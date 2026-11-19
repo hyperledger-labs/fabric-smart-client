@@ -191,6 +191,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 	// A failure fails every tx in the batch. Transient ones (deadlock, lost
 	// connection) are retried by the committer, within its retry budget.
 	if err := db.commitRWs(ctx, inputs...); err != nil {
+		db.vaultStore.Invalidate(txIDs...)
 		return collections.Repeat(err, len(txs))
 	}
 	db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
@@ -208,15 +209,7 @@ func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error 
 		return err
 	}
 
-	if err := db.vaultStore.Store(ctx, txs...); err != nil {
-		txIDs := make([]driver.TxID, len(txs))
-		for i, tx := range txs {
-			txIDs[i] = tx.TxID
-		}
-		db.vaultStore.Invalidate(txIDs...)
-		return errors.Wrap(err, "failed writing txids")
-	}
-	return nil
+	return errors.Wrap(db.vaultStore.Store(ctx, txs...), "failed writing txids")
 }
 
 func (db *Vault[V]) SetDiscarded(ctx context.Context, txID driver.TxID, message string) error {
