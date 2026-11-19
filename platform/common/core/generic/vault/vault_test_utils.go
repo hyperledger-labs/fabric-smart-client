@@ -1200,7 +1200,7 @@ func versionBlockTxNumToBytes(block driver.BlockNum, txNum driver.TxNum) []byte 
 }
 
 // TTestLateRWSetKeepsValid checks that a read-write set opened for a transaction that is
-// already Valid leaves it Valid, on the store and through a cached vault. A Fabric endorser
+// already Valid leaves it Valid in the store, writes included. A Fabric endorser
 // that processes a namespace relies on it: its committer may commit a transaction from its
 // block before a late responder opens a read-write set for it, and the responder must not
 // turn it back to Busy, which no block would commit again.
@@ -1222,9 +1222,7 @@ func TTestLateRWSetKeepsValid(t *testing.T, ddb fdbdriver.VaultStore, vp artifac
 	require.NoError(t, err)
 	rws.Done()
 
-	vc, _, err := vault.Status(ctx, "late")
-	require.NoError(t, err)
-	require.Equal(t, valid, vc, "the cached vault reads it Valid")
+	// Read the store: the cached vault would answer Valid from its cache.
 	status, err := ddb.GetTxStatus(ctx, "late")
 	require.NoError(t, err)
 	require.Equal(t, driver.Valid, status.Code, "the store keeps it Valid")

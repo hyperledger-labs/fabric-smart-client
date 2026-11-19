@@ -22,7 +22,8 @@ specs that inject faults,
   under `ShareNetwork` leaves the network healthy and leaks no sessions or view
   contexts.
 - On Fabric, the nodes that endorse for a namespace register it with
-  `ProcessNamespace` before delivery starts, for example with the `SDK` of
+  `ProcessNamespace` before the first block with a transaction of it, for
+  example with the `SDK` of
   `integration/fabric/common/faultrecovery/sdk`; otherwise a node that handles a
   request after the transaction's block keeps the transaction `Busy`. See
   [Several endorsers that each satisfy the policy](../platform/fabric/fabric-sdk.md#several-endorsers-that-each-satisfy-the-policy).

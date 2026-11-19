@@ -102,12 +102,13 @@ responder that runs after that has no session left to answer on, and its node
 may process the transaction's block before the responder handles the request.
 
 On Fabric, each endorser therefore registers the namespace it endorses for with
-its channel's committer, `ch.Committer().ProcessNamespace(ns)`, before delivery
-starts, for example in the `Start` of its SDK. Its committer then commits every
-transaction of the namespace from its block, also one this endorser did not
-endorse, so its vault holds the writes of every transaction of the namespace. A
-responder that opens a read-write set for a committed transaction leaves it
-`Valid`.
+its channel's committer, `ch.Committer().ProcessNamespace(ns)`, before its node
+processes the first block with a transaction of the namespace. The `Start` of
+its SDK runs before delivery starts, so registering there covers every block.
+Its committer then commits every transaction of the namespace from its block,
+also one this endorser did not endorse, so its vault holds the writes of every
+transaction of the namespace. A responder that opens a read-write set for a
+committed transaction leaves it `Valid`.
 
 A committer that does not process the namespace commits a transaction its node
 has no record of only if another rule selects it: its node holds it `Busy` or
