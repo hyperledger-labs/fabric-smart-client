@@ -10,21 +10,18 @@ import (
 	"github.com/onsi/gomega/gbytes"
 )
 
+// silenceBuffer feeds a process's output to the buffer Run watches for the
+// start check, and drops it once Run has closed that buffer.
 type silenceBuffer struct {
 	buffer *gbytes.Buffer
 }
 
-func (c *silenceBuffer) Write(p []byte) (n int, err error) {
-	if c.buffer.Closed() {
-		// NO-OP
-		return len(p), nil
-	}
+// Write never fails. Run closes the buffer while the process keeps writing,
+// and an error here would reach os/exec, which then closes the pipe and the
+// process dies of SIGPIPE on its next write.
+func (c *silenceBuffer) Write(p []byte) (int, error) {
+	// gbytes.Buffer.Write fails only once the buffer is closed.
+	_, _ = c.buffer.Write(p)
 
-	return c.buffer.Write(p)
-}
-
-func NewSilenceBuffer(writer *gbytes.Buffer) *silenceBuffer {
-	return &silenceBuffer{
-		buffer: writer,
-	}
+	return len(p), nil
 }
