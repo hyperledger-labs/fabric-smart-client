@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package fake
 
 import (
-	"context"
 	"maps"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -35,11 +34,6 @@ func (f *Config) TranslatePath(path string) string {
 	return path
 }
 
-type BindCall struct {
-	LongTerm  view.Identity
-	Ephemeral []view.Identity
-}
-
 type AddResolverCall struct {
 	Name      string
 	Domain    string
@@ -57,17 +51,6 @@ type ResolverServiceBackend struct {
 	AddResolverFn  func(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 	AddResolverIDs []view.Identity
 	AddCalls       []AddResolverCall
-
-	BindErr   error
-	BindCalls []BindCall
-}
-
-func (f *ResolverServiceBackend) Bind(_ context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
-	f.BindCalls = append(f.BindCalls, BindCall{
-		LongTerm:  longTerm,
-		Ephemeral: append([]view.Identity(nil), ephemeral...),
-	})
-	return f.BindErr
 }
 
 func (f *ResolverServiceBackend) AddResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {

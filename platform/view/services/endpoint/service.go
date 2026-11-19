@@ -81,6 +81,10 @@ type ResolverInfo struct {
 type Resolver struct {
 	ResolverInfo
 	PKILock sync.RWMutex
+	// identities are further identities of the party, from local configuration or the node's
+	// own, that AddResolver and AddLocalIdentities register. They are indexed like ID, are
+	// never stored, and are guarded by the Service's resolversMutex.
+	identities []view.Identity
 }
 
 // GetName returns the name of the resolver.
@@ -178,16 +182,22 @@ func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver,
 //
 // Binding an identity a remote party sent is a trust decision: the binding decides which party
 // that identity resolves to, so the caller must hold proof that longTerm owns each ephemeral, or
-// bind only identities from local configuration. Bind does not let a bind take over an existing
-// binding: an ephemeral already bound to another long-term identity keeps that binding, and the
-// conflict is counted as security.KindBindingConflict. Bind never binds a known long-term
-// identity, the identity of a registered resolver or an identity the store holds as a long-term
-// identity, as an ephemeral, since that would redirect it to longTerm; such an ephemeral is not
-// bound, and the refusal is counted as security.KindBindingRefused. Both counts are per
-// ephemeral, so a call with two refused ephemerals counts two refusals. Conflicts and refusals are
-// not errors: Bind returns an error only if the store fails. Use BindProven to replace an
-// existing binding once ownership is proven.
+// bind only identities from local configuration. Register identities from local configuration
+// and the node's own with AddLocalIdentities instead when a resolver has longTerm: those are not
+// stored, so they follow the configuration on every start. Bind does not let a bind take over an
+// existing binding: an
+// ephemeral already bound to another long-term identity keeps that binding, and the conflict is
+// counted as security.KindBindingConflict. Bind never binds a known long-term identity, the
+// identity of a registered resolver or an identity the store holds as a long-term identity, as an
+// ephemeral, since that would redirect it to longTerm; such an ephemeral is not bound, and the
+// refusal is counted as security.KindBindingRefused. Both counts are per ephemeral, so a call with
+// two refused ephemerals counts two refusals. Conflicts and refusals are not errors: Bind returns
+// an error only if the store fails. Use BindProven to replace an existing binding once ownership
+// is proven. A longTerm that is an identity of a resolver, such as an alias or its Fabric MSP
+// identity, is bound as the resolver's identity, so a binding stored for longTerm itself is not
+// followed.
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs ...view.Identity) error {
+	longTerm = r.canonical(longTerm)
 	toBind, refused := r.splitBindable(longTerm, ephemeralIDs)
 	for range refused {
 		r.reportRefused(ctx, longTerm)
@@ -302,13 +312,56 @@ func (r *Service) sameLongTerm(ctx context.Context, a, b view.Identity) bool {
 	return err == nil && lt.Equal(a)
 }
 
-// IsBoundTo checks if two identities are bound to the same long-term identity.
+// IsBoundTo checks if two identities belong to the same long-term identity. An identity of a
+// resolver, its ID, an alias or an identity AddResolver or AddLocalIdentities registered,
+// belongs to the resolver's ID; any other identity to the long-term identity the binding store
+// holds for it.
 func (r *Service) IsBoundTo(ctx context.Context, a, b view.Identity) bool {
-	ok, err := r.bindingKVS.HaveSameBinding(ctx, a, b)
-	if err != nil {
-		logger.Errorf("error fetching entries [%s] and [%s]: %v", a, b, err)
+	la, lb := r.longTermOf(ctx, a), r.longTermOf(ctx, b)
+	return !la.IsNone() && la.Equal(lb)
+}
+
+// longTermOf returns the ID of the resolver id is an identity of, as localResolver defines it.
+// For any other id it returns the long-term identity the binding store holds, mapped to its
+// resolver's ID in the same way, or nil.
+func (r *Service) longTermOf(ctx context.Context, id view.Identity) view.Identity {
+	r.resolversMutex.RLock()
+	resolver, ok := r.localResolver(id)
+	r.resolversMutex.RUnlock()
+	if ok {
+		return resolver.ID
 	}
-	return ok
+	lt, err := r.bindingKVS.GetLongTerm(ctx, id)
+	if err != nil {
+		logger.Errorf("error fetching entry [%s]: %v", id, err)
+		return nil
+	}
+	if lt.IsNone() {
+		return nil
+	}
+	return r.canonical(lt)
+}
+
+// canonical returns the ID of the resolver id is an identity of, as localResolver defines it,
+// and id otherwise.
+func (r *Service) canonical(id view.Identity) view.Identity {
+	r.resolversMutex.RLock()
+	defer r.resolversMutex.RUnlock()
+	if resolver, ok := r.localResolver(id); ok {
+		return resolver.ID
+	}
+	return id
+}
+
+// localResolver returns the resolver id is an identity of: its ID, one of its aliases, or one
+// of the identities AddResolver and AddLocalIdentities registered. Names and addresses, which
+// the resolver index also holds, are not identities. The caller must hold resolversMutex.
+func (r *Service) localResolver(id view.Identity) (*Resolver, bool) {
+	resolver, ok := r.resolversMap[string(id)]
+	if ok && (id.Equal(resolver.ID) || slices.Contains(resolver.Aliases, string(id)) || slices.ContainsFunc(resolver.identities, id.Equal)) {
+		return resolver, true
+	}
+	return nil, false
 }
 
 // GetIdentity returns the identity associated with the given public key ID or label.
@@ -366,6 +419,7 @@ func (r *Service) UpdateResolver(
 		old.PKILock.RUnlock()
 		updated.Addresses = ports
 		updated.Aliases = slices.Clone(old.Aliases)
+		updated.identities = slices.Clone(old.identities)
 		for _, alias := range aliases {
 			if len(alias) != 0 && !slices.Contains(updated.Aliases, alias) {
 				updated.Aliases = append(updated.Aliases, alias)
@@ -387,10 +441,13 @@ func (r *Service) UpdateResolver(
 }
 
 // AddResolver registers a resolver and returns nil. If name already matches a resolver in
-// the index (by name, name.domain, alias, address, ID or PKI ID), AddResolver binds id to
-// that resolver's identity and returns it instead; the other arguments are only validated.
-// Node configurations rely on this: replicas of a node share its name, and a Fabric
-// resolver binds a node's MSP identity to its FSC identity by reusing the node's name.
+// the index (by name, name.domain, alias, address, ID or PKI ID), AddResolver registers id and
+// aliases as identities of that resolver, as AddLocalIdentities does, and returns the
+// resolver's identity instead; addresses and domain are only validated. Node configurations
+// rely on this: replicas of a node share its name, and a Fabric resolver attaches a node's MSP
+// identity to its FSC identity by reusing the node's name. Since they are not stored, these
+// identities follow the configuration on every start. id and aliases must come from local
+// configuration or be the node's own.
 //
 // An empty name matches no resolver, so each resolver without a name is registered
 // separately and is reachable only by its aliases, addresses, ID and PKI ID. The config
@@ -413,14 +470,15 @@ func (r *Service) AddResolver(
 		return nil, errors.WithMessagef(err, "failed adding resolver [%s]", name)
 	}
 
-	// is there a resolver with the same name or clashing aliases?
-	r.resolversMutex.RLock()
-	resolver, ok := r.resolversMap[name]
-	if ok {
-		// Then bind
-		r.resolversMutex.RUnlock()
-		return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
+	ids := []view.Identity{id}
+	for _, alias := range aliases {
+		ids = append(ids, view.Identity(alias))
 	}
+	// is there a resolver with the same name or clashing aliases?
+	if existingID, ok := r.attachToNamed(name, ids); ok {
+		return existingID, nil
+	}
+	r.resolversMutex.RLock()
 	for _, alias := range aliases {
 		if existing, ok := r.resolversMap[alias]; ok {
 			logger.Warnf("alias [%s] already defined by resolver [%s]", alias, existing.Name)
@@ -439,20 +497,90 @@ func (r *Service) AddResolver(
 
 	r.resolversMutex.Lock()
 	// check again
-	resolver, ok = r.resolversMap[name]
-	if !ok {
+	if _, ok := r.resolversMap[name]; !ok {
 		r.appendResolver(newResolver, pkiID)
 		r.resolversMutex.Unlock()
 		return nil, nil
 	}
-	existingID := resolver.ID
-	// Bind takes resolversMutex itself, so it must run after the lock is released
 	r.resolversMutex.Unlock()
-	return existingID, r.Bind(context.Background(), existingID, id)
+	existingID, _ := r.attachToNamed(name, ids)
+	return existingID, nil
+}
+
+// attachToNamed registers ids as identities of the resolver name matches, as AddLocalIdentities
+// does, and returns its identity. It reports whether name matches a resolver.
+func (r *Service) attachToNamed(name string, ids []view.Identity) (view.Identity, bool) {
+	r.resolversMutex.Lock()
+	resolver, ok := r.resolversMap[name]
+	if !ok {
+		r.resolversMutex.Unlock()
+		return nil, false
+	}
+	refused, conflicts := r.attach(resolver, ids)
+	r.resolversMutex.Unlock()
+	r.reportAttach(context.Background(), resolver.ID, refused, conflicts)
+	return resolver.ID, true
+}
+
+// AddLocalIdentities registers ids, which the node knows to belong to longTerm because they
+// come from its local configuration or are its own, as identities of the resolver whose identity
+// is longTerm. They are kept in memory only, so they follow the configuration on every start, and
+// a binding stored before, for example to an identity since rotated, does not shadow them:
+// GetResolver resolves them to the resolver, and IsBoundTo holds between them and longTerm. An id
+// that already belongs to a resolver is left to it: if it is the identity of another resolver
+// the attempt is counted as security.KindBindingRefused, if it is another identity of another
+// resolver as security.KindBindingConflict. If no resolver has longTerm, AddLocalIdentities
+// returns an error wrapping ErrNotFound. Never pass it an identity a remote party sent, nor one
+// that is created at runtime, such as an Idemix pseudonym: those are bound with Bind.
+func (r *Service) AddLocalIdentities(ctx context.Context, longTerm view.Identity, ids ...view.Identity) error {
+	r.resolversMutex.Lock()
+	resolver, ok := r.resolversMap[string(longTerm)]
+	if !ok || !longTerm.Equal(resolver.ID) {
+		r.resolversMutex.Unlock()
+		return errors.Wrapf(ErrNotFound, "no resolver has [%s]", longTerm)
+	}
+	refused, conflicts := r.attach(resolver, ids)
+	r.resolversMutex.Unlock()
+	r.reportAttach(ctx, longTerm, refused, conflicts)
+	return nil
+}
+
+// attach registers each of ids that no resolver has yet as an identity of resolver, and counts
+// those that are the identity of another resolver and those that another resolver has otherwise.
+// The caller must hold resolversMutex for writing.
+func (r *Service) attach(resolver *Resolver, ids []view.Identity) (refused, conflicts int) {
+	for _, id := range ids {
+		if len(id) == 0 {
+			continue
+		}
+		other, ok := r.resolversMap[string(id)]
+		switch {
+		case !ok:
+			resolver.identities = append(resolver.identities, id)
+			r.resolversMap[string(id)] = resolver
+		case other == resolver:
+		case id.Equal(other.ID):
+			refused++
+		default:
+			conflicts++
+		}
+	}
+	return refused, conflicts
+}
+
+// reportAttach counts the refusals and conflicts attach found for longTerm.
+func (r *Service) reportAttach(ctx context.Context, longTerm view.Identity, refused, conflicts int) {
+	for range refused {
+		r.reportRefused(ctx, longTerm)
+	}
+	for range conflicts {
+		r.rejections().Report(ctx, security.KindBindingConflict, longTerm, "", "identity already belongs to another resolver")
+	}
 }
 
 // RemoveResolver first check if a resolver is bound to the passed identity.
-// If yes, the function removes the resolver.
+// If yes, the function removes the resolver, together with the identities AddResolver and
+// AddLocalIdentities registered for it.
 // If no, the function does nothing.
 func (r *Service) RemoveResolver(id view.Identity) (bool, error) {
 	r.resolversMutex.RLock()
@@ -605,6 +733,9 @@ func (r *Service) indexResolver(newResolver *Resolver, pkiID []byte) {
 	if len(newResolver.ID) != 0 {
 		r.resolversMap[string(newResolver.ID)] = newResolver
 	}
+	for _, id := range newResolver.identities {
+		r.resolversMap[string(id)] = newResolver
+	}
 
 	// by pkiResolver
 	if len(pkiID) != 0 {
@@ -645,14 +776,17 @@ func (r *Service) lookupResolver(ctx context.Context, party view.Identity) (*Res
 		return resolver, nil
 	}
 	logger.Debugf("resolving via binding for %s", party)
-	party, err = r.bindingKVS.GetLongTerm(ctx, party)
-	if err != nil {
+	longTerm, ltErr := r.bindingKVS.GetLongTerm(ctx, party)
+	if ltErr != nil {
+		return nil, ltErr
+	}
+	if longTerm.IsNone() || longTerm.Equal(party) {
 		return nil, err
 	}
-	logger.Debugf("continue to [%s]", party)
-	resolver, err = r.resolverByIdentity(party)
+	logger.Debugf("continue to [%s]", longTerm)
+	resolver, err = r.resolverByIdentity(longTerm)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)
+		return nil, errors.Wrapf(err, "[%s] is bound to [%s], which no resolver has", party, longTerm)
 	}
 
 	return resolver, nil

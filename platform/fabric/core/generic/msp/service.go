@@ -221,6 +221,7 @@ func (s *service) AnonymousIdentity() (view.Identity, error) {
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to get default anonymous identity labelled `idemix`")
 	}
+	// a pseudonym is new on every call, so it is bound, not registered in memory
 	if err := s.binderService.Bind(context.Background(), s.defaultViewIdentity, id); err != nil {
 		return nil, errors.WithMessagef(err, "failed to bind identity [%s] to default [%s]", id, s.defaultViewIdentity)
 	}
@@ -397,8 +398,8 @@ func (s *service) AddMSP(name, mspType, enrollmentID string, identityGetter fdri
 		if err != nil {
 			return errors.Wrapf(err, "cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
-		if err := s.binderService.Bind(context.Background(), s.defaultViewIdentity, id); err != nil {
-			return errors.Wrapf(err, "cannot bind identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
+		if err := s.binderService.AddLocalIdentities(context.Background(), s.defaultViewIdentity, id); err != nil {
+			return errors.Wrapf(err, "cannot register identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
 	}
 

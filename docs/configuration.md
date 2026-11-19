@@ -549,7 +549,9 @@ fsc:
   # The node fails to start if an entry has no name or no identity.path, or if an address key is not
   # one of Listen, View or P2P (case-insensitive).
   # An entry that reuses the name of an earlier entry, such as a replica of the same node, does not get
-  # its own addresses: its identity is bound to the identity of the earlier entry.
+  # its own addresses: its identity resolves to the earlier entry. These associations and the aliases
+  # are rebuilt from this section on every start and never stored, so a rotated certificate takes
+  # effect when the node restarts.
   # A replicated node is therefore reached at one P2P address, that of a TCP load balancer in front of
   # its replicas. The balancer must pass TCP through rather than terminate TLS, because the websocket
   # transport authenticates both sides from the TLS certificates, and every replica must hold the same
@@ -976,7 +978,8 @@ fabric:
     # ------------------- Fabric Node resolvers -------------------------
     # The endpoint section tells how to reach other Fabric nodes in the network.
     # Entries follow the same rules as fsc.endpoint.resolvers. An entry that reuses the name of an FSC
-    # resolver binds its MSP identity to the identity of that FSC node.
+    # resolver attaches its MSP identity to that FSC node, so endorsements signed with it count as the
+    # FSC node's.
     endpoint:
       resolvers:
       # name of the FSC node this identity belongs to

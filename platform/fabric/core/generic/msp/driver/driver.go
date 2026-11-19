@@ -40,7 +40,12 @@ type SignerService interface {
 
 //go:generate counterfeiter -o mock/binder_service.go -fake-name BinderService . BinderService
 type BinderService interface {
+	// Bind binds identities created at runtime, such as Idemix pseudonyms, as
+	// endpoint.Service.Bind does.
 	Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
+	// AddLocalIdentities registers the node's own identities, as
+	// endpoint.Service.AddLocalIdentities does.
+	AddLocalIdentities(ctx context.Context, longTerm view.Identity, ids ...view.Identity) error
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 }
 

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
-	"context"
 	"os"
 	"slices"
 
@@ -41,7 +40,6 @@ func (r *Resolver) GetIdentity() (view.Identity, error) {
 }
 
 type Service interface {
-	Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 	AddResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 	AddPublicKeyExtractor(extractor endpoint.PublicKeyExtractor) error
 }
@@ -127,13 +125,6 @@ func (r *ResolverService) LoadResolvers() error {
 		logger.Debugf("added resolver [root-id:%s]", rootID)
 		resolver.RootID = rootID
 
-		// Bind Aliases
-		for _, alias := range resolver.Aliases {
-			logger.Debugf("binding [%s] to [%s]", resolver.Name, alias)
-			if err := r.service.Bind(context.Background(), resolver.Id, []byte(alias)); err != nil {
-				return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
-			}
-		}
 		resolvers = append(resolvers, resolver)
 	}
 	r.resolvers = resolvers

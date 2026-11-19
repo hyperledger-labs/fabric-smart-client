@@ -144,56 +144,30 @@ func TestBind(t *testing.T) {
 
 func TestIsBoundTo(t *testing.T) {
 	t.Parallel()
-	t.Run("identities are bound", func(t *testing.T) {
-		t.Parallel()
-		bindingStore := &mock.BindingStore{}
-		bindingStore.HaveSameBindingReturns(true, nil)
+	id1, id2 := view.Identity("id1"), view.Identity("id2")
+	for _, tc := range []struct {
+		name      string
+		longTerms map[string]view.Identity
+		err       error
+		want      bool
+	}{
+		{name: "identities are bound", longTerms: map[string]view.Identity{"id1": view.Identity("lt"), "id2": view.Identity("lt")}, want: true},
+		{name: "identities are not bound", longTerms: map[string]view.Identity{"id1": view.Identity("lt1"), "id2": view.Identity("lt2")}},
+		{name: "unbound identities are not bound", longTerms: map[string]view.Identity{}},
+		{name: "error from binding store returns false", err: errors.New("storage error")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			bindingStore := &mock.BindingStore{}
+			bindingStore.GetLongTermCalls(func(_ context.Context, id view.Identity) (view.Identity, error) {
+				return tc.longTerms[string(id)], tc.err
+			})
+			service, err := endpoint.NewService(bindingStore)
+			require.NoError(t, err)
 
-		service, err := endpoint.NewService(bindingStore)
-		require.NoError(t, err)
-
-		id1 := view.Identity("id1")
-		id2 := view.Identity("id2")
-
-		result := service.IsBoundTo(context.Background(), id1, id2)
-		assert.True(t, result)
-
-		require.Equal(t, 1, bindingStore.HaveSameBindingCallCount())
-		ctx, a, b := bindingStore.HaveSameBindingArgsForCall(0)
-		assert.NotNil(t, ctx)
-		assert.Equal(t, id1, a)
-		assert.Equal(t, id2, b)
-	})
-
-	t.Run("identities are not bound", func(t *testing.T) {
-		t.Parallel()
-		bindingStore := &mock.BindingStore{}
-		bindingStore.HaveSameBindingReturns(false, nil)
-
-		service, err := endpoint.NewService(bindingStore)
-		require.NoError(t, err)
-
-		id1 := view.Identity("id1")
-		id2 := view.Identity("id2")
-
-		result := service.IsBoundTo(context.Background(), id1, id2)
-		assert.False(t, result)
-	})
-
-	t.Run("error from binding store returns false", func(t *testing.T) {
-		t.Parallel()
-		bindingStore := &mock.BindingStore{}
-		bindingStore.HaveSameBindingReturns(false, errors.New("storage error"))
-
-		service, err := endpoint.NewService(bindingStore)
-		require.NoError(t, err)
-
-		id1 := view.Identity("id1")
-		id2 := view.Identity("id2")
-
-		result := service.IsBoundTo(context.Background(), id1, id2)
-		assert.False(t, result)
-	})
+			assert.Equal(t, tc.want, service.IsBoundTo(context.Background(), id1, id2))
+		})
+	}
 }
 
 func TestUpdateResolver(t *testing.T) {

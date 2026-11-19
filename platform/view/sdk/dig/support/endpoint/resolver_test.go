@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,7 +64,6 @@ func (m *mockIdentityService) DefaultIdentity() view.Identity {
 
 type mockBackend struct {
 	addResolverFn func(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
-	bindFn        func(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 }
 
 func (m *mockBackend) AddResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
@@ -73,13 +71,6 @@ func (m *mockBackend) AddResolver(name, domain string, addresses map[string]stri
 		return m.addResolverFn(name, domain, addresses, aliases, id)
 	}
 	return view.Identity(id), nil
-}
-
-func (m *mockBackend) Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
-	if m.bindFn != nil {
-		return m.bindFn(ctx, longTerm, ephemeral...)
-	}
-	return nil
 }
 
 func TestEntry_GetIdentity(t *testing.T) {
@@ -350,47 +341,6 @@ func TestLoadResolvers_Errors(t *testing.T) {
 		err = loader.LoadResolvers()
 		require.ErrorContains(t, err, "fsc.endpoint.resolvers[0]: fail adding entry resolver")
 	})
-
-	t.Run("binding alias fails", func(t *testing.T) {
-		t.Parallel()
-		ca, err := tlsgen.NewCA()
-		require.NoError(t, err)
-		kp, err := ca.NewServerCertKeyPair("127.0.0.1")
-		require.NoError(t, err)
-		certFile := filepath.Join(t.TempDir(), "cert.crt")
-		require.NoError(t, os.WriteFile(certFile, kp.Cert, 0o600))
-
-		cfg := &mockConfig{
-			values: map[string]string{
-				"fsc.p2p.listenAddress": "/ip4/127.0.0.1/tcp/9000",
-				"fsc.id":                "node1",
-			},
-			isSet: map[string]bool{
-				"fsc.endpoint.resolvers": true,
-			},
-			unmarshalFn: func(_ string, val any) error {
-				target := val.(*[]*entry)
-				*target = []*entry{
-					{
-						Name:     "peer1",
-						Identity: Identity{Path: certFile},
-						Aliases:  []string{"alias1"},
-					},
-				}
-				return nil
-			},
-		}
-
-		backend := &mockBackend{
-			bindFn: func(_ context.Context, _ view.Identity, _ ...view.Identity) error {
-				return errors.New("bind failure")
-			},
-		}
-		loader, err := NewResolversLoader(cfg, backend, &mockIdentityService{defaultID: view.Identity("def-id")})
-		require.NoError(t, err)
-		err = loader.LoadResolvers()
-		require.ErrorContains(t, err, "failed binding identity [peer1] to alias [alias1]")
-	})
 }
 
 func TestLoadResolvers_Success(t *testing.T) {
@@ -463,19 +413,19 @@ func TestLoadResolvers_Success(t *testing.T) {
 			},
 		}
 
-		boundAliases := make([]string, 0)
+		var aliases []string
 		backend := &mockBackend{
-			bindFn: func(_ context.Context, _ view.Identity, ephemeral ...view.Identity) error {
-				for _, eph := range ephemeral {
-					boundAliases = append(boundAliases, string(eph))
+			addResolverFn: func(name, _ string, _ map[string]string, a []string, id []byte) (view.Identity, error) {
+				if name == "peer1" {
+					aliases = a
 				}
-				return nil
+				return id, nil
 			},
 		}
 		loader, err := NewResolversLoader(cfg, backend, &mockIdentityService{defaultID: view.Identity("def-id")})
 		require.NoError(t, err)
 		require.NoError(t, loader.LoadResolvers())
-		assert.Equal(t, []string{"alias1", "alias2"}, boundAliases)
+		assert.Equal(t, []string{"alias1", "alias2"}, aliases)
 	})
 }
 
@@ -513,7 +463,8 @@ func aliasConfig(certFile string) *mockConfig {
 	}
 }
 
-// Aliases bound right after their resolver is added are stored, and resolve to the resolver.
+// Aliases resolve to their resolver, and IsBoundTo holds between them and its identity,
+// without a row in the binding store.
 func TestResolverStartupWithAliases(t *testing.T) {
 	t.Parallel()
 	certFile := newCertFile(t)
@@ -530,7 +481,8 @@ func TestResolverStartupWithAliases(t *testing.T) {
 	require.NoError(t, err)
 	lt, err := store.GetLongTerm(t.Context(), view.Identity("bob"))
 	require.NoError(t, err)
-	require.Equal(t, view.Identity(responder), lt)
+	require.True(t, lt.IsNone())
+	require.True(t, svc.IsBoundTo(t.Context(), view.Identity("bob"), view.Identity(responder)))
 	resolved, _, _, err := svc.Resolve(t.Context(), view.Identity("bob"))
 	require.NoError(t, err)
 	require.Equal(t, view.Identity(responder), resolved)
