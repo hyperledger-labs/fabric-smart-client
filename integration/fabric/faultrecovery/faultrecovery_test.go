@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/configupdate"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery"
+	fsdk "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/sdk"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/faultrecovery/views"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	fabricfaultrecovery "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/faultrecovery"
@@ -204,7 +205,7 @@ var _ = Describe("Fault Recovery with Fabric", Ordered, ContinueOnFailure, Label
 // was lost.
 var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault", Ordered, ContinueOnFailure, Label(fsc.WebSocket), func() {
 	s := integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return newInfrastructureWith(&fabricfaultrecovery.SDK{})
+		return newInfrastructureWith(&fsdk.SDK{})
 	})
 	faultrecovery.ShareNetwork(s)
 
@@ -215,7 +216,7 @@ var _ = Describe("Fault Recovery with Fabric on a node that rebuilds its vault",
 		s.II.StartFSCNode("bob")
 
 		// Bob replays the channel from the genesis block and commits these txs again
-		// because their namespace is registered, see fabricfaultrecovery.SDK. The
+		// because their namespace is registered, see fsdk.SDK. The
 		// replay takes about a second, well within RecoveryTimeout.
 		for i, txID := range txIDs {
 			Eventually(func(g Gomega) {

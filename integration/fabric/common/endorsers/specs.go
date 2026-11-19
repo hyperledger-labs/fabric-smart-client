@@ -142,31 +142,28 @@ func Specs(s *integration.TestSuite) {
 		gomega.Expect(hung).NotTo(gomega.BeNil(), "alice asked the paused endorser")
 	})
 
-	// Pending until https://github.com/hyperledger-labs/fabric-smart-client/issues/2618 is
-	// fixed: on Fabric, an endorser whose responder marks the tx Busy after its committer
-	// skipped the tx's block keeps it Busy.
-	ginkgo.PIt("settles a tx on the endorser alice gave up on", func() {
+	// On Fabric the endorser processes the namespace (see the suite's topology), so it
+	// commits the tx from its block even though it never endorsed it; on Chaguar it reads
+	// the tx's status from the committer.
+	ginkgo.It("settles a tx on the endorser alice gave up on", func() {
 		gomega.Expect(hung).NotTo(gomega.BeNil(), "the previous spec recorded the tx")
 		faultrecovery.ExpectSettled(s.II, "alice", hung.TxID, hung.Value)
 		faultrecovery.ExpectSettled(s.II, hung.Endorser, hung.TxID, hung.Value)
 
 		// Once resumed, the paused endorser handles alice's request and the tx's block in
-		// either order. If its responder marks the tx Busy before the block, the block
-		// commits it Valid. If the block comes first, the endorser should keep no record of
-		// it once #2618 is fixed; today it keeps the tx Busy, waiting for a block that has
-		// passed. Signing again shows it is past that block and has handled alice's request.
+		// either order, and ends with the tx Valid in both. If its responder marks the tx
+		// Busy before the block, the block commits it. If the block comes first, the block
+		// commits it, and the responder that opens a read-write set for it afterwards leaves
+		// it Valid. Signing again shows it is past that block and has handled alice's
+		// request.
 		expectSignsAgain(s.II, Endorsers[0])
-		settled := func(g gomega.Gomega) {
+		faultrecovery.ExpectSettled(s.II, Endorsers[0], hung.TxID, hung.Value)
+		// A late responder must not turn the tx back to Busy after the first poll.
+		gomega.Consistently(func(g gomega.Gomega) {
 			got, err := faultrecovery.Query(s.II, Endorsers[0], hung.TxID)
 			g.Expect(err).NotTo(gomega.HaveOccurred())
-			g.Expect(got.Status).To(gomega.BeElementOf(fdriver.Valid, fdriver.Unknown))
-			if got.Status == fdriver.Valid {
-				g.Expect(got.Value).To(gomega.Equal(hung.Value))
-			}
-		}
-		gomega.Eventually(settled, faultrecovery.RecoveryTimeout, time.Second).Should(gomega.Succeed(), "[%s] settles tx [%s] or keeps no record of it", Endorsers[0], hung.TxID)
-		// A late responder could still mark the tx Busy after the first poll.
-		gomega.Consistently(settled, 5*time.Second, time.Second).Should(gomega.Succeed(), "[%s] marked tx [%s] Busy", Endorsers[0], hung.TxID)
+			g.Expect(got.Status).To(gomega.Equal(fdriver.Valid))
+		}, 5*time.Second, time.Second).Should(gomega.Succeed(), "[%s] keeps tx [%s] Valid", Endorsers[0], hung.TxID)
 	})
 }
 
