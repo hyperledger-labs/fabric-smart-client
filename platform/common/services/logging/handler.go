@@ -52,9 +52,10 @@ func init() { current.Store(defaultBackend) }
 // SetHandler(nil) restores it.
 //
 // Call SetHandler before building the node, so that every line goes through h. It is
-// safe to call while other goroutines log. h must not write through [Handler], directly
-// or through slog.Default after slog.SetDefault(slog.New(Handler(name))): the line would
-// come back to h without end.
+// safe to call while other goroutines log, but a library line logged during the call
+// can reach both h and the writer. h must not write through [Handler], directly or
+// through slog.Default after slog.SetDefault(slog.New(Handler(name))), nor log through
+// flogging or gRPC: the line would come back to h without end.
 func SetHandler(h slog.Handler) {
 	floggingMu.Lock()
 	defer floggingMu.Unlock()
@@ -68,10 +69,12 @@ func SetHandler(h slog.Handler) {
 		return
 	}
 	if current.Swap(&backend{h: h}) == defaultBackend {
+		// The observer goes first, so a line logged in between reaches both h and the
+		// writer rather than neither.
+		floggingPrevObserver = flogging.Global.SetObserver(floggingObserver{})
 		// ponytail: flogging still formats each line before it discards it; fine for the
 		// few lines the libraries log.
 		floggingWriter = flogging.Global.SetWriter(io.Discard)
-		floggingPrevObserver = flogging.Global.SetObserver(floggingObserver{})
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -28,11 +29,12 @@ func TestSetHandler_Flogging(t *testing.T) { //nolint:paralleltest // changes th
 
 	flogging.MustGetLogger("x").Warnw("from flogging", "k", "v", "err", errors.New("boom"))
 	grpclog.Info("from grpc")
+	flogging.MustGetLogger("x").DPanic("above error") // panics only in zap's development mode
 	SetHandler(nil)
 	flogging.MustGetLogger("x").Infof("to the writer")
 
 	lines := app.lines(t)
-	require.Len(t, lines, 2)
+	require.Len(t, lines, 3)
 	assert.Equal(t, "from flogging", lines[0]["msg"])
 	assert.Equal(t, "WARN", lines[0]["level"])
 	assert.Equal(t, "x", lines[0][loggerAttr])
@@ -41,6 +43,7 @@ func TestSetHandler_Flogging(t *testing.T) { //nolint:paralleltest // changes th
 	assert.True(t, strings.HasSuffix(lines[0]["source"].(map[string]any)["function"].(string), ".TestSetHandler_Flogging"), lines[0])
 	assert.Equal(t, "from grpc", lines[1]["msg"])
 	assert.Equal(t, "grpc", lines[1][loggerAttr])
+	assert.Equal(t, "ERROR+4", lines[2]["level"])
 	written := out.lines(t)[before:]
 	require.Len(t, written, 1)
 	assert.Equal(t, "to the writer", written[0]["msg"])
@@ -71,6 +74,34 @@ func TestSetHandler_FloggingWith(t *testing.T) { //nolint:paralleltest // change
 	lines := app.lines(t)
 	require.Len(t, lines, 1)
 	assert.NotContains(t, lines[0], "k")
+}
+
+// recordingObserver records the messages flogging writes.
+type recordingObserver struct{ msgs []string }
+
+func (*recordingObserver) Check(zapcore.Entry, *zapcore.CheckedEntry) {}
+
+func (o *recordingObserver) WriteEntry(e zapcore.Entry, _ []zapcore.Field) {
+	o.msgs = append(o.msgs, e.Message)
+}
+
+// TestSetHandler_FloggingObserver checks a handler replaces an observer set before it,
+// a change to another handler keeps FSC's observer, and SetHandler(nil) restores the
+// earlier observer.
+func TestSetHandler_FloggingObserver(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
+	obs := &recordingObserver{}
+	prev := flogging.Global.SetObserver(obs)
+	t.Cleanup(func() { flogging.Global.SetObserver(prev) })
+	app, _ := appHandler(t, "info", slog.LevelDebug)
+	obs.msgs = nil // drop the line Init logs before the handler is set
+
+	SetHandler(slog.NewJSONHandler(app, nil))
+	flogging.MustGetLogger("x").Info("to the handler")
+	SetHandler(nil)
+	flogging.MustGetLogger("x").Info("to the observer")
+
+	assert.Equal(t, []string{"to the observer"}, obs.msgs)
+	assert.Len(t, app.lines(t), 1)
 }
 
 // TestSetHandler_FloggingInitWriter checks Init with a writer while a handler is set

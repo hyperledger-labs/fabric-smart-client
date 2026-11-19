@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"strings"
 	"sync"
@@ -164,8 +165,8 @@ func TestSetHandler_DisabledDoesntFormat(t *testing.T) { //nolint:paralleltest /
 	assert.Empty(t, ended().Events)
 }
 
-// TestSetHandler_Concurrent runs SetHandler and Init while other goroutines log, through
-// FSC and through flogging, for the race detector.
+// TestSetHandler_Concurrent runs SetHandler, and Init with a writer, while other
+// goroutines log, through FSC and through flogging, for the race detector.
 func TestSetHandler_Concurrent(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
 	app, _ := appHandler(t, "info", slog.LevelDebug)
 	h := slog.NewJSONHandler(app, nil)
@@ -178,10 +179,14 @@ func TestSetHandler_Concurrent(t *testing.T) { //nolint:paralleltest // changes 
 			}
 		})
 	}
+	wg.Go(func() {
+		for range 100 {
+			assert.NoError(t, Init(Config{Format: "json", LogSpec: "info", Writer: io.Discard}))
+		}
+	})
 	for range 100 {
 		SetHandler(nil)
 		SetHandler(h)
-		require.NoError(t, Init(Config{Format: "json", LogSpec: "info"}))
 	}
 	wg.Wait()
 }
