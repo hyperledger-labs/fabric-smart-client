@@ -20,6 +20,8 @@ work.
 - Code that leaves goroutines running after it returns is tested in a
   `testing/synctest` bubble with `synctest.Wait()`, not with
   `require.Eventually` or sleeps.
+- A fake command on `PATH` that a caller writes to reads all of its stdin
+  before it exits; see [Fake commands](../dev/testing.md#fake-commands).
 - Never commit `FIt`, `FDescribe` or `XIt`.
 - Regenerate mocks with `make generate-mocks`; never edit generated mocks or
   storage fixtures by hand.
