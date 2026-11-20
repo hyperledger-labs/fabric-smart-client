@@ -212,7 +212,7 @@ func TestNewConnection(t *testing.T) {
 				Timeout: time.Second,
 			},
 			success:  false,
-			errorMsg: "context deadline exceeded",
+			errorMsg: "(?s)context deadline exceeded.*tls: first record does not look like a TLS handshake",
 		},
 		{
 			name: "client TLS / server TLS match",
@@ -245,7 +245,7 @@ func TestNewConnection(t *testing.T) {
 				Certificates: []tls.Certificate{testCerts.serverCert},
 			},
 			success:  false,
-			errorMsg: "context deadline exceeded",
+			errorMsg: "(?s)context deadline exceeded.*x509: (.*certificate is not trusted|certificate signed by unknown authority)",
 		},
 		{
 			name: "client TLS / server TLS missing client cert",
@@ -331,7 +331,7 @@ func TestNewConnection(t *testing.T) {
 				ClientCAs:    certPool,
 			},
 			success:  false,
-			errorMsg: "context deadline exceeded",
+			errorMsg: "(?s)context deadline exceeded.*TLS certificate mismatch",
 		},
 	}
 
@@ -364,6 +364,67 @@ func TestNewConnection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNewConnection_FailsFastWhenNothingListens checks that a blocking connection to a
+// closed port fails on the first failed attempt instead of waiting out Timeout.
+func TestNewConnection_FailsFastWhenNothingListens(t *testing.T) {
+	t.Parallel()
+	l := createListener(t)
+	address := l.Addr().String()
+	require.NoError(t, l.Close())
+
+	client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{Timeout: time.Minute})
+	require.NoError(t, err)
+	start := time.Now()
+	_, err = client.NewConnection(address)
+	require.ErrorContains(t, err, "connection attempt failed")
+	require.Less(t, time.Since(start), 30*time.Second, "must not wait for Timeout")
+}
+
+// TestNewConnection_FailsFastWhenNameDoesNotResolve checks that a blocking connection to a
+// name that does not resolve fails without waiting out Timeout. The .invalid top-level
+// domain never resolves (RFC 2606).
+func TestNewConnection_FailsFastWhenNameDoesNotResolve(t *testing.T) {
+	t.Parallel()
+	client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{Timeout: time.Minute})
+	require.NoError(t, err)
+	start := time.Now()
+	_, err = client.NewConnection("peer0.org1.invalid:7051")
+	require.ErrorContains(t, err, "connection attempt failed")
+	require.Less(t, time.Since(start), 30*time.Second, "must not wait for Timeout")
+}
+
+// TestNewConnection_AsyncConnectsAtOnce checks that an asynchronous connection is returned
+// for an address nothing listens on, starts connecting without waiting for an RPC, and keeps
+// the address as its target.
+func TestNewConnection_AsyncConnectsAtOnce(t *testing.T) {
+	t.Parallel()
+	l := createListener(t)
+	address := l.Addr().String()
+	require.NoError(t, l.Close())
+
+	async, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{Timeout: time.Minute, AsyncConnect: true})
+	require.NoError(t, err)
+	conn, err := async.NewConnection(address)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	require.Equal(t, address, conn.Target(), "the target is the address, which callers use as the endpoint's name")
+	require.Eventually(t, func() bool { return conn.GetState() != connectivity.Idle }, 10*time.Second, 10*time.Millisecond,
+		"an asynchronous connection starts connecting without waiting for an RPC")
+}
+
+// TestNewConnection_TimeoutReportsDeadline checks that a connection that is still not
+// ready when Timeout passes reports the deadline.
+func TestNewConnection_TimeoutReportsDeadline(t *testing.T) {
+	t.Parallel()
+	// A listener that never accepts, so the connection attempt hangs.
+	l := createListener(t)
+
+	client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{Timeout: 200 * time.Millisecond})
+	require.NoError(t, err)
+	_, err = client.NewConnection(l.Addr().String())
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 // A client presents its keypair only when mutual TLS is asked for. Asserted directly rather
