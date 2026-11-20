@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
@@ -31,6 +32,7 @@ func TestClassify(t *testing.T) {
 		{"sql busy is retryable", dbdriver.SqlBusy, classRetry},
 		{"connection lost is retryable", dbdriver.ErrConnectionLost, classRetry},
 		{"wrapped connection lost is retryable", errors.Wrapf(dbdriver.ErrConnectionLost, "failed writing txids"), classRetry},
+		{"open read-write set is retryable", errors.Wrapf(vault.ErrRWSetOpen, "rwset already exists for [tx1]"), classRetry},
 		{"exhausted outranks connection lost", errors.Join(ErrRetriesExhausted, dbdriver.ErrConnectionLost), classDegrade},
 		{"deadline exceeded is retryable", context.DeadlineExceeded, classRetry},
 		// What a statement cut off by a persistence's queryTimeout reaches the committer as.

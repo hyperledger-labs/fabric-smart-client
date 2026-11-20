@@ -197,7 +197,7 @@ func TestDiscardEndorserTransactionLogsADeterministicFailure(t *testing.T) {
 			},
 			RWSExistsFn: func(context.Context, cdriver.TxID) bool { return true },
 			DiscardTxFn: func(context.Context, cdriver.TxID, string) error {
-				return errors.New("attempted to retrieve read-write set when done has not been called")
+				return errors.New("a deterministic vault failure")
 			},
 		},
 	}

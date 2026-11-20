@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -314,9 +315,10 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 // Commit commits the transactions in the block passed as argument.
 //
 // A transient failure — storage contention, a lost database connection, an
-// expired context — is retried here, on this same block, because this is the
-// component that can tell a fault worth retrying from one that will never clear:
-// it owns the vault, the membership service and the channel configuration.
+// expired context, a read-write set a view on this node still holds open — is
+// retried here, on this same block, because this is the component that can tell
+// a fault worth retrying from one that will never clear: it owns the vault, the
+// membership service and the channel configuration.
 // Committing a block again is safe: CommitEndorserTransaction skips transactions
 // already marked valid, a transaction Fabric found invalid stays invalid, and
 // CommitConfig does not reapply a configuration this process already holds.
@@ -842,6 +844,10 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 				}
 				c.logger.DebugfContext(ctx, "Match RWSet")
 				if err := c.Vault.Match(ctx, txID, pt.Results()); err != nil {
+					// A set a view opened after the load is not a mismatch.
+					if errors.HasCause(err, vault.ErrRWSetOpen) {
+						return errors.WithMessagef(err, "failed matching rwset of [%s]", txID)
+					}
 					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
@@ -1021,6 +1027,10 @@ func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, enve
 
 func (c *Committer) extractStoredEnvelopeToVault(ctx context.Context, txID cdriver.TxID) error {
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
+	// The endorser transaction would fail on the open set too; keep the cause.
+	if errors.HasCause(err, vault.ErrRWSetOpen) {
+		return errors.WithMessagef(err, "failed to extract rws from envelope [%s]", txID)
+	}
 	if err != nil {
 		// If another replica of the same node created the RWSet
 		rws, _, err = c.RWSetLoaderService.GetRWSetFromETx(ctx, txID)

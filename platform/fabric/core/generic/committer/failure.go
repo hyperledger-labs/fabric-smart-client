@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
@@ -36,8 +37,9 @@ const (
 	classNone failureClass = iota
 
 	// classRetry is a non-deterministic failure that committing the same block
-	// again can clear: storage contention, a lost database connection or an
-	// expired context. The block is re-committed with a delay between attempts.
+	// again can clear: storage contention, a lost database connection, an
+	// expired context or a read-write set a view on this node still holds open.
+	// The block is re-committed with a delay between attempts.
 	// A lost connection is retried until the block commits or the caller's
 	// context ends. Any other cause is retried within a bounded budget, and
 	// exhausting it wraps the failure in ErrRetriesExhausted, which classifies as
@@ -150,11 +152,11 @@ var ErrFatalCommit = errors.New("unrecoverable commit failure")
 //
 // Retry is granted only on evidence, never by default: an error must name a cause
 // known to be non-deterministic — storage contention, a lost database connection,
-// or an expired context — before the same block is committed again. Everything
-// else is a degrade, because retrying a deterministic failure burns the budget
-// and arrives at the same place later. That is the conservative direction to be
-// wrong in: a misclassified degrade stops the channel loudly, a misclassified
-// retry spins.
+// an expired context, or a read-write set still open — before the same block is
+// committed again. Everything else is a degrade, because retrying a
+// deterministic failure burns the budget and arrives at the same place later.
+// That is the conservative direction to be wrong in: a misclassified degrade
+// stops the channel loudly, a misclassified retry spins.
 func classify(err error) failureClass {
 	if err == nil {
 		return classNone
@@ -198,6 +200,14 @@ func classify(err error) failureClass {
 	// before each attempt, so a genuinely cancelled caller stops rather than
 	// spending the budget.
 	if errors.HasCause(err, context.DeadlineExceeded) || errors.HasCause(err, context.Canceled) {
+		return classRetry
+	}
+
+	// A read-write set still open on this node belongs to a view that has not
+	// finished with the transaction, typically a responder handling a late
+	// request for it. The view closes the set when it ends, so a later attempt
+	// finds it closed. One never closed exhausts the budget.
+	if errors.HasCause(err, vault.ErrRWSetOpen) {
 		return classRetry
 	}
 

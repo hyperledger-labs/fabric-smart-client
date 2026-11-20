@@ -29,6 +29,13 @@ import (
 
 type Logger = logging.Logger
 
+// ErrRWSetOpen is wrapped by the error of a call that finds the read-write set
+// of its transaction still open: opening another set for the transaction, or
+// committing, discarding or matching it. The set stays open from the call that
+// opened it until [driver.RWSet.Done], so the call can succeed once the view
+// holding the set closes it.
+var ErrRWSetOpen = errors.New("read-write set is open")
+
 type TxInterceptor interface {
 	driver.RWSet
 	RWs() *ReadWriteSet
@@ -145,7 +152,7 @@ func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxI
 
 	for txID, i := range result {
 		if !i.IsClosed() {
-			return nil, errors.Errorf("attempted to retrieve read-write set for %s when done has not been called", txID)
+			return nil, errors.Wrapf(ErrRWSetOpen, "attempted to retrieve read-write set for %s when done has not been called", txID)
 		}
 		delete(db.interceptors, txID)
 	}
@@ -243,15 +250,12 @@ func (db *Vault[V]) buildRWSet(ctx context.Context, txID driver.TxID, rws ReadWr
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 	i := db.newInterceptor(db.logger, ctx, rws, qe, db.vaultStore, txID)
 
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
 	if interceptor, ok := db.interceptors[txID]; ok && !interceptor.IsClosed() {
-		return nil, errors.Errorf("programming error: rwset already exists for [%s]", txID)
+		return nil, errors.Wrapf(ErrRWSetOpen, "rwset already exists for [%s]", txID)
 	}
 	db.interceptors[txID] = i
 
@@ -279,7 +283,7 @@ func (db *Vault[V]) Match(ctx context.Context, txID driver.TxID, rwsRaw []byte) 
 		return errors.Errorf("read-write set for txid %s could not be found", txID)
 	}
 	if !i.IsClosed() {
-		return errors.Errorf("attempted to retrieve read-write set for %s when done has not been called", txID)
+		return errors.Wrapf(ErrRWSetOpen, "attempted to retrieve read-write set for %s when done has not been called", txID)
 	}
 
 	db.logger.Debugf("get lock [%s]", txID)
