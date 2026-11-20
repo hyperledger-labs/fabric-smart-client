@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	cvault "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
@@ -71,6 +72,10 @@ func TestIsFinalSeesCommitByAnotherReplica(t *testing.T) {
 	require.NoError(t, c.IsFinal(ctx, "tx1"))
 }
 
+// A replica that commits a block late skips a transaction another replica sharing
+// the vault store already committed, so it does not set a key back to that
+// transaction's value and version. This covers the committer; the vault store
+// skips the writes of an already Valid transaction too (TTestLateReplicaCommit).
 func TestLateReplicaCommitKeepsLatestKey(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -78,89 +83,55 @@ func TestLateReplicaCommitKeepsLatestKey(t *testing.T) {
 	store, err := fvault.OpenSqliteVault("node", t.TempDir())
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
-	newReplicaVault := func() *vault.Vault {
-		return vault.NewVault(fvault.NewCachedVault(store, 100), &disabled.Provider{}, noop.NewTracerProvider())
+	newReplica := func() (*vault.Vault, *Committer) {
+		v := vault.NewVault(fvault.NewCachedVault(store, 100), &disabled.Provider{}, noop.NewTracerProvider())
+		return v, &Committer{
+			logger:        logger,
+			ChannelConfig: &fake.ChannelConfig{},
+			Vault:         v,
+			ProcessorManager: &fake.ProcessorManager{
+				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+			},
+		}
 	}
-	a, b := newReplicaVault(), newReplicaVault()
-
-	cA := &Committer{
-		logger: logger,
-		ChannelConfig: &fake.ChannelConfig{
-			FinalityRetries:        3,
-			FinalityUnknownTimeout: time.Millisecond,
-			WaitForEventTimeout:    time.Minute,
-		},
-		Vault:              a,
-		EnvelopeService:    &fake.EnvelopeService{},
-		listeners:          map[string][]chan FinalityEvent{},
-		pollingTimeout:     10 * time.Millisecond,
-		tracer:             noop.NewTracerProvider().Tracer("test"),
-		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
-		DependencyResolver: NewSerialDependencyResolver(),
-		ProcessorManager: &fake.ProcessorManager{
-			ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
-		},
+	a, cA := newReplica()
+	b, cB := newReplica()
+	endorse := func(v *vault.Vault, txID, value string) {
+		rws, err := v.NewRWSet(ctx, txID)
+		require.NoError(t, err)
+		require.NoError(t, rws.SetState("ns", "K", []byte(value)))
+		rws.Done()
 	}
 
-	cB := &Committer{
-		logger: logger,
-		ChannelConfig: &fake.ChannelConfig{
-			FinalityRetries:        3,
-			FinalityUnknownTimeout: time.Millisecond,
-			WaitForEventTimeout:    time.Minute,
-		},
-		Vault:              b,
-		EnvelopeService:    &fake.EnvelopeService{},
-		listeners:          map[string][]chan FinalityEvent{},
-		pollingTimeout:     10 * time.Millisecond,
-		tracer:             noop.NewTracerProvider().Tracer("test"),
-		metrics:            NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
-		DependencyResolver: NewSerialDependencyResolver(),
-		ProcessorManager: &fake.ProcessorManager{
-			ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
-		},
-	}
-
-	rws, err := a.NewRWSet(ctx, "X")
-	require.NoError(t, err)
-	err = rws.SetState("ns", "K", []byte("vX"))
-	require.NoError(t, err)
-	rws.Done()
-
+	// Replica A endorses X and sees it Busy.
+	endorse(a, "X", "vX")
 	vc, _, err := cA.Status(ctx, "X")
 	require.NoError(t, err)
 	require.Equal(t, fdriver.Busy, vc)
 
-	rws, err = b.NewRWSet(ctx, "X")
+	// Replica B commits X in block 10 and Y in block 11, both writing K. B holds
+	// X's read-write set too, so it commits X without an envelope.
+	endorse(b, "X", "vX")
+	alreadyValid, err := cB.CommitEndorserTransaction(ctx, "X", 10, 0, nil, &FinalityEvent{TxID: "X"})
 	require.NoError(t, err)
-	err = rws.SetState("ns", "K", []byte("vX"))
+	require.False(t, alreadyValid)
+	endorse(b, "Y", "vY")
+	alreadyValid, err = cB.CommitEndorserTransaction(ctx, "Y", 11, 0, nil, &FinalityEvent{TxID: "Y"})
 	require.NoError(t, err)
-	rws.Done()
+	require.False(t, alreadyValid)
 
-	isValid, err := cB.CommitEndorserTransaction(ctx, "X", 10, 0, nil, &FinalityEvent{TxID: "X"})
+	// Replica A reaches block 10 and skips X.
+	alreadyValid, err = cA.CommitEndorserTransaction(ctx, "X", 10, 0, nil, &FinalityEvent{TxID: "X"})
 	require.NoError(t, err)
-	require.False(t, isValid)
+	require.True(t, alreadyValid)
 
-	rws, err = b.NewRWSet(ctx, "Y")
+	qe, err := a.NewQueryExecutor(ctx)
 	require.NoError(t, err)
-	err = rws.SetState("ns", "K", []byte("vY"))
-	require.NoError(t, err)
-	rws.Done()
-
-	isValid, err = cB.CommitEndorserTransaction(ctx, "Y", 11, 0, nil, &FinalityEvent{TxID: "Y"})
-	require.NoError(t, err)
-	require.False(t, isValid)
-
-	isValid, err = cA.CommitEndorserTransaction(ctx, "X", 10, 0, nil, &FinalityEvent{TxID: "X"})
-	require.NoError(t, err)
-	require.True(t, isValid)
-
-	qe, _ := a.NewQueryExecutor(ctx)
 	defer func() { require.NoError(t, qe.Done()) }()
 	vr, err := qe.GetState(ctx, "ns", "K")
 	require.NoError(t, err)
-
 	require.Equal(t, []byte("vY"), vr.Raw)
+	require.Equal(t, cvault.BlockTxIndexToBytes(11, 0), vr.Version)
 }
 
 // A replica that discarded a transaction reports it Valid once another replica commits it:
