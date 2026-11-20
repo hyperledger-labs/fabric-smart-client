@@ -86,9 +86,9 @@ func New(config Config) *Runner {
 func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	var detectStartCheck chan bool
 	allOutput := gbytes.NewBuffer()
-	// silence buffer allows closing allOutput buffer once the process
-	// has reached "ready" condition without throwing errors.
-	out := NewSilenceBuffer(allOutput)
+	// allOutput is closed once the start check matches; out keeps the
+	// process's later writes from failing on it.
+	out := &silenceBuffer{buffer: allOutput}
 
 	var outWriter, errWriter io.Writer
 	if r.config.Stdout != nil || r.config.Stderr != nil {
@@ -135,6 +135,13 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 	}
 
 	detectStartCheck = allOutput.Detect("%s", r.StartCheck)
+	// Stop watching if Run returns before the start check matched; the match
+	// cancels it already, and cancelling twice panics.
+	defer func() {
+		if detectStartCheck != nil {
+			allOutput.CancelDetects()
+		}
+	}()
 
 	for {
 		select {
@@ -180,9 +187,11 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (r *Runner) monitorForExit(exited chan<- struct{}) {
-	if err := r.Command.Wait(); err != nil {
-		logger.Debugf("process [%s] exited with error: %s", r.Name, err)
-	}
+	// Wait's error repeats the exit status logged below.
+	_ = r.Command.Wait()
+	// Name the member and how it ended, so a process that dies after it became
+	// ready leaves a trace.
+	logger.Infof("[%s] (pid: %d) exited: %s", r.Name, r.Command.Process.Pid, r.Command.ProcessState)
 	status := r.Command.ProcessState.Sys().(syscall.WaitStatus)
 	if status.Signaled() {
 		r.exitCode.Store(int32(128 + int(status.Signal())))
