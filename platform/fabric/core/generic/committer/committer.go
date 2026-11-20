@@ -628,7 +628,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 		case driver.Busy:
 			c.logger.Debugf("Tx [%s] is known", txID)
 			if iter < c.ChannelConfig.CommitterFinalityNumRetries()-1 {
-				if err := sleep(ctx, c.ChannelConfig.CommitterFinalityUnknownTXTimeout()); err != nil {
+				if err := utils.Sleep(ctx, c.ChannelConfig.CommitterFinalityUnknownTXTimeout()); err != nil {
 					return errors.Wrapf(err, "stopped waiting for finality of [%s], last known status [%s]", txID, driver.StatusName(vd))
 				}
 			}
@@ -636,7 +636,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 		case driver.Unknown:
 			if iter <= 1 {
 				c.logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
-				if err := sleep(ctx, c.ChannelConfig.CommitterFinalityUnknownTXTimeout()); err != nil {
+				if err := utils.Sleep(ctx, c.ChannelConfig.CommitterFinalityUnknownTXTimeout()); err != nil {
 					return errors.Wrapf(err, "stopped waiting for finality of [%s], last known status [%s]", txID, driver.StatusName(vd))
 				}
 			}
@@ -661,16 +661,6 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	c.logger.Debugf("Tx [%s] start listening...", txID)
 	// Listen to the event
 	return c.listenTo(ctx, txID, c.ChannelConfig.CommitterWaitForEventTimeout(), lastStatus)
-}
-
-// sleep waits for d, or returns ctx.Err() if ctx is done first.
-func sleep(ctx context.Context, d time.Duration) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(d):
-		return nil
-	}
 }
 
 func (c *Committer) GetProcessNamespace() []string {

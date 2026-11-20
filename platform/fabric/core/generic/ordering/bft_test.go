@@ -618,6 +618,30 @@ func TestBFTBroadcaster_Broadcast_Retries(t *testing.T) {
 	})
 }
 
+// TestBFTBroadcaster_Broadcast_RetryWaitHonorsContext checks that the wait between
+// attempts ends with the context instead of running the full retry interval.
+func TestBFTBroadcaster_Broadcast_RetryWaitHonorsContext(t *testing.T) {
+	t.Parallel()
+	cfg := &fake.ConfigService{
+		PoolSizeValue:      4,
+		RetriesValue:       3,
+		RetryIntervalValue: time.Hour,
+		OrderersValue: []*grpc.ConnectionConfig{
+			{Address: "o1"}, {Address: "o2"}, {Address: "o3"}, {Address: "o4"},
+		},
+	}
+	b := NewBFTBroadcaster(cfg, &fakeRetryServices{shouldFail: func() bool { return true }}, newTestMetrics())
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := b.Broadcast(ctx, &common.Envelope{})
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "connection failed", "the orderers' errors of the last attempt are kept")
+	require.Less(t, time.Since(start), 10*time.Second)
+}
+
 // TestBFTBroadcaster_GetConnection tests connection acquisition
 func TestBFTBroadcaster_GetConnection(t *testing.T) {
 	t.Parallel()

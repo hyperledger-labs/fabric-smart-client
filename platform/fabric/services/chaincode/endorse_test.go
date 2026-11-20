@@ -108,5 +108,7 @@ func TestEndorseView(t *testing.T) {
 		require.Equal(t, 1, mockInv.WithEndorsersFromMyOrgCallCount())
 		require.Equal(t, 1, mockInv.WithNumRetriesCallCount())
 		require.Equal(t, 1, mockInv.WithRetrySleepCallCount())
+		require.Equal(t, 1, mockInv.WithContextCallCount())
+		require.Equal(t, mockCtx.Context(), mockInv.WithContextArgsForCall(0), "the endorsement runs under the view's context")
 	})
 }

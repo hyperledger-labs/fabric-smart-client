@@ -52,9 +52,13 @@ type ChaincodeInvocation interface {
 	// WithNumRetries sets the number of times the chaincode operation should be retried before returning a failure
 	WithNumRetries(numRetries uint) ChaincodeInvocation
 
-	// WithRetrySleep sets the time interval between each retry
+	// WithRetrySleep sets the time interval between each retry. The wait ends early when the
+	// context set with WithContext ends; the operation then fails with an error that wraps
+	// the context's error and the last attempt's error.
 	WithRetrySleep(duration time.Duration) ChaincodeInvocation
 
+	// WithContext sets the context the invocation's calls to the peers and the waits between
+	// retries run under.
 	WithContext(ctx context.Context) ChaincodeInvocation
 }
 

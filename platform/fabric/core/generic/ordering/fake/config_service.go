@@ -19,6 +19,8 @@ type ConfigService struct {
 	PoolSizeValue    int
 	RetriesValue     int
 	NetworkNameValue string
+	// RetryIntervalValue is returned by BroadcastRetryInterval.
+	RetryIntervalValue time.Duration
 }
 
 func (c *ConfigService) SetConfigOrderers(orderers []*grpc.ConnectionConfig) error {
@@ -34,8 +36,8 @@ func (c *ConfigService) BroadcastNumRetries() int {
 	return c.RetriesValue
 }
 
-func (*ConfigService) BroadcastRetryInterval() time.Duration {
-	return 0
+func (c *ConfigService) BroadcastRetryInterval() time.Duration {
+	return c.RetryIntervalValue
 }
 
 func (c *ConfigService) NetworkName() string {
