@@ -367,8 +367,7 @@ func TestNewConnection(t *testing.T) {
 }
 
 // TestNewConnection_FailsFastWhenNothingListens checks that a blocking connection to a
-// closed port fails on the first failed attempt instead of waiting out Timeout, and that an
-// asynchronous one is returned and starts connecting at once.
+// closed port fails on the first failed attempt instead of waiting out Timeout.
 func TestNewConnection_FailsFastWhenNothingListens(t *testing.T) {
 	t.Parallel()
 	l := createListener(t)
@@ -381,6 +380,29 @@ func TestNewConnection_FailsFastWhenNothingListens(t *testing.T) {
 	_, err = client.NewConnection(address)
 	require.ErrorContains(t, err, "connection attempt failed")
 	require.Less(t, time.Since(start), 30*time.Second, "must not wait for Timeout")
+}
+
+// TestNewConnection_FailsFastWhenNameDoesNotResolve checks that a blocking connection to a
+// name that does not resolve fails without waiting out Timeout. The .invalid top-level
+// domain never resolves (RFC 2606).
+func TestNewConnection_FailsFastWhenNameDoesNotResolve(t *testing.T) {
+	t.Parallel()
+	client, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{Timeout: time.Minute})
+	require.NoError(t, err)
+	start := time.Now()
+	_, err = client.NewConnection("peer0.org1.invalid:7051")
+	require.ErrorContains(t, err, "connection attempt failed")
+	require.Less(t, time.Since(start), 30*time.Second, "must not wait for Timeout")
+}
+
+// TestNewConnection_AsyncConnectsAtOnce checks that an asynchronous connection is returned
+// for an address nothing listens on, starts connecting without waiting for an RPC, and keeps
+// the address as its target.
+func TestNewConnection_AsyncConnectsAtOnce(t *testing.T) {
+	t.Parallel()
+	l := createListener(t)
+	address := l.Addr().String()
+	require.NoError(t, l.Close())
 
 	async, err := commongrpc.NewGRPCClient(commongrpc.ClientConfig{Timeout: time.Minute, AsyncConnect: true})
 	require.NoError(t, err)

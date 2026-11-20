@@ -74,9 +74,10 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 	client.dialOpts = append(client.dialOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
 	// set keepalive
 	client.dialOpts = append(client.dialOpts, ClientKeepaliveOptions(config.KeepAliveConfig)...)
-	// Resolve the address on this node, also when a proxy is configured, and ignore any
-	// service config published in DNS: the endpoint configuration alone decides how to connect.
-	client.dialOpts = append(client.dialOpts, grpc.WithLocalDNSResolution(), grpc.WithDisableServiceConfig())
+	// Ignore any service config published in DNS: the endpoint configuration alone decides
+	// how to connect. With a proxy configured, gRPC hands the unresolved address to the
+	// proxy, as grpc.Dial did.
+	client.dialOpts = append(client.dialOpts, grpc.WithDisableServiceConfig())
 	client.timeout = config.Timeout
 	client.asyncConnect = config.AsyncConnect
 	// set send/recv message size, falling back to the package defaults
@@ -176,8 +177,9 @@ func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 // The address is a gRPC target: without a resolver scheme it is a host:port that gRPC resolves
 // through DNS, and the connection's Target is the address unchanged. The connection starts
 // connecting at once. Unless AsyncConnect is set, NewConnection waits up to Timeout for it to
-// become ready and fails, closing it, when Timeout passes or as soon as an attempt fails to
-// dial; a failed TLS handshake is retried until Timeout and the error then carries it.
+// become ready and fails, closing it, when Timeout passes or as soon as the name does not
+// resolve or an attempt fails to dial; the error then says only that the attempt failed. A
+// failed TLS handshake is retried until Timeout and the error then carries it.
 func (client *Client) NewConnection(address string) (*grpc.ClientConn, error) {
 	if len(address) == 0 {
 		return nil, errors.New("address is empty")
@@ -233,9 +235,9 @@ func (client *Client) Close() {
 }
 
 // waitForReady waits until conn is ready, as grpc.Dial did with WithBlock and
-// FailOnNonTempDialError: an idle conn is reconnected, an attempt whose dial failed, such as
-// a refused connection, ends the wait at once, and a failed TLS handshake is retried until
-// ctx ends. grpc does not expose why an attempt failed, so the error carries the last
+// FailOnNonTempDialError: an idle conn is reconnected, an attempt that failed before its
+// handshake, such as a name that does not resolve or a refused connection, ends the wait at
+// once, and a failed TLS handshake is retried until ctx ends. grpc does not expose why an attempt failed, so the error carries the last
 // handshake error that handshakes recorded, if any.
 func waitForReady(ctx context.Context, conn *grpc.ClientConn, handshakes *handshakeRecorder) error {
 	for {

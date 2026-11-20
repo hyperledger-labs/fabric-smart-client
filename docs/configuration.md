@@ -716,9 +716,10 @@ fabric:
     keepalive:
       # ConnectionTimeout: how long to wait when dialling a peer or orderer that does
       # not set its own connectionTimeout. An entry under orderers or peers overrides
-      # this. Dialling fails earlier when the connection itself fails, for example
-      # when it is refused; a failed TLS handshake is retried until the timeout and
-      # then reported with its cause. Format: Go duration string. Default: 10s.
+      # this. Dialling fails earlier, without naming the cause, when the address does
+      # not resolve or the connection is refused; a failed TLS handshake is retried
+      # until the timeout and then reported with its cause.
+      # Format: Go duration string. Default: 10s.
       connectionTimeout: 10s
       # Time: how often the client sends keepalive pings to the server. Zero or omitted
       # disables keepalive; a connection that dies without an error, such as one cut by a

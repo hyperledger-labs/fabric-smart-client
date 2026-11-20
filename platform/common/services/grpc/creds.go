@@ -160,8 +160,9 @@ func (dtc *DynamicClientCredentials) OverrideServerName(name string) error {
 	return nil
 }
 
-// handshakeRecorder records the last error of a client handshake of the credentials it wraps,
-// so that a failed connection can report why its handshake failed.
+// handshakeRecorder records the error of the last client handshake of the credentials it
+// wraps, so that a failed connection can report why its handshake failed. A successful
+// handshake clears it.
 type handshakeRecorder struct {
 	credentials.TransportCredentials
 	last *atomic.Pointer[error]
@@ -171,6 +172,8 @@ func (r *handshakeRecorder) ClientHandshake(ctx context.Context, authority strin
 	conn, info, err := r.TransportCredentials.ClientHandshake(ctx, authority, rawConn)
 	if err != nil {
 		r.last.Store(&err)
+	} else {
+		r.last.Store(nil)
 	}
 	return conn, info, err
 }
@@ -181,7 +184,7 @@ func (r *handshakeRecorder) Clone() credentials.TransportCredentials {
 	return &handshakeRecorder{TransportCredentials: r.TransportCredentials.Clone(), last: r.last}
 }
 
-// lastErr returns the last recorded handshake error, or nil if no handshake failed.
+// lastErr returns the error of the last handshake, or nil if it succeeded or none ran.
 func (r *handshakeRecorder) lastErr() error {
 	if err := r.last.Load(); err != nil {
 		return *err
