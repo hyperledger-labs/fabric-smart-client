@@ -96,12 +96,24 @@ func StartFinality(ii *integration.Infrastructure, node, txID string) <-chan err
 // ExpectSettled waits until node, a node name or a replica ID, reads tx txID as Valid with
 // value and its finality view returns no error.
 func ExpectSettled(ii *integration.Infrastructure, node, txID string, value int) {
-	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) {
-		res, err := Query(ii, node, txID)
+	waitSettled(ii, node, txID, "", value)
+}
+
+// ExpectSettledKey is ExpectSettled for a transaction EndorseKey returned: node reads value
+// in the Asset stored under key.
+func ExpectSettledKey(ii *integration.Infrastructure, node, txID, key string, value int) {
+	waitSettled(ii, node, txID, key, value)
+}
+
+// waitSettled implements ExpectSettled and ExpectSettledKey, reporting a failure at their
+// caller; an empty key reads the Asset stored under txID.
+func waitSettled(ii *integration.Infrastructure, node, txID, key string, value int) {
+	gomega.EventuallyWithOffset(2, func(g gomega.Gomega) {
+		res, err := queryKey(ii, node, txID, key)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(res).To(gomega.Equal(&views.QueryResult{Status: fdriver.Valid, Value: value}))
 	}, RecoveryTimeout, time.Second).Should(gomega.Succeed(), "tx [%s] not settled on [%s]", txID, node)
-	waitFinalOnWithOffset(2, ii, node, txID)
+	waitFinalOnWithOffset(3, ii, node, txID)
 }
 
 // TrySubmit endorses and orders one transaction between alice and bob, like
@@ -172,6 +184,16 @@ func Endorse(ii *integration.Infrastructure, value int) *views.Endorsed {
 func EndorseFrom(ii *integration.Infrastructure, value int, responders ...string) *views.Endorsed {
 	tx := &views.Endorsed{}
 	common.JSONUnmarshal(callView(ii, "alice", "endorse", submit(ii, value, responders...)).([]byte), tx)
+	return tx
+}
+
+// EndorseKey is Endorse for a transaction that writes value to the Asset stored under key;
+// see views.Submit.
+func EndorseKey(ii *integration.Infrastructure, key string, value int) *views.Endorsed {
+	in := submit(ii, value, "bob")
+	in.Key = key
+	tx := &views.Endorsed{}
+	common.JSONUnmarshal(callView(ii, "alice", "endorse", in).([]byte), tx)
 	return tx
 }
 
@@ -280,9 +302,14 @@ func OrderEventually(ii *integration.Infrastructure, tx *views.Endorsed) {
 
 // Query returns what node knows about the transaction txID; see views.QueryView.
 func Query(ii *integration.Infrastructure, node, txID string) (*views.QueryResult, error) {
+	return queryKey(ii, node, txID, "")
+}
+
+// queryKey is Query reading the Asset stored under key, if set; see views.Query.
+func queryKey(ii *integration.Infrastructure, node, txID, key string) (*views.QueryResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
 	defer cancel()
-	raw, err := ii.Client(node).CallViewWithContext(ctx, "query", common.JSONMarshall(&views.Query{TxID: txID}))
+	raw, err := ii.Client(node).CallViewWithContext(ctx, "query", common.JSONMarshall(&views.Query{TxID: txID, Key: key}))
 	if err != nil {
 		return nil, err
 	}
@@ -302,8 +329,8 @@ func LedgerOf(ii *integration.Infrastructure, node, txID, unknownTxID string) *c
 }
 
 // MetricSum returns the sum of every series of the counter or gauge family name on
-// node's metrics endpoint; zero if the node exports none, as it does for a counter
-// never incremented.
+// node's metrics endpoint, or for a histogram the number of observations; zero if the
+// node exports none, as it does for a counter never incremented.
 func MetricSum(ii *integration.Infrastructure, node, name string) float64 {
 	families, err := ii.WebClient(node).Metrics()
 	gomega.ExpectWithOffset(1, err).NotTo(gomega.HaveOccurred())
@@ -311,12 +338,12 @@ func MetricSum(ii *integration.Infrastructure, node, name string) float64 {
 }
 
 // sumFamily returns the sum of every series of the counter or gauge family name in
-// families; zero if families has none.
+// families, or for a histogram the number of observations; zero if families has none.
 func sumFamily(families map[string]*dto.MetricFamily, name string) float64 {
 	var sum float64
 	for _, m := range families[name].GetMetric() {
-		// A family holds one metric type; the getter of the other returns zero.
-		sum += m.GetCounter().GetValue() + m.GetGauge().GetValue()
+		// A family holds one metric type; the getters of the others return zero.
+		sum += m.GetCounter().GetValue() + m.GetGauge().GetValue() + float64(m.GetHistogram().GetSampleCount())
 	}
 	return sum
 }

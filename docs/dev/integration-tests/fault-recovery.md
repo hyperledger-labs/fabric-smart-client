@@ -178,6 +178,7 @@ default targets exclude, so neither target outlasts CI's per-job limit.
 | `WaitFinal` / `WaitFinalOn`                         | the waiting alone, on both nodes / on one node or replica                                                                                                                                                                                                                                                       |
 | `Endorse` / `Order`                                 | split one transaction in two, so a spec can stop or kill a node after it has endorsed and before the transaction is ordered                                                                                                                                                                                     |
 | `EndorseFrom` / `TryEndorseFrom`                    | alice collects from other responders, in turn; `TryEndorseFrom` returns the endorse view's error, so a spec can expect it to fail                                                                                                                                                                               |
+| `EndorseKey`                                        | `Endorse` for a transaction that writes a value to a given key rather than to one of its own, so several transactions can write the same key                                                                                                                                                                    |
 | `Broadcast`                                         | runs alice's `broadcast` view, which orders a transaction without waiting for finality, so a spec can kill alice in between                                                                                                                                                                                     |
 | `TrySubmitTo`                                       | `TrySubmit` with given responders; the load spec runs workers that loop it, stops them before the kill, so each loses at most the call in flight, and restarts them once the responder endorses again                                                                                                           |
 | `OrderEventually`                                   | retries `Order` while the orderers reject broadcasts, for example during a raft leader election                                                                                                                                                                                                                 |
@@ -187,10 +188,10 @@ default targets exclude, so neither target outlasts CI's per-job limit.
 | `EchoTo` / `BlockedEcho` / `BlockedEchoWithContext` | echo to a given responder; `BlockedEcho` starts a blocking echo and returns once the responder blocks on a given node or replica; `BlockedEchoWithContext` ends its call with a context the spec controls                                                                                                       |
 | `EchoToLabel`                                       | echo to a responder that alice names by a label, a node name or alias, and resolves through her own endpoint service, not by the identity the platform recorded at startup                                                                                                                                      |
 | `AwaitEcho`                                         | bob's responder waits for a second message that never comes, so a spec can kill alice mid-view                                                                                                                                                                                                                  |
-| `MetricSum`                                         | reads a counter or gauge from a node's metrics, such as `ViewContexts` or `Sessions`                                                                                                                                                                                                                            |
+| `MetricSum`                                         | reads a counter or gauge from a node's metrics, such as `ViewContexts` or `Sessions`, or the number of observations of a histogram                                                                                                                                                                              |
 | `StartFinality`                                     | starts a node's or replica's finality view for a transaction and returns the channel its result arrives on, so a spec can start it before the transaction is ordered                                                                                                                                            |
 | `ExpectConnectionInUse`                             | waits until a connection of a node or replica holds a state on the one endpoint it uses and has given up every other, and returns that endpoint; a node's delivery reports each peer it has used as a series of its own, so `EventuallyConnectionState`, which needs every series in the state, does not fit it |
-| `Query` / `ExpectSettled`                           | a node's status for a transaction and the value it wrote / wait until a node reads a transaction as valid with a given value and reports it final                                                                                                                                                               |
+| `Query` / `ExpectSettled` / `ExpectSettledKey`      | a node's status for a transaction and the value it wrote / wait until a node reads a transaction as valid with a given value and reports it final; `ExpectSettledKey` reads the value of the key an `EndorseKey` transaction wrote                                                                              |
 | `SetCommitRetries` / `SetFinalityWaitTimeout`       | Fabric suite: shorten a node's commit retry budget before the network starts / how long `IsFinal` waits for a transaction that is not final; call them in the generator of a `Describe` of its own, since they apply to every spec that shares that generator                                                   |
 
 On Chaguar a node's vault is the committer's query service, so `Query` answers
@@ -333,6 +334,24 @@ the committer's query service on Chaguar
 The spec watches that finality view rather than bob's responder: the responder
 runs in the context of alice's session, which ends right after bob endorses, so
 its own wait for finality is cancelled.
+
+The Fabric suite's "keeps a key's latest value when a replica commits a block
+late" cuts the same replica
+([#2545](https://github.com/hyperledger-labs/fabric-smart-client/issues/2545)).
+The cut replica endorses a transaction `x` on one key and reads it as Busy, and
+only the other replica commits it. Alice then closes her connection until the
+load balancer hands her the other replica, which endorses and commits a later
+transaction `y` on the same key, so the cut replica never reads `y`'s status. A
+replica that saw `y` as Busy would commit `y` again after `x` and so put the key
+right again. A replica of bob has to endorse `y` at all, since the SDK of this
+suite makes bob commit only the transactions he endorsed. After the heal, the
+cut replica commits the blocks of `x` and `y`, and must skip `x`, which the
+shared vault holds as Valid. The spec waits on the replica's `block_commit`
+histogram until it has committed `x`'s block, then expects the key to hold
+`y`'s value on both replicas. A later transaction on the key would not show a
+key set back: alice, the initiator, reads the key from her own vault when she
+builds the read-write set, and the other replica's commit of that transaction
+would overwrite the stale value.
 
 ## Connection state
 

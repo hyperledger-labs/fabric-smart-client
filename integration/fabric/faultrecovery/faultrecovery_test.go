@@ -41,6 +41,9 @@ const (
 
 	commitRetries  = "fsc_fabric_core_generic_committer_commit_retries"
 	commitFailures = "fsc_fabric_core_generic_committer_commit_failures"
+	// blockCommits is a histogram, so faultrecovery.MetricSum returns the number of blocks
+	// a node's committer has committed.
+	blockCommits = "fsc_fabric_core_generic_committer_block_commit"
 
 	// postgresOutage labels the long Postgres outage specs, which run in a target of
 	// their own.
@@ -277,6 +280,60 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 	})
 
 	faultrecovery.FailoverSpecs(s, delivery, func() faultrecovery.ReplicaProxies { return deliveryProxies })
+
+	// Guards #2545: a replica whose delivery lags behind commits a block after the other
+	// replica committed it and a later block that writes the same key, and must not set the
+	// key back. The lagging replica reads the first tx as Busy and never reads the later one:
+	// a replica that saw the later tx as Busy would commit it again too, and so put the key
+	// right again.
+	It("keeps a key's latest value when a replica commits a block late", func() {
+		const key = "late-commit"
+		// The first tx opens alice's connection, which ConnectedReplica looks for.
+		created := faultrecovery.Order(s.II, faultrecovery.EndorseKey(s.II, key, 0))
+		held, others := faultrecovery.ConnectedReplica(s.II, "bob")
+		Expect(others).To(HaveLen(1))
+		other := others[0]
+		faultrecovery.ExpectSettledKey(s.II, other.ID(), created, key, 0)
+
+		DeferCleanup(deliveryProxies.Heal, held.UniqueName)
+		deliveryProxies.Cut(held.UniqueName)
+		faultrecovery.ExpectConnectionInUse(s.II, held.ID(), delivery, connstate.Reconnecting, time.Minute)
+		blocks := faultrecovery.MetricSum(s.II, held.ID(), blockCommits)
+
+		// held endorses x and reads it as Busy, then only the other replica commits it.
+		x := faultrecovery.EndorseKey(s.II, key, 1)
+		res, err := faultrecovery.Query(s.II, held.ID(), x.TxID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Status).To(Equal(fdriver.Busy))
+		faultrecovery.Order(s.II, x)
+		faultrecovery.ExpectSettledKey(s.II, other.ID(), x.TxID, key, 1)
+
+		// The other replica endorses and commits y, so held never reads y's status. A replica
+		// of bob has to endorse y: the suite's SDK makes bob commit only the txs he endorsed.
+		Eventually(func(g Gomega) {
+			lb := s.II.FscPlatform.LoadBalancer("bob")
+			lb.CloseConnections()
+			g.Expect(faultrecovery.Echo(s.II, false)).To(Succeed())
+			g.Expect(lb.Connections()).To(SatisfyAll(
+				HaveLen(1),
+				HaveKey(s.II.FscPlatform.PeerAddress(other, fsc.P2PPort)),
+			))
+		}, time.Minute, time.Second).Should(Succeed(), "alice's connection never reached [%s]", other.UniqueName)
+		y := faultrecovery.Order(s.II, faultrecovery.EndorseKey(s.II, key, 2))
+		faultrecovery.ExpectSettledKey(s.II, other.ID(), y, key, 2)
+
+		// held catches up and must skip x, which the shared vault holds as Valid. After the cut
+		// it commits at least the block its stream restarts at, x's and y's, in that order, so
+		// its third commit after the cut is x's or a later one.
+		deliveryProxies.Heal(held.UniqueName)
+		faultrecovery.ExpectConnectionInUse(s.II, held.ID(), delivery, connstate.Connected, time.Minute)
+		Eventually(func() float64 {
+			return faultrecovery.MetricSum(s.II, held.ID(), blockCommits)
+		}, faultrecovery.RecoveryTimeout, time.Second).Should(BeNumerically(">=", blocks+3))
+		for _, r := range []string{held.ID(), other.ID()} {
+			faultrecovery.ExpectSettledKey(s.II, r, y, key, 2)
+		}
+	})
 
 	// Both replicas migrate the shared database at once; the migration lock lets one run
 	// each step while the other waits (TestPostgresMigrate covers that each step runs once).
