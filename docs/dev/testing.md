@@ -111,6 +111,15 @@ Mocks are generated with
 `tools/tools.go`). Regenerate with `make generate-mocks` after changing a mocked
 interface. See [Mocks](mocks.md).
 
+### Fake commands
+
+Tests of shell scripts, such as `scripts/release/releasesh_test.go`, put fake
+executables ahead of the real ones on `PATH`. A fake that a caller writes to,
+like the `gpg` that `git commit -S` pipes the commit to, reads all of its stdin
+before it exits, for example with `cat >/dev/null`. If it exits first, the
+caller's write can fail with a broken pipe. Whether it does depends on the input
+size and on timing, so the test fails only some of the time.
+
 ### Shared test helpers
 
 Helpers that other packages import cannot live in a `_test.go` file, so

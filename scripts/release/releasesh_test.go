@@ -50,8 +50,9 @@ case "$*" in
 esac`,
 	"docker": `[[ -z "${FAKE_NO_DOCKER:-}" ]]`,
 	"make":   `echo "make $*" >> "$FAKE_LOG"`,
-	// git commit -S: the status line git looks for from a signer.
-	"gpg": `echo "[GNUPG:] SIG_CREATED " >&2; echo signature`,
+	// git commit -S: the status line git looks for from a signer. It reads the payload
+	// first: git fails the commit if gpg exits before git has written all of it.
+	"gpg": `cat >/dev/null; echo "[GNUPG:] SIG_CREATED " >&2; echo signature`,
 }
 
 // releaseFixture is a repository like FSC's as far as scripts/release.sh can tell, with
@@ -107,6 +108,7 @@ func newReleaseFixture(t *testing.T) *releaseFixture {
 		"RELEASE_REPO_URL=upstream\\.git$",
 		"YES=1",
 		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_NOSYSTEM=1",
 	)
 	return f
 }
@@ -762,4 +764,21 @@ func makeTargets(t *testing.T) string {
 	}
 	require.NotEmpty(t, targets)
 	return strings.Join(targets, "")
+}
+
+// TestFakeGPGReadsPayload signs a commit through the fake gpg with a message larger than a
+// pipe buffer: a fake that exits before reading the payload makes git fail writing it. The
+// commit carries the fake's signature, so the fake signed it, not a signer from git config.
+func TestFakeGPGReadsPayload(t *testing.T) {
+	t.Parallel()
+	f := newReleaseFixture(t)
+	cmd := exec.Command("git", "commit", "-q", "-S", "--allow-empty", "-F", "-")
+	cmd.Dir = f.dir
+	cmd.Env = f.env
+	cmd.Stdin = strings.NewReader(strings.Repeat("x", 1<<20))
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	commit, err := exec.Command("git", "-C", f.dir, "cat-file", "commit", "HEAD").Output()
+	require.NoError(t, err)
+	require.Contains(t, string(commit), "\ngpgsig signature\n", "signed by the fake gpg")
 }
