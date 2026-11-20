@@ -25,6 +25,9 @@ type networkNode interface {
 	Address() string
 }
 
+// SessionTwoParties starts the first two nodes of network and has each send 1000 messages to
+// the other on a responder session, checking that every message arrives intact. It fails on
+// the first failed send or read.
 func SessionTwoParties(t *testing.T, network ...networkNode) {
 	t.Helper()
 	ctx := t.Context()
@@ -44,7 +47,10 @@ func SessionTwoParties(t *testing.T, network ...networkNode) {
 	conn10, err := NewConn(ctx, 1, session10)
 	require.NoError(t, err)
 
-	num := 10000
+	// The senders do not wait for the receivers, so a session must hold every unread message. A
+	// session closes when its queue of unread messages, 2048 long by default, overflows, and a
+	// receiver can fall that far behind under the race detector on a loaded machine.
+	num := 1000
 	payload1 := []byte("Message in a bottle")
 	payload2 := []byte("bottle in a message")
 
@@ -54,9 +60,17 @@ func SessionTwoParties(t *testing.T, network ...networkNode) {
 	wg.Go(func() { receive(conn10, num, payload1, errCh) })
 	wg.Go(func() { send(conn10, num, payload2, errCh) })
 	wg.Go(func() { receive(conn01, num, payload2, errCh) })
-	wg.Wait()
-	close(errCh)
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
 
+	// Fail on the first error: after a failed send, a receiver waits for a message that never
+	// comes, and the test would only end at the test timeout, without the error.
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-done:
+	}
+	close(errCh)
 	for err := range errCh {
 		require.NoError(t, err)
 	}
