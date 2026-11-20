@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -251,4 +252,29 @@ func TestSessionCloseDeadlockPrevention(t *testing.T) { //nolint:paralleltest //
 	case <-time.After(5 * time.Second):
 		t.Fatal("TIMED OUT: sess.Close() hung because consumer is not reading!")
 	}
+}
+
+// TestMsgConnWriteFailureDoesNotRace checks that a failed write on a message connection
+// names the session without reading its fields while the dispatcher updates them.
+func TestMsgConnWriteFailureDoesNotRace(t *testing.T) {
+	t.Parallel()
+	closed := make(chan struct{})
+	close(closed)
+	session := &NetworkStreamSession{sessionID: "session-1", closed: closed}
+	conn, err := io.NewMsgConn(t.Context(), 0, session)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	wg.Go(func() {
+		// like dispatchMessages, which updates an open session's caller under its mutex
+		session.mutex.Lock()
+		session.callerViewID = "caller"
+		session.mutex.Unlock()
+	})
+
+	n, err := conn.Write([]byte("payload"))
+	require.ErrorIs(t, err, ErrSessionClosed)
+	require.ErrorContains(t, err, "session-1")
+	require.Zero(t, n)
 }

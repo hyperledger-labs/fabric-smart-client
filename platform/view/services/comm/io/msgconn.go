@@ -30,6 +30,8 @@ type commSCCMsgConn struct {
 	readCounter  uint64
 }
 
+// NewMsgConn returns a MsgConn that writes each message with session.Send and reads the
+// payloads of the messages session receives. A nil ctx is replaced by context.Background.
 func NewMsgConn(ctx context.Context, index int, session view.Session) (MsgConn, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -49,14 +51,14 @@ func NewMsgConn(ctx context.Context, index int, session view.Session) (MsgConn, 
 
 func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 	if logger.IsEnabledFor(logging.DebugLevel) {
-		logger.Debugf("[commSCCMsgConn] Write [%d][%s]\n", len(data), logging.SHA256Base64(data))
+		logger.Debugf("[commSCCMsgConn] Write [%d][%s]", len(data), logging.SHA256Base64(data))
 	}
 
 	c.writeCounter++
-	err = c.session.Send(c.ctx, data)
-	if err != nil {
-		errMsg := errors.Errorf("failed sending message to [%s]: [%s]", c.session, err)
-		return 0, errMsg
+	if err := c.session.Send(c.ctx, data); err != nil {
+		// Info copies the fields under the session's lock; formatting the session itself would
+		// read them while the node updates them.
+		return 0, errors.Wrapf(err, "failed sending message on session [%s]", c.session.Info().ID)
 	}
 
 	return len(data), nil
@@ -79,13 +81,11 @@ func (c *commSCCMsgConn) Read() ([]byte, error) {
 	}
 
 	if len(msg.Payload) == 0 {
-		logger.Errorf("failed receiving message [%s][%s]", "", "")
-		errMsg := errors.Errorf("failed receiving message [%s][%s]", "", "")
-		return nil, errMsg
+		return nil, errors.New("received empty payload")
 	}
 
 	if logger.IsEnabledFor(logging.DebugLevel) {
-		logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), logging.SHA256Base64(msg.Payload))
+		logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]", c.readCounter, len(msg.Payload), logging.SHA256Base64(msg.Payload))
 	}
 	return msg.Payload, nil
 }
