@@ -29,8 +29,9 @@ const Namespace = "faultrecovery"
 // FinalityTimeout bounds how long each party waits for a transaction to become final.
 const FinalityTimeout = time.Minute
 
-// Asset is the state each transaction creates. It is stored under the ID of the
-// transaction that creates it, so a spec can look it up by transaction ID.
+// Asset is the state each transaction writes. It is stored under the ID of the
+// transaction that creates it, so a spec can look it up by transaction ID, or under the
+// Key of a Submit.
 type Asset struct {
 	ID    string
 	Value int
@@ -43,6 +44,8 @@ func (a *Asset) GetLinearID() (string, error) { return a.ID, nil }
 type Submit struct {
 	// Value is stored in the created Asset.
 	Value int
+	// Key, if set, is the ID of the Asset the transaction writes instead of its own ID.
+	Key string
 	// Responders are the FSC nodes that endorse the transaction after the initiator; the
 	// initiator collects an endorsement from each.
 	Responders []view.Identity
@@ -69,7 +72,11 @@ func (v *EndorseView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 	tx.SetNamespace(Namespace)
-	if err := tx.AddOutput(&Asset{ID: tx.ID(), Value: v.Value}); err != nil {
+	id := tx.ID()
+	if v.Key != "" {
+		id = v.Key
+	}
+	if err := tx.AddOutput(&Asset{ID: id, Value: v.Value}); err != nil {
 		return nil, err
 	}
 
@@ -173,14 +180,16 @@ func (*ResponderView) Call(viewCtx view.Context) (any, error) {
 // Query is the input of QueryView.
 type Query struct {
 	TxID string
+	// Key, if set, is the ID of the Asset to read instead of TxID.
+	Key string
 }
 
 // QueryResult is what QueryView returns.
 type QueryResult struct {
 	// Status is the node's validation code for the transaction, a fabric driver.ValidationCode.
 	Status int
-	// Value is the value of the Asset the transaction created. It is set only when
-	// Status is Valid.
+	// Value is the value of the Asset the transaction created, or of the Asset stored under
+	// the Query's Key. It is set only when Status is Valid.
 	Value int
 }
 
@@ -210,16 +219,20 @@ func (v *QueryView) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.WithMessage(err, "failed getting query executor")
 	}
 	defer func() { _ = qe.Done() }()
-	read, err := qe.GetState(viewCtx.Context(), Namespace, v.TxID)
+	id := v.TxID
+	if v.Key != "" {
+		id = v.Key
+	}
+	read, err := qe.GetState(viewCtx.Context(), Namespace, id)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed reading the asset of [%s]", v.TxID)
+		return nil, errors.WithMessagef(err, "failed reading the asset [%s]", id)
 	}
 	if read == nil || len(read.Raw) == 0 {
-		return nil, errors.Errorf("tx [%s] is valid, but its asset is missing", v.TxID)
+		return nil, errors.Errorf("tx [%s] is valid, but the asset [%s] is missing", v.TxID, id)
 	}
 	asset := &Asset{}
 	if err := json.Unmarshal(read.Raw, asset); err != nil {
-		return nil, errors.WithMessagef(err, "failed decoding the asset of [%s]", v.TxID)
+		return nil, errors.WithMessagef(err, "failed decoding the asset [%s]", id)
 	}
 	res.Value = asset.Value
 	return res, nil
