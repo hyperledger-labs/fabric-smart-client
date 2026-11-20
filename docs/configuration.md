@@ -1033,6 +1033,12 @@ attributes; and the caller of the log method as the record's PC. The
 `*Context` methods also record the message as an event on the span in the
 context, whatever the handler.
 
+The handler also gets the lines of gRPC and of the libraries that log through
+Fabric's `flogging`, such as the MSP, BCCSP and policy packages, under the same
+two filters. These lines have no context fields and no stack trace, and they
+lack the fields a library adds to its logger with `With`. zap's levels above
+Error arrive as `ERROR+4` (DPanic), `ERROR+8` (Panic) and `ERROR+12` (Fatal).
+
 The application can route its own `slog` lines through `logging.spec` and the
 same handler, under a logger name of its choice:
 
