@@ -16,7 +16,7 @@ const (
 
 // RWSet models a namespaced versioned read-write set
 type RWSet interface {
-	// IsValid returns true if this rwset is valid.
+	// IsValid returns nil if this rwset is valid, and an error saying why otherwise.
 	// A rwset is valid if:
 	// 1. It exists in the vault as valid
 	// 2. All the read dependencies are satisfied by the vault
