@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -183,6 +184,20 @@ func TestTransactionFrom(t *testing.T) {
 			tc.assert(t, dst)
 		})
 	}
+}
+
+// TestTransactionFromKeepsContext checks that From does not replace the receiver's
+// context, which later vault and metadata calls run under.
+func TestTransactionFromKeepsContext(t *testing.T) {
+	t.Parallel()
+
+	type key struct{}
+	ctx := context.WithValue(t.Context(), key{}, "caller")
+	dst := &Transaction{ctx: ctx}
+	require.NoError(t, dst.From(&Transaction{TTxID: "tx1", ctx: t.Context()}))
+
+	require.Equal(t, "tx1", dst.ID())
+	require.Equal(t, "caller", dst.ctx.Value(key{}))
 }
 
 func TestTransactionSetProposal(t *testing.T) {
