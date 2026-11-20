@@ -17,6 +17,10 @@ finished:
   `platform/fabricx/core/committer/config`).
 - A schema change is a new `migrate.Step`; a released step is never edited,
   reordered or removed.
+- A new step that rewrites or deletes rows of a table that grows without bound
+  comes with a Postgres benchmark over one million rows. Above 30 seconds it
+  needs batches, which `migrate.Step` does not offer
+  ([Rewriting a large table](../platform/view/services/schema-versioning.md#rewriting-a-large-table)).
 - A proto change only adds fields; run `make buf-breaking`.
 - `make checks` passes.
 - Changed Markdown passes `make docs-lint`. Wrap new and edited paragraphs at 80

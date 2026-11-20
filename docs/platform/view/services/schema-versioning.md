@@ -62,8 +62,8 @@ before, a node does not run a contract step at startup, only
 ships the step serves the store both before and after it and must not depend on
 the step having run. A new store runs every step at startup. `StoreName` must be
 the store's primary table: a store without a version row whose table exists
-counts as existing. The step runs in one transaction, which on a large table
-holds its locks for the whole rewrite.
+counts as existing. The step runs in one transaction; see
+[Rewriting a large table](#rewriting-a-large-table) for what that costs.
 
 Once a release no longer needs to serve the store before the step, for example
 to drop the code that writes the old form, set `Required: true` on the step in
@@ -163,3 +163,40 @@ To have `node migrate` reach the store and `node version --json` report its
 steps, see
 [Reaching stores from `node migrate`](db-driver.md#reaching-stores-from-node-migrate)
 and [Reporting store schemas](db-driver.md#reporting-store-schemas).
+
+## Rewriting a large table
+
+Every step runs in one transaction, however many rows it touches. A step that
+only changes the schema, such as `CREATE TABLE`, `ADD COLUMN` or `DROP COLUMN`,
+is quick on a table of any size. A step that rewrites or deletes rows takes time
+in proportion to the table, and until it commits:
+
+- on Postgres, it holds the lock of every row it wrote, so a replica that writes
+  one of those rows waits;
+- on SQLite, it holds the database's write lock, so every other writer of the
+  file waits, up to its `busy_timeout`;
+- a contract step also holds its lock on the prefix's openers table, so no node
+  opens any store under the prefix;
+- a crash, or a `transaction_timeout` (Postgres 17 and later) shorter than the
+  step, rolls back the whole rewrite, and the next run starts from the first
+  row; `statement_timeout` and `lock_timeout` bound each statement and each lock
+  wait, not the step;
+- on Postgres, vacuum cannot reclaim the old row versions, so the table grows by
+  up to the size of the rewritten rows.
+
+This matters most for a contract step, which `node migrate --contract` runs
+while replicas of the store keep working, and for any step on a database that
+replicas share. A step needs to be split into batches, each in its own
+transaction, when all of these hold:
+
+1. it rewrites or deletes rows, through `Go` or an `UPDATE` or `DELETE` over the
+   table;
+2. its table grows without bound, with the ledger or with traffic: the vault's
+   state and status tables, the endorse-tx store, the KVS, or an application
+   table that grows the same way;
+3. it runs longer than 30 seconds on Postgres over a table of one million rows.
+   Measure this with a benchmark in the change that adds the step.
+
+`migrate.Step` has no batched form. A step that meets all three conditions
+needs one first; see
+[issue #2483](https://github.com/hyperledger-labs/fabric-smart-client/issues/2483).
