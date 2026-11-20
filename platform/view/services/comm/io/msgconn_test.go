@@ -75,9 +75,8 @@ func TestMsgConn_Write(t *testing.T) {
 		require.NoError(t, err)
 
 		n, err := conn.Write([]byte("test"))
-		require.Error(t, err)
 		require.Equal(t, 0, n)
-		require.Contains(t, err.Error(), "failed sending message")
+		require.ErrorIs(t, err, assert.AnError)
 	})
 
 	t.Run("multiple writes", func(t *testing.T) {
@@ -223,9 +222,8 @@ func TestMsgConn_Read(t *testing.T) {
 		}
 
 		data, err := conn.Read()
-		require.Error(t, err)
 		require.Nil(t, data)
-		require.Contains(t, err.Error(), "failed receiving message")
+		require.ErrorContains(t, err, "received empty payload")
 	})
 }
 
