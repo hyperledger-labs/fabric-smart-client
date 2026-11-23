@@ -41,7 +41,10 @@ func init() { current.Store(defaultBackend) }
 // With a handler set, logging.format and Config.Writer are ignored; logging.spec and
 // logging.otel.sanitize still apply. A line reaches h only if logging.spec enables it
 // for the logger's name and h.Enabled reports true, so to let h alone decide, set
-// logging.spec to debug. The handler receives the logger name as the attribute "logger".
+// logging.spec to debug. The handler receives the logger name as the attribute "logger",
+// and the trace and span IDs of a context-aware line as the attributes trace_id and
+// span_id (see [Logger]). A handler that reads them from the context as well, such as
+// OpenTelemetry's otelslog, writes them twice.
 //
 // h also receives the lines of the libraries that log through Fabric's flogging, such
 // as the Fabric MSP and BCCSP packages, and of gRPC, under the same two filters. Such a

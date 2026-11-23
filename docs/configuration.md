@@ -470,7 +470,9 @@ fsc:
   # ------------------- Tracing Configuration -------------------------
   tracing:
     # Type of provider to be used: none (default), file, otlp, console.
-    # Values are case-insensitive; any other value is a startup error.
+    # Values are case-insensitive; any other value is a startup error. With none, nothing
+    # is exported, but a request that starts on this node still gets a trace ID for
+    # the log lines.
     provider: otlp
     # Tracer configuration when provider == 'file'
     file:
@@ -500,9 +502,11 @@ fsc:
         # if the collector's certificate does not cover the address being dialled
         serverNameOverride: ""
     sampling:
-      # Fraction of root spans to sample, in [0, 1]. Defaults to 1 (sample every trace)
-      # when unset. Spans continuing a remote trace follow the caller's sampling decision,
-      # so 0 records only traces that were sampled upstream.
+      # Fraction of traces to sample, in [0, 1], decided from the trace ID, so nodes with
+      # the same ratio decide alike. Defaults to 1 (sample every trace) when unset. A span
+      # continuing a trace the caller sampled is sampled; one continuing a trace the caller
+      # didn't, as from a node with tracing off, is sampled by the ratio. So 0 records only
+      # traces that were sampled upstream.
       ratio: 0.8
 
   # ------------------- Metrics Configuration -------------------------
@@ -1011,6 +1015,33 @@ fabric:
         addresses:
 ```
 
+## Trace IDs in log lines
+
+When a `*Context` method such as `InfofContext` writes a line and its context
+carries a span, the line has the fields `trace_id` and `span_id`. These are the
+names the OpenTelemetry specification uses for log formats other than OTLP:
+
+```text
+2026-11-23 10:15:04.123 UTC [fsc.platform.view.services.view] RunView -> INFO 01a view started trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7
+```
+
+A trace ID names one request, a view and the sessions it opens, on every node it
+reaches over the websocket comm driver: to collect the lines that led to an
+error, search all nodes for the error line's `trace_id`. A node with
+`fsc.tracing.provider` set to `none` writes the IDs too, but exports no spans.
+Its lines carry the span ID of the caller's span when a request comes from
+another node, and the ID of a span it started itself, which no backend has,
+otherwise. A trace that passes through such a node stays connected in Tempo or
+Jaeger.
+
+Lines without a context, and the lines of gRPC and of the libraries that log
+through `flogging`, have no IDs. The libp2p comm driver doesn't send the span
+to the other node: there, a responder's lines have a trace ID of their own.
+
+In Grafana, a derived field on the Loki data source turns the trace ID into a
+link to the trace. Its regular expression is `trace_id=(\w+)` for a pattern
+format, and `"trace_id":"(\w+)"` with `logging.format: json`.
+
 ## Logging through the application's handler
 
 A node writes its log lines in `logging.format` to standard error, or to the
@@ -1039,9 +1070,12 @@ dropped a missing line.
 
 The handler gets the logger name as the attribute `logger`; the fields of
 `With`, of the `*w` methods and of `logging.RegisterContextLogField` as
-attributes; and the caller of the log method as the record's PC. The
-`*Context` methods also record the message as an event on the span in the
-context, whatever the handler.
+attributes; the `trace_id` and `span_id` of a `*Context` line (see
+[Trace IDs in log lines](#trace-ids-in-log-lines)) as attributes; and the caller
+of the log method as the record's PC. A handler that reads the span from the
+context itself, such as `otelslog`, writes these IDs twice. The `*Context`
+methods also record the message as an event on the span in the context,
+whatever the handler.
 
 The handler also gets the lines of gRPC and of the libraries that log through
 Fabric's `flogging`, such as the MSP, BCCSP and policy packages, under the same

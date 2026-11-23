@@ -7,26 +7,82 @@ SPDX-License-Identifier: Apache-2.0
 package tracing_test
 
 import (
+	"context"
 	"math"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
-func TestNewProviderFromConfig_Disabled(t *testing.T) {
-	t.Parallel()
-
+// TestNewProviderFromConfig_Disabled checks that with tracing off, a root span has IDs
+// but is neither sampled nor recorded, a span with a parent is the parent's span, as with
+// a noop provider, unless it asks for a new root, and the OpenTelemetry globals are left
+// alone.
+func TestNewProviderFromConfig_Disabled(t *testing.T) { //nolint:paralleltest // reads the OpenTelemetry globals, which other tests set
+	tp, prop := otel.GetTracerProvider(), otel.GetTextMapPropagator()
 	for _, provider := range []tracing.TracerType{"", tracing.None, "NONE"} {
 		p, err := tracing.NewProviderFromConfig(tracing.Config{Provider: provider})
 		require.NoError(t, err)
-		require.IsType(t, noop.TracerProvider{}, p, "provider [%s]", provider)
+		tracer := p.Tracer("test")
+
+		ctx, root := tracer.Start(t.Context(), "root")
+		require.True(t, root.SpanContext().IsValid(), "provider [%s]", provider)
+		require.False(t, root.SpanContext().IsSampled(), "provider [%s]", provider)
+		require.False(t, root.IsRecording(), "provider [%s]", provider)
+		_, child := tracer.Start(ctx, "child")
+		require.Equal(t, root.SpanContext(), child.SpanContext(), "provider [%s]", provider)
+		_, newRoot := tracer.Start(ctx, "new root", trace.WithNewRoot())
+		require.True(t, newRoot.SpanContext().IsValid(), "provider [%s]", provider)
+		require.NotEqual(t, root.SpanContext().TraceID(), newRoot.SpanContext().TraceID(), "provider [%s]", provider)
+
+		parent := remoteParent(trace.FlagsSampled)
+		_, child = tracer.Start(trace.ContextWithRemoteSpanContext(t.Context(), parent), "child")
+		require.Equal(t, parent, child.SpanContext(), "provider [%s]", provider)
+		require.False(t, child.IsRecording(), "provider [%s]", provider)
 	}
+	require.Equal(t, tp, otel.GetTracerProvider(), "global tracer provider changed")
+	require.Equal(t, prop, otel.GetTextMapPropagator(), "global propagator changed")
+}
+
+// TestNewProviderFromConfig_RemoteParent checks that with tracing on, a span continuing a
+// sampled remote trace is sampled, and one continuing an unsampled remote trace, as a
+// tracing-off node starts, is sampled by the ratio.
+func TestNewProviderFromConfig_RemoteParent(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		ratio   float64
+		flags   trace.TraceFlags
+		sampled bool
+	}{
+		"sampled parent, ratio 0":   {ratio: 0, flags: trace.FlagsSampled, sampled: true},
+		"unsampled parent, ratio 0": {ratio: 0, sampled: false},
+		"unsampled parent, ratio 1": {ratio: 1, sampled: true},
+		"sampled parent, ratio 1":   {ratio: 1, flags: trace.FlagsSampled, sampled: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p, err := tracing.NewProviderFromConfig(tracing.Config{Provider: tracing.Console, Sampling: tracing.SamplingConfig{Ratio: tc.ratio}})
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, p.(*sdktrace.TracerProvider).Shutdown(context.Background())) })
+			_, span := p.Tracer("test").Start(trace.ContextWithRemoteSpanContext(t.Context(), remoteParent(tc.flags)), "child")
+			defer span.End()
+			require.Equal(t, tc.sampled, span.SpanContext().IsSampled())
+		})
+	}
+}
+
+func remoteParent(flags trace.TraceFlags) trace.SpanContext {
+	return trace.NewSpanContext(trace.SpanContextConfig{TraceID: trace.TraceID{1}, SpanID: trace.SpanID{2}, TraceFlags: flags, Remote: true})
 }
 
 func TestNewProviderFromConfig_RatioOutOfRange(t *testing.T) {

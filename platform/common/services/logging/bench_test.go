@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -222,5 +223,25 @@ func BenchmarkInfof_Enabled(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		l.Infof("x %s %d", s, n)
+	}
+}
+
+func BenchmarkInfofContext_Enabled(b *testing.B) {
+	l := benchNodeLogger(b, "info")
+	ctx := b.Context()
+	s, n := "x", 7
+	b.ReportAllocs()
+	for b.Loop() {
+		l.InfofContext(ctx, "x %s %d", s, n)
+	}
+}
+
+func BenchmarkInfofContext_Enabled_SpanContext(b *testing.B) {
+	l := benchNodeLogger(b, "info")
+	ctx := trace.ContextWithSpanContext(b.Context(), goldenSpan)
+	s, n := "x", 7
+	b.ReportAllocs()
+	for b.Loop() {
+		l.InfofContext(ctx, "x %s %d", s, n)
 	}
 }
