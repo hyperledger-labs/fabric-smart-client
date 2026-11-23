@@ -39,8 +39,22 @@ import (
 //
 // To add fields or a name segment, use With or Named rather than wrapping a Logger: a
 // line reports the caller of the Logger method, which for a wrapper is the wrapper.
-// Logger is implemented by FSC, and methods may be added to it; embed [MockLogger] to
-// write a test double.
+//
+// Logger is implemented by FSC, and methods may be added to it. To write a test double,
+// embed a Logger, for example one from [NewTestLogger], and override the methods the test
+// needs. The other methods go to the embedded Logger, so it must be set:
+//
+//	type countingLogger struct {
+//		logging.Logger
+//		debugs int
+//	}
+//
+//	func (l *countingLogger) Debugf(string, ...any) { l.debugs++ }
+//
+//	l, _ := logging.NewTestLogger(t)
+//	fake := &countingLogger{Logger: l}
+//
+// Named and With return the embedded Logger's result, without the overrides.
 type Logger interface {
 	Debug(args ...any)
 	Debugf(format string, args ...any)

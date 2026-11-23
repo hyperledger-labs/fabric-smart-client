@@ -187,3 +187,29 @@ func TestMustGetLoggerParams(t *testing.T) { //nolint:paralleltest // reads the 
 	assert.Equal(t, "fsc.platform.common.services.logging.component",
 		MustGetLogger("component").(*logger).name)
 }
+
+// countingLogger is the test double the Logger Godoc describes: it embeds a Logger and
+// overrides Debugf.
+type countingLogger struct {
+	Logger
+	debugs int
+}
+
+func (l *countingLogger) Debugf(string, ...any) { l.debugs++ }
+
+// TestLoggerTestDouble checks the test-double pattern from the Logger Godoc: an overridden
+// method runs the override, and the others reach the embedded logger and report the
+// test, not the double, as their caller.
+func TestLoggerTestDouble(t *testing.T) {
+	t.Parallel()
+
+	l, rec := NewTestLogger(t)
+	fake := &countingLogger{Logger: l}
+
+	fake.Debugf("not recorded")
+	fake.Infof("recorded %d", 1)
+
+	assert.Equal(t, 1, fake.debugs)
+	require.Equal(t, []string{"recorded 1"}, rec.Messages())
+	assert.Contains(t, rec.Entries()[0], "TestLoggerTestDouble", "the line reports the test as its caller")
+}
