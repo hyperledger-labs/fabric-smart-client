@@ -103,8 +103,10 @@ var (
 	}
 )
 
-// RegisterReplacer makes [GetLogger] replace s with replaceWith in the names of loggers
-// created after the call. It panics if s is already registered.
+// RegisterReplacer makes [GetLogger] and [MustGetLogger] replace s with replaceWith in
+// the names of loggers created after the call, wherever s occurs. Where registered
+// strings overlap at the same position, the longest one is replaced. It panics if s is
+// already registered.
 func RegisterReplacer(s, replaceWith string) {
 	replacersMutex.Lock()
 	defer replacersMutex.Unlock()

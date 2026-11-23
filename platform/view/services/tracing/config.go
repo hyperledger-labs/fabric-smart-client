@@ -15,6 +15,8 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const (
@@ -38,6 +40,10 @@ var (
 	}
 )
 
+// RegisterReplacer makes the namespace derived from a package path replace s with
+// replaceWith wherever s occurs, for names derived after the call. Where registered
+// strings overlap at the same position, the longest one is replaced. It panics if s is
+// already registered.
 func RegisterReplacer(s, replaceWith string) {
 	replacersMutex.Lock()
 	defer replacersMutex.Unlock()
@@ -56,9 +62,7 @@ func RegisterReplacer(s, replaceWith string) {
 func Replacers() map[string]string {
 	replacersMutex.RLock()
 	defer replacersMutex.RUnlock()
-	out := make(map[string]string, len(replacers))
-	maps.Copy(out, replacers)
-	return out
+	return maps.Clone(replacers)
 }
 
 func WithMetricsOpts(o MetricsOpts) trace.TracerOption {
@@ -113,10 +117,6 @@ func parseFullPkgName(fullPkgName string, replacements map[string]string, params
 	parts := append(strings.Split(fullPkgName, "/"), params...)
 	subsystem = parts[len(parts)-1]
 	namespaceParts := parts[:len(parts)-1]
-	namespace = strings.Join(namespaceParts, "_")
-
-	for old, newVal := range replacements {
-		namespace = strings.ReplaceAll(namespace, old, newVal)
-	}
+	namespace = utils.ReplaceLongestFirst(strings.Join(namespaceParts, "_"), replacements)
 	return namespace, subsystem
 }

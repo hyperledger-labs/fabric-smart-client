@@ -408,3 +408,14 @@ func (r *countingRegisterer) Register(c prom.Collector) error {
 	r.registrations.Add(1)
 	return r.Registerer.Register(c)
 }
+
+// TestReplacers_ReturnsCopy checks a caller cannot change the registered replacers
+// through the returned map.
+func TestReplacers_ReturnsCopy(t *testing.T) {
+	t.Parallel()
+
+	snapshot := prometheus.Replacers()
+	snapshot["injected-key"] = "injected-value"
+
+	assert.NotContains(t, prometheus.Replacers(), "injected-key")
+}
