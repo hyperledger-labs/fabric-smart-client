@@ -10,7 +10,6 @@ import (
 	"context"
 	"strings"
 
-	libp2plogging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	libp2phost "github.com/libp2p/go-libp2p/core/host"
@@ -87,12 +86,6 @@ func newLibP2PHost(config libp2pConfig, priv crypto.PrivKey, metrics *metrics) (
 		// connections by attaching a connection manager.
 		libp2p.ConnectionManager(connManager),
 		libp2p.BandwidthReporter(newReporter(metrics)),
-	}
-
-	if logger.IsEnabledFor(logging.DebugLevel) {
-		if err := libp2plogging.SetLogLevel("basichost", "debug"); err != nil {
-			logger.Errorf("failed setting libp2p log level [%s]", err)
-		}
 	}
 
 	h, err := libp2p.New(opts...)

@@ -6,7 +6,7 @@ replace github.com/hyperledger-labs/fabric-smart-client => ../../../../../../
 
 require (
 	github.com/hyperledger-labs/fabric-smart-client v0.0.0-00010101000000-000000000000
-	github.com/ipfs/go-log/v2 v2.9.2
+	github.com/hyperledger/fabric-lib-go v1.1.5
 	github.com/libp2p/go-libp2p v0.52.0
 	github.com/multiformats/go-multiaddr v0.16.1
 	github.com/stretchr/testify v1.12.1
@@ -38,7 +38,6 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.32.0 // indirect
 	github.com/huin/goupnp v1.3.1 // indirect
-	github.com/hyperledger/fabric-lib-go v1.1.5 // indirect
 	github.com/ipfs/go-cid v0.6.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.1.0 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
@@ -60,7 +59,6 @@ require (
 	github.com/libp2p/go-reuseport v0.4.0 // indirect
 	github.com/libp2p/go-yamux/v5 v5.1.0 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
-	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect

@@ -587,7 +587,7 @@ specs, without its unused `fsc.p2p.opts` section. You can find it
 # Logging section
 logging:
  # Spec
- spec: grpc=error:info
+ spec: grpc=error:libp2p=warn:info
 fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.

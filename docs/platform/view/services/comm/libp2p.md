@@ -23,6 +23,9 @@ party the node opens sessions to needs a `P2P` address.
   connections instead of one that neither can secure.
 - **Security**: Supports Noise and TLS security handshakes.
 - **Identity**: Peer IDs are derived from the node's cryptographic public key.
+- **Logging**: libp2p's lines go through FSC logging under the logger name
+  `libp2p`; see
+  [libp2p log lines](../../../../configuration.md#libp2p-log-lines).
 
 ## Internal architecture
 
