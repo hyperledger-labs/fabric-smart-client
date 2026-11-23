@@ -35,7 +35,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
-	fscTopology.SetLogging("grpc=error:fabricx=debug:info", "")
+	fscTopology.SetLogging("grpc=error:fsc.platform.fabricx=debug:info", "")
 
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver1").

@@ -70,7 +70,7 @@ jobs:
         run: |
           extract() { go test -n "$@" &> /dev/null || { go list -test "$@" > /dev/null; return 1; }; }
           extract ./...
-          (cd integration && extract ./nwo/... ./fabric/common/...)
+          (cd integration && extract ./nwo/... ./fabric/common/... ./fabricx)
           (cd platform/view/services/comm/host/libp2p && extract ./...)
 
       - name: Perform CodeQL Analysis

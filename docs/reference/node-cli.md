@@ -254,7 +254,10 @@ With `--json` it prints one JSON object for release tooling:
 
 ## Environment variables
 
-All environment variables use the `FSCNODE_` prefix.
+All environment variables of the node command use the `FSCNODE_` prefix. Keys of
+`core.yaml` are overridden with the `CORE_` prefix instead, for example
+`CORE_LOGGING_SPEC=debug`; see
+[overriding configuration keys](../configuration.md#overriding-configuration-keys).
 
 ### `FSCNODE_CFG_PATH`
 

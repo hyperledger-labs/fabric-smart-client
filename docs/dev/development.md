@@ -191,7 +191,7 @@ When your change is confined to one module, run just that module's target:
 
 ```bash
 make unit-tests-root           # the framework itself
-make unit-tests-integration    # the nwo harness and the helpers the suites share
+make unit-tests-integration    # nwo harness, shared helpers, Chaguar topologies
 make unit-tests-extensions     # optional driver modules (today: the libp2p comm host)
 ```
 

@@ -784,7 +784,6 @@ func (p *Platform) fscNodeCommand(node *nwonode.Replica, command common.Command,
 	}
 	cmd := common.NewCommand(bin, command)
 	cmd.Env = append(cmd.Env, env...)
-	cmd.Env = append(cmd.Env, "FSCNODE_LOGGING_SPEC="+p.Topology.Logging.Spec)
 	if p.Context.IgnoreSigHUP() {
 		cmd.Env = append(cmd.Env, "FSCNODE_SIGHUP_IGNORE=true")
 	}
@@ -801,8 +800,6 @@ func (p *Platform) fscNodeCommand(node *nwonode.Replica, command common.Command,
 		cmd.Args = append(cmd.Args, "--certfile", certfilePath)
 		cmd.Args = append(cmd.Args, "--keyfile", keyfilePath)
 	}
-
-	cmd.Env = append(cmd.Env, fmt.Sprintf("FSCNODE_LOGGING_SPEC=%s", p.Topology.Logging.Spec))
 
 	return cmd
 }

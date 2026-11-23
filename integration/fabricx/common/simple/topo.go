@@ -30,7 +30,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
-	fscTopology.SetLogging("grpc=error:fabricx=debug:info", "")
+	fscTopology.SetLogging("grpc=error:fsc.platform.fabricx=debug:info", "")
 
 	fscTopology.AddNodeByName(ApproverNode).
 		AddOptions(fabric.WithOrganization("Org1")).
