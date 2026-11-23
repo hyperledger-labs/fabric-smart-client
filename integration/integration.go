@@ -43,8 +43,8 @@ var logger = logging.MustGetLogger()
 
 func init() {
 	c := logging.Config{}
-	// set grpc logging level as default to error; note that flogging default log level is just info
-	c.LogSpec = cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), "grpc=error:info")
+	// keep the noisy grpc and libp2p loggers at error and warn; every other logger is at info
+	c.LogSpec = cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), "grpc=error:libp2p=warn:info")
 	if err := logging.Init(c); err != nil {
 		panic(err)
 	}

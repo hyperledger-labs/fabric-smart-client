@@ -12,6 +12,7 @@ key the node reads, with its default and meaning. Its top-level sections are:
 After the example:
 
 - [Logging through the application's handler](#logging-through-the-applications-handler)
+- [libp2p log lines](#libp2p-log-lines)
 - [Migrating TLS configuration](#migrating-tls-configuration)
 - [Overriding configuration keys](#overriding-configuration-keys)
 - [HSM support](#hsm-support)
@@ -34,7 +35,7 @@ logging:
   # name is the package path with dots for slashes, with github.com.hyperledger-labs.fabric-smart-client
   # shortened to fsc; a spec entry applies to that name and to the names below it, by whole
   # dot-separated segments. An invalid spec or format stops the node at startup.
-  spec: grpc=error:debug
+  spec: grpc=error:libp2p=warn:debug
   otel:
     # sanitize makes sure that the strings sent to open telemetry as events via the logger as printable.
     # Non-printable strings can break the tracing system
@@ -1043,10 +1044,8 @@ two filters. These lines have no context fields and no stack trace, and they
 lack the fields a library adds to its logger with `With`. zap's levels above
 Error arrive as `ERROR+4` (DPanic), `ERROR+8` (Panic) and `ERROR+12` (Fatal).
 
-libp2p logs through the same path, under the logger name `libp2p`.
-`logging.spec` and `PUT /logspec` apply to that name for every go-log
-subsystem. The subsystem, such as `basichost`, is the attribute `subsystem`.
-There is no per-subsystem level.
+With the libp2p comm driver, the handler also gets libp2p's lines; see
+[libp2p log lines](#libp2p-log-lines).
 
 The application can route its own `slog` lines through `logging.spec` and the
 same handler, under a logger name of its choice:
@@ -1059,6 +1058,30 @@ FSC never calls `slog.SetDefault` itself. The handler passed to `SetHandler`
 must not be `slog.Default().Handler()` after such a call, or any other handler
 that writes through `logging.Handler`: each line would come back to it without
 end.
+
+## libp2p log lines
+
+With the libp2p comm driver, libp2p's own lines go through FSC logging under the
+logger name `libp2p`. They are written in `logging.format`, reach the handler
+set with `SetHandler`, and follow `logging.spec` and `PUT /logspec`. The libp2p
+subsystem, such as `basichost` or `swarm2`, is the attribute `subsystem`; there
+is no level per subsystem.
+
+`logging.spec` applies to `libp2p` as written, as to any other logger name: a
+spec of `debug` includes libp2p's Debug lines. libp2p logs routine events at
+Info and a great deal at Debug, so the specs FSC ships add `libp2p=warn`, which
+keeps its warnings and errors, as they add `grpc=error`. A node with a spec of
+its own adds the term itself:
+
+```yaml
+logging:
+  spec: grpc=error:libp2p=warn:info
+```
+
+go-libp2p's `GOLOG_LOG_LEVEL`, `GOLOG_LOG_FORMAT` and `GOLOG_LOG_ADD_SOURCE`
+environment variables don't apply to these lines; `GOLOG_LOG_LABELS` still adds
+its labels as attributes. FSC doesn't need `LIBP2P_TCP_REUSEPORT`; setting it to
+false keeps the subsystem `tcp-demultiplex` on go-libp2p's own stderr handler.
 
 ## Migrating TLS configuration
 

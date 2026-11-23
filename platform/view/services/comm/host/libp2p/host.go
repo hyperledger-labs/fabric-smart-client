@@ -88,8 +88,6 @@ func newLibP2PHost(config libp2pConfig, priv crypto.PrivKey, metrics *metrics) (
 		libp2p.BandwidthReporter(newReporter(metrics)),
 	}
 
-	routeLibp2pLogs()
-
 	h, err := libp2p.New(opts...)
 	if err != nil {
 		logger.Errorf("libp2p: failed to create new host at [%s]: %v", listenAddress, err)

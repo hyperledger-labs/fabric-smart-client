@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"log/slog"
 	"os"
 	"runtime"
 	"slices"
@@ -21,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p/gologshim"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
@@ -39,14 +37,13 @@ const replyTimeout = 10 * time.Second
 func TestMain(m *testing.M) {
 	// go test interleaves log output with benchmark results, which breaks benchstat, and node
 	// shutdown always logs errors: stream-close errors through FSC's logger, aborted TLS
-	// handshakes through the standard logger, and libp2p listener errors through slog. Logs are
-	// therefore off unless FSC_LOGSPEC asks for them; benchmark failures are reported through
-	// testing.B regardless.
+	// handshakes through the standard logger, and libp2p listener errors through FSC's logger
+	// too. Logs are therefore off unless FSC_LOGSPEC asks for them; benchmark failures are
+	// reported through testing.B regardless.
 	spec := os.Getenv("FSC_LOGSPEC")
 	if spec == "" {
 		spec = "panic"
 		log.SetOutput(io.Discard)
-		gologshim.SetDefaultHandler(slog.DiscardHandler)
 	}
 	if err := logging.Init(logging.Config{LogSpec: spec}); err != nil {
 		panic(err)

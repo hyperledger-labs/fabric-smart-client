@@ -87,7 +87,7 @@ func NewTopology() *Topology {
 		TopologyType: TopologyName,
 		Nodes:        []*node.Node{},
 		Logging: &Logging{
-			Spec:         "grpc=error:info",
+			Spec:         "grpc=error:libp2p=warn:info",
 			Format:       "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 			OtelSanitize: false,
 		},

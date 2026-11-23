@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"cmp"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -31,16 +32,14 @@ import (
 
 //go:generate counterfeiter -o mock/libp2p_config.go -fake-name LibP2PConfig . libp2pConfig
 
+// testLogSpec is the logging spec of the tests: FABRIC_LOGGING_SPEC, FSC_LOGSPEC or error.
+func testLogSpec() string {
+	return cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), os.Getenv("FSC_LOGSPEC"), "error")
+}
+
 func TestMain(m *testing.M) {
-	spec := os.Getenv("FABRIC_LOGGING_SPEC")
-	if len(spec) == 0 {
-		spec = os.Getenv("FSC_LOGSPEC")
-	}
-	if len(spec) == 0 {
-		spec = "error"
-	}
 	if err := logging.Init(logging.Config{
-		LogSpec: spec,
+		LogSpec: testLogSpec(),
 	}); err != nil {
 		panic(err)
 	}
