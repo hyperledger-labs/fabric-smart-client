@@ -6,10 +6,12 @@ replace github.com/hyperledger-labs/fabric-smart-client => ../../../../../../
 
 require (
 	github.com/hyperledger-labs/fabric-smart-client v0.0.0-00010101000000-000000000000
+	github.com/hyperledger/fabric-lib-go v1.1.5
 	github.com/ipfs/go-log/v2 v2.9.2
 	github.com/libp2p/go-libp2p v0.52.0
 	github.com/multiformats/go-multiaddr v0.16.1
 	github.com/stretchr/testify v1.12.1
+	go.uber.org/zap v1.28.0
 )
 
 require (
@@ -38,7 +40,6 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.32.0 // indirect
 	github.com/huin/goupnp v1.3.1 // indirect
-	github.com/hyperledger/fabric-lib-go v1.1.5 // indirect
 	github.com/ipfs/go-cid v0.6.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.1.0 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
@@ -124,7 +125,6 @@ require (
 	go.uber.org/fx v1.24.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.28.0 // indirect
 	go.uber.org/zap/exp v0.3.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/crypto v0.59.0 // indirect

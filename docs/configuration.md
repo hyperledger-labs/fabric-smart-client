@@ -1043,6 +1043,11 @@ two filters. These lines have no context fields and no stack trace, and they
 lack the fields a library adds to its logger with `With`. zap's levels above
 Error arrive as `ERROR+4` (DPanic), `ERROR+8` (Panic) and `ERROR+12` (Fatal).
 
+libp2p logs through the same path, under the logger name `libp2p`.
+`logging.spec` and `PUT /logspec` apply to that name for every go-log
+subsystem. The subsystem, such as `basichost`, is the attribute `subsystem`.
+There is no per-subsystem level.
+
 The application can route its own `slog` lines through `logging.spec` and the
 same handler, under a logger name of its choice:
 
