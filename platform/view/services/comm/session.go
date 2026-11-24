@@ -367,13 +367,15 @@ func (n *NetworkStreamSession) closeInternal() {
 // closeAsync closes a session that cannot continue: its consumer stopped draining or it lost its
 // streams. It marks the session closing and removes it from the registry before it returns, so the
 // session refuses every later message, and finishes closing in the background, because that waits
-// for the forwarder to drain.
-func (n *NetworkStreamSession) closeAsync() {
+// for the forwarder to drain. It reports whether this call started the close: false means the
+// session was already closing.
+func (n *NetworkStreamSession) closeAsync() bool {
 	if n.isClosing.Swap(true) {
-		return
+		return false
 	}
 	n.node.unregister(n, true)
 	go n.finishClose()
+	return true
 }
 
 func (n *NetworkStreamSession) finishClose() {

@@ -274,6 +274,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		channelCancel()
 		return nil, errors.Wrapf(err, "failed initializing Channel [%s]", channelName)
 	}
+	logger.Infof("channel [%s:%s] opened", nw.Name(), channelName)
 	return c, nil
 }
 

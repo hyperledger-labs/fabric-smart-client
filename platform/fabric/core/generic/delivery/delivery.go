@@ -127,6 +127,11 @@ type Delivery struct {
 	// written before stop is closed, so any goroutine that observes the close
 	// also observes the error.
 	stopErr atomic.Pointer[error]
+
+	// background is set by Start: the channel's long-lived delivery logs its
+	// start, connections and stop at Info. A scan, which calls Run directly,
+	// logs them at Debug because it runs once per query.
+	background bool
 }
 
 var ctr = atomic.Uint32{}
@@ -177,6 +182,8 @@ func New(
 // immediately. The error returned by Run is discarded; use Run directly to
 // observe it.
 func (d *Delivery) Start(ctx context.Context) {
+	d.background = true
+	logger.Infof("delivery service [%s:%s] starting", d.NetworkName, d.channel)
 	go func() {
 		_ = d.Run(ctx)
 	}()
@@ -322,7 +329,7 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 				return
 			}
 			if err != nil {
-				logger.Errorf("callback failed for block [%d] on [%s:%s], stopping delivery: [%v]",
+				d.levelf(logger.Errorf)("callback failed for block [%d] on [%s:%s], stopping delivery: [%v]",
 					b.block.Header.Number, d.NetworkName, d.channel, err)
 				d.Stop(err)
 				return
@@ -421,7 +428,11 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 					opened = time.Now()
 				}
 				if err != nil {
-					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]", d.NetworkName, d.channel, err)
+					logf := logger.Warnf
+					if ctx.Err() != nil {
+						logf = logger.Debugf
+					}
+					logf("failed connecting to delivery service [%s:%s], retrying: [%s]", d.NetworkName, d.channel, err)
 					span.RecordError(err)
 					span.End()
 					continue
@@ -443,7 +454,13 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 					dfCancel()
 				}
 				df = nil
-				logger.Errorf("delivery service [%s:%s:%s], failed receiving response [%s]",
+				// A context that ended means the service is stopping, as at the
+				// end of every scan, so nothing reconnects.
+				logf := logger.Warnf
+				if ctx.Err() != nil {
+					logf = logger.Debugf
+				}
+				logf("delivery service [%s:%s:%s], stream ended: [%s]",
 					d.client.Address(), d.NetworkName, d.channel,
 					errors.WithMessagef(err, "error receiving deliver response from peer %s", d.client.Address()))
 				span.RecordError(err)
@@ -484,7 +501,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 				if dfCancel != nil {
 					dfCancel()
 				}
-				logger.Errorf("delivery service [%s:%s:%s], got [%s]", d.client.Address(), d.NetworkName, d.channel, r)
+				logger.Warnf("delivery service [%s:%s:%s], got [%s], reconnecting", d.client.Address(), d.NetworkName, d.channel, r)
 			}
 			span.End()
 		}
@@ -550,8 +567,17 @@ func (d *Delivery) sleep(ctx context.Context, delay time.Duration) bool {
 func (d *Delivery) untilStop() error {
 	<-d.stop
 	err := d.stopError()
-	logger.Debugf("stopping delivery service with error [%v]", err)
+	d.levelf(logger.Infof)("delivery service [%s:%s] stopped: [%v]", d.NetworkName, d.channel, err)
 	return err
+}
+
+// levelf returns logf for the channel's background delivery and Debugf for a
+// scan, which runs once per query and returns its errors to the caller.
+func (d *Delivery) levelf(logf func(string, ...any)) func(string, ...any) {
+	if d.background {
+		return logf
+	}
+	return logger.Debugf
 }
 
 // connect opens a Deliver stream to a peer picked for delivery and sends the
@@ -604,7 +630,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 		return nil, nil, errors.Wrapf(err, "failed sending seek envelope to [%s]", address)
 	}
 
-	logger.Debugf("connected to deliver service at [%s]", address)
+	d.levelf(logger.Infof)("delivery service [%s:%s] connected to peer [%s]", d.NetworkName, d.channel, address)
 	d.connEstablished()
 	return stream, cancel, nil
 }
@@ -636,7 +662,7 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 	logger.Debugf("failed to get last block [%s], try with last tx", err)
 	lastTxID, err := d.vault.GetLastTxID(ctx)
 	if err != nil {
-		logger.Errorf("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
+		d.levelf(logger.Warnf)("failed getting last transaction committed/discarded from the vault [%s], restarting from genesis", err)
 		return StartGenesis
 	}
 
@@ -644,7 +670,7 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 		// Retrieve block from Fabric
 		blockNumber, err := d.Ledger.GetBlockNumberByTxID(lastTxID)
 		if err != nil {
-			logger.Errorf("failed getting block number for transaction [%s], restart from genesis: error: %v", lastTxID, err)
+			d.levelf(logger.Warnf)("failed getting block number for transaction [%s], restart from genesis: error: %v", lastTxID, err)
 			return StartGenesis
 		}
 		logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)

@@ -83,6 +83,9 @@ type P2PNode struct {
 	// newStreams lets the senders that find no stream to a peer of a sharedStreams host wait for
 	// one new stream instead of opening one each, keyed by stream hash.
 	newStreams singleflight.Group
+	// masterDropping is set while the master session's queue is full, so only the
+	// first drop logs a Warn.
+	masterDropping atomic.Bool
 }
 
 func NewNode(ctx context.Context, h host.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
@@ -202,7 +205,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			if !in && selfClosed && time.Since(closedAt) < closedSessionTTL {
 				p.dispatchMutex.Unlock()
 				p.m.DroppedMessages.Add(1)
-				logger.Warnf("dropping message from %s for session [%s]: the session closed", msg.message.Caller, msg.message.SessionID)
+				logger.Debugf("dropping message from %s for session [%s]: the session closed", msg.message.Caller, msg.message.SessionID)
 				continue
 			}
 
@@ -224,14 +227,24 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			logger.Debugf("Enqueue result for session [%s]: %v", internalSessionID, delivered)
 			if delivered {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
+				if !in {
+					p.masterDropping.Store(false)
+				}
 			} else {
 				p.m.DroppedMessages.Add(1)
-				logger.Warnf("dropping message from %s for session [%s]: session closed or queue full", msg.message.Caller, msg.message.SessionID)
-				// A full queue means the consumer stopped draining. Marking the session closing
-				// here keeps a later message from being delivered after the dropped one. The
-				// master session stays open: closing it would stop the node accepting new sessions.
-				if in {
-					session.closeAsync()
+				// A full queue means the consumer stopped draining. Closing the session keeps a
+				// later message from being delivered after the dropped one, so only the drop
+				// that starts the close logs a Warn. The master session stays open, or the node
+				// would stop accepting new sessions.
+				switch {
+				case in && session.closeAsync():
+					logger.Warnf("dropping message from %s for session [%s]: queue full, closing the session", msg.message.Caller, msg.message.SessionID)
+				case in:
+					logger.Debugf("dropping message from %s for session [%s]: the session is closing", msg.message.Caller, msg.message.SessionID)
+				case !p.masterDropping.Swap(true):
+					logger.Warnf("dropping messages for the master session from %s: queue full, new sessions are dropped", msg.message.Caller)
+				default:
+					logger.Debugf("dropping message from %s for the master session: queue full", msg.message.Caller)
 				}
 			}
 
@@ -289,7 +302,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 			return nil
 		}
 		// TODO: handle the case in which there's an error
-		logger.Errorf("error while sending message to stream with hash [%s]: %s", streamHash, err)
+		logger.Warnf("error while sending message to stream with hash [%s], trying the next one: %s", streamHash, err)
 	}
 
 	return errors.Wrapf(errStreamNotFound, "all [%d] streams for hash [%s] failed to send", len(streamsCopy), streamHash)

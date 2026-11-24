@@ -178,6 +178,7 @@ func New(
 }
 
 func (c *Committer) Start(ctx context.Context) error {
+	c.logger.Infof("committer starting")
 	go c.FinalityManager.Run(ctx)
 	go c.runEventNotifiers(ctx)
 	return nil
@@ -187,6 +188,7 @@ func (c *Committer) runEventNotifiers(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			c.logger.Infof("committer stopped")
 			return
 		case event := <-c.events:
 			c.metrics.EventQueueLength.Add(-1)
@@ -344,7 +346,7 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 	// Matched on the cause as well as on ctx: a deterministic failure that happens
 	// to return while the node shuts down is still a fault and is counted.
 	if ctx.Err() != nil && errors.HasCause(err, ctx.Err()) {
-		c.logger.Warnf("commit of block [%d] stopped because its context ended: [%v]",
+		c.logger.Debugf("commit of block [%d] stopped because its context ended: [%v]",
 			block.GetHeader().GetNumber(), err)
 		return err
 	}
@@ -712,7 +714,7 @@ func (c *Committer) notifyFinality(event FinalityEvent) {
 	defer c.mutex.Unlock()
 
 	if event.Err != nil && !c.QuietNotifier {
-		c.logger.Warnf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
+		c.logger.Debugf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
 	listeners := c.listeners[event.TxID]
