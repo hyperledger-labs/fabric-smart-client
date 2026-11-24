@@ -161,8 +161,9 @@ func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string,
 	}
 	if vc == driver.Valid {
 		// Fabric flags a later envelope with the txID of a valid transaction
-		// DUPLICATE_TXID. The transaction stays Valid.
-		logger.Warnf("transaction [%s] in block [%d] is marked as valid but for fabric is invalid", txID, blockNum)
+		// DUPLICATE_TXID. The transaction stays Valid. Anyone can have such an
+		// envelope ordered, once per copy, so the line is Debug.
+		logger.Debugf("transaction [%s] in block [%d] is marked as valid but for fabric is invalid", txID, blockNum)
 		return nil
 	}
 

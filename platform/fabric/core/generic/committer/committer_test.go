@@ -638,6 +638,7 @@ func TestStart(t *testing.T) {
 	t.Parallel()
 
 	c := &Committer{
+		logger:          logger,
 		FinalityManager: commoncommitter.NewFinalityManager[fdriver.ValidationCode](&fake.ListenerManager{}, logger, nil, noop.NewTracerProvider(), 1, fdriver.Valid, fdriver.Invalid),
 		metrics:         NewMetrics(noop.NewTracerProvider(), &fake.MetricsProvider{}, "testNet", "testChannel"),
 		listeners:       map[string][]chan FinalityEvent{},

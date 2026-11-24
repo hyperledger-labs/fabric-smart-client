@@ -58,6 +58,23 @@ new method through a new interface.
   `platform/view/services/tracing`.
 - Jaeger (tracing) and Prometheus (metrics) are the typical backends.
 
+### Log levels
+
+Choose the level from what an operator at the default (`info`) should see:
+
+- **Debug**: details per transaction, message, session or query. Off in
+  production.
+- **Info**: lifecycle events: node start and stop, a network or channel
+  becoming ready, a connection to an orderer, peer or committer established, a
+  configuration change. A node in steady state writes no Info line per
+  transaction.
+- **Warn**: something went wrong and was handled: a connection lost, a retry, a
+  reconnect, a dropped message, a fallback. Rare in a healthy node. Prefer a
+  metric plus one Warn when a degraded state starts over one Warn per event when
+  the path already has a counter.
+- **Error**: something failed, nothing recovered it, and the error is not
+  returned to a caller. An operator should look.
+
 ## Storage drivers
 
 Registered into the `db-drivers` DI group (view stores) and the

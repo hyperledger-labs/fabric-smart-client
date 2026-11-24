@@ -7,7 +7,8 @@ finished:
 - Logging goes through `platform/common/services/logging`. No raw state values,
   payloads, private keys or credentials in log lines or error messages; use a
   hash (`logging.SHA256Base64`), a length, or an identifier
-  ([Logging & monitoring](../dev/conventions.md#logging--monitoring)).
+  ([Logging & monitoring](../dev/conventions.md#logging--monitoring)). Pick the
+  level by the [log level policy](../dev/conventions.md#log-levels).
 - Every new exported identifier has a Godoc comment
   ([Conventions → Godoc](../dev/conventions.md#godoc)).
 - A configuration key added, renamed or removed is updated in
