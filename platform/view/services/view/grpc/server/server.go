@@ -312,7 +312,6 @@ func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer pro
 		return err
 	}
 	if err != nil {
-		logger.ErrorfContext(ctx, "stream command execution failed with err [%s]", err.Error())
 		return s.streamError(err, sc, commandServer)
 	}
 	logger.DebugfContext(ctx, "stream Command invoked successfully")
@@ -448,6 +447,7 @@ func (s *Server) streamError(err error, sc *protos.SignedCommand, commandServer 
 	if err2 != nil {
 		return errors.WithMessagef(err, "failed creating response [%s]", err2)
 	}
+	// Log at gRPC stream handler boundary before returning error to close stream
 	logger.ErrorfContext(commandServer.Context(), "stream error occurred [%s]", err.Error())
 	return err
 }

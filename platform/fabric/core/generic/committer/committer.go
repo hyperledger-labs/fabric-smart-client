@@ -216,8 +216,7 @@ func (c *Committer) runEventNotifiers(ctx context.Context) {
 func (c *Committer) Status(ctx context.Context, txID cdriver.TxID) (driver.ValidationCode, string, error) {
 	vc, message, err := c.Vault.Status(ctx, txID)
 	if err != nil {
-		c.logger.Errorf("failed to get status of [%s]: %s", txID, err)
-		return driver.Unknown, "", err
+		return driver.Unknown, "", errors.WithMessagef(err, "failed to get status of [%s]", txID)
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
@@ -615,7 +614,6 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
 		vd, _, err := c.Status(ctx, txID)
 		if err != nil {
-			c.logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 		lastStatus = vd
@@ -828,8 +826,7 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 
 		pt, headerType, err := c.TransactionManager.NewProcessedTransactionFromEnvelopePayload(envelope.Payload)
 		if err != nil && headerType == -1 {
-			c.logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
-			return err
+			return errors.WithMessagef(err, "[%s] failed to unmarshal envelope", txID)
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
 			envExists := false
@@ -850,7 +847,6 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 					if errors.HasCause(err, vault.ErrRWSetOpen) {
 						return errors.WithMessagef(err, "failed matching rwset of [%s]", txID)
 					}
-					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
 			} else {

@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // maxMessageSize is the default read limit of a websocket message.
@@ -42,8 +44,7 @@ func OpenWSServerConnWithHeader(writer http.ResponseWriter, request *http.Reques
 	}
 	conn, err := upgrader.Upgrade(writer, request, responseHeader)
 	if err != nil {
-		logger.Errorf("Failed to upgrade connection to websocket from [%s]: %s", request.RemoteAddr, err.Error())
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to upgrade connection to websocket from [%s]", request.RemoteAddr)
 	}
 	conn.SetReadLimit(readLimit)
 	return conn, nil

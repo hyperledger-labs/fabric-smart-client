@@ -231,7 +231,6 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 		return c.GetRows(ctx, q)
 	})
 	if err != nil {
-		logger.Warnf("QS GetState: error calling getRows: %v", err)
 		return nil, errors.Wrap(err, "query get rows")
 	}
 	logger.Debugf("QS GetState: got response in %v", time.Since(now))

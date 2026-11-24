@@ -201,6 +201,7 @@ func startCmd(n Node) *cobra.Command {
 				return errors.New("trailing args detected")
 			}
 			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			return serve(n)
 		},
 	}
@@ -228,13 +229,13 @@ func serve(n Node) error {
 		logger.Infof("Profiling enabled")
 		profiler, err := profile.New(profile.WithPath(configPath), profile.WithAll())
 		if err != nil {
-			logger.Errorf("error creating profiler: [%s]", err)
+			err = errors.Wrap(err, "error creating profiler")
 			n.Callback() <- err
 			return err
 		}
 		// start profiler
 		if err := profiler.Start(); err != nil {
-			logger.Errorf("error starting profiler: [%s]", err)
+			err = errors.Wrap(err, "error starting profiler")
 			n.Callback() <- err
 			return err
 		}

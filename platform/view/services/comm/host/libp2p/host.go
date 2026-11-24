@@ -90,8 +90,7 @@ func newLibP2PHost(config libp2pConfig, priv crypto.PrivKey, metrics *metrics) (
 
 	h, err := libp2p.New(opts...)
 	if err != nil {
-		logger.Errorf("libp2p: failed to create new host at [%s]: %v", listenAddress, err)
-		return nil, err
+		return nil, errors.Wrapf(err, "libp2p: failed to create new host at [%s]", listenAddress)
 	}
 
 	libp2pHost := &host{

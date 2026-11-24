@@ -478,8 +478,7 @@ func (s *streamHandler) send(msg proto.Message) error {
 	}
 	logger.Debugf("sending message to stream [%s]", s.stream.Hash())
 	if err := s.writer.WriteMsg(msg); err != nil {
-		logger.Errorf("failed sending message to stream [%s]: [%s]", s.stream.Hash(), err)
-		return err
+		return errors.Wrapf(err, "failed sending message to stream [%s]", s.stream.Hash())
 	}
 	return nil
 }

@@ -11,17 +11,13 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
-var (
-	networkServiceProviderType = reflect.TypeFor[*NetworkServiceProvider]()
-	logger                     = logging.MustGetLogger()
-)
+var networkServiceProviderType = reflect.TypeFor[*NetworkServiceProvider]()
 
 // NetworkService models a Fabric Network
 type NetworkService struct {
@@ -150,7 +146,6 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 
 	internalFns, err := nsp.fnsProvider.FabricNetworkService(id)
 	if err != nil {
-		logger.Errorf("failed to get Fabric Network Service for id [%s]: [%s]", id, err.Error())
 		return nil, errors.WithMessagef(err, "failed to get Fabric Network Service for id [%s]", id)
 	}
 	ns, ok = nsp.networkServices[internalFns.Name()]

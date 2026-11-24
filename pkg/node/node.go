@@ -168,8 +168,7 @@ func (n *Node) Start() (err error) {
 	logger.Infof("installing sdks...")
 	for _, p := range n.sdks {
 		if err := p.Install(); err != nil {
-			logger.Errorf("failed installing platform [%s]", err.Error())
-			return err
+			return errors.Wrap(err, "failed installing platform")
 		}
 	}
 	logger.Infof("installing sdks...done")
@@ -180,8 +179,7 @@ func (n *Node) Start() (err error) {
 	logger.Info("starting sdks...")
 	for _, p := range n.sdks {
 		if err := p.Start(n.ctx); err != nil {
-			logger.Errorf("failed starting platform [%s]", err.Error())
-			return err
+			return errors.Wrap(err, "failed starting platform")
 		}
 	}
 	logger.Infof("starting sdks...done")
@@ -192,8 +190,7 @@ func (n *Node) Start() (err error) {
 		ps, ok := p.(PostStart)
 		if ok {
 			if err := ps.PostStart(n.ctx); err != nil {
-				logger.Errorf("failed post-starting platform [%s]", err.Error())
-				return err
+				return errors.Wrap(err, "failed post-starting platform")
 			}
 		}
 	}

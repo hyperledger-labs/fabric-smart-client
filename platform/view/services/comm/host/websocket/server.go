@@ -30,7 +30,6 @@ type server struct {
 func (s *server) Listen() error {
 	l, err := net.Listen("tcp", s.srv.Addr)
 	if err != nil {
-		logger.Errorf("Failed to listen on address [%s]: %s", s.srv.Addr, err.Error())
 		return errors.Wrapf(err, "failed to listen on [%s]", s.srv.Addr)
 	}
 	s.srv.Addr = l.Addr().String()
@@ -55,7 +54,6 @@ func (s *server) Start(newStreamCallback func(stream commhost.P2PStream)) error 
 	}
 
 	if !errors.Is(err, http.ErrServerClosed) {
-		logger.Errorf("HTTP server failed on [%s]: %s", s.srv.Addr, err.Error())
 		return errors.Wrap(err, "failed to start http server")
 	}
 	return nil

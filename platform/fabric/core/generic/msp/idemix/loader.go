@@ -54,7 +54,6 @@ type FolderIdentityLoader struct {
 func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	entries, err := os.ReadDir(manager.Config().TranslatePath(c.Path))
 	if err != nil {
-		logger.Warnf("failed reading from [%s]: [%s]", manager.Config().TranslatePath(c.Path), err)
 		return errors.Wrapf(err, "failed reading from [%s]", manager.Config().TranslatePath(c.Path))
 	}
 	for _, entry := range entries {

@@ -194,8 +194,7 @@ func (c *Service) scanTransactions(ctx context.Context, vault *fakeVault, callba
 			for i, tx := range block.Data.Data {
 				validationCode, err := validationCodeAt(block, i)
 				if err != nil {
-					logger.Errorf("[%s] %s", c.channel, err)
-					return false, err
+					return false, errors.Wrapf(err, "[%s]", c.channel)
 				}
 				if shadowed != nil && shadowed[i] {
 					continue
@@ -203,8 +202,7 @@ func (c *Service) scanTransactions(ctx context.Context, vault *fakeVault, callba
 
 				_, _, channelHeader, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {
-					logger.Errorf("[%s] unmarshal tx failed: %s", c.channel, err)
-					return false, err
+					return false, errors.Wrapf(err, "[%s] unmarshal tx failed", c.channel)
 				}
 
 				if !c.acceptedHeaderTypes.Contains(common.HeaderType(channelHeader.Type)) {

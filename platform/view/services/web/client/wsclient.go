@@ -16,10 +16,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
-
-var logger = logging.MustGetLogger()
 
 const (
 	maxMessageSize          = 10 * 1024 * 1024
@@ -58,8 +56,7 @@ func OpenWSClientConnWithHeader(ctx context.Context, url string, config *tls.Con
 	}
 	ws, resp, err := dialer.DialContext(ctx, url, nil)
 	if err != nil {
-		logger.Errorf("Failed to establish websocket connection to [%s]: %s", url, err.Error())
-		return nil, nil, err
+		return nil, nil, errors.Wrapf(err, "failed to establish websocket connection to [%s]", url)
 	}
 	var header http.Header
 	if resp != nil {

@@ -117,7 +117,7 @@ func (j *jsonSession) SendRaw(ctx context.Context, raw []byte) error {
 }
 
 func (j *jsonSession) SendError(ctx context.Context, err string) error {
-	logger.ErrorfContext(ctx, "json session, send error: %w", err)
+	logger.ErrorfContext(ctx, "json session, send error: %s", err)
 	return j.s.SendError(ctx, []byte(err))
 }
 
