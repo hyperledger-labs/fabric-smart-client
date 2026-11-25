@@ -95,7 +95,7 @@ func (i *Deserializer) Info(raw, auditInfo []byte) (string, error) {
 
 	eid := ""
 	if len(auditInfo) != 0 {
-		ai, err := DeserializeAuditInfo(auditInfo)
+		ai, err := i.DeserializeAuditInfo(auditInfo)
 		if err != nil {
 			return "", err
 		}

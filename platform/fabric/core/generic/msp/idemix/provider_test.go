@@ -11,11 +11,14 @@ import (
 	"testing"
 
 	bccsp "github.com/IBM/idemix/bccsp/types"
+	idemixconfig "github.com/IBM/idemix/msp/config"
 	math "github.com/IBM/mathlib"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -448,4 +451,286 @@ func TestProvider_DeserializeRefusesOtherMSPID(t *testing.T) { //nolint:parallel
 	require.ErrorContains(t, err, "expected MSP ID [idemix], got [Org1MSP]")
 	_, err = p.DeserializeSigner(relabelled)
 	require.Error(t, err)
+}
+
+func TestNewProvider_Errors(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
+	validConfig, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+	// testdata/idemix2 holds another user of the same issuer.
+	otherConfig, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
+	require.NoError(t, err)
+
+	t.Run("unsupported curve", func(t *testing.T) {
+		_, err := idemix.NewProviderWithAnyPolicyAndCurve(validConfig, kvss, sigService, math.CurveID(3))
+		require.ErrorContains(t, err, "unsupported curve ID")
+		_, err = idemix.NewProviderWithSigTypeAncCurve(validConfig, kvss, sigService, bccsp.Standard, math.CurveID(3))
+		require.ErrorContains(t, err, "unsupported curve ID")
+	})
+
+	cryptoProvider, err := idemix.NewBCCSP(math.FP256BN_AMCL)
+	require.NoError(t, err)
+
+	var conf, otherConf idemixconfig.IdemixMSPConfig
+	require.NoError(t, proto.UnmarshalV1(validConfig.Config, &conf))
+	require.NoError(t, proto.UnmarshalV1(otherConfig.Config, &otherConf))
+
+	// mutated returns an MSPConfig holding a copy of conf with mutate applied.
+	mutated := func(mutate func(*idemixconfig.IdemixMSPConfig)) *msp.MSPConfig {
+		c := proto.Clone(&conf).(*idemixconfig.IdemixMSPConfig)
+		mutate(c)
+		raw, err := proto.MarshalV1(c)
+		require.NoError(t, err)
+		return &msp.MSPConfig{Config: raw}
+	}
+
+	tests := []struct {
+		name    string
+		conf    *msp.MSPConfig
+		sigType bccsp.SignatureType
+		wantErr string
+	}{
+		{
+			name:    "nil conf",
+			conf:    nil,
+			wantErr: "setup error: nil conf reference",
+		},
+		{
+			name:    "unparseable config",
+			conf:    &msp.MSPConfig{Config: []byte("invalid-proto")},
+			wantErr: "failed unmarshalling idemix provider config",
+		},
+		{
+			name:    "corrupted issuer public key",
+			conf:    mutated(func(c *idemixconfig.IdemixMSPConfig) { c.Ipk = []byte("corrupted-ipk") }),
+			wantErr: "failed to unmarshal issuer public key",
+		},
+		{
+			name:    "corrupted revocation public key",
+			conf:    mutated(func(c *idemixconfig.IdemixMSPConfig) { c.RevocationPk = []byte("corrupted-rev-pk") }),
+			wantErr: "failed to import revocation public key",
+		},
+		{
+			name:    "missing signer",
+			conf:    mutated(func(c *idemixconfig.IdemixMSPConfig) { c.Signer = nil }),
+			wantErr: "no signer information found",
+		},
+		{
+			name: "corrupted signer secret key",
+			conf: mutated(func(c *idemixconfig.IdemixMSPConfig) {
+				c.Signer = &idemixconfig.IdemixMSPSignerConfig{Sk: []byte("corrupted-sk"), Cred: conf.Signer.Cred}
+			}),
+			wantErr: "failed importing signer secret key",
+		},
+		{
+			name: "corrupted credential",
+			conf: mutated(func(c *idemixconfig.IdemixMSPConfig) {
+				c.Signer = &idemixconfig.IdemixMSPSignerConfig{Sk: conf.Signer.Sk, Cred: []byte("corrupted-cred")}
+			}),
+			wantErr: "credential is not cryptographically valid",
+		},
+		{
+			name: "credential of another user",
+			conf: mutated(func(c *idemixconfig.IdemixMSPConfig) {
+				c.Signer = proto.Clone(otherConf.Signer).(*idemixconfig.IdemixMSPSignerConfig)
+				c.Signer.Sk = conf.Signer.Sk
+			}),
+			wantErr: "credential is not cryptographically valid",
+		},
+		{
+			name:    "unknown signature type",
+			conf:    validConfig,
+			sigType: bccsp.SignatureType(99),
+			wantErr: "unknown verification type [99]",
+		},
+	}
+	for _, tc := range tests { //nolint:paralleltest // idemix key import races inside fabric-amcl
+		t.Run(tc.name, func(t *testing.T) {
+			// The zero sigType is bccsp.Standard.
+			p, err := idemix.NewProvider(tc.conf, sigService, tc.sigType, cryptoProvider)
+			require.ErrorContains(t, err, tc.wantErr)
+			require.Nil(t, p)
+		})
+	}
+}
+
+func TestProvider_Remote(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
+	validConfig, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+
+	cryptoProvider, err := idemix.NewBCCSP(math.FP256BN_AMCL)
+	require.NoError(t, err)
+
+	var conf idemixconfig.IdemixMSPConfig
+	require.NoError(t, proto.UnmarshalV1(validConfig.Config, &conf))
+
+	remoteConf := proto.Clone(&conf).(*idemixconfig.IdemixMSPConfig)
+	remoteConf.Signer = &idemixconfig.IdemixMSPSignerConfig{
+		EnrollmentId: "remote-user",
+	}
+	raw, err := proto.MarshalV1(remoteConf)
+	require.NoError(t, err)
+
+	pRemote, err := idemix.NewProvider(&msp.MSPConfig{Config: raw}, sigService, bccsp.Standard, cryptoProvider)
+	require.NoError(t, err)
+	require.True(t, pRemote.IsRemote())
+
+	_, _, err = pRemote.Identity(nil)
+	require.ErrorContains(t, err, "failed deriving nym")
+}
+
+func TestProvider_Identity_AuditInfoAndMockSigner(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+
+	p, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	require.NoError(t, err)
+
+	// Identity with invalid audit info
+	_, _, err = p.Identity(&fdriver.IdentityOptions{AuditInfo: []byte("garbage")})
+	require.ErrorContains(t, err, "failed deserializing audit info")
+
+	// Identity with valid audit info re-use
+	id1, audit1, err := p.Identity(nil)
+	require.NoError(t, err)
+	require.NotNil(t, id1)
+	require.NotNil(t, audit1)
+
+	id2, audit2, err := p.Identity(&fdriver.IdentityOptions{AuditInfo: audit1, EIDExtension: true})
+	require.NoError(t, err)
+	require.NotNil(t, id2)
+	require.NotNil(t, audit2)
+
+	ai1, err := p.DeserializeAuditInfo(audit1)
+	require.NoError(t, err)
+	require.NoError(t, ai1.Match(id2))
+
+	// Mock SignerService registration failure
+	mockSigService := &mock.SignerService{}
+	mockSigService.RegisterSignerReturns(errors.New("mock register failure"))
+	pWithMock, err := idemix.NewProviderWithSigType(config, kvss, mockSigService, bccsp.Standard)
+	require.NoError(t, err)
+
+	_, _, err = pWithMock.Identity(nil)
+	require.ErrorContains(t, err, "mock register failure")
+}
+
+func TestProvider_DeserializeSigningIdentity_Errors(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+
+	p, err := idemix.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	require.NoError(t, err)
+
+	validID, _, err := p.Identity(nil)
+	require.NoError(t, err)
+	siValid := &msp.SerializedIdentity{}
+	require.NoError(t, proto.Unmarshal(validID, siValid))
+	sIdemixValid := &msp.SerializedIdemixIdentity{}
+	require.NoError(t, proto.Unmarshal(siValid.IdBytes, sIdemixValid))
+
+	tests := []struct {
+		name    string
+		raw     []byte
+		wantErr string
+	}{
+		{
+			name:    "garbage outer proto",
+			raw:     []byte("garbage"),
+			wantErr: "failed to unmarshal to msp.SerializedIdentity{}",
+		},
+		{
+			name:    "garbage IdBytes",
+			raw:     mustMarshal(t, &msp.SerializedIdentity{Mspid: "idemix", IdBytes: []byte("bad-bytes")}),
+			wantErr: "could not deserialize a SerializedIdemixIdentity",
+		},
+		{
+			name:    "missing NymX",
+			raw:     wrapIdemix(t, &msp.SerializedIdemixIdentity{NymY: []byte("nym-y")}),
+			wantErr: "unable to deserialize idemix identity: pseudonym is invalid",
+		},
+		{
+			name:    "invalid nym bytes",
+			raw:     wrapIdemix(t, &msp.SerializedIdemixIdentity{NymX: []byte("bad"), NymY: []byte("bad")}),
+			wantErr: "failed to import nym public key",
+		},
+		{
+			name: "garbage OU",
+			raw: wrapIdemix(t, withField(sIdemixValid, func(s *msp.SerializedIdemixIdentity) {
+				s.Ou = []byte{0xff, 0xff, 0xff}
+			})),
+			wantErr: "cannot deserialize the OU of the identity",
+		},
+		{
+			name: "garbage Role",
+			raw: wrapIdemix(t, withField(sIdemixValid, func(s *msp.SerializedIdemixIdentity) {
+				s.Role = []byte{0xff, 0xff, 0xff}
+			})),
+			wantErr: "cannot deserialize the role of the identity",
+		},
+		{
+			name: "tampered proof",
+			raw: wrapIdemix(t, withField(sIdemixValid, func(s *msp.SerializedIdemixIdentity) {
+				s.Proof = []byte("tampered-proof")
+			})),
+			wantErr: "cannot deserialize, invalid identity",
+		},
+	}
+	for _, tc := range tests { //nolint:paralleltest // idemix key import races inside fabric-amcl
+		t.Run("DeserializeSigningIdentity rejects "+tc.name, func(t *testing.T) {
+			_, err := p.DeserializeSigningIdentity(tc.raw)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+		t.Run("DeserializeVerifier rejects "+tc.name, func(t *testing.T) {
+			_, err := p.DeserializeVerifier(tc.raw)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+
+	// Provider.Info error paths
+	_, err = p.Info([]byte("garbage"), nil)
+	require.ErrorContains(t, err, "failed to unmarshal to msp.SerializedIdentity{}")
+
+	_, err = p.Info(validID, []byte("garbage"))
+	require.ErrorContains(t, err, "invalid character")
+
+	_, auditDiff, err := p.Identity(nil)
+	require.NoError(t, err)
+	_, err = p.Info(validID, auditDiff)
+	require.ErrorContains(t, err, "eid nym does not match")
+
+	// DeserializeSigningIdentity with missing nym key in KVS
+	kvssSame1, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+
+	s2, err := mem.NewDriver().NewKVS("", "isolateddb")
+	require.NoError(t, err)
+	kvssSame2, err := kvs.New(s2, "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+
+	sameConfig, err := fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+
+	pSame1, err := idemix.NewProviderWithAnyPolicy(sameConfig, kvssSame1, sigService)
+	require.NoError(t, err)
+	pSame2, err := idemix.NewProviderWithAnyPolicy(sameConfig, kvssSame2, sigService)
+	require.NoError(t, err)
+
+	idFrom2, _, err := pSame2.Identity(nil)
+	require.NoError(t, err)
+
+	// pSame2's identity has nym key stored in kvssSame2, not in kvssSame1 (pSame1's KVS)
+	_, err = pSame1.DeserializeSigningIdentity(idFrom2)
+	require.ErrorContains(t, err, "cannot find nym secret key")
+	_, err = pSame1.DeserializeSigner(idFrom2)
+	require.ErrorContains(t, err, "cannot find nym secret key")
 }
