@@ -41,7 +41,9 @@ func NewStreamCommandHandler(svc protos.ViewServiceServer, maxRecvMsgSize int) h
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := server.OpenWSServerConnWithLimit(w, r, int64(maxRecvMsgSize))
 		if err != nil {
-			return // the upgrader has answered the request
+			// The upgrader has answered the request; this line is the node's record of it.
+			logger.WarnfContext(r.Context(), "failed opening view service stream from [%s]: %s", r.RemoteAddr, err)
+			return
 		}
 		stream := &wsCommandStream{conn: conn, ctx: withPeer(r.Context(), r)}
 		// A hijacked connection outlives its request context, and a view may be blocked

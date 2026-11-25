@@ -216,7 +216,7 @@ func (c *Committer) runEventNotifiers(ctx context.Context) {
 func (c *Committer) Status(ctx context.Context, txID cdriver.TxID) (driver.ValidationCode, string, error) {
 	vc, message, err := c.Vault.Status(ctx, txID)
 	if err != nil {
-		return driver.Unknown, "", errors.WithMessagef(err, "failed to get status of [%s]", txID)
+		return driver.Unknown, "", err
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
@@ -352,9 +352,7 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 
 	class := classify(err)
 	c.metrics.CommitFailures.With(failureClassLabel, class.String()).Add(1)
-	c.logger.Errorf("commit failed for block [%d] with class [%s], not retrying further: [%v]",
-		block.GetHeader().GetNumber(), class, err)
-	return err
+	return errors.WithMessagef(err, "not retrying, failure class [%s]", class)
 }
 
 // retryBlock commits a block, retrying while the failure classifies as
@@ -847,6 +845,9 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 					if errors.HasCause(err, vault.ErrRWSetOpen) {
 						return errors.WithMessagef(err, "failed matching rwset of [%s]", txID)
 					}
+					// HandleEndorserTransaction discards the transaction and logs only at Debug,
+					// so this line is the only report that a valid transaction was discarded.
+					c.logger.Warnf("[%s] rwsets do not match [%s]", txID, err)
 					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
 			} else {

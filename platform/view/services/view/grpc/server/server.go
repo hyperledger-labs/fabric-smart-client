@@ -439,6 +439,9 @@ func (s *Server) RegisterStreamer(typ reflect.Type, streamer Streamer) {
 }
 
 func (s *Server) streamError(err error, sc *protos.SignedCommand, commandServer protos.ViewService_StreamCommandServer) error {
+	// gRPC logs a handler's error only at Debug; this line is the node's record of
+	// the failure.
+	logger.ErrorfContext(commandServer.Context(), "stream error occurred [%s]", err.Error())
 	r, err2 := s.MarshalErrorResponse(sc.Command, err)
 	if err2 != nil {
 		return errors.WithMessagef(err, "failed creating response [%s]", err2)
@@ -447,7 +450,5 @@ func (s *Server) streamError(err error, sc *protos.SignedCommand, commandServer 
 	if err2 != nil {
 		return errors.WithMessagef(err, "failed creating response [%s]", err2)
 	}
-	// Log at gRPC stream handler boundary before returning error to close stream
-	logger.ErrorfContext(commandServer.Context(), "stream error occurred [%s]", err.Error())
 	return err
 }

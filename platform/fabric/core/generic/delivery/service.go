@@ -194,7 +194,7 @@ func (c *Service) scanTransactions(ctx context.Context, vault *fakeVault, callba
 			for i, tx := range block.Data.Data {
 				validationCode, err := validationCodeAt(block, i)
 				if err != nil {
-					return false, errors.Wrapf(err, "[%s]", c.channel)
+					return false, errors.Wrapf(err, "failed reading validation code on channel [%s]", c.channel)
 				}
 				if shadowed != nil && shadowed[i] {
 					continue

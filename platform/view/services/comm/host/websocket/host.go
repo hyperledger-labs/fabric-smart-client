@@ -97,6 +97,7 @@ func (h *host) Start(newStreamCallback func(stream commhost.P2PStream)) error {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := h.server.Start(newStreamCallback); err != nil {
+			// After waitReady returns nobody reads errChan; this line is the only report.
 			logger.Errorf("error starting server: %s", err)
 			errChan <- err
 		}

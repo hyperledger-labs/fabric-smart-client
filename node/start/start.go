@@ -229,13 +229,17 @@ func serve(n Node) error {
 		logger.Infof("Profiling enabled")
 		profiler, err := profile.New(profile.WithPath(configPath), profile.WithAll())
 		if err != nil {
-			err = errors.Wrap(err, "error creating profiler")
+			// Cobra's error printing is silenced; this line is the node's report of the
+			// failure.
+			logger.Errorf("error creating profiler: [%s]", err)
 			n.Callback() <- err
 			return err
 		}
 		// start profiler
 		if err := profiler.Start(); err != nil {
-			err = errors.Wrap(err, "error starting profiler")
+			// Cobra's error printing is silenced; this line is the node's report of the
+			// failure.
+			logger.Errorf("error starting profiler: [%s]", err)
 			n.Callback() <- err
 			return err
 		}
@@ -250,6 +254,8 @@ func serve(n Node) error {
 	defer signal.Stop(signals)
 
 	if err := n.Start(); err != nil {
+		// Cobra's error printing is silenced; this line is the node's report of the
+		// failure.
 		logger.Errorf("Failed starting platform [%s]", err)
 		n.Callback() <- err
 		return err

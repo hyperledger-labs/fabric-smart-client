@@ -126,6 +126,8 @@ func (h *host) Start(newStreamCallback func(stream commhost.P2PStream)) error {
 			},
 		}
 		if err := h.openPreamble(context.Background(), st); err != nil {
+			// The stream handler has no caller to return to; this line is the only report.
+			logger.Warnf("libp2p: refusing stream with peer [%s]: %v", st.RemotePeerID(), err)
 			return
 		}
 		newStreamCallback(st)
@@ -215,7 +217,6 @@ func (h *host) openPreamble(ctx context.Context, s *stream) error {
 		if refused {
 			h.metrics.RejectedStreams.With(reasonLabel, versionReason).Add(1)
 		}
-		logger.Warnf("libp2p: refusing stream with peer [%s]: %v", s.RemotePeerID(), err)
 		_ = s.Reset()
 		return err
 	}
