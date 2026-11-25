@@ -54,6 +54,14 @@ new method through a new interface.
 - Raw state values, payloads, private keys and credentials are never logged at
   any level, in log lines or in error messages. Log a hash
   (`logging.SHA256Base64`), a length, or an identifier instead.
+- Handle an error or return it, not both: do not log an error and then return
+  it, because the caller handles, wraps, logs or recovers from it. If the log
+  line carries context the error lacks, move it into the error with
+  `errors.Wrap` or `errors.Wrapf` from `pkg/utils/errors`. Keep the line where
+  it reports a different event than the error, or where nobody else would log
+  the failure (a goroutine, a callback whose error is dropped, a handler, a
+  caller that recovers silently); in that second case, add a short comment
+  saying why.
 - OpenTelemetry for traces and metrics; OTLP setup lives in
   `platform/view/services/tracing`.
 - Jaeger (tracing) and Prometheus (metrics) are the typical backends.

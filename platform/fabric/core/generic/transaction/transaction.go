@@ -617,7 +617,6 @@ func (t *Transaction) Envelope() (driver.Envelope, error) {
 	signerID := t.Creator()
 	signer, err := t.sigService.GetSigner(signerID)
 	if err != nil {
-		logger.Errorf("signer not found for %s while creating tx envelope for ordering [%s]", signerID.UniqueID(), err)
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
 	proposalResponses, err := t.ProposalResponses()

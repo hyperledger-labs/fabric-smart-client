@@ -216,7 +216,6 @@ func (c *Committer) runEventNotifiers(ctx context.Context) {
 func (c *Committer) Status(ctx context.Context, txID cdriver.TxID) (driver.ValidationCode, string, error) {
 	vc, message, err := c.Vault.Status(ctx, txID)
 	if err != nil {
-		c.logger.Errorf("failed to get status of [%s]: %s", txID, err)
 		return driver.Unknown, "", err
 	}
 	if vc == driver.Unknown {
@@ -353,9 +352,7 @@ func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 
 	class := classify(err)
 	c.metrics.CommitFailures.With(failureClassLabel, class.String()).Add(1)
-	c.logger.Errorf("commit failed for block [%d] with class [%s], not retrying further: [%v]",
-		block.GetHeader().GetNumber(), class, err)
-	return err
+	return errors.WithMessagef(err, "not retrying, failure class [%s]", class)
 }
 
 // retryBlock commits a block, retrying while the failure classifies as
@@ -615,7 +612,6 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	for iter := 0; iter < c.ChannelConfig.CommitterFinalityNumRetries(); iter++ {
 		vd, _, err := c.Status(ctx, txID)
 		if err != nil {
-			c.logger.Errorf("Is [%s] final? Failed getting transaction status from vault", txID)
 			return errors.WithMessagef(err, "failed getting transaction status from vault [%s]", txID)
 		}
 		lastStatus = vd
@@ -828,8 +824,7 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 
 		pt, headerType, err := c.TransactionManager.NewProcessedTransactionFromEnvelopePayload(envelope.Payload)
 		if err != nil && headerType == -1 {
-			c.logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
-			return err
+			return errors.WithMessagef(err, "[%s] failed to unmarshal envelope", txID)
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
 			envExists := false
@@ -850,7 +845,9 @@ func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexI
 					if errors.HasCause(err, vault.ErrRWSetOpen) {
 						return errors.WithMessagef(err, "failed matching rwset of [%s]", txID)
 					}
-					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
+					// HandleEndorserTransaction discards the transaction and logs only at Debug,
+					// so this line is the only report that a valid transaction was discarded.
+					c.logger.Warnf("[%s] rwsets do not match [%s]", txID, err)
 					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
 			} else {

@@ -89,8 +89,7 @@ func (s *Service) Update(env *cb.Envelope) error {
 		return s.validateConfig(env, current, loaded)
 	})
 	if err != nil {
-		logger.Errorf("failed validating config for channel [%s]: [%s]", s.channelID, err)
-		return err
+		return errors.Wrapf(err, "failed validating config for channel [%s]", s.channelID)
 	}
 
 	logger.Infof("updating channel [%s], done", s.channelID)

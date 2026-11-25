@@ -9,6 +9,8 @@ finished:
   hash (`logging.SHA256Base64`), a length, or an identifier
   ([Logging & monitoring](../dev/conventions.md#logging--monitoring)). Pick the
   level by the [log level policy](../dev/conventions.md#log-levels).
+- Handle an error or return it, not both: do not log an error and then return it
+  ([Logging & monitoring](../dev/conventions.md#logging--monitoring)).
 - Every new exported identifier has a Godoc comment
   ([Conventions → Godoc](../dev/conventions.md#godoc)).
 - A configuration key added, renamed or removed is updated in

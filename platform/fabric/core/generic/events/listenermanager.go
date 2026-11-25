@@ -193,7 +193,6 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 
 	buckets, err := m.mapper.Map(ctx, block)
 	if err != nil {
-		m.logger.Errorf("failed to process block [%d]: %v", block.Header.Number, err)
 		return errors.Wrapf(err, "failed to process block [%d]", block.Header.Number)
 	}
 

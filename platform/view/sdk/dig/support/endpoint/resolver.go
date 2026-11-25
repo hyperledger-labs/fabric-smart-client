@@ -100,7 +100,6 @@ func (r *ResolversLoader) LoadResolvers() error {
 		r.is.DefaultIdentity(),
 	)
 	if err != nil {
-		logger.Errorf("failed adding default resolver [%s]", err)
 		return errors.Wrap(err, "failed adding default resolver")
 	}
 
@@ -110,7 +109,6 @@ func (r *ResolversLoader) LoadResolvers() error {
 		var resolvers []*entry
 		err := r.config.UnmarshalKey("fsc.endpoint.resolvers", &resolvers)
 		if err != nil {
-			logger.Errorf("failed loading resolvers [%s]", err)
 			return errors.Wrap(err, "failed loading resolvers")
 		}
 		logger.Debugf("loaded resolvers successfully, number of entries found %d", len(resolvers))

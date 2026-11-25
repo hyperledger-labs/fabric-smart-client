@@ -98,7 +98,6 @@ func (p *SimpleProvider) NewClientStream(info host.StreamInfo, ctx context.Conte
 	// Hence, when the connection is lost, the context will not be cancelled.
 	conn, err := client.OpenWSClientConn(url.String(), verifyServer(config, info.RemotePeerID))
 	if err != nil {
-		logger.Errorf("Dial failed: %s", err.Error())
 		return nil, errors.Wrap(err, "failed to open websocket")
 	}
 	if tlsEnabled {

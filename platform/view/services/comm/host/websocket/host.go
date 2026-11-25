@@ -97,6 +97,7 @@ func (h *host) Start(newStreamCallback func(stream commhost.P2PStream)) error {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := h.server.Start(newStreamCallback); err != nil {
+			// After waitReady returns nobody reads errChan; this line is the only report.
 			logger.Errorf("error starting server: %s", err)
 			errChan <- err
 		}
@@ -141,16 +142,13 @@ func (h *host) NewStream(ctx context.Context, info commhost.StreamInfo) (commhos
 	logger.DebugfContext(ctx, "No address passed for peer [%s]. Resolving...", info.RemotePeerID)
 	// if len(address) == 0 { //TODO
 	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
-		err := errors.Errorf("no address found for peer [%s]", info.RemotePeerID)
-		logger.ErrorfContext(ctx, "Failed to resolve peer address: %s", err.Error())
-		return nil, err
+		return nil, errors.Errorf("no address found for peer [%s]", info.RemotePeerID)
 	}
 	logger.DebugfContext(ctx, "Resolved address of peer [%s]: %s", info.RemotePeerID, info.RemotePeerAddress)
 	// }
 	stream, err := h.client.OpenStream(info, ctx)
 	if err != nil {
-		logger.ErrorfContext(ctx, "Failed to open stream to peer [%s] at [%s]: %s", info.RemotePeerID, info.RemotePeerAddress, err.Error())
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to open stream to peer [%s] at [%s]", info.RemotePeerID, info.RemotePeerAddress)
 	}
 	logger.DebugfContext(ctx, "New stream opened successfully")
 	return stream, nil

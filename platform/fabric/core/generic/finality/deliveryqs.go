@@ -46,8 +46,7 @@ func (q *DeliveryScanQueryByID[T]) runQueryByID(ctx context.Context, results col
 		q.Logger.Debugf("Received result for tx [%s, %v, %d]...", tx.TxID(), tx.ValidationCode(), len(tx.Results()))
 		infos, err := q.Mapper.MapProcessedTx(tx)
 		if err != nil {
-			q.Logger.Errorf("failed mapping tx [%s]: %v", tx.TxID(), err)
-			return true, err
+			return true, errors.Wrapf(err, "failed mapping tx [%s]", tx.TxID())
 		}
 		ch <- infos
 		results.Remove(tx.TxID())

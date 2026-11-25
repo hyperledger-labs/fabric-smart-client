@@ -46,8 +46,7 @@ func UnpackEnvelopeFromBytes(networkID string, raw []byte) (*UnpackedEnvelope, e
 func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, error) {
 	payl, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		logger.Errorf("VSCC error: GetPayload failed, err %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "VSCC error: GetPayload failed")
 	}
 	if payl.Header == nil {
 		return nil, errors.New("payload header is nil")
@@ -70,7 +69,6 @@ func UnpackEnvelope(networkID string, env *common.Envelope) (*UnpackedEnvelope, 
 func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload, chdr *common.ChannelHeader) (*UnpackedEnvelope, error) {
 	// validate the payload type
 	if common.HeaderType(chdr.Type) != common.HeaderType_ENDORSER_TRANSACTION {
-		logger.Errorf("Only EndorserClient Transactions are supported, provided type %d", chdr.Type)
 		return nil, errors.Errorf("only EndorserClient Transactions are supported, provided type %d", chdr.Type)
 	}
 
@@ -82,8 +80,7 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 	// ...and the transaction...
 	tx, err := protoutil.UnmarshalTransaction(payl.Data)
 	if err != nil {
-		logger.Errorf("VSCC error: GetTransaction failed, err %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "VSCC error: GetTransaction failed")
 	}
 	if len(tx.Actions) == 0 {
 		return nil, errors.New("VSCC error: transaction has no actions")
@@ -91,18 +88,15 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 
 	actionPayload, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
 	if err != nil {
-		logger.Errorf("VSCC error: GetChaincodeActionPayload failed, err %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "VSCC error: GetChaincodeActionPayload failed")
 	}
 	cpp, err := protoutil.UnmarshalChaincodeProposalPayload(actionPayload.ChaincodeProposalPayload)
 	if err != nil {
-		logger.Errorf("VSCC error: GetChaincodeProposalPayload failed, err %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "VSCC error: GetChaincodeProposalPayload failed")
 	}
 	cis, err := protoutil.UnmarshalChaincodeInvocationSpec(cpp.Input)
 	if err != nil {
-		logger.Errorf("VSCC error: UnmarshalChaincodeInvocationSpec failed, err %s", err)
-		return nil, err
+		return nil, errors.Wrap(err, "VSCC error: UnmarshalChaincodeInvocationSpec failed")
 	}
 	if cis.ChaincodeSpec == nil {
 		return nil, errors.New("chaincode invocation spec did not contain chaincode spec")
