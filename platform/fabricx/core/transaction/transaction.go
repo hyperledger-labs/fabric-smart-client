@@ -132,13 +132,17 @@ func (t *Transaction) Results() ([]byte, error) {
 	return t.TProposalResponses[0].Payload, nil
 }
 
+// From copies the exported fields of tx, which must be a *Transaction, into t, except Key,
+// and parses tx's signed proposal if it has one. t keeps the rest of its state: its context,
+// network service, bound channel and read-write set handle, so the vault and metadata calls
+// it makes afterwards run under the context t was created with and on t's channel even when
+// the copied channel name differs.
 func (t *Transaction) From(tx driver.Transaction) (err error) {
 	payload, ok := tx.(*Transaction)
 	if !ok {
 		return errors.Errorf("wrong transaction type [%T]", tx)
 	}
 
-	t.ctx = context.Background()
 	t.TCreator = payload.TCreator
 	t.TNonce = payload.TNonce
 	t.TTxID = payload.TTxID
