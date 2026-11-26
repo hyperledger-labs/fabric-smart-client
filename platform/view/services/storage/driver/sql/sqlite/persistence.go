@@ -77,6 +77,7 @@ func open(opts Opts) (*common.RWDB, error) {
 	logger.Debugf("Opening write db [%v]", opts.DataSource)
 	writeDB, err := openDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas, opts.Tracing)
 	if err != nil {
+		_ = readDB.Close()
 		return nil, errors.Wrapf(err, "can't open write %s database", driverName)
 	}
 	return &common.RWDB{
@@ -113,7 +114,7 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 	if err = db.Ping(); err != nil {
 		_ = db.Close()
 		if isCantOpen(err) {
-			return nil, errors.Wrapf(err, "can't open %s database, does the folder exist?", driverName)
+			return nil, errors.Wrapf(err, "can't open %s database file, check that its folder exists and is writable", driverName)
 		}
 		return nil, errors.Wrapf(err, "can't connect to %s database, check the pragmas in the data source", driverName)
 	}
