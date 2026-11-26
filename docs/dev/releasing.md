@@ -23,7 +23,8 @@ for CI, or a patch release, and how fixes reach a release branch.
   `platform/fabric/services/state/cc/query`,
   `platform/view/services/comm/host/libp2p`) with the same version: `v0.28.0`,
   `integration/v0.28.0`, and so on. `scripts/tag-release.sh` finds the modules
-  in the commit it tags. The submodules `replace` the root module with a
+  in the commit it tags. The `tools` and `examples` modules are never released:
+  the release skips them. The submodules `replace` the root module with a
   relative path, so no `go.mod` changes before tagging. The tags are
   lightweight.
 - A _release PR_, titled `build(release): vX.Y.Z`, adds everything the release

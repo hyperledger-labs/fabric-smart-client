@@ -130,6 +130,11 @@ linters:
       - path: ^integration/
         linters:
           - depguard
+      # Each demo's directory under examples/ holds its Ginkgo integration
+      # suite, like a suite under integration/; its subpackages stay testify.
+      - path: ^examples/[^/]+/[^/]+_test\.go$
+        linters:
+          - depguard
       # Test fixtures and the nwo integration harness: 0644 fixture certs,
       # 0755 scratch dirs, subprocess launches with generated paths and
       # deliberately-weak TLS in benchmarks are what that code is for, not
