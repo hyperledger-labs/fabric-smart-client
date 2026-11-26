@@ -9,6 +9,7 @@ package prometheus
 import (
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"runtime"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
@@ -50,6 +52,10 @@ var (
 	}
 )
 
+// RegisterReplacer makes the namespace derived from a package path replace s with
+// replaceWith wherever s occurs, for names derived after the call. Where registered
+// strings overlap at the same position, the longest one is replaced. It panics if s is
+// already registered.
 func RegisterReplacer(s, replaceWith string) {
 	replacersMutex.Lock()
 	defer replacersMutex.Unlock()
@@ -62,10 +68,11 @@ func RegisterReplacer(s, replaceWith string) {
 	replacers[s] = replaceWith
 }
 
+// Replacers returns a copy of the registered replacers.
 func Replacers() map[string]string {
 	replacersMutex.RLock()
 	defer replacersMutex.RUnlock()
-	return replacers
+	return maps.Clone(replacers)
 }
 
 func (*Provider) applyNamespaceSubsystem(namespace, subsystem *string) {
@@ -165,11 +172,7 @@ func parseFullPkgName(fullPkgName string, replacements map[string]string, params
 	parts := append(strings.Split(fullPkgName, "/"), params...)
 	subsystem = parts[len(parts)-1]
 	namespaceParts := parts[:len(parts)-1]
-	namespace = strings.Join(namespaceParts, "_")
-
-	for old, newVal := range replacements {
-		namespace = strings.ReplaceAll(namespace, old, newVal)
-	}
+	namespace = utils.ReplaceLongestFirst(strings.Join(namespaceParts, "_"), replacements)
 	return namespace, subsystem
 }
 

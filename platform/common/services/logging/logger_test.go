@@ -81,6 +81,15 @@ func TestLoggerName(t *testing.T) {
 			expected:     "repo.pkg",
 		},
 		{
+			name:        "of overlapping replacements, the longest applies",
+			fullPkgName: "github.com/org/repo/platform/pkg",
+			replacements: map[string]string{
+				"github.com.org.repo":          "repo",
+				"github.com.org.repo.platform": "short",
+			},
+			expected: "short.pkg",
+		},
+		{
 			name:         "a replacement that does not match leaves the name alone",
 			fullPkgName:  "github.com/org/repo/pkg",
 			replacements: map[string]string{"not.present": "x"},
@@ -97,7 +106,11 @@ func TestLoggerName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.expected, loggerName(tc.fullPkgName, tc.replacements, tc.params...))
+			// A map ranges in a different order on each call, so repeat to catch a name
+			// that depends on it.
+			for range 100 {
+				assert.Equal(t, tc.expected, loggerName(tc.fullPkgName, tc.replacements, tc.params...))
+			}
 		})
 	}
 }
