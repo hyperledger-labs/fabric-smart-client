@@ -19,7 +19,7 @@ type batcher[I any, O any] struct {
 	ctx      context.Context
 	idx      atomic.Uint32
 	inputs   []chan I
-	outputs  []chan O
+	outputs  []chan result[O]
 	locks    []sync.Mutex
 	len      uint32
 	executor ExecuteFunc[I, O]
@@ -36,11 +36,11 @@ func newBatcher[I, O any](ctx context.Context, executor func([]I) []O, capacity 
 		panic(errors.Errorf("batch timeout must be positive, got %v", timeout))
 	}
 	inputs := make([]chan I, capacity)
-	outputs := make([]chan O, capacity)
+	outputs := make([]chan result[O], capacity)
 	locks := make([]sync.Mutex, capacity)
 	for i := range capacity {
 		inputs[i] = make(chan I)
-		outputs[i] = make(chan O)
+		outputs[i] = make(chan result[O])
 		locks[i] = sync.Mutex{}
 	}
 
@@ -55,6 +55,13 @@ func newBatcher[I, O any](ctx context.Context, executor func([]I) []O, capacity 
 	}
 	go e.start()
 	return e
+}
+
+// result is what a call receives for its input: the executor's output, or the error
+// that prevented the batch from producing one.
+type result[O any] struct {
+	val O
+	err error
 }
 
 func (r *batcher[I, O]) start() {
@@ -100,14 +107,10 @@ func (r *batcher[I, O]) start() {
 		ticker.Reset(r.timeout)
 
 		logger.Debugf("Start execution for %d inputs", len(inputs))
-		outs := r.executor(inputs)
-		logger.Debugf("Execution finished with %d outputs", len(outs))
-		if len(inputs) != len(outs) {
-			panic(errors.Errorf("expected %d outputs, but got %d", len(inputs), len(outs)))
-		}
-		for i, err := range outs {
+		results := r.runBatch(inputs)
+		for i, res := range results {
 			select {
-			case r.outputs[(firstIdx+uint32(i))%r.len] <- err:
+			case r.outputs[(firstIdx+uint32(i))%r.len] <- res:
 			case <-r.ctx.Done():
 				return
 			}
@@ -115,6 +118,26 @@ func (r *batcher[I, O]) start() {
 		logger.Debugf("Results distributed for range [%d,%d)", firstIdx, lastIdx)
 		firstIdx = lastIdx
 	}
+}
+
+// runBatch runs the executor on inputs and returns one result per input. An executor
+// that returns a different number of outputs breaks its contract; every call in the
+// batch then fails with an error, since no output can be matched to its input.
+func (r *batcher[I, O]) runBatch(inputs []I) []result[O] {
+	outs := r.executor(inputs)
+	logger.Debugf("Execution finished with %d outputs", len(outs))
+	results := make([]result[O], len(inputs))
+	if len(outs) != len(inputs) {
+		err := errors.Errorf("batch executor returned %d outputs for %d inputs", len(outs), len(inputs))
+		for i := range results {
+			results[i].err = err
+		}
+		return results
+	}
+	for i, out := range outs {
+		results[i].val = out
+	}
+	return results
 }
 
 // call enqueues input and waits for the corresponding output. If the batcher's
@@ -135,7 +158,7 @@ func (r *batcher[I, O]) call(input I) (O, error) {
 	select {
 	case out := <-r.outputs[idx%r.len]:
 		logger.Debugf("Return result of output [%d]", idx)
-		return out, nil
+		return out.val, out.err
 	case <-r.ctx.Done():
 		logger.Debugf("Context cancelled while waiting for result of output [%d]", idx)
 		return zero, r.ctx.Err()
@@ -150,7 +173,9 @@ type batchExecutor[I any, O any] struct {
 // Batching occurs when capacity is reached or timeout expires.
 // The executor function receives a batch of inputs and must return corresponding outputs.
 // If ctx is cancelled while a call is in flight, that call's Execute returns the zero
-// value of O and ctx.Err().
+// value of O and ctx.Err(). If executor returns a different number of outputs than it
+// received inputs, every Execute call of that batch returns the zero value of O and an
+// error; the executor keeps serving later batches.
 // It panics if capacity is less than 1 or timeout is not positive.
 func NewBatchExecutor[I, O any](
 	ctx context.Context,
@@ -178,7 +203,9 @@ type batchRunner[V any] struct {
 // NewBatchRunner creates a BatchRunner that batches multiple Run calls for efficiency.
 // Batching occurs when capacity is reached or timeout expires.
 // The runner function receives a batch of values and must return corresponding errors.
-// If ctx is cancelled while a call is in flight, that call's Run returns ctx.Err().
+// If ctx is cancelled while a call is in flight, that call's Run returns ctx.Err(). If
+// runner returns a different number of errors than it received values, every Run call
+// of that batch returns an error; the runner keeps serving later batches.
 // It panics if capacity is less than 1 or timeout is not positive.
 func NewBatchRunner[V any](ctx context.Context, runner func([]V) []error, capacity int, timeout time.Duration) BatchRunner[V] {
 	return &batchRunner[V]{batcher: newBatcher(ctx, runner, capacity, timeout)}

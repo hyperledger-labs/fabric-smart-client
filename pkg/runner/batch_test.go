@@ -132,6 +132,53 @@ func TestBatchExecutor_Error(t *testing.T) {
 	require.Equal(t, 0, val)
 }
 
+// TestBatchRunner_WrongOutputCount checks that a runner returning the wrong number of
+// errors fails every call of that batch, instead of crashing the process, and that the
+// next batch is served normally.
+func TestBatchRunner_WrongOutputCount(t *testing.T) {
+	t.Parallel()
+
+	var batches atomic.Int32
+	// The timeout never fires, so only a full batch of 3 triggers an execution.
+	runner := NewBatchRunner(t.Context(), func(vals []int) []error {
+		if batches.Add(1) == 1 {
+			return make([]error, len(vals)+1)
+		}
+		return make([]error, len(vals))
+	}, 3, time.Hour)
+
+	run := func() []error {
+		errs := make([]error, 3)
+		var wg sync.WaitGroup
+		for i := range errs {
+			wg.Go(func() { errs[i] = runner.Run(i) })
+		}
+		wg.Wait()
+		return errs
+	}
+
+	for _, err := range run() {
+		require.ErrorContains(t, err, "batch executor returned 4 outputs for 3 inputs")
+	}
+	for _, err := range run() {
+		require.NoError(t, err)
+	}
+}
+
+// TestBatchExecutor_WrongOutputCount checks that an executor returning too few outputs
+// makes Execute return the zero value and an error.
+func TestBatchExecutor_WrongOutputCount(t *testing.T) {
+	t.Parallel()
+
+	executor := NewBatchExecutor(t.Context(), func([]string) []Output[int] {
+		return nil
+	}, 10, 10*time.Millisecond)
+
+	val, err := executor.Execute("hello")
+	require.ErrorContains(t, err, "batch executor returned 0 outputs for 1 inputs")
+	require.Zero(t, val)
+}
+
 func TestBatchExecutor_Concurrent(t *testing.T) {
 	t.Parallel()
 
