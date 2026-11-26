@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -222,4 +223,77 @@ func TestIdentityCacheCloseIdempotent(t *testing.T) {
 		require.NoError(t, err)
 	}
 	c.Close()
+}
+
+// Requests with options, and every request to a zero-sized cache, go to the backend
+// directly, so its error reaches the caller.
+func TestIdentityCacheBackendError(t *testing.T) {
+	t.Parallel()
+	backendErr := errors.New("backend failure")
+	backend := func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+		return nil, nil, backendErr
+	}
+
+	c := NewIdentityCache(backend, 1, nil, nil)
+	defer c.Close()
+	_, _, err := c.Identity(&driver.IdentityOptions{EIDExtension: true})
+	require.ErrorIs(t, err, backendErr)
+
+	disabled := NewIdentityCache(backend, 0, nil, nil)
+	defer disabled.Close()
+	_, _, err = disabled.Identity(nil)
+	require.ErrorIs(t, err, backendErr)
+}
+
+// With a backend that always fails, Identity waits out the cache timeout, asks the backend
+// itself and returns its error. The provisioning goroutine is then in its back-off, and
+// Close must stop it there without another backend call.
+func TestIdentityCacheTimeoutBackendErrorAndCloseDuringBackoff(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		backendErr := errors.New("backend failure")
+		var calls atomic.Int32
+		c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+			calls.Add(1)
+			return nil, nil, backendErr
+		}, 1, nil, &IdentityCacheOptions{CacheTimeout: 10 * time.Millisecond})
+
+		_, _, err := c.Identity(nil)
+		require.ErrorIs(t, err, backendErr)
+
+		// One call from the provisioning goroutine, one from the timeout fallback; the
+		// goroutine now sleeps in its 1s back-off.
+		synctest.Wait()
+		require.Equal(t, int32(2), calls.Load())
+
+		// Close returns only once the goroutine has left its back-off.
+		c.Close()
+		require.Equal(t, int32(2), calls.Load(), "no backend call after Close")
+		require.Equal(t, 0, c.CacheSize())
+	})
+}
+
+// After a backend failure the provisioning goroutine backs off for a second and retries;
+// the identity it then provisions is served from the cache.
+func TestIdentityCacheProvisionRetriesAfterFailure(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		var calls atomic.Int32
+		c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
+			if calls.Add(1) == 1 {
+				return nil, nil, errors.New("transient failure")
+			}
+			return []byte("hello world"), []byte("audit"), nil
+		}, 1, nil, &IdentityCacheOptions{CacheTimeout: time.Minute})
+		defer c.Close()
+
+		start := time.Now()
+		id, audit, err := c.Identity(nil)
+		require.NoError(t, err)
+		require.Equal(t, view.Identity("hello world"), id)
+		require.Equal(t, []byte("audit"), audit)
+		// Served by the retry after the back-off, not by the one-minute timeout fallback.
+		require.Equal(t, time.Second, time.Since(start))
+		require.GreaterOrEqual(t, calls.Load(), int32(2))
+	})
 }

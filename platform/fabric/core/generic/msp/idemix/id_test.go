@@ -7,20 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package idemix_test
 
 import (
+	"os"
 	"testing"
 	"time"
 
+	bccsp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
-func TestMSPIdentityMethods(t *testing.T) {
-	t.Parallel()
-
+func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	id := &idemix.MSPIdentity{
 		ID: &msp.IdentityIdentifier{Mspid: "test-msp"},
 		OU: &m.OrganizationUnit{
@@ -30,7 +32,7 @@ func TestMSPIdentityMethods(t *testing.T) {
 		Role: &m.MSPRole{
 			Role: m.MSPRole_ADMIN,
 		},
-		Idemix: &idemix.Idemix{Name: "test-msp"},
+		Idemix: &idemix.Idemix{Name: "idemix-msp"},
 	}
 
 	require.True(t, id.Anonymous())
@@ -40,8 +42,39 @@ func TestMSPIdentityMethods(t *testing.T) {
 
 	identifier := id.GetIdentifier()
 	require.Equal(t, "test-msp", identifier.Mspid)
+	// The MSP identifier is the MSP's name, not the identity's Mspid.
+	require.Equal(t, "idemix-msp", id.GetMSPIdentifier())
 
-	err := id.SatisfiesPrincipal(nil)
+	// GetOrganizationalUnits returns nil when the issuer public key cannot be serialized
+	idBadIPK := &idemix.MSPIdentity{
+		OU:     &m.OrganizationUnit{OrganizationalUnitIdentifier: "test-ou"},
+		Idemix: &idemix.Idemix{Name: "test-msp", IssuerPublicKey: failingKey{}},
+	}
+	require.Nil(t, idBadIPK.GetOrganizationalUnits())
+
+	// GetOrganizationalUnits returns OU with certifiers identifier equal to IPK bytes
+	ipkBytes, err := os.ReadFile("./testdata/idemix/msp/IssuerPublicKey")
+	require.NoError(t, err)
+	des, err := idemix.NewDeserializer(ipkBytes)
+	require.NoError(t, err)
+	ipkKey, cryptoProvider := des.IssuerPublicKey, des.Csp
+
+	idWithIPK := &idemix.MSPIdentity{
+		ID: &msp.IdentityIdentifier{Mspid: "test-msp"},
+		OU: &m.OrganizationUnit{
+			OrganizationalUnitIdentifier: "test-ou",
+		},
+		Idemix: &idemix.Idemix{
+			Name:            "test-msp",
+			IssuerPublicKey: ipkKey,
+		},
+	}
+	ous := idWithIPK.GetOrganizationalUnits()
+	require.Len(t, ous, 1)
+	require.Equal(t, "test-ou", ous[0].OrganizationalUnitIdentifier)
+	require.Equal(t, ipkBytes, ous[0].CertifiersIdentifier)
+
+	err = id.SatisfiesPrincipal(nil)
 	require.ErrorContains(t, err, "not supported")
 
 	sigID := &idemix.MSPSigningIdentity{
@@ -49,6 +82,43 @@ func TestMSPIdentityMethods(t *testing.T) {
 	}
 	publicVersion := sigID.GetPublicVersion()
 	require.Equal(t, id, publicVersion)
+
+	// Sign fails without a user key.
+	sigIDWithCSP := &idemix.MSPSigningIdentity{
+		MSPIdentity: &idemix.MSPIdentity{
+			Idemix: &idemix.Idemix{Csp: cryptoProvider},
+		},
+	}
+	_, err = sigIDWithCSP.Sign([]byte("msg"))
+	require.Error(t, err)
+}
+
+func TestAuditInfo_Methods(t *testing.T) {
+	t.Parallel()
+
+	ai := &idemix.AuditInfo{
+		Attributes: [][]byte{
+			[]byte("org-unit"),
+			[]byte("1"),
+			[]byte("alice-eid"),
+			[]byte("alice-rh"),
+		},
+	}
+	require.Equal(t, "alice-eid", ai.EnrollmentID())
+	require.Equal(t, "alice-rh", ai.RevocationHandle())
+
+	// Match unmarshal errors
+	err := ai.Match([]byte("not-a-proto"))
+	require.ErrorContains(t, err, "failed to unmarshal to msp.SerializedIdentity{}")
+
+	si := &m.SerializedIdentity{
+		Mspid:   "idemix",
+		IdBytes: []byte("invalid-idemix-bytes"),
+	}
+	raw, err := proto.Marshal(si)
+	require.NoError(t, err)
+	err = ai.Match(raw)
+	require.ErrorContains(t, err, "could not deserialize a SerializedIdemixIdentity")
 }
 
 func TestNymSignatureVerifier_Verify(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
@@ -61,3 +131,12 @@ func TestNymSignatureVerifier_Verify(t *testing.T) { //nolint:paralleltest // id
 	err = v.Verify(nil, nil)
 	require.Error(t, err)
 }
+
+// failingKey is a bccsp.Key whose serialization always fails.
+type failingKey struct{}
+
+func (failingKey) Bytes() ([]byte, error)        { return nil, errors.New("bytes failed") }
+func (failingKey) SKI() []byte                   { return nil }
+func (failingKey) Symmetric() bool               { return false }
+func (failingKey) Private() bool                 { return false }
+func (failingKey) PublicKey() (bccsp.Key, error) { return nil, errors.New("no public key") }
