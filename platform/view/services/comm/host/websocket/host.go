@@ -10,10 +10,8 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
-	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -89,53 +87,22 @@ func (h *host) PeerID() commhost.PeerID {
 	return h.nodeID
 }
 
+// Start binds the listen address and serves connections on it in the background. The
+// address accepts connections as soon as Start returns, since the socket is bound and
+// listening by then. Start returns an error only if the address cannot be bound; a serve
+// failure later on is logged.
 func (h *host) Start(newStreamCallback func(stream commhost.P2PStream)) error {
 	if err := h.server.Listen(); err != nil {
 		return errors.Wrap(err, "failed to listen")
 	}
-
-	errChan := make(chan error, 1)
 	go func() {
+		// Start returns only when serving fails, and nobody waits for it: this line is the
+		// only report of that failure.
 		if err := h.server.Start(newStreamCallback); err != nil {
-			// After waitReady returns nobody reads errChan; this line is the only report.
-			logger.Errorf("error starting server: %s", err)
-			errChan <- err
+			logger.Errorf("websocket host stopped serving on [%s]: %s", h.server.srv.Addr, err)
 		}
 	}()
-
-	waitReady := func() error {
-		deadline := time.Now().Add(2 * time.Second)
-		for {
-			select {
-			case err := <-errChan:
-				return err
-			default:
-			}
-			addr := h.server.srv.Addr
-			if time.Now().After(deadline) {
-				return errors.Errorf("timeout waiting for REST server readiness on [%s]", addr)
-			}
-
-			target := addr
-			host, port, err := net.SplitHostPort(addr)
-			if err == nil && (host == "" || host == "0.0.0.0" || host == "::") {
-				target = net.JoinHostPort("127.0.0.1", port)
-			}
-			conn, err := net.DialTimeout("tcp", target, 100*time.Millisecond)
-			if err == nil {
-				_ = conn.Close()
-				return nil
-			}
-			time.Sleep(25 * time.Millisecond)
-		}
-	}
-
-	select {
-	case err := <-errChan:
-		return err
-	default:
-	}
-	return waitReady()
+	return nil
 }
 
 func (h *host) NewStream(ctx context.Context, info commhost.StreamInfo) (commhost.P2PStream, error) {
