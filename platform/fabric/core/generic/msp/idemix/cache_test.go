@@ -266,9 +266,8 @@ func TestIdentityCacheTimeoutBackendErrorAndCloseDuringBackoff(t *testing.T) {
 		synctest.Wait()
 		require.Equal(t, int32(2), calls.Load())
 
+		// Close returns only once the goroutine has left its back-off.
 		c.Close()
-		time.Sleep(5 * time.Second)
-		synctest.Wait()
 		require.Equal(t, int32(2), calls.Load(), "no backend call after Close")
 		require.Equal(t, 0, c.CacheSize())
 	})

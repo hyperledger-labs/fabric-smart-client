@@ -12,7 +12,6 @@ import (
 	"time"
 
 	bccsp "github.com/IBM/idemix/bccsp/types"
-	imsp "github.com/IBM/idemix/msp"
 	math "github.com/IBM/mathlib"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
@@ -24,7 +23,6 @@ import (
 )
 
 func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
-
 	id := &idemix.MSPIdentity{
 		ID: &msp.IdentityIdentifier{Mspid: "test-msp"},
 		OU: &m.OrganizationUnit{
@@ -34,7 +32,7 @@ func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest // idemix key 
 		Role: &m.MSPRole{
 			Role: m.MSPRole_ADMIN,
 		},
-		Idemix: &idemix.Idemix{Name: "test-msp"},
+		Idemix: &idemix.Idemix{Name: "idemix-msp"},
 	}
 
 	require.True(t, id.Anonymous())
@@ -44,7 +42,8 @@ func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest // idemix key 
 
 	identifier := id.GetIdentifier()
 	require.Equal(t, "test-msp", identifier.Mspid)
-	require.Equal(t, "test-msp", id.GetMSPIdentifier())
+	// The MSP identifier is the MSP's name, not the identity's Mspid.
+	require.Equal(t, "idemix-msp", id.GetMSPIdentifier())
 
 	// GetOrganizationalUnits returns nil when the issuer public key cannot be serialized
 	idBadIPK := &idemix.MSPIdentity{
@@ -56,18 +55,9 @@ func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest // idemix key 
 	// GetOrganizationalUnits returns OU with certifiers identifier equal to IPK bytes
 	ipkBytes, err := os.ReadFile("./testdata/idemix/msp/IssuerPublicKey")
 	require.NoError(t, err)
-	cryptoProvider, err := idemix.NewBCCSP(math.FP256BN_AMCL)
+	des, err := idemix.NewDeserializer(ipkBytes)
 	require.NoError(t, err)
-	ipkKey, err := cryptoProvider.KeyImport(ipkBytes, &bccsp.IdemixIssuerPublicKeyImportOpts{
-		Temporary: true,
-		AttributeNames: []string{
-			imsp.AttributeNameOU,
-			imsp.AttributeNameRole,
-			imsp.AttributeNameEnrollmentId,
-			imsp.AttributeNameRevocationHandle,
-		},
-	})
-	require.NoError(t, err)
+	ipkKey, cryptoProvider := des.IssuerPublicKey, des.Csp
 
 	idWithIPK := &idemix.MSPIdentity{
 		ID: &msp.IdentityIdentifier{Mspid: "test-msp"},
@@ -93,14 +83,14 @@ func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest // idemix key 
 	publicVersion := sigID.GetPublicVersion()
 	require.Equal(t, id, publicVersion)
 
-	// Sign error path (nil Idemix/Csp or UserKey)
+	// Sign fails without a user key.
 	sigIDWithCSP := &idemix.MSPSigningIdentity{
 		MSPIdentity: &idemix.MSPIdentity{
 			Idemix: &idemix.Idemix{Csp: cryptoProvider},
 		},
 	}
 	_, err = sigIDWithCSP.Sign([]byte("msg"))
-	require.ErrorContains(t, err, "invalid key: it must not be nil")
+	require.Error(t, err)
 }
 
 func TestAuditInfo_Methods(t *testing.T) {

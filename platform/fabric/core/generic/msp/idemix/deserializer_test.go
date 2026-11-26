@@ -110,6 +110,12 @@ func TestDeserializer_RealIPK(t *testing.T) { //nolint:paralleltest // idemix ke
 		// Audit info of another identity does not match.
 		_, err = des.Info(id, otherAudit)
 		require.ErrorContains(t, err, "eid nym does not match")
+
+		// Without an issuer public key, as id.Info uses it, audit info cannot be checked.
+		noIPK, err := idemix.NewDeserializer(nil)
+		require.NoError(t, err)
+		_, err = noIPK.Info(id, audit)
+		require.ErrorContains(t, err, "error while verifying the nym eid")
 	})
 
 	t.Run("DeserializeAgainstNymEID", func(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
@@ -126,16 +132,29 @@ func TestDeserializer_RealIPK(t *testing.T) { //nolint:paralleltest // idemix ke
 		require.ErrorContains(t, err, "cannot deserialize, invalid identity")
 	})
 
-	siValid := &m.SerializedIdentity{}
-	require.NoError(t, proto.Unmarshal(id, siValid))
-	sIdemixValid := &m.SerializedIdemixIdentity{}
-	require.NoError(t, proto.Unmarshal(siValid.IdBytes, sIdemixValid))
+	for _, tc := range malformedIdentities(t, id) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+		t.Run("DeserializeAgainstNymEID rejects "+tc.name, func(t *testing.T) {
+			_, err := des.DeserializeAgainstNymEID(tc.raw, true, nil)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
 
-	tests := []struct {
-		name    string
-		raw     []byte
-		wantErr string
-	}{
+type malformedIdentity struct {
+	name    string
+	raw     []byte
+	wantErr string
+}
+
+// malformedIdentities returns copies of the valid identity, each broken in one field.
+func malformedIdentities(t *testing.T, valid []byte) []malformedIdentity {
+	t.Helper()
+	si := &m.SerializedIdentity{}
+	require.NoError(t, proto.Unmarshal(valid, si))
+	sIdemix := &m.SerializedIdemixIdentity{}
+	require.NoError(t, proto.Unmarshal(si.IdBytes, sIdemix))
+
+	return []malformedIdentity{
 		{
 			name:    "garbage outer proto",
 			raw:     []byte("garbage"),
@@ -157,32 +176,20 @@ func TestDeserializer_RealIPK(t *testing.T) { //nolint:paralleltest // idemix ke
 			wantErr: "failed to import nym public key",
 		},
 		{
-			name: "garbage OU",
-			raw: wrapIdemix(t, withField(sIdemixValid, func(s *m.SerializedIdemixIdentity) {
-				s.Ou = []byte{0xff, 0xff, 0xff}
-			})),
+			name:    "garbage OU",
+			raw:     wrapIdemix(t, withField(sIdemix, func(s *m.SerializedIdemixIdentity) { s.Ou = []byte{0xff, 0xff, 0xff} })),
 			wantErr: "cannot deserialize the OU of the identity",
 		},
 		{
-			name: "garbage Role",
-			raw: wrapIdemix(t, withField(sIdemixValid, func(s *m.SerializedIdemixIdentity) {
-				s.Role = []byte{0xff, 0xff, 0xff}
-			})),
+			name:    "garbage Role",
+			raw:     wrapIdemix(t, withField(sIdemix, func(s *m.SerializedIdemixIdentity) { s.Role = []byte{0xff, 0xff, 0xff} })),
 			wantErr: "cannot deserialize the role of the identity",
 		},
 		{
-			name: "tampered proof",
-			raw: wrapIdemix(t, withField(sIdemixValid, func(s *m.SerializedIdemixIdentity) {
-				s.Proof = []byte("tampered-proof")
-			})),
+			name:    "tampered proof",
+			raw:     wrapIdemix(t, withField(sIdemix, func(s *m.SerializedIdemixIdentity) { s.Proof = []byte("tampered-proof") })),
 			wantErr: "cannot deserialize, invalid identity",
 		},
-	}
-	for _, tc := range tests { //nolint:paralleltest // idemix key import races inside fabric-amcl
-		t.Run("DeserializeAgainstNymEID rejects "+tc.name, func(t *testing.T) {
-			_, err := des.DeserializeAgainstNymEID(tc.raw, true, nil)
-			require.ErrorContains(t, err, tc.wantErr)
-		})
 	}
 }
 

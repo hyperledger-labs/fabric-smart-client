@@ -40,11 +40,7 @@ func TestConfigFileErrors(t *testing.T) {
 	require.ErrorContains(t, err, "failed to read revocation public key file")
 
 	// GetFabricCAIdemixMspConfig: malformed user/SignerConfig JSON
-	dirWithBadSigner := t.TempDir()
-	err = os.WriteFile(filepath.Join(dirWithBadSigner, idemix.ConfigFileIssuerPublicKey), []byte("ipk"), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dirWithBadSigner, idemix.IdemixConfigFileRevocationPublicKey), []byte("revpk"), 0o600)
-	require.NoError(t, err)
+	dirWithBadSigner := keyDir(t)
 	err = os.MkdirAll(filepath.Join(dirWithBadSigner, idemix.ConfigDirUser), 0o700)
 	require.NoError(t, err)
 	err = os.WriteFile(filepath.Join(dirWithBadSigner, idemix.ConfigDirUser, idemix.ConfigFileSigner), []byte("invalid-json"), 0o600)
@@ -54,11 +50,7 @@ func TestConfigFileErrors(t *testing.T) {
 	require.ErrorContains(t, err, "failed to json unmarshal signer config read at")
 
 	// GetFabricCAIdemixMspConfig: signer config read error (not IsNotExist)
-	dirSignerIsDir := t.TempDir()
-	err = os.WriteFile(filepath.Join(dirSignerIsDir, idemix.ConfigFileIssuerPublicKey), []byte("ipk"), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dirSignerIsDir, idemix.IdemixConfigFileRevocationPublicKey), []byte("revpk"), 0o600)
-	require.NoError(t, err)
+	dirSignerIsDir := keyDir(t)
 	err = os.MkdirAll(filepath.Join(dirSignerIsDir, idemix.ConfigDirUser, idemix.ConfigFileSigner), 0o700)
 	require.NoError(t, err)
 
@@ -66,13 +58,18 @@ func TestConfigFileErrors(t *testing.T) {
 	require.ErrorContains(t, err, "failed to read the content of signer config at")
 
 	// GetFabricCAIdemixMspConfig: success without signer config
-	dirNoSigner := t.TempDir()
-	err = os.WriteFile(filepath.Join(dirNoSigner, idemix.ConfigFileIssuerPublicKey), []byte("ipk"), 0o600)
-	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dirNoSigner, idemix.IdemixConfigFileRevocationPublicKey), []byte("revpk"), 0o600)
-	require.NoError(t, err)
+	dirNoSigner := keyDir(t)
 
 	conf, err := idemix.GetFabricCAIdemixMspConfig(dirNoSigner, "test-ca")
 	require.NoError(t, err)
 	require.NotNil(t, conf)
+}
+
+// keyDir returns a directory holding placeholder issuer and revocation public key files.
+func keyDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, idemix.ConfigFileIssuerPublicKey), []byte("ipk"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, idemix.IdemixConfigFileRevocationPublicKey), []byte("revpk"), 0o600))
+	return dir
 }

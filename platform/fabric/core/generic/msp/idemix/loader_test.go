@@ -125,6 +125,11 @@ func TestFolderIdentityLoader_Load(t *testing.T) { //nolint:paralleltest // idem
 	err = folderLoader.Load(mockManagerSameIssuer, config.MSP{Path: "./testdata/sameissuer"})
 	require.NoError(t, err)
 	require.Equal(t, 2, mockManagerSameIssuer.AddMSPCallCount())
+	for i, dir := range []string{"idemix", "idemix2"} {
+		name, mspType, _, _ := mockManagerSameIssuer.AddMSPArgsForCall(i)
+		require.Equal(t, dir, name, "the MSP is named after its directory")
+		require.Equal(t, idemix.MSPType, mspType)
+	}
 	require.Equal(t, 2, mockManagerSameIssuer.AddDeserializerCallCount())
 
 	// Error path: empty subdirectory fails to load MSP configuration

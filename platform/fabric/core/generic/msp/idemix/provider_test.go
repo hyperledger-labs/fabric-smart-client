@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package idemix_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -463,11 +464,20 @@ func TestNewProvider_Errors(t *testing.T) { //nolint:paralleltest // idemix key 
 	otherConfig, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
 	require.NoError(t, err)
 
-	t.Run("unsupported curve", func(t *testing.T) {
+	t.Run("unsupported curve", func(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 		_, err := idemix.NewProviderWithAnyPolicyAndCurve(validConfig, kvss, sigService, math.CurveID(3))
 		require.ErrorContains(t, err, "unsupported curve ID")
 		_, err = idemix.NewProviderWithSigTypeAncCurve(validConfig, kvss, sigService, bccsp.Standard, math.CurveID(3))
 		require.ErrorContains(t, err, "unsupported curve ID")
+	})
+
+	t.Run("Any verifies best effort and signs standard", func(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+		p, err := idemix.NewProviderWithAnyPolicy(validConfig, kvss, sigService)
+		require.NoError(t, err)
+		require.Equal(t, bccsp.BestEffort, p.VerType)
+		_, audit, err := p.Identity(nil)
+		require.NoError(t, err)
+		require.Nil(t, audit, "standard signatures carry no audit info")
 	})
 
 	cryptoProvider, err := idemix.NewBCCSP(math.FP256BN_AMCL)
@@ -621,7 +631,7 @@ func TestProvider_Identity_AuditInfoAndMockSigner(t *testing.T) { //nolint:paral
 	require.ErrorContains(t, err, "mock register failure")
 }
 
-func TestProvider_DeserializeSigningIdentity_Errors(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
+func TestProvider_DeserializeErrors(t *testing.T) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 	kvss, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(t), newSignerInfo(t))
@@ -633,59 +643,8 @@ func TestProvider_DeserializeSigningIdentity_Errors(t *testing.T) { //nolint:par
 
 	validID, _, err := p.Identity(nil)
 	require.NoError(t, err)
-	siValid := &msp.SerializedIdentity{}
-	require.NoError(t, proto.Unmarshal(validID, siValid))
-	sIdemixValid := &msp.SerializedIdemixIdentity{}
-	require.NoError(t, proto.Unmarshal(siValid.IdBytes, sIdemixValid))
 
-	tests := []struct {
-		name    string
-		raw     []byte
-		wantErr string
-	}{
-		{
-			name:    "garbage outer proto",
-			raw:     []byte("garbage"),
-			wantErr: "failed to unmarshal to msp.SerializedIdentity{}",
-		},
-		{
-			name:    "garbage IdBytes",
-			raw:     mustMarshal(t, &msp.SerializedIdentity{Mspid: "idemix", IdBytes: []byte("bad-bytes")}),
-			wantErr: "could not deserialize a SerializedIdemixIdentity",
-		},
-		{
-			name:    "missing NymX",
-			raw:     wrapIdemix(t, &msp.SerializedIdemixIdentity{NymY: []byte("nym-y")}),
-			wantErr: "unable to deserialize idemix identity: pseudonym is invalid",
-		},
-		{
-			name:    "invalid nym bytes",
-			raw:     wrapIdemix(t, &msp.SerializedIdemixIdentity{NymX: []byte("bad"), NymY: []byte("bad")}),
-			wantErr: "failed to import nym public key",
-		},
-		{
-			name: "garbage OU",
-			raw: wrapIdemix(t, withField(sIdemixValid, func(s *msp.SerializedIdemixIdentity) {
-				s.Ou = []byte{0xff, 0xff, 0xff}
-			})),
-			wantErr: "cannot deserialize the OU of the identity",
-		},
-		{
-			name: "garbage Role",
-			raw: wrapIdemix(t, withField(sIdemixValid, func(s *msp.SerializedIdemixIdentity) {
-				s.Role = []byte{0xff, 0xff, 0xff}
-			})),
-			wantErr: "cannot deserialize the role of the identity",
-		},
-		{
-			name: "tampered proof",
-			raw: wrapIdemix(t, withField(sIdemixValid, func(s *msp.SerializedIdemixIdentity) {
-				s.Proof = []byte("tampered-proof")
-			})),
-			wantErr: "cannot deserialize, invalid identity",
-		},
-	}
-	for _, tc := range tests { //nolint:paralleltest // idemix key import races inside fabric-amcl
+	for _, tc := range malformedIdentities(t, validID) { //nolint:paralleltest // idemix key import races inside fabric-amcl
 		t.Run("DeserializeSigningIdentity rejects "+tc.name, func(t *testing.T) {
 			_, err := p.DeserializeSigningIdentity(tc.raw)
 			require.ErrorContains(t, err, tc.wantErr)
@@ -701,7 +660,8 @@ func TestProvider_DeserializeSigningIdentity_Errors(t *testing.T) { //nolint:par
 	require.ErrorContains(t, err, "failed to unmarshal to msp.SerializedIdentity{}")
 
 	_, err = p.Info(validID, []byte("garbage"))
-	require.ErrorContains(t, err, "invalid character")
+	var syntaxErr *json.SyntaxError
+	require.ErrorAs(t, err, &syntaxErr)
 
 	_, auditDiff, err := p.Identity(nil)
 	require.NoError(t, err)
@@ -712,6 +672,7 @@ func TestProvider_DeserializeSigningIdentity_Errors(t *testing.T) { //nolint:par
 	kvssSame1, err := kvs.New(newKVS(t), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
+	// A separately named store: newKVS(t) twice would share one in-memory database.
 	s2, err := mem.NewDriver().NewKVS("", "isolateddb")
 	require.NoError(t, err)
 	kvssSame2, err := kvs.New(s2, "", kvs.DefaultCacheSize)
