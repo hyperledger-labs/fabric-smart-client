@@ -64,11 +64,11 @@ GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
 
 Run one target at a time: concurrent targets share ports, containers and `out/`,
 and fail (see [One target at a time](../development.md#one-target-at-a-time)). A
-target's platform prefix decides which toolchain it needs: `fabric-*` targets
-need `make install-fabric-bins` (binaries in `$FAB_BINS`), `fabricx-*` targets
-need `make install-fabricx-tools` (tools in `$FAB_BINS/fabric-x`, kept apart
-because both toolchains ship a `configtxgen`). Installing both is safe, and
-`fsc-*` targets need neither.
+target's prefix decides which toolchain it needs: `fabric-*` targets need
+`make install-fabric-bins` (binaries in `$FAB_BINS`), `fabricx-*` targets and
+the `examples-*` demos that run on Chaguar need `make install-fabricx-tools`
+(tools in `$FAB_BINS/fabric-x`, kept apart because both toolchains ship a
+`configtxgen`). Installing both is safe, and `fsc-*` targets need neither.
 
 A filter that matches no spec still reports `ok`, so check the
 `Ran N of M Specs` line with `-v` before taking a focused run as evidence.

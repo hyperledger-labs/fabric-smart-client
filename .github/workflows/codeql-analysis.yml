@@ -72,6 +72,7 @@ jobs:
           extract ./...
           (cd integration && extract ./nwo/... ./fabric/common/... ./fabricx)
           (cd platform/view/services/comm/host/libp2p && extract ./...)
+          (cd examples && extract ./tlog/translog/... ./tlog/views/... ./tlog/client/...)
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # ratchet:github/codeql-action/analyze@codeql-bundle-v2.26.3

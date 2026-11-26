@@ -29,4 +29,8 @@ checked-out tree, not a published version.
 
 ## Demos
 
-No demo is in the module yet.
+- [`tlog/`](tlog/README.md): a Rekor-style transparency log run by three
+  organizations, one log node each, on Chaguar. `tlog/translog` holds the log
+  logic shared by nodes and clients, `tlog/views` the FSC views of a log node,
+  and `tlog/client` the client that verifies everything a node returns
+  (`make integration-tests-examples-tlog`).

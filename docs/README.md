@@ -50,6 +50,8 @@ page as a starting point.
 - [Authoring integration tests](dev/integration-tests/authoring.md)
 - [Fault-recovery tests](dev/integration-tests/fault-recovery.md)
 - [Benchmark examples](../integration/benchmark/README.md)
+- [Examples](../examples/README.md): demos with their own `go.mod`, such as
+  the [transparency-log tutorial](../examples/tlog/README.md)
 
 Coding agents start from [`AGENTS.md`](../AGENTS.md).
 
