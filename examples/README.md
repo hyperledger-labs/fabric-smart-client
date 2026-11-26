@@ -29,4 +29,6 @@ checked-out tree, not a published version.
 
 ## Demos
 
-No demo is in the module yet.
+- [`auction/`](auction/README.md): a sealed-bid auction between an auction
+  house and three bidders on Chaguar, with bid hashes on the ledger until the
+  house reveals the winner (`make integration-tests-examples-auction`).
