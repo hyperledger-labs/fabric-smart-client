@@ -192,6 +192,11 @@ committer goes down it moves to another without a restart:
 A call made while every committer is down fails with the error of the last
 attempt.
 
+`GetTransactionByID` returns `finality.TxNotFound` only when the committer
+answers that it has no such transaction. Any other failure, such as every
+committer being down or a timeout, is returned as a failed query; when the
+committer answered, `status.Code` recovers its gRPC code.
+
 ## Integration tests
 
 The Chaguar integration tests run a mock orderer and one committer per
