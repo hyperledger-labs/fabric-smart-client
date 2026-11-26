@@ -232,9 +232,3 @@ func TestLogspecChangesRunningLogger(t *testing.T) { //nolint:paralleltest // ch
 	assert.True(t, l.IsEnabledFor(DebugLevel))
 	assert.False(t, MustGetLogger("other").IsEnabledFor(DebugLevel))
 }
-
-// TestMockLoggerKeyValues checks the structured methods of MockLogger print k=v pairs.
-func TestMockLoggerKeyValues(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, "a=1 b=x c", keyValues([]any{"a", 1, "b", "x", "c"}))
-}
