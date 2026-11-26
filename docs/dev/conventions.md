@@ -50,7 +50,12 @@ new method through a new interface.
 
 ## Logging & monitoring
 
-- Structured logging via `platform/common/services/logging`.
+- Structured logging via `platform/common/services/logging`. Framework code
+  (`internal/`, `node/`, `pkg/`, `platform/`) never prints with `fmt.Print*`,
+  `log.Print*`, `log.Fatal*`, `log.Panic*` or the `print`/`println` builtins:
+  that output skips the node's format, levels and handler. `forbidigo` enforces
+  this outside tests and the query chaincode, whose stdout goes to the peer's
+  log. A CLI command that prints a result writes to `cmd.OutOrStdout()`.
 - Raw state values, payloads, private keys and credentials are never logged at
   any level, in log lines or in error messages. Log a hash
   (`logging.SHA256Base64`), a length, or an identifier instead.
