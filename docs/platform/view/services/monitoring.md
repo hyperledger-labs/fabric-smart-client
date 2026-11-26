@@ -204,7 +204,10 @@ type TracerProvider interface {
 FSC defines the following implementations, although custom implementations can
 be added:
 
-- **NoOp:** Disables the tracer, when `fsc.tracing.provider = none`
+- **NoOp:** Records and exports nothing, when `fsc.tracing.provider = none`.
+  A span with a parent is the parent's span, so a trace passes through the
+  node unchanged. A root span gets new IDs, which log lines carry (see
+  [Trace IDs in log lines](../../../configuration.md#trace-ids-in-log-lines)).
 - **Console:** Exports (prints) the traces on the console, when
   `fsc.tracing.provider = console`
 - **File:** Exports (stores) the traces into the file `fsc.tracing.file.path`,
@@ -219,9 +222,10 @@ already-populated `tracing.Config` as is. Besides the type of the exporter, the
 configuration specifies other parameters, like the sampling rate
 (`fsc.tracing.sampling.ratio`, in [0, 1]). `NewProviderFromConfigService`
 defaults an unset ratio to 1; `NewProviderFromConfig` applies no defaults, so a
-zero ratio samples no root spans. Any other `fsc.tracing.provider` value is
-rejected at startup. The default implementation is defined in the view SDK, but
-can be overridden in the same way as the metrics provider.
+zero ratio samples no root spans. A span continuing a trace that the caller
+didn't sample is sampled by the ratio too. Any other `fsc.tracing.provider`
+value is rejected at startup. The default implementation is defined in the view
+SDK, but can be overridden in the same way as the metrics provider.
 
 FSC provides also an enhanced implementation of the `tracing.Provider` that
 keeps metrics in the background for each span. For every span started, it

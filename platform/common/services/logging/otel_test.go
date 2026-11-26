@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -141,4 +142,43 @@ func TestSpanEvent_NoSpanInContextIsSafe(t *testing.T) { //nolint:paralleltest /
 	logger.InfowContext(t.Context(), "no span")
 
 	require.Len(t, observed.All(), 1)
+}
+
+// TestTraceIDs checks that a line written with a valid span context in its context carries
+// the span's trace and span IDs, whether or not the span is sampled, and that other lines
+// carry neither.
+func TestTraceIDs(t *testing.T) {
+	t.Parallel()
+
+	sc := trace.SpanContextConfig{TraceID: trace.TraceID{1}, SpanID: trace.SpanID{2}}
+	sampled := sc
+	sampled.TraceFlags = trace.FlagsSampled
+	for name, tc := range map[string]struct {
+		log  func(l Logger)
+		want map[string]any
+	}{
+		"sampled": {
+			log: func(l Logger) {
+				l.InfofContext(trace.ContextWithSpanContext(t.Context(), trace.NewSpanContext(sampled)), "x")
+			},
+			want: map[string]any{"trace_id": sc.TraceID.String(), "span_id": sc.SpanID.String()},
+		},
+		"not sampled": {
+			log: func(l Logger) {
+				l.InfowContext(trace.ContextWithSpanContext(t.Context(), trace.NewSpanContext(sc)), "x")
+			},
+			want: map[string]any{"trace_id": sc.TraceID.String(), "span_id": sc.SpanID.String()},
+		},
+		"no span context": {log: func(l Logger) { l.InfofContext(t.Context(), "x") }, want: map[string]any{}},
+		"no context":      {log: func(l Logger) { l.Infof("x") }, want: map[string]any{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			core, observed := observer.New(zapcore.InfoLevel)
+			tc.log(newZapLogger(core, ""))
+			require.Len(t, observed.All(), 1)
+			require.Equal(t, tc.want, observed.All()[0].ContextMap())
+		})
+	}
 }

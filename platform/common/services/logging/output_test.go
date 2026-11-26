@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type stringer string
@@ -24,7 +25,7 @@ type stringer string
 func (s stringer) String() string { return "S(" + string(s) + ")" }
 
 // writeGoldenLines writes the lines of the golden tests: fields of several kinds, With,
-// Named, a disabled line, an Error line, and an Error line from slog through Handler.
+// Named, a disabled line, Error lines from a Logger and from slog, and a traced line.
 func writeGoldenLines() {
 	l := MustGetLogger("golden")
 	l.Infow("hello", "int", 1, "str", "x", "err", context.Canceled, "stringer", stringer("v"),
@@ -33,7 +34,13 @@ func writeGoldenLines() {
 	l.Debugf("dropped")
 	l.Errorf("bad %s", "thing")
 	slog.New(Handler("app")).Error("from slog")
+	l.InfofContext(trace.ContextWithSpanContext(context.Background(), goldenSpan), "traced")
 }
+
+var goldenSpan = trace.NewSpanContext(trace.SpanContextConfig{
+	TraceID: trace.TraceID{0x0a, 15: 0x01},
+	SpanID:  trace.SpanID{0x0b, 7: 0x02},
+})
 
 var (
 	jsonTS = regexp.MustCompile(`"ts":[0-9.e+]+`)
@@ -55,14 +62,16 @@ func TestDefaultOutput_Golden(t *testing.T) { //nolint:paralleltest // changes t
 			"[" + name + ".sub] writeGoldenLines -> INFO with 3 w=2",
 			"[" + name + "] writeGoldenLines -> ERRO bad thing",
 			"[app] writeGoldenLines -> ERRO from slog",
+			"[" + name + "] writeGoldenLines -> INFO traced trace_id=0a000000000000000000000000000001 span_id=0b00000000000002",
 		},
 	}, {
 		format: "json",
 		want: []string{
-			`{"level":"info","ts":0,"name":"` + name + `","caller":"logging/output_test.go:30","msg":"hello","int":1,"str":"x","err":"context canceled","stringer":"S(v)","dur":1,"bytes":"aGk="}`,
-			`{"level":"info","ts":0,"name":"` + name + `.sub","caller":"logging/output_test.go:32","msg":"with 3","w":2}`,
-			`{"level":"error","ts":0,"name":"` + name + `","caller":"logging/output_test.go:34","msg":"bad thing","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
-			`{"level":"error","ts":0,"name":"app","caller":"logging/output_test.go:35","msg":"from slog","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
+			`{"level":"info","ts":0,"name":"` + name + `","caller":"logging/output_test.go:31","msg":"hello","int":1,"str":"x","err":"context canceled","stringer":"S(v)","dur":1,"bytes":"aGk="}`,
+			`{"level":"info","ts":0,"name":"` + name + `.sub","caller":"logging/output_test.go:33","msg":"with 3","w":2}`,
+			`{"level":"error","ts":0,"name":"` + name + `","caller":"logging/output_test.go:35","msg":"bad thing","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
+			`{"level":"error","ts":0,"name":"app","caller":"logging/output_test.go:36","msg":"from slog","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
+			`{"level":"info","ts":0,"name":"` + name + `","caller":"logging/output_test.go:37","msg":"traced","trace_id":"0a000000000000000000000000000001","span_id":"0b00000000000002"}`,
 		},
 	}} {
 		t.Run(tc.format, func(t *testing.T) {

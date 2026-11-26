@@ -20,6 +20,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/embedded"
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/grpc/credentials"
 
@@ -41,7 +43,9 @@ const (
 	ServiceName            = "FSC"
 )
 
-// NoOp is the configuration for tracing that records nothing.
+// NoOp is the configuration for tracing that records and exports nothing. A span with a
+// parent is the parent's span; a root span gets new IDs, which context-aware log lines
+// carry (see [logging.Logger]).
 var NoOp = Config{Provider: None}
 
 // Config is the node's tracing configuration, read from fsc.tracing.
@@ -54,8 +58,11 @@ type Config struct {
 
 // SamplingConfig controls what fraction of traces is recorded.
 type SamplingConfig struct {
-	// Ratio is the fraction of root spans to sample, in [0, 1]. Spans with a remote parent
-	// follow the parent's sampling decision, so 0 records only traces sampled upstream.
+	// Ratio is the fraction of traces to sample, in [0, 1], decided from the trace ID, so
+	// nodes with the same ratio decide alike. A span whose remote parent was sampled is
+	// sampled; one whose remote parent wasn't, as from a node with tracing off or a client
+	// that sends an unsampled traceparent, is sampled by the ratio. So 0 records only
+	// traces sampled upstream.
 	Ratio float64 `yaml:"ratio"`
 }
 
@@ -156,13 +163,44 @@ func buildProviderFromConfig(c Config, serviceName string) (Provider, error) {
 		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
 	default: // "" or none: Validate rejects every other value
 		logger.Debugf("Tracing disabled")
-		return noop.NewTracerProvider(), nil
+		// No globals: they would make the otelgrpc handlers trace every gRPC call.
+		return rootIDsProvider{sdk: sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.NeverSample()))}, nil
 	}
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to initialize span exporter")
 	}
 	logger.Debugf("Initializing tracing provider with sampling: %v", c.Sampling)
 	return providerWithExporter(context.Background(), exporter, c.Sampling, serviceName)
+}
+
+// rootIDsProvider is the provider of a node with tracing off. A span with a parent is the
+// parent's span, as with a noop provider, so a trace that passes through the node stays
+// connected; a root span gets new IDs, for the log lines, and is neither sampled nor
+// recorded. Nothing is exported.
+type rootIDsProvider struct {
+	embedded.TracerProvider
+
+	sdk *sdktrace.TracerProvider
+}
+
+func (p rootIDsProvider) Tracer(name string, options ...trace.TracerOption) trace.Tracer {
+	return rootIDsTracer{sdk: p.sdk.Tracer(name, options...)}
+}
+
+type rootIDsTracer struct {
+	embedded.Tracer
+
+	sdk trace.Tracer
+}
+
+var passThrough = noop.NewTracerProvider().Tracer("")
+
+// Start returns the span to the caller, who owns ending it.
+func (t rootIDsTracer) Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	if c := trace.NewSpanStartConfig(opts...); trace.SpanContextFromContext(ctx).IsValid() && !c.NewRoot() {
+		return passThrough.Start(ctx, spanName, opts...) //nolint:spancheck // the caller ends the span
+	}
+	return t.sdk.Start(ctx, spanName, opts...) //nolint:spancheck // the caller ends the span
 }
 
 func fileExporter(c *FileConfig) (sdktrace.SpanExporter, error) {
@@ -200,10 +238,11 @@ func providerWithExporter(ctx context.Context, exporter sdktrace.SpanExporter, s
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed creating resource")
 	}
+	ratio := sdktrace.TraceIDRatioBased(sampling.Ratio)
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter, sdktrace.WithExportTimeout(1*time.Second)),
 		sdktrace.WithResource(r),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(sampling.Ratio))),
+		sdktrace.WithSampler(sdktrace.ParentBased(ratio, sdktrace.WithRemoteParentNotSampled(ratio))),
 	)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	otel.SetTracerProvider(tracerProvider)

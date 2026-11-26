@@ -30,9 +30,10 @@ import (
 // Each level has five methods: an unformatted one, which joins its arguments with spaces;
 // a printf-style one (suffix f); a structured one (suffix w), which takes a message and
 // alternating keys and values; and context-aware forms of the last two. A context-aware
-// method also adds the context fields registered with [RegisterContextLogField], and, when
-// ctx carries a recording span, records the message as an event on that span and sets
-// the span status to Error at [ErrorLevel].
+// method also adds the context fields registered with [RegisterContextLogField]; when ctx
+// carries a valid span context, sampled or not, adds its IDs as the fields trace_id and
+// span_id; and, when ctx carries a recording span, records the message as an event on
+// that span and sets the span status to Error at [ErrorLevel].
 //
 // A method whose level is disabled for the logger returns without formatting its
 // arguments. Prefer the structured methods for values that tools should read, and the
@@ -219,13 +220,15 @@ func (l *logger) logw(ctx context.Context, level Level, msg string, keysAndValue
 // noCtx is the context of the methods without one: it carries no span and no values.
 var noCtx = context.Background()
 
-// write writes an enabled line to h, with the span event and the context fields of ctx.
+// write writes an enabled line to h, with the span event, the trace and span IDs and the
+// context fields of ctx.
 func (l *logger) write(ctx context.Context, h slog.Handler, level Level, msg string, keysAndValues []any) {
 	l.spanEvent(ctx, level, msg)
 	var pcs [1]uintptr
 	runtime.Callers(callerSkip, pcs[:])
 	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
 	r.Add(keysAndValues...)
+	addTraceIDs(ctx, &r)
 	addContextLogFields(ctx, &r)
 	// A handler reports a failed write, which a log call has no one to return to.
 	_ = h.Handle(ctx, r)
