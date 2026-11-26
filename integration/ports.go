@@ -46,6 +46,7 @@ const (
 	// Skipped: 7000, where the AirPlay Receiver of macOS listens.
 	_
 	FabricXEndorsersPort
+	FabricXTradingPort
 )
 
 // StartPortForNode On linux, the default ephemeral port range is 32768-60999 and can be

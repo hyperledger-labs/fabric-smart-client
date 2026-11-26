@@ -29,4 +29,6 @@ checked-out tree, not a published version.
 
 ## Demos
 
-No demo is in the module yet.
+- [`trading/`](trading/README.md): producers on Chaguar who find each other
+  through a market, negotiate in private, and trade in one atomic swap
+  (`make integration-tests-examples-trading`).
