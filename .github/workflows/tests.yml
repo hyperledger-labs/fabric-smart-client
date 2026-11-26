@@ -187,6 +187,10 @@ jobs:
         run: |
           make -j4 install-fabricx-tools pull-images-fabricx pull-images-database
 
+      - name: Set up EVM
+        if: matrix.tests == 'examples-evmiou'
+        run: make pull-images-evm
+
       - name: Set up Softhsm
         # we only need this for a subset of integration tests
         if: endsWith(matrix.tests, 'hsm')

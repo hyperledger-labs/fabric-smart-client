@@ -29,4 +29,6 @@ checked-out tree, not a published version.
 
 ## Demos
 
-No demo is in the module yet.
+- [`evmiou/`](evmiou/README.md): the IOU life cycle on an EVM network, enforced
+  by a Solidity contract on Besu or Hiero instead of a Fabric namespace
+  (`make integration-tests-examples-evmiou`).

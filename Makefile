@@ -23,6 +23,8 @@ PROMETHEUS_VERSION ?= v3.15.1
 GRAFANA_VERSION ?= 13.3.0
 EXPLORER_VERSION ?= 2.0.0
 
+BESU_VERSION ?= 24.3.0
+
 # Must match `version:` in .github/workflows/golangci-lint.yml.
 GOLANGCI_LINT_VERSION ?= v2.14.0
 
@@ -125,6 +127,9 @@ pull-images-monitoring: explorer-db explorer prometheus grafana jaeger ## Pull i
 .PHONY: pull-images-database postgres
 pull-images-database: postgres ## Pull images for system testing
 
+.PHONY: pull-images-evm besu
+pull-images-evm: besu ## Pull images for the EVM IOU example
+
 fabric-baseos:
 	docker pull ghcr.io/hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION)
 	docker tag ghcr.io/hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-baseos:latest
@@ -155,6 +160,9 @@ postgres:
 	docker pull postgres:$(POSTGRES_VERSION)
 	docker tag postgres:$(POSTGRES_VERSION) fsc.itests/postgres:latest
 
+besu:
+	docker pull docker.io/hyperledger/besu:$(BESU_VERSION)
+
 .PHONY: chaincode-images
 chaincode-images: ## Build container images for the in-tree CCaaS chaincodes
 	@grep -vE '^\s*(#|$$)' scripts/chaincode/images.txt | \
@@ -179,7 +187,7 @@ INTEGRATION_UNIT_PACKAGES = ./nwo/... ./fabric/common/... ./fabricx
 # Unit-testable packages of the examples module: demos with their own go.mod, so
 # their dependencies stay out of the root and integration modules. A demo's own
 # directory holds its integration suite, so only its subpackages are listed.
-EXAMPLES_UNIT_PACKAGES = .
+EXAMPLES_UNIT_PACKAGES = ./evmiou/evm/... ./evmiou/iou/... ./evmiou/nwo/...
 # Extension modules: optional drivers with their own go.mod, invisible to the root
 # `go list ./...`. Without stepping into them explicitly, the libp2p
 # host-conformance tests (shared with the websocket host) never run.
@@ -324,6 +332,9 @@ INTEGRATION_TARGETS += fabricx-faultrecovery-committer-failover
 # Its identity rotation spec runs in a target of its own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-rotation
 
+## examples section: the demos of the examples module, see examples/README.md
+INTEGRATION_TARGETS += examples-evmiou
+
 # Integration targets that CI runs on a schedule, not on every pull request (see
 # .github/workflows/mixedversion.yml): `make list-integration-tests`, which feeds
 # the pull request matrix, leaves them out.
@@ -352,6 +363,8 @@ INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-crash = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-committer-failover = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-rotation = fabricx/faultrecovery
+# Relative to ./integration, where the rule changes directory first.
+INTEGRATION_DIR_examples-evmiou = ../examples/evmiou
 
 # Per-target ginkgo flags. A suite split into several targets selects each
 # target's specs by label. The suite's default target uses a negative filter

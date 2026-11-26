@@ -112,6 +112,19 @@ installed into a `fabric-x` subdirectory of `FAB_BINS` rather than next to
 fabric's binaries of the same name. Both toolchains can be installed at the same
 time, and neither install target disturbs the other.
 
+### EVM
+
+The `examples-evmiou` target runs on a Besu development node in Docker. Pull
+its image:
+
+```bash
+make pull-images-evm
+```
+
+To run the suite against an EVM node you started yourself, set `EVM_ENDPOINT`
+(its JSON-RPC URL), `EVM_CHAIN_ID` and `EVM_FUNDER_KEY` (the hex-encoded private
+key of a funded account); the suite then starts no Besu container.
+
 ### Set `FAB_BINS`
 
 Most integration tests require Fabric(x) binaries to launch a local test
