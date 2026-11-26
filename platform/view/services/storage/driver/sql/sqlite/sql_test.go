@@ -8,7 +8,9 @@ package sqlite
 
 import (
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,11 +57,16 @@ func TestGetSqliteDir(t *testing.T) {
 	assert.Equal(t, "relative/path", getDir("relative/path/filename.db"))
 }
 
+// TestFolderDoesNotExistError opens a database whose folder cannot exist: its parent is a
+// regular file, so creating the folder fails for any user, root included.
 func TestFolderDoesNotExistError(t *testing.T) {
 	t.Parallel()
+	file := filepath.Join(t.TempDir(), "file")
+	require.NoError(t, os.WriteFile(file, nil, 0o600))
 	o := Opts{
-		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join("/this/folder/does/not/exist", "folder-does-not-exist")),
+		DataSource: fmt.Sprintf("file:%s?_pragma=busy_timeout(1000)", filepath.Join(file, "sub", "db.sqlite")),
 	}
 	_, err := open(o)
-	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
+	require.ErrorContains(t, err, "can't open sqlite database file, check that its folder exists and is writable")
+	require.True(t, isCantOpen(err), "the SQLite error stays in the chain: %v", err)
 }

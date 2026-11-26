@@ -10,6 +10,7 @@ import (
 	stderrors "errors"
 
 	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -46,6 +47,14 @@ func (*ErrorMapper) WrapError(err error) error {
 		return err
 	}
 	return errors.Wrapf(mappedErr, "%s", err)
+}
+
+// isCantOpen reports whether err is a SQLite error with primary code SQLITE_CANTOPEN,
+// extended codes included: SQLite cannot open the database file, for example because its
+// folder does not exist or is not writable, or because the path names a folder.
+func isCantOpen(err error) bool {
+	var sqliteErr *sqlite.Error
+	return stderrors.As(err, &sqliteErr) && sqliteErr.Code()&0xff == sqlite3.SQLITE_CANTOPEN
 }
 
 // sentinelFor returns the sentinel that code maps to, or nil when none does.

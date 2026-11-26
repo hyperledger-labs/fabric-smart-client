@@ -77,6 +77,7 @@ func open(opts Opts) (*common.RWDB, error) {
 	logger.Debugf("Opening write db [%v]", opts.DataSource)
 	writeDB, err := openDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas, opts.Tracing)
 	if err != nil {
+		_ = readDB.Close()
 		return nil, errors.Wrapf(err, "can't open write %s database", driverName)
 	}
 	return &common.RWDB{
@@ -86,7 +87,8 @@ func open(opts Opts) (*common.RWDB, error) {
 }
 
 func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool, tracing *sqlcommon.TracingConfig) (*sql.DB, error) {
-	// Create directories if they do not exist to avoid error "out of memory (14)", see below
+	// Create directories if they do not exist, as SQLite cannot create the database file
+	// otherwise (SQLITE_CANTOPEN, see isCantOpen)
 	path := getDir(dataSourceName)
 	if err := os.MkdirAll(path, 0o750); err != nil {
 		logger.Warnf("failed creating dir [%s]: %s", path, err)
@@ -109,9 +111,11 @@ func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime t
 	db.SetMaxIdleConns(maxIdleConns)
 	db.SetConnMaxIdleTime(maxIdleTime)
 
-	if err = db.Ping(); err != nil && strings.Contains(err.Error(), "out of memory (14)") {
-		return nil, errors.Errorf("can't open %s database, does the folder exist?", driverName)
-	} else if err != nil {
+	if err = db.Ping(); err != nil {
+		_ = db.Close()
+		if isCantOpen(err) {
+			return nil, errors.Wrapf(err, "can't open %s database file, check that its folder exists and is writable", driverName)
+		}
 		return nil, errors.Wrapf(err, "can't connect to %s database, check the pragmas in the data source", driverName)
 	}
 	logger.Debugf("connected to [%s], max open connections: %d", driverName, maxOpenConns)
