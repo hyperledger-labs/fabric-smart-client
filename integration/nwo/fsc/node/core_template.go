@@ -9,8 +9,8 @@ package node
 const CoreTemplate = `---
 # Logging section
 logging:
-  # Spec
   spec: {{ Topology.Logging.Spec }}
+  format: {{ Topology.Logging.Format }}
   otel:
     sanitize: {{ Topology.Logging.OtelSanitize }}
 fsc:

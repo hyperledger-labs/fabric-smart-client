@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
@@ -167,4 +168,28 @@ func TestCoreTemplate_TLSReloadInterval(t *testing.T) {
 		"unset by default, so other suites do not reload")
 	core := renderCoreTemplate(t, node.CoreTemplate, NewTopology(), WithTLSReloadInterval(time.Second))
 	require.Equal(t, "1s", tlsSection(core)["reloadInterval"])
+}
+
+func TestCoreTemplate_LoggingFormat(t *testing.T) {
+	t.Parallel()
+
+	const pattern = "%{time} [%{module}] %{message}"
+	for name, tc := range map[string]struct{ format, want string }{
+		"default": {format: "", want: ""},
+		"json":    {format: "json", want: "json"},
+		"pattern": {format: "'" + pattern + "'", want: pattern},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			topology := NewTopology()
+			topology.SetLogging("", tc.format)
+			core := renderCoreTemplate(t, node.CoreTemplate, topology)
+
+			// Parse with the node's own configuration provider, which is what reads logging.format.
+			cfg, err := (&config.Provider{}).ProvideFromRaw([]byte(core))
+			require.NoError(t, err)
+			require.Equal(t, tc.want, cfg.GetString("logging.format"))
+		})
+	}
 }

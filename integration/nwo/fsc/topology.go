@@ -20,6 +20,7 @@ const (
 	TopologyName = "fsc"
 )
 
+// Logging holds the logging settings rendered into every node's core.yaml under logging.
 type Logging struct {
 	Spec         string `yaml:"spec,omitempty"`
 	Format       string `yaml:"format,omitempty"`
@@ -88,7 +89,6 @@ func NewTopology() *Topology {
 		Nodes:        []*node.Node{},
 		Logging: &Logging{
 			Spec:         "grpc=error:libp2p=warn:info",
-			Format:       "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 			OtelSanitize: false,
 		},
 		Monitoring: Monitoring{
@@ -100,6 +100,10 @@ func NewTopology() *Topology {
 	}
 }
 
+// SetLogging sets logging.spec and logging.format of every FSC node of the topology; an empty
+// argument keeps the current value. The format is written to core.yaml as given, so a pattern
+// must be YAML-quoted ("'%{time} %{message}'"); "json" needs no quotes. Without a format, a
+// node uses the default pattern of Fabric's flogging.
 func (t *Topology) SetLogging(spec, format string) {
 	l := &Logging{}
 	if len(spec) != 0 {

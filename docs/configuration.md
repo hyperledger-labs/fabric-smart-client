@@ -34,7 +34,8 @@ logging:
   # spec is [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]. A logger
   # name is the package path with dots for slashes, with github.com.hyperledger-labs.fabric-smart-client
   # shortened to fsc; a spec entry applies to that name and to the names below it, by whole
-  # dot-separated segments. An invalid spec or format stops the node at startup.
+  # dot-separated segments: fsc.platform.fabricx=debug turns on Debug for the Chaguar platform,
+  # while fabricx=debug matches no FSC logger. An invalid spec or format stops the node at startup.
   spec: grpc=error:libp2p=warn:debug
   otel:
     # sanitize makes sure that the strings sent to open telemetry as events via the logger as printable.

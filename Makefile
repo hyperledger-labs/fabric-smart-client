@@ -173,8 +173,9 @@ clean-fabric-peer-images: ## Clean up generated fabric peer images
 # we use a multi-module repo structure here and therefore need to carefully collect packages for unit tests
 GO_PACKAGES = $$(go list ./...)
 # Unit-testable packages of the integration module: the nwo harness plus the shared
-# helpers the suites import. The suites themselves are integration tests, not unit tests.
-INTEGRATION_UNIT_PACKAGES = ./nwo/... ./fabric/common/...
+# helpers the suites import, and ./fabricx, which checks the Chaguar suites' topologies
+# without running them. The suites themselves are integration tests, not unit tests.
+INTEGRATION_UNIT_PACKAGES = ./nwo/... ./fabric/common/... ./fabricx
 # Extension modules: optional drivers with their own go.mod, invisible to the root
 # `go list ./...`. Without stepping into them explicitly, the libp2p
 # host-conformance tests (shared with the websocket host) never run.
@@ -216,7 +217,7 @@ unit-tests-root: ## Run unit tests of the root module
 	@$(FILTER_COVERAGE)
 
 .PHONY: unit-tests-integration
-unit-tests-integration: ## Run unit tests of the integration module (nwo harness + shared helpers)
+unit-tests-integration: ## Run unit tests of the integration module (nwo harness, shared helpers, Chaguar topologies)
 	@env $(UNIT_TEST_ENV) go test -C integration $(GO_TEST_PARAMS) $(COVER_FLAGS) $(INTEGRATION_UNIT_PACKAGES)
 	@$(FILTER_COVERAGE)
 
