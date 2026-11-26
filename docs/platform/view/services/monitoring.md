@@ -207,7 +207,7 @@ be added:
 - **NoOp:** Records and exports nothing, when `fsc.tracing.provider = none`.
   A span with a parent is the parent's span, so a trace passes through the
   node unchanged. A root span gets new IDs, which log lines carry (see
-  [Trace IDs in log lines](../../../configuration.md#trace-ids-in-log-lines)).
+  [Trace IDs in log lines](logging.md#trace-ids-in-log-lines)).
 - **Console:** Exports (prints) the traces on the console, when
   `fsc.tracing.provider = console`
 - **File:** Exports (stores) the traces into the file `fsc.tracing.file.path`,

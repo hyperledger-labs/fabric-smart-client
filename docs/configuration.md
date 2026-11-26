@@ -11,13 +11,14 @@ key the node reads, with its default and meaning. Its top-level sections are:
 
 After the example:
 
-- [Logging through the application's handler](#logging-through-the-applications-handler)
-- [libp2p log lines](#libp2p-log-lines)
 - [Migrating TLS configuration](#migrating-tls-configuration)
 - [Overriding configuration keys](#overriding-configuration-keys)
 - [HSM support](#hsm-support)
 - [Persistence: sqlite/postgres](#persistence-sqlitepostgres), including
   [Query timeout](#query-timeout) and [Postgres errors](#postgres-errors)
+
+[Logging](platform/view/services/logging.md) explains logger names and the
+`logging` keys, changing levels at runtime, the log formats and collecting logs.
 
 The platform pages explain settings that need more than a comment:
 [Fabric](platform/fabric/configuration.md),
@@ -28,14 +29,13 @@ The platform pages explain settings that need more than a comment:
 ---
 # ------------------- Logging section ---------------------------
 logging:
+  # See docs/platform/view/services/logging.md.
   # format is "json", or a pattern of %{color}, %{id}, %{level}, %{message}, %{module},
   # %{shortfunc} and %{time} verbs, as in Fabric
   format: '%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} %{level:.4s}%{color:reset} %{message}'
-  # spec is [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]. A logger
-  # name is the package path with dots for slashes, with github.com.hyperledger-labs.fabric-smart-client
-  # shortened to fsc; a spec entry applies to that name and to the names below it, by whole
-  # dot-separated segments: fsc.platform.fabricx=debug turns on Debug for the Chaguar platform,
-  # while fabricx=debug matches no FSC logger. An invalid spec or format stops the node at startup.
+  # spec is [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]; an entry
+  # applies to that logger name and the names below it. An invalid spec or format stops the
+  # node at startup.
   spec: grpc=error:libp2p=warn:debug
   otel:
     # sanitize makes sure that the strings sent to open telemetry as events via the logger as printable.
@@ -1017,110 +1017,20 @@ fabric:
 
 ## Trace IDs in log lines
 
-When a `*Context` method such as `InfofContext` writes a line and its context
-carries a span, the line has the fields `trace_id` and `span_id`. These are the
-names the OpenTelemetry specification uses for log formats other than OTLP:
-
-```text
-2026-11-23 10:15:04.123 UTC [fsc.platform.view.services.view] RunView -> INFO 01a view started trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7
-```
-
-A trace ID names one request, a view and the sessions it opens, on every node it
-reaches over the websocket comm driver: to collect the lines that led to an
-error, search all nodes for the error line's `trace_id`. A node with
-`fsc.tracing.provider` set to `none` writes the IDs too, but exports no spans.
-Its lines carry the span ID of the caller's span when a request comes from
-another node, and the ID of a span it started itself, which no backend has,
-otherwise. A trace that passes through such a node stays connected in Tempo or
-Jaeger.
-
-Lines without a context, and the lines of gRPC and of the libraries that log
-through `flogging`, have no IDs. The libp2p comm driver doesn't send the span
-to the other node: there, a responder's lines have a trace ID of their own.
-
-In Grafana, a derived field on the Loki data source turns the trace ID into a
-link to the trace. Its regular expression is `trace_id=(\w+)` for a pattern
-format, and `"trace_id":"(\w+)"` with `logging.format: json`.
+See
+[Trace IDs in log lines](platform/view/services/logging.md#trace-ids-in-log-lines)
+on the logging page.
 
 ## Logging through the application's handler
 
-A node writes its log lines in `logging.format` to standard error, or to the
-`Writer` of `logging.Config`. An application that embeds FSC and has its own
-logging setup can send FSC's lines to its own `slog.Handler` instead. The
-standard library has text and JSON handlers, zap and OpenTelemetry ship one
-(`zapslog`, `otelslog`), and adapters exist for most other logging libraries:
-
-```go
-logging.SetHandler(appHandler) // before building the node
-```
-
-Every FSC logger then writes through `appHandler`, including package-level
-loggers created before the call. `logging.format` and `Writer` no longer apply;
-`SetHandler(nil)` restores the default handler.
-
-Two filters decide whether a line is written, in this order:
-
-1. `logging.spec`, for the logger's name, which `PUT /logspec` changes while
-   the node runs.
-2. The handler's `Enabled` method.
-
-To let the handler alone decide, set `logging.spec: debug`. At startup the node
-logs, at Info, the spec and the type of the handler, which shows which filter
-dropped a missing line.
-
-The handler gets the logger name as the attribute `logger`; the fields of
-`With`, of the `*w` methods and of `logging.RegisterContextLogField` as
-attributes; the `trace_id` and `span_id` of a `*Context` line (see
-[Trace IDs in log lines](#trace-ids-in-log-lines)) as attributes; and the caller
-of the log method as the record's PC. A handler that reads the span from the
-context itself, such as `otelslog`, writes these IDs twice. The `*Context`
-methods also record the message as an event on the span in the context,
-whatever the handler.
-
-The handler also gets the lines of gRPC and of the libraries that log through
-Fabric's `flogging`, such as the MSP, BCCSP and policy packages, under the same
-two filters. These lines have no context fields and no stack trace, and they
-lack the fields a library adds to its logger with `With`. zap's levels above
-Error arrive as `ERROR+4` (DPanic), `ERROR+8` (Panic) and `ERROR+12` (Fatal).
-
-With the libp2p comm driver, the handler also gets libp2p's lines; see
-[libp2p log lines](#libp2p-log-lines).
-
-The application can route its own `slog` lines through `logging.spec` and the
-same handler, under a logger name of its choice:
-
-```go
-slog.SetDefault(slog.New(logging.Handler("app")))
-```
-
-FSC never calls `slog.SetDefault` itself. The handler passed to `SetHandler`
-must not be `slog.Default().Handler()` after such a call, or any other handler
-that writes through `logging.Handler`: each line would come back to it without
-end.
+See
+[Logging through the application's handler](platform/view/services/logging.md#logging-through-the-applications-handler)
+on the logging page.
 
 ## libp2p log lines
 
-With the libp2p comm driver, libp2p's own lines go through FSC logging under the
-logger name `libp2p`. They are written in `logging.format`, reach the handler
-set with `SetHandler`, and follow `logging.spec` and `PUT /logspec`. The libp2p
-subsystem, such as `basichost` or `swarm2`, is the attribute `subsystem`; there
-is no level per subsystem.
-
-`logging.spec` applies to `libp2p` as written, as to any other logger name: a
-spec of `debug` includes libp2p's Debug lines. libp2p logs routine events at
-Info and a great deal at Debug, so the specs FSC ships add `libp2p=warn`, which
-keeps its warnings and errors, as they add `grpc=error`. A node with a spec of
-its own adds the term itself:
-
-```yaml
-logging:
-  spec: grpc=error:libp2p=warn:info
-```
-
-go-libp2p's `GOLOG_LOG_LEVEL`, `GOLOG_LOG_FORMAT` and `GOLOG_LOG_ADD_SOURCE`
-environment variables don't apply to these lines; `GOLOG_LOG_LABELS` still adds
-its labels as attributes. FSC doesn't need `LIBP2P_TCP_REUSEPORT`; setting it to
-false keeps the subsystem `tcp-demultiplex` on go-libp2p's own stderr handler.
+See [libp2p log lines](platform/view/services/logging.md#libp2p-log-lines) on
+the logging page.
 
 ## Migrating TLS configuration
 

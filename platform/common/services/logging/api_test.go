@@ -9,6 +9,7 @@ package logging
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -231,4 +232,39 @@ func TestLogspecChangesRunningLogger(t *testing.T) { //nolint:paralleltest // ch
 	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 	assert.True(t, l.IsEnabledFor(DebugLevel))
 	assert.False(t, MustGetLogger("other").IsEnabledFor(DebugLevel))
+}
+
+// TestLogspecContract checks the /logspec responses that
+// docs/platform/view/services/logging.md describes. The requests run in order, starting
+// from the spec "warn".
+func TestLogspecContract(t *testing.T) { //nolint:paralleltest // changes the global logging configuration
+	initForTest(t, Config{LogSpec: "warn"})
+	for _, tc := range []struct {
+		method, body string
+		code         int
+		response     string // the JSON body of a 200, or the start of the error of a 400
+	}{
+		{http.MethodGet, "", http.StatusOK, `{"spec":"warn"}`},
+		{http.MethodPut, `{"spec":"fsc=debug:info"}`, http.StatusNoContent, ""},
+		{http.MethodGet, "", http.StatusOK, `{"spec":"fsc=debug:info"}`},
+		{http.MethodPut, `{"spec":"fsc=loud"}`, http.StatusBadRequest, "invalid logging specification"},
+		{http.MethodPut, `not json`, http.StatusBadRequest, "invalid character"},
+		{http.MethodDelete, "", http.StatusBadRequest, "invalid request method"},
+		{http.MethodGet, "", http.StatusOK, `{"spec":"fsc=debug:info"}`}, // a rejected request changes nothing
+		{http.MethodPut, `{}`, http.StatusNoContent, ""},
+		{http.MethodGet, "", http.StatusOK, `{"spec":"info"}`}, // an empty spec resets every logger to info
+	} {
+		rec := httptest.NewRecorder()
+		NewSpecHandler().ServeHTTP(rec, httptest.NewRequest(tc.method, "/logspec", strings.NewReader(tc.body)))
+
+		require.Equal(t, tc.code, rec.Code, "%s %s: %s", tc.method, tc.body, rec.Body.String())
+		switch tc.code {
+		case http.StatusOK:
+			assert.JSONEq(t, tc.response, rec.Body.String())
+		case http.StatusBadRequest:
+			var resp struct{ Error string }
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+			assert.True(t, strings.HasPrefix(resp.Error, tc.response), resp.Error)
+		}
+	}
 }

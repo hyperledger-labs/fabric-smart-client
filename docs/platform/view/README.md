@@ -27,6 +27,7 @@ platforms build on.
 
 - [Schema migrations](services/schema-migrations.md)
 - [Database layout](services/database-layout.md)
+- [Logging](services/logging.md)
 - [Monitoring](services/monitoring.md)
 - [Monitoring metrics](services/monitoring_metrics.md)
 - [Shutdown](services/shutdown.md)
