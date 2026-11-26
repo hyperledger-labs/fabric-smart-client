@@ -32,6 +32,8 @@ func (i *queryChaincodeView) Call(viewCtx view.Context) (any, error) {
 	return i.Query(viewCtx)
 }
 
+// Query queries the chaincode and returns its result. The calls to the peers and the waits
+// between retries run under viewCtx's context.
 func (i *queryChaincodeView) Query(viewCtx view.Context) ([]byte, error) {
 	if len(i.ChaincodeName) == 0 {
 		return nil, errors.New("no chaincode specified")
@@ -51,7 +53,7 @@ func (i *queryChaincodeView) Query(viewCtx view.Context) ([]byte, error) {
 
 	var chaincode Chaincode
 	stdChannelChaincode := channel.Chaincode(i.ChaincodeName)
-	chaincode = &stdChaincode{ch: stdChannelChaincode}
+	chaincode = &stdChaincode{ch: stdChannelChaincode, ctx: viewCtx.Context()}
 	logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 
 	invocation := chaincode.Query(i.Function, i.Args...).WithInvokerIdentity(i.InvokerIdentity)

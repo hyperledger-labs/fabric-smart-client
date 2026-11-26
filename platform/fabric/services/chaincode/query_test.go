@@ -107,5 +107,7 @@ func TestQueryView(t *testing.T) {
 		require.Equal(t, 1, mockInv.WithNumRetriesCallCount())
 		require.Equal(t, 1, mockInv.WithRetrySleepCallCount())
 		require.Equal(t, 1, mockInv.WithMatchEndorsementPolicyCallCount())
+		require.Equal(t, 1, mockInv.WithContextCallCount())
+		require.Equal(t, mockCtx.Context(), mockInv.WithContextArgsForCall(0), "the query runs under the view's context")
 	})
 }

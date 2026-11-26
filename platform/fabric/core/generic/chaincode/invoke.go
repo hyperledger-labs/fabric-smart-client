@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -67,7 +68,9 @@ func (i *Invoke) Endorse() (driver.Envelope, error) {
 			if j+1 >= i.NumRetries {
 				return nil, err
 			}
-			time.Sleep(i.RetrySleep)
+			if werr := i.waitToRetry(); werr != nil {
+				return nil, errors.Join(werr, err)
+			}
 			continue
 		}
 		return res, nil
@@ -102,7 +105,9 @@ func (i *Invoke) Query() ([]byte, error) {
 			if j+1 >= i.NumRetries {
 				return nil, err
 			}
-			time.Sleep(i.RetrySleep)
+			if werr := i.waitToRetry(); werr != nil {
+				return nil, errors.Join(werr, err)
+			}
 			continue
 		}
 		return res, nil
@@ -155,7 +160,9 @@ func (i *Invoke) Submit() (string, []byte, error) {
 			if j+1 >= i.NumRetries {
 				return "", nil, err
 			}
-			time.Sleep(i.RetrySleep)
+			if werr := i.waitToRetry(); werr != nil {
+				return "", nil, errors.Join(werr, err)
+			}
 			continue
 		}
 		return txID, res, nil
@@ -187,6 +194,20 @@ func (i *Invoke) doSubmit() (string, []byte, error) {
 	}
 
 	return txID, proposalResp.GetResponse().GetPayload(), nil
+}
+
+// waitToRetry waits RetrySleep before the next attempt of Endorse, Query or Submit. It
+// returns early, with an error wrapping the context's error, when the invocation's
+// context ends first.
+func (i *Invoke) waitToRetry() error {
+	ctx := i.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := utils.Sleep(ctx, i.RetrySleep); err != nil {
+		return errors.Wrap(err, "stopped retrying chaincode invocation")
+	}
+	return nil
 }
 
 func (i *Invoke) WithContext(ctx context.Context) driver.ChaincodeInvocation {

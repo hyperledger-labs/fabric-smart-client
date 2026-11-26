@@ -342,6 +342,29 @@ func TestCFTBroadcaster_Broadcast_Retries(t *testing.T) {
 	})
 }
 
+// TestCFTBroadcaster_Broadcast_RetryWaitHonorsContext checks that the wait between
+// attempts ends with the context instead of running the full retry interval.
+func TestCFTBroadcaster_Broadcast_RetryWaitHonorsContext(t *testing.T) {
+	t.Parallel()
+	cfg := &fake.ConfigService{
+		PoolSizeValue:      4,
+		RetriesValue:       3,
+		RetryIntervalValue: time.Hour,
+		NetworkNameValue:   "test-network",
+		OrderersValue:      []*grpc.ConnectionConfig{{Address: "orderer-1"}},
+	}
+	b := NewCFTBroadcaster(cfg, &fakeCFTServices{shouldFailClient: true, clientError: errors.New("connection refused")}, nil)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := b.Broadcast(ctx, &common.Envelope{})
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "connection refused", "the last attempt's error is kept")
+	require.Less(t, time.Since(start), 10*time.Second)
+}
+
 // reportingConfigService records every address passed to ReportFailure.
 type reportingConfigService struct {
 	*fake.ConfigService

@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"google.golang.org/grpc/status"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
@@ -115,11 +116,14 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 	f := (n - 1) / 3
 	threshold := int(math.Ceil((float64(n) + float64(f) + 1) / 2.0))
 
+	// errs holds the orderers' errors of the latest attempt.
+	var errs []error
 	for i := range retries {
 		if i > 0 {
 			logger.DebugfContext(ctx, "broadcast, retry [%d]...", i)
-			// wait a bit
-			time.Sleep(retryInterval)
+			if err := utils.Sleep(ctx, retryInterval); err != nil {
+				return errors.Join(errors.Wrapf(err, "broadcast aborted before attempt [%d]", i+1), errors.Join(errs...))
+			}
 		}
 
 		// Only getConnection uses attemptCtx. Once the attempt ends, a goroutine
@@ -127,7 +131,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 		attemptCtx, cancelAttempt := context.WithCancel(ctx)
 		results := make(chan error, n)
 		var success, failure int
-		var errs []error
+		errs = nil
 
 		for _, orderer := range orderers {
 			go func(orderer *grpc.ConnectionConfig) {

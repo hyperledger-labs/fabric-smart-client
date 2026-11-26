@@ -103,6 +103,8 @@ func TestInvokeView(t *testing.T) {
 		require.Equal(t, 1, mockInv.WithEndorsersFromMyOrgCallCount())
 		require.Equal(t, 1, mockInv.WithNumRetriesCallCount())
 		require.Equal(t, 1, mockInv.WithRetrySleepCallCount())
+		require.Equal(t, 1, mockInv.WithContextCallCount())
+		require.Equal(t, mockCtx.Context(), mockInv.WithContextArgsForCall(0), "the submit runs under the view's context")
 	})
 
 	t.Run("Call happy path", func(t *testing.T) {

@@ -32,6 +32,8 @@ func (i *endorseChaincodeView) Call(viewCtx view.Context) (any, error) {
 	return i.Endorse(viewCtx)
 }
 
+// Endorse collects the endorsements of the invocation and returns the envelope. The calls to
+// the peers and the waits between retries run under viewCtx's context.
 func (i *endorseChaincodeView) Endorse(viewCtx view.Context) (*fabric.Envelope, error) {
 	if len(i.ChaincodeName) == 0 {
 		return nil, errors.New("no chaincode specified")
@@ -51,7 +53,7 @@ func (i *endorseChaincodeView) Endorse(viewCtx view.Context) (*fabric.Envelope, 
 
 	var chaincode Chaincode
 	stdChannelChaincode := channel.Chaincode(i.ChaincodeName)
-	chaincode = &stdChaincode{ch: stdChannelChaincode}
+	chaincode = &stdChaincode{ch: stdChannelChaincode, ctx: viewCtx.Context()}
 	logger.Debugf("chaincode [%s:%s:%s] is a standard chaincode", i.Network, i.Channel, i.ChaincodeName)
 
 	invocation := chaincode.Endorse(

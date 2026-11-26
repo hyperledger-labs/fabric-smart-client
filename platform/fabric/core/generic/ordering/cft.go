@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/status"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -63,9 +64,10 @@ func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common.Envelope) er
 	lastErr := errors.Errorf("no attempt made to send transaction to orderer (retries=%d)", retries)
 	for i := range retries {
 		if i > 0 {
-			logger.Debugf("broadcast, retry [%d]...", i)
-			// wait a bit
-			time.Sleep(retryInterval)
+			logger.DebugfContext(ctx, "broadcast, retry [%d]...", i)
+			if err := utils.Sleep(ctx, retryInterval); err != nil {
+				return errors.Join(errors.Wrapf(err, "broadcast aborted before attempt [%d]", i+1), lastErr)
+			}
 		}
 
 		connection, err := o.getConnection(ctx)
