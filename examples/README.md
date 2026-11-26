@@ -29,4 +29,6 @@ checked-out tree, not a published version.
 
 ## Demos
 
-No demo is in the module yet.
+- [`chat/`](chat/README.md): a terminal chat with no ledger: a chat server and
+  clients in two organizations, using FSC identities and sessions
+  (`make integration-tests-examples-chat`).

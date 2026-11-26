@@ -179,7 +179,7 @@ INTEGRATION_UNIT_PACKAGES = ./nwo/... ./fabric/common/... ./fabricx
 # Unit-testable packages of the examples module: demos with their own go.mod, so
 # their dependencies stay out of the root and integration modules. A demo's own
 # directory holds its integration suite, so only its subpackages are listed.
-EXAMPLES_UNIT_PACKAGES = .
+EXAMPLES_UNIT_PACKAGES = ./chat/tui/...
 # Extension modules: optional drivers with their own go.mod, invisible to the root
 # `go list ./...`. Without stepping into them explicitly, the libp2p
 # host-conformance tests (shared with the websocket host) never run.
@@ -324,6 +324,9 @@ INTEGRATION_TARGETS += fabricx-faultrecovery-committer-failover
 # Its identity rotation spec runs in a target of its own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-rotation
 
+## examples section: the demos of the examples module, see examples/README.md
+INTEGRATION_TARGETS += examples-chat
+
 # Integration targets that CI runs on a schedule, not on every pull request (see
 # .github/workflows/mixedversion.yml): `make list-integration-tests`, which feeds
 # the pull request matrix, leaves them out.
@@ -352,6 +355,8 @@ INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-crash = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-committer-failover = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-rotation = fabricx/faultrecovery
+# Relative to ./integration, where the rule changes directory first.
+INTEGRATION_DIR_examples-chat = ../examples/chat
 
 # Per-target ginkgo flags. A suite split into several targets selects each
 # target's specs by label. The suite's default target uses a negative filter

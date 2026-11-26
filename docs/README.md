@@ -12,6 +12,8 @@ To write your first FSC application:
 3. Add the ledger you target: the [Fabric platform](platform/fabric/README.md)
    or the [Chaguar platform](platform/fabric-x/README.md).
 4. Configure your node with [`core.yaml`](configuration.md).
+5. Walk through the [chat example](../examples/chat/README.md): a chat
+   server and clients in two organizations, with no ledger.
 
 ## Core concepts
 

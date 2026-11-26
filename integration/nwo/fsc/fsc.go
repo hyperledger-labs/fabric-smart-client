@@ -86,6 +86,15 @@ func WithTLSReloadInterval(d time.Duration) nwonode.Option {
 	}
 }
 
+// WithOrganization places the node in the organization name, which gets its own CA, MSP ID
+// name+"MSP" and domain name+".example.com". Nodes without it are in the organization fsc.
+func WithOrganization(name string) nwonode.Option {
+	return func(o *nwonode.Options) error {
+		o.Put(nwonode.OrganizationKey, name)
+		return nil
+	}
+}
+
 func WithAlias(alias string) nwonode.Option {
 	return func(o *nwonode.Options) error {
 		o.AddAlias(alias)
@@ -457,17 +466,20 @@ func (p *Platform) Cleanup() {
 }
 
 func (p *Platform) CheckTopology() {
-	orgName := "fsc"
-
-	org := &nwonode.Organization{
-		ID:            orgName,
-		Name:          orgName,
-		MSPID:         orgName + "MSP",
-		Domain:        strings.ToLower(orgName) + ".example.com",
-		EnableNodeOUs: false,
-		Users:         2,
+	addOrg := func(orgName string) {
+		if p.Organization(orgName) != nil {
+			return
+		}
+		p.Organizations = append(p.Organizations, &nwonode.Organization{
+			ID:            orgName,
+			Name:          orgName,
+			MSPID:         orgName + "MSP",
+			Domain:        strings.ToLower(orgName) + ".example.com",
+			EnableNodeOUs: false,
+			Users:         2,
+		})
 	}
-	p.Organizations = append(p.Organizations, org)
+	addOrg("fsc")
 	users := map[string]int{}
 	userNames := map[string][]string{}
 
@@ -485,11 +497,13 @@ func (p *Platform) CheckTopology() {
 			}
 			p.loadBalancers[node.Name] = fmt.Sprintf("127.0.0.1:%d", p.Context.ReservePort())
 		}
+		orgName := cmp.Or(node.Options.Organization(), "fsc")
+		addOrg(orgName)
 		for _, uniqueName := range node.ReplicaUniqueNames() {
 			var extraIdentities []*nwonode.PeerIdentity
 			peer := nwonode.NewReplica(&nwonode.Peer{
 				Name:            node.Name,
-				Organization:    org.Name,
+				Organization:    orgName,
 				ExecutablePath:  node.ExecutablePath,
 				ExtraIdentities: extraIdentities,
 				Node:            node,
