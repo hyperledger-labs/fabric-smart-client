@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
@@ -210,21 +211,52 @@ func TestLedger_GetLedgerInfo_Error(t *testing.T) {
 	require.ErrorContains(t, err, "failed to get blockchain info")
 }
 
-func TestLedger_GetTransactionByID_GetTxByIDError(t *testing.T) {
+// TestLedger_GetTransactionByID_ClassifiesGetTxByIDErrors checks that only a committer
+// answering NotFound yields finality.TxNotFound; an outage keeps its gRPC code.
+func TestLedger_GetTransactionByID_ClassifiesGetTxByIDErrors(t *testing.T) {
 	t.Parallel()
-	fakeBlockClient := &mock.SidecarServiceClient{}
-	fakeQueryService := &mock.QueryService{}
-	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
+	tests := []struct {
+		name     string
+		err      error // returned by GetTxByID on both committers
+		noClient bool  // the client factory fails instead
+		notFound bool
+		code     codes.Code // checked when set
+		contains string
+	}{
+		{name: "not found", err: status.Error(codes.NotFound, "not found in index"), notFound: true, contains: "code = NotFound"},
+		{name: "unavailable after failover", err: status.Error(codes.Unavailable, "connection refused"), code: codes.Unavailable},
+		{name: "deadline exceeded", err: status.Error(codes.DeadlineExceeded, "deadline"), code: codes.DeadlineExceeded},
+		{name: "internal", err: status.Error(codes.Internal, "block store"), code: codes.Internal},
+		{name: "plain error", err: errors.New("boom"), contains: "boom"},
+		{name: "no committer reachable", noClient: true, contains: "no committer reachable"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := &committers{a: &mock.SidecarServiceClient{}, b: &mock.SidecarServiceClient{}}
+			c.a.GetTxByIDReturns(nil, tt.err)
+			c.b.GetTxByIDReturns(nil, tt.err)
+			newClient := c.newClient
+			if tt.noClient {
+				newClient = func(string) (committerpb.SidecarServiceClient, string, error) {
+					return nil, "", errors.New("no committer reachable")
+				}
+			}
+			l := ledger.NewWithClientFactory(newClient, &mock.QueryService{}, context.Background())
 
-	txID := "test-tx"
-	expectedErr := errors.New("tx not found")
-	fakeBlockClient.GetTxByIDReturns(nil, expectedErr)
-
-	pt, err := l.GetTransactionByID(txID)
-	require.Error(t, err)
-	require.Nil(t, pt)
-	require.ErrorContains(t, err, "failed to get tx for txID")
+			pt, err := l.GetTransactionByID("tx")
+			require.Error(t, err)
+			require.Nil(t, pt)
+			require.ErrorContains(t, err, "failed to get tx for txID [tx]")
+			if tt.contains != "" {
+				require.ErrorContains(t, err, tt.contains)
+			}
+			require.Equal(t, tt.notFound, errors.Is(err, finality.TxNotFound))
+			if tt.code != codes.OK {
+				require.Equal(t, tt.code, status.Code(err))
+			}
+		})
+	}
 }
 
 func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
