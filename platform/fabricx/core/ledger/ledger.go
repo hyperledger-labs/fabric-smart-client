@@ -98,6 +98,10 @@ func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
 
 // GetTransactionByID returns the processed transaction for the given transaction ID.
 //
+// It returns finality.TxNotFound only when the committer answers codes.NotFound. Any
+// other failure, such as an unavailable committer or a timeout, is returned wrapped, so
+// status.Code recovers its gRPC code.
+//
 // The committer indexes blocks into its block store independently of the finality it
 // reports, so this can still answer finality.TxNotFound for a transaction that is
 // already final; a caller that queries right after finality has to retry.
@@ -105,8 +109,11 @@ func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 	env, err := call(c, func(client committerpb.SidecarServiceClient) (*cb.Envelope, error) {
 		return client.GetTxByID(c.baseCtx, &committerpb.TxID{TxId: txID})
 	})
-	if err != nil {
+	if status.Code(err) == codes.NotFound {
 		return nil, errors.Wrapf(finality.TxNotFound, "failed to get tx for txID [%s]: %s", txID, err)
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get tx for txID [%s]", txID)
 	}
 
 	status, err := c.queryService.GetTransactionStatus(txID)

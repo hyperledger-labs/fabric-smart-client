@@ -97,6 +97,11 @@ An organization can run several committers, and a node lists every one of them u
 
 A call made while every committer is down fails with the error of the last attempt.
 
+`GetTransactionByID` returns `finality.TxNotFound` only when the committer
+answers that it has no such transaction. Any other failure, such as every
+committer being down or a timeout, is returned as a failed query; when the
+committer answered, `status.Code` recovers its gRPC code.
+
 ## Integration tests
 
 The Fabric-x integration tests run a mock orderer and one committer per organization in containers. [Fabric-x committers in integration tests](../../dev/integration-tests/fabricx-committers.md) covers the committer containers, their settings and an example topology.
