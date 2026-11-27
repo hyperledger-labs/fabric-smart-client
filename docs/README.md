@@ -12,6 +12,9 @@ To write your first FSC application:
 3. Add the ledger you target: the [Fabric platform](platform/fabric/README.md)
    or the [Chaguar platform](platform/fabric-x/README.md).
 4. Configure your node with [`core.yaml`](configuration.md).
+5. Walk through the [trading example](../examples/trading/README.md):
+   producers on Chaguar who find each other through a market, negotiate in
+   private, and trade in one atomic swap.
 
 ## Core concepts
 
