@@ -28,6 +28,8 @@ The platform pages explain settings that need more than a comment:
 ---
 # ------------------- Logging section ---------------------------
 logging:
+  # The node applies these keys, with their CORE_LOGGING_* overrides, when it loads core.yaml;
+  # configuration merged later, such as a network added at runtime, does not change them.
   # format is "json", or a pattern of %{color}, %{id}, %{level}, %{message}, %{module},
   # %{shortfunc} and %{time} verbs, as in Fabric
   format: '%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} %{level:.4s}%{color:reset} %{message}'
@@ -36,10 +38,12 @@ logging:
   # shortened to fsc; a spec entry applies to that name and to the names below it, by whole
   # dot-separated segments: fsc.platform.fabricx=debug turns on Debug for the Chaguar platform,
   # while fabricx=debug matches no FSC logger. An invalid spec or format stops the node at startup.
+  # Without a spec, the node uses the FABRIC_LOGGING_SPEC environment variable, or info.
   spec: grpc=error:libp2p=warn:debug
   otel:
-    # sanitize makes sure that the strings sent to open telemetry as events via the logger as printable.
-    # Non-printable strings can break the tracing system
+    # sanitize removes non-printable characters from the log messages recorded as OpenTelemetry
+    # span events, and prefixes such a message with "[nonprintable] ". Non-printable strings can
+    # break the tracing system. Leaving it out means false.
     sanitize: true
 
 # ------------------- FSC Node Configuration -------------------------

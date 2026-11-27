@@ -67,6 +67,11 @@ type Provider struct {
 
 // NewProvider creates a new configuration provider from the given path. It returns an error
 // wrapping ErrNotFound if no core.yaml exists in any searched path.
+//
+// NewProvider also configures the logging of the whole process with [logging.Init] from the
+// logging.format, logging.spec and logging.otel.sanitize keys, after the CORE_ environment
+// variables are applied, and fails if they are invalid. An empty key means its default; see
+// [logging.Config].
 func NewProvider(confPath string) (*Provider, error) {
 	p := &Provider{
 		eventSystem: simple.NewEventBus(),
@@ -207,6 +212,7 @@ func (p *Provider) ConfigFileUsed() string {
 // MergeConfig merges the given raw configuration into the current configuration. It
 // returns an error, and leaves the configuration unchanged, if a key of the raw configuration
 // and a key already loaded flatten onto the same path, such as `fsc.id` and `fsc: {id: ...}`.
+// It does not apply the logging keys: the logging configuration stays as [NewProvider] set it.
 func (p *Provider) MergeConfig(raw []byte) error {
 	// only one writer at the time
 	p.mergeConfigMutex.Lock()
@@ -263,8 +269,9 @@ func (p *Provider) String() string {
 	return string(out)
 }
 
-// ProvideFromRaw returns a new Provider whose configuration is loaded from the given byte representation.
-// The function expects a valid `yaml` representation.
+// ProvideFromRaw returns a new Provider whose configuration is loaded from the given YAML,
+// with the CORE_ environment variables applied. Unlike [NewProvider], it does not apply the
+// logging keys, so the logging configuration of the process stays unchanged.
 func (*Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
 	newProvider := &Provider{
 		eventSystem: simple.NewEventBus(),
@@ -272,8 +279,6 @@ func (*Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
 	if err := newProvider.loadFromRaw(raw); err != nil {
 		return nil, err
 	}
-	// koanf does not have a SetConfigFile method, so we skip setting the config file.
-
 	return newProvider, nil
 }
 
@@ -319,18 +324,10 @@ func (p *Provider) loadFromPath(path string) error {
 
 func (p *Provider) loadFromRaw(raw []byte) error {
 	p.Backend = koanf.New(".")
-	// No need to set config type
-
-	// read configuration
 	if err := p.Backend.Load(koanfbytes.Provider(raw), LowercaseParser{Parser: koanfyaml.Parser()}); err != nil {
 		return errors.Wrapf(err, "failed to read configuration from raw [%s]", logging.SHA256Base64(raw))
 	}
-	// post process
-	if err := p.setupEnv(); err != nil {
-		return err
-	}
-
-	return nil
+	return p.setupEnv()
 }
 
 // envKeyReplacer maps an environment variable name, without its prefix, to a configuration
@@ -389,14 +386,9 @@ func (p *Provider) setupEnv() error {
 	return nil
 }
 
-// ----------------------------------------------------------------------------------
-// InitKoanf()
-// ----------------------------------------------------------------------------------
-// Performs basic initialization of our koanf-based configuration layer.
-// Primary thrust is to establish the paths that should be consulted to find
-// the configuration we need.  If Backend == nil, we will initialize the global
-// koanf instance
-// ----------------------------------------------------------------------------------
+// initConfigPaths returns the directories searched for core.yaml, in order: only
+// FSCNODE_CFG_PATH if it is set, otherwise confPath, if not empty, the working directory,
+// and OfficialPath if it exists. It fails if FSCNODE_CFG_PATH names no directory.
 func (*Provider) initConfigPaths(confPath string) ([]string, error) {
 	var paths []string
 
