@@ -74,7 +74,7 @@ func TestSetHandler(t *testing.T) { //nolint:paralleltest // changes the global 
 	require.Len(t, lines, 1)
 	assert.Equal(t, "to app", lines[0]["msg"])
 	assert.Equal(t, "v", lines[0]["k"])
-	assert.Equal(t, "fsc.platform.common.services.logging.pkg", lines[0][loggerAttr])
+	assert.Equal(t, "fsc.pkg.logging.pkg", lines[0][loggerAttr])
 	defaultLines := out.lines(t)
 	require.NotEmpty(t, defaultLines)
 	assert.Equal(t, "to default", defaultLines[len(defaultLines)-1]["msg"])
@@ -108,7 +108,7 @@ func TestSetHandler_NamedAndWith(t *testing.T) { //nolint:paralleltest // change
 
 	lines := app.lines(t)
 	require.Len(t, lines, 1)
-	assert.Equal(t, "fsc.platform.common.services.logging.a.b", lines[0][loggerAttr])
+	assert.Equal(t, "fsc.pkg.logging.a.b", lines[0][loggerAttr])
 	assert.InDelta(t, 1, lines[0]["k1"], 0)
 	assert.Equal(t, "v", lines[0]["k2"])
 	// JSON with a repeated key decodes to its last value; count the key in the raw line.

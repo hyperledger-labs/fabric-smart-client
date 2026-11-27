@@ -19,8 +19,8 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	commonvault "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
 )
 

@@ -9,7 +9,7 @@ package vault
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 )
 
 // RecordLogs replaces the package logger for t and returns the recorder.

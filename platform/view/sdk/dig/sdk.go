@@ -11,10 +11,10 @@ import (
 
 	"go.uber.org/dig"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	digendpoint "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig/support/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"

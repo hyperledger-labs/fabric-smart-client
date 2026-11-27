@@ -12,8 +12,8 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 // ErrMaxRetriesExceeded is returned, possibly joined with the last attempt's

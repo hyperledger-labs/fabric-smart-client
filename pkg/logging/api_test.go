@@ -44,7 +44,7 @@ func TestIsEnabledFor(t *testing.T) { //nolint:paralleltest // changes the globa
 		{"debug", true},
 		{"info", false},
 		{"fsc.some.other.logger=debug:info", false},
-		{"fsc.platform.common.services.logging.before,fsc.platform.common.services.logging.after=debug:info", true},
+		{"fsc.pkg.logging.before,fsc.pkg.logging.after=debug:info", true},
 	} {
 		initForTest(t, Config{LogSpec: tc.spec})
 		after := MustGetLogger("after")
@@ -225,7 +225,7 @@ func TestLogspecChangesRunningLogger(t *testing.T) { //nolint:paralleltest // ch
 	require.False(t, l.IsEnabledFor(DebugLevel))
 
 	rec := httptest.NewRecorder()
-	body := strings.NewReader(`{"spec":"fsc.platform.common.services.logging.running=debug:info"}`)
+	body := strings.NewReader(`{"spec":"fsc.pkg.logging.running=debug:info"}`)
 	NewSpecHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/logspec", body))
 
 	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())

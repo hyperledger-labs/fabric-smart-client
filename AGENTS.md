@@ -108,7 +108,7 @@ it before writing any documentation. The rules that matter most:
 - **Errors**: use `pkg/utils/errors`
   (`errors.New/Errorf/Wrap/Wrapf/WithMessage/WithMessagef/Join`); do not build
   or wrap errors with `fmt.Errorf`.
-- **Logging**: `platform/common/services/logging`.
+- **Logging**: `pkg/logging`.
 - **New code**: platform code → `platform/<name>/`; shared → `pkg/utils/` or
   `platform/common/`.
 - **DI**: register in the platform's `sdk/dig/sdk.go` (e.g.

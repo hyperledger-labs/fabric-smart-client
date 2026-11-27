@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 )
 
 // UnaryServerInterceptor logs one line at Debug when a unary call completes, with the

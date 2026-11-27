@@ -24,16 +24,21 @@ func TestKeys(t *testing.T) {
 	t.Run("several keys", func(t *testing.T) {
 		t.Parallel()
 
-		rendered := Keys(map[string]int{"a": 1, "b": 2}).String()
+		rendered := Keys(map[string]int{"a": 1, "b": 2, "c": 3}).String()
 
-		assert.Contains(t, rendered, "a")
-		assert.Contains(t, rendered, "b")
+		assert.ElementsMatch(t, []string{"a", "b", "c"}, strings.Split(rendered, ", "), rendered)
+	})
+
+	t.Run("one key", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Equal(t, "a", Keys(map[string]int{"a": 1}).String())
 	})
 
 	t.Run("empty map", func(t *testing.T) {
 		t.Parallel()
 
-		assert.NotPanics(t, func() { _ = Keys(map[string]int{}).String() })
+		assert.Empty(t, Keys(map[string]int{}).String())
 	})
 }
 

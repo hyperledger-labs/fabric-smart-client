@@ -4,9 +4,9 @@ Read [Code Conventions](../dev/conventions.md) first. Before calling a change
 finished:
 
 - No `fmt.Errorf` in the changed files: errors come from `pkg/utils/errors`.
-- Logging goes through `platform/common/services/logging`. No raw state values,
-  payloads, private keys or credentials in log lines or error messages; use a
-  hash (`logging.SHA256Base64`), a length, or an identifier
+- Logging goes through `pkg/logging`. No raw state values, payloads, private
+  keys or credentials in log lines or error messages; use a hash
+  (`logging.SHA256Base64`), a length, or an identifier
   ([Logging & monitoring](../dev/conventions.md#logging--monitoring)). Pick the
   level by the [log level policy](../dev/conventions.md#log-levels).
 - Handle an error or return it, not both: do not log an error and then return it

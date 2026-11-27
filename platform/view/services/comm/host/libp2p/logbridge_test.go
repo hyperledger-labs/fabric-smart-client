@@ -16,7 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p/gologshim"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 )
 
 // The tests log through gologshim.Logger, as every libp2p package does, for

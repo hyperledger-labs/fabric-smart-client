@@ -20,8 +20,8 @@ import (
 	fabric_topo "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 var logger = logging.MustGetLogger()

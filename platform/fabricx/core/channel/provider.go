@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package channel
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	genericservices "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"

@@ -19,11 +19,11 @@ import (
 	"go.uber.org/dig"
 	"google.golang.org/grpc"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
 	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/tlsconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
