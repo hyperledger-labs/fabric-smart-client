@@ -29,4 +29,7 @@ checked-out tree, not a published version.
 
 ## Demos
 
-No demo is in the module yet.
+- [`tickets/`](tickets/README.md): ticket booking on Chaguar between a
+  promoter and two resellers, each FSC node serving a REST API and a web page,
+  with the ledger deciding when two resellers sell the same seat
+  (`make integration-tests-examples-tickets`, `make run-examples-tickets`).

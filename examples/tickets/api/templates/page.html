@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Node}} · Tickets</title>
+<link href="/static/beer.min.css" rel="stylesheet">
+<style>
+  .seats { display: grid; grid-template-columns: repeat(10, 2.75rem); gap: .4rem; }
+  .seat { width: 2.75rem; height: 2.75rem; min-width: 0; padding: 0; margin: 0; }
+  .note { opacity: .7; font-size: .85rem; }
+  pre { white-space: pre-wrap; word-break: break-all; }
+  .hold input { appearance: auto; position: static; opacity: 1; width: auto; height: auto; margin-right: .5rem; }
+</style>
+</head>
+<body class="light">
+<header class="primary">
+  <nav>
+    <h6 class="max">{{if .Promoter}}Promoter{{else}}Reseller{{end}} · {{.Node}}</h6>
+    <span class="chip border white-text">FSC node</span>
+  </nav>
+</header>
+
+<main class="responsive">
+  {{if .Err}}
+  <article class="error-container round">
+    <b>{{.Banner}}</b>
+    <div class="note">{{.ErrCode}}: {{.Err}}</div>
+  </article>
+  {{end}}
+  {{if .OK}}
+  <article class="primary-container round">{{.OK}}</article>
+  {{end}}
+
+  {{if .Promoter}}
+  <div class="grid">
+    <div class="s12 m5">
+      <article class="round">
+        {{with .Edit}}
+        <h6>Edit {{.Name}}</h6>
+        <form method="post" action="/ui/events/{{.ID}}">
+        {{else}}
+        <h6>New event</h6>
+        <form method="post" action="/ui/events">
+        {{end}}
+          {{$e := .Edit}}
+          <div class="field label border round"><input placeholder=" " name="name" required value="{{with $e}}{{.Name}}{{end}}"><label>Name</label></div>
+          <div class="field label border round"><input placeholder=" " name="artist" required value="{{with $e}}{{.Artist}}{{end}}"><label>Artist</label></div>
+          <div class="field label border round"><input placeholder=" " name="venue" required value="{{with $e}}{{.Venue}}{{end}}"><label>Venue</label></div>
+          <div class="field label border round"><input placeholder=" " name="date" type="date" required value="{{with $e}}{{.Date}}{{end}}"><label>Date</label></div>
+          <div class="field label border round"><input placeholder=" " name="seats" type="number" min="1" max="200" required value="{{with $e}}{{.Seats}}{{else}}40{{end}}" {{if $e}}readonly{{end}}><label>Seats{{if $e}} (fixed){{end}}</label></div>
+          <div class="field label border round"><input placeholder=" " name="price" type="number" min="1" required value="{{with $e}}{{.Price}}{{else}}50{{end}}"><label>Price</label></div>
+          <button class="round">{{if $e}}Save{{else}}Create{{end}}</button>
+          {{if $e}}<a class="button border round" href="/">Cancel</a>{{end}}
+        </form>
+      </article>
+    </div>
+    <div class="s12 m7">
+      <article class="round">
+        <h6>Events</h6>
+        <p class="note">Sold counts come from the ledger: one batched read of every seat key.</p>
+        <table class="stripes">
+          <thead><tr><th>Event</th><th>Date</th><th>Price</th><th>Sold</th><th>By reseller</th><th></th></tr></thead>
+          <tbody>
+          {{range .Events}}
+            <tr>
+              <td>{{.Name}} · {{.Venue}}</td><td>{{.Date}}</td><td>{{.Price}}</td>
+              <td>{{soldTotal .Sold}}/{{.Seats}}</td>
+              <td>{{range $r, $n := .Sold}}{{$r}}: {{$n}} {{end}}</td>
+              <td><a class="link" href="/?edit={{.ID}}">edit</a></td>
+            </tr>
+          {{else}}
+            <tr><td colspan="6">No events yet.</td></tr>
+          {{end}}
+          </tbody>
+        </table>
+      </article>
+    </div>
+  </div>
+
+  {{else}}
+  <div class="grid">
+    <div class="s12 m4">
+      <article class="round">
+        <h6>Events</h6>
+        <p class="note">Read from the ledger, not from the promoter.</p>
+        <ul class="list border">
+        {{range .Events}}
+          <li><a href="/?event={{.ID}}"><div class="max"><b>{{.Name}} · {{.Venue}}</b><div class="note">{{.Date}} · {{seatsLeft .}} left</div></div></a></li>
+        {{else}}
+          <li>No events yet.</li>
+        {{end}}
+        </ul>
+      </article>
+    </div>
+    <div class="s12 m8">
+      {{with .Selected}}
+      <article class="round">
+        <nav>
+          <h6 class="max">{{.Name}} · {{.Venue}} · {{.Date}}</h6>
+          <span class="chip">Price {{.Price}}</span>
+        </nav>
+        <form method="post">
+          <div class="seats">
+          {{$id := .ID}}
+          {{range .Seating}}
+            {{if not .Sold}}<button class="seat border" formaction="/ui/events/{{$id}}/seats/{{.N}}">{{.N}}</button>
+            {{- else if eq .Reseller $.Node}}<button class="seat primary" disabled>{{.N}}</button>
+            {{- else}}<button class="seat surface-variant" disabled>{{.N}}</button>{{end}}
+          {{end}}
+          </div>
+          <p class="note">Click a free seat to buy it. Filled: sold by us. Grey: sold by another reseller.</p>
+          <!-- A plain checkbox: Beer CSS draws its own with an icon font the demo does not ship. -->
+          <label class="hold"><input type="checkbox" name="hold" value="5s" checked> Hold 5 s before submitting (demo)</label>
+          <p class="note">With the hold on, buy the same seat in the other reseller's window within 5 s: the promoter endorses both sales, and the ledger commits only one.</p>
+        </form>
+      </article>
+      {{else}}
+      <article class="round"><p>Pick an event.</p></article>
+      {{end}}
+      {{if .Curl}}
+      <details>
+        <summary class="note">The REST call this button made</summary>
+        <pre>{{.Curl}}
+
+{{.Response}}</pre>
+      </details>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+</main>
+</body>
+</html>
