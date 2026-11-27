@@ -68,7 +68,9 @@ new method through a new interface.
 
 ### Log levels
 
-Choose the level from what an operator at the default (`info`) should see:
+The [logging page](../platform/view/services/logging.md) explains levels,
+logger names and formats to operators. Choose the level from what an operator at
+the default (`info`) should see:
 
 - **Debug**: details per transaction, message, session or query. Off in
   production.

@@ -8,7 +8,9 @@ finished:
   payloads, private keys or credentials in log lines or error messages; use a
   hash (`logging.SHA256Base64`), a length, or an identifier
   ([Logging & monitoring](../dev/conventions.md#logging--monitoring)). Pick the
-  level by the [log level policy](../dev/conventions.md#log-levels).
+  level by the [log level policy](../dev/conventions.md#log-levels). A change to
+  what operators see (logger names, `/logspec`, the JSON fields) updates
+  [Logging](../platform/view/services/logging.md).
 - Handle an error or return it, not both: do not log an error and then return it
   ([Logging & monitoring](../dev/conventions.md#logging--monitoring)).
 - Every new exported identifier has a Godoc comment
