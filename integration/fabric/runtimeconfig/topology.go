@@ -45,7 +45,6 @@ func Topology(opts *Opts) []api.Topology {
 	// One for the approver, one for the borrower, and one for the lender.
 	fscTopology := fsc.NewTopology()
 	fscTopology.EnablePrometheusMetrics()
-	// fscTopology.SetLogging("debug", "")
 	fscTopology.EnableTracing(tracing.Otlp)
 
 	// Add the approver FSC node.

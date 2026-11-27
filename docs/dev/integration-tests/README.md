@@ -69,6 +69,31 @@ because both toolchains ship a `configtxgen`). Installing both is safe, and
 A filter that matches no spec still reports `ok`, so check the
 `Ran N of M Specs` line with `-v` before taking a focused run as evidence.
 
+### Debug logs
+
+`CORE_LOGGING_SPEC` sets the logging spec of the test process and of every FSC
+node the run starts, the same way it overrides `logging.spec` in a node's
+`core.yaml` (see
+[Overriding configuration keys](../../configuration.md#overriding-configuration-keys)):
+
+```bash
+CORE_LOGGING_SPEC=grpc=error:libp2p=warn:debug make integration-tests-fabric-iou
+```
+
+The variable replaces each topology's spec, so include `grpc=error:libp2p=warn`
+to keep those two loggers quiet. A spec can also turn on debug for one logger
+only, as in
+`grpc=error:libp2p=warn:fsc.platform.fabric.core.generic.committer=debug:info`.
+Without the variable, the test process uses `FABRIC_LOGGING_SPEC`, or
+`grpc=error:libp2p=warn:info` if that is unset too.
+
+The variable doesn't reach Fabric peers and orderers, whose spec nwo passes in
+`FABRIC_LOGGING_SPEC` from the Fabric topology's `SetLogging`, nor the Chaguar
+committer containers, whose specs are listed in
+[committer settings](fabricx-committers.md#committer-container-configuration).
+Debug output slows nodes down, which can hide or cause a failure in the
+fault-recovery suites; use it to diagnose a failure, not for normal runs.
+
 ## In CI
 
 CI runs every target as a job of its own, on its own runner, from the list
@@ -76,6 +101,12 @@ CI runs every target as a job of its own, on its own runner, from the list
 job. The jobs restore a shared Go build cache, so the time a suite adds to CI is
 mostly its network startup and its specs. A suite that grows too long for one
 job splits into labeled targets, as the fault-recovery suites do.
+
+To re-run a failed job with debug logs, choose "Re-run jobs" with "Enable debug
+logging" in GitHub. The integration test step, and the suite step of the
+`Mixed versions` workflow, then set `CORE_LOGGING_SPEC` to
+`grpc=error:libp2p=warn:debug` (see [Debug logs](#debug-logs)); other runs keep
+each topology's spec.
 
 Targets in `NIGHTLY_INTEGRATION_TARGETS` are left out of that list and run on a
 schedule instead. `fabric-mixedversion` builds a second set of node binaries, at
