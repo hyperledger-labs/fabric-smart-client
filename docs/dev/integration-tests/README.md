@@ -69,6 +69,16 @@ because both toolchains ship a `configtxgen`). Installing both is safe, and
 A filter that matches no spec still reports `ok`, so check the
 `Ran N of M Specs` line with `-v` before taking a focused run as evidence.
 
+A spec's output goes to `GinkgoWriter`: what the nodes and the containers nwo
+starts write, each line prefixed with the node's or container's name, and what
+the test process logs. Ginkgo buffers it and prints it only if the spec fails,
+so a failing spec in CI shows the lines that led to the failure, and a passing
+spec prints none of them. Output of a suite-level setup node, such as a network
+started in `BeforeAll`, is reported with that node. With `-v`, Ginkgo streams it
+as the spec runs. A Postgres
+container's lines stop when a spec stops the container; nothing is forwarded
+after it restarts.
+
 ## In CI
 
 CI runs every target as a job of its own, on its own runner, from the list

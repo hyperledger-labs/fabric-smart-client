@@ -326,22 +326,19 @@ func startPostgres(p *Platform) {
 
 	// start all postgres instances
 	for _, c := range configs {
-		// get a logger for our postgres db
-		l := logging.MustGetLogger(c.DBName)
-
+		// StartPostgres forwards the container's lines from before it waits for the
+		// database, so a database that fails to start still shows why.
+		l := postgresLogger{gexec.NewPrefixedWriter("["+c.DBName+"] ", ginkgo.GinkgoWriter)}
 		// we ignore the returned connection str
 		closeFunc, _, err := postgres.StartPostgres(context.TODO(), c, l)
 		if err != nil {
 			// close all started instances
 			for _, f := range closeFuncs {
-				if f != nil {
-					f()
-				}
+				f()
 			}
-			// we cannot start the database, thus no way to move on, time for panic! :P
+			// we cannot start the database, thus no way to move on
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		}
-
 		closeFuncs = append(closeFuncs, closeFunc)
 	}
 
@@ -1140,4 +1137,16 @@ func (p *Platform) nextColor() string {
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
 func PeerPortNames() []api.PortName {
 	return []api.PortName{ListenPort, P2PPort, WebPort}
+}
+
+// postgresLogger writes each line of a Postgres container, as postgres.StartPostgres
+// forwards it, to w.
+type postgresLogger struct{ w io.Writer }
+
+func (l postgresLogger) Debugf(format string, args ...any) {
+	_, _ = fmt.Fprintf(l.w, format+"\n", args...)
+}
+
+func (l postgresLogger) Errorf(format string, args ...any) {
+	_, _ = fmt.Fprintf(l.w, format+"\n", args...)
 }
