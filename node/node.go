@@ -8,116 +8,412 @@ package node
 
 import (
 	"context"
-	stderrors "errors"
-	"os"
+	"runtime/debug"
+	"slices"
+	"sync"
+	"time"
 
-	"github.com/spf13/cobra"
-
-	"github.com/hyperledger-labs/fabric-smart-client/node/start"
-	"github.com/hyperledger-labs/fabric-smart-client/node/version"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	utils "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 var logger = logging.MustGetLogger()
 
-type ExecuteCallbackFunc = func() error
-
-type FSCNode interface {
-	ID() string
-	Start() error
-	Stop()
-	InstallSDK(p node.SDK) error
-	GetService(v any) (any, error)
-	RegisterService(service any) error
+// PostStart enables a platform to execute additional tasks after all platforms have started
+type PostStart interface {
+	PostStart(context.Context) error
 }
 
-// Node is a cobra based application that offers the following commands:
-// - `node start` to instantiate and start the Fabric Smart Client stack.
-// - `node migrate` to prepare the schema of every store and exit; `--check` only checks it.
-// - `node peers --check` to check that the binary can talk to the configured peers.
-// - `version` to get the version of the executed code; `--json` adds ranges and store steps.
+// stopper is implemented by an SDK that releases what it started, such as every
+// commondig.SDK. Node.Stop calls Stop on every SDK that implements it, in reverse install
+// order, after the node context is cancelled.
+type stopper interface {
+	Stop() error
+}
+
+// Drainer is a service, registered in the node's registry, that lets running work finish
+// before the node stops; the view SDK registers the view manager. Node.Stop calls Drain on the
+// first Drainer the registry returns before it cancels the node context. Drain makes the node
+// refuse new work and returns once running work has finished. When ctx is done first, it
+// returns promptly, even if some work ignores cancellation.
+type Drainer interface {
+	Drain(ctx context.Context) error
+}
+
+const (
+	// drainTimeoutKey bounds how long Node.Stop waits for running views to finish.
+	drainTimeoutKey = "fsc.shutdown.drainTimeout"
+	// teardownTimeoutKey bounds how long Node.Stop waits for the SDKs to stop.
+	teardownTimeoutKey = "fsc.shutdown.teardownTimeout"
+	// defaultShutdownTimeout applies to both keys when they are unset or negative.
+	defaultShutdownTimeout = 30 * time.Second
+)
+
+// configService is the configuration Node.Stop reads its timeouts from.
+type configService interface {
+	IsSet(key string) bool
+	GetDuration(key string) time.Duration
+}
+
+// drainTimeout returns fsc.shutdown.drainTimeout: defaultShutdownTimeout when it is unset or
+// negative, and 0, which does not wait, when it is 0.
+func drainTimeout(c configService) time.Duration { return shutdownTimeout(c, drainTimeoutKey) }
+
+// teardownTimeout returns fsc.shutdown.teardownTimeout, read as drainTimeout reads its key.
+func teardownTimeout(c configService) time.Duration { return shutdownTimeout(c, teardownTimeoutKey) }
+
+func shutdownTimeout(c configService, key string) time.Duration {
+	if c == nil || !c.IsSet(key) {
+		return defaultShutdownTimeout
+	}
+	if d := c.GetDuration(key); d >= 0 {
+		return d
+	}
+	return defaultShutdownTimeout
+}
+
+// Node is a struct that allows the developer to compose sequentially multiple SDKs.
+// The struct offers also a service locator that the SDKs can use to register services.
 type Node struct {
-	FSCNode
+	registry utils.Registry
+	config   configService
+	id       string
+	sdks     []SDK
+	cancel   context.CancelFunc
+	// installed is set once Install has installed every SDK; migrated once Migrate ran.
+	installed bool
+	migrated  bool
 
-	mainCmd             *cobra.Command
-	callbackChannel     chan error
-	executeCallbackFunc ExecuteCallbackFunc
+	// stopMu guards stopped, drainCtx and skipDrain, which the first Stop call sets. stopped is
+	// closed when the shutdown has finished; skipDrain ends drainCtx, the drain's context.
+	stopMu    sync.Mutex
+	stopped   chan struct{}
+	drainCtx  context.Context
+	skipDrain context.CancelFunc
+
+	// configErr is the error that loading the configuration failed with; see NewFromConfPath.
+	configErr error
 }
 
-// New returns a new instance of Node from the default configuration path.
-func New() *Node {
-	return NewWithConfPath("")
-}
-
-// NewWithConfPath returns a new instance of Node whose configuration is loaded from the passed path.
-func NewWithConfPath(confPath string) *Node {
-	return newWithFSCNode(node.NewFromConfPath(confPath))
-}
-
-func newWithFSCNode(fscNode FSCNode) *Node {
-	mainCmd := &cobra.Command{Use: "peer"}
-	node := &Node{
-		FSCNode:         fscNode,
-		mainCmd:         mainCmd,
-		callbackChannel: make(chan error, 1),
-	}
-
-	mainCmd.AddCommand(version.Cmd())
-	mainCmd.AddCommand(start.Cmd(node))
-
-	return node
-}
-
-// Migrate runs Migrate on the wrapped FSCNode; see node.Node.Migrate.
-func (n *Node) Migrate(ctx context.Context, checkOnly bool) error {
-	m, ok := n.FSCNode.(start.Migrator)
-	if !ok {
-		return errors.Errorf("node [%T] does not support migrate", n.FSCNode)
-	}
-	return m.Migrate(ctx, checkOnly)
-}
-
-// Config returns the configuration of the wrapped FSCNode; see node.Node.Config.
-func (n *Node) Config() (driver.ConfigService, error) {
-	c, ok := n.FSCNode.(start.Configured)
-	if !ok {
-		return nil, errors.Errorf("node [%T] does not expose its configuration", n.FSCNode)
-	}
-	return c.Config()
-}
-
-func (n *Node) Callback() chan<- error {
-	return n.callbackChannel
-}
-
-// Execute runs the command line and exits the process if a command fails: with
-// the code of a start.ExitError, 1 otherwise.
-func (n *Node) Execute(executeCallbackFunc ExecuteCallbackFunc) {
-	n.executeCallbackFunc = executeCallbackFunc
-	go n.listen()
-	if err := n.mainCmd.Execute(); err != nil {
-		if e, ok := stderrors.AsType[*start.ExitError](err); ok {
-			os.Exit(e.Code)
+// NewFromConfPath returns a new node for the given configuration path. If no configuration
+// file is found, the node is built on an empty configuration and Start, Migrate and Config
+// return that error, so commands that need no configuration, such as `version`, still run.
+// It panics on any other configuration error.
+func NewFromConfPath(confPath string) *Node {
+	n, err := NewFromConfPathE(confPath)
+	if errors.Is(err, config.ErrNotFound) {
+		cfg, rawErr := (&config.Provider{}).ProvideFromRaw(nil)
+		if rawErr == nil {
+			n, rawErr = newNode(cfg)
 		}
-		os.Exit(1)
+		if rawErr != nil {
+			panic(rawErr)
+		}
+		n.configErr = err
+		return n
 	}
-}
-
-func (n *Node) listen() {
-	logger.Debugf("Wait for callback signal")
-	err := <-n.callbackChannel
-	logger.Debugf("Callback signal came with err [%s]", err)
 	if err != nil {
 		panic(err)
 	}
-	if n.executeCallbackFunc != nil {
-		logger.Debugf("Calling callback...")
-		err = n.executeCallbackFunc()
-		if err != nil {
-			panic(err)
+	return n
+}
+
+// NewFromConfPathE returns a new node for the given configuration path or an error.
+func NewFromConfPathE(confPath string) (*Node, error) {
+	cfg, err := config.NewProvider(confPath)
+	if err != nil {
+		return nil, err
+	}
+	return newNode(cfg)
+}
+
+func newNode(cfg *config.Provider) (*Node, error) {
+	registry := view.NewServiceProvider()
+	if err := registry.RegisterService(cfg); err != nil {
+		return nil, err
+	}
+
+	return &Node{
+		sdks:     []SDK{},
+		registry: registry,
+		config:   cfg,
+		id:       cfg.ID(),
+	}, nil
+}
+
+// AddSDK adds an SDK as InstallSDK does, without checking whether Install has run: an SDK
+// added after Install is started without being installed.
+func (n *Node) AddSDK(sdk SDK) {
+	n.sdks = append(n.sdks, sdk)
+}
+
+func (n *Node) ID() string {
+	return n.id
+}
+
+// Install installs every SDK, in the order they were added, without starting any. Start
+// calls it unless it has run: call it first to register views and services, through the
+// registry the SDKs fill, before the node serves. Once it has succeeded, further calls do
+// nothing. After a failure, build a new node: a second call would install again the SDKs
+// that had succeeded.
+func (n *Node) Install() (err error) {
+	if n.configErr != nil {
+		return n.configErr
+	}
+	if n.installed {
+		return nil
+	}
+	if n.migrated {
+		return errors.New("cannot install a migrated node; build a new node to start it")
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("install triggered panic: %s\n%s", r, debug.Stack())
+			err = errors.Errorf("install triggered panic: %s", r)
+		}
+	}()
+	logger.Infof("installing sdks...")
+	for _, p := range n.sdks {
+		if err := p.Install(); err != nil {
+			return errors.Wrap(err, "failed installing platform")
 		}
 	}
+	logger.Infof("installing sdks...done")
+	n.installed = true
+	return nil
+}
+
+// Start installs every SDK unless Install has run, then starts and post-starts them. The
+// node context passed to the SDKs keeps the values of ctx but not its cancellation: only
+// Stop ends it, after draining running views. After an error, call Stop to release what
+// the SDKs started. A custom main runs a node with
+//
+//	if err := n.Start(ctx); err != nil { ... }
+//	<-ctx.Done()
+//	n.Stop()
+func (n *Node) Start(ctx context.Context) (err error) {
+	if err := n.Install(); err != nil {
+		return err
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("start triggered panic: %s\n%s", r, debug.Stack())
+			err = errors.Errorf("start triggered panic: %s", r)
+		}
+	}()
+
+	ctx, n.cancel = context.WithCancel(context.WithoutCancel(ctx))
+
+	// Start
+	logger.Info("starting sdks...")
+	for _, p := range n.sdks {
+		if err := p.Start(ctx); err != nil {
+			return errors.Wrap(err, "failed starting platform")
+		}
+	}
+	logger.Infof("starting sdks...done")
+
+	// PostStart
+	logger.Info("post-starting sdks...")
+	for _, p := range n.sdks {
+		ps, ok := p.(PostStart)
+		if ok {
+			if err := ps.PostStart(ctx); err != nil {
+				return errors.Wrap(err, "failed post-starting platform")
+			}
+		}
+	}
+	logger.Infof("Post-starting sdks...done")
+
+	return nil
+}
+
+// StoreOpener opens every store an SDK uses, so that opening them prepares their
+// schema. The view SDK registers one in the node's registry that calls every
+// entry of the dig value group "fsc-store-openers"; an SDK provides an entry with
+// a dig.Out struct whose field has the tag `group:"fsc-store-openers"`. OpenStores
+// returns the first store that fails to open.
+type StoreOpener interface {
+	OpenStores(ctx context.Context) error
+}
+
+// Migrate installs every SDK without starting it, so no server, P2P or delivery
+// starts, and opens every store through the StoreOpener in the registry. With
+// checkOnly it runs no schema step and fails if a store has steps pending;
+// otherwise it runs the pending steps. opts, such as migrate.WithContract and
+// migrate.WithForgetOpeners, apply to every store opened during the call.
+// Installing loads the node's identities, so Migrate needs the same configuration
+// and key material as a running node.
+// Stores opened only after Start, such as a channel's vault added at runtime,
+// are not reached.
+//
+// Installing builds services that open stores, so with checkOnly a store with
+// pending steps can fail Install. Migrate then still calls the StoreOpener if
+// one was registered, so every store is reported, and joins both errors.
+// Without checkOnly a failed Install ends Migrate, so no step runs on a node
+// that cannot install.
+//
+// Migrate fails on a node that was installed or migrated, and a migrated node
+// cannot be installed or started: build a new node to start after Migrate.
+func (n *Node) Migrate(ctx context.Context, checkOnly bool, opts ...migrate.Option) error {
+	if n.configErr != nil {
+		return n.configErr
+	}
+	if n.installed || n.migrated {
+		return errors.New("cannot migrate an installed or migrated node")
+	}
+	n.migrated = true
+	// The SDKs open stores inside Install, which takes no context, so the options reach
+	// them process-wide.
+	defer migrate.SetProcessOptions(opts...)()
+	c, ok := n.config.(interface{ ForceSkipCreateTable(skip bool) error })
+	if !ok {
+		return errors.Errorf("configuration [%T] cannot override skipCreateTable", n.config)
+	}
+	if err := c.ForceSkipCreateTable(checkOnly); err != nil {
+		return err
+	}
+	var installErr error
+	for _, p := range n.sdks {
+		if err := p.Install(); err != nil {
+			if !checkOnly {
+				return errors.WithMessage(err, "failed installing sdk")
+			}
+			installErr = errors.WithMessage(err, "failed installing sdk")
+			break
+		}
+	}
+	s, err := n.registry.GetService(new(StoreOpener))
+	if err != nil {
+		if installErr != nil {
+			return installErr
+		}
+		return errors.WithMessage(err, "no store opener registered; install the view SDK")
+	}
+	opener, ok := s.(StoreOpener)
+	if !ok {
+		return errors.Errorf("unexpected store opener type [%T]", s)
+	}
+	return errors.Join(installErr, opener.OpenStores(ctx))
+}
+
+// Stop shuts the node down and returns once it has stopped:
+//  1. it drains: the Drainer in the registry refuses new work and waits for running views, for
+//     at most fsc.shutdown.drainTimeout;
+//  2. it cancels the node context passed to Start;
+//  3. it calls Stop on every SDK that has a Stop() error method, in reverse install order,
+//     for at most fsc.shutdown.teardownTimeout in total. SDKs still stopping at the timeout are
+//     logged and left running.
+//
+// A call while a shutdown runs skips the rest of its drain and waits for it to finish. Stop is
+// safe to call on a node that was never started or failed to start.
+func (n *Node) Stop() {
+	n.stopMu.Lock()
+	first := n.stopped == nil
+	if first {
+		n.stopped = make(chan struct{})
+		if d := drainTimeout(n.config); d > 0 {
+			n.drainCtx, n.skipDrain = context.WithTimeout(context.Background(), d)
+		} else {
+			// No drain: cancelled at once, without the grace a timed-out drain gets.
+			n.drainCtx, n.skipDrain = context.WithCancel(context.Background())
+			n.skipDrain()
+		}
+	} else {
+		logger.Infof("shutdown in progress, skipping the rest of the drain")
+		n.skipDrain()
+	}
+	stopped := n.stopped
+	n.stopMu.Unlock()
+
+	if !first {
+		<-stopped
+		return
+	}
+	defer close(stopped)
+	start := time.Now()
+
+	n.drain(n.drainCtx)
+	n.skipDrain()
+
+	if n.cancel != nil {
+		n.cancel()
+	}
+	n.teardown(teardownTimeout(n.config))
+	logger.Infof("node stopped in %s", time.Since(start))
+}
+
+// drain runs the Drainer registered in the registry, if any. The Drainer logs its own progress.
+func (n *Node) drain(ctx context.Context) {
+	if n.registry == nil {
+		return
+	}
+	s, err := n.registry.GetService(new(Drainer))
+	if err != nil {
+		return
+	}
+	d, ok := s.(Drainer)
+	if !ok {
+		return
+	}
+	logger.Infof("draining running views...")
+	if err := d.Drain(ctx); err != nil {
+		logger.Warnf("draining running views...stopped before they finished: %s", err)
+		return
+	}
+	logger.Infof("draining running views...done")
+}
+
+// teardown stops the SDKs in reverse install order, within timeout.
+func (n *Node) teardown(timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for _, v := range slices.Backward(n.sdks) {
+			s, ok := v.(stopper)
+			if !ok {
+				continue
+			}
+			if err := s.Stop(); err != nil {
+				logger.Errorf("failed stopping sdk [%T]: %s", v, err)
+			}
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		logger.Warnf("sdks did not stop within %s", timeout)
+	}
+}
+
+// InstallSDK adds an SDK to install and start with the others, after those added
+// before it. It fails once Install has run.
+func (n *Node) InstallSDK(p SDK) error {
+	if n.installed {
+		return errors.New("failed installing platform, the node is already installed")
+	}
+
+	n.sdks = append(n.sdks, p)
+	return nil
+}
+
+// Config returns the node's configuration, or the error that loading it failed with.
+func (n *Node) Config() (driver.ConfigService, error) {
+	if n.configErr != nil {
+		return nil, n.configErr
+	}
+	return config.GetProvider(n.registry), nil
+}
+
+func (n *Node) RegisterService(service any) error {
+	return n.registry.RegisterService(service)
+}
+
+func (n *Node) GetService(v any) (any, error) {
+	return n.registry.GetService(v)
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
 )
 
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {

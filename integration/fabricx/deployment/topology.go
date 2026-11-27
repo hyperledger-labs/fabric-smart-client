@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
 )
 
 const (

@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
 )
 
 // Orderers names the three raft orderers, so a spec can stop one and keep a quorum.

@@ -269,10 +269,10 @@ var (
 )
 
 // SetProcessOptions makes every Migrate call of this process apply opts before
-// its own options, until restore is called. It exists for the node migrate
-// command, which passes its flags to the stores that the SDKs open while it
-// runs; a long-running node must not call it, since it affects every store the
-// process opens meanwhile.
+// its own options, until restore is called. It exists for node.Node.Migrate,
+// which passes its options to the stores that the SDKs open, without a context,
+// while it runs; a long-running node must not call it, since it affects every
+// store the process opens meanwhile.
 func SetProcessOptions(opts ...Option) (restore func()) {
 	processOptionsMu.Lock()
 	defer processOptionsMu.Unlock()

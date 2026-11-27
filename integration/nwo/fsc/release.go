@@ -37,9 +37,9 @@ var releaseModules = []string{
 // buildAtRelease builds the generated main of node against the FSC release
 // release and returns the path of the binary. release is a module version, a
 // tag such as v0.28.0 or a commit, or the absolute path of a checkout of the
-// repository. The main package is the one nwo generated for this test, so every
-// package it imports, the views and SDKs the topology registers among them,
-// must exist at release.
+// repository. The main package is the one nwo generates for this test, from the
+// node template of release (see nodeTemplateAt), so every package it imports, the
+// views and SDKs the topology registers among them, must exist at release.
 //
 // The replicas of a node share its generated main and its binary, in a directory
 // next to the main, one per release. Every call rebuilds it, because nwo
@@ -51,8 +51,12 @@ func (p *Platform) buildAtRelease(node *nwonode.Replica, release string) (string
 	dir := filepath.Join(p.NodeCmdDir(node)+"-release", sanitizeRelease(release))
 	bin := filepath.Join(dir, "node")
 
-	src, err := os.ReadFile(p.NodeCmdPath(node))
+	text, err := nodeTemplateAt(release, &p.Topology.Templates)
 	if err != nil {
+		return "", err
+	}
+	var src bytes.Buffer
+	if err := p.renderMain(&src, node, text); err != nil {
 		return "", err
 	}
 	targets, err := releaseTargets(release)
@@ -62,7 +66,7 @@ func (p *Platform) buildAtRelease(node *nwonode.Replica, release string) (string
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.go"), src, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), src.Bytes(), 0o644); err != nil {
 		return "", err
 	}
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(releaseGoMod(targets)), 0o644); err != nil {
@@ -132,14 +136,20 @@ func releaseGoMod(targets map[string]string) string {
 // below the module such as fabric/mixedversion/views. A suite whose views are
 // missing at a release cannot run a node of that release.
 func ReleaseHasPackage(release, pkg string) (bool, error) {
+	return moduleHasPackage(release, "integration", pkg)
+}
+
+// moduleHasPackage reports whether module m, one of releaseModules, contains the
+// package pkg, a path below the module, at the FSC release release.
+func moduleHasPackage(release, m, pkg string) (bool, error) {
 	if err := checkRelease(release); err != nil {
 		return false, err
 	}
-	dir := filepath.Join(release, "integration")
+	dir := filepath.Join(release, m)
 	if !filepath.IsAbs(release) {
-		out, err := releaseGo(os.TempDir(), "mod", "download", "-json", modulePath("integration")+"@"+release)
+		out, err := releaseGo(os.TempDir(), "mod", "download", "-json", modulePath(m)+"@"+release)
 		if err != nil {
-			return false, errors.Wrapf(err, "failed to download [%s] at [%s]", modulePath("integration"), release)
+			return false, errors.Wrapf(err, "failed to download [%s] at [%s]", modulePath(m), release)
 		}
 		var mod struct{ Dir string }
 		if err := json.Unmarshal([]byte(out), &mod); err != nil {
@@ -152,6 +162,20 @@ func ReleaseHasPackage(release, pkg string) (bool, error) {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// nodeTemplateAt returns the node template to build a node at the FSC release release:
+// templates' own, unless it is the default and release has no node/cli package; then
+// nwonode.TemplateWithoutCLI.
+func nodeTemplateAt(release string, templates *Templates) (string, error) {
+	if templates.Node != "" {
+		return templates.Node, nil
+	}
+	ok, err := moduleHasPackage(release, "", "node/cli")
+	if err != nil || ok {
+		return nwonode.DefaultTemplate, err
+	}
+	return nwonode.TemplateWithoutCLI, nil
 }
 
 func modulePath(m string) string {

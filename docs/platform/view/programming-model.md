@@ -145,19 +145,20 @@ package main
 import (
 	"log"
 
-	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
-	node := fscnode.New()
-	if err := node.InstallSDK(viewsdk.NewSDK(node)); err != nil {
+	n := node.NewFromConfPath("")
+	if err := n.InstallSDK(viewsdk.NewSDK(n)); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
 
-	node.Execute(func() error {
-		registry := viewregistry.GetRegistry(node)
+	cli.Execute(n, func() error {
+		registry := viewregistry.GetRegistry(n)
 
 		// Clients start the Initiator view under the name "init".
 		if err := registry.RegisterFactory("init", &InitiatorViewFactory{}); err != nil {
@@ -171,9 +172,11 @@ func main() {
 
 `Initiator`, `Responder` and `InitiatorViewFactory` are the views of the
 sections below. The node runtime is provided by
-[`node.New()`](../../../node/node.go), and
-[`Node.Execute()`](../../../node/node.go) runs the command line; the callback
-runs once the node has started.
+[`node.NewFromConfPath`](../../../node/node.go), and
+[`cli.Execute`](../../../node/cli/execute.go) runs the command line. Its setup
+function runs on `node start` once the SDKs are installed and before the node
+accepts sessions or view calls, so every view it registers is there for the
+first one.
 
 If the application also needs Fabric capabilities, it installs the Fabric SDK in
 the same startup flow, as
@@ -329,8 +332,8 @@ Factories are useful when:
 Responder views are registered against the initiator type so the runtime knows
 which responder to launch when a session arrives.
 
-Conceptually, registration happens during node startup inside the callback
-passed to [`Execute()`](../../../node/node.go).
+Registration happens during node startup inside the setup function passed to
+[`cli.Execute`](../../../node/cli/execute.go).
 
 ## Build, run and call your node
 

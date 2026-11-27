@@ -12,14 +12,15 @@ package main
 import (
 	"log"
 
-	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 )
 
 func main() {
-	node := fscnode.New()
-	if err := node.InstallSDK(fabricx.NewSDK(node)); err != nil {
+	n := node.NewFromConfPath("")
+	if err := n.InstallSDK(fabricx.NewSDK(n)); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
-	node.Execute(nil)
+	cli.Execute(n, nil)
 }

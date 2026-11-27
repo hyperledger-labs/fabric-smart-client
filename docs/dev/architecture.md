@@ -53,8 +53,8 @@ func (p *SDK) Start(ctx context.Context) error {
 
 ## Lifecycle and shutdown
 
-`pkg/node.Node` runs `Install`, then `Start(ctx)`, then `PostStart(ctx)` on
-every SDK, in install order. `Node.Stop` reverses that
+`node.Node` runs `Install`, then `Start(ctx)`, then `PostStart(ctx)` on every
+SDK, in install order. `Node.Stop` reverses that
 ([shutdown.md](../platform/view/services/shutdown.md)):
 
 1. It calls `Drain(ctx)` on the `node.Drainer` in the node's registry, bounded

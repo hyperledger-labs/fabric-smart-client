@@ -8,6 +8,7 @@ package main
 
 import (
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	fsccli "github.com/hyperledger-labs/fabric-smart-client/node/cli"
 
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	fsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -19,14 +20,14 @@ import (
 )
 
 func main() {
-	n := fscnode.New()
+	n := fscnode.NewFromConfPath("")
 	n.InstallSDK(fsc.NewDummySDK(n))
 	
 	n.InstallSDK(fake.NewSDK(n))
 	
 	n.InstallSDK(another.NewSDK(n))
 	
-	n.Execute(func() error {
+	fsccli.Execute(n, func() error {
 		registry := viewregistry.GetRegistry(n)
 		if err := registry.RegisterFactory("initiator", &initiator.Factory{}); err != nil {
 			return err
@@ -40,7 +41,9 @@ func main() {
 		if err := registry.RegisterFactory("initiator2", &initiator.Factory{}); err != nil {
 			return err
 		}
-		registry.RegisterResponder(&responder.Responder{}, &initiator.Initiator{})
+		if err := registry.RegisterResponder(&responder.Responder{}, &initiator.Initiator{}); err != nil {
+			return err
+		}
 		
 		return nil
 	})

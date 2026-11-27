@@ -52,22 +52,25 @@ func GenerateConfig(testdataDir string) error {
 }
 
 func SetupNode(confPath string, factories ...NamedFactory) (*node.Node, error) {
-	fsc := node.NewWithConfPath(confPath)
+	fsc := node.NewFromConfPath(confPath)
 	if err := fsc.InstallSDK(viewsdk.NewSDK(fsc)); err != nil {
 		return nil, err
 	}
 
-	if err := fsc.Start(); err != nil {
+	// Register the factories before Start, so a client cannot reach the node before them.
+	if err := fsc.Install(); err != nil {
 		return nil, err
 	}
-
 	reg := viewregistry.GetRegistry(fsc)
-
 	for _, f := range factories {
-		err := reg.RegisterFactory(f.Name, f.Factory)
-		if err != nil {
+		if err := reg.RegisterFactory(f.Name, f.Factory); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := fsc.Start(context.Background()); err != nil {
+		fsc.Stop()
+		return nil, err
 	}
 
 	return fsc, nil

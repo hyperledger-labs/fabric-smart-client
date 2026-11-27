@@ -7,10 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package fsc
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 )
 
 // TestReleaseGoMod checks that a release build pins every FSC module the
@@ -57,4 +61,24 @@ func TestCheckRelease(t *testing.T) {
 	for _, bad := range []string{"../fsc", "./fsc", "src/fsc"} {
 		require.ErrorContains(t, checkRelease(bad), "absolute path", bad)
 	}
+}
+
+// A release without node/cli gets the main of the API it has; a custom template is kept.
+func TestNodeTemplateAt(t *testing.T) {
+	t.Parallel()
+	withCLI, withoutCLI := t.TempDir(), t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(withCLI, "node", "cli"), 0o755))
+
+	got, err := nodeTemplateAt(withCLI, &Templates{})
+	require.NoError(t, err)
+	require.Equal(t, nwonode.DefaultTemplate, got)
+
+	got, err = nodeTemplateAt(withoutCLI, &Templates{})
+	require.NoError(t, err)
+	require.Equal(t, nwonode.TemplateWithoutCLI, got)
+	require.Contains(t, got, "n.Execute(func() error {")
+
+	got, err = nodeTemplateAt(withoutCLI, &Templates{Node: "custom"})
+	require.NoError(t, err)
+	require.Equal(t, "custom", got)
 }

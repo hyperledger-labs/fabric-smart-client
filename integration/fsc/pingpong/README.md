@@ -398,19 +398,20 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
-	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
-	node := fscnode.New()
-	if err := node.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(node))); err != nil {
+	n := node.NewFromConfPath("")
+	if err := n.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(n))); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
-	node.Execute(func() error {
+	cli.Execute(n, func() error {
 		// Here, register view factories and responders as needed
-		registry := view.GetRegistry(node)
+		registry := view.GetRegistry(n)
 		if err := registry.RegisterFactory("init", &pingpong.InitiatorViewFactory{}); err != nil {
 			return err
 		}
@@ -433,23 +434,26 @@ package main
 
 import (
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	fsccli "github.com/hyperledger-labs/fabric-smart-client/node/cli"
 
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	pingpong "github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 )
 
 func main() {
-	n := fscnode.New()
-	n.Execute(func() error {
+	n := fscnode.NewFromConfPath("")
+	fsccli.Execute(n, func() error {
 		registry := viewregistry.GetRegistry(n)
-		registry.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})
+		if err := registry.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{}); err != nil {
+			return err
+		}
 		return nil
 	})
 }
 ```
 
 SDKs added with `AddSDK` show up as `n.InstallSDK(...)` calls before
-`n.Execute`.
+`fsccli.Execute`.
 
 ### Bootstrap these networks
 

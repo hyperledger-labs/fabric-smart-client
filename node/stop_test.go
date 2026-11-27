@@ -88,9 +88,10 @@ func TestNode_Stop_DrainsThenCancelsThenStopsInReverse(t *testing.T) {
 	n := newTestNode()
 	d := newDrainer(rec)
 	require.NoError(t, n.RegisterService(d))
-	n.AddSDK(&stoppingSDK{name: "a", rec: rec})
+	a := &stoppingSDK{name: "a", rec: rec}
+	n.AddSDK(a)
 	n.AddSDK(&stoppingSDK{name: "b", rec: rec})
-	require.NoError(t, n.Start())
+	require.NoError(t, n.Start(t.Context()))
 
 	stopped := make(chan struct{})
 	go func() {
@@ -99,7 +100,7 @@ func TestNode_Stop_DrainsThenCancelsThenStopsInReverse(t *testing.T) {
 	}()
 	<-d.entered
 	require.Equal(t, []string{"drain"}, rec.get(), "nothing is stopped while draining")
-	require.NoError(t, n.ctx.Err(), "the node context is not cancelled while draining")
+	require.NoError(t, a.ctx.Err(), "the node context is not cancelled while draining")
 	close(d.release)
 	<-stopped
 
@@ -113,7 +114,7 @@ func TestNode_Stop_SecondCallSkipsDrain(t *testing.T) {
 	d := newDrainer(rec)
 	require.NoError(t, n.RegisterService(d))
 	n.AddSDK(&stoppingSDK{name: "a", rec: rec})
-	require.NoError(t, n.Start())
+	require.NoError(t, n.Start(t.Context()))
 
 	first := make(chan struct{})
 	go func() {
@@ -133,11 +134,11 @@ func TestNode_Stop_SecondCallSkipsDrain(t *testing.T) {
 func TestNode_Stop_SDKWithoutStopperIsCancelled(t *testing.T) {
 	t.Parallel()
 	n := newTestNode()
-	sdk := &mockSDK{}
+	sdk := &countingSDK{}
 	n.AddSDK(sdk)
-	require.NoError(t, n.Start())
+	require.NoError(t, n.Start(t.Context()))
 	require.NotPanics(t, n.Stop)
-	require.ErrorIs(t, n.ctx.Err(), context.Canceled)
+	require.ErrorIs(t, sdk.ctx.Err(), context.Canceled)
 }
 
 func TestNode_Stop_BoundedByteardownTimeout(t *testing.T) {
@@ -147,7 +148,7 @@ func TestNode_Stop_BoundedByteardownTimeout(t *testing.T) {
 	release := make(chan struct{})
 	defer close(release)
 	n.AddSDK(&stoppingSDK{name: "stuck", rec: &recorder{}, stop: func() { <-release }})
-	require.NoError(t, n.Start())
+	require.NoError(t, n.Start(t.Context()))
 
 	start := time.Now()
 	n.Stop()

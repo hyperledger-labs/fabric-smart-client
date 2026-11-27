@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package start
+package cli
 
 import (
 	"bytes"
@@ -104,14 +104,6 @@ func TestCheckPeersCountsUnannouncedAsVersionOne(t *testing.T) { //nolint:parall
 	require.Contains(t, out.String(), "fabric: local [2,2], not announced by the peer, so [1,1]: no overlap")
 }
 
-type configuredNode struct {
-	*mockStartNode
-	cfg driver.ConfigService
-	err error
-}
-
-func (n *configuredNode) Config() (driver.ConfigService, error) { return n.cfg, n.err }
-
 func rawConfig(t *testing.T, yaml string) driver.ConfigService {
 	t.Helper()
 	cfg, err := (&config.Provider{}).ProvideFromRaw([]byte(yaml))
@@ -123,11 +115,13 @@ func rawConfig(t *testing.T, yaml string) driver.ConfigService {
 // configuration or an unsupported transport exits 1.
 func TestPeersCmd(t *testing.T) {
 	t.Parallel()
-	run := func(n Configured, args ...string) error {
-		cmd := Cmd(&struct {
-			*mockStartNode
-			Configured
-		}{newMockStartNode(nil), n})
+	configured := func(cfg driver.ConfigService, err error) *fakeNode {
+		n := newFakeNode()
+		n.cfg, n.cfgErr = cfg, err
+		return n
+	}
+	run := func(n *fakeNode, args ...string) error {
+		cmd := nodeCmd(n, nil)
 		cmd.SetArgs(append([]string{"peers"}, args...))
 		cmd.SetOut(&bytes.Buffer{})
 		return cmd.Execute()
@@ -138,17 +132,15 @@ func TestPeersCmd(t *testing.T) {
 		return e.Code
 	}
 
-	poisoned := &configuredNode{err: errors.New("must not be read")}
+	poisoned := configured(nil, errors.New("must not be read"))
 	for _, args := range [][]string{{}, {"--check", "extra"}, {"--check", "--force"}, {"--check=maybe"}} {
 		require.Equal(t, ExitUsage, code(run(poisoned, args...)), "%v", args)
 	}
 
-	require.Equal(t, ExitFailed, code(run(&configuredNode{err: config.ErrNotFound}, "--check")))
-	err := run(&configuredNode{cfg: rawConfig(t, "fsc:\n  p2p:\n    type: libp2p\n")}, "--check")
+	require.Equal(t, ExitFailed, code(run(configured(nil, config.ErrNotFound), "--check")))
+	err := run(configured(rawConfig(t, "fsc:\n  p2p:\n    type: libp2p\n"), nil), "--check")
 	require.Equal(t, ExitFailed, code(err))
 	require.ErrorContains(t, err, "fsc.p2p.type [libp2p] is not supported")
-
-	require.Len(t, Cmd(newMockStartNode(nil)).Commands(), 1, "a node without Config gets no peers command")
 }
 
 // configuredPeers skips the node itself, resolvers without a P2P address and later entries of a

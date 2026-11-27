@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package version
+package cli
 
 import (
 	"cmp"
@@ -21,11 +21,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
-// ProgramName is the program name
-const ProgramName = "node"
-
-// Cmd returns the Cobra Command for Version
-func Cmd() *cobra.Command {
+// versionCmd returns the `version` command.
+func versionCmd() *cobra.Command {
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "version",
@@ -41,7 +38,7 @@ database.`,
 			// Parsing of the command line is done so silence cmd usage
 			cmd.SilenceUsage = true
 			if !asJSON {
-				_, err := fmt.Fprint(cmd.OutOrStdout(), GetInfo())
+				_, err := fmt.Fprint(cmd.OutOrStdout(), format(cmd.Root().Name(), buildinfo.Get()))
 				return err
 			}
 			raw, err := json.MarshalIndent(getReport(), "", "  ")
@@ -56,13 +53,9 @@ database.`,
 	return cmd
 }
 
-// GetInfo returns the program name, the Go toolchain, the platform, and the build info Go
+// format returns the program name, the Go toolchain, the platform, and the build info Go
 // embeds in the binary: the FSC version, the application module and the VCS revision.
-func GetInfo() string {
-	return format(buildinfo.Get())
-}
-
-func format(info buildinfo.Info) string {
+func format(name string, info buildinfo.Info) string {
 	app := cmp.Or(strings.TrimSpace(info.AppModule+" "+info.AppVersion), "unknown")
 	revision := cmp.Or(info.Revision, "unknown")
 	if info.Modified {
@@ -70,7 +63,7 @@ func format(info buildinfo.Info) string {
 	}
 	return fmt.Sprintf("%s:\n Go version: %s\n OS/Arch: %s/%s\n"+
 		" FSC version: %s\n Application: %s\n Revision: %s\n",
-		ProgramName, runtime.Version(), runtime.GOOS, runtime.GOARCH,
+		name, runtime.Version(), runtime.GOOS, runtime.GOARCH,
 		info.FSCVersion, app, revision)
 }
 
