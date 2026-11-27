@@ -251,8 +251,10 @@ coverage-local: ## Run unit tests and show filtered coverage
 # Integration tests
 #########################
 
-GINKGO_TEST_OPTS ?=
-GINKGO_TEST_OPTS += --keep-going
+# GINKGO_TEST_OPTS (from the environment or the make command line) passes
+# extra ginkgo flags to every integration target, such as --focus. They come
+# after the recipe's defaults, so they win: --timeout=0 turns the suite timeout
+# off for debugging.
 
 INTEGRATION_TARGETS =
 
@@ -368,6 +370,10 @@ INTEGRATION_FLAGS_fabricx-faultrecovery-rotation           = --label-filter=rota
 # with the pkcs11 tag; without it the suite compiles to no specs and passes.
 INTEGRATION_GOFLAGS_fabric-iouhsm = -tags=pkcs11
 
+# Per-target suite timeout; the default is 20m. The timer includes compiling
+# the test binary, and fabric-mixedversion also builds the previous release.
+INTEGRATION_TIMEOUT_fabric-mixedversion = 40m
+
 integration_default_dir = $(firstword $(subst -, ,$(1)))/$(subst $(firstword $(subst -, ,$(1)))-,,$(1))
 integration_dir = $(or $(INTEGRATION_DIR_$(1)),$(call integration_default_dir,$(1)))
 
@@ -381,7 +387,7 @@ integration-tests: $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) ## Run
 $(addprefix integration-tests-,$(INTEGRATION_TARGETS) $(NIGHTLY_INTEGRATION_TARGETS)) : integration-tests-%:
 	export FAB_BINS=$(FAB_BINS); \
 		cd ./integration/$(call integration_dir,$*); \
-		$(if $(INTEGRATION_GOFLAGS_$*),GOFLAGS="$(INTEGRATION_GOFLAGS_$*)" )ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
+		$(if $(INTEGRATION_GOFLAGS_$*),GOFLAGS="$(INTEGRATION_GOFLAGS_$*)" )ginkgo --timeout=$(or $(INTEGRATION_TIMEOUT_$*),20m) --poll-progress-after=5m --poll-progress-interval=1m $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
 
 #########################
 # Release
