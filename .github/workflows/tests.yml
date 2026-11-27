@@ -124,6 +124,9 @@ jobs:
     needs:
       - itest-list
     runs-on: ubuntu-latest
+    # Above the Makefile's 20m ginkgo timeout plus set-up, so ginkgo reports a
+    # hung spec first; this catches hangs outside a spec.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

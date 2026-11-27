@@ -54,6 +54,12 @@ Otherwise:
 - **The suite needs a build tag** (e.g. `-tags pkcs11`) → set
   `INTEGRATION_GOFLAGS_<target>`; it becomes the `GOFLAGS` the test binary is
   built with.
+- **The suite needs more than the 20-minute suite timeout** → set
+  `INTEGRATION_TIMEOUT_<target>`, not a `--timeout` in
+  `INTEGRATION_FLAGS_<target>`, which would override a developer's
+  `--timeout=0`. A target that runs in the `itest` jobs gains nothing above
+  about 28 minutes: the job stops after 30. See
+  [Stuck specs and timeouts](README.md#stuck-specs-and-timeouts).
 - **The suite is too costly for every pull request** → add it to
   `NIGHTLY_INTEGRATION_TARGETS`; CI runs it from a scheduled workflow of its
   own.

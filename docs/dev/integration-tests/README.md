@@ -89,6 +89,45 @@ or comments on it if it is open; the next successful nightly run closes it. A
 run started by hand with the `report` input opens, comments on and closes the
 issue the same way.
 
+## Stuck specs and timeouts
+
+Without `-v`, Ginkgo holds back a spec's output until the spec ends, so a hung
+spec would print nothing. Every target therefore runs with these defaults, in
+CI and locally:
+
+- **Progress reports.** Once a spec node (`BeforeEach`, `It`, ...) has run for 5
+  minutes, Ginkgo prints a progress report for it, and repeats it every minute.
+  A report names the spec, the node and the current `By` step, shows the last
+  10 lines the spec wrote to `GinkgoWriter`, and then the goroutine stacks,
+  starting with the spec's. The slowest healthy node takes about 3 minutes, so
+  a passing run normally prints none.
+- **Suite timeout.** When a target has run for 20 minutes, counted from before
+  the test binary is compiled, Ginkgo fails the running spec, prints its
+  progress report and runs the cleanup nodes. It leaves a hung node running in
+  the background: at once if the node takes no `SpecContext`, after 30 seconds
+  (`--grace-period`) if it does. Each cleanup node gets the same 30 seconds.
+  `fabric-mixedversion`, which also builds the previous release, gets 40
+  minutes from `INTEGRATION_TIMEOUT_<target>` in the `Makefile`.
+- **Job timeout.** The `itest` jobs stop after 30 minutes, which leaves room for
+  set-up after the 20-minute suite timeout. It catches hangs Ginkgo can't see,
+  such as a stuck `docker` call before the suite starts. The `Mixed versions`
+  job stops after 60 minutes.
+
+`GINKGO_TEST_OPTS` comes after these defaults on the `ginkgo` command line, so
+its flags win. To debug with breakpoints, turn the suite timeout off:
+
+```bash
+GINKGO_TEST_OPTS="--timeout=0" make integration-tests-fsc-pingpong
+```
+
+To get a progress report from a running suite on demand, send `SIGUSR1` to the
+test binary, which Ginkgo builds as `<suite directory>.test`, or press Ctrl+T on
+macOS. The `ginkgo` command itself ignores `SIGUSR1`.
+
+```bash
+pkill -USR1 -f '/pingpong\.test'
+```
+
 ## Code the suites share
 
 A suite directory holds only its own `_test.go` files plus code no other suite
