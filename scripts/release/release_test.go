@@ -166,6 +166,7 @@ func TestModules(t *testing.T) {
 	t.Parallel()
 	dir := newRepo(t, map[string]string{
 		"go.mod":                        "module root\n",
+		"examples/go.mod":               "module github.com/hyperledger-labs/fabric-smart-client/examples\n",
 		"integration/go.mod":            "module integration\n",
 		"platform/x/host/libp2p/go.mod": "module libp2p\n",
 		"tools/go.mod":                  "module tools\n",
@@ -175,6 +176,7 @@ func TestModules(t *testing.T) {
 	run(t, dir, "add", "staged/go.mod")
 	got, err := modules(dir, mustVersion(t, "v0.29.0"))
 	require.NoError(t, err)
+	// examples, like tools, is never released: no tag and no module dir for it.
 	require.Equal(t, []string{"integration/v0.29.0", "platform/x/host/libp2p/v0.29.0", "v0.29.0"}, got)
 }
 
@@ -231,6 +233,7 @@ func releaseRepo(t *testing.T) string {
 	dir := newRepo(t, map[string]string{
 		"go.mod":                      testGoMod,
 		"Makefile":                    testMakefile,
+		"examples/go.mod":             "module github.com/hyperledger-labs/fabric-smart-client/examples\n",
 		"integration/go.mod":          "module integration\n",
 		"tools/go.mod":                "module tools\n",
 		releasesDir + "/v0.28.0.json": string(report),

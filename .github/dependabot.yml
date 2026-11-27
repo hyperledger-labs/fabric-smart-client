@@ -9,7 +9,7 @@ updates:
   # FSC is a multi-module repository, and the modules are not independent: the
   # integration module `replace`s the root, cc/query, and libp2p modules, so a
   # dependency bumped in one go.mod usually has to move in the others' go.sum
-  # too. One `directories` list keeps all five modules in a single Dependabot
+  # too. One `directories` list keeps all six modules in a single Dependabot
   # job, so a shared dependency is updated across them together instead of
   # arriving as separate PRs that each leave `make tidy` dirty.
   #
@@ -22,6 +22,7 @@ updates:
       - "/integration"
       - "/platform/fabric/services/state/cc/query"
       - "/platform/view/services/comm/host/libp2p"
+      - "/examples"
       - "/tools"
     schedule:
       interval: weekly

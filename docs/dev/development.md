@@ -193,6 +193,7 @@ When your change is confined to one module, run just that module's target:
 make unit-tests-root           # the framework itself
 make unit-tests-integration    # nwo harness, shared helpers, Chaguar topologies
 make unit-tests-extensions     # optional driver modules (today: the libp2p comm host)
+make unit-tests-examples       # the demos of the examples module
 ```
 
 To keep the feedback loop fast while working on a single package, scope the

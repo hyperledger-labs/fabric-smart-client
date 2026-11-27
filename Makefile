@@ -176,6 +176,10 @@ GO_PACKAGES = $$(go list ./...)
 # helpers the suites import, and ./fabricx, which checks the Chaguar suites' topologies
 # without running them. The suites themselves are integration tests, not unit tests.
 INTEGRATION_UNIT_PACKAGES = ./nwo/... ./fabric/common/... ./fabricx
+# Unit-testable packages of the examples module: demos with their own go.mod, so
+# their dependencies stay out of the root and integration modules. A demo's own
+# directory holds its integration suite, so only its subpackages are listed.
+EXAMPLES_UNIT_PACKAGES = ./tickets/views/... ./tickets/api/...
 # Extension modules: optional drivers with their own go.mod, invisible to the root
 # `go list ./...`. Without stepping into them explicitly, the libp2p
 # host-conformance tests (shared with the websocket host) never run.
@@ -209,7 +213,7 @@ UNIT_TEST_ENV = FABRIC_LOGGING_SPEC=error FAB_BINS=$(FAB_BINS)
 
 .PHONY: unit-tests
 unit-tests: ## Run unit tests in every module
-	@$(MAKE) -k unit-tests-root unit-tests-integration unit-tests-extensions
+	@$(MAKE) -k unit-tests-root unit-tests-integration unit-tests-extensions unit-tests-examples
 
 .PHONY: unit-tests-root
 unit-tests-root: ## Run unit tests of the root module
@@ -219,6 +223,11 @@ unit-tests-root: ## Run unit tests of the root module
 .PHONY: unit-tests-integration
 unit-tests-integration: ## Run unit tests of the integration module (nwo harness, shared helpers, Chaguar topologies)
 	@env $(UNIT_TEST_ENV) go test -C integration $(GO_TEST_PARAMS) $(COVER_FLAGS) $(INTEGRATION_UNIT_PACKAGES)
+	@$(FILTER_COVERAGE)
+
+.PHONY: unit-tests-examples
+unit-tests-examples: ## Run unit tests of the examples module (FSC demos with their own go.mod)
+	@env $(UNIT_TEST_ENV) go test -C examples $(GO_TEST_PARAMS) $(COVER_FLAGS) $(EXAMPLES_UNIT_PACKAGES)
 	@$(FILTER_COVERAGE)
 
 .PHONY: unit-tests-extensions
@@ -315,6 +324,9 @@ INTEGRATION_TARGETS += fabricx-faultrecovery-committer-failover
 # Its identity rotation spec runs in a target of its own, as on Fabric.
 INTEGRATION_TARGETS += fabricx-faultrecovery-rotation
 
+## examples section: the demos of the examples module, see examples/README.md
+INTEGRATION_TARGETS += examples-tickets
+
 # Integration targets that CI runs on a schedule, not on every pull request (see
 # .github/workflows/mixedversion.yml): `make list-integration-tests`, which feeds
 # the pull request matrix, leaves them out.
@@ -343,6 +355,8 @@ INTEGRATION_DIR_fabricx-faultrecovery-partition = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-crash = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-committer-failover = fabricx/faultrecovery
 INTEGRATION_DIR_fabricx-faultrecovery-rotation = fabricx/faultrecovery
+# Relative to ./integration, where the rule changes directory first.
+INTEGRATION_DIR_examples-tickets = ../examples/tickets
 
 # Per-target ginkgo flags. A suite split into several targets selects each
 # target's specs by label. The suite's default target uses a negative filter
@@ -363,6 +377,8 @@ INTEGRATION_FLAGS_fabricx-faultrecovery-partition          = --label-filter=part
 INTEGRATION_FLAGS_fabricx-faultrecovery-crash              = --label-filter=crash
 INTEGRATION_FLAGS_fabricx-faultrecovery-committer-failover = --label-filter=committer-failover
 INTEGRATION_FLAGS_fabricx-faultrecovery-rotation           = --label-filter=rotation
+# The keep-running spec only runs from `make run-examples-tickets`.
+INTEGRATION_FLAGS_examples-tickets = --label-filter='!keep-running'
 
 # Per-target GOFLAGS for the test binary. Every file of fabric/iouhsm is built
 # with the pkcs11 tag; without it the suite compiles to no specs and passes.
@@ -382,6 +398,12 @@ $(addprefix integration-tests-,$(INTEGRATION_TARGETS) $(NIGHTLY_INTEGRATION_TARG
 	export FAB_BINS=$(FAB_BINS); \
 		cd ./integration/$(call integration_dir,$*); \
 		$(if $(INTEGRATION_GOFLAGS_$*),GOFLAGS="$(INTEGRATION_GOFLAGS_$*)" )ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
+
+.PHONY: run-examples-tickets
+run-examples-tickets: ## Start the ticket demo network and keep it running for a browser (Ctrl-C stops it)
+	export FAB_BINS=$(FAB_BINS); \
+		cd ./examples/tickets; \
+		TICKETS_KEEP_RUNNING=1 ginkgo -v --label-filter=keep-running --timeout=24h .
 
 #########################
 # Release
