@@ -37,7 +37,7 @@ if ! git -C "$REPO_ROOT" cat-file -e "${HEAD}:${DATA}" 2>/dev/null; then
     exit 1
 fi
 
-# Collect all module paths: root first, then submodules excluding tools.
+# Collect all module paths: root first, then submodules excluding tools and examples.
 #
 # Modules are discovered from the tree of the commit being tagged, not from the
 # working tree: that is exactly what a consumer sees at `go get <module>@<tag>`,
@@ -46,7 +46,7 @@ fi
 MODULES=(".")
 while IFS= read -r gomod; do
     dir="${gomod%/go.mod}"
-    [[ "$dir" == "go.mod" || "$dir" == "tools" ]] && continue
+    [[ "$dir" == "go.mod" || "$dir" == "tools" || "$dir" == "examples" ]] && continue
     MODULES+=("$dir")
 done < <(git -C "$REPO_ROOT" ls-tree -r --name-only "$HEAD" | grep -E '(^|/)go\.mod$' | sort)
 
