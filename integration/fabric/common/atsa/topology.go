@@ -31,7 +31,6 @@ func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 
 	// Create an empty FSC topology
 	fscTopology := fsc.NewTopology()
-	// fscTopology.SetLogging("debug", "")
 
 	// Approver
 	fscTopology.AddNodeByName("approver").

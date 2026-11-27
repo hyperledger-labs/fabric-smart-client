@@ -36,7 +36,6 @@ func Topology(replicationOpts *integration.ReplicationOptions) []api.Topology {
 
 	// Define a new FSC topology
 	fscTopology := fsc.NewTopology()
-	// fscTopology.SetLogging("debug", "")
 
 	// Define Alice's FSC node
 	fscTopology.AddNodeByName("alice").

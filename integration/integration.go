@@ -42,12 +42,16 @@ import (
 var logger = logging.MustGetLogger()
 
 func init() {
-	c := logging.Config{}
-	// keep the noisy grpc and libp2p loggers at error and warn; every other logger is at info
-	c.LogSpec = cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), "grpc=error:libp2p=warn:info")
-	if err := logging.Init(c); err != nil {
+	if err := logging.Init(logging.Config{LogSpec: logSpec()}); err != nil {
 		panic(err)
 	}
+}
+
+// logSpec returns the logging spec of the test process: CORE_LOGGING_SPEC, which also sets
+// the spec of every FSC node the run starts, else FABRIC_LOGGING_SPEC, else the noisy grpc
+// and libp2p loggers at error and warn and every other logger at info.
+func logSpec() string {
+	return cmp.Or(os.Getenv("CORE_LOGGING_SPEC"), os.Getenv("FABRIC_LOGGING_SPEC"), "grpc=error:libp2p=warn:info")
 }
 
 type Configuration struct {

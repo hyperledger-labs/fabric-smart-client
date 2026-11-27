@@ -33,7 +33,6 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fscTopology.P2PCommunicationType = commType
 	fscTopology.SetLogging("grpc=error:info", "")
 
-	// fscTopology.SetLogging("debug", "")
 	// fscTopology.EnableOTLPTracing()
 
 	// Add the approver FSC node.
