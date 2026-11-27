@@ -42,7 +42,7 @@ First-time setup, Fabric binaries, and Docker images are in
 ## Modules
 
 FSC is a multi-module repository. `go build ./...` / `go test ./...` from the
-root only sees the root module — the other four are invisible to it.
+root only sees the root module — the other five are invisible to it.
 
 | Module          | Path                                       | Notes                                                                            |
 | --------------- | ------------------------------------------ | -------------------------------------------------------------------------------- |
@@ -51,18 +51,20 @@ root only sees the root module — the other four are invisible to it.
 | libp2p host     | `platform/view/services/comm/host/libp2p/` | optional comm driver; `replace`s root                                            |
 | chaincode query | `platform/fabric/services/state/cc/query/` | chaincode, does not depend on root                                               |
 | tools           | `tools/`                                   | dev-tool pins (`module tools`); not released                                     |
+| examples        | `examples/`                                | demos; `replace`s root and `integration`; not released                           |
 
 - **Dependency changes**: run `make tidy` (`scripts/gomate.sh tidy` — tidies
   _every_ module), not `go mod tidy` in one place. To bump a dep everywhere:
   `./scripts/gomate.sh update github.com/some/dep@v1.2.3`.
-- A dependency used only by code under `integration/` or the libp2p host belongs
-  in _that_ module's `go.mod`, not the root one.
+- A dependency used only by code under `integration/`, `examples/` or the
+  libp2p host belongs in _that_ module's `go.mod`, not the root one.
 - **Releases** are cut by a maintainer with `make release-prepare`,
   `make release-pr` and `make release-publish` (`scripts/release.sh`), which tag
-  every module with the same version; a change in a submodule is consumable
-  downstream only after the next release. The steps are in
-  [`docs/dev/releasing.md`](docs/dev/releasing.md). Never run `make release-pr`
-  or `make release-publish` without `DRY_RUN=1`: they push to GitHub and tag.
+  every module except `tools` and `examples` with the same version; a change in
+  a submodule is consumable downstream only after the next release. The steps
+  are in [`docs/dev/releasing.md`](docs/dev/releasing.md). Never run
+  `make release-pr` or `make release-publish` without `DRY_RUN=1`: they push to
+  GitHub and tag.
 
 ## Where to look next
 

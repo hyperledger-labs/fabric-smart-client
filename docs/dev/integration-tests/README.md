@@ -47,6 +47,10 @@ suite's directory and network definition (see
 | `fabricx/multiendorsement` | `fabricx-multiendorsement`                                                                 | endorsements from several approvers merged into one transaction                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `fabricx/simple`           | `fabricx-simple`                                                                           | creating and querying objects, rejecting duplicates and negative values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
+The demos of the [examples module](../../../examples/README.md) run on the same
+harness. A demo's suite lives in `examples/<name>/`, and its target is
+`integration-tests-examples-<name>`.
+
 `make list-integration-tests` prints every target. To see the specs a target
 runs without starting a network, run `ginkgo --dry-run -v` in the suite
 directory with the target's `INTEGRATION_FLAGS_<target>` from the `Makefile`.
