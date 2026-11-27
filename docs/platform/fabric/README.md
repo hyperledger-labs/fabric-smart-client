@@ -24,18 +24,19 @@ nothing unless `fabric.enabled` is `true` in `core.yaml` (see
 import (
 	"log"
 
-	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
-	node := fscnode.New()
-	if err := node.InstallSDK(fabricsdk.NewSDK(node)); err != nil {
+	n := node.NewFromConfPath("")
+	if err := n.InstallSDK(fabricsdk.NewSDK(n)); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
-	node.Execute(func() error {
-		registry := view.GetRegistry(node)
+	cli.Execute(n, func() error {
+		registry := view.GetRegistry(n)
 		// The borrower's node registers the factory, the lender's node the responder.
 		// One binary can serve both roles; the approver's node registers its own responder.
 		if err := registry.RegisterFactory("create", &CreateIOUViewFactory{}); err != nil {

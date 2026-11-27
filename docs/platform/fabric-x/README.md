@@ -20,18 +20,19 @@ the Chaguar [SDK](../../../platform/fabricx/sdk/dig/sdk.go):
 import (
 	"log"
 
-	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
-	node := fscnode.New()
-	if err := node.InstallSDK(fabricx.NewSDK(node)); err != nil {
+	n := node.NewFromConfPath("")
+	if err := n.InstallSDK(fabricx.NewSDK(n)); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
-	node.Execute(func() error {
-		registry := view.GetRegistry(node)
+	cli.Execute(n, func() error {
+		registry := view.GetRegistry(n)
 		// register your views, for example:
 		return registry.RegisterFactory("init", &MyInitiatorViewFactory{})
 	})

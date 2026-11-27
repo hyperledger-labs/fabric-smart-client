@@ -141,7 +141,7 @@ presents one.
 
 ## SDK authors
 
-`pkg/node` drains through the `node.Drainer` it finds in the node's registry;
+`node.Node` drains through the `node.Drainer` it finds in the node's registry;
 the view SDK registers the view manager, which implements it. An SDK does not
 need to implement or pass on anything for the drain. To release what it started,
 an SDK implements `Stop() error` (part of `commondig.SDK`) and calls the `Stop`

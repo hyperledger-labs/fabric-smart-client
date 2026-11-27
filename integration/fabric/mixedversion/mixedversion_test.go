@@ -28,7 +28,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/node/start"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
 )
 
@@ -186,7 +186,7 @@ var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 			GinkgoWriter.Printf("contract steps the previous release lacks: %v\n", newSteps)
 			s.II.StopFSCNode("alice.1")
 			if len(newSteps) > 0 {
-				out := expectMigrate(s.II, start.ExitOlderOpener, "alice.1", "--check", "--contract")
+				out := expectMigrate(s.II, cli.ExitOlderOpener, "alice.1", "--check", "--contract")
 				Expect(out).To(ContainSubstring("node [alice]"))
 			} else {
 				expectMigrate(s.II, 0, "alice.1", "--check", "--contract")
@@ -217,7 +217,7 @@ var _ = Describe("Mixed versions", Label(fsc.WebSocket), func() {
 				cmd.Env, cmd.Dir = previous.Env, previous.Dir
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
-				Eventually(session, time.Minute).Should(gexec.Exit(start.ExitSchemaTooNew))
+				Eventually(session, time.Minute).Should(gexec.Exit(cli.ExitSchemaTooNew))
 				Expect(string(session.Err.Contents())).To(ContainSubstring(migrate.ErrSchemaTooNew.Error()))
 				return
 			}

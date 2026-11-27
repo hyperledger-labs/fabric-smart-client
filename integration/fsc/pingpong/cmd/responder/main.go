@@ -12,20 +12,21 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/fake"
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
-	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/preamble"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
-	node := fscnode.New()
+	n := node.NewFromConfPath("")
 	preamble.RegisterComponent(pingpong.TestComponent, 1, 2)
-	if err := node.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(node))); err != nil {
+	if err := n.InstallSDK(libp2psupport.NewFrom(viewsdk.NewSDK(n))); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
-	node.Execute(func() error {
-		registry := view.GetRegistry(node)
+	cli.Execute(n, func() error {
+		registry := view.GetRegistry(n)
 		initiatorID := registry.GetIdentifier(&pingpong.Initiator{})
 		if err := registry.RegisterResponderWithOptions(&pingpong.Responder{}, initiatorID, view.WithProtocol("pingpong", "ping")); err != nil {
 			return err

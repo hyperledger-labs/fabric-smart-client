@@ -7,12 +7,12 @@ SDK is installed in the `main.go` file of a node in the following manner:
 
 ```go
 func main() {
-	n := fscnode.New()
+	n := node.NewFromConfPath("")
 	if err := n.InstallSDK(iou.NewSDK(n)); err != nil {
 		log.Fatalf("failed installing SDK: %v", err)
 	}
 
-	n.Execute(func() error {
+	cli.Execute(n, func() error {
 		registry := viewregistry.GetRegistry(n)
 		if err := registry.RegisterFactory("init", &views.ApproverInitViewFactory{}); err != nil {
 			return err
@@ -28,8 +28,9 @@ func main() {
 `iou` is `integration/fabric/common/iou` and `views` is its `views` subpackage.
 Both live in the separate
 `github.com/hyperledger-labs/fabric-smart-client/integration` module, so treat
-them as an example to copy rather than a package to import. `fscnode` is `node`
-and `viewregistry` is `platform/view/services/view`.
+them as an example to copy rather than a package to import. `node` is the node
+runtime, `cli` its command line (`node/cli`), and `viewregistry` is
+`platform/view/services/view`.
 
 In this example the services included in the `iou.SDK` can be used by
 

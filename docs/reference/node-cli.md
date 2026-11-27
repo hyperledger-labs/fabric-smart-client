@@ -14,30 +14,79 @@ FSC nodes require a Go application that embeds the FSC library:
 package main
 
 import (
-    "fmt"
     "log"
 
-    fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
+    "github.com/hyperledger-labs/fabric-smart-client/node"
+    "github.com/hyperledger-labs/fabric-smart-client/node/cli"
     sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+    "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {
-    node := fscnode.New()
-    if err := node.InstallSDK(sdk.NewSDK(node)); err != nil {
+    n := node.NewFromConfPath("")
+    if err := n.InstallSDK(sdk.NewSDK(n)); err != nil {
         log.Fatalf("failed installing SDK: %v", err)
     }
-    node.Execute(func() error {
-        fmt.Println("Hello World")
-        return nil
+    cli.Execute(n, func() error {
+        return view.GetRegistry(n).RegisterFactory("init", &InitiatorViewFactory{})
     })
 }
 ```
+
+`node.NewFromConfPath("")` reads `core.yaml` from `FSCNODE_CFG_PATH` or the
+current directory. `cli.Execute` runs the commands below under a root command
+named after the binary, so help text and shell completion use that name, and
+exits with the [exit code](#exit-codes) of a failing command. Its second
+argument, which may be `nil`, is the setup function. It runs only for
+`node start`, after the SDKs are installed and before the node serves, so the
+views it registers are there for the first session or view call. When it
+returns an error, the node stops and the command exits 1.
 
 Build your node:
 
 ```bash
 go build -o mynode .
 ```
+
+### Using your own entry point
+
+An application with its own cobra tree adds the commands to its root:
+
+```go
+root := &cobra.Command{Use: "myapp"}
+root.AddCommand(cli.Commands(n, setup)...)
+if err := root.Execute(); err != nil {
+    os.Exit(cli.ExitCode(err))
+}
+```
+
+`cli.Commands` returns `node` (with `start`, `migrate` and `peers`) and
+`version`. They behave as under `cli.Execute`, and `version` prints the name of
+your root command.
+
+An application without any of these commands runs the node directly:
+
+```go
+ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+defer stop()
+if err := n.Install(); err != nil {
+    log.Fatal(err)
+}
+// register views here
+if err := n.Start(ctx); err != nil {
+    log.Fatal(err)
+}
+<-ctx.Done()
+stop() // a second signal now ends the process instead of waiting for the drain
+n.Stop()
+```
+
+`Start` runs `Install` itself when it has not run. Cancelling the context
+passed to `Start` does not stop the node: `Stop` drains running views first;
+see [shutdown](../platform/view/services/shutdown.md).
+`n.Migrate(ctx, checkOnly, opts...)` does what `node migrate` does, with
+`migrate.WithContract()` and `migrate.WithForgetOpeners(...)` in place of
+`--contract` and `--forget-opener`.
 
 ## Commands
 
@@ -56,7 +105,8 @@ Start the FSC node.
 Starts the FSC node that:
 
 - Loads configuration from `core.yaml`
-- Initializes the View SDK
+- Installs the SDKs, runs the setup function, then starts the SDKs
+- Logs `Started peer with ID=[<fsc.id>]` once it serves
 - Handles graceful shutdown on signals
 
 **Configuration Required:**
@@ -197,7 +247,7 @@ Display version information.
 **Output:**
 
 ```text
-node:
+mynode:
  Go version: go1.27.4
  OS/Arch: darwin/arm64
  FSC version: v0.28.0

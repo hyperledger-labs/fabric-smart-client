@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	fscnode "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )

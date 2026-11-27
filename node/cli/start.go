@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package start
+package cli
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hyperledger-labs/fabric-smart-client/node/start/profile"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli/profile"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common/migrate"
@@ -28,36 +28,17 @@ const (
 	nodeCmdDes   = "Operate a fabric smart client node: start, migrate, peers."
 )
 
-type Node interface {
-	ID() string
-	Start() error
-	Stop()
-	Callback() chan<- error
-}
-
 var logger = logging.MustGetLogger()
 
-// Cmd returns the cobra command for Node
-func Cmd(n Node) *cobra.Command {
+// nodeCmd returns the `node` command.
+func nodeCmd(n fscNode, setup func() error) *cobra.Command {
 	nodeCmd := &cobra.Command{
 		Use:   nodeFuncName,
 		Short: fmt.Sprint(nodeCmdDes),
 		Long:  fmt.Sprint(nodeCmdDes),
 	}
-	nodeCmd.AddCommand(startCmd(n))
-	if m, ok := n.(Migrator); ok {
-		nodeCmd.AddCommand(migrateCmd(m))
-	}
-	if c, ok := n.(Configured); ok {
-		nodeCmd.AddCommand(peersCmd(c))
-	}
+	nodeCmd.AddCommand(startCmd(n, setup), migrateCmd(n), peersCmd(n))
 	return nodeCmd
-}
-
-// Migrator prepares the schema of every store a node opens, without starting
-// the node.
-type Migrator interface {
-	Migrate(ctx context.Context, checkOnly bool) error
 }
 
 // Exit codes of `node migrate` and `node peers --check`.
@@ -79,8 +60,8 @@ const (
 	ExitIncompatible = 11
 )
 
-// ExitError is an error that sets the process exit code; node.Execute exits
-// with Code.
+// ExitError is an error that sets the process exit code; Execute exits with
+// Code, see ExitCode.
 type ExitError struct {
 	Code int
 	Err  error
@@ -94,12 +75,12 @@ func (e *ExitError) Error() string {
 }
 func (e *ExitError) Unwrap() error { return e.Err }
 
-// exitCode returns the exit code of a Migrate error. A joined error, such as
+// migrateExitCode returns the exit code of a Migrate error. A joined error, such as
 // one per failing store, gives ExitFailed if any part is neither pending, too
 // new nor blocked by an older opener, since the check is then incomplete;
 // otherwise ExitSchemaTooNew if any part is too new; otherwise ExitOlderOpener
 // if any part is blocked; otherwise ExitPending.
-func exitCode(err error) int {
+func migrateExitCode(err error) int {
 	tooNew, older, failed := false, false, false
 	var walk func(error)
 	walk = func(err error) {
@@ -135,7 +116,7 @@ func exitCode(err error) int {
 
 func usageError(_ *cobra.Command, err error) error { return &ExitError{Code: ExitUsage, Err: err} }
 
-func migrateCmd(m Migrator) *cobra.Command {
+func migrateCmd(m fscNode) *cobra.Command {
 	var (
 		check, contract bool
 		forget          []string
@@ -171,10 +152,9 @@ this binary, 12 a binary without a pending contract step opens a store (--contra
 			if len(forget) > 0 {
 				opts = append(opts, migrate.WithForgetOpeners(forget...))
 			}
-			defer migrate.SetProcessOptions(opts...)()
 			// No signal handler: a migrator waiting for the lock must die on SIGTERM.
-			if err := m.Migrate(cmd.Context(), check); err != nil {
-				return &ExitError{Code: exitCode(err), Err: err}
+			if err := m.Migrate(cmd.Context(), check, opts...); err != nil {
+				return &ExitError{Code: migrateExitCode(err), Err: err}
 			}
 			if check {
 				logger.Infof("no schema steps pending")
@@ -191,7 +171,7 @@ this binary, 12 a binary without a pending contract step opens a store (--contra
 	return cmd
 }
 
-func startCmd(n Node) *cobra.Command {
+func startCmd(n fscNode, setup func() error) *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Starts the fabric smart client node.",
@@ -202,12 +182,14 @@ func startCmd(n Node) *cobra.Command {
 			}
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
-			return serve(n)
+			return serve(cmd.Context(), n, setup)
 		},
 	}
 }
 
-func serve(n Node) error {
+// serve installs the node, runs setup, starts the node and stops it on SIGINT or SIGTERM; a
+// second signal skips the rest of the drain. It stops the node if a step fails.
+func serve(ctx context.Context, n fscNode, setup func() error) error {
 	// config path
 	configPath := os.Getenv("FSCNODE_CFG_PATH")
 	if configPath == "" {
@@ -232,7 +214,6 @@ func serve(n Node) error {
 			// Cobra's error printing is silenced; this line is the node's report of the
 			// failure.
 			logger.Errorf("error creating profiler: [%s]", err)
-			n.Callback() <- err
 			return err
 		}
 		// start profiler
@@ -240,7 +221,6 @@ func serve(n Node) error {
 			// Cobra's error printing is silenced; this line is the node's report of the
 			// failure.
 			logger.Errorf("error starting profiler: [%s]", err)
-			n.Callback() <- err
 			return err
 		}
 
@@ -253,15 +233,13 @@ func serve(n Node) error {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
 
-	if err := n.Start(); err != nil {
+	if err := start(ctx, n, setup); err != nil {
 		// Cobra's error printing is silenced; this line is the node's report of the
 		// failure.
 		logger.Errorf("Failed starting platform [%s]", err)
-		n.Callback() <- err
+		n.Stop()
 		return err
 	}
-
-	n.Callback() <- nil
 
 	logger.Infof("Started peer with ID=[%s]", n.ID())
 
@@ -280,4 +258,16 @@ func serve(n Node) error {
 	n.Stop()
 
 	return nil
+}
+
+func start(ctx context.Context, n fscNode, setup func() error) error {
+	if err := n.Install(); err != nil {
+		return err
+	}
+	if setup != nil {
+		if err := setup(); err != nil {
+			return err
+		}
+	}
+	return n.Start(ctx)
 }

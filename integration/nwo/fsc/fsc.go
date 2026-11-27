@@ -834,18 +834,23 @@ func (p *Platform) GenerateCmd(output io.Writer, node *nwonode.Replica) string {
 		defer func() { _ = main.Close() }()
 	}
 
+	gomega.Expect(p.renderMain(output, node, p.Topology.Templates.NodeTemplate())).NotTo(gomega.HaveOccurred())
+	return p.NodeCmdPackage(node)
+}
+
+// renderMain writes the main of node, from the node template text, to output.
+func (p *Platform) renderMain(output io.Writer, node *nwonode.Replica, text string) error {
 	t, err := template.New("node").Funcs(template.FuncMap{
 		"Alias":       func(s string) string { return node.Node.Alias(s) },
 		"InstallView": func() bool { return len(node.Node.Responders) != 0 || len(node.Node.Factories) != 0 },
-	}).Parse(p.Topology.Templates.NodeTemplate())
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	gomega.Expect(t.Execute(io.MultiWriter(output), struct {
+	}).Parse(text)
+	if err != nil {
+		return err
+	}
+	return t.Execute(output, struct {
 		*Platform
 		*nwonode.Replica
-	}{p, node})).NotTo(gomega.HaveOccurred())
-
-	return p.NodeCmdPackage(node)
+	}{p, node})
 }
 
 func (p *Platform) NodeDir(peer *nwonode.Replica) string {

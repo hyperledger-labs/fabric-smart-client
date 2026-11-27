@@ -28,8 +28,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/node/start"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/cli"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/connstate"
@@ -411,14 +411,14 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 
 		// --contract refuses while bob.0 runs the previous release, and names the node.
 		s.II.StopFSCNode("bob.1")
-		out := expectExit(start.ExitOlderOpener, "bob.1", "--contract")
+		out := expectExit(cli.ExitOlderOpener, "bob.1", "--contract")
 		Expect(out).To(ContainSubstring("node [bob] knows step 1"))
 
 		// bob.0 is upgraded; its old row stays, so the step is still refused.
 		s.II.StopFSCNode("bob.0")
 		fabricfaultrecovery.SetContractProbeSteps(s.II, "bob.0", 3)
 		s.II.StartFSCNode("bob.0")
-		expectExit(start.ExitOlderOpener, "bob.1", "--contract")
+		expectExit(cli.ExitOlderOpener, "bob.1", "--contract")
 
 		// With no replica on the previous release, forgetting bob runs it; the backfill
 		// keeps the row written in the old form.
@@ -429,7 +429,7 @@ var _ = Describe("Fault Recovery with Fabric and replicas", Ordered, ContinueOnF
 
 		// A rollback to the previous release now refuses the store instead of misreading it.
 		fabricfaultrecovery.SetContractProbeSteps(s.II, "bob.0", 1)
-		expectExit(start.ExitSchemaTooNew, "bob.0", "--check")
+		expectExit(cli.ExitSchemaTooNew, "bob.0", "--check")
 
 		// Later specs, such as one that drops the versions table, run without the probe.
 		for _, r := range []string{"bob.0", "bob.1"} {
@@ -685,7 +685,7 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		// The endorse-tx store and the vault also have a contract step, which --check
 		// without --contract holds back, so only step 1 is pending for them too.
 		check := s.II.MigrateFSCNode("bob", "--check")
-		Expect(check.ExitCode()).To(Equal(start.ExitPending))
+		Expect(check.ExitCode()).To(Equal(cli.ExitPending))
 		out := string(check.Err.Contents()) + string(check.Out.Contents())
 		for store, latest := range map[string]int{
 			"fsc_kvs": 1, "fsc_default_bind": 1, "fsc_default_sign": 1, "fsc_default_aud": 1,
@@ -698,7 +698,7 @@ var _ = Describe("Fault Recovery with Fabric during a long Postgres outage", Ord
 		// Without --contract the endorse-tx store and the vault stop before the contract step
 		// they require, so the run fails and names --contract, which then runs it.
 		migrated := s.II.MigrateFSCNode("bob")
-		Expect(migrated.ExitCode()).To(Equal(start.ExitPending))
+		Expect(migrated.ExitCode()).To(Equal(cli.ExitPending))
 		Expect(string(migrated.Err.Contents()) + string(migrated.Out.Contents())).To(ContainSubstring("store [fsc_default_etx]: step 2 [transactions as envelopes]: required contract step has not run; run node migrate --contract"))
 		Expect(s.II.MigrateFSCNode("bob", "--contract").ExitCode()).To(BeZero())
 		// --check passes only when every store is at its latest step.

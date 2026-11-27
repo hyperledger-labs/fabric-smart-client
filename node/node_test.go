@@ -4,150 +4,285 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// package node (internal) to access unexported newWithFSCNode, listen, and struct fields.
 package node
 
 import (
-	"errors"
-	"io"
-	"os"
+	"context"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
-	pkgnode "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	viewsvc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
-type mockFSCNode struct{}
-
-func (*mockFSCNode) ID() string                     { return "test-id" }
-func (*mockFSCNode) Start() error                   { return nil }
-func (*mockFSCNode) Stop()                          {}
-func (*mockFSCNode) InstallSDK(_ pkgnode.SDK) error { return nil }
-func (*mockFSCNode) GetService(_ any) (any, error)  { return nil, nil }
-func (*mockFSCNode) RegisterService(_ any) error    { return nil }
-
-func writeCoreYAML(t *testing.T) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "core.yaml"), []byte(""), 0o644))
-	return dir
+// mockSDK is a minimal SDK implementation for testing.
+type mockSDK struct {
+	installErr error
+	startErr   error
+	installed  bool
+	started    bool
 }
 
-func TestNewWithConfPath(t *testing.T) {
+func (m *mockSDK) Install() error {
+	if m.installErr != nil {
+		return m.installErr
+	}
+	m.installed = true
+	return nil
+}
+
+func (m *mockSDK) Start(_ context.Context) error {
+	if m.startErr != nil {
+		return m.startErr
+	}
+	m.started = true
+	return nil
+}
+
+// mockSDKWithPostStart additionally implements PostStart.
+type mockSDKWithPostStart struct {
+	mockSDK
+	postStartErr error
+	postStarted  bool
+}
+
+func (m *mockSDKWithPostStart) PostStart(_ context.Context) error {
+	if m.postStartErr != nil {
+		return m.postStartErr
+	}
+	m.postStarted = true
+	return nil
+}
+
+// panicSDK panics during Install to test panic recovery.
+type panicSDK struct{}
+
+func (*panicSDK) Install() error                { panic("test panic") }
+func (*panicSDK) Start(_ context.Context) error { return nil }
+
+func newTestNode() *Node {
+	return &Node{
+		sdks:     []SDK{},
+		registry: viewsvc.NewServiceProvider(),
+		id:       "test-node",
+	}
+}
+
+// storeOpenerSDK registers a StoreOpener on Install that records the
+// configured skipCreateTable of persistence "mydb" when it is called.
+type storeOpenerSDK struct {
+	mockSDK
+	n       *Node
+	skipped []bool
+	err     error
+}
+
+func (s *storeOpenerSDK) Install() error {
+	return s.n.RegisterService(storeOpenerFunc(func(context.Context) error {
+		var opts struct{ SkipCreateTable bool }
+		if err := s.n.config.(*config.Provider).UnmarshalKey("fsc.persistences.mydb.opts", &opts); err != nil {
+			return err
+		}
+		s.skipped = append(s.skipped, opts.SkipCreateTable)
+		return s.err
+	}))
+}
+
+type storeOpenerFunc func(context.Context) error
+
+func (f storeOpenerFunc) OpenStores(ctx context.Context) error { return f(ctx) }
+
+// Migrate installs every SDK without starting it and calls the registered
+// StoreOpener with skipCreateTable forced to checkOnly; the opener's error is
+// returned.
+func TestNode_Migrate(t *testing.T) {
 	t.Parallel()
-	dir := writeCoreYAML(t)
-	n := NewWithConfPath(dir)
+
+	for _, checkOnly := range []bool{false, true} {
+		n, err := NewFromConfPathE(filepath.Join("..", "platform", "view", "services", "config", "testdata"))
+		require.NoError(t, err)
+		sdk := &storeOpenerSDK{n: n}
+		n.AddSDK(sdk)
+		require.NoError(t, n.Migrate(t.Context(), checkOnly))
+		require.Equal(t, []bool{checkOnly}, sdk.skipped)
+		require.False(t, sdk.started)
+	}
+
+	n, err := NewFromConfPathE(filepath.Join("..", "platform", "view", "services", "config", "testdata"))
+	require.NoError(t, err)
+	n.AddSDK(&storeOpenerSDK{n: n, err: errors.New("pending")})
+	require.ErrorContains(t, n.Migrate(t.Context(), true), "pending")
+}
+
+// An SDK that fails Install after registering the StoreOpener does not hide the
+// other stores: Migrate still opens them and joins both errors.
+func TestNode_Migrate_InstallFails(t *testing.T) {
+	t.Parallel()
+	n, err := NewFromConfPathE(filepath.Join("..", "platform", "view", "services", "config", "testdata"))
+	require.NoError(t, err)
+	installErr, openErr := errors.New("kvs pending"), errors.New("vault pending")
+	n.AddSDK(&failingInstallSDK{storeOpenerSDK{n: n, err: openErr}, installErr})
+	err = n.Migrate(t.Context(), true)
+	require.ErrorIs(t, err, installErr)
+	require.ErrorIs(t, err, openErr)
+}
+
+type failingInstallSDK struct {
+	storeOpenerSDK
+	err error
+}
+
+func (s *failingInstallSDK) Install() error {
+	if err := s.storeOpenerSDK.Install(); err != nil {
+		return err
+	}
+	return s.err
+}
+
+func TestNode_Migrate_NoStoreOpener(t *testing.T) {
+	t.Parallel()
+	n, err := NewFromConfPathE(filepath.Join("..", "platform", "view", "services", "config", "testdata"))
+	require.NoError(t, err)
+	require.ErrorContains(t, n.Migrate(t.Context(), false), "no store opener registered")
+}
+
+func TestNode_ID(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	require.Equal(t, "test-node", n.ID())
+}
+
+func TestNode_AddSDK(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	n.AddSDK(&mockSDK{})
+	require.Len(t, n.sdks, 1)
+}
+
+func TestNode_AddSDK_Multiple(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	n.AddSDK(&mockSDK{})
+	n.AddSDK(&mockSDK{})
+	require.Len(t, n.sdks, 2)
+}
+
+func TestNode_Start_Success(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	sdk := &mockSDK{}
+	n.AddSDK(sdk)
+	require.NoError(t, n.Start(t.Context()))
+	require.True(t, sdk.installed)
+	require.True(t, sdk.started)
+}
+
+func TestNode_Start_NoSDKs(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	require.NoError(t, n.Start(t.Context()))
+}
+
+func TestNode_Start_InstallError(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	n.AddSDK(&mockSDK{installErr: errors.New("install failed")})
+	require.Error(t, n.Start(t.Context()))
+	require.False(t, n.installed)
+}
+
+func TestNode_Start_StartError(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	n.AddSDK(&mockSDK{startErr: errors.New("start failed")})
+	require.Error(t, n.Start(t.Context()))
+}
+
+func TestNode_Start_PostStart(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	sdk := &mockSDKWithPostStart{}
+	n.AddSDK(sdk)
+	require.NoError(t, n.Start(t.Context()))
+	require.True(t, sdk.postStarted)
+}
+
+func TestNode_Start_PostStartError(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	n.AddSDK(&mockSDKWithPostStart{postStartErr: errors.New("post-start failed")})
+	require.Error(t, n.Start(t.Context()))
+}
+
+func TestNode_Start_PanicRecovery(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	n.AddSDK(&panicSDK{})
+	err := n.Start(t.Context())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "install triggered panic")
+}
+
+func TestNode_Stop(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	require.NoError(t, n.Start(t.Context()))
+	require.NotPanics(t, n.Stop)
+}
+
+func TestNode_Stop_BeforeStart(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	// Stop without Start must not panic (cancel is nil)
+	require.NotPanics(t, n.Stop)
+}
+
+func TestNode_InstallSDK_BeforeInstall(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	require.NoError(t, n.InstallSDK(&mockSDK{}))
+	require.Len(t, n.sdks, 1)
+}
+
+func TestNode_InstallSDK_AfterInstall(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	require.NoError(t, n.Install())
+	err := n.InstallSDK(&mockSDK{})
+	require.Error(t, err)
+}
+
+func TestNode_RegisterAndGetService(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	svc := &mockSDK{}
+	require.NoError(t, n.RegisterService(svc))
+	got, err := n.GetService((*mockSDK)(nil))
+	require.NoError(t, err)
+	require.Equal(t, svc, got)
+}
+
+func TestNode_GetService_NotFound(t *testing.T) {
+	t.Parallel()
+	n := newTestNode()
+	_, err := n.GetService((*mockSDK)(nil))
+	require.Error(t, err)
+}
+
+func TestNewFromConfPathE(t *testing.T) {
+	t.Parallel()
+
+	n, err := NewFromConfPathE(filepath.Join("..", "platform", "view", "services", "config", "testdata"))
+	require.NoError(t, err)
 	require.NotNil(t, n)
 }
 
-func TestNew(t *testing.T) { //nolint:paralleltest
-	dir := writeCoreYAML(t)
-	t.Setenv("FSCNODE_CFG_PATH", dir)
-	n := New()
-	require.NotNil(t, n)
-}
-
-func TestExecute_VersionCmd(t *testing.T) { //nolint:paralleltest
-	origArgs := os.Args
-	t.Cleanup(func() { os.Args = origArgs })
-
-	n := newWithFSCNode(&mockFSCNode{})
-	os.Args = []string{"peer", "version"}
-	n.Execute(nil)
-	// Unblock the listen goroutine started by Execute.
-	n.callbackChannel <- nil
-}
-
-func TestNewWithFSCNode_Commands(t *testing.T) {
+func TestNewFromConfPathE_InvalidPath(t *testing.T) {
 	t.Parallel()
-	n := newWithFSCNode(&mockFSCNode{})
-	require.NotNil(t, n)
-	names := make(map[string]bool)
-	for _, cmd := range n.mainCmd.Commands() {
-		names[cmd.Use] = true
-	}
-	require.True(t, names["version"], "version subcommand should be registered")
-	require.True(t, names["node"], "node subcommand should be registered")
-}
 
-func TestCallback(t *testing.T) {
-	t.Parallel()
-	n := newWithFSCNode(&mockFSCNode{})
-	ch := n.Callback()
-	require.NotNil(t, ch)
-}
-
-// runListen runs listen in a goroutine, feeds err on the callback channel and
-// returns whatever listen panicked with (nil if it returned normally).
-func runListen(t *testing.T, n *Node, err error) any {
-	t.Helper()
-	got := make(chan any, 1)
-	go func() {
-		defer func() { got <- recover() }()
-		n.listen()
-	}()
-	n.callbackChannel <- err
-	select {
-	case r := <-got:
-		return r
-	case <-time.After(time.Second):
-		t.Fatal("listen did not finish")
-		return nil
-	}
-}
-
-func TestListen_NilError_NoCallback(t *testing.T) {
-	t.Parallel()
-	n := newWithFSCNode(&mockFSCNode{})
-	require.Nil(t, runListen(t, n, nil), "listen should return without panicking")
-}
-
-func TestListen_NilError_WithCallback(t *testing.T) {
-	t.Parallel()
-	n := newWithFSCNode(&mockFSCNode{})
-	called := false
-	n.executeCallbackFunc = func() error {
-		called = true
-		return nil
-	}
-	require.Nil(t, runListen(t, n, nil), "listen should return without panicking")
-	require.True(t, called, "executeCallbackFunc was not called")
-}
-
-func TestListen_ChannelErrorPanics(t *testing.T) {
-	t.Parallel()
-	n := newWithFSCNode(&mockFSCNode{})
-	err, ok := runListen(t, n, errors.New("boom")).(error)
-	require.True(t, ok, "listen should panic with the channel error")
-	require.EqualError(t, err, "boom")
-}
-
-func TestListen_CallbackErrorPanics(t *testing.T) {
-	t.Parallel()
-	n := newWithFSCNode(&mockFSCNode{})
-	n.executeCallbackFunc = func() error { return errors.New("callback boom") }
-	err, ok := runListen(t, n, nil).(error)
-	require.True(t, ok, "listen should panic with the callback error")
-	require.EqualError(t, err, "callback boom")
-}
-
-// Without a core.yaml, `version --json` runs, as release tooling runs it on a build machine;
-// commands that need the configuration fail with the error that loading it gave.
-func TestNoConfigFile(t *testing.T) { //nolint:paralleltest // sets FSCNODE_CFG_PATH
-	t.Setenv("FSCNODE_CFG_PATH", t.TempDir())
-	n := New()
-
-	n.mainCmd.SetArgs([]string{"version", "--json"})
-	n.mainCmd.SetOut(io.Discard)
-	require.NoError(t, n.mainCmd.Execute())
-
-	for _, args := range [][]string{{"node", "migrate"}, {"node", "peers", "--check"}} {
-		n.mainCmd.SetArgs(args)
-		require.ErrorIs(t, n.mainCmd.Execute(), config.ErrNotFound, "%v", args)
-	}
-	require.ErrorIs(t, n.Start(), config.ErrNotFound)
+	_, err := NewFromConfPathE("./does-not-exist")
+	require.Error(t, err)
 }

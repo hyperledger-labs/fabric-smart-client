@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package start
+package cli
 
 import (
 	"context"
@@ -25,11 +25,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 )
 
-// Configured gives a command the node's configuration without installing any SDK.
-type Configured interface {
-	Config() (driver.ConfigService, error)
-}
-
 // peerTimeout bounds the dial and preamble read of one peer.
 const peerTimeout = 10 * time.Second
 
@@ -41,7 +36,7 @@ type peer struct {
 // readPreamble returns the encoded preamble of peer id at address; see ws.ReadPreamble.
 type readPreamble func(ctx context.Context, id, address string) ([]byte, error)
 
-func peersCmd(c Configured) *cobra.Command {
+func peersCmd(c fscNode) *cobra.Command {
 	var check bool
 	cmd := &cobra.Command{
 		Use:   "peers",

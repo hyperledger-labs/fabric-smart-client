@@ -337,7 +337,7 @@ findings against files outside the tree you are linting. The giveaway is a path
 that leaves your working directory:
 
 ```text
-../other-worktree/node/start/profile/profile_test.go:119:1: ...
+../other-worktree/node/cli/profile/profile_test.go:119:1: ...
 ```
 
 Those findings are stale, not real. Clear the cache and re-run:

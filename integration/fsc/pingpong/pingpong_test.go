@@ -29,7 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	nwonode "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	commondig "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	commongrpc "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/grpc"
@@ -50,8 +50,8 @@ var _ = Describe("EndToEnd", func() {
 	// Making it websocket means regenerating the fixture's crypto.
 	Describe("Node-based Ping pong", Label(fsc.LibP2P), func() {
 		var (
-			initiator FSCNode
-			responder FSCNode
+			initiator *node.Node
+			responder *node.Node
 		)
 
 		AfterEach(func() {
@@ -68,9 +68,9 @@ var _ = Describe("EndToEnd", func() {
 			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			responder = newNode("./testdata/fsc/nodes/responder.0")
 
-			err := initiator.Start()
+			err := initiator.Start(context.Background())
 			Expect(err).NotTo(HaveOccurred())
-			err = responder.Start()
+			err = responder.Start(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
@@ -105,8 +105,8 @@ var _ = Describe("EndToEnd", func() {
 				readCert("peers/responder.fsc.example.com", "responder.fsc.example.com"): {},
 			})
 			responder = newNode("./testdata/fsc/nodes/responder.0")
-			Expect(initiator.Start()).To(Succeed())
-			Expect(responder.Start()).To(Succeed())
+			Expect(initiator.Start(context.Background())).To(Succeed())
+			Expect(responder.Start(context.Background())).To(Succeed())
 			Expect(view.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})).To(Succeed())
 			Expect(view.GetRegistry(initiator).RegisterFactory("stream", &pingpong.StreamerViewFactory{})).To(Succeed())
 			Expect(view.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).To(Succeed())
@@ -138,8 +138,8 @@ var _ = Describe("EndToEnd", func() {
 		It("refuses a responder to a node its authorizer denies", func() {
 			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			responder = newNode("./testdata/fsc/nodes/responder.0")
-			Expect(initiator.Start()).To(Succeed())
-			Expect(responder.Start()).To(Succeed())
+			Expect(initiator.Start(context.Background())).To(Succeed())
+			Expect(responder.Start(context.Background())).To(Succeed())
 			Expect(view.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})).To(Succeed())
 
 			// The authorizer gets the initiator's node identity, as the transport authenticated it.
@@ -168,7 +168,7 @@ var _ = Describe("EndToEnd", func() {
 			initiator = newNode("./testdata/fsc/nodes/initiator.0")
 			Expect(initiator).NotTo(BeNil())
 
-			err := initiator.Start()
+			err := initiator.Start(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
@@ -198,9 +198,9 @@ var _ = Describe("EndToEnd", func() {
 			responder = newNode("./testdata/fsc/nodes/responder.0")
 			Expect(responder).NotTo(BeNil())
 
-			err := initiator.Start()
+			err := initiator.Start(context.Background())
 			Expect(err).NotTo(HaveOccurred())
-			err = responder.Start()
+			err = responder.Start(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
@@ -281,13 +281,7 @@ var _ = Describe("EndToEnd", func() {
 	})
 })
 
-type FSCNode interface {
-	Stop()
-	Start() error
-	GetService(v any) (any, error)
-}
-
-func newNode(conf string) FSCNode {
+func newNode(conf string) *node.Node {
 	n := node.NewFromConfPath(conf)
 	Expect(n).NotTo(BeNil())
 	n.AddSDK(libp2psupport.NewFrom(viewsdk.NewSDK(n)))
@@ -314,7 +308,7 @@ func signingIdentity(dir, name string) viewclient.SigningIdentity {
 
 // newNodeWithACL returns a node whose view API lets each creator in acl call only the views
 // listed for it, and any other creator call every view.
-func newNodeWithACL(conf string, acl viewACL) FSCNode {
+func newNodeWithACL(conf string, acl viewACL) *node.Node {
 	n := node.NewFromConfPath(conf)
 	Expect(n).NotTo(BeNil())
 	n.AddSDK(&aclSDK{SDK: libp2psupport.NewFrom(viewsdk.NewSDK(n)), acl: acl})
