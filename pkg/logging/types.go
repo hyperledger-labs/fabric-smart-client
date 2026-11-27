@@ -15,16 +15,14 @@ import (
 	"strings"
 	"time"
 	"unicode"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 const (
 	nonPrintablePrefix = "[nonprintable] "
 )
 
-// Keys returns a [fmt.Stringer] that prints the keys of m, separated by commas, when it
-// is formatted.
+// Keys returns a [fmt.Stringer] that prints the keys of m, separated by commas and in no
+// particular order, when it is formatted. It never prints the values of m.
 func Keys[K comparable, V any](m map[K]V) fmt.Stringer {
 	return keys[K, V](m)
 }
@@ -32,7 +30,11 @@ func Keys[K comparable, V any](m map[K]V) fmt.Stringer {
 type keys[K comparable, V any] map[K]V
 
 func (k keys[K, V]) String() string {
-	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
+	s := make([]string, 0, len(k))
+	for key := range k {
+		s = append(s, fmt.Sprint(key))
+	}
+	return strings.Join(s, ", ")
 }
 
 // SHA256Base64 returns a [fmt.Stringer] that prints the SHA-256 hash of b in base64 when

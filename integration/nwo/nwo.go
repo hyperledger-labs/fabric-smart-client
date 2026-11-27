@@ -29,8 +29,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/jaeger"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/prometheus"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 var logger = logging.MustGetLogger()

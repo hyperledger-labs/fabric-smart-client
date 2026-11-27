@@ -51,7 +51,7 @@ var (
 // TestDefaultOutput_Golden pins the lines of the default handler, in the pattern format
 // and in JSON: operators parse their format and fields.
 func TestDefaultOutput_Golden(t *testing.T) { //nolint:paralleltest // changes the global logging config
-	const name = "fsc.platform.common.services.logging.golden"
+	const name = "fsc.pkg.logging.golden"
 	for _, tc := range []struct { //nolint:paralleltest // the subtests change the global logging config
 		format string
 		want   []string
@@ -69,8 +69,8 @@ func TestDefaultOutput_Golden(t *testing.T) { //nolint:paralleltest // changes t
 		want: []string{
 			`{"level":"info","ts":0,"name":"` + name + `","caller":"logging/output_test.go:31","msg":"hello","int":1,"str":"x","err":"context canceled","stringer":"S(v)","dur":1,"bytes":"aGk="}`,
 			`{"level":"info","ts":0,"name":"` + name + `.sub","caller":"logging/output_test.go:33","msg":"with 3","w":2}`,
-			`{"level":"error","ts":0,"name":"` + name + `","caller":"logging/output_test.go:35","msg":"bad thing","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
-			`{"level":"error","ts":0,"name":"app","caller":"logging/output_test.go:36","msg":"from slog","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging.writeGoldenLines"}`,
+			`{"level":"error","ts":0,"name":"` + name + `","caller":"logging/output_test.go:35","msg":"bad thing","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/pkg/logging.writeGoldenLines"}`,
+			`{"level":"error","ts":0,"name":"app","caller":"logging/output_test.go:36","msg":"from slog","stacktrace":"github.com/hyperledger-labs/fabric-smart-client/pkg/logging.writeGoldenLines"}`,
 			`{"level":"info","ts":0,"name":"` + name + `","caller":"logging/output_test.go:37","msg":"traced","trace_id":"0a000000000000000000000000000001","span_id":"0b00000000000002"}`,
 		},
 	}} {

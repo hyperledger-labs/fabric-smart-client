@@ -11,7 +11,7 @@ import (
 
 	"github.com/libp2p/go-libp2p/gologshim"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 )
 
 // init sends libp2p's lines, which go-libp2p logs through gologshim, to FSC logging

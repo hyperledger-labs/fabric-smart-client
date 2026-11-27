@@ -16,8 +16,8 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/goleak"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 )
 

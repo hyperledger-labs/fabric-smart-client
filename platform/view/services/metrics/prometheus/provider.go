@@ -18,8 +18,8 @@ import (
 
 	prom "github.com/prometheus/client_golang/prometheus"
 
+	"github.com/hyperledger-labs/fabric-smart-client/internal/names"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
@@ -172,7 +172,7 @@ func parseFullPkgName(fullPkgName string, replacements map[string]string, params
 	parts := append(strings.Split(fullPkgName, "/"), params...)
 	subsystem = parts[len(parts)-1]
 	namespaceParts := parts[:len(parts)-1]
-	namespace = utils.ReplaceLongestFirst(strings.Join(namespaceParts, "_"), replacements)
+	namespace = names.ReplaceLongestFirst(strings.Join(namespaceParts, "_"), replacements)
 	return namespace, subsystem
 }
 

@@ -21,8 +21,8 @@ import (
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/hyperledger-labs/fabric-smart-client/internal/names"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // Logger writes log lines under a logger name.
@@ -349,7 +349,7 @@ func NewSpecHandler() http.Handler {
 
 func loggerName(fullPkgName string, replacements map[string]string, params ...string) string {
 	nameParts := append(strings.Split(fullPkgName, "/"), params...)
-	return utils.ReplaceLongestFirst(strings.Join(nameParts, "."), replacements)
+	return names.ReplaceLongestFirst(strings.Join(nameParts, "."), replacements)
 }
 
 // getReplacers returns a copy of the registered replacers, so the caller can range over

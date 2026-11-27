@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/internal/names"
 )
 
 const (
@@ -117,6 +117,6 @@ func parseFullPkgName(fullPkgName string, replacements map[string]string, params
 	parts := append(strings.Split(fullPkgName, "/"), params...)
 	subsystem = parts[len(parts)-1]
 	namespaceParts := parts[:len(parts)-1]
-	namespace = utils.ReplaceLongestFirst(strings.Join(namespaceParts, "_"), replacements)
+	namespace = names.ReplaceLongestFirst(strings.Join(namespaceParts, "_"), replacements)
 	return namespace, subsystem
 }

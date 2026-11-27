@@ -4,7 +4,9 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package utils
+// Package names builds the names FSC derives from Go package paths: logger names,
+// and the namespaces of metrics and traces.
+package names
 
 import (
 	"maps"

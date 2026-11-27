@@ -50,7 +50,7 @@ new method through a new interface.
 
 ## Logging & monitoring
 
-- Structured logging via `platform/common/services/logging`.
+- Structured logging via `pkg/logging`.
 - Raw state values, payloads, private keys and credentials are never logged at
   any level, in log lines or in error messages. Log a hash
   (`logging.SHA256Base64`), a length, or an identifier instead.

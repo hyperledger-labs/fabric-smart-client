@@ -144,7 +144,7 @@ func (pkgNameHolder) method() (string, error) { return depth2() }
 // method.
 func TestGetPackageName(t *testing.T) {
 	t.Parallel()
-	const pkg = "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	const pkg = "github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	for name, call := range map[string]func() (string, error){
 		"function": depth1,
 		"method":   pkgNameHolder{}.method,
@@ -178,9 +178,9 @@ func wrapperMustGetLogger() Logger {
 func TestGetLoggerEntryPoints(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
 	l, err := GetLogger("p")
 	require.NoError(t, err)
-	assert.Equal(t, "fsc.platform.common.services.logging.p", l.(*logger).name)
+	assert.Equal(t, "fsc.pkg.logging.p", l.(*logger).name)
 
-	assert.Equal(t, "github.com.hyperledger-labs.fabric-smart-client.platform.common.services.wrapped",
+	assert.Equal(t, "github.com.hyperledger-labs.fabric-smart-client.pkg.wrapped",
 		wrapperMustGetLogger().(*logger).name, "only the given replacements apply")
 }
 
@@ -191,13 +191,13 @@ func TestMustGetLogger(t *testing.T) { //nolint:paralleltest // reads the shared
 	l := MustGetLogger()
 
 	require.NotNil(t, l)
-	assert.Equal(t, "fsc.platform.common.services.logging", l.(*logger).name,
+	assert.Equal(t, "fsc.pkg.logging", l.(*logger).name,
 		"the package path is resolved and the FSC replacement applied")
 }
 
 // TestMustGetLoggerParams checks params are appended to the resolved name.
 func TestMustGetLoggerParams(t *testing.T) { //nolint:paralleltest // reads the shared global replacer registry
-	assert.Equal(t, "fsc.platform.common.services.logging.component",
+	assert.Equal(t, "fsc.pkg.logging.component",
 		MustGetLogger("component").(*logger).name)
 }
 

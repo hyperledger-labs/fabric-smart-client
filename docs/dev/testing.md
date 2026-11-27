@@ -143,8 +143,8 @@ Do not rely on generic names either way —
 When a file mixes production code with a single test helper —
 `platform/common/utils/assert/retry.go` (`EventuallyWithRetry`) — it stays in
 the report, because excluding it would drop shipped code too. Prefer splitting
-such a helper out into a `*_test_utils.go` file, as
-`platform/common/services/logging` does with `logging_test_utils.go`.
+such a helper out into a `*_test_utils.go` file, as `pkg/logging` does with
+`logging_test_utils.go`.
 
 ### Storage fixtures
 

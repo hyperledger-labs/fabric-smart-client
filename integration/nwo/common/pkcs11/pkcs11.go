@@ -20,8 +20,8 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	pkcs11lib "github.com/miekg/pkcs11"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 )
 
