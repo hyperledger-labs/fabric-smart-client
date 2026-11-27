@@ -16,6 +16,7 @@ linters:
     - durationcheck
     - errcheck
     - errorlint
+    - forbidigo
     - forcetypeassert
     - gocritic
     - goheader
@@ -57,6 +58,19 @@ linters:
               desc: unit tests use testify (docs/dev/testing.md)
             - pkg: github.com/onsi/ginkgo/v2
               desc: unit tests use testify (docs/dev/testing.md)
+    forbidigo:
+      # Framework code logs through platform/common/services/logging, so its
+      # lines get the node's format and levels and reach the handler set with
+      # logging.SetHandler. analyze-types resolves import aliases (stdlog "log").
+      # The builtins have their own entry: `pkg: ^$` matches only identifiers
+      # without a package, so a method named print is not flagged.
+      analyze-types: true
+      forbid:
+        - pattern: ^(fmt\.Print(f|ln)?|log\.(Print|Fatal|Panic)(f|ln)?)$
+          msg: log through platform/common/services/logging
+        - pattern: ^print(ln)?$
+          pkg: ^$
+          msg: log through platform/common/services/logging
     goheader:
       # Two header forms are accepted: the SPDX form used by code written for
       # this project, and the long-form Apache notice carried by files derived
@@ -125,6 +139,19 @@ linters:
       # trees are gitignored build artifacts, absent from a clean checkout.
       - (^|/)out/
     rules:
+      # forbidigo guards framework code only: the release tools under scripts/,
+      # the integration module and tests print to stdout on purpose.
+      - path-except: ^(internal|node|pkg|platform)/
+        linters:
+          - forbidigo
+      - path: (_test\.go$|_test_utils\.go$)
+        linters:
+          - forbidigo
+      # The query chaincode is its own module without FSC logging; its stdout
+      # goes to the peer's log.
+      - path: ^platform/fabric/services/state/cc/query/
+        linters:
+          - forbidigo
       # Matched relative to this file, so the exemption holds whichever
       # directory the checkout lives in.
       - path: ^integration/
