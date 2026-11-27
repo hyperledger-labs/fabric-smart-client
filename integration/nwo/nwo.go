@@ -299,9 +299,10 @@ func (n *NWO) memberIndex(name string) int {
 // or -1 if there is none. id is a node name, whose first replica is returned, or
 // a replica name such as bob.1.
 func (n *NWO) fscIndex(id string) int {
-	prefix := fmt.Sprintf("fsc.%s.", id)
+	// A member is named <organization>.<node>.<replica>.
 	i := slices.IndexFunc(n.ViewMembers, func(m grouper.Member) bool {
-		return m.Name == "fsc."+id || strings.HasPrefix(m.Name, prefix)
+		_, name, _ := strings.Cut(m.Name, ".")
+		return name == id || strings.HasPrefix(name, id+".")
 	})
 	if i < 0 {
 		logger.Infof("FSC node [%s] not found", id)

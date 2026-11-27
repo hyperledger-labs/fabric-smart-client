@@ -137,6 +137,16 @@ func TestFscIndex(t *testing.T) {
 	}
 }
 
+// TestFscIndex_Organizations checks that a node in an organization of its own, whose member
+// name starts with that organization, is found by its name.
+func TestFscIndex_Organizations(t *testing.T) {
+	t.Parallel()
+	n := &NWO{ViewMembers: grouper.Members{{Name: "org1.alice.0"}, {Name: "org2.dave.0"}}}
+	for id, want := range map[string]int{"alice": 0, "dave": 1, "dave.0": 1, "org2": -1, "org2.dave": -1} {
+		require.Equal(t, want, n.fscIndex(id), "fscIndex(%q)", id)
+	}
+}
+
 // TestHarnessDoesNotLinkLibP2P keeps the libp2p host out of the harness, so that a
 // websocket-only consumer of nwo neither builds libp2p nor needs a replace for the libp2p
 // host module. A topology that runs on libp2p installs it with nwo/fsc/support/libp2p.

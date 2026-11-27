@@ -190,6 +190,16 @@ func (o *Options) TLSReloadInterval() time.Duration {
 	return d
 }
 
+// OrganizationKey is the Options key fsc.WithOrganization stores the node's organization
+// under. It differs from the key Fabric's WithOrganization uses, which holds another type.
+const OrganizationKey = "FSCOrganization"
+
+// Organization returns the organization fsc.WithOrganization set, or "" when none is set.
+func (o *Options) Organization() string {
+	name, _ := o.Mapping[OrganizationKey].(string)
+	return name
+}
+
 // LoadBalancer reports whether the node's replicas sit behind a load balancer.
 func (o *Options) LoadBalancer() bool {
 	lb, _ := o.Mapping["LoadBalancer"].(bool)

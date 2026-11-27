@@ -119,8 +119,8 @@ func previousRelease(tags []semver, v semver) (semver, error) {
 }
 
 // modules returns the tags that release v of the modules committed at HEAD in dir: the root
-// module as v, every other module except tools as <dir>/v, sorted. These are the tags
-// scripts/tag-release.sh creates, from the same tree.
+// module as v, every other module except tools and examples as <dir>/v, sorted. These are the
+// tags scripts/tag-release.sh creates, from the same tree.
 func modules(dir string, v semver) ([]string, error) {
 	dirs, err := moduleDirs(dir, "HEAD")
 	if err != nil {
@@ -139,7 +139,8 @@ func modules(dir string, v semver) ([]string, error) {
 }
 
 // moduleDirs returns the directories of the released modules in the tree of rev in dir: every
-// directory with a go.mod except tools, whose module is never released. The root module is ".".
+// directory with a go.mod except tools and examples, whose modules are never released. The root
+// module is ".".
 func moduleDirs(dir, rev string) ([]string, error) {
 	out, err := git(dir, "ls-tree", "-r", "--name-only", rev)
 	if err != nil {
@@ -148,7 +149,7 @@ func moduleDirs(dir, rev string) ([]string, error) {
 	var dirs []string
 	for line := range strings.Lines(out) {
 		file := strings.TrimSpace(line)
-		if path.Base(file) == "go.mod" && path.Dir(file) != "tools" {
+		if path.Base(file) == "go.mod" && path.Dir(file) != "tools" && path.Dir(file) != "examples" {
 			dirs = append(dirs, path.Dir(file))
 		}
 	}
