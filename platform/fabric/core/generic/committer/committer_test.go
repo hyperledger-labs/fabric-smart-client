@@ -10,11 +10,13 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -31,6 +33,23 @@ func TestProcessNamespaceAndGetProcessNamespace(t *testing.T) {
 	c := &Committer{}
 	require.NoError(t, c.ProcessNamespace("ns1", "ns2"))
 	require.Equal(t, []string{"ns1", "ns2"}, c.GetProcessNamespace())
+}
+
+// TestProcessNamespaceConcurrent adds namespaces from several goroutines while
+// others read them, as concurrent service builds do during block commits.
+func TestProcessNamespaceConcurrent(t *testing.T) {
+	t.Parallel()
+
+	c := &Committer{}
+	var wg sync.WaitGroup
+	for i := range 10 {
+		ns := fmt.Sprintf("ns%d", i)
+		wg.Go(func() { assert.NoError(t, c.ProcessNamespace(ns)) })
+		wg.Go(func() { _ = c.GetProcessNamespace() })
+	}
+	wg.Wait()
+
+	require.Len(t, c.GetProcessNamespace(), 10)
 }
 
 func TestAddTransactionFilter(t *testing.T) {
