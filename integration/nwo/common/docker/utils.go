@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package docker
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -18,9 +17,12 @@ import (
 	"time"
 
 	"github.com/containerd/errdefs"
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega/gexec"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -317,24 +319,51 @@ func (d *Docker) Exec(name string, cmd ...string) error {
 	}
 }
 
-func StartLogs(cli dcli.APIClient, containerID, _ string) error {
-	dockerLogger := logging.MustGetLogger()
-	reader, err := cli.ContainerLogs(context.TODO(), containerID, dcli.ContainerLogsOptions{
+// StartLogs forwards the output of the container containerID to GinkgoWriter, as
+// [ForwardLogs] does with prefix name, until the container stops. It returns an
+// error, and forwards nothing, if the container can't be inspected or its logs
+// can't be read.
+func StartLogs(cli dcli.APIClient, containerID, name string) error {
+	ctx := context.TODO()
+	inspect, err := cli.ContainerInspect(ctx, containerID, dcli.ContainerInspectOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "failed inspecting container [%s]", name)
+	}
+	reader, err := cli.ContainerLogs(ctx, containerID, dcli.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,
-		Timestamps: false,
 	})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed reading the logs of container [%s]", name)
 	}
+	ForwardLogs(name, reader, inspect.Container.Config.Tty)
+	return nil
+}
 
+// ForwardLogs copies the output of a container to GinkgoWriter, each line prefixed
+// with [name], until r ends, then closes r. tty says whether the container, or the
+// exec r belongs to, has a TTY; without one, Docker multiplexes stdout and stderr in
+// r, and ForwardLogs demultiplexes the stream. A copy error is written as a last
+// line. The returned channel is closed once r is closed.
+//
+// Ginkgo prints what a spec writes to GinkgoWriter only if the spec fails, unless it
+// runs with -v; nwo forwards the output of the node processes it starts the same way.
+func ForwardLogs(name string, r io.ReadCloser, tty bool) <-chan struct{} {
+	w := gexec.NewPrefixedWriter("["+name+"] ", ginkgo.GinkgoWriter)
+	done := make(chan struct{})
 	go func() {
-		defer func() { _ = reader.Close() }()
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
+		defer close(done)
+		defer func() { _ = r.Close() }()
+		var err error
+		if tty {
+			_, err = io.Copy(w, r)
+		} else {
+			_, err = stdcopy.StdCopy(w, w, r)
+		}
+		if err != nil {
+			_, _ = fmt.Fprintf(w, "failed forwarding logs: %v\n", err)
 		}
 	}()
-	return nil
+	return done
 }

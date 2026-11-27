@@ -12,6 +12,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/containerd/errdefs"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
@@ -44,6 +46,7 @@ const (
 	defaultTimeout       = 30 * time.Second
 )
 
+// Logger receives the log lines of the Postgres container that StartPostgres starts.
 type Logger interface {
 	Debugf(format string, args ...any)
 	Errorf(format string, args ...any)
@@ -341,9 +344,9 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 	return closeFunc, c.DataSource(), nil
 }
 
-// startContainerLogger forwards the container logs for the given logger.
-// If the given logger is nil, the function returns. Errors are logged via the given logger.
-// The actual container logs are logged with the DEBUG log level.
+// startContainerLogger forwards each line the container writes to stderr, where Postgres
+// logs, to logger at Debug, until the container stops or a line is longer than 64 KiB.
+// It does nothing if logger is nil. If the logs can't be read, it logs that at Error.
 func startContainerLogger(ctx context.Context, cli dcli.APIClient, containerID string, logger Logger) {
 	if logger == nil {
 		return
@@ -351,19 +354,26 @@ func startContainerLogger(ctx context.Context, cli dcli.APIClient, containerID s
 
 	go func() {
 		reader, err := cli.ContainerLogs(ctx, containerID, dcli.ContainerLogsOptions{
-			ShowStdout: false,
 			ShowStderr: true,
 			Follow:     true,
-			Timestamps: false,
 		})
 		if err != nil {
 			logger.Errorf("can't show logs for container %s: %v", containerID, err)
+			return
 		}
 		defer func() { _ = reader.Close() }()
 
-		scanner := bufio.NewScanner(reader)
+		// The container has no TTY, so Docker prefixes each chunk of its output with a
+		// header; StdCopy strips them.
+		pr, pw := io.Pipe()
+		defer func() { _ = pr.Close() }() // unblocks StdCopy if the scanner stops early
+		go func() {
+			_, err := stdcopy.StdCopy(io.Discard, pw, reader)
+			_ = pw.CloseWithError(err)
+		}()
+		scanner := bufio.NewScanner(pr)
 		for scanner.Scan() {
-			logger.Debugf(scanner.Text())
+			logger.Debugf("%s", scanner.Text())
 		}
 	}()
 }

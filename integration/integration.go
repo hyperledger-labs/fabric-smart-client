@@ -42,12 +42,15 @@ import (
 var logger = logging.MustGetLogger()
 
 func init() {
-	c := logging.Config{}
-	// keep the noisy grpc and libp2p loggers at error and warn; every other logger is at info
-	c.LogSpec = cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), "grpc=error:libp2p=warn:info")
-	if err := logging.Init(c); err != nil {
+	if err := logging.Init(logging.Config{LogSpec: logSpec()}); err != nil {
 		panic(err)
 	}
+}
+
+// logSpec returns the log spec of the test process: FABRIC_LOGGING_SPEC if set, or
+// else the noisy grpc and libp2p loggers at error and warn and every other one at info.
+func logSpec() string {
+	return cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), "grpc=error:libp2p=warn:info")
 }
 
 type Configuration struct {
@@ -69,9 +72,19 @@ type Infrastructure struct {
 	FscPlatform       *fsc.Platform
 }
 
+// New returns the infrastructure for topologies, with ports from startPort and its files
+// under path, or under a new temporary directory if path is empty. It reinitializes the
+// logging of the process (see [logging.Init]) to write to GinkgoWriter, which Ginkgo
+// prints only for a failing spec unless it runs with -v; outside a Ginkgo suite,
+// GinkgoWriter writes to standard output.
 func New(startPort int, path string, topologies ...api.Topology) (*Infrastructure, error) {
 	gomega.RegisterFailHandler(failMe)
 	defer ginkgo.GinkgoRecover()
+
+	// Not in init: this package is also linked into the FSC node binaries nwo builds.
+	if err := logging.Init(logging.Config{Writer: ginkgo.GinkgoWriter, LogSpec: logSpec()}); err != nil {
+		return nil, err
+	}
 
 	var testDir string
 	var err error

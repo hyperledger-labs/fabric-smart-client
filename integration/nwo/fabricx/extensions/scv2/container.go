@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package scv2
 
 import (
-	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -35,8 +34,6 @@ import (
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	fabric_topo "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	fabricx_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 // containerName is the name of the committer's container; it is unique per network.
@@ -140,7 +137,12 @@ func (c *committer) start() {
 	attached, err := d.Client.ExecAttach(ctx, created.ID, dcli.ExecAttachOptions{TTY: true})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	sidecarPort, queryServicePort := c.ports()
-	e.waitUntilReady(e.forwardLogs(c.containerName(), attached.Reader, attached.Close), sidecarPort, queryServicePort)
+	// Closing the connection is what attached.Close does.
+	output := struct {
+		io.Reader
+		io.Closer
+	}{attached.Reader, attached.Conn}
+	e.waitUntilReady(e.forwardLogs(c.containerName(), output), sidecarPort, queryServicePort)
 }
 
 func (e *Extension) launchContainers() {
@@ -258,29 +260,19 @@ func (e *Extension) runContainer(name string, aliases []string, cfg containerCon
 		Follow:     true,
 	})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	e.waitUntilReady(e.forwardLogs(name, logs, func() { _ = logs.Close() }), ports...)
+	e.waitUntilReady(e.forwardLogs(name, logs), ports...)
 }
 
-// forwardLogs forwards what the container named containerName writes to r to the
-// logger until r ends, then calls closeReader. The returned context is canceled once
-// r ends, which happens when the processes writing to it exit.
-func (*Extension) forwardLogs(containerName string, r io.Reader, closeReader func()) context.Context {
+// forwardLogs forwards r, the output of the container named containerName, which has a
+// TTY, to GinkgoWriter until r ends, then closes r; see [docker.ForwardLogs]. The
+// returned context is canceled once r ends, which happens when the processes writing
+// to it exit.
+func (*Extension) forwardLogs(containerName string, r io.ReadCloser) context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
-	dockerLogger := logging.MustGetLogger("sc.container." + containerName)
+	done := docker.ForwardLogs(containerName, r, true)
 	go func() {
-		defer cancel()
-		dockerLogger.Debugf("fetch logs from container [%s]", containerName)
-		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
-		defer closeReader()
-
-		scanner := bufio.NewScanner(r)
-		scanner.Buffer(nil, 1<<20) // a longer line ends the forwarding with an error
-		for scanner.Scan() {
-			dockerLogger.Debugf("%s", scanner.Text())
-		}
-		if err := scanner.Err(); err != nil && !errors.Is(err, io.ErrClosedPipe) {
-			dockerLogger.Error(err)
-		}
+		<-done
+		cancel()
 	}()
 	return ctx
 }
