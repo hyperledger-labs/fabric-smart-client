@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -215,4 +216,122 @@ func newTestCache() Provider[entry, string] {
 		}
 		return in.value, nil
 	})
+}
+
+// TestSlowBuildDoesNotBlockOtherKeys holds the build of one key open and
+// checks that every operation on other keys still completes.
+func TestSlowBuildDoesNotBlockOtherKeys(t *testing.T) {
+	t.Parallel()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	p := NewProvider(func(k string) (string, error) {
+		if k == "slow" {
+			close(started)
+			<-release
+		}
+		return k, nil
+	})
+
+	_, err := p.Get("cached")
+	require.NoError(t, err)
+
+	go func() { _, _ = p.Get("slow") }()
+	<-started
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		v, err := p.Get("cached")
+		assert.NoError(t, err)
+		assert.Equal(t, "cached", v)
+		v, err = p.Get("other")
+		assert.NoError(t, err)
+		assert.Equal(t, "other", v)
+		_, _, err = p.Update("other")
+		assert.NoError(t, err)
+		_, ok := p.Peek("cached")
+		assert.True(t, ok)
+		_, _ = p.Delete("other")
+		_ = p.Length()
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Error("operations on other keys blocked behind the build of key slow")
+	}
+	// let the goroutine finish before the test ends, so a late assert does not panic
+	close(release)
+	<-done
+}
+
+// TestDeleteWaitsForBuildOfSameKey checks that a Delete issued while its key
+// is being built evicts the value of that build instead of missing it.
+func TestDeleteWaitsForBuildOfSameKey(t *testing.T) {
+	t.Parallel()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	p := NewProvider(func(k string) (string, error) {
+		close(started)
+		<-release
+		return k, nil
+	})
+
+	built := make(chan struct{})
+	go func() {
+		defer close(built)
+		_, _ = p.Get("k")
+	}()
+	<-started
+
+	deleted := make(chan bool)
+	go func() {
+		_, ok := p.Delete("k")
+		deleted <- ok
+	}()
+
+	select {
+	case <-deleted:
+		t.Fatal("Delete returned while the build of its key was running")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(release)
+	<-built
+
+	require.True(t, <-deleted, "Delete evicts the value of the build it waited for")
+	require.Zero(t, p.Length())
+	require.Empty(t, p.keyLocks, "key locks are released once no call holds them")
+}
+
+// TestSameKeyCallsAreSerialized runs Get, Update and Delete of one key
+// concurrently and checks that no two builds of that key overlap.
+func TestSameKeyCallsAreSerialized(t *testing.T) {
+	t.Parallel()
+
+	var mu sync.Mutex
+	running, maxRunning := 0, 0
+	p := NewProvider(func(k string) (string, error) {
+		mu.Lock()
+		running++
+		maxRunning = max(maxRunning, running)
+		mu.Unlock()
+		time.Sleep(time.Millisecond)
+		mu.Lock()
+		running--
+		mu.Unlock()
+		return k, nil
+	})
+
+	var wg sync.WaitGroup
+	for range 20 {
+		wg.Go(func() { _, _ = p.Get("k") })
+		wg.Go(func() { _, _, _ = p.Update("k") })
+		wg.Go(func() { _, _ = p.Delete("k") })
+	}
+	wg.Wait()
+
+	require.Equal(t, 1, maxRunning, "builds of one key never overlap")
+	require.Empty(t, p.keyLocks, "key locks are released once no call holds them")
 }

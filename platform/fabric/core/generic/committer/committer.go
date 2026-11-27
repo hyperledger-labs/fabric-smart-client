@@ -86,7 +86,13 @@ type Committer struct {
 	Vault              driver.Vault
 	EnvelopeService    driver.EnvelopeService
 	TransactionFilters *committer.AggregatedTransactionFilter
-	ProcessNamespaces  []string
+	// ProcessNamespaces lists the namespaces whose transactions the committer
+	// commits even when they are unknown to this node. After New, use only
+	// ProcessNamespace and GetProcessNamespace, which may run while blocks
+	// commit.
+	ProcessNamespaces []string
+	// namespacesLock guards ProcessNamespaces.
+	namespacesLock     sync.RWMutex
 	Ledger             driver.Ledger
 	RWSetLoaderService driver.RWSetLoader
 	ProcessorManager   driver.ProcessorManager
@@ -234,9 +240,19 @@ func (c *Committer) Status(ctx context.Context, txID cdriver.TxID) (driver.Valid
 	return vc, message, nil
 }
 
+// ProcessNamespace adds nss to the namespaces the committer processes. It is
+// safe to call while blocks commit.
 func (c *Committer) ProcessNamespace(nss ...string) error {
+	c.namespacesLock.Lock()
+	defer c.namespacesLock.Unlock()
 	c.ProcessNamespaces = append(c.ProcessNamespaces, nss...)
 	return nil
+}
+
+func (c *Committer) processesNamespace(ns string) bool {
+	c.namespacesLock.RLock()
+	defer c.namespacesLock.RUnlock()
+	return slices.Contains(c.ProcessNamespaces, ns)
 }
 
 func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
@@ -661,8 +677,12 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 	return c.listenTo(ctx, txID, c.ChannelConfig.CommitterWaitForEventTimeout(), lastStatus)
 }
 
+// GetProcessNamespace returns a copy of the namespaces the committer
+// processes.
 func (c *Committer) GetProcessNamespace() []string {
-	return c.ProcessNamespaces
+	c.namespacesLock.RLock()
+	defer c.namespacesLock.RUnlock()
+	return slices.Clone(c.ProcessNamespaces)
 }
 
 func (c *Committer) addListener(txID string, ch chan FinalityEvent) {
@@ -984,7 +1004,7 @@ func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, enve
 	// check namespaces
 	c.logger.DebugfContext(ctx, "[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
-		if slices.Contains(c.ProcessNamespaces, ns) {
+		if c.processesNamespace(ns) {
 			c.logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
 			return true, nil
 		}
